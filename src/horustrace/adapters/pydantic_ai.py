@@ -1080,6 +1080,33 @@ def scan_python_file(path: Path) -> Graph:
         agents[alias] = agent
         graph.agents.append(agent)
 
+    # Pydantic AI also supports post-construction registration such as
+    # `agent.tool(fn)` / `agent.tool_plain(fn)`. These calls are explicit
+    # authority bindings and must not be confused with decorator-only syntax.
+    for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
+        if not isinstance(call.func, ast.Attribute):
+            continue
+        owner = _dotted(call.func.value) or _call_name(call.func.value)
+        if owner not in agents or call.func.attr not in {"tool", "tool_plain"}:
+            continue
+        target = call.args[0] if call.args else _kw(call, "func")
+        if target is None:
+            continue
+        tool = _tool_from_reference(
+            path,
+            target,
+            functions,
+            assignments,
+            imports,
+        )
+        if tool is None:
+            continue
+        approval = _approval_from_call(call)
+        if approval is not None:
+            tool.approval = approval
+        tool.metadata["binding_origin"] = f"agent.{call.func.attr}"
+        _merge_tool(agents[owner].tools, tool)
+
     for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
         if not isinstance(call.func, ast.Attribute):
             continue
