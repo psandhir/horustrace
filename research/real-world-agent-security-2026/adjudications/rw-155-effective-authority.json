@@ -98,5 +98,61 @@
       "fact": "Registers read_file through agent.tool(read_file)."
     }
   ],
-  "rationale": "The locked automated reference omitted all tools and authority for this case. Pinned source explicitly binds five constructor tools and five post-construction agent.tool registrations. The first five HorusTrace predictions are source-proven rather than false positives; the latter five expose a real scanner recall gap addressed separately. The original locked truth remains unchanged."
+  "rationale": "The locked automated reference omitted all tools and authority for this case. Pinned source explicitly binds five constructor tools and five post-construction agent.tool registrations. The first five HorusTrace predictions are source-proven rather than false positives; the latter five expose a real scanner recall gap addressed separately. The original locked truth remains unchanged.",
+  "authority_truth_patch": {
+    "remove": [],
+    "add": [
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "delegate_to_research"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "delegate_to_specification"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "delegate_to_plan"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "delegate_to_tasks"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "delegate_to_export"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "create_plan"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "mark_step_done"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "add_step"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "remove_step"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "read_file"
+      }
+    ],
+    "unresolved": []
+  }
 }
