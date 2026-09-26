@@ -139,6 +139,8 @@ root_agent = Agent(name="coordinator", model="gemini-flash-latest", sub_agents=[
         if node.kind == "tool"
         and node.attributes.get("tool_name") == "delegate:privileged_child"
     )
+    assert delegated_node.attributes["authority_binding"] == "delegation_projection"
+    assert delegated_node.attributes["authority_binding_basis"] == "adk_delegates_to"
     assert not any(
         edge.kind == "INVOKES" and edge.target == delegated_node.node_id
         for edge in graph.adg.edges
