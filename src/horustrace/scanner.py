@@ -563,74 +563,114 @@ def _consolidate_global_identities(graph: Graph) -> None:
     graph.identities = list(by_key.values())
 
 
+def _merge_agent(existing: Agent, incoming: Agent) -> None:
+    # Keep a framework source location when policy was discovered first;
+    # delegation aliases depend on the actual module/config filename.
+    if (
+        existing.location
+        and existing.location.path.name in MANIFEST_FILENAMES
+        and incoming.location
+        and incoming.location.path.name not in MANIFEST_FILENAMES
+    ):
+        existing.location = incoming.location
+
+    tool_by_name = {tool.name: tool for tool in existing.tools}
+    for tool in incoming.tools:
+        current = tool_by_name.get(tool.name)
+        if current is None:
+            existing.tools.append(tool)
+            tool_by_name[tool.name] = tool
+        else:
+            _merge_tool(current, tool)
+
+    source_keys = {
+        (s.name, s.classification, s.capability, s.selector)
+        for s in existing.data_sources
+    }
+    for source in incoming.data_sources:
+        key = (source.name, source.classification, source.capability, source.selector)
+        if key not in source_keys:
+            existing.data_sources.append(source)
+            source_keys.add(key)
+
+    input_keys = {(i.name, i.trust, i.kind) for i in existing.inputs}
+    for item in incoming.inputs:
+        key = (item.name, item.trust, item.kind)
+        if key not in input_keys:
+            existing.inputs.append(item)
+            input_keys.add(key)
+
+    server_names = {server.name for server in existing.mcp_servers}
+    for server in incoming.mcp_servers:
+        if server.name not in server_names:
+            existing.mcp_servers.append(server)
+            server_names.add(server.name)
+
+    identity_by_name = {identity.name: identity for identity in existing.identities}
+    for identity in incoming.identities:
+        if identity.name in identity_by_name:
+            _merge_identity(identity_by_name[identity.name], identity)
+        else:
+            existing.identities.append(identity)
+            identity_by_name[identity.name] = identity
+
+    existing.network.extend(d for d in incoming.network if d not in existing.network)
+    # A manifest policy is authoritative when it declares any constraints.
+    p = incoming.policy
+    if (
+        p.required_capabilities
+        or p.denied_capabilities
+        or p.allowed_resources
+        or p.allowed_destinations
+        or p.require_approval_for
+        or p.max_privileged_capabilities is not None
+    ):
+        existing.policy = p
+    existing.provenance.extend(
+        fact for fact in incoming.provenance if fact not in existing.provenance
+    )
+    existing.metadata.update(incoming.metadata)
+
+
 def _consolidate_agents(graph: Graph) -> None:
-    """Merge duplicate declarations without conflating source-scoped graph instances."""
+    """Merge declarations without conflating source-scoped agent instances.
+
+    Repository manifests are logical-name overlays rather than source instances.
+    Apply an unscoped manifest declaration to every matching source-scoped agent
+    while keeping those source instances distinct.
+    """
     by_key: dict[tuple[str, str | None], Agent] = {}
+    overlays: list[Agent] = []
+
     for incoming in graph.agents:
         instance_key = incoming.metadata.get("instance_key")
+        is_manifest_overlay = bool(
+            not instance_key
+            and incoming.location
+            and incoming.location.path.name in MANIFEST_FILENAMES
+        )
+        if is_manifest_overlay:
+            overlays.append(incoming)
+            continue
+
         key = (incoming.name, str(instance_key) if instance_key else None)
         existing = by_key.get(key)
         if existing is None:
             by_key[key] = incoming
+        else:
+            _merge_agent(existing, incoming)
+
+    for overlay in overlays:
+        matches = [
+            existing
+            for (name, _instance_key), existing in by_key.items()
+            if name == overlay.name
+        ]
+        if not matches:
+            by_key[(overlay.name, None)] = overlay
             continue
-
-        # Keep a framework source location when policy was discovered first;
-        # delegation aliases depend on the actual module/config filename.
-        if (existing.location and existing.location.path.name in MANIFEST_FILENAMES
-                and incoming.location and incoming.location.path.name not in MANIFEST_FILENAMES):
-            existing.location = incoming.location
-
-        tool_by_name = {tool.name: tool for tool in existing.tools}
-        for tool in incoming.tools:
-            current = tool_by_name.get(tool.name)
-            if current is None:
-                existing.tools.append(tool)
-                tool_by_name[tool.name] = tool
-            else:
-                _merge_tool(current, tool)
-
-        source_keys = {(s.name, s.classification, s.capability, s.selector) for s in existing.data_sources}
-        for source in incoming.data_sources:
-            key = (source.name, source.classification, source.capability, source.selector)
-            if key not in source_keys:
-                existing.data_sources.append(source)
-                source_keys.add(key)
-
-        input_keys = {(i.name, i.trust, i.kind) for i in existing.inputs}
-        for item in incoming.inputs:
-            key = (item.name, item.trust, item.kind)
-            if key not in input_keys:
-                existing.inputs.append(item)
-                input_keys.add(key)
-
-        server_names = {server.name for server in existing.mcp_servers}
-        for server in incoming.mcp_servers:
-            if server.name not in server_names:
-                existing.mcp_servers.append(server)
-                server_names.add(server.name)
-
-        identity_by_name = {identity.name: identity for identity in existing.identities}
-        for identity in incoming.identities:
-            if identity.name in identity_by_name:
-                _merge_identity(identity_by_name[identity.name], identity)
-            else:
-                existing.identities.append(identity)
-                identity_by_name[identity.name] = identity
-
-        existing.network.extend(d for d in incoming.network if d not in existing.network)
-        # A manifest policy is authoritative when it declares any constraints.
-        p = incoming.policy
-        if (
-            p.required_capabilities
-            or p.denied_capabilities
-            or p.allowed_resources
-            or p.allowed_destinations
-            or p.require_approval_for
-            or p.max_privileged_capabilities is not None
-        ):
-            existing.policy = p
-        existing.provenance.extend(f for f in incoming.provenance if f not in existing.provenance)
-        existing.metadata.update(incoming.metadata)
+        for existing in matches:
+            _merge_agent(existing, deepcopy(overlay))
 
     graph.agents = list(by_key.values())
 
