@@ -42,5 +42,22 @@
       "fact": "Binds complete_purchase through FunctionTool(complete_purchase, require_confirmation=True)."
     }
   ],
-  "rationale": "The locked automated reference canonicalized the wrapper class name FunctionTool as the authority target. The pinned source proves the invokable function is complete_purchase; FunctionTool is the wrapper and confirmation mechanism. The original truth remains unchanged and the corrected relationship is reported separately."
+  "rationale": "The locked automated reference canonicalized the wrapper class name FunctionTool as the authority target. The pinned source proves the invokable function is complete_purchase; FunctionTool is the wrapper and confirmation mechanism. The original truth remains unchanged and the corrected relationship is reported separately.",
+  "authority_truth_patch": {
+    "remove": [
+      {
+        "agent": "cineagent",
+        "target_kind": "tool",
+        "target_name": "FunctionTool"
+      }
+    ],
+    "add": [
+      {
+        "agent": "cineagent",
+        "target_kind": "tool",
+        "target_name": "complete_purchase"
+      }
+    ],
+    "unresolved": []
+  }
 }
