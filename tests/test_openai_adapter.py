@@ -342,3 +342,34 @@ agent = Agent(name="search-agent", tools=tools)
 
     agent = next(item for item in graph.agents if item.name == "search-agent")
     assert [tool.name for tool in agent.tools] == ["search"]
+
+
+def test_openai_same_runtime_name_keeps_source_scoped_instances(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "left.py").write_text(
+        """
+from agents import Agent, WebSearchTool
+
+search_agent = Agent(name="Search", tools=[WebSearchTool()])
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "right.py").write_text(
+        """
+from agents import Agent, WebSearchTool
+
+search_agent = Agent(name="Search", tools=[WebSearchTool()])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    searches = [agent for agent in graph.agents if agent.name == "Search"]
+    assert len(searches) == 2
+    assert len({agent.metadata["instance_key"] for agent in searches}) == 2
+    assert {agent.location.path.name for agent in searches if agent.location} == {
+        "left.py",
+        "right.py",
+    }
