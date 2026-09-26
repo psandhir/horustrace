@@ -546,10 +546,13 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                     "computer_control_mutating": tool.metadata.get("computer_control_mutating"),
                     "computer_control_readonly": tool.metadata.get("computer_control_readonly"),
                     "computer_control_evidence": tool.metadata.get("computer_control_evidence"),
+                    "authority_binding": tool.metadata.get("authority_binding"),
+                    "authority_binding_basis": tool.metadata.get("authority_binding_basis"),
                 },
             )
             tool_ids[(id(agent), tool.name)] = tool_id
-            builder.edge("INVOKES", agent_id, tool_id, location=tool.location)
+            if tool.metadata.get("authority_binding") != "workflow_projection":
+                builder.edge("INVOKES", agent_id, tool_id, location=tool.location)
             if tool.identity:
                 identity_id = identity_ids.get(tool.identity)
                 if identity_id:
