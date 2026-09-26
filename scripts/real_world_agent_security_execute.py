@@ -301,17 +301,32 @@ def authority_metrics(
             )
         )
     remaining = list(predicted_keys)
-    tp = 0
+    matched: list[tuple[str, str, str]] = []
+    missing: list[tuple[str, str, str]] = []
     for key in expected_keys:
         if key in remaining:
-            tp += 1
+            matched.append(key)
             remaining.remove(key)
+        else:
+            missing.append(key)
     return {
         "truth": len(expected_keys),
         "predicted": len(predicted_keys),
-        "tp": tp,
-        "fn": len(expected_keys) - tp,
+        "tp": len(matched),
+        "fn": len(missing),
         "fp_if_complete": len(remaining),
+        "matched_pairs": [
+            {"agent": agent, "target_kind": kind, "target_name": name}
+            for agent, kind, name in matched
+        ],
+        "missing_pairs": [
+            {"agent": agent, "target_kind": kind, "target_name": name}
+            for agent, kind, name in missing
+        ],
+        "extra_pairs": [
+            {"agent": agent, "target_kind": kind, "target_name": name}
+            for agent, kind, name in remaining
+        ],
     }
 
 
