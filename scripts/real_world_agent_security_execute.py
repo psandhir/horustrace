@@ -335,7 +335,7 @@ def authority_metrics(
             remaining.remove(match)
     return {
         "truth": len(expected_keys),
-        "predicted": len(predicted_keys),
+        "predicted": len(predicted_key_sets),
         "tp": tp,
         "fn": len(expected_keys) - tp,
         "fp_if_complete": len(remaining),
