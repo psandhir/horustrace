@@ -551,7 +551,10 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                 },
             )
             tool_ids[(id(agent), tool.name)] = tool_id
-            if tool.metadata.get("authority_binding") != "workflow_projection":
+            if tool.metadata.get("authority_binding") not in {
+                "workflow_projection",
+                "delegation_projection",
+            }:
                 builder.edge("INVOKES", agent_id, tool_id, location=tool.location)
             if tool.identity:
                 identity_id = identity_ids.get(tool.identity)
