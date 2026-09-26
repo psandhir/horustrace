@@ -236,9 +236,41 @@ def delegation_metrics(
     return tp, len(truth_pairs) - tp, len(remaining)
 
 
+def canonical_observed_agent_name(
+    value: str,
+    truth_agents: list[dict[str, Any]],
+    topology_nodes: list[dict[str, Any]],
+) -> str:
+    direct = canonical_truth_name(value, truth_agents)
+    wanted = norm(value)
+    if direct != wanted:
+        return direct
+
+    candidates = [
+        node
+        for node in topology_nodes
+        if node.get("kind") == "agent" and norm(node.get("name")) == wanted
+    ]
+    matches: set[str] = set()
+    for node in candidates:
+        ploc = location(node)
+        if ploc is None:
+            continue
+        for fact in truth_agents:
+            floc = fact_location(fact)
+            if floc is None:
+                continue
+            if path_match(floc[0], ploc[0]) and abs(floc[1] - ploc[1]) <= 6:
+                matches.add(norm(fact.get("name")))
+    if len(matches) == 1:
+        return next(iter(matches))
+    return wanted
+
+
 def authority_metrics(
     truth_doc: dict[str, Any],
     observed: dict[str, Any],
+    topology_nodes: list[dict[str, Any]],
 ) -> dict[str, int]:
     tier_b = truth_doc.get("tier_b") or {}
     expected = tier_b.get("authority_relationships") or []
@@ -259,7 +291,11 @@ def authority_metrics(
         target = item.get("target") if isinstance(item.get("target"), dict) else {}
         predicted_keys.append(
             (
-                canonical_truth_name(str(item.get("agent")), truth_agents),
+                canonical_observed_agent_name(
+                    str(item.get("agent")),
+                    truth_agents,
+                    topology_nodes,
+                ),
                 norm(target.get("kind")),
                 norm(target.get("name")),
             )
@@ -446,7 +482,7 @@ def scan_one(
     }
 
     authority = graph_doc.get("effective_authority") if isinstance(graph_doc.get("effective_authority"), dict) else {}
-    auth = authority_metrics(truth, authority) if truth.get("tier_b") else None
+    auth = authority_metrics(truth, authority, nodes) if truth.get("tier_b") else None
     if auth is not None:
         authority_complete = bool(
             complete.get("agent_entities")
