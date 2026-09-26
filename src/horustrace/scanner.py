@@ -759,6 +759,10 @@ def _propagate_adk_delegation(graph: Graph) -> None:
                 metadata={
                     "framework": parent.metadata.get("framework", "generic"),
                     "delegate_target": child.name,
+                    # Synthetic summary for delegated reachability. The real
+                    # authority relationship is DELEGATES_TO, not Agent -> Tool.
+                    "authority_binding": "delegation_projection",
+                    "authority_binding_basis": "adk_delegates_to",
                     "transitive": True,
                     "approval_inherited": delegated_approval is True,
                     "network_scope": (
