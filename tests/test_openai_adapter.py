@@ -301,6 +301,49 @@ agent = Agent(name="Reader", mcp_servers=[slack_server])
 
 
 
+def test_function_parameter_tools_do_not_bind_unrelated_sequence(tmp_path: Path) -> None:
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+from agents import Agent, HostedMCPTool
+
+async def run_agent(tools):
+    agent = Agent(name="flight-search-agent", tools=tools)
+    return agent
+
+async def main():
+    tools = [HostedMCPTool(tool_config={"type": "mcp"})]
+    return tools
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    agent = next(item for item in graph.agents if item.name == "flight-search-agent")
+    assert agent.tools == []
+    assert agent.metadata["dynamic_tools"] is True
+
+
+def test_module_level_named_tool_sequence_still_binds(tmp_path: Path) -> None:
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+from agents import Agent, WebSearchTool
+
+search = WebSearchTool()
+tools = [search]
+agent = Agent(name="search-agent", tools=tools)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    agent = next(item for item in graph.agents if item.name == "search-agent")
+    assert [tool.name for tool in agent.tools] == ["search"]
+
+
 def test_agent_as_tool_preserves_underlying_agent_provenance(tmp_path: Path) -> None:
     source = tmp_path / "agent.py"
     source.write_text(
