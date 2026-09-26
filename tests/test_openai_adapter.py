@@ -406,3 +406,39 @@ agents:
         "network.external" in agent.policy.denied_capabilities
         for agent in searches
     )
+
+
+def test_openai_agent_as_tool_preserves_underlying_source_target(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent
+import memory_agents
+
+search_agent = Agent(name="Search")
+manager = Agent(
+    name="Manager",
+    tools=[
+        search_agent.as_tool(
+            tool_name="web_search",
+            tool_description="Search the web",
+        ),
+        memory_agents.agent.as_tool(
+            tool_name="memory_search",
+            tool_description="Search memory",
+        ),
+    ],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    manager = next(agent for agent in graph.agents if agent.name == "Manager")
+    by_name = {tool.name: tool for tool in manager.tools}
+
+    assert by_name["web_search"].metadata["delegate_target"] == "search_agent"
+    assert by_name["web_search"].metadata["binding_origin"] == "agent_as_tool"
+    assert by_name["memory_search"].metadata["delegate_target"] == "memory_agents.agent"
+    assert by_name["memory_search"].metadata["binding_origin"] == "agent_as_tool"
