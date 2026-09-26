@@ -796,7 +796,10 @@ def scan_python_file(path: Path) -> Graph:
 
         name_value = _literal(_kw(node, "name"))
         instructions = _literal(_kw(node, "instructions"))
-        metadata: dict[str, Any] = {"framework": "openai-agents"}
+        metadata: dict[str, Any] = {
+            "framework": "openai-agents",
+            "instance_key": f"{path.resolve()}:{getattr(node, 'lineno', 1)}",
+        }
         if isinstance(instructions, str):
             metadata["instructions"] = instructions
         model = _literal(_kw(node, "model"))
