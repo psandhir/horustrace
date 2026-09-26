@@ -195,5 +195,112 @@
       "fact": "noelle_agent binds multistep_agent.multistep_agent with tool_name=multistep_agent on line 215."
     }
   ],
-  "rationale": "Ten locked relationships use underlying Python agent variables where source explicitly defines different model-facing tool aliases, or use an incorrect agent runtime name. Those are reference canonicalization errors. Two additional misses remain genuine scanner errors caused by conflating three separate source Agent instances named Search. Original locked truth remains unchanged."
+  "rationale": "Ten locked relationships use underlying Python agent variables where source explicitly defines different model-facing tool aliases, or use an incorrect agent runtime name. Those are reference canonicalization errors. Two additional misses remain genuine scanner errors caused by conflating three separate source Agent instances named Search. Original locked truth remains unchanged.",
+  "authority_truth_patch": {
+    "remove": [
+      {
+        "agent": "convo_lead_agent",
+        "target_kind": "tool",
+        "target_name": "search_agent"
+      },
+      {
+        "agent": "convo_lead_agent",
+        "target_kind": "tool",
+        "target_name": "memory_agents.agent"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "search_agent"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "ocean_agent"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "mbti_agent"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "witty_agent"
+      },
+      {
+        "agent": "MemoryAgent",
+        "target_kind": "tool",
+        "target_name": "get_weather"
+      },
+      {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "search_agent"
+      },
+      {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "memory_agents.agent"
+      },
+      {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "multistep_agent.multistep_agent"
+      }
+    ],
+    "add": [
+      {
+        "agent": "convo_lead_agent",
+        "target_kind": "tool",
+        "target_name": "web_search"
+      },
+      {
+        "agent": "convo_lead_agent",
+        "target_kind": "tool",
+        "target_name": "memory_search"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "search"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "ocean"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "mbti"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "witty"
+      },
+      {
+        "agent": "Assistant",
+        "target_kind": "tool",
+        "target_name": "get_weather"
+      },
+      {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "web_search"
+      },
+      {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "memory_search"
+      },
+      {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "multistep_agent"
+      }
+    ],
+    "unresolved": []
+  }
 }
