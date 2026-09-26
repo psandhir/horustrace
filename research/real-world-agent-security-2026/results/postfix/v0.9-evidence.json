@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "study": "real-world-agent-security-2026",
+  "purpose": "v0.9-recall-foundation-closeout",
+  "baseline_scanner_sha": "418db4e29798a7d25df686dd7bccfd9fefa225bd",
+  "validated_candidate_sha": "9a16f846e2da2105cc57be66ff42009e80b881a2",
+  "merged_main_sha": "1d46847f485f0f8c03160c3d48e36eddfecf55bc",
+  "github_actions": {
+    "run_id": 36267972985,
+    "artifact_id": 10914826131,
+    "artifact_name": "frozen-180-postfix-9a16f846e2da2105cc57be66ff42009e80b881a2",
+    "artifact_digest": "sha256:4d9d895a9e1608d59e7ed2d0d247b4bbc584452eb9c4ec4086feb989f8154a9d",
+    "created_at": "2026-09-26T20:05:48Z",
+    "expires_at": "2026-10-26T20:05:47Z"
+  },
+  "execution": {
+    "cohort_cases": 180,
+    "successful_cases": 180,
+    "failed_cases": 0,
+    "analysis_incomplete_cases": 93,
+    "fixed_failure": "rw-177"
+  },
+  "metrics": {
+    "agent_entities": {
+      "precision": 0.9485,
+      "recall": 0.8584,
+      "precision_tp": 221,
+      "fp": 12,
+      "tp": 594,
+      "fn": 98
+    },
+    "tools": {
+      "precision": 0.65,
+      "recall": 0.678,
+      "tp": 756,
+      "fn": 359,
+      "fp": 147
+    },
+    "mcp_servers": {
+      "precision": 0.058,
+      "recall": 0.8636,
+      "tp": 19,
+      "fn": 3,
+      "fp": 65
+    },
+    "delegation_edges": {
+      "precision": 0.9444,
+      "recall": 0.7765,
+      "tp": 66,
+      "fn": 19,
+      "fp": 2
+    },
+    "effective_authority": {
+      "precision": 0.2778,
+      "recall": 0.626,
+      "tp": 82,
+      "fn": 49,
+      "fp": 78
+    }
+  },
+  "adjudication": {
+    "original_locked_truth_preserved": true,
+    "note": "research/real-world-agent-security-2026/adjudications/rw-089-agent-root.json",
+    "agent_precision_original": 0.9485,
+    "agent_precision_post_hoc": 0.9528,
+    "adjusted_precision_tp": 222,
+    "adjusted_fp": 11
+  }
+}
