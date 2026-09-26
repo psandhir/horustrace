@@ -415,7 +415,10 @@ def effective_authority_relationships(
     result: list[EffectiveAuthorityRelationship] = []
     for agent in graph.agents:
         for tool in agent.tools:
-            if tool.metadata.get("authority_binding") == "workflow_projection":
+            if tool.metadata.get("authority_binding") in {
+                "workflow_projection",
+                "delegation_projection",
+            }:
                 continue
             result.append(_tool_relationship(graph, agent, tool))
         for server in agent.mcp_servers:
