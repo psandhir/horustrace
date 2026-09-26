@@ -47,10 +47,14 @@ workflow.add_edge("chatbot", "tools")
         "tools": "tool_node",
     }
 
-    # Legacy tool projection remains during the v0.9 transition so this PR does
-    # not simultaneously rewrite finding behavior.
+    # Legacy Tool projections remain available for finding/capability analysis,
+    # but workflow registration alone must not become effective authority.
     agent = next(agent for agent in graph.agents if agent.name == "workflow")
     assert {tool.name for tool in agent.tools} == {"normalize", "chatbot", "tools"}
+    assert all(
+        tool.metadata.get("authority_binding") == "workflow_projection"
+        for tool in agent.tools
+    )
 
     assert graph.adg is not None
     workflow_nodes = {
@@ -65,6 +69,18 @@ workflow.add_edge("chatbot", "tools")
 
     contains = [edge for edge in graph.adg.edges if edge.kind == "CONTAINS"]
     assert len(contains) == 3
+
+    projected_tool_nodes = {
+        node.node_id
+        for node in graph.adg.nodes
+        if node.kind == "tool"
+        and node.attributes.get("authority_binding") == "workflow_projection"
+    }
+    assert len(projected_tool_nodes) == 3
+    assert not any(
+        edge.kind == "INVOKES" and edge.target in projected_tool_nodes
+        for edge in graph.adg.edges
+    )
 
     node_ids = {node.node_id for node in workflow_nodes.values()}
     workflow_control = [
