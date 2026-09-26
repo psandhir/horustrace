@@ -75,3 +75,103 @@ def test_agent_entity_scoring_includes_workflow_nodes_but_not_tools() -> None:
 
     assert [item["name"] for item in predicted] == ["workflow", "chatbot"]
 
+
+
+
+def test_authority_scoring_canonicalizes_runtime_agent_name_by_location() -> None:
+    module = _module()
+    truth = {
+        "tier_a": {
+            "agent_roots": [
+                {
+                    "name": "agent",
+                    "variable": "agent",
+                    "kind": "Agent",
+                    "path": "app/llm/agent.py",
+                    "line": 31,
+                }
+            ]
+        },
+        "tier_b": {
+            "authority_relationships": [
+                {
+                    "agent": "agent",
+                    "target_kind": "tool",
+                    "target_name": "tavily_search",
+                }
+            ]
+        },
+    }
+    observed = {
+        "relationships": [
+            {
+                "agent": "Devscale AI",
+                "target": {"kind": "tool", "name": "tavily_search"},
+            }
+        ]
+    }
+    nodes = [
+        {
+            "id": "agent-node",
+            "kind": "agent",
+            "name": "Devscale AI",
+            "location": {
+                "path": "/tmp/repo/app/llm/agent.py",
+                "line": 31,
+                "column": 8,
+            },
+        }
+    ]
+
+    metrics = module.authority_metrics(truth, observed, nodes)
+
+    assert metrics == {
+        "truth": 1,
+        "predicted": 1,
+        "tp": 1,
+        "fn": 0,
+        "fp_if_complete": 0,
+    }
+
+
+def test_authority_scoring_keeps_ambiguous_runtime_name_unmapped() -> None:
+    module = _module()
+    truth = {
+        "tier_a": {
+            "agent_roots": [
+                {"name": "left", "path": "agent.py", "line": 10},
+                {"name": "right", "path": "agent.py", "line": 12},
+            ]
+        },
+        "tier_b": {
+            "authority_relationships": [
+                {
+                    "agent": "left",
+                    "target_kind": "tool",
+                    "target_name": "search",
+                }
+            ]
+        },
+    }
+    observed = {
+        "relationships": [
+            {
+                "agent": "runtime",
+                "target": {"kind": "tool", "name": "search"},
+            }
+        ]
+    }
+    nodes = [
+        {
+            "id": "runtime-node",
+            "kind": "agent",
+            "name": "runtime",
+            "location": {"path": "/tmp/repo/agent.py", "line": 11, "column": 0},
+        }
+    ]
+
+    metrics = module.authority_metrics(truth, observed, nodes)
+
+    assert metrics["tp"] == 0
+    assert metrics["fn"] == 1
+    assert metrics["fp_if_complete"] == 1
