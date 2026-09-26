@@ -687,6 +687,11 @@ def scan_python_file(path: Path) -> Graph:
                     "framework": "langgraph",
                     "function": function_name,
                     "graph": graph_alias,
+                    # add_node() registers workflow topology. The projected Tool is
+                    # retained for legacy finding/capability analysis, but registration
+                    # alone does not prove an Agent -> Tool authority relationship.
+                    "authority_binding": "workflow_projection",
+                    "authority_binding_basis": "langgraph_add_node",
                     "approval_control": approval_control,
                     "approval_mechanism": (
                         "langgraph_human_interrupt" if approval_control else None
