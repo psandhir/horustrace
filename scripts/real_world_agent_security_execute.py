@@ -286,26 +286,53 @@ def authority_metrics(
                 norm(item.get("target_name")),
             )
         )
-    predicted_keys = []
+    predicted_key_sets: list[set[tuple[str, str, str]]] = []
     for item in predicted:
         target = item.get("target") if isinstance(item.get("target"), dict) else {}
-        predicted_keys.append(
+        agent_name = canonical_observed_agent_name(
+            str(item.get("agent")),
+            truth_agents,
+            topology_nodes,
+        )
+        target_kind = norm(target.get("kind"))
+        candidates = {
             (
-                canonical_observed_agent_name(
-                    str(item.get("agent")),
-                    truth_agents,
-                    topology_nodes,
-                ),
-                norm(target.get("kind")),
+                agent_name,
+                target_kind,
                 norm(target.get("name")),
             )
-        )
-    remaining = list(predicted_keys)
+        }
+        semantics = item.get("semantics") if isinstance(item.get("semantics"), dict) else {}
+        delegate_target = semantics.get("delegate_target")
+        if (
+            target_kind == "tool"
+            and semantics.get("binding_origin") == "agent_as_tool"
+            and isinstance(delegate_target, str)
+            and delegate_target
+        ):
+            candidates.add(
+                (
+                    agent_name,
+                    target_kind,
+                    norm(delegate_target),
+                )
+            )
+        predicted_key_sets.append(candidates)
+
+    remaining = set(range(len(predicted_key_sets)))
     tp = 0
     for key in expected_keys:
-        if key in remaining:
+        match = next(
+            (
+                index
+                for index in sorted(remaining)
+                if key in predicted_key_sets[index]
+            ),
+            None,
+        )
+        if match is not None:
             tp += 1
-            remaining.remove(key)
+            remaining.remove(match)
     return {
         "truth": len(expected_keys),
         "predicted": len(predicted_keys),
