@@ -679,6 +679,37 @@ def _resolve_sequence(expr: ast.AST | None, sequences: dict[str, list[ast.AST]])
     return []
 
 
+def _enclosing_function_parameter_names(
+    functions: list[ast.FunctionDef | ast.AsyncFunctionDef],
+    node: ast.AST,
+) -> set[str]:
+    line = getattr(node, "lineno", 0)
+    candidates = [
+        function
+        for function in functions
+        if getattr(function, "lineno", 0) <= line <= getattr(function, "end_lineno", 0)
+    ]
+    if not candidates:
+        return set()
+    function = min(
+        candidates,
+        key=lambda item: getattr(item, "end_lineno", 0) - getattr(item, "lineno", 0),
+    )
+    names = {
+        arg.arg
+        for arg in [
+            *function.args.posonlyargs,
+            *function.args.args,
+            *function.args.kwonlyargs,
+        ]
+    }
+    if function.args.vararg is not None:
+        names.add(function.args.vararg.arg)
+    if function.args.kwarg is not None:
+        names.add(function.args.kwarg.arg)
+    return names
+
+
 def scan_python_file(path: Path) -> Graph:
     graph = Graph()
     try:
@@ -691,6 +722,11 @@ def scan_python_file(path: Path) -> Graph:
     tools: dict[str, Tool] = {}
     mcp_servers: dict[str, MCPServer] = {}
     sequences: dict[str, list[ast.AST]] = {}
+    functions = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    ]
     imports: dict[str, str] = {}
     constants: dict[str, str] = {}
     for node in tree.body:
@@ -772,7 +808,15 @@ def scan_python_file(path: Path) -> Graph:
             metadata=metadata,
         )
 
-        for element in _resolve_sequence(_kw(node, "tools"), sequences):
+        tools_expr = _kw(node, "tools")
+        parameter_names = _enclosing_function_parameter_names(functions, node)
+        if isinstance(tools_expr, ast.Name) and tools_expr.id in parameter_names:
+            agent.metadata["dynamic_tools"] = True
+            tool_elements: list[ast.AST] = []
+        else:
+            tool_elements = _resolve_sequence(tools_expr, sequences)
+
+        for element in tool_elements:
             if isinstance(element, ast.Name) and element.id in tools:
                 agent.tools.append(tools[element.id])
             elif isinstance(element, ast.Name) and element.id in imports:
