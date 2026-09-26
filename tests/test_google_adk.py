@@ -123,6 +123,7 @@ root_agent = Agent(name="coordinator", model="gemini-flash-latest", sub_agents=[
     delegated = next(tool for tool in parent.tools if tool.kind == "delegated_agent")
     assert delegated.approval is True
     assert delegated.metadata["authority_binding"] == "delegation_projection"
+    assert delegated.metadata["authority_binding_basis"] == "adk_delegates_to"
     assert "process.execute" in delegated.capabilities
 
     authority = effective_authority_report(graph)
