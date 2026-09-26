@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "study": "real-world-agent-security-2026",
+  "case_id": "rw-009",
+  "dimension": "effective_authority",
+  "classification": "ground_truth_error",
+  "original_locked_truth_preserved": true,
+  "triggered_by_post_fix_disagreement": true,
+  "scanner_output_seen_before_adjudication": true,
+  "human_dual_review": false,
+  "adjudication_method": "post-fix pinned-source re-review",
+  "source_reference": {
+    "repo": "vivekcommit/Cloud_Architecture_Review",
+    "sha": "16ac50de750de9d4681a501f936184804a819754",
+    "paths": [
+      "agents/cost_pattern_agent.py",
+      "agents/deep_audit_agent.py",
+      "agents/iac_ingestion_agent.py",
+      "agents/performance_agent.py",
+      "agents/reliability_agent.py",
+      "agents/security_audit_agent.py"
+    ]
+  },
+  "original_locked_truth": {
+    "authority_relationship_count": 6,
+    "target_name": "FunctionTool",
+    "note": "One generic wrapper relationship per reviewed agent."
+  },
+  "post_hoc_correction": {
+    "replace_with_authority_relationships": [
+      {
+        "agent": "cost_pattern_agent",
+        "target_kind": "tool",
+        "target_name": "get_vm_rightsizing_suggestion"
+      },
+      {
+        "agent": "cost_pattern_agent",
+        "target_kind": "tool",
+        "target_name": "check_resource_tagging"
+      },
+      {
+        "agent": "cost_pattern_agent",
+        "target_kind": "tool",
+        "target_name": "get_all_rules_by_category"
+      },
+      {
+        "agent": "deep_audit_agent",
+        "target_kind": "tool",
+        "target_name": "search_waf_rules"
+      },
+      {
+        "agent": "deep_audit_agent",
+        "target_kind": "tool",
+        "target_name": "enrich_finding_with_waf_guidance"
+      },
+      {
+        "agent": "iac_ingestion_agent",
+        "target_kind": "tool",
+        "target_name": "get_repo_metadata"
+      },
+      {
+        "agent": "iac_ingestion_agent",
+        "target_kind": "tool",
+        "target_name": "fetch_iac_files"
+      },
+      {
+        "agent": "performance_agent",
+        "target_kind": "tool",
+        "target_name": "search_waf_rules"
+      },
+      {
+        "agent": "performance_agent",
+        "target_kind": "tool",
+        "target_name": "get_all_rules_by_category"
+      },
+      {
+        "agent": "reliability_agent",
+        "target_kind": "tool",
+        "target_name": "search_waf_rules"
+      },
+      {
+        "agent": "reliability_agent",
+        "target_kind": "tool",
+        "target_name": "get_all_rules_by_category"
+      },
+      {
+        "agent": "reliability_agent",
+        "target_kind": "tool",
+        "target_name": "enrich_finding_with_waf_guidance"
+      },
+      {
+        "agent": "security_audit_agent",
+        "target_kind": "tool",
+        "target_name": "search_waf_rules"
+      },
+      {
+        "agent": "security_audit_agent",
+        "target_kind": "tool",
+        "target_name": "get_all_rules_by_category"
+      },
+      {
+        "agent": "security_audit_agent",
+        "target_kind": "tool",
+        "target_name": "enrich_finding_with_waf_guidance"
+      },
+      {
+        "agent": "security_audit_agent",
+        "target_kind": "tool",
+        "target_name": "sanitised_google_search"
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "path": "agents/cost_pattern_agent.py",
+      "line": 23,
+      "fact": "Lines 23-25 bind three named functions through FunctionTool wrappers."
+    },
+    {
+      "path": "agents/deep_audit_agent.py",
+      "line": 38,
+      "fact": "Lines 38-39 bind two named functions through FunctionTool wrappers."
+    },
+    {
+      "path": "agents/iac_ingestion_agent.py",
+      "line": 16,
+      "fact": "Binds get_repo_metadata and fetch_iac_files through FunctionTool wrappers."
+    },
+    {
+      "path": "agents/performance_agent.py",
+      "line": 25,
+      "fact": "Binds search_waf_rules and get_all_rules_by_category through FunctionTool wrappers."
+    },
+    {
+      "path": "agents/reliability_agent.py",
+      "line": 23,
+      "fact": "Lines 23-25 bind three named functions through FunctionTool wrappers."
+    },
+    {
+      "path": "agents/security_audit_agent.py",
+      "line": 28,
+      "fact": "Lines 28-31 bind four named functions through FunctionTool wrappers."
+    }
+  ],
+  "rationale": "The locked automated reference collapsed each agent's FunctionTool-wrapped functions into a single generic target named FunctionTool. Pinned source proves sixteen distinct callable authority relationships. Preserving callable identity is required for effective-authority analysis; the wrapper class is implementation metadata, not the target. Original locked truth remains unchanged."
+}
