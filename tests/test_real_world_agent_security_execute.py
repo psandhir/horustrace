@@ -131,6 +131,15 @@ def test_authority_scoring_canonicalizes_runtime_agent_name_by_location() -> Non
         "tp": 1,
         "fn": 0,
         "fp_if_complete": 0,
+        "matched_pairs": [
+            {
+                "agent": "agent",
+                "target_kind": "tool",
+                "target_name": "tavilysearch",
+            }
+        ],
+        "missing_pairs": [],
+        "extra_pairs": [],
     }
 
 
