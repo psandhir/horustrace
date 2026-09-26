@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from horustrace.effective_authority import effective_authority_report
 from horustrace.scanner import scan
 
 
@@ -121,6 +122,30 @@ root_agent = Agent(name="coordinator", model="gemini-flash-latest", sub_agents=[
     assert "process.execute" in parent.capabilities
     delegated = next(tool for tool in parent.tools if tool.kind == "delegated_agent")
     assert delegated.approval is True
+    assert delegated.metadata["authority_binding"] == "delegation_projection"
+    assert delegated.metadata["authority_binding_basis"] == "adk_delegates_to"
+    assert "process.execute" in delegated.capabilities
+
+    authority = effective_authority_report(graph)
+    assert not any(
+        item["agent"] == "coordinator"
+        and item["target"]["name"] == "delegate:privileged_child"
+        for item in authority["relationships"]
+    )
+    assert graph.adg is not None
+    delegated_node = next(
+        node
+        for node in graph.adg.nodes
+        if node.kind == "tool"
+        and node.attributes.get("tool_name") == "delegate:privileged_child"
+    )
+    assert delegated_node.attributes["authority_binding"] == "delegation_projection"
+    assert delegated_node.attributes["authority_binding_basis"] == "adk_delegates_to"
+    assert not any(
+        edge.kind == "INVOKES" and edge.target == delegated_node.node_id
+        for edge in graph.adg.edges
+    )
+    assert any(edge.kind == "DELEGATES_TO" for edge in graph.adg.edges)
     assert not any(f.rule_id == "PATH001" and f.agent == "coordinator" for f in findings)
 
 
