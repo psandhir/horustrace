@@ -373,3 +373,36 @@ search_agent = Agent(name="Search", tools=[WebSearchTool()])
         "left.py",
         "right.py",
     }
+
+
+def test_openai_source_instances_share_logical_manifest_overlay(
+    tmp_path: Path,
+) -> None:
+    for filename in ("left.py", "right.py"):
+        (tmp_path / filename).write_text(
+            """
+from agents import Agent, WebSearchTool
+
+search_agent = Agent(name="Search", tools=[WebSearchTool()])
+""",
+            encoding="utf-8",
+        )
+    (tmp_path / "horustrace.manifest.yaml").write_text(
+        """
+version: 1
+agents:
+  - name: Search
+    policy:
+      denied_capabilities: [network.external]
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    searches = [agent for agent in graph.agents if agent.name == "Search"]
+    assert len(searches) == 2
+    assert all(
+        "network.external" in agent.policy.denied_capabilities
+        for agent in searches
+    )
