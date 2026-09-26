@@ -211,3 +211,43 @@ def test_effective_authority_includes_inherited_agent_tool_control(tmp_path: Pat
     assert relationship["approval"]["inherited_control"] is True
     assert relationship["approval"]["mechanism"] == "agent_before_tool_control"
     assert "approval" not in relationship["unresolved"]
+
+
+def test_effective_authority_excludes_workflow_projection_tools(tmp_path: Path) -> None:
+    location = SourceLocation(tmp_path / "workflow.py", line=8)
+    projected = Tool(
+        name="normalize",
+        kind="langgraph_node",
+        capabilities={"data.read"},
+        location=location,
+        metadata={
+            "framework": "langgraph",
+            "authority_binding": "workflow_projection",
+            "authority_binding_basis": "langgraph_add_node",
+        },
+    )
+    graph = Graph(
+        agents=[
+            Agent(
+                name="workflow",
+                tools=[projected],
+                location=location,
+                metadata={"framework": "langgraph"},
+            )
+        ]
+    )
+    graph.adg = build_adg(graph, tmp_path)
+
+    report = effective_authority_report(graph)
+
+    assert report["relationships"] == []
+    projected_node = next(
+        node
+        for node in graph.adg.nodes
+        if node.kind == "tool" and node.attributes.get("tool_name") == "normalize"
+    )
+    assert projected_node.attributes["authority_binding"] == "workflow_projection"
+    assert not any(
+        edge.kind == "INVOKES" and edge.target == projected_node.node_id
+        for edge in graph.adg.edges
+    )
