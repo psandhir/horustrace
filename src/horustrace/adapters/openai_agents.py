@@ -203,7 +203,7 @@ def _tool_from_call(path: Path, node: ast.Call, alias: str | None = None) -> Too
         )
 
     if isinstance(node.func, ast.Attribute) and node.func.attr == "as_tool":
-        target = _call_name(node.func.value) or "agent"
+        target = _dotted_name(node.func.value) or _call_name(node.func.value) or "agent"
         runtime_name = _literal(_kw(node, "tool_name"))
         return Tool(
             name=str(runtime_name or alias or target),
@@ -214,6 +214,7 @@ def _tool_from_call(path: Path, node: ast.Call, alias: str | None = None) -> Too
                 "framework": "openai-agents",
                 "delegate_target": target,
                 "source": "agent.as_tool",
+                "binding_origin": "agent_as_tool",
             },
         )
 
