@@ -67,5 +67,22 @@
       "fact": "The generated wrapper name is set to gateway_{tool_name}."
     }
   ],
-  "rationale": "The locked reference names the factory helper use_gateway_tool as the authority target, but pinned source proves that helper returns a generated OpenAI function tool backed by literal gateway tool http_echo. Exact runtime naming cannot be established from this repository alone without relying on OpenAI Agents decorator behavior, so the corrected target remains unresolved. HorusTrace still has a real recall gap because it drops this explicit custom factory binding; a generalized factory rule should require evidence beyond this single case."
+  "rationale": "The locked reference names the factory helper use_gateway_tool as the authority target, but pinned source proves that helper returns a generated OpenAI function tool backed by literal gateway tool http_echo. Exact runtime naming cannot be established from this repository alone without relying on OpenAI Agents decorator behavior, so the corrected target remains unresolved. HorusTrace still has a real recall gap because it drops this explicit custom factory binding; a generalized factory rule should require evidence beyond this single case.",
+  "authority_truth_patch": {
+    "remove": [
+      {
+        "agent": "Spark Assistant",
+        "target_kind": "tool",
+        "target_name": "use_gateway_tool"
+      }
+    ],
+    "add": [],
+    "unresolved": [
+      {
+        "agent": "Spark Assistant",
+        "target_kind": "tool",
+        "target_name": "custom_factory_binding:http_echo"
+      }
+    ]
+  }
 }
