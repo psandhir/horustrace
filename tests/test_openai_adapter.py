@@ -298,3 +298,60 @@ agent = Agent(name="Reader", mcp_servers=[slack_server])
     assert "ALLOWS_TOOL" in edge_kinds
     assert "DENIES_TOOL" in edge_kinds
     assert any(node.kind == "mcp_tool_scope" for node in graph.adg.nodes)
+
+
+
+def test_agent_as_tool_preserves_underlying_agent_provenance(tmp_path: Path) -> None:
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+from agents import Agent
+
+search_agent = Agent(name="Search")
+manager = Agent(
+    name="Manager",
+    tools=[
+        search_agent.as_tool(
+            tool_name="web_search",
+            tool_description="Search the web",
+        )
+    ],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    manager = next(item for item in graph.agents if item.name == "Manager")
+    tool = next(item for item in manager.tools if item.name == "web_search")
+    assert tool.kind == "delegated_agent"
+    assert tool.metadata["delegate_target"] == "search_agent"
+    assert tool.metadata["binding_origin"] == "agent_as_tool"
+
+
+def test_dotted_agent_as_tool_preserves_full_source_target(tmp_path: Path) -> None:
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+from agents import Agent
+import memory_agents
+
+manager = Agent(
+    name="Manager",
+    tools=[
+        memory_agents.agent.as_tool(
+            tool_name="memory_search",
+            tool_description="Search memory",
+        )
+    ],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    manager = next(item for item in graph.agents if item.name == "Manager")
+    tool = next(item for item in manager.tools if item.name == "memory_search")
+    assert tool.metadata["delegate_target"] == "memory_agents.agent"
