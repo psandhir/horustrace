@@ -142,5 +142,122 @@
       "fact": "Lines 28-31 bind four named functions through FunctionTool wrappers."
     }
   ],
-  "rationale": "The locked automated reference collapsed each agent's FunctionTool-wrapped functions into a single generic target named FunctionTool. Pinned source proves sixteen distinct callable authority relationships. Preserving callable identity is required for effective-authority analysis; the wrapper class is implementation metadata, not the target. Original locked truth remains unchanged."
+  "rationale": "The locked automated reference collapsed each agent's FunctionTool-wrapped functions into a single generic target named FunctionTool. Pinned source proves sixteen distinct callable authority relationships. Preserving callable identity is required for effective-authority analysis; the wrapper class is implementation metadata, not the target. Original locked truth remains unchanged.",
+  "authority_truth_patch": {
+    "remove": [
+      {
+        "agent": "cost_pattern_agent",
+        "target_kind": "tool",
+        "target_name": "FunctionTool"
+      },
+      {
+        "agent": "deep_audit_agent",
+        "target_kind": "tool",
+        "target_name": "FunctionTool"
+      },
+      {
+        "agent": "iac_ingestion_agent",
+        "target_kind": "tool",
+        "target_name": "FunctionTool"
+      },
+      {
+        "agent": "performance_agent",
+        "target_kind": "tool",
+        "target_name": "FunctionTool"
+      },
+      {
+        "agent": "reliability_agent",
+        "target_kind": "tool",
+        "target_name": "FunctionTool"
+      },
+      {
+        "agent": "security_audit_agent",
+        "target_kind": "tool",
+        "target_name": "FunctionTool"
+      }
+    ],
+    "add": [
+      {
+        "agent": "cost_pattern_agent",
+        "target_kind": "tool",
+        "target_name": "get_vm_rightsizing_suggestion"
+      },
+      {
+        "agent": "cost_pattern_agent",
+        "target_kind": "tool",
+        "target_name": "check_resource_tagging"
+      },
+      {
+        "agent": "cost_pattern_agent",
+        "target_kind": "tool",
+        "target_name": "get_all_rules_by_category"
+      },
+      {
+        "agent": "deep_audit_agent",
+        "target_kind": "tool",
+        "target_name": "search_waf_rules"
+      },
+      {
+        "agent": "deep_audit_agent",
+        "target_kind": "tool",
+        "target_name": "enrich_finding_with_waf_guidance"
+      },
+      {
+        "agent": "iac_ingestion_agent",
+        "target_kind": "tool",
+        "target_name": "get_repo_metadata"
+      },
+      {
+        "agent": "iac_ingestion_agent",
+        "target_kind": "tool",
+        "target_name": "fetch_iac_files"
+      },
+      {
+        "agent": "performance_agent",
+        "target_kind": "tool",
+        "target_name": "search_waf_rules"
+      },
+      {
+        "agent": "performance_agent",
+        "target_kind": "tool",
+        "target_name": "get_all_rules_by_category"
+      },
+      {
+        "agent": "reliability_agent",
+        "target_kind": "tool",
+        "target_name": "search_waf_rules"
+      },
+      {
+        "agent": "reliability_agent",
+        "target_kind": "tool",
+        "target_name": "get_all_rules_by_category"
+      },
+      {
+        "agent": "reliability_agent",
+        "target_kind": "tool",
+        "target_name": "enrich_finding_with_waf_guidance"
+      },
+      {
+        "agent": "security_audit_agent",
+        "target_kind": "tool",
+        "target_name": "search_waf_rules"
+      },
+      {
+        "agent": "security_audit_agent",
+        "target_kind": "tool",
+        "target_name": "get_all_rules_by_category"
+      },
+      {
+        "agent": "security_audit_agent",
+        "target_kind": "tool",
+        "target_name": "enrich_finding_with_waf_guidance"
+      },
+      {
+        "agent": "security_audit_agent",
+        "target_kind": "tool",
+        "target_name": "sanitised_google_search"
+      }
+    ],
+    "unresolved": []
+  }
 }
