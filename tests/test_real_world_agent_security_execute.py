@@ -175,3 +175,96 @@ def test_authority_scoring_keeps_ambiguous_runtime_name_unmapped() -> None:
     assert metrics["tp"] == 0
     assert metrics["fn"] == 1
     assert metrics["fp_if_complete"] == 1
+
+
+
+def test_authority_scoring_matches_source_proven_agent_as_tool_target() -> None:
+    module = _module()
+    truth = {
+        "tier_a": {
+            "agent_roots": [
+                {"name": "Manager", "path": "agent.py", "line": 20}
+            ]
+        },
+        "tier_b": {
+            "authority_relationships": [
+                {
+                    "agent": "Manager",
+                    "target_kind": "tool",
+                    "target_name": "search_agent",
+                }
+            ]
+        },
+    }
+    observed = {
+        "relationships": [
+            {
+                "agent": "Manager",
+                "target": {"kind": "tool", "name": "web_search"},
+                "semantics": {
+                    "binding_origin": "agent_as_tool",
+                    "delegate_target": "search_agent",
+                },
+            }
+        ]
+    }
+    nodes = [
+        {
+            "id": "manager",
+            "kind": "agent",
+            "name": "Manager",
+            "location": {"path": "/tmp/agent.py", "line": 20, "column": 0},
+        }
+    ]
+
+    metrics = module.authority_metrics(truth, observed, nodes)
+
+    assert metrics["tp"] == 1
+    assert metrics["fn"] == 0
+    assert metrics["fp_if_complete"] == 0
+
+
+def test_authority_scoring_does_not_use_delegate_target_without_agent_as_tool_basis() -> None:
+    module = _module()
+    truth = {
+        "tier_a": {
+            "agent_roots": [
+                {"name": "Manager", "path": "agent.py", "line": 20}
+            ]
+        },
+        "tier_b": {
+            "authority_relationships": [
+                {
+                    "agent": "Manager",
+                    "target_kind": "tool",
+                    "target_name": "search_agent",
+                }
+            ]
+        },
+    }
+    observed = {
+        "relationships": [
+            {
+                "agent": "Manager",
+                "target": {"kind": "tool", "name": "web_search"},
+                "semantics": {
+                    "binding_origin": "other",
+                    "delegate_target": "search_agent",
+                },
+            }
+        ]
+    }
+    nodes = [
+        {
+            "id": "manager",
+            "kind": "agent",
+            "name": "Manager",
+            "location": {"path": "/tmp/agent.py", "line": 20, "column": 0},
+        }
+    ]
+
+    metrics = module.authority_metrics(truth, observed, nodes)
+
+    assert metrics["tp"] == 0
+    assert metrics["fn"] == 1
+    assert metrics["fp_if_complete"] == 1
