@@ -29,7 +29,7 @@ from horustrace.principals import canonical_principal
 _RESOURCE_RE = re.compile(r'^\s*resource\s+"([^"]+)"\s+"([^"]+)"\s*\{')
 _LITERAL_ATTR = r'\b{attribute}\s*=\s*"([^"]+)"'
 _EXPRESSION_ATTR = r"\b{attribute}\s*=\s*([^\s#\n]+)"
-_REFERENCE_LIST_ATTR = r"\b{attribute}\s*=\s*\[([^\]]*)\]"
+_REFERENCE_LIST_ATTR = r"\b{attribute}\s*=\s*\[(.*)\]\s*$"
 _TERRAFORM_REFERENCE_RE = re.compile(
     r"^(?P<resource_type>[a-zA-Z0-9_]+)\."
     r"(?P<resource_name>[a-zA-Z0-9_-]+)"
