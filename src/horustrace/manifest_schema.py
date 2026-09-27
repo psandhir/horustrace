@@ -37,12 +37,14 @@ POLICY = dict.fromkeys(
 TOOL = dict.fromkeys(('name', 'kind', 'identity'), str) | dict.fromkeys(
     ('capabilities', 'capability', 'destinations', 'destination'), STRINGS
 ) | dict.fromkeys(('approval', 'human_approval', 'guardrails'), bool) | {'resources': [(str, RESOURCE)]}
+DEPLOYMENT = {'workload_id': str, 'name': str}
 MCP = dict.fromkeys(('name', 'transport', 'url', 'command', 'identity'), str) | dict.fromkeys(
     ('authenticated', 'approval', 'guardrails'), bool
 ) | {'args': [str], 'allowed_tools': STRINGS, 'denied_tools': STRINGS}
 AGENT = {'name': str, 'data': [(str, DATA)], 'inputs': [(str, INPUT)],
          'identities': [(str, IDENTITY)], 'network': [(str, NETWORK)], 'tools': [TOOL],
-         'mcp_servers': [MCP], 'policy': POLICY, 'permissions': POLICY}
+         'mcp_servers': [MCP], 'policy': POLICY, 'permissions': POLICY,
+         'deployment': DEPLOYMENT}
 SCHEMA = {'version': int, 'agents': [AGENT], 'agent': AGENT, 'identities': [IDENTITY]}
 
 
