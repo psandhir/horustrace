@@ -184,3 +184,70 @@ def test_authority_scoring_keeps_ambiguous_runtime_name_unmapped() -> None:
     assert metrics["tp"] == 0
     assert metrics["fn"] == 1
     assert metrics["fp_if_complete"] == 1
+
+
+
+def test_absolute_import_roots_ignore_relative_and_nested_suffixes(tmp_path: Path) -> None:
+    module = _module()
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+import tools.audio
+import os
+from tools.image import render
+from agents.helpers import helper
+from .local import thing
+from ..shared import other
+""",
+        encoding="utf-8",
+    )
+
+    assert module._absolute_import_roots([source]) == {"tools", "os", "agents"}
+
+
+def test_repository_local_import_patterns_only_select_existing_top_level_entries(
+    tmp_path: Path,
+) -> None:
+    module = _module()
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+import tools.audio
+import config
+import requests
+from agents.helpers import helper
+""",
+        encoding="utf-8",
+    )
+
+    patterns = module._repository_local_import_patterns(
+        [source],
+        {"agents", "tools", "config.py", "README.md"},
+    )
+
+    assert patterns == ["agents", "config.py", "tools"]
+
+
+
+def test_authority_enrichment_keeps_only_primary_scope_agents() -> None:
+    module = _module()
+    authority = {
+        "relationships": [
+            {
+                "agent": "primary",
+                "target": {"kind": "tool", "name": "resolved_helper"},
+            },
+            {
+                "agent": "dependency_agent",
+                "target": {"kind": "tool", "name": "unrelated"},
+            },
+        ]
+    }
+    primary_nodes = [
+        {"kind": "agent", "name": "primary"},
+        {"kind": "tool", "name": "something_else"},
+    ]
+
+    filtered = module._authority_for_primary_agents(authority, primary_nodes)
+
+    assert [item["agent"] for item in filtered["relationships"]] == ["primary"]
