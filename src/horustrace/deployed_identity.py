@@ -10,7 +10,7 @@ import hashlib
 from dataclasses import dataclass
 from typing import Any
 
-from horustrace.authority_source import normalize_gcp_service_account
+from horustrace.principals import canonical_principal
 from horustrace.deployment_evidence import DeploymentEvidenceBundle, DeploymentWorkloadEvidence
 from horustrace.models import Agent, Graph
 
@@ -87,12 +87,11 @@ def _relationship(
 ) -> DeployedIdentityRelationship:
     unresolved: list[str] = []
     identity = workload.identity
-    if bundle.provider == "gcp":
-        canonical = normalize_gcp_service_account(identity)
-        if canonical is None:
-            unresolved.append("identity")
-        else:
-            identity = canonical
+    canonical = canonical_principal(bundle.provider, identity)
+    if canonical is None:
+        unresolved.append("identity")
+    else:
+        identity = canonical
     resolution = "fully_resolved" if not unresolved else "partially_resolved"
     return DeployedIdentityRelationship(
         relationship_id=_stable_id(agent.name, workload.workload_id, identity),
