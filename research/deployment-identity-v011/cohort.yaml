@@ -1,0 +1,214 @@
+{
+  "schema_version": 1,
+  "study": "deployment-identity-v011",
+  "frozen": true,
+  "frozen_at": "2026-09-27",
+  "selection_basis": "20 source-adjudicated deployment-identity cases locked before first HorusTrace execution",
+  "horustrace_results_used_for_selection": false,
+  "runtime_effectiveness": "not_verified",
+  "acceptance_gate": {
+    "identity_recall": 0.9
+  },
+  "cases": [
+    {
+      "case_id": "gcp-001",
+      "provider": "gcp",
+      "infrastructure": {
+        "repo": "Sanjay-AI-ML/customer-ai-agent",
+        "sha": "0d367acd6bef75e56ae12cbb9159c390b8c76648",
+        "path": "infra/terraform/cloud_run.tf"
+      },
+      "truth": "ground-truth/gcp-001.json"
+    },
+    {
+      "case_id": "gcp-002",
+      "provider": "gcp",
+      "infrastructure": {
+        "repo": "lastingyeh/adk-insurance-recommendation-agent",
+        "sha": "90e9b624759248b168a0df93f5ddca35966d1027",
+        "path": "deployment/terraform/modules/agent_infrastructure/service.tf"
+      },
+      "truth": "ground-truth/gcp-002.json"
+    },
+    {
+      "case_id": "aws-001",
+      "provider": "aws",
+      "infrastructure": {
+        "repo": "hi-space/websearch-agentcore-gateway",
+        "sha": "37aa845a9d131e338180a7fe35a73b9238e45d09",
+        "path": "infra/modules/gateway-lambda-tool/main.tf"
+      },
+      "truth": "ground-truth/aws-001.json"
+    },
+    {
+      "case_id": "aws-002",
+      "provider": "aws",
+      "infrastructure": {
+        "repo": "amrutp24/terraform-aws-durable-agent-pipeline",
+        "sha": "352425a7041b9643f18af23213029f9cf80ab8aa",
+        "path": "main.tf"
+      },
+      "truth": "ground-truth/aws-002.json"
+    },
+    {
+      "case_id": "azure-001",
+      "provider": "azure",
+      "infrastructure": {
+        "repo": "mrobinson2/AzureAgentForge",
+        "sha": "1104e3b8ac381aced13ee549cf28bb4fd5ac364e",
+        "path": "infrastructure/modules/container-apps/hermes.tf"
+      },
+      "truth": "ground-truth/azure-001.json"
+    },
+    {
+      "case_id": "azure-002",
+      "provider": "azure",
+      "infrastructure": {
+        "repo": "mrobinson2/AzureAgentForge",
+        "sha": "1104e3b8ac381aced13ee549cf28bb4fd5ac364e",
+        "path": "infrastructure/modules/container-apps/honcho.tf"
+      },
+      "truth": "ground-truth/azure-002.json"
+    },
+    {
+      "case_id": "azure-003",
+      "provider": "azure",
+      "infrastructure": {
+        "repo": "mrobinson2/AzureAgentForge",
+        "sha": "1104e3b8ac381aced13ee549cf28bb4fd5ac364e",
+        "path": "infrastructure/modules/container-apps/cloudflared.tf"
+      },
+      "truth": "ground-truth/azure-003.json"
+    },
+    {
+      "case_id": "azure-004",
+      "provider": "azure",
+      "infrastructure": {
+        "repo": "mrobinson2/AzureAgentForge",
+        "sha": "1104e3b8ac381aced13ee549cf28bb4fd5ac364e",
+        "path": "infrastructure/modules/container-apps/slack_bridge.tf"
+      },
+      "truth": "ground-truth/azure-004.json"
+    },
+    {
+      "case_id": "azure-005",
+      "provider": "azure",
+      "infrastructure": {
+        "repo": "mrobinson2/AzureAgentForge",
+        "sha": "1104e3b8ac381aced13ee549cf28bb4fd5ac364e",
+        "path": "infrastructure/modules/container-apps/teams_bridge.tf"
+      },
+      "truth": "ground-truth/azure-005.json"
+    },
+    {
+      "case_id": "azure-006",
+      "provider": "azure",
+      "infrastructure": {
+        "repo": "mrobinson2/AzureAgentForge",
+        "sha": "1104e3b8ac381aced13ee549cf28bb4fd5ac364e",
+        "path": "infrastructure/modules/container-apps/memory_governor.tf"
+      },
+      "truth": "ground-truth/azure-006.json"
+    },
+    {
+      "case_id": "azure-007",
+      "provider": "azure",
+      "infrastructure": {
+        "repo": "mrobinson2/AzureAgentForge",
+        "sha": "1104e3b8ac381aced13ee549cf28bb4fd5ac364e",
+        "path": "infrastructure/modules/container-apps/paperclip.tf"
+      },
+      "truth": "ground-truth/azure-007.json"
+    },
+    {
+      "case_id": "azure-008",
+      "provider": "azure",
+      "infrastructure": {
+        "repo": "mrobinson2/AzureAgentForge",
+        "sha": "1104e3b8ac381aced13ee549cf28bb4fd5ac364e",
+        "path": "infrastructure/modules/multi-tenant/main.tf"
+      },
+      "truth": "ground-truth/azure-008.json"
+    },
+    {
+      "case_id": "k8s-001",
+      "provider": "kubernetes",
+      "infrastructure": {
+        "repo": "akshaymittal143/agent-name-service-ans",
+        "sha": "66552b31dc9fda22d69516e2f6fc6100f56803ea",
+        "path": "k8s/monitoring/prometheus/deployment.yaml"
+      },
+      "truth": "ground-truth/k8s-001.json"
+    },
+    {
+      "case_id": "k8s-002",
+      "provider": "kubernetes",
+      "infrastructure": {
+        "repo": "langchain-samples/sre-agent",
+        "sha": "eee1cf02c14cf5579a1177f174c95d74c956c33f",
+        "path": "k8s/deployment.yaml"
+      },
+      "truth": "ground-truth/k8s-002.json"
+    },
+    {
+      "case_id": "k8s-003",
+      "provider": "kubernetes",
+      "infrastructure": {
+        "repo": "akshaymittal143/agent-name-service-ans",
+        "sha": "66552b31dc9fda22d69516e2f6fc6100f56803ea",
+        "path": "agents/model-retrainer/deployment.yaml"
+      },
+      "truth": "ground-truth/k8s-003.json"
+    },
+    {
+      "case_id": "k8s-004",
+      "provider": "kubernetes",
+      "infrastructure": {
+        "repo": "akshaymittal143/agent-name-service-ans",
+        "sha": "66552b31dc9fda22d69516e2f6fc6100f56803ea",
+        "path": "agents/notification-agent/deployment.yaml"
+      },
+      "truth": "ground-truth/k8s-004.json"
+    },
+    {
+      "case_id": "k8s-005",
+      "provider": "kubernetes",
+      "infrastructure": {
+        "repo": "akshaymittal143/agent-name-service-ans",
+        "sha": "66552b31dc9fda22d69516e2f6fc6100f56803ea",
+        "path": "agents/concept-drift-detector/deployment.yaml"
+      },
+      "truth": "ground-truth/k8s-005.json"
+    },
+    {
+      "case_id": "k8s-006",
+      "provider": "kubernetes",
+      "infrastructure": {
+        "repo": "akshaymittal143/agent-name-service-ans",
+        "sha": "66552b31dc9fda22d69516e2f6fc6100f56803ea",
+        "path": "k8s/ans-registry/deployment.yaml"
+      },
+      "truth": "ground-truth/k8s-006.json"
+    },
+    {
+      "case_id": "k8s-007",
+      "provider": "kubernetes",
+      "infrastructure": {
+        "repo": "akshaymittal143/agent-name-service-ans",
+        "sha": "66552b31dc9fda22d69516e2f6fc6100f56803ea",
+        "path": "k8s/ans-registry/demo-deployment.yaml"
+      },
+      "truth": "ground-truth/k8s-007.json"
+    },
+    {
+      "case_id": "k8s-008",
+      "provider": "kubernetes",
+      "infrastructure": {
+        "repo": "akshaymittal143/agent-name-service-ans",
+        "sha": "66552b31dc9fda22d69516e2f6fc6100f56803ea",
+        "path": "k8s/ans-registry/simple-demo.yaml"
+      },
+      "truth": "ground-truth/k8s-008.json"
+    }
+  ]
+}
