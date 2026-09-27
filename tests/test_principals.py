@@ -48,6 +48,7 @@ def test_kubernetes_service_account_forms_are_canonical(
         ("aws", "aws_iam_role.agent.arn"),
         ("azure", "/subscriptions/x/resourceGroups/y/providers/Microsoft.ManagedIdentity/userAssignedIdentities/z"),
         ("kubernetes", "${var.namespace}/agent"),
+        ("custom-cloud", "opaque-principal"),
     ],
 )
 def test_dynamic_or_noncanonical_provider_identity_stays_unresolved(
