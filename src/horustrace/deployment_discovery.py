@@ -203,7 +203,7 @@ def _reference_list(block: str, attribute: str) -> list[str]:
     match = re.search(
         _REFERENCE_LIST_ATTR.format(attribute=re.escape(attribute)),
         block,
-        flags=re.DOTALL,
+        flags=re.MULTILINE,
     )
     if match is None:
         return []
