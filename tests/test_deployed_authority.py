@@ -158,3 +158,97 @@ def test_unrelated_principal_is_not_attached_to_agent() -> None:
     assert relationship["roles"] == []
     assert relationship["permissions"] == []
     assert "iam_bindings" in relationship["unresolved"]
+
+
+def test_aws_role_binding_matches_workload_principal() -> None:
+    arn = "arn:aws:iam::123456789012:role/Platform/AgentRuntime"
+    graph = Graph(agents=[Agent(name="support")])
+    workload = DeploymentWorkloadEvidence(
+        workload_id="ecs/support",
+        kind="ecs_service",
+        name="support",
+        identity=arn,
+        agent="support",
+    )
+    bundle = DeploymentEvidenceBundle(
+        provider="aws",
+        source="fixture",
+        workloads=(workload,),
+        iam_bindings=(
+            IAMBindingEvidence(
+                principal=arn,
+                role="inline-policy",
+                scope_kind="account",
+                scope_name="123456789012",
+                permissions=("s3:GetObject",),
+            ),
+        ),
+    )
+
+    relationship = deployed_authority_report(graph, bundle)["relationships"][0]
+
+    assert relationship["permissions"] == ["s3:GetObject"]
+    assert relationship["resolution"] == "fully_resolved"
+
+
+def test_azure_role_assignment_matches_principal_case_insensitively() -> None:
+    object_id = "6F9619FF-8B86-D011-B42D-00C04FC964FF"
+    graph = Graph(agents=[Agent(name="support")])
+    workload = DeploymentWorkloadEvidence(
+        workload_id="containerapps/support",
+        kind="container_app",
+        name="support",
+        identity=object_id,
+        agent="support",
+    )
+    bundle = DeploymentEvidenceBundle(
+        provider="azure",
+        source="fixture",
+        workloads=(workload,),
+        iam_bindings=(
+            IAMBindingEvidence(
+                principal=object_id.lower(),
+                role="Storage Blob Data Reader",
+                scope_kind="storage_account",
+                scope_name="supportdata",
+                permissions=("Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read",),
+            ),
+        ),
+    )
+
+    relationship = deployed_authority_report(graph, bundle)["relationships"][0]
+
+    assert relationship["roles"] == ["Storage Blob Data Reader"]
+    assert relationship["permissions"] == [
+        "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read"
+    ]
+
+
+def test_kubernetes_service_account_binding_matches_short_and_canonical_forms() -> None:
+    graph = Graph(agents=[Agent(name="support")])
+    workload = DeploymentWorkloadEvidence(
+        workload_id="apps/v1/Deployment/agents/support",
+        kind="deployment",
+        name="support",
+        identity="agents/runtime",
+        agent="support",
+    )
+    bundle = DeploymentEvidenceBundle(
+        provider="kubernetes",
+        source="fixture",
+        workloads=(workload,),
+        iam_bindings=(
+            IAMBindingEvidence(
+                principal="system:serviceaccount:agents:runtime",
+                role="k8s:Role/read-secrets",
+                scope_kind="namespace",
+                scope_name="agents",
+                permissions=("get:secrets",),
+            ),
+        ),
+    )
+
+    relationship = deployed_authority_report(graph, bundle)["relationships"][0]
+
+    assert relationship["roles"] == ["k8s:Role/read-secrets"]
+    assert relationship["permissions"] == ["get:secrets"]

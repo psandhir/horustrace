@@ -11,6 +11,7 @@ from horustrace.adapters.iac_identity import scan_terraform
 from horustrace.limits import MAX_FILE_SIZE_BYTES, MAX_FILES_VISITED
 from horustrace.models import EvidenceFact, Graph, Identity, SourceLocation
 from horustrace.path_safety import canonical_root, is_within_root
+from horustrace.principals import normalize_gcp_service_account
 
 _IGNORED_DIRS = {
     ".git",
@@ -22,10 +23,6 @@ _IGNORED_DIRS = {
     "build",
     "__pycache__",
 }
-_GCP_SERVICE_ACCOUNT_RE = re.compile(
-    r"^[^@\s:/]+@[^@\s/]+\.gserviceaccount\.com$",
-    re.IGNORECASE,
-)
 _FULL_SHA_RE = re.compile(r"^[0-9a-f]{40,64}$")
 _GITHUB_HTTP_RE = re.compile(
     r"^https?://(?:[^/@]+@)?github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$",
@@ -65,19 +62,6 @@ class AuthorityEnrichmentResult:
             "matched_bindings": self.matched_bindings,
             "unmatched_service_accounts": self.unmatched_service_accounts,
         }
-
-
-def normalize_gcp_service_account(value: str) -> str | None:
-    """Return a canonical service-account email for supported literal forms."""
-    principal = value.strip()
-    if principal.lower().startswith("serviceaccount:"):
-        principal = principal.split(":", 1)[1]
-    if "/serviceAccounts/" in principal:
-        principal = principal.rsplit("/serviceAccounts/", 1)[1]
-    principal = principal.strip().lower()
-    if not _GCP_SERVICE_ACCOUNT_RE.fullmatch(principal):
-        return None
-    return principal
 
 
 def _run_git(root: Path, args: list[str]) -> str | None:
