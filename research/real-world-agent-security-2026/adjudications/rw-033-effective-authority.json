@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "study": "real-world-agent-security-2026",
+  "case_id": "rw-033",
+  "dimension": "effective_authority",
+  "classification": "ground_truth_error",
+  "original_locked_truth_preserved": true,
+  "triggered_by_post_fix_disagreement": true,
+  "scanner_output_seen_before_adjudication": true,
+  "human_dual_review": false,
+  "adjudication_method": "post-fix pinned-source re-review",
+  "source_reference": {
+    "repo": "moonpy-a11y/agent_payments",
+    "sha": "b08e4bec80ea2f8a3664d670bc6fc52b8a50d1ae",
+    "path": "agent.py"
+  },
+  "original_locked_truth": {
+    "relationship": {
+      "agent": "cineagent",
+      "target_kind": "tool",
+      "target_name": "FunctionTool"
+    }
+  },
+  "post_hoc_correction": {
+    "replace_relationship": {
+      "agent": "cineagent",
+      "target_kind": "tool",
+      "target_name": "complete_purchase"
+    }
+  },
+  "evidence": [
+    {
+      "line": 13,
+      "fact": "Constructs the cineagent Google ADK Agent."
+    },
+    {
+      "line": 35,
+      "fact": "Supplies an explicit tools list to the agent."
+    },
+    {
+      "line": 40,
+      "fact": "Binds complete_purchase through FunctionTool(complete_purchase, require_confirmation=True)."
+    }
+  ],
+  "rationale": "The locked automated reference canonicalized the wrapper class name FunctionTool as the authority target. The pinned source proves the invokable function is complete_purchase; FunctionTool is the wrapper and confirmation mechanism. The original truth remains unchanged and the corrected relationship is reported separately.",
+  "authority_truth_patch": {
+    "remove": [
+      {
+        "agent": "cineagent",
+        "target_kind": "tool",
+        "target_name": "FunctionTool"
+      }
+    ],
+    "add": [
+      {
+        "agent": "cineagent",
+        "target_kind": "tool",
+        "target_name": "complete_purchase"
+      }
+    ],
+    "unresolved": []
+  }
+}

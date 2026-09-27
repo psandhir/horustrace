@@ -7,6 +7,7 @@ provided by the workflow. Baseline mode enforces the preregistered scanner SHA; 
 from __future__ import annotations
 
 import argparse
+import ast
 import concurrent.futures
 import json
 import os
@@ -21,6 +22,104 @@ from typing import Any
 STUDY = "real-world-agent-security-2026"
 CLONE_TIMEOUT = 180
 SCAN_TIMEOUT = 300
+MAX_SPARSE_IMPORT_ROOTS = 16
+MAX_SPARSE_IMPORT_ROUNDS = 4
+
+
+def _absolute_import_roots(paths: list[Path]) -> set[str]:
+    roots: set[str] = set()
+    for path in paths:
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except (OSError, UnicodeDecodeError, SyntaxError):
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    root = alias.name.split(".", 1)[0]
+                    if root:
+                        roots.add(root)
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                root = node.module.split(".", 1)[0]
+                if root:
+                    roots.add(root)
+    return roots
+
+
+def _repository_local_import_patterns(
+    paths: list[Path],
+    repository_entries: set[str],
+) -> list[str]:
+    patterns: set[str] = set()
+    for root in _absolute_import_roots(paths):
+        if root in repository_entries:
+            patterns.add(root)
+        elif f"{root}.py" in repository_entries:
+            patterns.add(f"{root}.py")
+    return sorted(patterns)
+
+
+def _expand_sparse_python_imports(
+    target: Path,
+    *,
+    initial_pattern: str,
+) -> list[str]:
+    listed = run(
+        ["git", "-C", str(target), "ls-tree", "--name-only", "HEAD"],
+        timeout=30,
+    )
+    if listed.returncode != 0:
+        return []
+    repository_entries = {
+        line.strip()
+        for line in listed.stdout.splitlines()
+        if line.strip()
+    }
+    selected = {
+        initial_pattern.split("/", 1)[0]
+        if "/" in initial_pattern
+        else initial_pattern
+    }
+    added: list[str] = []
+
+    for _ in range(MAX_SPARSE_IMPORT_ROUNDS):
+        python_paths = [
+            path
+            for path in target.rglob("*.py")
+            if ".git" not in path.parts
+        ]
+        candidates = [
+            pattern
+            for pattern in _repository_local_import_patterns(
+                python_paths,
+                repository_entries,
+            )
+            if pattern not in selected
+        ]
+        remaining_budget = MAX_SPARSE_IMPORT_ROOTS - len(added)
+        if remaining_budget <= 0:
+            break
+        candidates = candidates[:remaining_budget]
+        if not candidates:
+            break
+
+        result = run(
+            [
+                "git",
+                "-C",
+                str(target),
+                "sparse-checkout",
+                "add",
+                *candidates,
+            ],
+            timeout=60,
+        )
+        if result.returncode != 0:
+            break
+        added.extend(candidates)
+        selected.update(candidates)
+
+    return added
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -46,7 +145,7 @@ def fetch_case(
     case: dict[str, Any],
     *,
     tier_c: bool,
-) -> tuple[Path | None, str | None]:
+) -> tuple[Path | None, Path | None, str | None]:
     target = workspace / case["case_id"]
     target.mkdir(parents=True, exist_ok=True)
     for command in (
@@ -59,39 +158,76 @@ def fetch_case(
         result = run(command, timeout=CLONE_TIMEOUT)
         if result.returncode != 0:
             detail = (result.stderr or result.stdout).strip()[-1000:]
-            return None, f"fetch_failed:{detail}"
+            return None, None, f"fetch_failed:{detail}"
 
     application = Path(case["application_path"])
+    sparse_pattern: str | None = None
+    sparse_enabled = False
     if not tier_c:
         sparse = application if application.suffix == "" else application.parent
-        pattern = sparse.as_posix() if sparse.as_posix() not in {"", "."} else "/*"
+        sparse_pattern = (
+            sparse.as_posix()
+            if sparse.as_posix() not in {"", "."}
+            else "/*"
+        )
         init = run(
             ["git", "-C", str(target), "sparse-checkout", "init", "--no-cone"],
             timeout=60,
         )
         if init.returncode == 0:
             selected = run(
-                ["git", "-C", str(target), "sparse-checkout", "set", "--no-cone", pattern],
+                [
+                    "git",
+                    "-C",
+                    str(target),
+                    "sparse-checkout",
+                    "set",
+                    "--no-cone",
+                    sparse_pattern,
+                ],
                 timeout=60,
             )
             if selected.returncode != 0:
-                run(["git", "-C", str(target), "sparse-checkout", "disable"], timeout=60)
+                run(
+                    ["git", "-C", str(target), "sparse-checkout", "disable"],
+                    timeout=60,
+                )
+            else:
+                sparse_enabled = True
     checkout = run(
         ["git", "-C", str(target), "checkout", "--quiet", "--detach", "FETCH_HEAD"],
         timeout=CLONE_TIMEOUT,
     )
     if checkout.returncode != 0:
         detail = (checkout.stderr or checkout.stdout).strip()[-1000:]
-        return None, f"checkout_failed:{detail}"
+        return None, None, f"checkout_failed:{detail}"
     rev = run(["git", "-C", str(target), "rev-parse", "HEAD"], timeout=30)
     if rev.returncode != 0 or rev.stdout.strip() != case["sha"]:
-        return None, "frozen_sha_mismatch"
+        return None, None, "frozen_sha_mismatch"
 
     chosen = target / application
     if not chosen.exists():
-        return None, f"application_path_missing:{case['application_path']}"
-    scope = chosen if chosen.is_dir() else chosen.parent
-    return scope, None
+        return None, None, f"application_path_missing:{case['application_path']}"
+
+    added_import_roots: list[str] = []
+    if (
+        not tier_c
+        and sparse_enabled
+        and sparse_pattern is not None
+        and sparse_pattern != "/*"
+    ):
+        added_import_roots = _expand_sparse_python_imports(
+            target,
+            initial_pattern=sparse_pattern,
+        )
+
+    primary_scope = chosen if chosen.is_dir() else chosen.parent
+    # Structural metrics remain scoped exactly as preregistered. When bounded
+    # repository-local imports were added, a second graph scan may use the
+    # sparse repository root only to resolve authority for agents that already
+    # exist in the primary application graph.
+    authority_scope = target if added_import_roots else primary_scope
+    return primary_scope, authority_scope, None
 
 
 def parse_json_output(result: subprocess.CompletedProcess[str], label: str) -> tuple[dict[str, Any] | None, str | None]:
@@ -398,6 +534,29 @@ def predicted_nodes_for_dimension(
     return [node for node in nodes if node.get("kind") in kinds[dimension]]
 
 
+def _authority_for_primary_agents(
+    authority: dict[str, Any],
+    primary_nodes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    primary_names = {
+        norm(node.get("name"))
+        for node in primary_nodes
+        if node.get("kind") == "agent"
+    }
+    relationships = authority.get("relationships")
+    if not isinstance(relationships, list):
+        return authority
+    return {
+        **authority,
+        "relationships": [
+            item
+            for item in relationships
+            if isinstance(item, dict)
+            and norm(item.get("agent")) in primary_names
+        ],
+    }
+
+
 def scan_one(
     case: dict[str, Any],
     truth: dict[str, Any],
@@ -405,8 +564,12 @@ def scan_one(
     scanner: str,
     tier_c: bool,
 ) -> dict[str, Any]:
-    scope, fetch_error = fetch_case(workspace, case, tier_c=tier_c)
-    if fetch_error or scope is None:
+    scope, authority_scope, fetch_error = fetch_case(
+        workspace,
+        case,
+        tier_c=tier_c,
+    )
+    if fetch_error or scope is None or authority_scope is None:
         return {
             "case_id": case["case_id"],
             "repo": case["repo"],
@@ -419,15 +582,27 @@ def scan_one(
     base = [scanner]
     scan_command = [*base, "scan", str(scope), "--format", "json", "--fail-on", "none"]
     graph_command = [*base, "security-graph", str(scope)]
+    authority_graph_command = (
+        graph_command
+        if authority_scope == scope
+        else [*base, "security-graph", str(authority_scope)]
+    )
     if tier_c:
         # Repository-declared IaC is used only for the four preselected Tier C cases.
         repo_root = workspace / case["case_id"]
         scan_command.extend(["--authority-source", str(repo_root)])
         graph_command.extend(["--authority-source", str(repo_root)])
+        if authority_graph_command is not graph_command:
+            authority_graph_command.extend(["--authority-source", str(repo_root)])
 
     try:
         scan_result = run(scan_command, timeout=SCAN_TIMEOUT)
         graph_result = run(graph_command, timeout=SCAN_TIMEOUT)
+        authority_graph_result = (
+            graph_result
+            if authority_graph_command is graph_command
+            else run(authority_graph_command, timeout=SCAN_TIMEOUT)
+        )
     except subprocess.TimeoutExpired as exc:
         return {
             "case_id": case["case_id"],
@@ -440,14 +615,25 @@ def scan_one(
 
     scan_doc, scan_error = parse_json_output(scan_result, "scan")
     graph_doc, graph_error = parse_json_output(graph_result, "security_graph")
-    if scan_error or graph_error or scan_doc is None or graph_doc is None:
+    authority_graph_doc, authority_graph_error = parse_json_output(
+        authority_graph_result,
+        "authority_security_graph",
+    )
+    if (
+        scan_error
+        or graph_error
+        or authority_graph_error
+        or scan_doc is None
+        or graph_doc is None
+        or authority_graph_doc is None
+    ):
         return {
             "case_id": case["case_id"],
             "repo": case["repo"],
             "framework": case["framework_stratum"],
             "previously_studied": case["previously_studied"],
             "status": "scanner_error",
-            "error": scan_error or graph_error,
+            "error": scan_error or graph_error or authority_graph_error,
         }
 
     topology = graph_doc.get("topology") if isinstance(graph_doc.get("topology"), dict) else {}
@@ -496,7 +682,13 @@ def scan_one(
         "unadjudicated_predicted": 0 if complete.get("delegation_edges") else dfp,
     }
 
-    authority = graph_doc.get("effective_authority") if isinstance(graph_doc.get("effective_authority"), dict) else {}
+    authority = (
+        authority_graph_doc.get("effective_authority")
+        if isinstance(authority_graph_doc.get("effective_authority"), dict)
+        else {}
+    )
+    if authority_scope != scope:
+        authority = _authority_for_primary_agents(authority, nodes)
     auth = authority_metrics(truth, authority, nodes) if truth.get("tier_b") else None
     if auth is not None:
         authority_complete = bool(

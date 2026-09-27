@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "study": "real-world-agent-security-2026",
+  "case_id": "rw-155",
+  "dimension": "effective_authority",
+  "classification": "ground_truth_error",
+  "original_locked_truth_preserved": true,
+  "triggered_by_post_fix_disagreement": true,
+  "scanner_output_seen_before_adjudication": true,
+  "human_dual_review": false,
+  "adjudication_method": "post-fix pinned-source re-review",
+  "source_reference": {
+    "repo": "shotgun-sh/shotgun",
+    "sha": "4d344d5a46aafc815de441ff670d4131187f33e6",
+    "path": "src/shotgun/agents/router/router.py"
+  },
+  "original_locked_truth": {
+    "tools": [],
+    "authority_relationships": []
+  },
+  "post_hoc_correction": {
+    "add_authority_relationships": [
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "delegate_to_research"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "delegate_to_specification"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "delegate_to_plan"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "delegate_to_tasks"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "delegate_to_export"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "create_plan"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "mark_step_done"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "add_step"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "remove_step"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "read_file"
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "line": 126,
+      "fact": "Defines delegation_tools as an explicit list."
+    },
+    {
+      "line": 127,
+      "fact": "Begins five Tool(delegate_to_..., prepare=...) registrations; lines 127-131 contain all five delegation tools."
+    },
+    {
+      "line": 135,
+      "fact": "Constructs the Pydantic AI Agent instance."
+    },
+    {
+      "line": 142,
+      "fact": "Binds delegation_tools through the Agent tools= constructor argument."
+    },
+    {
+      "line": 148,
+      "fact": "Begins explicit post-construction agent.tool(...) registration; lines 148-151 register four plan-management tools."
+    },
+    {
+      "line": 154,
+      "fact": "Registers read_file through agent.tool(read_file)."
+    }
+  ],
+  "rationale": "The locked automated reference omitted all tools and authority for this case. Pinned source explicitly binds five constructor tools and five post-construction agent.tool registrations. The first five HorusTrace predictions are source-proven rather than false positives; the latter five expose a real scanner recall gap addressed separately. The original locked truth remains unchanged.",
+  "authority_truth_patch": {
+    "remove": [],
+    "add": [
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "delegate_to_research"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "delegate_to_specification"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "delegate_to_plan"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "delegate_to_tasks"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "delegate_to_export"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "create_plan"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "mark_step_done"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "add_step"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "remove_step"
+      },
+      {
+        "agent": "agent",
+        "target_kind": "tool",
+        "target_name": "read_file"
+      }
+    ],
+    "unresolved": []
+  }
+}

@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "study": "real-world-agent-security-2026",
+  "case_id": "rw-124",
+  "dimension": "effective_authority",
+  "classification": "mixed_ground_truth_and_scanner_error",
+  "original_locked_truth_preserved": true,
+  "triggered_by_post_fix_disagreement": true,
+  "scanner_output_seen_before_adjudication": true,
+  "human_dual_review": false,
+  "adjudication_method": "post-fix pinned-source re-review",
+  "source_reference": {
+    "repo": "Danejw/ai-companion-backend",
+    "sha": "5868863046a6b3e69cba9d07e98fb2bd357976d1",
+    "paths": [
+      "app/function/orchestrate.py",
+      "app/my_agents.py",
+      "app/openai/voice.py",
+      "app/websockets/orchestrate_contextual.py"
+    ]
+  },
+  "disagreement_summary": {
+    "original_false_negatives": 12,
+    "reference_canonicalization_errors": 10,
+    "scanner_errors": 2
+  },
+  "post_hoc_corrections": [
+    {
+      "replace": {
+        "agent": "convo_lead_agent",
+        "target_kind": "tool",
+        "target_name": "search_agent"
+      },
+      "with": {
+        "agent": "convo_lead_agent",
+        "target_kind": "tool",
+        "target_name": "web_search"
+      }
+    },
+    {
+      "replace": {
+        "agent": "convo_lead_agent",
+        "target_kind": "tool",
+        "target_name": "memory_agents.agent"
+      },
+      "with": {
+        "agent": "convo_lead_agent",
+        "target_kind": "tool",
+        "target_name": "memory_search"
+      }
+    },
+    {
+      "replace": {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "search_agent"
+      },
+      "with": {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "search"
+      }
+    },
+    {
+      "replace": {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "ocean_agent"
+      },
+      "with": {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "ocean"
+      }
+    },
+    {
+      "replace": {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "mbti_agent"
+      },
+      "with": {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "mbti"
+      }
+    },
+    {
+      "replace": {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "witty_agent"
+      },
+      "with": {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "witty"
+      }
+    },
+    {
+      "replace": {
+        "agent": "MemoryAgent",
+        "target_kind": "tool",
+        "target_name": "get_weather"
+      },
+      "with": {
+        "agent": "Assistant",
+        "target_kind": "tool",
+        "target_name": "get_weather"
+      }
+    },
+    {
+      "replace": {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "search_agent"
+      },
+      "with": {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "web_search"
+      }
+    },
+    {
+      "replace": {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "memory_agents.agent"
+      },
+      "with": {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "memory_search"
+      }
+    },
+    {
+      "replace": {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "multistep_agent.multistep_agent"
+      },
+      "with": {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "multistep_agent"
+      }
+    }
+  ],
+  "scanner_errors": [
+    {
+      "relationship": {
+        "agent": "Search",
+        "target_kind": "tool",
+        "target_name": "WebSearchTool"
+      },
+      "missing_instances": 2,
+      "cause": "Three distinct source Agent instances share runtime name Search; the OpenAI adapter lacked source-scoped instance_key and consolidation merged them.",
+      "remediation": "PR #184 preserves source-scoped OpenAI Agent instances."
+    }
+  ],
+  "evidence": [
+    {
+      "path": "app/function/orchestrate.py",
+      "line": 328,
+      "fact": "search_agent.as_tool explicitly sets tool_name=web_search on line 329."
+    },
+    {
+      "path": "app/function/orchestrate.py",
+      "line": 332,
+      "fact": "memory_agents.agent.as_tool explicitly sets tool_name=memory_search on line 333."
+    },
+    {
+      "path": "app/my_agents.py",
+      "line": 101,
+      "fact": "Manager binds search/ocean/mbti/witty as explicit model-facing tool_name values on lines 101-104."
+    },
+    {
+      "path": "app/openai/voice.py",
+      "line": 121,
+      "fact": "The get_weather-bearing Agent is constructed with runtime name Assistant on line 122 and tools=[get_weather] on line 128."
+    },
+    {
+      "path": "app/websockets/orchestrate_contextual.py",
+      "line": 199,
+      "fact": "noelle_agent binds search_agent as model-facing web_search."
+    },
+    {
+      "path": "app/websockets/orchestrate_contextual.py",
+      "line": 204,
+      "fact": "noelle_agent binds memory_agents.agent as model-facing memory_search."
+    },
+    {
+      "path": "app/websockets/orchestrate_contextual.py",
+      "line": 214,
+      "fact": "noelle_agent binds multistep_agent.multistep_agent with tool_name=multistep_agent on line 215."
+    }
+  ],
+  "rationale": "Ten locked relationships use underlying Python agent variables where source explicitly defines different model-facing tool aliases, or use an incorrect agent runtime name. Those are reference canonicalization errors. Two additional misses remain genuine scanner errors caused by conflating three separate source Agent instances named Search. Original locked truth remains unchanged.",
+  "authority_truth_patch": {
+    "remove": [
+      {
+        "agent": "convo_lead_agent",
+        "target_kind": "tool",
+        "target_name": "search_agent"
+      },
+      {
+        "agent": "convo_lead_agent",
+        "target_kind": "tool",
+        "target_name": "memory_agents.agent"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "search_agent"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "ocean_agent"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "mbti_agent"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "witty_agent"
+      },
+      {
+        "agent": "MemoryAgent",
+        "target_kind": "tool",
+        "target_name": "get_weather"
+      },
+      {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "search_agent"
+      },
+      {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "memory_agents.agent"
+      },
+      {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "multistep_agent.multistep_agent"
+      }
+    ],
+    "add": [
+      {
+        "agent": "convo_lead_agent",
+        "target_kind": "tool",
+        "target_name": "web_search"
+      },
+      {
+        "agent": "convo_lead_agent",
+        "target_kind": "tool",
+        "target_name": "memory_search"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "search"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "ocean"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "mbti"
+      },
+      {
+        "agent": "Manager",
+        "target_kind": "tool",
+        "target_name": "witty"
+      },
+      {
+        "agent": "Assistant",
+        "target_kind": "tool",
+        "target_name": "get_weather"
+      },
+      {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "web_search"
+      },
+      {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "memory_search"
+      },
+      {
+        "agent": "noelle_agent",
+        "target_kind": "tool",
+        "target_name": "multistep_agent"
+      }
+    ],
+    "unresolved": []
+  }
+}
