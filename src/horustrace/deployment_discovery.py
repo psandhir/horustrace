@@ -1,0 +1,296 @@
+"""Offline discovery of repository-declared deployment workload identities.
+
+Only literal workload-to-identity bindings are emitted. Computed Terraform references,
+missing Kubernetes namespaces, and unsupported provider constructs are retained as
+unresolved evidence rather than guessed.
+"""
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from horustrace.deployment_evidence import (
+    DeploymentEvidenceBundle,
+    DeploymentWorkloadEvidence,
+)
+from horustrace.principals import canonical_principal
+
+_RESOURCE_RE = re.compile(r'^\s*resource\s+"([^"]+)"\s+"([^"]+)"\s*\{')
+_LITERAL_ATTR = r'\b{attribute}\s*=\s*"([^"]+)"'
+
+_TERRAFORM_WORKLOADS: dict[str, tuple[str, str, str]] = {
+    "google_cloud_run_v2_service": ("gcp", "cloud_run_v2", "service_account"),
+    "google_cloud_run_service": ("gcp", "cloud_run", "service_account_name"),
+    "aws_ecs_task_definition": ("aws", "ecs_task_definition", "task_role_arn"),
+    "aws_lambda_function": ("aws", "lambda_function", "role"),
+}
+
+_K8S_TEMPLATE_KINDS = {
+    "Deployment",
+    "StatefulSet",
+    "DaemonSet",
+    "ReplicaSet",
+    "Job",
+}
+_K8S_SUPPORTED_KINDS = _K8S_TEMPLATE_KINDS | {"CronJob", "Pod"}
+
+
+@dataclass(frozen=True, slots=True)
+class UnresolvedDeploymentEvidence:
+    provider: str
+    kind: str
+    name: str
+    reason: str
+    path: str
+    line: int | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "provider": self.provider,
+            "kind": self.kind,
+            "name": self.name,
+            "reason": self.reason,
+            "path": self.path,
+            "line": self.line,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class DeploymentDiscoveryResult:
+    bundles: tuple[DeploymentEvidenceBundle, ...]
+    unresolved: tuple[UnresolvedDeploymentEvidence, ...]
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "bundles": [bundle.as_dict() for bundle in self.bundles],
+            "unresolved": [item.as_dict() for item in self.unresolved],
+        }
+
+
+def _terraform_blocks(text: str):
+    lines = text.splitlines()
+    index = 0
+    while index < len(lines):
+        match = _RESOURCE_RE.match(lines[index])
+        if not match:
+            index += 1
+            continue
+        resource_type, resource_name = match.groups()
+        start = index
+        depth = lines[index].count("{") - lines[index].count("}")
+        index += 1
+        while index < len(lines) and depth > 0:
+            depth += lines[index].count("{") - lines[index].count("}")
+            index += 1
+        yield resource_type, resource_name, start + 1, "\n".join(lines[start:index])
+
+
+def _literal(block: str, attribute: str) -> str | None:
+    match = re.search(_LITERAL_ATTR.format(attribute=re.escape(attribute)), block)
+    if not match:
+        return None
+    value = match.group(1).strip()
+    return value or None
+
+
+def discover_terraform_workloads(
+    path: Path,
+) -> tuple[list[DeploymentWorkloadEvidence], list[UnresolvedDeploymentEvidence]]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return [], []
+
+    workloads: list[DeploymentWorkloadEvidence] = []
+    unresolved: list[UnresolvedDeploymentEvidence] = []
+    for resource_type, resource_name, line, block in _terraform_blocks(text):
+        config = _TERRAFORM_WORKLOADS.get(resource_type)
+        if config is None:
+            continue
+        provider, kind, identity_attr = config
+        identity = _literal(block, identity_attr)
+        if identity is None or canonical_principal(provider, identity) is None:
+            unresolved.append(
+                UnresolvedDeploymentEvidence(
+                    provider=provider,
+                    kind=kind,
+                    name=resource_name,
+                    reason=f"non_literal_or_unsupported_identity:{identity_attr}",
+                    path=str(path),
+                    line=line,
+                )
+            )
+            continue
+
+        project = _literal(block, "project") if provider == "gcp" else None
+        region = (
+            _literal(block, "location") or _literal(block, "region")
+            if provider == "gcp"
+            else None
+        )
+        workloads.append(
+            DeploymentWorkloadEvidence(
+                workload_id=f"terraform:{resource_type}.{resource_name}",
+                kind=kind,
+                name=_literal(block, "name") or resource_name,
+                identity=identity,
+                project=project,
+                region=region,
+                metadata={
+                    "evidence_kind": "terraform",
+                    "terraform_resource": resource_type,
+                    "path": str(path),
+                    "line": line,
+                    "identity_attribute": identity_attr,
+                },
+            )
+        )
+    return workloads, unresolved
+
+
+def _mapping(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _k8s_pod_spec(document: dict[str, Any]) -> dict[str, Any]:
+    kind = document.get("kind")
+    spec = _mapping(document.get("spec"))
+    if kind == "Pod":
+        return spec
+    if kind == "CronJob":
+        job_template = _mapping(spec.get("jobTemplate"))
+        job_spec = _mapping(job_template.get("spec"))
+        template = _mapping(job_spec.get("template"))
+        return _mapping(template.get("spec"))
+    if kind in _K8S_TEMPLATE_KINDS:
+        template = _mapping(spec.get("template"))
+        return _mapping(template.get("spec"))
+    return {}
+
+
+def discover_kubernetes_workloads(
+    path: Path,
+) -> tuple[list[DeploymentWorkloadEvidence], list[UnresolvedDeploymentEvidence]]:
+    try:
+        text = path.read_text(encoding="utf-8")
+        documents = list(yaml.safe_load_all(text))
+    except (OSError, UnicodeDecodeError, yaml.YAMLError):
+        return [], []
+
+    workloads: list[DeploymentWorkloadEvidence] = []
+    unresolved: list[UnresolvedDeploymentEvidence] = []
+    for index, raw in enumerate(documents):
+        document = _mapping(raw)
+        kind = document.get("kind")
+        if kind not in _K8S_SUPPORTED_KINDS:
+            continue
+        metadata = _mapping(document.get("metadata"))
+        name = metadata.get("name")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        name = name.strip()
+        namespace = metadata.get("namespace")
+        pod_spec = _k8s_pod_spec(document)
+        service_account = pod_spec.get("serviceAccountName")
+        if not isinstance(service_account, str) or not service_account.strip():
+            unresolved.append(
+                UnresolvedDeploymentEvidence(
+                    provider="kubernetes",
+                    kind=str(kind).lower(),
+                    name=name,
+                    reason="service_account_not_explicit",
+                    path=str(path),
+                )
+            )
+            continue
+        if not isinstance(namespace, str) or not namespace.strip():
+            unresolved.append(
+                UnresolvedDeploymentEvidence(
+                    provider="kubernetes",
+                    kind=str(kind).lower(),
+                    name=name,
+                    reason="namespace_not_explicit",
+                    path=str(path),
+                )
+            )
+            continue
+
+        namespace = namespace.strip()
+        service_account = service_account.strip()
+        identity = f"{namespace}/{service_account}"
+        canonical = canonical_principal("kubernetes", identity)
+        if canonical is None:
+            unresolved.append(
+                UnresolvedDeploymentEvidence(
+                    provider="kubernetes",
+                    kind=str(kind).lower(),
+                    name=name,
+                    reason="invalid_service_account_identity",
+                    path=str(path),
+                )
+            )
+            continue
+        workloads.append(
+            DeploymentWorkloadEvidence(
+                workload_id=f"kubernetes:{kind}:{namespace}:{name}",
+                kind=str(kind).lower(),
+                name=name,
+                identity=canonical,
+                metadata={
+                    "evidence_kind": "kubernetes_manifest",
+                    "path": str(path),
+                    "document_index": index,
+                    "namespace": namespace,
+                },
+            )
+        )
+    return workloads, unresolved
+
+
+def discover_deployment_evidence(paths: list[Path]) -> DeploymentDiscoveryResult:
+    by_provider: dict[str, list[DeploymentWorkloadEvidence]] = {}
+    unresolved: list[UnresolvedDeploymentEvidence] = []
+
+    for path in sorted(paths):
+        suffix = path.suffix.lower()
+        found: list[DeploymentWorkloadEvidence] = []
+        skipped: list[UnresolvedDeploymentEvidence] = []
+        if suffix == ".tf":
+            found, skipped = discover_terraform_workloads(path)
+        elif suffix in {".yaml", ".yml"}:
+            found, skipped = discover_kubernetes_workloads(path)
+        unresolved.extend(skipped)
+        for workload in found:
+            provider = "kubernetes" if workload.identity.startswith("system:serviceaccount:") else None
+            if provider is None:
+                for candidate in ("gcp", "aws", "azure"):
+                    if canonical_principal(candidate, workload.identity) is not None:
+                        provider = candidate
+                        break
+            if provider is not None:
+                by_provider.setdefault(provider, []).append(workload)
+
+    bundles = tuple(
+        DeploymentEvidenceBundle(
+            provider=provider,
+            source="repository_discovery",
+            workloads=tuple(
+                sorted(items, key=lambda item: (item.workload_id, item.identity))
+            ),
+            metadata={"evidence_kind": "repository_declared"},
+        )
+        for provider, items in sorted(by_provider.items())
+    )
+    return DeploymentDiscoveryResult(
+        bundles=bundles,
+        unresolved=tuple(
+            sorted(
+                unresolved,
+                key=lambda item: (item.path, item.line or 0, item.provider, item.name),
+            )
+        ),
+    )
