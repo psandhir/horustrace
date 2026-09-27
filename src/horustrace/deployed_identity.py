@@ -13,7 +13,6 @@ from typing import Any
 from horustrace.principals import canonical_principal
 from horustrace.deployment_evidence import DeploymentEvidenceBundle, DeploymentWorkloadEvidence
 from horustrace.models import Agent, Graph
-from horustrace.principals import canonical_principal
 
 DEPLOYED_IDENTITY_SCHEMA_VERSION = 1
 
