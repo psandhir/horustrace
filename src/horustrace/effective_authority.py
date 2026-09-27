@@ -232,6 +232,12 @@ def _tool_relationship(
         resources=tuple(_resource(resource) for resource in tool.resources),
         destinations=destinations,
         semantics={
+            "binding_origin": (
+                tool.metadata.get("binding_origin")
+                or tool.metadata.get("authority_binding_basis")
+                or tool.metadata.get("source")
+            ),
+            "delegate_target": tool.metadata.get("delegate_target"),
             "mutation": tool.metadata.get("mutation_semantics"),
             "network": (
                 tool.metadata.get("network_semantics")

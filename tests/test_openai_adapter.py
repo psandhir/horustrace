@@ -342,3 +342,103 @@ agent = Agent(name="search-agent", tools=tools)
 
     agent = next(item for item in graph.agents if item.name == "search-agent")
     assert [tool.name for tool in agent.tools] == ["search"]
+
+
+def test_openai_same_runtime_name_keeps_source_scoped_instances(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "left.py").write_text(
+        """
+from agents import Agent, WebSearchTool
+
+search_agent = Agent(name="Search", tools=[WebSearchTool()])
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "right.py").write_text(
+        """
+from agents import Agent, WebSearchTool
+
+search_agent = Agent(name="Search", tools=[WebSearchTool()])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    searches = [agent for agent in graph.agents if agent.name == "Search"]
+    assert len(searches) == 2
+    assert len({agent.metadata["instance_key"] for agent in searches}) == 2
+    assert {agent.location.path.name for agent in searches if agent.location} == {
+        "left.py",
+        "right.py",
+    }
+
+
+def test_openai_source_instances_share_logical_manifest_overlay(
+    tmp_path: Path,
+) -> None:
+    for filename in ("left.py", "right.py"):
+        (tmp_path / filename).write_text(
+            """
+from agents import Agent, WebSearchTool
+
+search_agent = Agent(name="Search", tools=[WebSearchTool()])
+""",
+            encoding="utf-8",
+        )
+    (tmp_path / "horustrace.manifest.yaml").write_text(
+        """
+version: 1
+agents:
+  - name: Search
+    policy:
+      denied_capabilities: [network.external]
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    searches = [agent for agent in graph.agents if agent.name == "Search"]
+    assert len(searches) == 2
+    assert all(
+        "network.external" in agent.policy.denied_capabilities
+        for agent in searches
+    )
+
+
+def test_openai_agent_as_tool_preserves_underlying_source_target(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent
+import memory_agents
+
+search_agent = Agent(name="Search")
+manager = Agent(
+    name="Manager",
+    tools=[
+        search_agent.as_tool(
+            tool_name="web_search",
+            tool_description="Search the web",
+        ),
+        memory_agents.agent.as_tool(
+            tool_name="memory_search",
+            tool_description="Search memory",
+        ),
+    ],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    manager = next(agent for agent in graph.agents if agent.name == "Manager")
+    by_name = {tool.name: tool for tool in manager.tools}
+
+    assert by_name["web_search"].metadata["delegate_target"] == "search_agent"
+    assert by_name["web_search"].metadata["binding_origin"] == "agent_as_tool"
+    assert by_name["memory_search"].metadata["delegate_target"] == "memory_agents.agent"
+    assert by_name["memory_search"].metadata["binding_origin"] == "agent_as_tool"

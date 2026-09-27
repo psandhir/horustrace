@@ -251,3 +251,37 @@ def test_effective_authority_excludes_workflow_projection_tools(tmp_path: Path) 
         edge.kind == "INVOKES" and edge.target == projected_node.node_id
         for edge in graph.adg.edges
     )
+
+
+def test_effective_authority_exposes_agent_as_tool_binding_provenance(
+    tmp_path: Path,
+) -> None:
+    location = SourceLocation(tmp_path / "agent.py", line=10)
+    graph = Graph(
+        agents=[
+            Agent(
+                name="Manager",
+                tools=[
+                    Tool(
+                        name="web_search",
+                        kind="delegated_agent",
+                        capabilities={"agent.delegate"},
+                        location=location,
+                        metadata={
+                            "framework": "openai-agents",
+                            "binding_origin": "agent_as_tool",
+                            "delegate_target": "search_agent",
+                        },
+                    )
+                ],
+                location=location,
+            )
+        ]
+    )
+    graph.adg = build_adg(graph, tmp_path)
+
+    relationship = effective_authority_report(graph)["relationships"][0]
+
+    assert relationship["target"] == {"kind": "tool", "name": "web_search"}
+    assert relationship["semantics"]["binding_origin"] == "agent_as_tool"
+    assert relationship["semantics"]["delegate_target"] == "search_agent"
