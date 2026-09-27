@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "study": "real-world-agent-security-2026",
+  "case_id": "rw-144",
+  "dimension": "effective_authority",
+  "classification": "mixed_ground_truth_and_scanner_error",
+  "original_locked_truth_preserved": true,
+  "triggered_by_post_fix_disagreement": true,
+  "scanner_output_seen_before_adjudication": true,
+  "human_dual_review": false,
+  "adjudication_method": "post-fix pinned-source re-review",
+  "source_reference": {
+    "repo": "SATUNIX/gateway",
+    "sha": "f0659bbf7e804865e5142e97092683884110d6d0",
+    "paths": [
+      "examples/agents/Spark/agent.py",
+      "src/sdk_adapter/gateway_tools.py"
+    ]
+  },
+  "original_locked_truth": {
+    "relationship": {
+      "agent": "Spark Assistant",
+      "target_kind": "tool",
+      "target_name": "use_gateway_tool"
+    }
+  },
+  "post_hoc_assessment": {
+    "binding_present": true,
+    "locked_target_name_valid": false,
+    "canonical_runtime_target": "unresolved",
+    "known_literal_gateway_tool": "http_echo",
+    "possible_wrapper_name": "gateway_http_echo"
+  },
+  "scanner_error": {
+    "cause": "OpenAI explicit tools list contains a custom tool-factory call use_gateway_tool(...), which the adapter currently drops because it is not a recognized built-in/tool wrapper.",
+    "remediation_status": "not_yet_generalized"
+  },
+  "evidence": [
+    {
+      "path": "examples/agents/Spark/agent.py",
+      "line": 58,
+      "fact": "Spark Assistant explicitly supplies a tools list."
+    },
+    {
+      "path": "examples/agents/Spark/agent.py",
+      "line": 72,
+      "fact": "The list contains use_gateway_tool(\"http_echo\", ...), proving a tool-factory binding with literal gateway tool identity."
+    },
+    {
+      "path": "src/sdk_adapter/gateway_tools.py",
+      "line": 53,
+      "fact": "use_gateway_tool is a helper factory, not the produced tool itself."
+    },
+    {
+      "path": "src/sdk_adapter/gateway_tools.py",
+      "line": 56,
+      "fact": "use_gateway_tool delegates to gateway_tool(tool_name, ...)."
+    },
+    {
+      "path": "src/sdk_adapter/gateway_tools.py",
+      "line": 36,
+      "fact": "gateway_tool decorates a generated _gateway_tool with OpenAI Agents function_tool."
+    },
+    {
+      "path": "src/sdk_adapter/gateway_tools.py",
+      "line": 46,
+      "fact": "The generated wrapper name is set to gateway_{tool_name}."
+    }
+  ],
+  "rationale": "The locked reference names the factory helper use_gateway_tool as the authority target, but pinned source proves that helper returns a generated OpenAI function tool backed by literal gateway tool http_echo. Exact runtime naming cannot be established from this repository alone without relying on OpenAI Agents decorator behavior, so the corrected target remains unresolved. HorusTrace still has a real recall gap because it drops this explicit custom factory binding; a generalized factory rule should require evidence beyond this single case.",
+  "authority_truth_patch": {
+    "remove": [
+      {
+        "agent": "Spark Assistant",
+        "target_kind": "tool",
+        "target_name": "use_gateway_tool"
+      }
+    ],
+    "add": [],
+    "unresolved": [
+      {
+        "agent": "Spark Assistant",
+        "target_kind": "tool",
+        "target_name": "custom_factory_binding:http_echo"
+      }
+    ]
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "study": "real-world-agent-security-2026",
+  "case_id": "rw-040",
+  "dimension": "effective_authority",
+  "classification": "ground_truth_error",
+  "original_locked_truth_preserved": true,
+  "triggered_by_post_fix_disagreement": true,
+  "scanner_output_seen_before_adjudication": true,
+  "human_dual_review": false,
+  "adjudication_method": "post-fix pinned-source re-review",
+  "source_reference": {
+    "repo": "dwij2812/streamassist-datastorespec-example",
+    "sha": "c7ae87d8c45a55c2c678690269ec49c92801d4b8",
+    "path": "agent.py"
+  },
+  "original_locked_truth": {
+    "relationship": {
+      "agent": "StreamAssistOrchestratorAgent",
+      "target_kind": "tool",
+      "target_name": "stream_assist_tool"
+    }
+  },
+  "post_hoc_correction": {
+    "replace_relationship": {
+      "agent": "StreamAssistOrchestratorAgent",
+      "target_kind": "tool",
+      "target_name": "invoke_agent_streamassist"
+    }
+  },
+  "evidence": [
+    {
+      "line": 167,
+      "fact": "Assigns stream_assist_tool = FunctionTool(...)."
+    },
+    {
+      "line": 168,
+      "fact": "The FunctionTool explicitly wraps func=invoke_agent_streamassist."
+    },
+    {
+      "line": 180,
+      "fact": "Binds stream_assist_tool in the LlmAgent tools list."
+    }
+  ],
+  "rationale": "The locked automated reference used the Python variable name stream_assist_tool. Google ADK FunctionTool exposes the wrapped function as the callable tool identity; pinned source explicitly binds invoke_agent_streamassist through that wrapper. The original truth remains unchanged.",
+  "authority_truth_patch": {
+    "remove": [
+      {
+        "agent": "StreamAssistOrchestratorAgent",
+        "target_kind": "tool",
+        "target_name": "stream_assist_tool"
+      }
+    ],
+    "add": [
+      {
+        "agent": "StreamAssistOrchestratorAgent",
+        "target_kind": "tool",
+        "target_name": "invoke_agent_streamassist"
+      }
+    ],
+    "unresolved": []
+  }
+}
