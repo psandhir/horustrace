@@ -16,7 +16,7 @@ _AWS_IAM_ROLE_ARN_RE = re.compile(
     r"^arn:(?P<partition>aws(?:-[a-z0-9-]+)?):iam::(?P<account>[0-9]{12}):role/(?P<name>[^\s]+)$"
 )
 _AZURE_OBJECT_ID_RE = re.compile(
-    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
 _K8S_CANONICAL_RE = re.compile(
     r"^system:serviceaccount:(?P<namespace>[a-z0-9]([-a-z0-9]*[a-z0-9])?):(?P<name>[a-z0-9]([-a-z0-9.]*[a-z0-9])?)$"
