@@ -22,6 +22,8 @@ from horustrace.deployment_evidence import (
     DeploymentWorkloadEvidence,
     IAMBindingEvidence,
 )
+from horustrace.limits import MAX_FILE_SIZE_BYTES, MAX_REPOSITORY_ENTRIES_VISITED
+from horustrace.path_safety import canonical_root, is_within_root
 from horustrace.principals import canonical_principal
 
 _RESOURCE_RE = re.compile(r'^\s*resource\s+"([^"]+)"\s+"([^"]+)"\s*\{')
@@ -42,6 +44,21 @@ _K8S_TEMPLATE_KINDS = {
     "Job",
 }
 _K8S_SUPPORTED_KINDS = _K8S_TEMPLATE_KINDS | {"CronJob", "Pod"}
+_IGNORED_DIRS = {
+    ".git",
+    ".terraform",
+    ".venv",
+    "venv",
+    "node_modules",
+    "dist",
+    "build",
+    "__pycache__",
+}
+
+
+class DeploymentDiscoveryError(ValueError):
+    """Repository deployment evidence could not be discovered safely."""
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -340,6 +357,107 @@ def discover_deployment_evidence(paths: list[Path]) -> DeploymentDiscoveryResult
             sorted(
                 unresolved,
                 key=lambda item: (item.path, item.line or 0, item.provider, item.name),
+            )
+        ),
+    )
+
+
+def discover_repository_deployment_evidence(root: Path) -> DeploymentDiscoveryResult:
+    """Discover supported deployment evidence beneath a checked-out repository."""
+    source = root.resolve()
+    if not source.exists() or not source.is_dir():
+        raise DeploymentDiscoveryError(
+            f"{root}: deployment source must be an existing directory"
+        )
+
+    containment_root = canonical_root(source)
+    files: list[Path] = []
+    unresolved: list[UnresolvedDeploymentEvidence] = []
+    entries = 0
+
+    try:
+        candidates = source.rglob("*")
+        for candidate in candidates:
+            entries += 1
+            if entries > MAX_REPOSITORY_ENTRIES_VISITED:
+                raise DeploymentDiscoveryError(
+                    f"{root}: deployment-source traversal exceeds the "
+                    f"{MAX_REPOSITORY_ENTRIES_VISITED}-entry safety limit"
+                )
+            try:
+                relative = candidate.relative_to(source)
+            except ValueError:
+                continue
+            if any(part in _IGNORED_DIRS for part in relative.parts):
+                continue
+            try:
+                if not candidate.is_file():
+                    continue
+            except OSError:
+                unresolved.append(
+                    UnresolvedDeploymentEvidence(
+                        provider="unknown",
+                        kind="repository_path",
+                        name=str(relative),
+                        reason="path_unreadable",
+                        path=str(candidate),
+                    )
+                )
+                continue
+            if candidate.suffix.lower() not in {".tf", ".yaml", ".yml"}:
+                continue
+            if not is_within_root(candidate, containment_root):
+                unresolved.append(
+                    UnresolvedDeploymentEvidence(
+                        provider="unknown",
+                        kind="repository_path",
+                        name=str(relative),
+                        reason="path_outside_repository",
+                        path=str(candidate),
+                    )
+                )
+                continue
+            try:
+                if candidate.stat().st_size > MAX_FILE_SIZE_BYTES:
+                    unresolved.append(
+                        UnresolvedDeploymentEvidence(
+                            provider="unknown",
+                            kind="repository_path",
+                            name=str(relative),
+                            reason="file_too_large",
+                            path=str(candidate),
+                        )
+                    )
+                    continue
+            except OSError:
+                unresolved.append(
+                    UnresolvedDeploymentEvidence(
+                        provider="unknown",
+                        kind="repository_path",
+                        name=str(relative),
+                        reason="path_unreadable",
+                        path=str(candidate),
+                    )
+                )
+                continue
+            files.append(candidate)
+    except OSError as exc:
+        raise DeploymentDiscoveryError(
+            f"{root}: cannot traverse deployment source"
+        ) from exc
+
+    discovered = discover_deployment_evidence(files)
+    return DeploymentDiscoveryResult(
+        bundles=discovered.bundles,
+        unresolved=tuple(
+            sorted(
+                [*discovered.unresolved, *unresolved],
+                key=lambda item: (
+                    item.path,
+                    item.line or 0,
+                    item.provider,
+                    item.name,
+                ),
             )
         ),
     )

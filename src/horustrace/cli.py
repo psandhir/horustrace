@@ -23,6 +23,10 @@ from horustrace.change_analysis import build_git_diff
 from horustrace.change_analysis import render_console as render_diff_console
 from horustrace.change_analysis import render_markdown as render_diff_markdown
 from horustrace.config import ConfigError, load_config
+from horustrace.deployment_discovery import (
+    DeploymentDiscoveryError,
+    discover_repository_deployment_evidence,
+)
 from horustrace.deployment_evidence import DeploymentEvidenceError, load_deployment_evidence
 from horustrace.deployment_report import (
     build_deployment_security_report,
@@ -253,8 +257,23 @@ def _parser() -> argparse.ArgumentParser:
     reconcile_parser.add_argument(
         "--deployment-evidence",
         type=Path,
-        required=True,
         help="Normalized v1 JSON/YAML deployment and IAM evidence snapshot.",
+    )
+    reconcile_parser.add_argument(
+        "--deployment-source",
+        type=Path,
+        help=(
+            "Checked-out Terraform/Kubernetes repository or directory from which "
+            "literal deployment and IAM/RBAC evidence is discovered."
+        ),
+    )
+    reconcile_parser.add_argument(
+        "--deployment-provider",
+        choices=["gcp", "aws", "azure", "kubernetes"],
+        help=(
+            "Provider bundle to use with --deployment-source. Required only when "
+            "the source contains evidence for multiple providers."
+        ),
     )
     reconcile_parser.add_argument(
         "--baseline-deployment-evidence",
@@ -528,7 +547,40 @@ def main(argv: list[str] | None = None) -> int:
                 config=config,
                 authority_source=args.authority_source,
             )
-            deployment_evidence = load_deployment_evidence(args.deployment_evidence)
+            if bool(args.deployment_evidence) == bool(args.deployment_source):
+                raise DeploymentEvidenceError(
+                    "provide exactly one of --deployment-evidence or --deployment-source"
+                )
+            if args.deployment_evidence is not None:
+                if args.deployment_provider is not None:
+                    raise DeploymentEvidenceError(
+                        "--deployment-provider is only valid with --deployment-source"
+                    )
+                deployment_evidence = load_deployment_evidence(args.deployment_evidence)
+            else:
+                discovery = discover_repository_deployment_evidence(
+                    args.deployment_source
+                )
+                bundles = list(discovery.bundles)
+                if args.deployment_provider is not None:
+                    bundles = [
+                        item
+                        for item in bundles
+                        if item.provider == args.deployment_provider
+                    ]
+                    if not bundles:
+                        raise DeploymentEvidenceError(
+                            "deployment source contains no evidence for provider "
+                            f"{args.deployment_provider}"
+                        )
+                if len(bundles) != 1:
+                    providers = ", ".join(item.provider for item in bundles) or "none"
+                    raise DeploymentEvidenceError(
+                        "deployment source must resolve to exactly one provider bundle; "
+                        f"found: {providers}. Use --deployment-provider when needed."
+                    )
+                deployment_evidence = bundles[0]
+                graph.coverage.resolution["deployment_discovery"] = discovery.as_dict()
             if args.authority_source is not None:
                 deployment_requirements = enrich_cross_layer_required_authority(
                     graph,
@@ -562,6 +614,7 @@ def main(argv: list[str] | None = None) -> int:
             SuppressionError,
             ScanLimitError,
             DeploymentEvidenceError,
+            DeploymentDiscoveryError,
         ) as exc:
             print(f"horustrace: {exc}", file=sys.stderr)
             return 1
