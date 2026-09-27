@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "case_id": "aws-002",
+  "provider": "aws",
+  "reviewed": true,
+  "horustrace_results_seen": false,
+  "runtime_effectiveness": "not_verified",
+  "source": {
+    "repo": "amrutp24/terraform-aws-durable-agent-pipeline",
+    "sha": "352425a7041b9643f18af23213029f9cf80ab8aa",
+    "path": "main.tf"
+  },
+  "relationships": [
+    {
+      "workload_key": "terraform:aws_lambda_function.orchestrator",
+      "identity_key": "terraform:aws_iam_role.orchestrator",
+      "identity_projection": "arn"
+    },
+    {
+      "workload_key": "terraform:aws_lambda_function.api",
+      "identity_key": "terraform:aws_iam_role.api",
+      "identity_projection": "arn"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "main.tf",
+      "rationale": "Both Lambda functions bind explicit IAM role resources by .arn."
+    }
+  ],
+  "reviewer_notes": "Both Lambda functions bind explicit IAM role resources by .arn."
+}
