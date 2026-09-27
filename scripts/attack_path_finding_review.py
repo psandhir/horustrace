@@ -21,36 +21,35 @@ def _load(path: Path) -> dict[str, Any]:
     try:
         value = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
-        raise ReviewPackError(f"{path}: cannot load review case") from exc
+        raise ReviewPackError(f"{where}: cannot load review case") from exc
     if not isinstance(value, dict):
-        raise ReviewPackError(f"{path}: expected mapping")
+        raise ReviewPackError(f"{where}: expected mapping")
     return value
 
 
-def validate_review_case(path: Path) -> dict[str, Any]:
-    case = _load(path)
-    if case.get("schema_version") != 1:
-        raise ReviewPackError(f"{path}: schema_version must be 1")
-    if case.get("study") != "attack-path-finding-validation-2026":
-        raise ReviewPackError(f"{path}: unexpected study")
+def _validate_case_doc(case: dict[str, Any], where: str) -> dict[str, Any]:
+    if case.get("schema_version") not in {None, 1}:
+        raise ReviewPackError(f"{where}: schema_version must be 1")
+    if case.get("study") not in {None, "attack-path-finding-validation-2026"}:
+        raise ReviewPackError(f"{where}: unexpected study")
     case_type = case.get("case_type")
     if case_type not in {"attack_path", "finding"}:
-        raise ReviewPackError(f"{path}: invalid case_type")
+        raise ReviewPackError(f"{where}: invalid case_type")
 
     repository = case.get("repository")
     if not isinstance(repository, dict):
-        raise ReviewPackError(f"{path}: repository must be mapping")
+        raise ReviewPackError(f"{where}: repository must be mapping")
     sha = repository.get("sha")
     if not isinstance(sha, str) or len(sha) != 40:
-        raise ReviewPackError(f"{path}: repository.sha must be full SHA")
+        raise ReviewPackError(f"{where}: repository.sha must be full SHA")
 
     reviewers = case.get("reviewers")
     if not isinstance(reviewers, list) or len(reviewers) != 2:
-        raise ReviewPackError(f"{path}: exactly two reviewers are required")
+        raise ReviewPackError(f"{where}: exactly two reviewers are required")
 
     ids: list[str] = []
     for index, review in enumerate(reviewers):
-        where = f"{path}: reviewers[{index}]"
+        where = f"{where}: reviewers[{index}]"
         if not isinstance(review, dict):
             raise ReviewPackError(f"{where}: expected mapping")
         reviewer_id = review.get("reviewer_id")
@@ -79,7 +78,7 @@ def validate_review_case(path: Path) -> dict[str, Any]:
             raise ReviewPackError(f"{where}: rationale is required")
 
     if ids[0] == ids[1]:
-        raise ReviewPackError(f"{path}: reviewers must be different people")
+        raise ReviewPackError(f"{where}: reviewers must be different people")
 
     verdicts = [review["verdict"] for review in reviewers]
     severities = [review.get("severity", "unresolved") for review in reviewers]
@@ -94,8 +93,39 @@ def validate_review_case(path: Path) -> dict[str, Any]:
     }
 
 
+
+
+def validate_review_case(path: Path) -> dict[str, Any]:
+    case = _load(path)
+    if case.get("schema_version") != 1:
+        raise ReviewPackError(f"{path}: schema_version must be 1")
+    if case.get("study") != "attack-path-finding-validation-2026":
+        raise ReviewPackError(f"{path}: unexpected study")
+    return _validate_case_doc(case, str(path))
+
+
+def validate_review_packet(path: Path) -> list[dict[str, Any]]:
+    packet = _load(path)
+    if packet.get("schema_version") != 1:
+        raise ReviewPackError(f"{path}: schema_version must be 1")
+    if packet.get("study") != "attack-path-finding-validation-2026":
+        raise ReviewPackError(f"{path}: unexpected study")
+    cases = packet.get("cases")
+    if not isinstance(cases, list) or not cases:
+        raise ReviewPackError(f"{path}: packet cases must be non-empty")
+    rows: list[dict[str, Any]] = []
+    for index, case in enumerate(cases):
+        if not isinstance(case, dict):
+            raise ReviewPackError(f"{path}: cases[{index}] must be a mapping")
+        rows.append(_validate_case_doc(case, f"{path}: cases[{index}]"))
+    return rows
+
 def summarize(paths: list[Path]) -> dict[str, Any]:
     rows = [validate_review_case(path) for path in paths]
+    return summarize_rows(rows)
+
+
+def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "schema_version": 1,
         "study": "attack-path-finding-validation-2026",
@@ -111,14 +141,18 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("review_dir", type=Path)
+    parser.add_argument("review_input", type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
-    paths = sorted(args.review_dir.glob("*.yaml"))
-    if not paths:
-        raise ReviewPackError(f"{args.review_dir}: no review cases found")
-    report = summarize(paths)
+    if args.review_input.is_file():
+        rows = validate_review_packet(args.review_input)
+        report = summarize_rows(rows)
+    else:
+        paths = sorted(args.review_input.glob("*.yaml"))
+        if not paths:
+            raise ReviewPackError(f"{args.review_input}: no review cases found")
+        report = summarize(paths)
     payload = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.output:
         args.output.write_text(payload, encoding="utf-8")
