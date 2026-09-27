@@ -114,16 +114,22 @@ def test_final_metrics_combine_phase_a_and_phase_b() -> None:
                 "case_id": "fp-001",
                 "scanner_sha": "a" * 40,
                 "scanner_severity": "medium",
+                "rule_id": "AGT022",
+                "owasp_agentic": ["ASI02"],
             },
             {
                 "case_id": "fp-002",
                 "scanner_sha": "a" * 40,
                 "scanner_severity": "high",
+                "rule_id": "AGT020",
+                "owasp_agentic": ["ASI05"],
             },
             {
                 "case_id": "fp-003",
                 "scanner_sha": "a" * 40,
                 "scanner_severity": "critical",
+                "rule_id": "AGT020",
+                "owasp_agentic": ["ASI05"],
             },
         ],
     }
@@ -139,6 +145,18 @@ def test_final_metrics_combine_phase_a_and_phase_b() -> None:
     assert report["findings"]["severity"]["taxonomy"] == {
         "exact": 1,
         "scanner_one_level_higher": 1,
+    }
+    assert report["findings"]["precision_sample"]["by_rule"]["AGT020"] == {
+        "sampled": 2,
+        "supported": 1,
+        "unsupported": 1,
+        "precision": 0.5,
+    }
+    assert report["findings"]["precision_sample"]["by_owasp_agentic"]["ASI05"] == {
+        "sampled": 2,
+        "supported": 1,
+        "unsupported": 1,
+        "precision": 0.5,
     }
 
 
