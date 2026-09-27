@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -197,6 +197,8 @@ def _finding_precision_and_severity(
     tp = fp = unresolved = disagreements = 0
     exact = one_level = severity_total = 0
     taxonomy: Counter[str] = Counter()
+    by_rule: dict[str, Counter[str]] = defaultdict(Counter)
+    by_owasp: dict[str, Counter[str]] = defaultdict(Counter)
 
     for case_id, row in phase_b_rows.items():
         if row.get("case_type") != "finding":
@@ -210,10 +212,24 @@ def _finding_precision_and_severity(
         if verdict == "unresolved":
             unresolved += 1
             continue
+        rule_id = str(hidden[case_id].get("rule_id") or "unknown")
+        mapped_owasp = hidden[case_id].get("owasp_agentic")
+        if not isinstance(mapped_owasp, list):
+            mapped_owasp = []
+        by_rule[rule_id]["sampled"] += 1
+        for risk_id in mapped_owasp:
+            by_owasp[str(risk_id)]["sampled"] += 1
+
         if verdict == "supported":
             tp += 1
+            by_rule[rule_id]["supported"] += 1
+            for risk_id in mapped_owasp:
+                by_owasp[str(risk_id)]["supported"] += 1
         elif verdict == "unsupported":
             fp += 1
+            by_rule[rule_id]["unsupported"] += 1
+            for risk_id in mapped_owasp:
+                by_owasp[str(risk_id)]["unsupported"] += 1
         else:
             raise ScoreError(f"Phase-B review {case_id}: invalid consensus verdict")
 
@@ -236,6 +252,19 @@ def _finding_precision_and_severity(
         else:
             taxonomy["scanner_two_plus_levels_lower"] += 1
 
+    def grouped_precision(groups: dict[str, Counter[str]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, counts in sorted(groups.items()):
+            supported = int(counts["supported"])
+            unsupported = int(counts["unsupported"])
+            result[key] = {
+                "sampled": int(counts["sampled"]),
+                "supported": supported,
+                "unsupported": unsupported,
+                "precision": _ratio(supported, supported + unsupported),
+            }
+        return result
+
     finding = {
         "sampled_scanner_findings": tp + fp + unresolved + disagreements,
         "supported_tp": tp,
@@ -243,6 +272,8 @@ def _finding_precision_and_severity(
         "precision": _ratio(tp, tp + fp),
         "unresolved_cases": unresolved,
         "review_disagreements": disagreements,
+        "by_rule": grouped_precision(by_rule),
+        "by_owasp_agentic": grouped_precision(by_owasp),
     }
     severity = {
         "comparable_supported_findings": severity_total,
