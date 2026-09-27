@@ -87,5 +87,4 @@ def canonical_principal(provider: str, value: str) -> str | None:
         return normalize_azure_principal(value)
     if kind in {"kubernetes", "k8s"}:
         return normalize_kubernetes_service_account(value)
-    principal = value.strip()
-    return principal or None
+    return None
