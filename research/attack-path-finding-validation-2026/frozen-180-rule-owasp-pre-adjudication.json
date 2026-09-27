@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "study": "rule-owasp-fidelity-2026",
+  "source_study": "real-world-agent-security-2026",
+  "scanner_sha": "846d9ab08d3a5f68a0a7a123d1cf44c632d5e60f",
+  "workflow_run": 36333320576,
+  "artifact_id": 10936901533,
+  "artifact_digest": "sha256:7218526e21d5bdcaca06ac596f4f635057ef8b5f493dfb99427d50eeebe31394",
+  "cohort_cases": 180,
+  "successful_cases": 180,
+  "failed_cases": 0,
+  "analysis_incomplete_cases": 94,
+  "findings": {
+    "total": 271,
+    "runtime": 266,
+    "by_severity": {
+      "critical": 10,
+      "high": 69,
+      "medium": 192
+    },
+    "by_rule": {
+      "AGT040": {
+        "findings": 80,
+        "repositories": 32,
+        "runtime": 79
+      },
+      "AGT020": {
+        "findings": 57,
+        "repositories": 17,
+        "runtime": 54
+      },
+      "NET002": {
+        "findings": 41,
+        "repositories": 14,
+        "runtime": 41
+      },
+      "CAP005": {
+        "findings": 33,
+        "repositories": 22,
+        "runtime": 32
+      },
+      "AGT022": {
+        "findings": 20,
+        "repositories": 10,
+        "runtime": 20
+      },
+      "ADK001": {
+        "findings": 15,
+        "repositories": 9,
+        "runtime": 15
+      },
+      "PATH001": {
+        "findings": 10,
+        "repositories": 5,
+        "runtime": 10
+      },
+      "NET001": {
+        "findings": 5,
+        "repositories": 5,
+        "runtime": 5
+      },
+      "AGT021": {
+        "findings": 3,
+        "repositories": 3,
+        "runtime": 3
+      },
+      "CAP004": {
+        "findings": 2,
+        "repositories": 1,
+        "runtime": 2
+      },
+      "AGT032": {
+        "findings": 2,
+        "repositories": 1,
+        "runtime": 2
+      },
+      "IDN004": {
+        "findings": 1,
+        "repositories": 1,
+        "runtime": 1
+      },
+      "PATH006": {
+        "findings": 1,
+        "repositories": 1,
+        "runtime": 1
+      },
+      "AGT050": {
+        "findings": 1,
+        "repositories": 1,
+        "runtime": 1
+      }
+    },
+    "by_owasp_agentic": {
+      "ASI02": {
+        "findings": 154,
+        "repositories": 33,
+        "runtime": 152
+      },
+      "ASI05": {
+        "findings": 67,
+        "repositories": 19,
+        "runtime": 64
+      },
+      "ASI01": {
+        "findings": 11,
+        "repositories": 5,
+        "runtime": 11
+      },
+      "ASI03": {
+        "findings": 1,
+        "repositories": 1,
+        "runtime": 1
+      },
+      "ASI04": {
+        "findings": 1,
+        "repositories": 1,
+        "runtime": 1
+      }
+    }
+  },
+  "human_adjudication": "pending",
+  "runtime_effectiveness": "not_verified"
+}
