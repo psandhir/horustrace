@@ -163,6 +163,7 @@ candidates:
 
   - candidate_id: aws-06
     repository: Senora-dev/terraform-aws-self-service-agent
+    sha: 1dc2afe0c0570a978f803b5796e872caa3ff7f93
     provider: aws
     status: source-review
     prior_cohort_member: false
