@@ -1,0 +1,131 @@
+"""Validate blinded human reviews for attack-path/finding accuracy studies."""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+ATTACK_VERDICTS = {"valid", "invalid", "unresolved"}
+FINDING_VERDICTS = {"supported", "unsupported", "unresolved"}
+SEVERITIES = {"critical", "high", "medium", "low", "informational", "unresolved"}
+
+
+class ReviewPackError(ValueError):
+    pass
+
+
+def _load(path: Path) -> dict[str, Any]:
+    try:
+        value = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+        raise ReviewPackError(f"{path}: cannot load review case") from exc
+    if not isinstance(value, dict):
+        raise ReviewPackError(f"{path}: expected mapping")
+    return value
+
+
+def validate_review_case(path: Path) -> dict[str, Any]:
+    case = _load(path)
+    if case.get("schema_version") != 1:
+        raise ReviewPackError(f"{path}: schema_version must be 1")
+    if case.get("study") != "attack-path-finding-validation-2026":
+        raise ReviewPackError(f"{path}: unexpected study")
+    case_type = case.get("case_type")
+    if case_type not in {"attack_path", "finding"}:
+        raise ReviewPackError(f"{path}: invalid case_type")
+
+    repository = case.get("repository")
+    if not isinstance(repository, dict):
+        raise ReviewPackError(f"{path}: repository must be mapping")
+    sha = repository.get("sha")
+    if not isinstance(sha, str) or len(sha) != 40:
+        raise ReviewPackError(f"{path}: repository.sha must be full SHA")
+
+    reviewers = case.get("reviewers")
+    if not isinstance(reviewers, list) or len(reviewers) != 2:
+        raise ReviewPackError(f"{path}: exactly two reviewers are required")
+
+    ids: list[str] = []
+    for index, review in enumerate(reviewers):
+        where = f"{path}: reviewers[{index}]"
+        if not isinstance(review, dict):
+            raise ReviewPackError(f"{where}: expected mapping")
+        reviewer_id = review.get("reviewer_id")
+        if not isinstance(reviewer_id, str) or not reviewer_id.strip():
+            raise ReviewPackError(f"{where}: reviewer_id is required")
+        ids.append(reviewer_id.strip())
+        if review.get("independent_human") is not True:
+            raise ReviewPackError(f"{where}: independent_human must be true")
+        if review.get("horustrace_output_seen") is not False:
+            raise ReviewPackError(f"{where}: reviewer must be blinded")
+        if review.get("locked") is not True:
+            raise ReviewPackError(f"{where}: review must be locked")
+
+        verdict = review.get("verdict")
+        allowed = ATTACK_VERDICTS if case_type == "attack_path" else FINDING_VERDICTS
+        if verdict not in allowed:
+            raise ReviewPackError(f"{where}: invalid verdict {verdict!r}")
+        severity = review.get("severity", "unresolved")
+        if severity not in SEVERITIES:
+            raise ReviewPackError(f"{where}: invalid severity {severity!r}")
+        evidence = review.get("evidence")
+        if not isinstance(evidence, list) or not evidence:
+            raise ReviewPackError(f"{where}: evidence must be non-empty")
+        rationale = review.get("rationale")
+        if not isinstance(rationale, str) or not rationale.strip():
+            raise ReviewPackError(f"{where}: rationale is required")
+
+    if ids[0] == ids[1]:
+        raise ReviewPackError(f"{path}: reviewers must be different people")
+
+    verdicts = [review["verdict"] for review in reviewers]
+    severities = [review.get("severity", "unresolved") for review in reviewers]
+    return {
+        "case_id": case.get("case_id"),
+        "case_type": case_type,
+        "consensus": verdicts[0] == verdicts[1],
+        "consensus_verdict": verdicts[0] if verdicts[0] == verdicts[1] else None,
+        "severity_consensus": severities[0] == severities[1],
+        "consensus_severity": severities[0] if severities[0] == severities[1] else None,
+        "reviewers": ids,
+    }
+
+
+def summarize(paths: list[Path]) -> dict[str, Any]:
+    rows = [validate_review_case(path) for path in paths]
+    return {
+        "schema_version": 1,
+        "study": "attack-path-finding-validation-2026",
+        "cases": len(rows),
+        "attack_path_cases": sum(row["case_type"] == "attack_path" for row in rows),
+        "finding_cases": sum(row["case_type"] == "finding" for row in rows),
+        "consensus_cases": sum(bool(row["consensus"]) for row in rows),
+        "disagreement_cases": sum(not bool(row["consensus"]) for row in rows),
+        "rows": rows,
+        "scanner_reveal_allowed": bool(rows) and all(row["consensus"] for row in rows),
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("review_dir", type=Path)
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+
+    paths = sorted(args.review_dir.glob("*.yaml"))
+    if not paths:
+        raise ReviewPackError(f"{args.review_dir}: no review cases found")
+    report = summarize(paths)
+    payload = json.dumps(report, indent=2, sort_keys=True) + "\n"
+    if args.output:
+        args.output.write_text(payload, encoding="utf-8")
+    else:
+        print(payload, end="")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
