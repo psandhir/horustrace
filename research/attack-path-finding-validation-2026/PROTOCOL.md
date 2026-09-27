@@ -21,7 +21,7 @@ Reviewers receive only:
 - a proposed source-level path/assertion question;
 - standardized adjudication fields.
 
-The scanner output is revealed only after both reviews are locked.
+The raw scanner output and scoring metadata are not revealed to reviewers before their relevant review phase is locked. Phase B neutral claims may be derived from scanner findings, but their HorusTrace origin, rule ID and severity remain hidden.
 
 ## Reviewers
 
@@ -58,6 +58,30 @@ Allowed verdicts:
 - `unresolved`
 
 Reviewers must provide evidence paths and a concise rationale.
+
+## Finding validation phases
+
+Finding recall and finding precision use separate blinded phases.
+
+### Phase A — source-blind recall reference
+
+Before HorusTrace finding output is used for sampling, reviewers adjudicate a source-derived assertion pack. This establishes a locked denominator of source-supported assertions that can later be mapped to scanner detections for recall analysis.
+
+The Phase A pack is stratified by source assertion type and repository, not by HorusTrace rule ID or severity.
+
+### Phase B — rule/severity-stratified precision sample
+
+Only after Phase A is locked may the study coordinator inspect HorusTrace finding output to construct the precision sample.
+
+Phase B must:
+
+- stratify scanner findings by rule ID and scanner-reported severity;
+- convert each selected finding into a neutral factual claim plus bounded source scope;
+- hide rule ID, scanner severity, confidence, finding ID and whether the claim originated from HorusTrace from the reviewers;
+- use two independent human reviewers under the same evidence/rationale/lock requirements;
+- compare reviewer-supported factual truth and independently assigned severity to the hidden scanner metadata only after the Phase B reviews are locked.
+
+For Phase B, the reviewer field `horustrace_output_seen: false` means the reviewer did not see the raw HorusTrace record or its rule/severity metadata. Reviewers necessarily see the neutral claim they are asked to adjudicate.
 
 ## Finding sample
 
