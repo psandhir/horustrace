@@ -325,3 +325,152 @@ resource "google_cloud_run_v2_service" "chatbot" {
     assert agent["missing"]["roles"] == ["roles/cloudsql.client"]
     evidence_items = agent["evidence"]["required_authority"]
     assert evidence_items[0]["rule"] == "gcp.cloud_run.cloud_sql_socket"
+
+
+def test_reconcile_cli_discovers_repository_deployment_source(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    app = tmp_path / "app"
+    infra = tmp_path / "infra"
+    app.mkdir()
+    infra.mkdir()
+    (app / "horustrace.manifest.yaml").write_text(
+        """
+version: 1
+agent:
+  name: support
+  deployment:
+    workload_id: terraform:google_cloud_run_v2_service.support
+""",
+        encoding="utf-8",
+    )
+    (infra / "main.tf").write_text(
+        f"""
+resource "google_cloud_run_v2_service" "support" {{
+  name = "support-api"
+  project = "prod"
+  location = "europe-west1"
+  template {{
+    service_account = "{IDENTITY}"
+  }}
+}}
+
+resource "google_project_iam_member" "support" {{
+  project = "prod"
+  role = "roles/aiplatform.user"
+  member = "serviceAccount:{IDENTITY}"
+}}
+""",
+        encoding="utf-8",
+    )
+
+    assert main(
+        [
+            "reconcile",
+            str(app),
+            "--deployment-source",
+            str(infra),
+            "--format",
+            "json",
+        ]
+    ) == 0
+
+    report = json.loads(capsys.readouterr().out)
+    relationship = report["deployed_identity"]["relationships"][0]
+    assert relationship["agent"] == "support"
+    assert relationship["identity"] == IDENTITY
+    assert relationship["binding_basis"] == "agent_workload_id"
+    authority = report["deployed_authority"]["relationships"][0]
+    assert authority["roles"] == ["roles/aiplatform.user"]
+    assert authority["runtime_effectiveness"] == "not_verified"
+
+
+def test_reconcile_cli_requires_one_deployment_evidence_source(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    app = tmp_path / "app"
+    evidence = tmp_path / "deployment.json"
+    infra = tmp_path / "infra"
+    _write_app(app)
+    _write_evidence(evidence)
+    infra.mkdir()
+
+    assert main(["reconcile", str(app), "--format", "json"]) == 1
+    assert "exactly one" in capsys.readouterr().err
+
+    assert main(
+        [
+            "reconcile",
+            str(app),
+            "--deployment-evidence",
+            str(evidence),
+            "--deployment-source",
+            str(infra),
+            "--format",
+            "json",
+        ]
+    ) == 1
+    assert "exactly one" in capsys.readouterr().err
+
+
+def test_reconcile_cli_requires_provider_for_multi_provider_source(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    app = tmp_path / "app"
+    infra = tmp_path / "infra"
+    app.mkdir()
+    infra.mkdir()
+    (app / "horustrace.manifest.yaml").write_text(
+        """
+version: 1
+agent:
+  name: support
+  deployment:
+    workload_id: terraform:google_cloud_run_v2_service.support
+""",
+        encoding="utf-8",
+    )
+    (infra / "main.tf").write_text(
+        f"""
+resource "google_cloud_run_v2_service" "support" {{
+  template {{
+    service_account = "{IDENTITY}"
+  }}
+}}
+
+resource "aws_lambda_function" "worker" {{
+  role = "arn:aws:iam::123456789012:role/Worker"
+}}
+""",
+        encoding="utf-8",
+    )
+
+    assert main(
+        [
+            "reconcile",
+            str(app),
+            "--deployment-source",
+            str(infra),
+            "--format",
+            "json",
+        ]
+    ) == 1
+    assert "exactly one provider bundle" in capsys.readouterr().err
+
+    assert main(
+        [
+            "reconcile",
+            str(app),
+            "--deployment-source",
+            str(infra),
+            "--deployment-provider",
+            "gcp",
+            "--format",
+            "json",
+        ]
+    ) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["provider"] == "gcp"
