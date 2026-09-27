@@ -138,6 +138,95 @@ def _authority_candidates(doc: dict[str, Any]) -> list[Candidate]:
     return result
 
 
+def _near_miss_candidates(doc: dict[str, Any]) -> list[Candidate]:
+    tier_a = doc.get("tier_a") if isinstance(doc.get("tier_a"), dict) else {}
+    tier_b = doc.get("tier_b") if isinstance(doc.get("tier_b"), dict) else {}
+    completeness = tier_a.get("reference_completeness")
+    if not isinstance(completeness, dict) or completeness.get("tools") is not True:
+        return []
+    relationships = tier_b.get("authority_relationships")
+    tools = tier_a.get("tools")
+    agents = tier_a.get("agent_roots")
+    if not isinstance(relationships, list) or not isinstance(tools, list) or not isinstance(agents, list):
+        return []
+
+    repo, sha, app = _source(doc)
+    bound: dict[str, set[str]] = {}
+    relation_paths: dict[str, set[str]] = {}
+    for rel in relationships:
+        if not isinstance(rel, dict):
+            continue
+        agent = rel.get("agent")
+        target = rel.get("target_name")
+        if isinstance(agent, str) and isinstance(target, str):
+            bound.setdefault(agent, set()).add(target)
+            path = rel.get("path")
+            if isinstance(path, str):
+                relation_paths.setdefault(agent, set()).add(path)
+
+    tool_rows = [
+        item
+        for item in tools
+        if isinstance(item, dict)
+        and isinstance(item.get("name"), str)
+        and isinstance(item.get("path"), str)
+    ]
+    result: list[Candidate] = []
+    for agent_row in agents:
+        if not isinstance(agent_row, dict):
+            continue
+        agent = agent_row.get("name")
+        if not isinstance(agent, str) or agent not in bound:
+            continue
+        candidates = [tool for tool in tool_rows if tool["name"] not in bound[agent]]
+        if not candidates:
+            continue
+        tool = sorted(candidates, key=lambda x: (str(x["path"]), str(x["name"])))[0]
+        source_paths = {
+            app,
+            str(agent_row.get("path") or app),
+            str(tool["path"]),
+            *relation_paths.get(agent, set()),
+        }
+        result.append(
+            Candidate(
+                case_id=f"{doc['case_id']}-near-miss-{len(result)+1:02d}",
+                repo=repo,
+                sha=sha,
+                application_path=app,
+                category="invalid_near_miss",
+                question={
+                    "type": "attack_path",
+                    "claim": {
+                        "source": agent,
+                        "relation": "can_invoke",
+                        "target_kind": "tool",
+                        "target": tool["name"],
+                    },
+                    "prompt": (
+                        "Does the pinned source statically prove that this agent can "
+                        "directly invoke this in-scope tool? Treat mere repository "
+                        "co-presence as insufficient."
+                    ),
+                },
+                source_scope=tuple(sorted(source_paths)),
+                evidence_hint=(
+                    {
+                        "path": str(agent_row.get("path") or app),
+                        "line": agent_row.get("line"),
+                        "purpose": "review agent construction and actual bindings",
+                    },
+                    {
+                        "path": str(tool["path"]),
+                        "line": tool.get("line"),
+                        "purpose": "review the near-miss tool independently",
+                    },
+                ),
+            )
+        )
+    return result
+
+
 def _delegation_candidates(doc: dict[str, Any]) -> list[Candidate]:
     tier_a = doc.get("tier_a") if isinstance(doc.get("tier_a"), dict) else {}
     edges = tier_a.get("delegation_edges")
@@ -359,6 +448,7 @@ def build_packet(ground_truth_dir: Path) -> dict[str, Any]:
 
     authority: list[Candidate] = []
     delegation: list[Candidate] = []
+    near_miss: list[Candidate] = []
     approval: list[Candidate] = []
     mcp: list[Candidate] = []
     write: list[Candidate] = []
@@ -371,6 +461,7 @@ def build_packet(ground_truth_dir: Path) -> dict[str, Any]:
     for doc in docs:
         authority.extend(_authority_candidates(doc))
         delegation.extend(_delegation_candidates(doc))
+        near_miss.extend(_near_miss_candidates(doc))
         findings.extend(_finding_candidates(doc))
         for signal, target, category in [
             ("approval_controls", approval, "approval_gate"),
@@ -391,7 +482,8 @@ def build_packet(ground_truth_dir: Path) -> dict[str, Any]:
     repo_counts: Counter[str] = Counter()
     attack_cases: list[Candidate] = []
     quotas = [
-        (authority, 6),
+        (authority, 5),
+        (near_miss, 4),
         (delegation, 3),
         (approval, 3),
         (mcp, 3),
@@ -408,7 +500,7 @@ def build_packet(ground_truth_dir: Path) -> dict[str, Any]:
         attack_cases.extend(selected)
 
     if len(attack_cases) < 20:
-        fallback = authority + delegation + approval + mcp + write + execution + sensitive + trust + unresolved
+        fallback = authority + near_miss + delegation + approval + mcp + write + execution + sensitive + trust + unresolved
         attack_cases.extend(
             _stable_take(
                 [x for x in fallback if x.case_id not in {y.case_id for y in attack_cases}],
