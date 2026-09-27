@@ -21,9 +21,9 @@ def _load(path: Path) -> dict[str, Any]:
     try:
         value = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
-        raise ReviewPackError(f"{where}: cannot load review case") from exc
+        raise ReviewPackError(f"{path}: cannot load review case") from exc
     if not isinstance(value, dict):
-        raise ReviewPackError(f"{where}: expected mapping")
+        raise ReviewPackError(f"{path}: expected mapping")
     return value
 
 
@@ -48,37 +48,38 @@ def _validate_case_doc(case: dict[str, Any], where: str) -> dict[str, Any]:
         raise ReviewPackError(f"{where}: exactly two reviewers are required")
 
     ids: list[str] = []
+    case_where = where
     for index, review in enumerate(reviewers):
-        where = f"{where}: reviewers[{index}]"
+        review_where = f"{case_where}: reviewers[{index}]"
         if not isinstance(review, dict):
-            raise ReviewPackError(f"{where}: expected mapping")
+            raise ReviewPackError(f"{review_where}: expected mapping")
         reviewer_id = review.get("reviewer_id")
         if not isinstance(reviewer_id, str) or not reviewer_id.strip():
-            raise ReviewPackError(f"{where}: reviewer_id is required")
+            raise ReviewPackError(f"{review_where}: reviewer_id is required")
         ids.append(reviewer_id.strip())
         if review.get("independent_human") is not True:
-            raise ReviewPackError(f"{where}: independent_human must be true")
+            raise ReviewPackError(f"{review_where}: independent_human must be true")
         if review.get("horustrace_output_seen") is not False:
-            raise ReviewPackError(f"{where}: reviewer must be blinded")
+            raise ReviewPackError(f"{review_where}: reviewer must be blinded")
         if review.get("locked") is not True:
-            raise ReviewPackError(f"{where}: review must be locked")
+            raise ReviewPackError(f"{review_where}: review must be locked")
 
         verdict = review.get("verdict")
         allowed = ATTACK_VERDICTS if case_type == "attack_path" else FINDING_VERDICTS
         if verdict not in allowed:
-            raise ReviewPackError(f"{where}: invalid verdict {verdict!r}")
+            raise ReviewPackError(f"{review_where}: invalid verdict {verdict!r}")
         severity = review.get("severity", "unresolved")
         if severity not in SEVERITIES:
-            raise ReviewPackError(f"{where}: invalid severity {severity!r}")
+            raise ReviewPackError(f"{review_where}: invalid severity {severity!r}")
         evidence = review.get("evidence")
         if not isinstance(evidence, list) or not evidence:
-            raise ReviewPackError(f"{where}: evidence must be non-empty")
+            raise ReviewPackError(f"{review_where}: evidence must be non-empty")
         rationale = review.get("rationale")
         if not isinstance(rationale, str) or not rationale.strip():
-            raise ReviewPackError(f"{where}: rationale is required")
+            raise ReviewPackError(f"{review_where}: rationale is required")
 
     if ids[0] == ids[1]:
-        raise ReviewPackError(f"{where}: reviewers must be different people")
+        raise ReviewPackError(f"{case_where}: reviewers must be different people")
 
     verdicts = [review["verdict"] for review in reviewers]
     severities = [review.get("severity", "unresolved") for review in reviewers]
