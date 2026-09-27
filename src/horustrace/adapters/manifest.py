@@ -258,6 +258,19 @@ def scan_manifest(path: Path) -> Graph:
         if not isinstance(item, dict):
             continue
         agent = Agent(name=str(item.get("name") or "unnamed-agent"), location=SourceLocation(path=path))
+        deployment = item.get("deployment")
+        if isinstance(deployment, dict):
+            workload_id = deployment.get("workload_id")
+            deployment_name = deployment.get("name")
+            if isinstance(workload_id, str) and workload_id.strip():
+                agent.metadata["workload_id"] = workload_id.strip()
+            if isinstance(deployment_name, str) and deployment_name.strip():
+                agent.metadata["deployment_name"] = deployment_name.strip()
+            agent.metadata["deployment_binding"] = {
+                "source": "manifest",
+                "workload_id": agent.metadata.get("workload_id"),
+                "name": agent.metadata.get("deployment_name"),
+            }
 
         for source in item.get("data", []) or []:
             if isinstance(source, str):
