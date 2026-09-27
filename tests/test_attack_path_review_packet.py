@@ -20,6 +20,8 @@ def test_packet_is_source_only_stratified_and_blinded() -> None:
 
     assert packet["horustrace_output_used_for_selection"] is False
     assert packet["scanner_reveal_allowed"] is False
+    assert packet["phase"] == "source_blind_reference"
+    assert "Phase B" in packet["finding_sampling"]
     assert 20 <= packet["case_counts"]["attack_path"] <= 30
     assert packet["case_counts"]["finding"] >= 12
 
@@ -32,6 +34,10 @@ def test_packet_is_source_only_stratified_and_blinded() -> None:
     assert "dynamic_unresolved" in categories
 
     for row in packet["cases"]:
+        assert row["study_phase"] in {
+            "source_blind_attack_path",
+            "source_blind_finding_recall_reference",
+        }
         assert len(row["repository"]["sha"]) == 40
         assert row["source_scope"]
         assert row["source_review_hints"]
