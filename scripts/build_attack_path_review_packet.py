@@ -531,6 +531,11 @@ def build_packet(ground_truth_dir: Path) -> dict[str, Any]:
         return {
             "case_id": item.case_id,
             "case_type": case_type,
+            "study_phase": (
+                "source_blind_attack_path"
+                if case_type == "attack_path"
+                else "source_blind_finding_recall_reference"
+            ),
             "category": item.category,
             "repository": {"repo": item.repo, "sha": item.sha},
             "application_path": item.application_path,
@@ -548,6 +553,7 @@ def build_packet(ground_truth_dir: Path) -> dict[str, Any]:
         "schema_version": 1,
         "study": STUDY,
         "packet_version": 1,
+        "phase": "source_blind_reference",
         "selection_source": (
             "locked real-world-agent-security-2026 source truth only; "
             "no HorusTrace findings or attack-path output"
@@ -555,7 +561,12 @@ def build_packet(ground_truth_dir: Path) -> dict[str, Any]:
         "horustrace_output_used_for_selection": False,
         "scanner_reveal_allowed": False,
         "attack_path_target": "20-30",
-        "finding_sampling": "stratified by source assertion predicate with repository caps",
+        "finding_sampling": (
+            "Phase A recall reference: stratified by locked source assertion predicate "
+            "with repository caps. This is not the rule/severity precision sample. "
+            "After Phase A reviewer lock, Phase B must select HorusTrace findings by "
+            "rule and severity and convert them into separately blinded claim packets."
+        ),
         "case_counts": {
             "attack_path": len(attack_cases),
             "finding": len(finding_cases),
