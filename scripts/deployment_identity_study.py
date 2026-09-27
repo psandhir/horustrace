@@ -182,7 +182,11 @@ def fetch_pinned_repo(root: Path, pin: RepoPin) -> Path:
 
 
 def _observed_relationships(provider: str, source: Path) -> list[tuple[str, str]]:
-    discovery = discover_repository_deployment_evidence(source)
+    if source.is_file():
+        from horustrace.deployment_discovery import discover_deployment_evidence
+        discovery = discover_deployment_evidence([source])
+    else:
+        discovery = discover_repository_deployment_evidence(source)
     bundles = [bundle for bundle in discovery.bundles if bundle.provider == provider]
     if len(bundles) > 1:
         raise StudyError(f"{source}: duplicate provider bundles for {provider}")
