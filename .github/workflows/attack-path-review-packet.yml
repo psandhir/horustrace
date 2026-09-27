@@ -1,0 +1,73 @@
+name: Attack Path Review Packet
+
+on:
+  pull_request:
+    paths:
+      - "research/attack-path-finding-validation-2026/**"
+      - "research/real-world-agent-security-2026/ground-truth/**"
+      - "scripts/build_attack_path_review_packet.py"
+      - "tests/test_attack_path_review_packet.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: attack-path-review-packet-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build blinded review packet
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+
+      - name: Build source-only packet
+        run: |
+          mkdir -p research/attack-path-finding-validation-2026/generated
+          python scripts/build_attack_path_review_packet.py \
+            --output research/attack-path-finding-validation-2026/generated/review-packet.yaml
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          path = Path(
+              "research/attack-path-finding-validation-2026/generated/review-packet.yaml"
+          )
+          packet = yaml.safe_load(path.read_text(encoding="utf-8"))
+          counts = packet["case_counts"]
+          lines = [
+              "# Blinded human review packet",
+              "",
+              f"- Attack-path cases: {counts['attack_path']}",
+              f"- Finding cases: {counts['finding']}",
+              f"- Total cases: {counts['total']}",
+              f"- HorusTrace output used for selection: {packet['horustrace_output_used_for_selection']}",
+              f"- Scanner reveal allowed: {packet['scanner_reveal_allowed']}",
+          ]
+          print("\n".join(lines))
+          Path(
+              "research/attack-path-finding-validation-2026/generated/summary.md"
+          ).write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+          cat research/attack-path-finding-validation-2026/generated/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload blinded packet
+        uses: actions/upload-artifact@v4
+        with:
+          name: attack-path-review-packet-${{ github.event.pull_request.head.sha || github.sha }}
+          path: research/attack-path-finding-validation-2026/generated/
+          if-no-files-found: error
+          retention-days: 30
