@@ -177,14 +177,14 @@ def _sample(rows: list[dict[str, Any]], target: int) -> list[dict[str, Any]]:
         for key in ordered_strata:
             if len(selected) >= target:
                 break
-            if stratum_counts[key] >= 3:
+            if stratum_counts[key] >= 5:
                 continue
             pool = strata[key]
             candidate = next(
                 (
                     row
                     for row in pool
-                    if row not in selected and repo_counts[row["repo"]] < 3
+                    if row not in selected and repo_counts[row["repo"]] < 5
                 ),
                 None,
             )
@@ -211,7 +211,7 @@ def _sample(rows: list[dict[str, Any]], target: int) -> list[dict[str, Any]]:
         ):
             if len(selected) >= target:
                 break
-            if row in selected or repo_counts[row["repo"]] >= 4:
+            if row in selected or repo_counts[row["repo"]] >= 6:
                 continue
             selected.append(row)
             repo_counts[row["repo"]] += 1
@@ -223,7 +223,7 @@ def build_phase_b_packet(
     phase_a_summary: dict[str, Any],
     findings_doc: dict[str, Any],
     *,
-    target: int = 30,
+    target: int = 60,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     _require_phase_a_lock(phase_a_summary)
     rows = _finding_rows(findings_doc)
@@ -276,6 +276,12 @@ def build_phase_b_packet(
                 "confidence": finding.get("confidence"),
                 "fingerprint": finding.get("fingerprint"),
                 "title": finding.get("title"),
+                "source_context": finding.get("source_context"),
+                "owasp_agentic": (
+                    finding.get("standards", {}).get("owasp_agentic", [])
+                    if isinstance(finding.get("standards"), dict)
+                    else []
+                ),
             }
         )
 
@@ -311,7 +317,7 @@ def main() -> int:
     parser.add_argument("--findings", type=Path, required=True)
     parser.add_argument("--review-packet", type=Path, required=True)
     parser.add_argument("--hidden-map", type=Path, required=True)
-    parser.add_argument("--target", type=int, default=30)
+    parser.add_argument("--target", type=int, default=60)
     args = parser.parse_args()
 
     public, hidden = build_phase_b_packet(
