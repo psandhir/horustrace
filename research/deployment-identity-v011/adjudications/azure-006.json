@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "study": "deployment-identity-v011",
+  "case_id": "azure-006",
+  "reviewed_after_scanner_output": true,
+  "original_locked_truth_preserved": true,
+  "pinned_source": {
+    "repo": "mrobinson2/AzureAgentForge",
+    "sha": "1104e3b8ac381aced13ee549cf28bb4fd5ac364e",
+    "path": "infrastructure/modules/container-apps/memory_governor.tf"
+  },
+  "finding": "The locked truth omitted three source-declared Container App Jobs that use the same user-assigned memory_governor identity.",
+  "identity_truth_patch": {
+    "add": [
+      {
+        "workload_key": "terraform:azurerm_container_app_job.memory_digest",
+        "identity_key": "terraform:azurerm_user_assigned_identity.memory_governor",
+        "identity_projection": "id"
+      },
+      {
+        "workload_key": "terraform:azurerm_container_app_job.memory_sweeper",
+        "identity_key": "terraform:azurerm_user_assigned_identity.memory_governor",
+        "identity_projection": "id"
+      },
+      {
+        "workload_key": "terraform:azurerm_container_app_job.watchdog",
+        "identity_key": "terraform:azurerm_user_assigned_identity.memory_governor",
+        "identity_projection": "id"
+      }
+    ],
+    "remove": [],
+    "unresolved": []
+  },
+  "evidence": [
+    {
+      "resource": "azurerm_container_app_job.memory_digest",
+      "source_binding": "identity_ids = [azurerm_user_assigned_identity.memory_governor[0].id]"
+    },
+    {
+      "resource": "azurerm_container_app_job.memory_sweeper",
+      "source_binding": "identity_ids = [azurerm_user_assigned_identity.memory_governor[0].id]"
+    },
+    {
+      "resource": "azurerm_container_app_job.watchdog",
+      "source_binding": "identity_ids = [azurerm_user_assigned_identity.memory_governor[0].id]"
+    }
+  ],
+  "interpretation": "These are reference omissions, not scanner false positives. The scanner should retain the relationships; the immutable frozen truth remains unchanged."
+}
