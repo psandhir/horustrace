@@ -14,6 +14,8 @@ SPEC.loader.exec_module(mod)
 ReviewPackError = mod.ReviewPackError
 summarize = mod.summarize
 validate_review_case = mod.validate_review_case
+validate_review_packet = mod.validate_review_packet
+summarize_rows = mod.summarize_rows
 
 
 def _write(path: Path, *, reviewer_b: str = "reviewer-b", seen: bool = False) -> None:
@@ -78,3 +80,74 @@ def test_review_is_invalid_if_scanner_output_was_seen(tmp_path: Path) -> None:
 
     with pytest.raises(ReviewPackError, match="blinded"):
         validate_review_case(case)
+
+
+
+def test_locked_packet_can_be_validated_directly(tmp_path: Path) -> None:
+    packet = tmp_path / "review-packet.yaml"
+    packet.write_text(
+        """
+schema_version: 1
+study: attack-path-finding-validation-2026
+cases:
+  - case_id: ap-001
+    case_type: attack_path
+    repository:
+      repo: owner/repo
+      sha: "1111111111111111111111111111111111111111"
+    source_scope: [app.py]
+    question:
+      type: attack_path
+    reviewers:
+      - reviewer_id: reviewer-a
+        independent_human: true
+        horustrace_output_seen: false
+        locked: true
+        verdict: valid
+        severity: high
+        evidence: [app.py]
+        rationale: source proves the edge
+      - reviewer_id: reviewer-b
+        independent_human: true
+        horustrace_output_seen: false
+        locked: true
+        verdict: valid
+        severity: high
+        evidence: [app.py]
+        rationale: independently confirmed
+  - case_id: fp-001
+    case_type: finding
+    repository:
+      repo: owner/repo
+      sha: "1111111111111111111111111111111111111111"
+    source_scope: [app.py]
+    question:
+      type: finding
+    reviewers:
+      - reviewer_id: reviewer-a
+        independent_human: true
+        horustrace_output_seen: false
+        locked: true
+        verdict: supported
+        severity: medium
+        evidence: [app.py]
+        rationale: finding is supported
+      - reviewer_id: reviewer-b
+        independent_human: true
+        horustrace_output_seen: false
+        locked: true
+        verdict: supported
+        severity: medium
+        evidence: [app.py]
+        rationale: independently supported
+""",
+        encoding="utf-8",
+    )
+
+    rows = validate_review_packet(packet)
+    report = summarize_rows(rows)
+
+    assert len(rows) == 2
+    assert report["attack_path_cases"] == 1
+    assert report["finding_cases"] == 1
+    assert report["scanner_reveal_allowed"] is True
