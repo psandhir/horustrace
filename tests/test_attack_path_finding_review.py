@@ -25,7 +25,7 @@ case_id: ap-001
 case_type: attack_path
 repository:
   repo: owner/repo
-  sha: 1111111111111111111111111111111111111111
+  sha: "1111111111111111111111111111111111111111"
 source_scope:
   - app.py
 question:
