@@ -1,0 +1,187 @@
+schema_version: 1
+study: deployment-identity-v011
+screened_at: "2026-09-27"
+selection_stage: candidate-screening
+horustrace_results_used_for_selection: false
+acceptance_gate:
+  identity_recall: 0.90
+  independent_deployment_only_cohort: true
+  runtime_effectiveness: not_verified
+
+candidates:
+  - candidate_id: gcp-01
+    repository: dantesstacksblog/gcp-ai-support-agent
+    sha: e6e101529c8628045c691ba2bf23b8a4ff7e0479
+    provider: gcp
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: explicit Cloud Run service account and Terraform IAM were identified in the earlier screening pool; excluded previously only because application agent coverage was then insufficient.
+
+  - candidate_id: gcp-02
+    repository: Sanjay-AI-ML/customer-ai-agent
+    sha: 0d367acd6bef75e56ae12cbb9159c390b8c76648
+    provider: gcp
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: explicit Cloud Run IAM evidence; previously excluded from v0.8 because of a custom GeminiAgent wrapper rather than deployment ambiguity.
+
+  - candidate_id: gcp-03
+    repository: leonli/agentl
+    sha: 772df4e57a80b7520dd33f2285b3528614a5290d
+    provider: gcp
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: fresh candidate from cross-provider repository search; requires paired application/workload adjudication.
+
+  - candidate_id: gcp-04
+    repository: heypriyam/agentic-ai-financial-intelligence-platform
+    sha: 8ec069e6c78b8cee7680916a06b6337069840bb6
+    provider: gcp
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: fresh candidate from cross-provider repository search; requires explicit runtime identity confirmation.
+
+  - candidate_id: aws-01
+    repository: hi-space/websearch-agentcore-gateway
+    sha: 37aa845a9d131e338180a7fe35a73b9238e45d09
+    provider: aws
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: infra/modules/gateway-lambda-tool/main.tf declares aws_lambda_function.this with role = aws_iam_role.lambda.arn; static reference resolution is required before freezing.
+
+  - candidate_id: aws-02
+    repository: amrutp24/terraform-aws-durable-agent-pipeline
+    sha: 352425a7041b9643f18af23213029f9cf80ab8aa
+    provider: aws
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: Lambda orchestrator plus explicit aws_iam_role and inline/attached policy resources; useful reference-resolution case.
+
+  - candidate_id: aws-03
+    repository: Rishi9696/Lambda_Docker_OpenAI-sdk
+    sha: 2360bc7de145312750c3464a2b6bba2bee11f1b5
+    provider: aws
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: fresh Lambda/OpenAI candidate; exact IaC runtime-role evidence must be established before inclusion.
+
+  - candidate_id: aws-04
+    repository: ginyampho1-crypto/aws-serverless-ai-agent
+    sha: cc3d5b694c395aa4c0af02757ce4d288b70c8bd1
+    provider: aws
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: fresh serverless AI candidate; exact deployment-role evidence must be established before inclusion.
+
+  - candidate_id: aws-05
+    repository: hoangsonww/Agentic-AI-Pipeline
+    sha: 443716a7d227b0d36cd73b82f134ccf00aa34185
+    provider: aws
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: strong agent corpus but initial search did not establish a literal Lambda/ECS workload; likely screen-out unless deployment evidence is found.
+
+  - candidate_id: azure-01
+    repository: mrobinson2/AzureAgentForge
+    sha: 1104e3b8ac381aced13ee549cf28bb4fd5ac364e
+    provider: azure
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: multiple azurerm_container_app resources use UserAssigned identities; role assignments reference those identities through principal_id. Excellent reference-resolution stress case.
+
+  - candidate_id: azure-02
+    repository: ecvanlare/cloud-standards-assistant
+    sha: ddba537cabc01a6b4576ead6f9fdd274827a1788
+    provider: azure
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: fresh Azure agent candidate; initial exact azurerm_container_app search was negative.
+
+  - candidate_id: azure-03
+    repository: Azkel/azure-ai-platform
+    sha: 2190afb15e6f1c63f5295a9006823bab3dd6efe5
+    provider: azure
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: fresh Azure platform candidate; requires workload identity source adjudication.
+
+  - candidate_id: azure-04
+    repository: zuqdah/azure-agent-landing-zone
+    sha: d4afaa29dccb89d572415648412c9dd3adddecdb
+    provider: azure
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: fresh landing-zone candidate; requires application/workload pairing.
+
+  - candidate_id: azure-05
+    repository: passadis/agentic-tickets
+    sha: 46fe9cf1d956d49e96964e8d8fc4c4d1f8aa788c
+    provider: azure
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: fresh agentic application candidate; requires deployment identity confirmation.
+
+  - candidate_id: k8s-01
+    repository: designer-coderajay/enterprise-agentic-ai-platform
+    sha: ee0afbe55526aea7677cb75814b5befd64fa812b
+    provider: kubernetes
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: LangGraph StateGraph confirmed in backend/agents/graph.py; explicit Kubernetes service account was not found in the first bounded search.
+
+  - candidate_id: k8s-02
+    repository: saanvireddy/production-agentic-ai
+    sha: 0e0dd3c89479d7e894619183a44e08e186a0e505
+    provider: kubernetes
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: production agentic platform candidate; requires explicit serviceAccountName evidence.
+
+  - candidate_id: k8s-03
+    repository: Roshani-Abeysekera/documind
+    sha: eeb616033c4fc144348ea316f9eda2f66d2bef7b
+    provider: kubernetes
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: LangGraph-oriented candidate; requires explicit Kubernetes workload identity evidence.
+
+  - candidate_id: k8s-04
+    repository: NerdForData/Smart-Shop-AI
+    sha: 608a5f78c5cca09584cc8f1d86cb5b43c2a988d7
+    provider: kubernetes
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: previously seen in broad research but not selected for v0.8; fresh for deployment-identity truth if explicit workload identity exists.
+
+  - candidate_id: k8s-05
+    repository: macod-spec/enterprise-genai-agent-platform
+    sha: 51c9b5928ab91af21500233aec6d223e1ececcb3
+    provider: kubernetes
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: enterprise GenAI platform candidate; requires explicit service account and agent/workload correlation evidence.
+
+  - candidate_id: aws-06
+    repository: Senora-dev/terraform-aws-self-service-agent
+    provider: aws
+    status: source-review
+    prior_cohort_member: false
+    evidence_hint: additional independent AWS Terraform candidate; pin SHA during source review before any freeze decision.
+
+freeze_rules:
+  minimum_target_cases: 20
+  desired_provider_distribution:
+    gcp: 4
+    aws: 5
+    azure: 5
+    kubernetes: 6
+  include_only_if:
+    - workload identity is source-proven at a pinned commit
+    - workload is meaningfully related to an AI/agent application or agent-serving component
+    - expected identity can be adjudicated without HorusTrace output
+    - dynamic or computed references are allowed only when truth records the exact source-level resolution chain
+  exclude_if:
+    - only repository name or README claims deployment identity
+    - runtime identity requires a live cloud or cluster query
+    - case is substantially duplicated from deployment-authority-v08 frozen cohort
+    - truth would depend on HorusTrace output
