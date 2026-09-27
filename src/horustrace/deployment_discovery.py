@@ -13,9 +13,14 @@ from typing import Any
 
 import yaml
 
+from horustrace.deployment_bindings import (
+    discover_kubernetes_bindings,
+    discover_terraform_bindings,
+)
 from horustrace.deployment_evidence import (
     DeploymentEvidenceBundle,
     DeploymentWorkloadEvidence,
+    IAMBindingEvidence,
 )
 from horustrace.principals import canonical_principal
 
@@ -251,39 +256,83 @@ def discover_kubernetes_workloads(
     return workloads, unresolved
 
 
+def _provider_for_workload(workload: DeploymentWorkloadEvidence) -> str | None:
+    if workload.identity.startswith("system:serviceaccount:"):
+        return "kubernetes"
+    for candidate in ("gcp", "aws", "azure"):
+        if canonical_principal(candidate, workload.identity) is not None:
+            return candidate
+    return None
+
+
+def _provider_for_binding(binding: IAMBindingEvidence) -> str | None:
+    if binding.principal.startswith("system:serviceaccount:"):
+        return "kubernetes"
+    for candidate in ("gcp", "aws", "azure"):
+        if canonical_principal(candidate, binding.principal) is not None:
+            return candidate
+    return None
+
+
 def discover_deployment_evidence(paths: list[Path]) -> DeploymentDiscoveryResult:
-    by_provider: dict[str, list[DeploymentWorkloadEvidence]] = {}
+    workloads_by_provider: dict[str, list[DeploymentWorkloadEvidence]] = {}
+    bindings_by_provider: dict[str, list[IAMBindingEvidence]] = {}
     unresolved: list[UnresolvedDeploymentEvidence] = []
 
     for path in sorted(paths):
         suffix = path.suffix.lower()
-        found: list[DeploymentWorkloadEvidence] = []
-        skipped: list[UnresolvedDeploymentEvidence] = []
-        if suffix == ".tf":
-            found, skipped = discover_terraform_workloads(path)
-        elif suffix in {".yaml", ".yml"}:
-            found, skipped = discover_kubernetes_workloads(path)
-        unresolved.extend(skipped)
-        for workload in found:
-            provider = "kubernetes" if workload.identity.startswith("system:serviceaccount:") else None
-            if provider is None:
-                for candidate in ("gcp", "aws", "azure"):
-                    if canonical_principal(candidate, workload.identity) is not None:
-                        provider = candidate
-                        break
-            if provider is not None:
-                by_provider.setdefault(provider, []).append(workload)
+        workloads: list[DeploymentWorkloadEvidence] = []
+        bindings: list[IAMBindingEvidence] = []
+        workload_unresolved: list[UnresolvedDeploymentEvidence] = []
+        raw_binding_unresolved: list[dict[str, Any]] = []
 
+        if suffix == ".tf":
+            workloads, workload_unresolved = discover_terraform_workloads(path)
+            bindings, raw_binding_unresolved = discover_terraform_bindings(path)
+        elif suffix in {".yaml", ".yml"}:
+            workloads, workload_unresolved = discover_kubernetes_workloads(path)
+            bindings, raw_binding_unresolved = discover_kubernetes_bindings(path)
+
+        unresolved.extend(workload_unresolved)
+        unresolved.extend(
+            UnresolvedDeploymentEvidence(**item)
+            for item in raw_binding_unresolved
+        )
+
+        for workload in workloads:
+            provider = _provider_for_workload(workload)
+            if provider is not None:
+                workloads_by_provider.setdefault(provider, []).append(workload)
+        for binding in bindings:
+            provider = _provider_for_binding(binding)
+            if provider is not None:
+                bindings_by_provider.setdefault(provider, []).append(binding)
+
+    providers = sorted(set(workloads_by_provider) | set(bindings_by_provider))
     bundles = tuple(
         DeploymentEvidenceBundle(
             provider=provider,
             source="repository_discovery",
             workloads=tuple(
-                sorted(items, key=lambda item: (item.workload_id, item.identity))
+                sorted(
+                    workloads_by_provider.get(provider, []),
+                    key=lambda item: (item.workload_id, item.identity),
+                )
+            ),
+            iam_bindings=tuple(
+                sorted(
+                    bindings_by_provider.get(provider, []),
+                    key=lambda item: (
+                        item.principal,
+                        item.scope_kind,
+                        item.scope_name,
+                        item.role,
+                    ),
+                )
             ),
             metadata={"evidence_kind": "repository_declared"},
         )
-        for provider, items in sorted(by_provider.items())
+        for provider in providers
     )
     return DeploymentDiscoveryResult(
         bundles=bundles,
