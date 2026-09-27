@@ -10,7 +10,7 @@ import hashlib
 from dataclasses import dataclass
 from typing import Any
 
-from horustrace.authority_source import normalize_gcp_service_account
+from horustrace.principals import canonical_principal
 from horustrace.deployed_identity import (
     DeployedIdentityRelationship,
     deployed_identity_relationships,
@@ -26,23 +26,16 @@ def _stable_id(identity_relationship_id: str) -> str:
     return f"deployed-authority-v1:{digest}"
 
 
-def _canonical_principal(provider: str, principal: str) -> str | None:
-    if provider == "gcp":
-        return normalize_gcp_service_account(principal)
-    value = principal.strip()
-    return value or None
-
-
 def _matching_bindings(
     relationship: DeployedIdentityRelationship,
     bundle: DeploymentEvidenceBundle,
 ) -> list[IAMBindingEvidence]:
-    target = _canonical_principal(bundle.provider, relationship.identity)
+    target = canonical_principal(bundle.provider, relationship.identity)
     if target is None:
         return []
     result: list[IAMBindingEvidence] = []
     for binding in bundle.iam_bindings:
-        principal = _canonical_principal(bundle.provider, binding.principal)
+        principal = canonical_principal(bundle.provider, binding.principal)
         if principal == target:
             result.append(binding)
     return sorted(
