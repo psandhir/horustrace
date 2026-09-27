@@ -78,7 +78,7 @@ resource "aws_lambda_function" "agent" {
     assert workloads[0].identity.endswith(":role/LambdaAgent")
 
 
-def test_computed_terraform_identity_stays_unresolved(tmp_path: Path) -> None:
+def test_gcp_service_account_reference_is_preserved_symbolically(tmp_path: Path) -> None:
     path = tmp_path / "main.tf"
     path.write_text(
         '''
@@ -94,9 +94,122 @@ resource "google_cloud_run_v2_service" "agent" {
 
     workloads, unresolved = discover_terraform_workloads(path)
 
-    assert workloads == []
-    assert len(unresolved) == 1
-    assert unresolved[0].reason == "non_literal_or_unsupported_identity:service_account"
+    assert unresolved == []
+    assert len(workloads) == 1
+    workload = workloads[0]
+    assert workload.identity == "terraform:google_service_account.agent"
+    assert workload.metadata["identity_projection"] == "email"
+    assert workload.metadata["identity_resolution"] == "terraform_reference"
+
+
+def test_aws_lambda_role_reference_is_preserved_symbolically(tmp_path: Path) -> None:
+    path = tmp_path / "lambda.tf"
+    path.write_text(
+        '''
+resource "aws_lambda_function" "agent" {
+  function_name = "agent"
+  role          = aws_iam_role.agent.arn
+}
+''',
+        encoding="utf-8",
+    )
+
+    workloads, unresolved = discover_terraform_workloads(path)
+
+    assert unresolved == []
+    assert workloads[0].identity == "terraform:aws_iam_role.agent"
+    assert workloads[0].metadata["identity_projection"] == "arn"
+
+
+def test_gcp_cloud_run_v2_job_service_account_reference_is_supported(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "job.tf"
+    path.write_text(
+        '''
+resource "google_cloud_run_v2_job" "migration" {
+  name = "migration"
+  template {
+    template {
+      service_account = google_service_account.app.email
+    }
+  }
+}
+''',
+        encoding="utf-8",
+    )
+
+    workloads, unresolved = discover_terraform_workloads(path)
+
+    assert unresolved == []
+    assert workloads[0].workload_id == "terraform:google_cloud_run_v2_job.migration"
+    assert workloads[0].identity == "terraform:google_service_account.app"
+
+
+def test_azure_container_app_user_assigned_identity_reference_is_supported(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "app.tf"
+    path.write_text(
+        '''
+resource "azurerm_container_app" "agent" {
+  name = "agent"
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.agent.id]
+  }
+}
+''',
+        encoding="utf-8",
+    )
+
+    workloads, unresolved = discover_terraform_workloads(path)
+
+    assert unresolved == []
+    assert workloads[0].workload_id == "terraform:azurerm_container_app.agent"
+    assert workloads[0].identity == "terraform:azurerm_user_assigned_identity.agent"
+    assert workloads[0].metadata["identity_projection"] == "id"
+
+
+def test_azure_indexed_identity_reference_strips_instance_index(tmp_path: Path) -> None:
+    path = tmp_path / "app.tf"
+    path.write_text(
+        '''
+resource "azurerm_container_app" "agent" {
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.agent[0].id]
+  }
+}
+''',
+        encoding="utf-8",
+    )
+
+    workloads, unresolved = discover_terraform_workloads(path)
+
+    assert unresolved == []
+    assert workloads[0].identity == "terraform:azurerm_user_assigned_identity.agent"
+
+
+def test_azure_container_app_job_identity_reference_is_supported(tmp_path: Path) -> None:
+    path = tmp_path / "job.tf"
+    path.write_text(
+        '''
+resource "azurerm_container_app_job" "agent" {
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.agent.id]
+  }
+}
+''',
+        encoding="utf-8",
+    )
+
+    workloads, unresolved = discover_terraform_workloads(path)
+
+    assert unresolved == []
+    assert workloads[0].workload_id == "terraform:azurerm_container_app_job.agent"
 
 
 def test_kubernetes_deployment_explicit_service_account_is_discovered(
