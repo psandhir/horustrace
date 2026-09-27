@@ -1,8 +1,19 @@
+from __future__ import annotations
+
+import importlib.util
 from pathlib import Path
 
 import pytest
 
-from scripts.attack_path_finding_review import ReviewPackError, summarize, validate_review_case
+SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "attack_path_finding_review.py"
+SPEC = importlib.util.spec_from_file_location("attack_path_finding_review", SCRIPT)
+assert SPEC and SPEC.loader
+mod = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(mod)
+
+ReviewPackError = mod.ReviewPackError
+summarize = mod.summarize
+validate_review_case = mod.validate_review_case
 
 
 def _write(path: Path, *, reviewer_b: str = "reviewer-b", seen: bool = False) -> None:
