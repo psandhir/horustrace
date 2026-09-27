@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "case_id": "k8s-001",
+  "provider": "kubernetes",
+  "reviewed": true,
+  "horustrace_results_seen": false,
+  "runtime_effectiveness": "not_verified",
+  "source": {
+    "repo": "akshaymittal143/agent-name-service-ans",
+    "sha": "66552b31dc9fda22d69516e2f6fc6100f56803ea",
+    "path": "k8s/monitoring/prometheus/deployment.yaml"
+  },
+  "relationships": [
+    {
+      "workload_key": "kubernetes:Deployment:monitoring:prometheus",
+      "identity_key": "system:serviceaccount:monitoring:prometheus"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "k8s/monitoring/prometheus/deployment.yaml",
+      "rationale": "Deployment explicitly declares namespace monitoring and serviceAccountName prometheus."
+    }
+  ],
+  "reviewer_notes": "Source-complete Kubernetes workload identity inside the ANS agent-platform repository; replaces an earlier candidate whose namespace depended on external deployment tooling."
+}
