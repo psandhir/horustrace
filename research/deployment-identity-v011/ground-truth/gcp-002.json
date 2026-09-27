@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "case_id": "gcp-002",
+  "provider": "gcp",
+  "reviewed": true,
+  "horustrace_results_seen": false,
+  "runtime_effectiveness": "not_verified",
+  "source": {
+    "repo": "lastingyeh/adk-insurance-recommendation-agent",
+    "sha": "90e9b624759248b168a0df93f5ddca35966d1027",
+    "path": "deployment/terraform/modules/agent_infrastructure/service.tf"
+  },
+  "relationships": [
+    {
+      "workload_key": "terraform:google_cloud_run_v2_service.backend",
+      "identity_key": "terraform:google_service_account.app_sa",
+      "identity_projection": "email"
+    },
+    {
+      "workload_key": "terraform:google_cloud_run_v2_job.db_migration",
+      "identity_key": "terraform:google_service_account.app_sa",
+      "identity_projection": "email"
+    },
+    {
+      "workload_key": "terraform:google_cloud_run_v2_service.frontend",
+      "identity_key": "terraform:google_service_account.app_sa",
+      "identity_projection": "email"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "deployment/terraform/modules/agent_infrastructure/service.tf",
+      "rationale": "Backend, migration job, and frontend all bind the same app_sa by Terraform reference."
+    }
+  ],
+  "reviewer_notes": "Backend, migration job, and frontend all bind the same app_sa by Terraform reference."
+}
