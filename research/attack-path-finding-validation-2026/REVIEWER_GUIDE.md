@@ -75,3 +75,46 @@ Phase B provides finding precision and severity-agreement evidence; Phase A prov
 The frozen Phase-A packet is identified in `packet-lock.json`.
 
 Before review, verify the generated `review-packet.yaml` SHA-256 matches the locked digest. If it does not, stop and regenerate from the locked generator commit.
+
+
+## Phase-B tooling
+
+Do not run Phase B until the completed Phase-A packet has been validated and its summary contains:
+
+```json
+"scanner_reveal_allowed": true
+```
+
+The coordinator may then build a rule/severity-stratified finding precision packet:
+
+```bash
+python scripts/build_finding_precision_review_packet.py \
+  --phase-a-summary phase-a-summary.json \
+  --findings scanner-findings.json \
+  --review-packet phase-b-review-packet.yaml \
+  --hidden-map phase-b-hidden-map.json
+```
+
+**Never give `phase-b-hidden-map.json` to reviewers.** It contains the hidden HorusTrace rule ID, scanner severity, confidence, fingerprint and title used for later scoring.
+
+Reviewers receive only `phase-b-review-packet.yaml`, complete it independently, and validate the completed packet with:
+
+```bash
+python scripts/attack_path_finding_review.py \
+  phase-b-review-packet.yaml \
+  --output phase-b-summary.json
+```
+
+After both phases are locked and scanner observation mappings have been produced, the coordinator can calculate the final metrics:
+
+```bash
+python scripts/score_attack_path_finding_validation.py \
+  --phase-a-summary phase-a-summary.json \
+  --attack-observations attack-observations.json \
+  --finding-recall-observations finding-recall-observations.json \
+  --phase-b-summary phase-b-summary.json \
+  --phase-b-hidden-map phase-b-hidden-map.json \
+  --output validation-report.json
+```
+
+The scorer reports attack-path precision/recall, finding recall, finding precision, exact severity agreement, one-level severity agreement, and scanner-over/under-severity taxonomy. Unresolved cases and reviewer disagreements are reported separately rather than forced into accuracy denominators.
