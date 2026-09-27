@@ -45,6 +45,8 @@ def _findings() -> dict:
                         "agent": "agent-a",
                         "confidence": "supported",
                         "fingerprint": "fp-a",
+                        "source_context": "runtime",
+                        "standards": {"owasp_agentic": ["ASI05"]},
                         "evidence": ["tool has write capability"],
                         "location": {"path": "agent.py", "line": 10, "column": 1},
                         "provenance": [
@@ -122,6 +124,7 @@ def test_public_packet_hides_scanner_metadata() -> None:
     assert "authority_confirmed" not in public_text
 
     assert hidden["cases"][0]["rule_id"] in {"AGT020", "NET002"}
+    assert any(case.get("owasp_agentic") == ["ASI05"] for case in hidden["cases"])
     assert all(case["reviewers"][0]["locked"] is False for case in public["cases"])
     assert all(
         case["reviewers"][0]["horustrace_output_seen"] is False
