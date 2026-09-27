@@ -1,0 +1,31 @@
+schema_version: 1
+study: attack-path-finding-validation-2026
+case_id: replace-me
+case_type: attack_path
+repository:
+  repo: owner/name
+  sha: 0000000000000000000000000000000000000000
+source_scope:
+  - path/to/file.py
+question:
+  path_nodes:
+    - source
+    - capability
+    - sink
+reviewers:
+  - reviewer_id: ""
+    independent_human: true
+    horustrace_output_seen: false
+    locked: false
+    verdict: unresolved
+    severity: unresolved
+    evidence: []
+    rationale: ""
+  - reviewer_id: ""
+    independent_human: true
+    horustrace_output_seen: false
+    locked: false
+    verdict: unresolved
+    severity: unresolved
+    evidence: []
+    rationale: ""
