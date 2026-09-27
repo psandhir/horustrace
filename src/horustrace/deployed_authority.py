@@ -10,13 +10,13 @@ import hashlib
 from dataclasses import dataclass
 from typing import Any
 
-from horustrace.principals import canonical_principal
 from horustrace.deployed_identity import (
     DeployedIdentityRelationship,
     deployed_identity_relationships,
 )
 from horustrace.deployment_evidence import DeploymentEvidenceBundle, IAMBindingEvidence
 from horustrace.models import Graph
+from horustrace.principals import canonical_principal
 
 DEPLOYED_AUTHORITY_SCHEMA_VERSION = 1
 
