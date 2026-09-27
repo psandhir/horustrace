@@ -95,3 +95,70 @@ def test_invalid_gcp_runtime_identity_remains_explicitly_unresolved() -> None:
     assert relationship["identity"] == "runtime-derived"
     assert relationship["resolution"] == "partially_resolved"
     assert relationship["unresolved"] == ["identity"]
+
+
+def test_aws_role_identity_is_canonicalized() -> None:
+    graph = Graph(agents=[Agent(name="support")])
+    arn = "arn:aws:iam::123456789012:role/Platform/AgentRuntime"
+    bundle = DeploymentEvidenceBundle(
+        provider="aws",
+        source="fixture",
+        workloads=(
+            DeploymentWorkloadEvidence(
+                workload_id="ecs/support",
+                kind="ecs_service",
+                name="support",
+                identity=arn,
+                agent="support",
+            ),
+        ),
+    )
+
+    relationship = deployed_identity_report(graph, bundle)["relationships"][0]
+
+    assert relationship["identity"] == arn
+    assert relationship["resolution"] == "fully_resolved"
+
+
+def test_azure_managed_identity_object_id_is_canonicalized() -> None:
+    graph = Graph(agents=[Agent(name="support")])
+    bundle = DeploymentEvidenceBundle(
+        provider="azure",
+        source="fixture",
+        workloads=(
+            DeploymentWorkloadEvidence(
+                workload_id="containerapps/support",
+                kind="container_app",
+                name="support",
+                identity="6F9619FF-8B86-D011-B42D-00C04FC964FF",
+                agent="support",
+            ),
+        ),
+    )
+
+    relationship = deployed_identity_report(graph, bundle)["relationships"][0]
+
+    assert relationship["identity"] == "6f9619ff-8b86-d011-b42d-00c04fc964ff"
+    assert relationship["resolution"] == "fully_resolved"
+
+
+def test_kubernetes_service_account_short_form_is_canonicalized() -> None:
+    graph = Graph(agents=[Agent(name="support")])
+    bundle = DeploymentEvidenceBundle(
+        provider="kubernetes",
+        source="fixture",
+        workloads=(
+            DeploymentWorkloadEvidence(
+                workload_id="apps/v1/Deployment/agents/support",
+                kind="deployment",
+                name="support",
+                identity="agents/runtime",
+                agent="support",
+            ),
+        ),
+    )
+
+    relationship = deployed_identity_report(graph, bundle)["relationships"][0]
+
+    assert relationship["identity"] == "system:serviceaccount:agents:runtime"
+    assert relationship["resolution"] == "fully_resolved"
