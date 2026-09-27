@@ -713,6 +713,25 @@ def scan_one(
     finding_counts = Counter(str(item.get("rule_id") or "unknown") for item in findings if isinstance(item, dict))
     severity_counts = Counter(str(item.get("severity") or "unknown") for item in findings if isinstance(item, dict))
     confidence_counts = Counter(str(item.get("confidence") or "unknown") for item in findings if isinstance(item, dict))
+    source_context_counts = Counter(
+        str(item.get("source_context") or "unknown")
+        for item in findings
+        if isinstance(item, dict)
+    )
+    owasp_counts: Counter[str] = Counter()
+    runtime_owasp_counts: Counter[str] = Counter()
+    for item in findings:
+        if not isinstance(item, dict):
+            continue
+        standards = item.get("standards")
+        mapped = standards.get("owasp_agentic") if isinstance(standards, dict) else None
+        if not isinstance(mapped, list):
+            continue
+        for risk_id in mapped:
+            risk = str(risk_id)
+            owasp_counts[risk] += 1
+            if str(item.get("source_context") or "unknown") == "runtime":
+                runtime_owasp_counts[risk] += 1
 
     relationships = authority.get("relationships") if isinstance(authority.get("relationships"), list) else []
     resolution_counts = Counter(str(item.get("resolution") or "unknown") for item in relationships if isinstance(item, dict))
@@ -729,10 +748,12 @@ def scan_one(
     return {
         "case_id": case["case_id"],
         "repo": case["repo"],
+        "sha": case["sha"],
         "framework": case["framework_stratum"],
         "previously_studied": case["previously_studied"],
         "status": "success",
         "comparisons": comparisons,
+        "findings": findings,
         "observed": {
             "summary": scan_doc.get("summary") or {},
             "analysis_incomplete": bool(coverage.get("incomplete")),
@@ -740,6 +761,9 @@ def scan_one(
             "findings_by_rule": dict(sorted(finding_counts.items())),
             "findings_by_severity": dict(sorted(severity_counts.items())),
             "findings_by_confidence": dict(sorted(confidence_counts.items())),
+            "findings_by_source_context": dict(sorted(source_context_counts.items())),
+            "findings_by_owasp_agentic": dict(sorted(owasp_counts.items())),
+            "runtime_findings_by_owasp_agentic": dict(sorted(runtime_owasp_counts.items())),
             "authority_resolution": dict(sorted(resolution_counts.items())),
             "fully_resolved_on_dynamic_reference": full_on_dynamic,
             "attack_paths": len(attack_paths),
@@ -801,6 +825,9 @@ def aggregate(
     rules: Counter[str] = Counter()
     severities: Counter[str] = Counter()
     confidences: Counter[str] = Counter()
+    source_contexts: Counter[str] = Counter()
+    owasp_agentic: Counter[str] = Counter()
+    runtime_owasp_agentic: Counter[str] = Counter()
     resolution: Counter[str] = Counter()
 
     for case in success:
@@ -812,6 +839,9 @@ def aggregate(
         rules.update(observed.get("findings_by_rule") or {})
         severities.update(observed.get("findings_by_severity") or {})
         confidences.update(observed.get("findings_by_confidence") or {})
+        source_contexts.update(observed.get("findings_by_source_context") or {})
+        owasp_agentic.update(observed.get("findings_by_owasp_agentic") or {})
+        runtime_owasp_agentic.update(observed.get("runtime_findings_by_owasp_agentic") or {})
         resolution.update(observed.get("authority_resolution") or {})
 
         attack = (case.get("comparisons") or {}).get("attack_paths") or {}
@@ -907,6 +937,9 @@ def aggregate(
             "by_rule": dict(rules.most_common()),
             "by_severity": dict(sorted(severities.items())),
             "by_confidence": dict(sorted(confidences.items())),
+            "by_source_context": dict(sorted(source_contexts.items())),
+            "by_owasp_agentic": dict(sorted(owasp_agentic.items())),
+            "runtime_by_owasp_agentic": dict(sorted(runtime_owasp_agentic.items())),
             "assertion_precision": None,
             "assertion_recall": None,
             "reason": "source reference is not exhaustive enough to independently adjudicate all rule semantics",
@@ -982,6 +1015,10 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         f"- Findings: {report['findings']['total']}",
         f"- By severity: \`{json.dumps(report['findings']['by_severity'], sort_keys=True)}\`",
+        f"- By rule: \`{json.dumps(report['findings']['by_rule'], sort_keys=True)}\`",
+        f"- By OWASP Agentic category: \`{json.dumps(report['findings']['by_owasp_agentic'], sort_keys=True)}\`",
+        f"- Runtime OWASP-mapped findings: \`{json.dumps(report['findings']['runtime_by_owasp_agentic'], sort_keys=True)}\`",
+        f"- By source context: \`{json.dumps(report['findings']['by_source_context'], sort_keys=True)}\`",
         "- Finding assertion precision/recall are not claimed from this automated reference.",
         "",
         "## Tier C",
