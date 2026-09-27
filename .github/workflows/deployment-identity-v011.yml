@@ -1,0 +1,87 @@
+name: Deployment Identity v0.11 Validation
+
+on:
+  pull_request:
+    paths:
+      - "research/deployment-identity-v011/**"
+      - "scripts/deployment_identity_study.py"
+      - "src/horustrace/deployment_discovery.py"
+      - "src/horustrace/deployment_bindings.py"
+      - "src/horustrace/principals.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deployment-identity-v011-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Frozen v0.11 deployment identity
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+
+      - name: Validate locked cohort
+        run: python scripts/deployment_identity_study.py --validate-only
+
+      - name: Execute frozen cohort
+        run: |
+          mkdir -p research/deployment-identity-v011/results
+          python scripts/deployment_identity_study.py \
+            --output research/deployment-identity-v011/results/result.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          result = json.loads(
+              Path("research/deployment-identity-v011/results/result.json").read_text()
+          )
+          summary = result["summary"]
+          lines = [
+              "# v0.11 Deployment Identity Baseline",
+              "",
+              f"- Cases: {summary['cases']}",
+              f"- Precision: {summary['precision']}",
+              f"- Recall: {summary['recall']}",
+              f"- Acceptance recall: {summary['acceptance_recall']}",
+              f"- Recall gate passed: {summary['recall_gate_passed']}",
+              "",
+              "## Provider breakout",
+              "",
+              "| Provider | Cases | Precision | Recall | TP | FP | FN |",
+              "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+          ]
+          for provider, row in result["providers"].items():
+              lines.append(
+                  f"| {provider} | {row['cases']} | {row['precision']} | "
+                  f"{row['recall']} | {row['tp']} | {row['fp']} | {row['fn']} |"
+              )
+          Path("research/deployment-identity-v011/results/summary.md").write_text(
+              "\n".join(lines) + "\n", encoding="utf-8"
+          )
+          print("\n".join(lines))
+          PY
+          cat research/deployment-identity-v011/results/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload study result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-identity-v011-${{ github.event.pull_request.head.sha || github.sha }}
+          path: research/deployment-identity-v011/results/
+          if-no-files-found: error
+          retention-days: 30
