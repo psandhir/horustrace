@@ -199,3 +199,41 @@ class Item(BaseModel):
     )
 
     assert "pydantic-ai" not in detect_python_frameworks(source)
+
+
+def test_pydantic_ai_direct_agent_tool_registration_is_authority(tmp_path: Path) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+
+def create_plan(value: str) -> str:
+    return value
+
+def read_file(path: str) -> str:
+    return path
+
+agent = Agent("openai:gpt-5.2")
+agent.tool(create_plan)
+agent.tool_plain(read_file)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = graph.agents[0]
+
+    assert {tool.name for tool in agent.tools} == {"create_plan", "read_file"}
+    assert {
+        tool.metadata.get("binding_origin")
+        for tool in agent.tools
+    } == {"agent.tool", "agent.tool_plain"}
+
+    assert graph.adg is not None
+    invoked = {
+        node.attributes.get("tool_name")
+        for edge in graph.adg.edges
+        if edge.kind == "INVOKES"
+        for node in graph.adg.nodes
+        if node.node_id == edge.target and node.kind == "tool"
+    }
+    assert {"create_plan", "read_file"} <= invoked
