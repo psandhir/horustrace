@@ -143,6 +143,36 @@ For deny-only MCP clauses, HorusTrace reports unresolved when the server catalog
 unknown and cannot prove whether the denied tool is reachable.
 
 
+## Scan-time evaluation
+
+A normal scan evaluates any repository Authority Contract alongside the built-in
+HorusTrace security rules:
+
+```bash
+horustrace scan . --format json --fail-on none
+```
+
+The JSON report keeps the channels separate:
+
+- `findings` contains built-in HorusTrace security findings;
+- `authority_contract` contains relationship-level contract outcomes, violations and
+  unresolved clauses.
+
+Console output renders a separate Authority Contract assessment, and SARIF includes the
+same contract report in run properties. Contract evaluation is automatic when a contract
+is present; repositories without a contract continue to receive the built-in security
+assessment.
+
+CI can enforce current contract violations independently of finding severity:
+
+```bash
+horustrace scan . --fail-on none --fail-on-policy-violation
+```
+
+This gate fails only on proven `violation` results. `unresolved` remains visible and
+non-failing because incomplete evidence is neither proof of compliance nor proof of a
+violation.
+
 ## Change-aware policy gate
 
 HorusTrace can compare Authority Contract results independently at two Git revisions:
