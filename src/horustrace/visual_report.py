@@ -14,7 +14,7 @@ from typing import Any
 
 from horustrace.authority_contract import authority_contract_report
 from horustrace.effective_authority import effective_authority_report
-from horustrace.models import Finding, Graph, Severity
+from horustrace.models import Finding, Graph
 from horustrace.owasp import build_owasp_agentic_summary
 from horustrace.security_graph import build_agent_security_graph
 
