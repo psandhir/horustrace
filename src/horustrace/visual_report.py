@@ -298,7 +298,9 @@ h3{{font-size:15px;margin:0 0 10px}} .muted{{color:var(--muted)}} .view{{display
 .hero{{display:flex;justify-content:space-between;gap:20px;align-items:start;margin-bottom:22px}} .pill{{display:inline-block;
 padding:4px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:12px}}
 .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}} .card{{background:var(--panel);
-border:1px solid var(--line);border-radius:12px;padding:15px;box-shadow:var(--shadow)}} .metric{{font-size:28px;font-weight:800}}
+border:1px solid var(--line);border-radius:12px;padding:15px;box-shadow:var(--shadow)}} .card.drill{{cursor:pointer;transition:transform .12s ease,border-color .12s ease,background .12s ease}}
+.card.drill:hover{{transform:translateY(-1px);border-color:#52688f;background:#151f36}} .card.drill:focus{{outline:2px solid var(--accent);outline-offset:2px}}
+.metric{{font-size:28px;font-weight:800}}
 .metric-label{{color:var(--muted);font-size:12px;margin-top:3px}} .critical{{color:var(--critical)}} .high{{color:var(--high)}}
 .medium{{color:var(--medium)}} .low{{color:var(--low)}} .ok{{color:var(--ok)}} .warn{{color:var(--warn)}}
 .grid2{{display:grid;grid-template-columns:1fr 1fr;gap:14px}} .panel{{background:var(--panel);border:1px solid var(--line);
@@ -312,6 +314,8 @@ border-radius:9px;padding:9px 11px;margin:0 0 12px}} .agent-head{{display:flex;g
 .tabs{{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:18px 0 14px;overflow:auto}} .tabs button{{border:0;background:transparent;
 color:var(--muted);padding:9px 10px;cursor:pointer;border-bottom:2px solid transparent}} .tabs button.active{{color:var(--text);border-bottom-color:var(--accent)}}
 .agent-tab{{display:none}} .agent-tab.active{{display:block}} .kv{{display:grid;grid-template-columns:170px 1fr;gap:7px 14px}}
+.drill-row{{cursor:pointer;border-radius:6px;padding:3px 5px;margin:-3px -5px}} .drill-row:hover{{background:#ffffff0a}}
+.filter-banner{{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#101a31;border:1px solid #344566;border-radius:9px;padding:9px 11px;margin:12px 0}}
 .kv div:nth-child(odd){{color:var(--muted)}} .finding{{border-left:3px solid var(--line);padding:12px 14px;margin:10px 0;background:#0d1426;border-radius:8px}}
 .finding[data-sev="critical"]{{border-left-color:var(--critical)}} .finding[data-sev="high"]{{border-left-color:var(--high)}}
 .finding[data-sev="medium"]{{border-left-color:var(--medium)}} .finding[data-sev="low"]{{border-left-color:var(--low)}}
@@ -370,9 +374,14 @@ function showView(id){{
   window.scrollTo(0,0);
 }}
 document.querySelectorAll(".nav button").forEach(btn=>btn.addEventListener("click",()=>showView(btn.dataset.view)));
-function metric(label,value,cls=""){{return '<div class="card"><div class="metric '+cls+'">'+number(value)+'</div><div class="metric-label">'+esc(label)+'</div></div>'}}
-function severityCards(s){{
- return '<div class="sevbar">'+metric("Critical",s.critical,"critical")+metric("High",s.high,"high")+metric("Medium",s.medium,"medium")+metric("Low",s.low,"low")+'</div>';
+function metric(label,value,cls="",drill=""){{
+ const attrs=drill?' drill" role="button" tabindex="0" data-drill="'+esc(drill):'"';
+ return '<div class="card'+attrs+'"><div class="metric '+cls+'">'+number(value)+'</div><div class="metric-label">'+esc(label)+'</div></div>';
+}}
+function severityCards(s,interactive=false){{
+ return '<div class="sevbar">'+metric("Critical",s.critical,"critical",interactive?"findings:critical":"")+
+ metric("High",s.high,"high",interactive?"findings:high":"")+metric("Medium",s.medium,"medium",interactive?"findings:medium":"")+
+ metric("Low",s.low,"low",interactive?"findings:low":"")+'</div>';
 }}
 function findingCard(f){{
  const evidence=(f.evidence||[]).map(x=>"<li>"+esc(x)+"</li>").join("");
@@ -386,17 +395,56 @@ function findingCard(f){{
 }}
 function renderDashboard(){{
  const s=DATA.summary;
- document.getElementById("dashboard").innerHTML='<div class="hero"><div><h1>Security assessment</h1><div class="muted">Effective authority, policy findings and agent-contract posture</div></div>'+
+ const drillRow=(label,value,drill,cls="")=>'<div class="drill-row" role="button" tabindex="0" data-drill="'+esc(drill)+'"><span>'+esc(label)+'</span><span class="'+esc(cls)+'">'+number(value)+'</span></div>';
+ const kvRows=(rows)=>'<div class="kv">'+rows.join("")+'</div>';
+ const root=document.getElementById("dashboard");
+ root.innerHTML='<div class="hero"><div><h1>Security assessment</h1><div class="muted">Effective authority, policy findings and agent-contract posture</div></div>'+
  (s.analysis_incomplete?'<span class="badge unresolved">analysis incomplete</span>':'<span class="badge compliant">no detected coverage gaps</span>')+'</div>'+
- '<div class="cards">'+metric("Agents",s.agents)+metric("Tools",s.tools)+metric("MCP servers",s.mcp_servers)+metric("Identities",s.identities)+
- metric("Reachable resources",s.resources)+metric("Attack paths",s.attack_paths)+metric("Findings",s.findings)+metric("Contract violations",s.contract_violations,"critical")+'</div>'+
- '<h2>Finding severity</h2>'+severityCards(s.severity)+
- '<div class="grid2"><div><h2>Effective agency</h2><div class="panel"><div class="kv"><div>Authority relationships</div><div>'+number(s.authority_relationships)+'</div>'+
- '<div>Not fully resolved</div><div>'+number(s.authority_not_fully_resolved)+'</div><div>Write-capable paths</div><div>'+number(s.write_capable_relationships)+'</div>'+
- '<div>Unique destinations</div><div>'+number(s.destinations)+'</div></div></div></div>'+
- '<div><h2>Agent contracts</h2><div class="panel"><div class="kv"><div>Agents with contract</div><div>'+number(s.agents_with_contract)+'</div>'+
- '<div>Violations</div><div class="critical">'+number(s.contract_violations)+'</div><div>Unresolved checks</div><div class="warn">'+number(s.contract_unresolved)+'</div></div></div></div></div>'+
+ '<div class="cards">'+metric("Agents",s.agents,"","agents:all")+metric("Tools",s.tools,"","agents:tools")+metric("MCP servers",s.mcp_servers,"","agents:mcp")+
+ metric("Identities",s.identities,"","agents:identities")+metric("Reachable resources",s.resources,"","agents:resources")+metric("Attack paths",s.attack_paths,"","attack:all")+
+ metric("Findings",s.findings,"","findings:all")+metric("Contract violations",s.contract_violations,"critical","contracts:violation")+'</div>'+
+ '<h2>Finding severity</h2>'+severityCards(s.severity,true)+
+ '<div class="grid2"><div><h2>Effective agency</h2><div class="panel">'+kvRows([
+ drillRow("Authority relationships",s.authority_relationships,"agents:authority"),
+ drillRow("Not fully resolved",s.authority_not_fully_resolved,"agents:unresolved","warn"),
+ drillRow("Write-capable paths",s.write_capable_relationships,"agents:write"),
+ drillRow("Unique destinations",s.destinations,"agents:destinations")
+ ])+'</div></div>'+
+ '<div><h2>Agent contracts</h2><div class="panel">'+kvRows([
+ drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),
+ drillRow("Violations",s.contract_violations,"contracts:violation","critical"),
+ drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")
+ ])+'</div></div></div>'+
  '<h2>Agents needing attention</h2>'+agentTable(DATA.agents.filter(a=>a.summary.findings||a.summary.contract_violations||a.summary.contract_unresolved).slice(0,12));
+ bindDashboardDrill(root);
+ bindAgentRows(root);
+}}
+function drillLabel(kind,value){{
+ const labels={{
+  "agents:all":"All agents","agents:tools":"Agents with tools","agents:mcp":"Agents with MCP servers",
+  "agents:identities":"Agents with resolved identities","agents:resources":"Agents reaching resources",
+  "agents:authority":"Agents with effective authority","agents:unresolved":"Agents with unresolved authority",
+  "agents:write":"Agents with write-capable authority","agents:destinations":"Agents with external destinations",
+  "findings:all":"All findings","findings:critical":"Critical findings","findings:high":"High findings",
+  "findings:medium":"Medium findings","findings:low":"Low findings","contracts:declared":"Agents with declared contracts",
+  "contracts:violation":"Agents with contract violations","contracts:unresolved":"Agents with unresolved contract checks",
+  "attack:all":"Attack paths"
+ }};
+ return labels[kind+":"+value]||"Dashboard filter";
+}}
+function routeDrill(action){{
+ const [kind,value="all"]=String(action).split(":",2);
+ if(kind==="agents"){{renderAgents(value);showView("agents");}}
+ else if(kind==="findings"){{renderFindings(value);showView("findings");}}
+ else if(kind==="contracts"){{renderContracts(value);showView("contracts");}}
+ else if(kind==="attack"){{renderAttack();showView("attack");}}
+}}
+function bindDashboardDrill(root=document){{
+ root.querySelectorAll("[data-drill]").forEach(el=>{{
+   const activate=()=>routeDrill(el.dataset.drill);
+   el.addEventListener("click",activate);
+   el.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});
+ }});
 }}
 function agentTable(items){{
  if(!items.length)return '<div class="empty">No agents matched.</div>';
@@ -408,14 +456,28 @@ function agentTable(items){{
 function bindAgentRows(root=document){{
  root.querySelectorAll("[data-agent]").forEach(row=>row.addEventListener("click",()=>openAgent(decodeURIComponent(row.dataset.agent))));
 }}
-function renderAgents(){{
+function agentMatchesFilter(a,mode){{
+ if(mode==="tools")return a.summary.tools>0;
+ if(mode==="mcp")return a.summary.mcp_servers>0;
+ if(mode==="identities")return a.summary.identities>0;
+ if(mode==="resources")return a.summary.resources>0;
+ if(mode==="authority")return a.summary.authority_relationships>0;
+ if(mode==="unresolved")return (a.effective_authority||[]).some(r=>r.resolution!=="fully_resolved");
+ if(mode==="write")return a.summary.write_capable_relationships>0;
+ if(mode==="destinations")return a.summary.destinations>0;
+ return true;
+}}
+function renderAgents(mode="all"){{
  const root=document.getElementById("agents");
- root.innerHTML='<h1>Agents</h1><p class="muted">Select an agent to inspect declared and effective agency.</p><input id="agent-search" class="search" placeholder="Filter agents, frameworks or locations">'+
- '<div id="agent-table">'+agentTable(DATA.agents)+'</div>';
+ const scoped=DATA.agents.filter(a=>agentMatchesFilter(a,mode));
+ const banner=mode==="all"?"":'<div class="filter-banner"><span>'+esc(drillLabel("agents",mode))+' · '+number(scoped.length)+' agents</span><button class="back" id="clear-agent-filter">Clear filter</button></div>';
+ root.innerHTML='<h1>Agents</h1><p class="muted">Select an agent to inspect declared and effective agency.</p>'+banner+
+ '<input id="agent-search" class="search" placeholder="Filter agents, frameworks or locations"><div id="agent-table">'+agentTable(scoped)+'</div>';
  bindAgentRows(root);
+ if(mode!=="all")root.querySelector("#clear-agent-filter").addEventListener("click",()=>renderAgents("all"));
  root.querySelector("#agent-search").addEventListener("input",e=>{{
    const q=e.target.value.toLowerCase();
-   const items=DATA.agents.filter(a=>JSON.stringify([a.name,a.framework,a.location,a.resources,a.identities]).toLowerCase().includes(q));
+   const items=scoped.filter(a=>JSON.stringify([a.name,a.framework,a.location,a.resources,a.identities]).toLowerCase().includes(q));
    root.querySelector("#agent-table").innerHTML=agentTable(items); bindAgentRows(root);
  }});
 }}
@@ -508,10 +570,13 @@ function openAgent(name){{
  }}));
  showView("agent-detail");
 }}
-function renderFindings(){{
+function renderFindings(severity="all"){{
  const root=document.getElementById("findings");
- root.innerHTML='<h1>Findings</h1><p class="muted">'+number(DATA.findings.length)+' active findings from the current rule set.</p>'+
- (DATA.findings.length?DATA.findings.map(findingCard).join(""):'<div class="empty">No active findings.</div>');
+ const items=severity==="all"?DATA.findings:DATA.findings.filter(item=>item.severity===severity);
+ const banner=severity==="all"?"":'<div class="filter-banner"><span>'+esc(drillLabel("findings",severity))+' · '+number(items.length)+' findings</span><button class="back" id="clear-finding-filter">Clear filter</button></div>';
+ root.innerHTML='<h1>Findings</h1><p class="muted">'+number(items.length)+' active findings in this view.</p>'+banner+
+ (items.length?items.map(findingCard).join(""):'<div class="empty">No findings matched this filter.</div>');
+ if(severity!=="all")root.querySelector("#clear-finding-filter").addEventListener("click",()=>renderFindings("all"));
 }}
 function renderAttack(){{
  const items=DATA.security_graph.attack_paths||[];
@@ -519,12 +584,18 @@ function renderAttack(){{
  document.getElementById("attack").innerHTML='<h1>Attack paths</h1><p class="muted">Potential static attack paths. Runtime exploitability is not verified.</p>'+
  (rows?'<div class="panel"><table><thead><tr><th>Path</th><th>Agent</th><th>Severity</th><th>Chain</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">No attack paths detected.</div>');
 }}
-function renderContracts(){{
- const rows=DATA.agents.map(a=>'<tr class="clickable" data-agent="'+encodeURIComponent(a.name)+'"><td><strong>'+esc(a.name)+'</strong></td><td>'+badge(a.summary.contract_status)+'</td>'+
+function renderContracts(mode="all"){{
+ let items=DATA.agents;
+ if(mode==="declared")items=items.filter(a=>a.contract.declared);
+ else if(mode==="violation")items=items.filter(a=>a.summary.contract_violations>0);
+ else if(mode==="unresolved")items=items.filter(a=>a.summary.contract_unresolved>0);
+ const rows=items.map(a=>'<tr class="clickable" data-agent="'+encodeURIComponent(a.name)+'"><td><strong>'+esc(a.name)+'</strong></td><td>'+badge(a.summary.contract_status)+'</td>'+
  '<td>'+number(a.summary.contract_violations)+'</td><td>'+number(a.summary.contract_unresolved)+'</td><td>'+number(a.contract.relationships.length)+'</td></tr>').join("");
- const root=document.getElementById("contracts"); root.innerHTML='<h1>Agent contracts</h1><p class="muted">Declared Authority Contract versus reconstructed effective authority.</p>'+
- '<div class="panel"><table><thead><tr><th>Agent</th><th>Status</th><th>Violations</th><th>Unresolved</th><th>Relationships evaluated</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+ const banner=mode==="all"?"":'<div class="filter-banner"><span>'+esc(drillLabel("contracts",mode))+' · '+number(items.length)+' agents</span><button class="back" id="clear-contract-filter">Clear filter</button></div>';
+ const root=document.getElementById("contracts"); root.innerHTML='<h1>Agent contracts</h1><p class="muted">Declared Authority Contract versus reconstructed effective authority.</p>'+banner+
+ (rows?'<div class="panel"><table><thead><tr><th>Agent</th><th>Status</th><th>Violations</th><th>Unresolved</th><th>Relationships evaluated</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">No agents matched this contract filter.</div>');
  bindAgentRows(root);
+ if(mode!=="all")root.querySelector("#clear-contract-filter").addEventListener("click",()=>renderContracts("all"));
 }}
 function renderEvidence(){{
  const c=DATA.coverage, diags=c.diagnostics||[];
@@ -533,7 +604,7 @@ function renderEvidence(){{
  '<div>Suppressed findings</div><div>'+number(DATA.suppressed_findings.length)+'</div></div></div><h2>Diagnostics</h2>'+
  (diags.length?diags.map(d=>'<div class="finding" data-sev="medium"><strong>'+esc(d.diagnostic_id||d.code)+'</strong> '+esc(d.message)+'<div class="muted small">'+loc(d.location)+'</div></div>').join(""):'<div class="empty">No detected coverage diagnostics.</div>');
 }}
-renderDashboard();renderAgents();renderFindings();renderAttack();renderContracts();renderEvidence();bindAgentRows(document.getElementById("dashboard"));
+renderDashboard();renderAgents();renderFindings();renderAttack();renderContracts();renderEvidence();
 </script>
 </body>
 </html>
