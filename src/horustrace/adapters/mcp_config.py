@@ -31,8 +31,21 @@ _CREDENTIAL_KEYS = {
 
 def _looks_placeholder(value: str) -> bool:
     lowered = value.strip().lower()
+    explicit_placeholders = {
+        "runtime-provided",
+        "runtime_provided",
+        "provided-at-runtime",
+        "provided_at_runtime",
+        "placeholder",
+        "redacted",
+        "<redacted>",
+        "changeme",
+        "replace-me",
+        "replace_me",
+    }
     return (
         not lowered
+        or lowered in explicit_placeholders
         or lowered.startswith(("$", "${", "env:", "<"))
         or "getenv(" in lowered
         or "environ[" in lowered
