@@ -56,6 +56,9 @@ RULE_REGISTRY: dict[str, RuleMetadata] = {
         _rule("AGT032", 1, Severity.MEDIUM, "mcp", "static_configuration", "Remote MCP lacks an explicit tool allowlist", "Without an explicit allowlist, the MCP tool surface may include unreviewed operations.", "Use an explicit MCP tool allowlist for production agents, especially for privileged servers."),
         _rule("AGT040", 1, Severity.MEDIUM, "agent_config", "static_configuration", "Privileged tool lacks explicit guardrail or approval", "Privileged tools need an explicit control boundary before they perform sensitive actions.", "Add tool input/output guardrails and/or explicit approval appropriate to the action."),
         _rule("AGT050", 1, Severity.MEDIUM, "mcp", "static_configuration", "Unpinned MCP package execution", "Unpinned package execution can install an unreviewed or changed MCP server version.", "Pin MCP server packages to a reviewed version or immutable digest."),
+        _rule("AGT051", 1, Severity.HIGH, "mcp", "static_configuration", "Literal credential in MCP configuration", "Embedding credential material directly in MCP configuration exposes it to source, artifact, and workstation compromise.", "Inject MCP credentials through environment variables, a managed secret store, or workload identity instead of committed configuration."),
+        _rule("AGT052", 1, Severity.MEDIUM, "mcp", "static_configuration", "MCP configured with broad tool surface", "Explicitly enabling all MCP tools can expose unreviewed or unnecessary operations.", "Restrict the MCP server to the smallest explicit tool allowlist required by the workflow."),
+        _rule("AGT053", 1, Severity.MEDIUM, "mcp", "static_configuration", "MCP exposes privileged tools without an explicit action boundary", "A bound MCP server exposes privileged tool capabilities without detected approval or guardrail controls.", "Add an MCP tool allowlist and require approval or equivalent policy controls for mutating, destructive, execution, or credential-access tools."),
         _rule("ADK001", 1, Severity.MEDIUM, "agent_config", "static_configuration", "Privileged ADK agent has no detected tool-control callback/plugin", "Privileged ADK capabilities lack a detected callback, plugin, or confirmation control boundary.", "Add before-tool callback or security plugin controls and require confirmation for high-impact tools."),
         _rule("ADK002", 1, Severity.CRITICAL, "execution", "static_configuration", "Unsafe local ADK code execution", "Unsandboxed local execution can access host processes, files, and credentials.", "Use Agent Runtime, GKE, or built-in sandboxed execution and apply resource, timeout, network, and approval controls."),
         _rule("ADK003", 1, Severity.HIGH, "execution", "static_configuration", "ADK LocalEnvironment exposes shell and file I/O", "LocalEnvironment exposes host command execution and file operations to the agent.", "Run execution in a disposable sandbox, constrain working_dir, remove secrets, and gate mutating actions."),
@@ -92,6 +95,8 @@ RULE_REGISTRY: dict[str, RuleMetadata] = {
         _rule("PATH005", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential untrusted-input path to secret access and egress", "Untrusted input, secret-reading capability, and outbound capability coexist in the same normalized agent model.", "Break the path by isolating secret access, validating input, and restricting egress."),
         _rule("PATH006", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential untrusted-input exposure to multiple high-risk capabilities", "Untrusted input can reach an agent that combines multiple high-risk capability classes.", "Break the path by narrowing the agent's capability set and validating untrusted input."),
         _rule("PATH007", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential untrusted-input path to persistent memory write", "Untrusted input that reaches persistent agent memory or checkpoint state can influence later agent behavior.", "Validate and constrain untrusted content before persistent memory writes; isolate memory scope and require review for high-impact state."),
+        _rule("PATH008", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential untrusted-input path through delegated agent to privileged action", "Untrusted input can reach an agent that delegates to another agent exposing a high-risk capability without detected approval.", "Constrain delegation targets, narrow child-agent authority, validate untrusted input, and enforce approval at the privileged action boundary."),
+        _rule("PATH009", 5, Severity.MEDIUM, "attack_path", "potential_risk", "Potential untrusted-input path through delegated agent to unconstrained egress", "Untrusted input can reach a delegated agent with outbound authority and no detected destination constraint.", "Restrict delegated outbound tools to explicit destinations and validate untrusted input before external actions."),
     )
 }
 
@@ -120,6 +125,9 @@ _OWASP_MAPPINGS = {
     "AGT032": ("ASI02",),
     "AGT040": ("ASI02",),
     "AGT050": ("ASI04",),
+    "AGT051": ("ASI03", "ASI04"),
+    "AGT052": ("ASI02",),
+    "AGT053": ("ASI02",),
     "ADK001": ("ASI02",),
     "ADK002": ("ASI05",),
     "ADK003": ("ASI05",),
@@ -146,6 +154,8 @@ _OWASP_MAPPINGS = {
     "PATH005": ("ASI01",),
     "PATH006": ("ASI01", "ASI02"),
     "PATH007": ("ASI06",),
+    "PATH008": ("ASI01", "ASI02", "ASI07"),
+    "PATH009": ("ASI01", "ASI02", "ASI07"),
 }
 
 RULE_REGISTRY = {
