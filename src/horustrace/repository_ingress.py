@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 """Repository-level propagation of untrusted ingress into agent runtimes.
 
 The pass is evidence-driven: it starts from web-handler parameters, explicit request
@@ -128,10 +129,8 @@ def _expr_tainted(node: ast.AST | None, tainted: set[str]) -> bool:
         leaf = (_call_name(child.func) or "").lower()
         if called == "input" or leaf == "input":
             return True
-        if leaf in _REQUEST_READS and (
-            called.startswith("request.")
-            or called.startswith("websocket.")
-            or called.startswith("ws.")
+        if leaf in _REQUEST_READS and called.startswith(
+            ("request.", "websocket.", "ws.")
         ):
             return True
         if called.startswith("request.") and leaf in {"get", "values", "args"}:
