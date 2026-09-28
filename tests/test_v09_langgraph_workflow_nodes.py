@@ -50,11 +50,21 @@ workflow.add_edge("chatbot", "tools")
     # Legacy Tool projections remain available for finding/capability analysis,
     # but workflow registration alone must not become effective authority.
     agent = next(agent for agent in graph.agents if agent.name == "workflow")
-    assert {tool.name for tool in agent.tools} == {"normalize", "chatbot", "tools"}
-    assert all(
-        tool.metadata.get("authority_binding") == "workflow_projection"
+    assert {tool.name for tool in agent.tools} == {
+        "normalize",
+        "chatbot",
+        "tools",
+        "search",
+    }
+    projected = [
+        tool
         for tool in agent.tools
-    )
+        if tool.metadata.get("authority_binding") == "workflow_projection"
+    ]
+    assert {tool.name for tool in projected} == {"normalize", "chatbot", "tools"}
+    search = next(tool for tool in agent.tools if tool.name == "search")
+    assert search.metadata["authority_binding"] == "direct"
+    assert search.metadata["authority_binding_basis"] == "langgraph_tool_node_catalogue"
 
     assert graph.adg is not None
     workflow_nodes = {
