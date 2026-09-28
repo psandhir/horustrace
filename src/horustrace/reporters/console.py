@@ -104,14 +104,14 @@ def render(
             lines.append(
                 "  VIOLATION "
                 f"agent={item['agent']} "
-                f"target={item['target_kind']}:{item['target_name']} "
+                f"target={item['target']['kind']}:{item['target']['name']} "
                 f"clause={item['clause']} reason={item['reason']}"
             )
         for item in contract_report["unresolved"]:
             lines.append(
                 "  UNRESOLVED "
                 f"agent={item['agent']} "
-                f"target={item['target_kind']}:{item['target_name']} "
+                f"target={item['target']['kind']}:{item['target']['name']} "
                 f"clause={item['clause']} reason={item['reason']}"
             )
         lines.append("")
