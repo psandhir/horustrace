@@ -523,8 +523,40 @@ def scan_python_file(path: Path) -> Graph:
             if tool:
                 graph.unbound_tools.append(tool)
 
+    tools_by_server: dict[str, list[Tool]] = {}
+    for tool in graph.unbound_tools:
+        server_alias = str(tool.metadata.get("server") or "")
+        if server_alias:
+            tools_by_server.setdefault(server_alias, []).append(tool)
+
     seen: set[tuple[str, str, int]] = set()
     for server in servers:
+        server_alias = str(server.metadata.get("alias") or server.name)
+        exposed_tools = tools_by_server.get(server_alias, [])
+        if exposed_tools:
+            server.metadata["discovered_tools"] = [
+                {
+                    "name": tool.name,
+                    "capabilities": sorted(tool.capabilities),
+                    "location": (
+                        {
+                            "path": str(tool.location.path),
+                            "line": tool.location.line,
+                            "column": tool.location.column,
+                        }
+                        if tool.location is not None
+                        else None
+                    ),
+                }
+                for tool in sorted(exposed_tools, key=lambda item: item.name)
+            ]
+            server.metadata["discovered_tool_capabilities"] = sorted(
+                {
+                    capability
+                    for tool in exposed_tools
+                    for capability in tool.capabilities
+                }
+            )
         line = server.location.line if server.location else 1
         key = (server.name, server.transport, line)
         if key in seen:
