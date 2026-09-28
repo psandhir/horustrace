@@ -76,6 +76,21 @@ class ToolRegistry:
 """,
         encoding="utf-8",
     )
+    # A legacy sibling registry can coexist with the active package loader.
+    # Its preferred config must not override the source-proven package loader.
+    (tmp_path / "agents" / "registry.py").write_text(
+        """
+def initialize_agent_registry():
+    config_path = "agent_definitions_updated_final.json"
+    return config_path
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agents" / "config" / "agent_definitions_updated_final.json").write_text(
+        '{"agents": [ invalid legacy config',
+        encoding="utf-8",
+    )
+
     (tmp_path / "agents" / "registry" / "registry_loader.py").write_text(
         """
 from .agent_registry import AgentRegistry
