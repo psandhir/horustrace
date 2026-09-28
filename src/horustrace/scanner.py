@@ -55,6 +55,7 @@ from horustrace.models import (
     FlowPath,
     Graph,
     Identity,
+    InputSource,
     NetworkDestination,
     ResourceScope,
     ScanDiagnostic,
@@ -361,6 +362,135 @@ def _annotate_flow_semantics(
             project_script_entrypoints,
         )
         flow.agent_reachability = _classify_flow_agent_reachability(flow, graph)
+
+
+
+
+def _enrich_web_ingress_inputs(
+    graph: Graph,
+    root: Path,
+    python_paths: list[Path],
+) -> None:
+    """Attach source-proven untrusted web ingress to factory-built agents."""
+    agents_by_factory: dict[tuple[str, str], list[Agent]] = {}
+    for agent in graph.agents:
+        factory = agent.metadata.get("factory_function")
+        if not isinstance(factory, str) or not factory or agent.location is None:
+            continue
+        agents_by_factory.setdefault((agent.location.path.stem, factory), []).append(agent)
+
+    if not agents_by_factory:
+        return
+
+    for path in python_paths:
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except (OSError, UnicodeDecodeError, SyntaxError):
+            continue
+
+        web_module = False
+        imported_factories: dict[str, tuple[str, str]] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                if module == "fastapi" or module.startswith("fastapi."):
+                    web_module = True
+                module_leaf = module.split(".")[-1] if module else ""
+                for alias in node.names:
+                    key = (module_leaf, alias.name)
+                    if key in agents_by_factory:
+                        imported_factories[alias.asname or alias.name] = key
+            elif isinstance(node, ast.Import):
+                if any(
+                    alias.name == "fastapi" or alias.name.startswith("fastapi.")
+                    for alias in node.names
+                ):
+                    web_module = True
+
+        if not web_module or not imported_factories:
+            continue
+
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            params = {
+                arg.arg
+                for arg in (
+                    list(fn.args.posonlyargs)
+                    + list(fn.args.args)
+                    + list(fn.args.kwonlyargs)
+                )
+            }
+            created: dict[str, tuple[str, str]] = {}
+            request_params: set[str] = set()
+            invoked_vars: set[str] = set()
+
+            for node in ast.walk(fn):
+                if isinstance(node, (ast.Assign, ast.AnnAssign)) and isinstance(node.value, ast.Call):
+                    call_name = node.value.func.id if isinstance(node.value.func, ast.Name) else None
+                    if call_name in imported_factories:
+                        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                        for target in targets:
+                            if isinstance(target, ast.Name):
+                                created[target.id] = imported_factories[call_name]
+
+                if not isinstance(node, ast.Call):
+                    continue
+
+                call_leaf = (
+                    node.func.id
+                    if isinstance(node.func, ast.Name)
+                    else node.func.attr
+                    if isinstance(node.func, ast.Attribute)
+                    else None
+                )
+                if call_leaf == "HumanMessage":
+                    content_node = next(
+                        (
+                            keyword.value
+                            for keyword in node.keywords
+                            if keyword.arg == "content"
+                        ),
+                        node.args[0] if node.args else None,
+                    )
+                    if isinstance(content_node, ast.Name) and content_node.id in params:
+                        request_params.add(content_node.id)
+
+                if (
+                    isinstance(node.func, ast.Attribute)
+                    and node.func.attr in {"invoke", "ainvoke", "stream", "astream"}
+                    and isinstance(node.func.value, ast.Name)
+                ):
+                    invoked_vars.add(node.func.value.id)
+
+            if not request_params:
+                continue
+
+            for variable in sorted(invoked_vars & set(created)):
+                key = created[variable]
+                candidates = agents_by_factory.get(key, [])
+                if len(candidates) != 1:
+                    continue
+                agent = candidates[0]
+                existing = {(item.name, item.kind, item.trust) for item in agent.inputs}
+                for param in sorted(request_params):
+                    input_name = f"{path.stem}.{fn.name}:{param}"
+                    signature = (input_name, "web", "untrusted")
+                    if signature in existing:
+                        continue
+                    agent.inputs.append(
+                        InputSource(
+                            name=input_name,
+                            trust="untrusted",
+                            kind="web",
+                            location=SourceLocation(path, fn.lineno, fn.col_offset + 1),
+                            metadata={
+                                "basis": "web_factory_message_invoke",
+                                "factory_function": key[1],
+                                "factory_module": key[0],
+                            },
+                        )
+                    )
 
 
 def _is_source_fragment(path: Path) -> bool:
@@ -1261,6 +1391,7 @@ def scan(
         for tool in graph.all_tools()
     )
     analysis_root = root if root.is_dir() else root.parent
+    _enrich_web_ingress_inputs(graph, analysis_root, approved_python_paths)
     graph.flow_paths = analyze_repository_flows(analysis_root, approved_python_paths, graph)
     _remap_flow_locations(graph, notebook_path_map)
     main_guard_entrypoints = _collect_main_guard_entrypoints(

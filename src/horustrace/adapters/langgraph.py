@@ -482,6 +482,24 @@ def _workflow_node_role(
     return "unknown"
 
 
+
+
+def _enclosing_function_name(tree: ast.AST, node: ast.AST) -> str | None:
+    line = getattr(node, "lineno", None)
+    if line is None:
+        return None
+    candidates: list[tuple[int, str]] = []
+    for item in ast.walk(tree):
+        if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        start = getattr(item, "lineno", 0) or 0
+        end = getattr(item, "end_lineno", start) or start
+        if start <= line <= end:
+            candidates.append((start, item.name))
+    if not candidates:
+        return None
+    return max(candidates)[1]
+
 def _resolved_tool_elements(expr: ast.AST | None, sequences: dict[str, list[ast.AST]]) -> list[ast.AST]:
     if isinstance(expr, (ast.List, ast.Tuple, ast.Set)):
         return list(expr.elts)
@@ -631,6 +649,7 @@ def scan_python_file(path: Path) -> Graph:
                 "instance_key": (
                     f"{path.resolve()}:{getattr(constructor, 'lineno', 1)}:{graph_alias}"
                 ),
+                "factory_function": _enclosing_function_name(tree, constructor),
             },
         )
         unresolved_dynamic_edge = False

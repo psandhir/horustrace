@@ -204,3 +204,71 @@ workflow.add_node("tools", ToolNode(tools))
 
     rule_ids = {finding.rule_id for finding in findings if finding.agent == agent.name}
     assert {"AGT021", "AGT022", "AGT040", "CAP005"} <= rule_ids
+
+
+def test_fastapi_human_message_ingress_marks_factory_graph_untrusted(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "tools.py").write_text(
+        """
+import sqlite3
+from langchain_core.tools import tool
+
+@tool
+def execute_sqlite_query(query: str):
+    conn = sqlite3.connect("example.db")
+    cursor = conn.cursor()
+    cursor.execute(query)
+    if query.strip().lower().startswith("select"):
+        return cursor.fetchall()
+    conn.commit()
+    return "ok"
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from langgraph.graph import StateGraph
+from langgraph.prebuilt import ToolNode
+from tools import execute_sqlite_query
+
+tools = [execute_sqlite_query]
+
+def create_agent():
+    workflow = StateGraph(dict)
+    workflow.add_node("tools", ToolNode(tools))
+    return workflow.compile()
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "chat.py").write_text(
+        """
+from fastapi import APIRouter
+from langchain_core.messages import HumanMessage
+from agent import create_agent
+
+router = APIRouter()
+
+async def stream_agent_response(query: str):
+    react_graph = create_agent()
+    state = {"messages": [HumanMessage(content=query)]}
+    return react_graph.invoke(state)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "langgraph"
+    )
+    assert agent.metadata["factory_function"] == "create_agent"
+    ingress = next(item for item in agent.inputs if item.kind == "web")
+    assert ingress.trust == "untrusted"
+    assert ingress.metadata["basis"] == "web_factory_message_invoke"
+    assert any(
+        finding.rule_id == "PATH002" and finding.agent == agent.name
+        for finding in findings
+    )
