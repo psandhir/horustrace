@@ -127,3 +127,57 @@ def ordinary_helper(value):
     graph, _ = scan(tmp_path)
 
     assert graph.unbound_tools == []
+
+
+def test_sql_execute_tool_is_database_authority_not_process_execution(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "tools.py").write_text(
+        """
+import sqlite3
+from langchain_core.tools import tool
+
+@tool
+def execute_sqlite_query(query: str):
+    conn = sqlite3.connect("example.db")
+    cursor = conn.cursor()
+    cursor.execute(query)
+    if query.strip().lower().startswith("select"):
+        return cursor.fetchall()
+    conn.commit()
+    return "ok"
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    tool = next(item for item in graph.unbound_tools if item.name == "execute_sqlite_query")
+
+    assert "process.execute" not in tool.capabilities
+    assert {"data.read", "data.write", "destructive.write"} <= tool.capabilities
+    assert not any(
+        finding.rule_id == "AGT020"
+        and finding.location
+        and finding.location.path.name == "tools.py"
+        for finding in findings
+    )
+
+
+def test_execute_code_name_retains_process_execution_semantics(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "tools.py").write_text(
+        """
+from langchain_core.tools import tool
+
+@tool
+def execute_code(source: str):
+    return source
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    tool = next(item for item in graph.unbound_tools if item.name == "execute_code")
+
+    assert "process.execute" in tool.capabilities
