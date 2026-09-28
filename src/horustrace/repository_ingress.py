@@ -9,7 +9,8 @@ agent runtime invocation.
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass
+from collections import deque
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from horustrace.models import Agent, Graph, InputSource, SourceLocation
@@ -25,6 +26,8 @@ class _Function:
     name: str
     path: Path
     node: ast.FunctionDef | ast.AsyncFunctionDef
+    assignments: list[ast.Assign | ast.AnnAssign] = field(default_factory=list)
+    calls: list[ast.Call] = field(default_factory=list)
 
     @property
     def params(self) -> list[str]:
@@ -148,7 +151,22 @@ def _collect_functions(python_paths: list[Path]) -> tuple[list[_Function], dict[
             continue
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                info = _Function(node.name, path, node)
+                children = list(ast.walk(node))
+                info = _Function(
+                    node.name,
+                    path,
+                    node,
+                    assignments=[
+                        child
+                        for child in children
+                        if isinstance(child, (ast.Assign, ast.AnnAssign))
+                    ],
+                    calls=[
+                        child
+                        for child in children
+                        if isinstance(child, ast.Call)
+                    ],
+                )
                 functions.append(info)
                 by_name_multi.setdefault(node.name, []).append(info)
     unique = {name: values[0] for name, values in by_name_multi.items() if len(values) == 1}
@@ -220,133 +238,130 @@ def propagate_repository_ingress(
         for info in functions
     }
 
-    for _ in range(12):
-        changed = False
-        for info in functions:
-            key = (info.path.resolve(), info.name)
-            tainted = set(tainted_params[key])
-            local_agents: dict[str, str] = {}
+    queue = deque(functions)
+    queued = {
+        (info.path.resolve(), info.name)
+        for info in functions
+    }
 
-            # Explicit source reads taint their assignment targets.
-            for child in ast.walk(info.node):
-                if isinstance(child, (ast.Assign, ast.AnnAssign)):
-                    value = child.value
-                    if value is None:
-                        continue
-                    targets = child.targets if isinstance(child, ast.Assign) else [child.target]
-                    target_names = {
-                        name for target in targets for name in _target_names(target)
-                    }
-                    if _expr_tainted(value, tainted) or _has_explicit_untrusted_source(value):
-                        before = len(tainted)
-                        tainted.update(target_names)
-                        changed = changed or len(tainted) != before
+    while queue:
+        info = queue.popleft()
+        key = (info.path.resolve(), info.name)
+        queued.discard(key)
+        tainted = set(tainted_params[key])
+        local_agents: dict[str, str] = {}
 
-                    if isinstance(value, ast.Call):
-                        called = _call_name(value.func)
-                        if called in factory_agents:
-                            for name in target_names:
-                                local_agents[name] = factory_agents[called]
-                        if isinstance(value.func, ast.Attribute) and value.func.attr == "get_agent":
-                            name = _literal(value.args[0]) if value.args else None
-                            if name in agents_by_name:
-                                for target_name in target_names:
-                                    local_agents[target_name] = name
+        # Explicit source reads taint their assignment targets.
+        for child in info.assignments:
+            value = child.value
+            if value is None:
+                continue
+            targets = child.targets if isinstance(child, ast.Assign) else [child.target]
+            target_names = {
+                name for target in targets for name in _target_names(target)
+            }
+            if _expr_tainted(value, tainted) or _has_explicit_untrusted_source(value):
+                tainted.update(target_names)
 
-            # Re-run assignment propagation to catch multi-step containers/wrappers.
-            for _local in range(4):
-                local_changed = False
-                for child in ast.walk(info.node):
-                    if not isinstance(child, (ast.Assign, ast.AnnAssign)):
-                        continue
-                    value = child.value
-                    if value is None or not _expr_tainted(value, tainted):
-                        continue
-                    targets = child.targets if isinstance(child, ast.Assign) else [child.target]
-                    for target in targets:
-                        for name in _target_names(target):
-                            if name not in tainted:
-                                tainted.add(name)
-                                local_changed = True
-                                changed = True
-                if not local_changed:
-                    break
+            if isinstance(value, ast.Call):
+                called = _call_name(value.func)
+                if called in factory_agents:
+                    for name in target_names:
+                        local_agents[name] = factory_agents[called]
+                if isinstance(value.func, ast.Attribute) and value.func.attr == "get_agent":
+                    name = _literal(value.args[0]) if value.args else None
+                    if name in agents_by_name:
+                        for target_name in target_names:
+                            local_agents[target_name] = name
 
-            # Direct framework aliases are source-file scoped.
-            for (path, alias), agent_name in source_aliases.items():
-                if path == info.path.resolve():
-                    local_agents.setdefault(alias, agent_name)
-
-            for child in ast.walk(info.node):
-                if not isinstance(child, ast.Call):
+        # Resolve local assignment chains without rescanning the AST.
+        while True:
+            local_changed = False
+            for child in info.assignments:
+                value = child.value
+                if value is None or not _expr_tainted(value, tainted):
                     continue
-                called = _call_name(child.func)
+                targets = child.targets if isinstance(child, ast.Assign) else [child.target]
+                for target in targets:
+                    for name in _target_names(target):
+                        if name not in tainted:
+                            tainted.add(name)
+                            local_changed = True
+            if not local_changed:
+                break
 
-                # Propagate tainted arguments through uniquely-resolved functions.
-                callee = unique_functions.get(called or "")
-                if callee is not None:
-                    callee_key = (callee.path.resolve(), callee.name)
-                    positional = list(child.args)
-                    keywords = {item.arg: item.value for item in child.keywords if item.arg}
-                    parameters = list(callee.params)
-                    if (
-                        isinstance(child.func, ast.Attribute)
-                        and parameters
-                        and parameters[0] in {"self", "cls"}
-                    ):
-                        parameters = parameters[1:]
-                    for index, param in enumerate(parameters):
-                        value = (
-                            positional[index]
-                            if index < len(positional)
-                            else keywords.get(param)
-                        )
-                        if (
-                            value is not None
-                            and _expr_tainted(value, tainted)
-                            and param not in tainted_params[callee_key]
-                        ):
-                            tainted_params[callee_key].add(param)
-                            changed = True
+        # Direct framework aliases are source-file scoped.
+        for (path, alias), agent_name in source_aliases.items():
+            if path == info.path.resolve():
+                local_agents.setdefault(alias, agent_name)
 
-                target_agent: str | None = None
-                input_expr: ast.AST | None = None
+        for child in info.calls:
+            called = _call_name(child.func)
 
-                dotted = _dotted(child.func) or ""
-                if dotted.endswith(("Runner.run", "Runner.run_sync", "Runner.run_streamed")):
-                    agent_expr = child.args[0] if child.args else _kw(child, "starting_agent")
-                    alias = _call_name(agent_expr)
-                    target_agent = local_agents.get(alias or "") or agents_by_name.get(
-                        alias or "",
-                        None,
-                    )
-                    input_expr = _kw(child, "input")
-                    if input_expr is None and len(child.args) > 1:
-                        input_expr = child.args[1]
-                elif isinstance(child.func, ast.Attribute) and child.func.attr in _RUNTIME_METHODS:
-                    receiver = _call_name(child.func.value)
-                    target_agent = local_agents.get(receiver or "")
-                    input_expr = child.args[0] if child.args else _kw(child, "input")
-                elif called in {"run", "run_sync", "run_streamed"}:
-                    # Bare runtime helpers are not sufficiently specific.
-                    continue
-                elif called is None:
-                    continue
-
+            # Propagate tainted arguments through uniquely-resolved functions.
+            callee = unique_functions.get(called or "")
+            if callee is not None:
+                callee_key = (callee.path.resolve(), callee.name)
+                positional = list(child.args)
+                keywords = {item.arg: item.value for item in child.keywords if item.arg}
+                parameters = list(callee.params)
                 if (
-                    target_agent
-                    and input_expr is not None
-                    and _expr_tainted(input_expr, tainted)
-                    and target_agent in agents_by_name
+                    isinstance(child.func, ast.Attribute)
+                    and parameters
+                    and parameters[0] in {"self", "cls"}
                 ):
-                    _append_untrusted_input(
-                        agents_by_name[target_agent],
-                        SourceLocation(info.path, getattr(child, "lineno", 1) or 1),
-                        "static_web_or_cli_value_to_agent_runtime",
+                    parameters = parameters[1:]
+                gained = False
+                for index, param in enumerate(parameters):
+                    value = (
+                        positional[index]
+                        if index < len(positional)
+                        else keywords.get(param)
                     )
+                    if (
+                        value is not None
+                        and _expr_tainted(value, tainted)
+                        and param not in tainted_params[callee_key]
+                    ):
+                        tainted_params[callee_key].add(param)
+                        gained = True
+                if gained and callee_key not in queued:
+                    queue.append(callee)
+                    queued.add(callee_key)
 
-            if tainted != tainted_params[key]:
-                tainted_params[key].update(tainted)
-                changed = True
-        if not changed:
-            break
+            target_agent: str | None = None
+            input_expr: ast.AST | None = None
+
+            dotted = _dotted(child.func) or ""
+            if dotted.endswith(("Runner.run", "Runner.run_sync", "Runner.run_streamed")):
+                agent_expr = child.args[0] if child.args else _kw(child, "starting_agent")
+                alias = _call_name(agent_expr)
+                target_agent = local_agents.get(alias or "") or agents_by_name.get(
+                    alias or "",
+                    None,
+                )
+                input_expr = _kw(child, "input")
+                if input_expr is None and len(child.args) > 1:
+                    input_expr = child.args[1]
+            elif isinstance(child.func, ast.Attribute) and child.func.attr in _RUNTIME_METHODS:
+                receiver = _call_name(child.func.value)
+                target_agent = local_agents.get(receiver or "")
+                input_expr = child.args[0] if child.args else _kw(child, "input")
+            elif called in {"run", "run_sync", "run_streamed"}:
+                continue
+            elif called is None:
+                continue
+
+            if (
+                target_agent
+                and input_expr is not None
+                and _expr_tainted(input_expr, tainted)
+                and target_agent in agents_by_name
+            ):
+                _append_untrusted_input(
+                    agents_by_name[target_agent],
+                    SourceLocation(info.path, getattr(child, "lineno", 1) or 1),
+                    "static_web_or_cli_value_to_agent_runtime",
+                )
+
+        tainted_params[key].update(tainted)
