@@ -80,9 +80,12 @@ def _literal_config_credentials(config: dict[str, Any]) -> list[str]:
     sources: list[str] = []
     for key, value in config.items():
         normalized = str(key).lower().replace("-", "_")
-        if normalized in _CREDENTIAL_KEYS and isinstance(value, str):
-            if not _looks_placeholder(value):
-                sources.append(f"field:{normalized}")
+        if (
+            normalized in _CREDENTIAL_KEYS
+            and isinstance(value, str)
+            and not _looks_placeholder(value)
+        ):
+            sources.append(f"field:{normalized}")
     headers = config.get("headers")
     if isinstance(headers, dict):
         for key, value in headers.items():
