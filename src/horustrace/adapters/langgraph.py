@@ -619,6 +619,17 @@ def scan_python_file(path: Path) -> Graph:
             )
 
     for graph_alias, constructor in graph_aliases.items():
+        constructor_line = getattr(constructor, "lineno", 1) or 1
+        factory_function = next(
+            (
+                function.name
+                for function in functions.values()
+                if getattr(function, "lineno", 0)
+                <= constructor_line
+                <= getattr(function, "end_lineno", 0)
+            ),
+            None,
+        )
         agent = Agent(
             name=graph_alias,
             location=_location(path, constructor),
@@ -628,6 +639,7 @@ def scan_python_file(path: Path) -> Graph:
                 "workflow": "LangGraph",
                 "control_edges": [],
                 "memory": [],
+                "factory_function": factory_function,
                 "instance_key": (
                     f"{path.resolve()}:{getattr(constructor, 'lineno', 1)}:{graph_alias}"
                 ),
