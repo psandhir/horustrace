@@ -1,0 +1,88 @@
+{
+  "benchmark": "horustrace-semantic-parity-v1",
+  "source_artifact": "frozen-180-postfix-d8f9043525208991ae69ea45c9b694b3288aa36e",
+  "scanner_sha": "d8f9043525208991ae69ea45c9b694b3288aa36e",
+  "assertions": 23,
+  "passed": 3,
+  "failed": 20,
+  "pass_rate": 0.13043478260869565,
+  "cases": [
+    {
+      "case_id": "rw-022",
+      "passed": 0,
+      "failed": 2,
+      "failed_assertions": [
+        "summary.agents>=11",
+        "summary.mcp_servers>=6"
+      ]
+    },
+    {
+      "case_id": "rw-085",
+      "passed": 0,
+      "failed": 2,
+      "failed_assertions": [
+        "summary.agents>=1",
+        "summary.tools>=140"
+      ]
+    },
+    {
+      "case_id": "rw-129",
+      "passed": 0,
+      "failed": 4,
+      "failed_assertions": [
+        "AGT022 present",
+        "AGT040 present",
+        "CAP005 present",
+        "PATH007 present"
+      ]
+    },
+    {
+      "case_id": "rw-158",
+      "passed": 1,
+      "failed": 3,
+      "passed_assertions": [
+        "AGT053 present"
+      ],
+      "failed_assertions": [
+        "summary.mcp_servers<=1",
+        "AGT053 count<=1",
+        "PATH002 present"
+      ]
+    },
+    {
+      "case_id": "rw-058",
+      "passed": 0,
+      "failed": 6,
+      "failed_assertions": [
+        "AGT020 absent for tools_execute_sqlite.py",
+        "AGT021 present",
+        "AGT022 present",
+        "AGT040 present",
+        "CAP005 present",
+        "PATH002 present"
+      ]
+    },
+    {
+      "case_id": "rw-003",
+      "passed": 0,
+      "failed": 1,
+      "failed_assertions": [
+        "summary.agents>=8"
+      ]
+    },
+    {
+      "case_id": "rw-096",
+      "passed": 2,
+      "failed": 2,
+      "passed_assertions": [
+        "AGT030 absent",
+        "AGT031 absent"
+      ],
+      "failed_assertions": [
+        "AGT032 present",
+        "NET001 present"
+      ]
+    }
+  ],
+  "note": "This is a post-hoc semantic regression score for seven deliberately difficult cases, not an overall product quality score or a replacement for the frozen-180 preregistered metrics."
+}
