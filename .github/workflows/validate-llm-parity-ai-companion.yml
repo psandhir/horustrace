@@ -1,0 +1,82 @@
+name: Validate LLM parity against AI Companion
+
+on:
+  push:
+    branches:
+      - experiment/llm-parity-ai-companion
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out HorusTrace
+        uses: actions/checkout@v4
+
+      - name: Check out pinned AI Companion
+        uses: actions/checkout@v4
+        with:
+          repository: Danejw/ai-companion-backend
+          ref: 5868863046a6b3e69cba9d07e98fb2bd357976d1
+          path: target
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+
+      - name: Ruff
+        run: ruff check src tests benchmarks scripts/deployment_authority_study.py
+
+      - name: Targeted regression tests
+        run: |
+          pytest -q \
+            tests/test_openai_adapter.py \
+            tests/test_mcp_config.py \
+            tests/test_analysis_interactions.py
+
+      - name: Run pinned scan
+        run: horustrace scan target --format json > ai-companion-scan-llm-parity.json
+
+      - name: Summarize delta
+        run: |
+          python - <<'PY'
+          import json
+          from collections import Counter, defaultdict
+
+          data=json.load(open("ai-companion-scan-llm-parity.json"))
+          summary=data["summary"]
+          authority=data["effective_authority"]["summary"]
+          findings=data["findings"]
+          print("SUMMARY", summary)
+          print("AUTHORITY", authority)
+          print("RULES", dict(Counter(f["rule_id"] for f in findings)))
+          print("SEVERITY", dict(Counter(f["severity"] for f in findings)))
+          print("ATTACK_PATHS", data.get("attack_paths", []))
+
+          print("MCP_RELATIONSHIPS")
+          for rel in data["effective_authority"]["relationships"]:
+              if rel["target"]["kind"] == "mcp_server":
+                  print(json.dumps(rel, sort_keys=True))
+
+          print("SELECTED_FINDINGS")
+          for f in findings:
+              if f["rule_id"] in {"AGT021","AGT022","AGT040","AGT051","AGT052","AGT053","PATH008","PATH009"}:
+                  print(f["rule_id"], f.get("agent"), f["title"], f.get("evidence"))
+          PY
+
+      - name: Generate report
+        run: horustrace report target --output ai-companion-horustrace-llm-parity.html
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-companion-llm-parity
+          path: |
+            ai-companion-scan-llm-parity.json
+            ai-companion-horustrace-llm-parity.html
