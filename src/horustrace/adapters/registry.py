@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from horustrace.adapters.contract import PythonFrameworkAdapter
+from horustrace.adapters.custom_tool_registry import is_custom_tool_registry_file
+from horustrace.adapters.custom_tool_registry import scan_python_file as scan_custom_tool_registry_python
 from horustrace.adapters.fast_agent import is_fast_agent_file
 from horustrace.adapters.fast_agent import scan_python_file as scan_fast_agent_python
 from horustrace.adapters.google_adk import is_google_adk_file
@@ -28,6 +30,11 @@ PYTHON_FRAMEWORK_ADAPTERS: tuple[PythonFrameworkAdapter, ...] = (
     PythonFrameworkAdapter("google-adk", is_google_adk_file, scan_google_adk_python),
     PythonFrameworkAdapter("langgraph", is_langgraph_file, scan_langgraph_python),
     PythonFrameworkAdapter("langchain-tools", is_langchain_tool_file, scan_langchain_tools_python),
+    PythonFrameworkAdapter(
+        "custom-tool-registry",
+        is_custom_tool_registry_file,
+        scan_custom_tool_registry_python,
+    ),
     PythonFrameworkAdapter("openai-agents", is_openai_agents_file, scan_openai_python),
     PythonFrameworkAdapter("pydantic-ai", is_pydantic_ai_file, scan_pydantic_ai_python),
     PythonFrameworkAdapter("fast-agent", is_fast_agent_file, scan_fast_agent_python),

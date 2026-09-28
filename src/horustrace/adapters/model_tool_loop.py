@@ -22,6 +22,7 @@ _KNOWN_FRAMEWORK_PREFIXES = (
     "pydantic_ai",
     "langgraph",
     "fast_agent",
+    "mcp_agent",
 )
 _KNOWN_FRAMEWORK_MODULES = {"agents"}
 _EXPLICIT_AGENT_MODULES = {"livekit.agents"}
@@ -38,6 +39,7 @@ _MODEL_METHODS = {
     "completion",
     "invoke",
     "ainvoke",
+    "chat_collect",
 }
 
 
@@ -128,6 +130,12 @@ def _explicit_agent_aliases(tree: ast.AST) -> dict[str, str]:
     return aliases
 
 
+def _is_model_callable(node: ast.AST | None) -> bool:
+    called = (_dotted(node) or _call_name(node) or "").lower()
+    leaf = (_call_name(node) or "").lower()
+    return any(called.endswith(suffix) for suffix in _MODEL_CALL_SUFFIXES) or leaf in _MODEL_METHODS
+
+
 def _class_signals(node: ast.ClassDef) -> dict[str, bool]:
     model_call = False
     tool_catalogue = False
@@ -138,17 +146,39 @@ def _class_signals(node: ast.ClassDef) -> dict[str, bool]:
 
     for child in ast.walk(node):
         if isinstance(child, ast.Call):
-            called = (_dotted(child.func) or _call_name(child.func) or "").lower()
             leaf = (_call_name(child.func) or "").lower()
-            call_is_model = any(
-                called.endswith(suffix) for suffix in _MODEL_CALL_SUFFIXES
-            ) or leaf in _MODEL_METHODS
+            call_is_model = _is_model_callable(child.func)
+            if not call_is_model:
+                # Retry/instrumentation helpers often receive a bound model
+                # method as a first-class callable (for example
+                # retry(self.llm.chat_collect, ..., tools=...)). Treat this as
+                # model invocation evidence without weakening the four-signal
+                # custom-agent gate.
+                call_is_model = any(
+                    _is_model_callable(argument)
+                    for argument in (
+                        list(child.args)
+                        + [keyword.value for keyword in child.keywords]
+                    )
+                )
             if call_is_model:
                 model_call = True
             if leaf == "set_tools":
                 tool_catalogue = True
             if leaf == "call_tool":
                 tool_dispatch = True
+            elif leaf in {"execute", "dispatch", "invoke_tool", "run_tool"}:
+                receiver = (
+                    _dotted(child.func.value)
+                    if isinstance(child.func, ast.Attribute)
+                    else None
+                )
+                receiver_lower = (receiver or "").lower()
+                receiver_tokens = set(
+                    receiver_lower.replace("-", "_").replace(".", "_").split("_")
+                )
+                if receiver_tokens & {"tool", "tools", "registry"}:
+                    tool_dispatch = True
             if leaf in {"post", "request"}:
                 http_request = True
             for keyword in child.keywords:
