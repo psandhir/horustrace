@@ -82,6 +82,19 @@ def _uses_langgraph(tree: ast.AST) -> bool:
     return False
 
 
+def _imported_symbol_modules(tree: ast.AST) -> dict[str, str]:
+    """Map locally imported symbols to their source module for repository binding."""
+    result: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom) or not node.module:
+            continue
+        for alias in node.names:
+            if alias.name == "*":
+                continue
+            result[alias.asname or alias.name] = node.module
+    return result
+
+
 def _langchain_agent_factory_names(tree: ast.AST) -> set[str]:
     """Return local names explicitly imported from langchain.agents.create_agent."""
     names: set[str] = set()
@@ -547,6 +560,7 @@ def scan_python_file(path: Path) -> Graph:
     if not (_uses_langgraph(tree) or langchain_agent_factories):
         return graph
 
+    imported_symbol_modules = _imported_symbol_modules(tree)
     functions = {
         node.name: node
         for node in ast.walk(tree)
@@ -707,6 +721,82 @@ def scan_python_file(path: Path) -> Graph:
                     metadata=tool_metadata,
                 )
                 agent.tools.append(tool)
+
+                # ToolNode(catalogue) is stronger evidence than workflow
+                # registration alone: it is the runtime dispatcher for those
+                # concrete tools. Preserve each explicit catalogue member as
+                # effective agent authority. Imported members remain
+                # placeholders until repository-level source reconciliation.
+                resolved_function_node = function_node
+                if isinstance(resolved_function_node, ast.Name):
+                    resolved_function_node = assignments.get(
+                        resolved_function_node.id,
+                        resolved_function_node,
+                    )
+                if (
+                    role == "tool_node"
+                    and isinstance(resolved_function_node, ast.Call)
+                    and _call_name(resolved_function_node.func) == "ToolNode"
+                ):
+                    catalogue_expr = (
+                        resolved_function_node.args[0]
+                        if resolved_function_node.args
+                        else _kw(resolved_function_node, "tools")
+                    )
+                    catalogue_elements = _resolved_tool_elements(
+                        catalogue_expr,
+                        sequences,
+                    )
+                    if catalogue_expr is not None and not catalogue_elements:
+                        agent.metadata["dynamic_tools"] = True
+                    existing_authority_tools = {
+                        item.name
+                        for item in agent.tools
+                        if item.metadata.get("authority_binding")
+                        != "workflow_projection"
+                    }
+                    for element in catalogue_elements:
+                        catalogue_name = _call_name(element)
+                        if (
+                            not catalogue_name
+                            or catalogue_name in existing_authority_tools
+                        ):
+                            continue
+                        catalogue_caps = _name_capabilities(catalogue_name)
+                        catalogue_metadata: dict[str, Any] = {
+                            "framework": "langgraph",
+                            "authority_binding": "direct",
+                            "authority_binding_basis": (
+                                "langgraph_tool_node_catalogue"
+                            ),
+                            "tool_node": node_name,
+                        }
+                        if catalogue_name in functions:
+                            catalogue_function = functions[catalogue_name]
+                            catalogue_caps.update(
+                                _function_capabilities(catalogue_function)
+                            )
+                            catalogue_metadata["function"] = catalogue_name
+                        elif catalogue_name in imported_symbol_modules:
+                            catalogue_metadata.update(
+                                {
+                                    "placeholder": True,
+                                    "import_module": imported_symbol_modules[
+                                        catalogue_name
+                                    ],
+                                }
+                            )
+                        agent.tools.append(
+                            Tool(
+                                name=catalogue_name,
+                                kind="langgraph_tool",
+                                capabilities=catalogue_caps,
+                                location=_location(path, element),
+                                metadata=catalogue_metadata,
+                            )
+                        )
+                        existing_authority_tools.add(catalogue_name)
+
                 if any(marker in node_name.lower() for marker in _RETRIEVAL_MARKERS):
                     agent.inputs.append(
                         InputSource(
