@@ -1,4 +1,4 @@
-# HorusTrace Semantic Parity Benchmark v1
+# HorusTrace Semantic Parity Benchmark
 
 This directory is a post-hoc semantic validation layer for the frozen 2026 real-world agent-security study.
 
@@ -18,7 +18,7 @@ Evidence states are observed, inferred, and unresolved. Inferred evidence is exp
 
 ## Cases
 
-The v1 benchmark contains seven exact-SHA cases selected during the LLM-parity exercise:
+The benchmark contains seven exact-SHA cases selected during the LLM-parity exercise:
 
 - rw-022 — iwasnothing/agentic-insight — Google ADK cross-file closure and repeated MCP construction/binding provenance;
 - rw-085 — openlegion-ai/openlegion — framework-neutral model/tool loop, custom tool registry and conditional authority;
@@ -32,15 +32,15 @@ The v1 benchmark contains seven exact-SHA cases selected during the LLM-parity e
 
 llm-review-prompt.md preserves the policy-aligned review prompt. The LLM review is performed against pinned source before viewing HorusTrace output. Conclusions must then be source-verified and classified by evidence state.
 
-Validate the benchmark:
+Validate the current corrected benchmark:
 
     python scripts/real_world_semantic_benchmark.py \
-      research/real-world-agent-security-2026/semantic-benchmark/benchmark-v1.json
+      research/real-world-agent-security-2026/semantic-benchmark/benchmark-v1.1.json
 
 Score a Frozen-180/post-fix result:
 
     python scripts/real_world_semantic_benchmark.py \
-      research/real-world-agent-security-2026/semantic-benchmark/benchmark-v1.json \
+      research/real-world-agent-security-2026/semantic-benchmark/benchmark-v1.1.json \
       --result result.json
 
 Use --strict in a future gating workflow only after the intended scanner fixes have landed. v1 starts as a measurement benchmark, not as a blocking CI gate.
@@ -48,3 +48,14 @@ Use --strict in a future gating workflow only after the intended scanner fixes h
 ## Initial PR #203 score
 
 The PR #203 Frozen-180 post-fix artifact (scanner_sha=d8f9043525208991ae69ea45c9b694b3288aa36e) passes 3/23 assertions (13.0%). That low score is expected: the seven cases were selected specifically because source review exposed semantic gaps. The checked-in score is the before-state for the next scanner build phase, not a claim about overall HorusTrace quality.
+
+
+## v1.1 closeout
+
+`benchmark-v1.json` remains unchanged as the historical benchmark used for the scanner-gap exercise.
+
+`benchmark-v1.1.json` is the corrected closeout benchmark. Source review of rw-085 (OpenLegion) established that the former `tools >= 140` assertion included seven non-effective lexical/example assertions. The effective registry/decorator lower bound is therefore `133`.
+
+PR #214 validated the final scanner state at 22/23 against v1, with the rw-085 tool-count assertion as the sole failure. Because v1.1 changes only that adjudicated reference assertion from 140 to 133, the same validated scanner state satisfies 23/23 v1.1 assertions.
+
+This correction changes no scanner behavior and does not modify the original frozen 2026 ground truth.
