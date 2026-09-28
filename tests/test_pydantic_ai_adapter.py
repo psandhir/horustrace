@@ -237,3 +237,25 @@ agent.tool_plain(read_file)
         if node.node_id == edge.target and node.kind == "tool"
     }
     assert {"create_plan", "read_file"} <= invoked
+
+
+def test_pydantic_ai_cli_input_reaches_agent_run(tmp_path: Path) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+
+async def main():
+    agent = Agent("openai:gpt-5.2")
+    user_input = input("> ")
+    return await agent.run(user_input)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = graph.agents[0]
+
+    source = next(item for item in agent.inputs if item.name == "cli-input")
+    assert source.trust == "untrusted"
+    assert source.kind == "user"
+    assert source.metadata["basis"] == "pydantic_ai_cli_input_to_run"
