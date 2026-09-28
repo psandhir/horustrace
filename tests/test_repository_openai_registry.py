@@ -127,6 +127,10 @@ class AgentRegistry:
         """
 from agents import Runner
 
+class UnrelatedWorkflowRegistry:
+    def execute_workflow(self, name, **kwargs):
+        return None
+
 class OrchestrationEngine:
     def __init__(self, registry):
         self.registry = registry
