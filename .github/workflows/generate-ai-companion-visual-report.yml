@@ -1,4 +1,5 @@
 name: Generate AI Companion visual report
+# pinned rw-124 visual-report experiment
 
 on:
   push:
