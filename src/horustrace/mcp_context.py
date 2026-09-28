@@ -279,6 +279,93 @@ def resolve_fast_agent_mcp_references(graph: Graph) -> None:
     ]
     graph.unresolved_mcp_references.extend(unresolved)
 
+def _local_stdio_script_candidates(
+    server: MCPServer,
+    *,
+    root: Path,
+    agent: Agent,
+) -> list[Path]:
+    if server.transport != "stdio" or not server.args:
+        return []
+    candidates: list[Path] = []
+    bases = [root]
+    if agent.location is not None:
+        bases.append(agent.location.path.parent)
+    for argument in server.args:
+        if not isinstance(argument, str) or not argument.endswith(".py"):
+            continue
+        value = Path(argument)
+        if value.is_absolute():
+            candidates.append(value.resolve())
+            continue
+        for base in bases:
+            candidates.append((base / value).resolve())
+    return list(dict.fromkeys(candidates))
+
+
+def resolve_local_stdio_mcp_implementations(
+    graph: Graph,
+    root: Path,
+) -> None:
+    """Collapse source-proven local stdio references onto in-repo MCP implementations."""
+    concrete = [
+        server
+        for server in graph.unbound_mcp_servers
+        if server.location is not None
+        and not server.metadata.get("placeholder")
+        and not server.metadata.get("reference_only")
+        and server.metadata.get("discovery_source") == "mcp_python"
+    ]
+    used: set[int] = set()
+
+    for agent in graph.agents:
+        for server in agent.mcp_servers:
+            paths = _local_stdio_script_candidates(
+                server,
+                root=root,
+                agent=agent,
+            )
+            if not paths:
+                continue
+            matches = [
+                candidate
+                for candidate in concrete
+                if candidate.location is not None
+                and candidate.location.path.resolve() in paths
+            ]
+            if len(matches) != 1:
+                continue
+
+            implementation = matches[0]
+            for key in (
+                "discovered_tools",
+                "discovered_tool_capabilities",
+                "shadowed_constructions",
+            ):
+                if key in implementation.metadata:
+                    server.metadata[key] = deepcopy(implementation.metadata[key])
+            server.metadata.update(
+                {
+                    "repository_resolved": True,
+                    "binding_origin": (
+                        server.metadata.get("binding_origin")
+                        or "local_stdio_implementation"
+                    ),
+                    "implementation_server_name": implementation.name,
+                    "implementation_path": str(implementation.location.path),
+                    "implementation_line": implementation.location.line,
+                }
+            )
+            used.add(id(implementation))
+
+    if used:
+        graph.unbound_mcp_servers = [
+            server
+            for server in graph.unbound_mcp_servers
+            if id(server) not in used
+        ]
+
+
 def _authority_scope(server: MCPServer) -> str:
     if server.allowed_tools:
         return "explicit_allowlist"
