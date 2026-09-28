@@ -123,3 +123,72 @@ agents:
     assert approvals == {'a': False, 'b': True}
     assert any(f.rule_id == 'AGT020' and f.agent == 'a' for f in findings)
     assert not any(f.rule_id == 'AGT020' and f.agent == 'b' for f in findings)
+
+
+
+def test_web_ingress_through_delegated_agent_creates_potential_path(
+    tmp_path: Path,
+):
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent, Runner, function_tool
+from fastapi import WebSocket
+
+@function_tool
+def clear_history():
+    return None
+
+database_agent = Agent(
+    name="Database",
+    tools=[clear_history],
+)
+
+noelle_agent = Agent(
+    name="Noelle",
+    tools=[
+        database_agent.as_tool(
+            tool_name="database_agent",
+            tool_description="Use the database agent",
+        ),
+    ],
+)
+
+async def orchestration_websocket(
+    user_input: str,
+    websocket: WebSocket,
+):
+    return Runner.run_streamed(noelle_agent, input=user_input)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+
+    noelle = next(agent for agent in graph.agents if agent.name == "Noelle")
+    database = next(agent for agent in graph.agents if agent.name == "Database")
+    assert any(
+        source.name == "user_input"
+        and source.trust == "untrusted"
+        and source.metadata["binding_origin"] == "runner_external_input"
+        for source in noelle.inputs
+    )
+    assert "destructive.write" in database.tools[0].capabilities
+
+    path = next(
+        path
+        for path in graph.attack_paths
+        if path.path_id == "PATH008" and path.agent == "Noelle"
+    )
+    assert path.nodes == [
+        "user_input",
+        "Noelle",
+        "delegate:Database",
+        "clear_history",
+        "destructive.write",
+    ]
+    assert path.metadata["basis"] == "capability_cooccurrence"
+    assert path.metadata["exploitability"] == "not_verified"
+    assert any(
+        finding.rule_id == "PATH008" and finding.agent == "Noelle"
+        for finding in findings
+    )
