@@ -370,7 +370,7 @@ def bind_repository_ingress(
                     and input_expr is not None
                     and _expr_tainted(input_expr, tainted)
                 ):
-                    handler = sorted(source_handlers[key] or {info.name})[0]
+                    handler = min(source_handlers[key] or {info.name})
                     kind = "external" if source_handlers[key] else "user"
                     _add_input(
                         target_agent,
