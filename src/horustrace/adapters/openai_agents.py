@@ -814,6 +814,33 @@ def _external_handler_evidence(
     return None
 
 
+def _logged_instruction_aliases(node: ast.Call) -> set[str]:
+    aliases: set[str] = set()
+    for argument in [*node.args, *(keyword.value for keyword in node.keywords)]:
+        for child in ast.walk(argument):
+            if (
+                isinstance(child, ast.Attribute)
+                and child.attr == "instructions"
+                and isinstance(child.value, ast.Name)
+            ):
+                aliases.add(child.value.id)
+    return aliases
+
+
+def _logging_sink_name(node: ast.Call) -> str | None:
+    dotted = _dotted_name(node.func) or _call_name(node.func) or ""
+    lowered = dotted.lower()
+    if lowered == "print":
+        return "print"
+    methods = ("debug", "info", "warning", "warn", "error", "exception", "critical")
+    if not lowered.endswith(tuple("." + method for method in methods)):
+        return None
+    root = lowered.split(".", 1)[0]
+    if root in {"logging", "log", "logger"} or "logger" in root:
+        return dotted
+    return None
+
+
 def scan_python_file(path: Path) -> Graph:
     graph = Graph()
     try:
@@ -1050,6 +1077,47 @@ def scan_python_file(path: Path) -> Graph:
         for agent in graph.agents
         if agent.metadata.get("source_alias")
     }
+
+    dynamic_instruction_assignments: dict[str, SourceLocation] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = node.value
+        if isinstance(value, ast.Constant):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        for target_node in targets:
+            if (
+                isinstance(target_node, ast.Attribute)
+                and target_node.attr == "instructions"
+                and isinstance(target_node.value, ast.Name)
+                and target_node.value.id in agents_by_alias
+            ):
+                dynamic_instruction_assignments[target_node.value.id] = _location(
+                    path,
+                    target_node,
+                )
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        sink = _logging_sink_name(node)
+        if sink is None:
+            continue
+        for alias in sorted(_logged_instruction_aliases(node)):
+            assignment_location = dynamic_instruction_assignments.get(alias)
+            target = agents_by_alias.get(alias)
+            if assignment_location is None or target is None:
+                continue
+            observations = target.metadata.setdefault("context_logging", [])
+            event = {
+                "sink": sink,
+                "dynamic_instructions": True,
+                "location": _location(path, node),
+                "assignment_location": assignment_location,
+            }
+            if event not in observations:
+                observations.append(event)
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
             continue
