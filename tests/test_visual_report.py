@@ -5,6 +5,7 @@ from horustrace.cli import main
 from horustrace.models import (
     Agent,
     AgentPolicy,
+    AttackPath,
     AuthorityContract,
     AuthorityScope,
     Finding,
@@ -155,6 +156,65 @@ def test_visual_report_dashboard_has_contextual_drilldowns(tmp_path: Path) -> No
     assert "data-drill" in html
     assert 'function routeDrill(action)' in html
     assert 'function agentMatchesFilter(a,mode)' in html
+
+
+def test_visual_report_projects_attack_path_chain(tmp_path: Path) -> None:
+    location = SourceLocation(tmp_path / "agent.py", line=10)
+    agent = Agent(name="Slack Agent", location=location)
+    graph = Graph(
+        agents=[agent],
+        attack_paths=[
+            AttackPath(
+                path_id="PATH005",
+                title="Potential untrusted-input path to secret access and egress",
+                agent="Slack Agent",
+                nodes=[
+                    "slack_message",
+                    "Slack Agent",
+                    "read_secret",
+                    "http_post",
+                ],
+                severity=Severity.HIGH,
+                rationale="Untrusted input, secret access and unconstrained egress coexist.",
+                location=location,
+                metadata={
+                    "basis": "capability_cooccurrence",
+                    "exploitability": "not_verified",
+                },
+            )
+        ],
+    )
+    graph.adg = build_adg(graph, tmp_path)
+
+    report = build_visual_report(graph, [], tmp_path)
+
+    path = report["agents"][0]["path_views"][0]
+    assert path["edge_style"] == "dashed"
+    assert path["evidence_strength"] == "potential_capability_cooccurrence"
+    assert [step["role"] for step in path["steps"]] == [
+        "Untrusted input",
+        "Agent",
+        "Reads secrets",
+        "Outbound tool",
+        "Destination constraint",
+    ]
+    assert path["steps"][-1]["label"] == "Unrestricted external destination"
+
+
+def test_visual_report_has_expandable_map_controls(tmp_path: Path) -> None:
+    graph, findings = _graph(tmp_path)
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+
+    assert "Expand map" in html
+    assert 'id="map-zoom-in"' in html
+    assert 'id="map-zoom-out"' in html
+    assert 'id="map-fit"' in html
+    assert 'id="map-toggle-groups"' in html
+    assert "Find tool, MCP, identity, resource or destination" in html
+    assert "Attack paths" in html
+    assert "Supported static data flow" in html
+    assert "Potential capability path" in html
 
 
 def test_visual_report_html_is_self_contained(tmp_path: Path) -> None:
