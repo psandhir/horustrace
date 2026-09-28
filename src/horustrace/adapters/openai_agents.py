@@ -81,6 +81,9 @@ MCP_TYPES = {
     "MCPServerStdio": "stdio",
     "MCPServerSse": "sse",
     "MCPServerStreamableHttp": "streamable-http",
+    "ServerStdio": "stdio",
+    "ServerSse": "sse",
+    "ServerStreamableHttp": "streamable-http",
 }
 
 
@@ -353,9 +356,13 @@ def _mcp_from_call(
     params_node = _kw(node, "params")
     params = _literal(params_node) or {}
     entries = _dict_nodes(params_node)
+    direct_url_node = _kw(node, "url") or (node.args[0] if node.args else None)
     url = (
         params.get("url") if isinstance(params, dict) else None
-    ) or _static_string(entries.get("url"), constants)
+    ) or _static_string(entries.get("url"), constants) or _static_string(
+        direct_url_node,
+        constants,
+    )
     command = (
         params.get("command") if isinstance(params, dict) else None
     ) or _static_string(entries.get("command"), constants)
@@ -729,12 +736,16 @@ def scan_python_file(path: Path) -> Graph:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
     ]
     imports: dict[str, str] = {}
+    import_symbols: dict[str, str] = {}
+    aliases: dict[str, str] = {}
     constants: dict[str, str] = {}
     for node in tree.body:
         if isinstance(node, ast.ImportFrom):
             module = node.module or ""
             for alias in node.names:
-                imports[alias.asname or alias.name] = module
+                local_name = alias.asname or alias.name
+                imports[local_name] = module
+                import_symbols[local_name] = alias.name
     for node in tree.body:
         if isinstance(node, (ast.Assign, ast.AnnAssign)):
             value = node.value
@@ -744,6 +755,10 @@ def scan_python_file(path: Path) -> Graph:
                 for target in targets:
                     if isinstance(target, ast.Name):
                         constants[target.id] = literal
+            if isinstance(value, ast.Name):
+                for target in targets:
+                    if isinstance(target, ast.Name):
+                        aliases[target.id] = value.id
 
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -790,6 +805,14 @@ def scan_python_file(path: Path) -> Graph:
         if alias:
             runtime_name = _literal(_kw(value, "name"))
             agent_names_by_alias[alias] = str(runtime_name or alias)
+
+    def resolve_alias(name: str) -> str:
+        seen: set[str] = set()
+        current = name
+        while current in aliases and current not in seen:
+            seen.add(current)
+            current = aliases[current]
+        return current
 
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or _call_name(node.func) != "Agent":
@@ -843,23 +866,32 @@ def scan_python_file(path: Path) -> Graph:
                     agent.tools.append(direct_tool)
 
         for element in _resolve_sequence(_kw(node, "mcp_servers"), sequences):
-            if isinstance(element, ast.Name) and element.id in mcp_servers:
-                agent.mcp_servers.append(mcp_servers[element.id])
-            elif isinstance(element, ast.Name) and element.id in imports:
-                agent.mcp_servers.append(
-                    MCPServer(
-                        name=element.id,
-                        transport="configured",
-                        authenticated=None,
-                        location=_location(path, element),
-                        metadata={
-                            "framework": "openai-agents",
-                            "import_module": imports[element.id],
-                            "placeholder": True,
-                        },
+            if isinstance(element, ast.Name):
+                source_name = resolve_alias(element.id)
+                if source_name in mcp_servers:
+                    agent.mcp_servers.append(mcp_servers[source_name])
+                    continue
+                if source_name in imports:
+                    agent.mcp_servers.append(
+                        MCPServer(
+                            name=import_symbols.get(source_name, source_name),
+                            transport="configured",
+                            authenticated=None,
+                            location=_location(path, element),
+                            metadata={
+                                "framework": "openai-agents",
+                                "import_module": imports[source_name],
+                                "import_symbol": import_symbols.get(
+                                    source_name,
+                                    source_name,
+                                ),
+                                "local_alias": element.id,
+                                "placeholder": True,
+                            },
+                        )
                     )
-                )
-            elif isinstance(element, ast.Constant) and isinstance(element.value, str):
+                    continue
+            if isinstance(element, ast.Constant) and isinstance(element.value, str):
                 agent.mcp_servers.append(
                     MCPServer(
                         name=element.value,
