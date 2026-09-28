@@ -248,20 +248,61 @@ def _stdio_server(path: Path, call: ast.Call, name: str) -> MCPServer:
     )
 
 
-def _remote_client_server(path: Path, call: ast.Call, name: str, transport: str) -> MCPServer:
+def _resolved_assignment(
+    node: ast.AST | None,
+    assignments: dict[str, ast.AST],
+    *,
+    visited: set[str] | None = None,
+) -> ast.AST | None:
+    visited = visited or set()
+    if isinstance(node, ast.Name) and node.id in assignments and node.id not in visited:
+        return _resolved_assignment(
+            assignments[node.id],
+            assignments,
+            visited=visited | {node.id},
+        )
+    return node
+
+
+def _recognized_remote_auth(
+    node: ast.AST | None,
+    assignments: dict[str, ast.AST],
+) -> tuple[bool | None, str | None]:
+    resolved = _resolved_assignment(node, assignments)
+    if isinstance(resolved, ast.Call):
+        called = _call_name(resolved.func) or ""
+        if called == "OAuthClientProvider":
+            return True, "oauth2.1"
+    return None, None
+
+
+def _remote_client_server(
+    path: Path,
+    call: ast.Call,
+    name: str,
+    transport: str,
+    assignments: dict[str, ast.AST],
+) -> MCPServer:
     url_node = call.args[0] if call.args else _kw(call, "url")
-    url = _string(url_node)
+    url = _string(_resolved_assignment(url_node, assignments))
+    authenticated, auth_mechanism = _recognized_remote_auth(
+        _kw(call, "auth"),
+        assignments,
+    )
+    metadata: dict[str, Any] = {
+        "framework": "mcp",
+        "source": _call_name(call.func),
+        "dynamic_mcp_endpoint": url_node is not None and url is None,
+    }
+    if auth_mechanism:
+        metadata["auth_mechanism"] = auth_mechanism
     return MCPServer(
         name=name,
         transport=transport,
         url=url,
-        authenticated=None,
+        authenticated=authenticated,
         location=_location(path, call),
-        metadata={
-            "framework": "mcp",
-            "source": _call_name(call.func),
-            "dynamic_mcp_endpoint": url_node is not None and url is None,
-        },
+        metadata=metadata,
     )
 
 
@@ -365,6 +406,7 @@ def scan_python_file(path: Path) -> Graph:
     server_aliases: set[str] = set()
     servers: list[MCPServer] = []
     clients: set[str] = set()
+    run_alias_lines: dict[str, list[int]] = {}
     custom_wrappers = _custom_mcp_wrapper_classes(tree)
 
     for node in ast.walk(tree):
@@ -467,7 +509,15 @@ def scan_python_file(path: Path) -> Graph:
             if not any(server.location and server.location.line == getattr(node, "lineno", -1) for server in servers):
                 servers.append(_stdio_server(path, node, f"stdio@{getattr(node, 'lineno', 1)}"))
         elif call_name in {"sse_client", "sse_client_async"}:
-            servers.append(_remote_client_server(path, node, f"sse@{getattr(node, 'lineno', 1)}", "sse"))
+            servers.append(
+                _remote_client_server(
+                    path,
+                    node,
+                    f"sse@{getattr(node, 'lineno', 1)}",
+                    "sse",
+                    assignments,
+                )
+            )
         elif call_name in {"streamable_http_client", "streamablehttp_client"}:
             servers.append(
                 _remote_client_server(
@@ -475,6 +525,7 @@ def scan_python_file(path: Path) -> Graph:
                     node,
                     f"http@{getattr(node, 'lineno', 1)}",
                     "streamable-http",
+                    assignments,
                 )
             )
 
@@ -511,11 +562,42 @@ def scan_python_file(path: Path) -> Graph:
                     )
                 )
             elif node.func.attr == "run" and receiver in server_aliases:
+                run_alias_lines.setdefault(receiver, []).append(
+                    getattr(node, "lineno", 1) or 1
+                )
                 transport = _string(_kw(node, "transport"))
                 if transport:
                     for server in servers:
                         if server.metadata.get("alias") == receiver:
                             server.transport = transport
+
+    # Python assignment is last-write-wins. When source also proves that an
+    # alias is subsequently used to run the MCP server, earlier FastMCP/Server
+    # constructions assigned to the same alias are shadowed rather than
+    # separate effective server instances. Preserve that provenance on the live
+    # object instead of emitting duplicate findings for abandoned instances.
+    for alias, run_lines in run_alias_lines.items():
+        latest_run = max(run_lines)
+        candidates = [
+            server
+            for server in servers
+            if server.metadata.get("alias") == alias
+            and server.metadata.get("source") in {"FastMCP", "Server"}
+            and server.location is not None
+            and server.location.line < latest_run
+        ]
+        if len(candidates) <= 1:
+            continue
+        live = max(candidates, key=lambda item: item.location.line if item.location else 0)
+        shadowed = [server for server in candidates if server is not live]
+        live.metadata["shadowed_constructions"] = [
+            {
+                "line": server.location.line if server.location else None,
+                "name": server.name,
+            }
+            for server in shadowed
+        ]
+        servers = [server for server in servers if server not in shadowed]
 
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
