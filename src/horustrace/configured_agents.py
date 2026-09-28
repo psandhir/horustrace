@@ -38,6 +38,31 @@ def _trees(paths: list[Path]) -> list[tuple[Path, ast.AST]]:
     return result
 
 
+def _module_scope_calls(tree: ast.AST) -> list[ast.Call]:
+    """Collect calls executed at module scope, including control-flow blocks."""
+    calls: list[ast.Call] = []
+
+    class Visitor(ast.NodeVisitor):
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            return
+
+        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+            return
+
+        def visit_ClassDef(self, node: ast.ClassDef) -> None:
+            return
+
+        def visit_Lambda(self, node: ast.Lambda) -> None:
+            return
+
+        def visit_Call(self, node: ast.Call) -> None:
+            calls.append(node)
+            self.generic_visit(node)
+
+    Visitor().visit(tree)
+    return calls
+
+
 def _registry_contract(trees: list[tuple[Path, ast.AST]]) -> tuple[bool, set[str]]:
     has_loader = False
     has_instantiator = False
@@ -70,12 +95,10 @@ def _registry_contract(trees: list[tuple[Path, ast.AST]]) -> tuple[bool, set[str
                         for value in literals
                         if value.endswith(".json")
                     )
-        for statement in getattr(tree, "body", []):
-            value = statement.value if isinstance(statement, (ast.Assign, ast.AnnAssign, ast.Expr)) else None
-            if isinstance(value, ast.Call):
-                called = (_call_name(value.func) or "").lower()
-                if called.startswith("initialize_") and "agent_registry" in called:
-                    active = True
+        for call in _module_scope_calls(tree):
+            called = (_call_name(call.func) or "").lower()
+            if called.startswith("initialize_") and "agent_registry" in called:
+                active = True
     return has_loader and has_instantiator and active, config_names
 
 
