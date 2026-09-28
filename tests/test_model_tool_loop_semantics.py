@@ -56,3 +56,44 @@ class AgentCache:
 
     graph, _ = scan(tmp_path)
     assert not any(item.name == "agent_cache" for item in graph.agents)
+
+
+def test_custom_agent_loop_detects_model_method_passed_through_retry_wrapper(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "loop.py").write_text(
+        """
+async def _llm_call_with_retry(fn, **kwargs):
+    return await fn(**kwargs)
+
+class AgentLoop:
+    def __init__(self, llm, tools):
+        self.llm = llm
+        self.tools = tools
+
+    async def run(self, messages):
+        available_tools = self.tools.get_tool_definitions()
+        response = await _llm_call_with_retry(
+            self.llm.chat_collect,
+            messages=messages,
+            tools=available_tools,
+        )
+        if response.tool_calls:
+            return self._run_tools_parallel(response.tool_calls)
+        return response
+
+    def _run_tools_parallel(self, tool_calls):
+        return [self.tools.execute(call.name, call.arguments) for call in tool_calls]
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    agent = next(item for item in graph.agents if item.name == "agent_loop")
+    assert set(agent.metadata["discovery_signals"]) == {
+        "model_call",
+        "model_selection",
+        "tool_catalogue",
+        "tool_dispatch",
+    }
