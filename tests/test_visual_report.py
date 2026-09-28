@@ -143,6 +143,19 @@ def test_visual_report_escapes_embedded_script_data(tmp_path: Path) -> None:
     assert "\\u003c/script\\u003e\\u003cscript\\u003ealert(1)" in html
 
 
+def test_visual_report_dashboard_has_contextual_drilldowns(tmp_path: Path) -> None:
+    graph, findings = _graph(tmp_path)
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+
+    assert 'data-drill="agents:all"' in html
+    assert 'data-drill="findings:high"' in html
+    assert 'data-drill="contracts:violation"' in html
+    assert 'data-drill="agents:write"' in html
+    assert 'function routeDrill(action)' in html
+    assert 'function agentMatchesFilter(a,mode)' in html
+
+
 def test_visual_report_html_is_self_contained(tmp_path: Path) -> None:
     graph, findings = _graph(tmp_path)
 
