@@ -202,3 +202,74 @@ researcher_agent = PyAIAgent(
         if item.kind == "mcp_server" and item.name == "tavily_mcp_server"
     )
     assert node.attributes["unbound"] is True
+
+
+def test_shadowed_fastmcp_assignment_keeps_only_runtime_instance(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "server.py").write_text(
+        """
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("abandoned")
+mcp = FastMCP("effective")
+
+if __name__ == "__main__":
+    mcp.run(transport="stdio")
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    servers = [
+        server
+        for server in graph.unbound_mcp_servers
+        if server.metadata.get("source") == "FastMCP"
+    ]
+    assert len(servers) == 1
+    assert servers[0].name == "effective"
+    assert servers[0].transport == "stdio"
+    assert servers[0].metadata["shadowed_constructions"] == [
+        {"line": 4, "name": "abandoned"}
+    ]
+
+
+def test_remote_mcp_oauth_provider_is_recognized_with_dynamic_endpoint(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from mcp.client.auth import OAuthClientProvider
+from mcp.client.streamable_http import streamablehttp_client
+
+class MCPConnection:
+    def __init__(self, url):
+        self.url = url
+
+    async def connect(self):
+        oauth = OAuthClientProvider(
+            server_url=self.url,
+            client_metadata=metadata,
+            storage=storage,
+            redirect_handler=redirect_handler,
+            callback_handler=callback_handler,
+        )
+        async with streamablehttp_client(self.url, auth=oauth) as streams:
+            return streams
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+
+    server = next(
+        server
+        for server in graph.unbound_mcp_servers
+        if server.transport == "streamable-http"
+    )
+    assert server.url is None
+    assert server.authenticated is True
+    assert server.metadata["auth_mechanism"] == "oauth2.1"
+    assert server.metadata["dynamic_mcp_endpoint"] is True
+    assert not any(finding.rule_id == "AGT030" for finding in findings)
