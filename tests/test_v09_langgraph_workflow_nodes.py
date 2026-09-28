@@ -144,3 +144,53 @@ workflow.add_node("router", route)
     node = next(node for node in graph.workflow_nodes if node.name == "router")
     assert node.role == "control"
     assert not any(agent.name == "router" for agent in graph.agents)
+
+
+def test_langgraph_toolnode_catalogue_binds_cross_file_tool_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "tools.py").write_text(
+        """
+import sqlite3
+from langchain_core.tools import tool
+
+@tool
+def execute_sqlite_query(query: str):
+    conn = sqlite3.connect("example.db")
+    cursor = conn.cursor()
+    cursor.execute(query)
+    if query.strip().lower().startswith("select"):
+        return cursor.fetchall()
+    conn.commit()
+    return "ok"
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from langgraph.graph import StateGraph
+from langgraph.prebuilt import ToolNode
+from tools import execute_sqlite_query
+
+tools = [execute_sqlite_query]
+workflow = StateGraph(dict)
+workflow.add_node("tools", ToolNode(tools))
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+
+    agent = next(
+        item for item in graph.agents
+        if item.metadata.get("framework") == "langgraph"
+    )
+    tool = next(item for item in agent.tools if item.name == "execute_sqlite_query")
+
+    assert tool.metadata["authority_binding"] == "direct"
+    assert tool.metadata["repository_resolved"] is True
+    assert "process.execute" not in tool.capabilities
+    assert {"data.read", "data.write", "destructive.write"} <= tool.capabilities
+
+    rule_ids = {finding.rule_id for finding in findings if finding.agent == agent.name}
+    assert {"AGT021", "AGT022", "AGT040", "CAP005"} <= rule_ids
