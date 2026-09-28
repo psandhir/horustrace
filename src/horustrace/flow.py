@@ -588,16 +588,17 @@ def _relative(path: Path, root: Path) -> str:
         return path.name
 
 
-def _agent_for_chain(
+def _agent_bindings_for_chain(
     graph: Graph,
     functions: dict[str, _Function],
     chain: tuple[str, ...],
-) -> tuple[str | None, dict[str, str] | None]:
-    """Bind a flow to an agent only through defensible static evidence.
+) -> list[tuple[str | None, dict[str, str] | None]]:
+    """Return defensible agent bindings for a source call chain.
 
-    Canonical source-function provenance is preferred. Legacy fallback is restricted
-    to same-file tool/function evidence; cross-file name coincidence and repository
-    single-agent shortcuts are intentionally not used.
+    Exact source-function provenance can legitimately bind one callable to
+    multiple agents. In that case each agent has proven authority to invoke the
+    same function, so emit one binding per agent. Legacy same-file/name matching
+    remains conservative and refuses multi-agent ambiguity.
     """
     for function_key in chain:
         matches: list[tuple[str, str]] = []
@@ -607,19 +608,24 @@ def _agent_for_chain(
                 if isinstance(source_key, str) and source_key == function_key:
                     matches.append((agent.name, tool.name))
 
-        agents = list(dict.fromkeys(agent for agent, _ in matches))
-        if len(agents) == 1:
-            chosen = next(item for item in matches if item[0] == agents[0])
-            return agents[0], {
-                "basis": "source_function_key",
-                "function": function_key,
-                "tool": chosen[1],
-            }
-        if len(agents) > 1:
-            return None, {
-                "basis": "ambiguous_source_function_key",
-                "function": function_key,
-            }
+        if matches:
+            bindings: list[tuple[str | None, dict[str, str] | None]] = []
+            seen_agents: set[str] = set()
+            for agent_name, tool_name in matches:
+                if agent_name in seen_agents:
+                    continue
+                seen_agents.add(agent_name)
+                bindings.append(
+                    (
+                        agent_name,
+                        {
+                            "basis": "source_function_key",
+                            "function": function_key,
+                            "tool": tool_name,
+                        },
+                    )
+                )
+            return bindings
 
     legacy: list[tuple[str, str, str]] = []
     for function_key in chain:
@@ -643,14 +649,33 @@ def _agent_for_chain(
     agents = list(dict.fromkeys(agent for agent, _, _ in legacy))
     if len(agents) == 1:
         chosen = next(item for item in legacy if item[0] == agents[0])
-        return agents[0], {
-            "basis": "same_file_tool_function",
-            "function": chosen[2],
-            "tool": chosen[1],
-        }
+        return [
+            (
+                agents[0],
+                {
+                    "basis": "same_file_tool_function",
+                    "function": chosen[2],
+                    "tool": chosen[1],
+                },
+            )
+        ]
     if len(agents) > 1:
-        return None, {"basis": "ambiguous_same_file_tool_function"}
-    return None, None
+        return [(None, {"basis": "ambiguous_same_file_tool_function"})]
+    return [(None, None)]
+
+
+def _agent_for_chain(
+    graph: Graph,
+    functions: dict[str, _Function],
+    chain: tuple[str, ...],
+) -> tuple[str | None, dict[str, str] | None]:
+    """Compatibility helper returning a single binding when one is unique."""
+    bindings = _agent_bindings_for_chain(graph, functions, chain)
+    if len(bindings) == 1:
+        return bindings[0]
+    return None, {
+        "basis": "multiple_source_function_bindings",
+    }
 
 def _parameter_location(info: _Function, name: str) -> SourceLocation:
     args = [
@@ -733,78 +758,90 @@ def analyze_repository_flows(root: Path, python_paths: list[Path], graph: Graph)
     for function_key in sorted(summaries):
         summary = summaries[function_key]
         for sink in summary.sinks:
-            agent, agent_binding = _agent_for_chain(graph, functions, sink.call_chain)
-            parameter_sources = ()
-            if agent is not None:
-                parameter_sources = _agent_tool_parameter_sources(
-                    functions,
-                    function_key,
-                    sink.value.params,
-                    agent_binding,
-                )
-            sources = (*sink.value.sources, *parameter_sources)
-            if not sources:
-                continue
-            for source in sources:
-                flow_id = _flow_id(root, source, sink, agent)
-                if flow_id in seen:
+            for agent, agent_binding in _agent_bindings_for_chain(
+                graph,
+                functions,
+                sink.call_chain,
+            ):
+                parameter_sources = ()
+                if agent is not None:
+                    parameter_sources = _agent_tool_parameter_sources(
+                        functions,
+                        function_key,
+                        sink.value.params,
+                        agent_binding,
+                    )
+                sources = (*sink.value.sources, *parameter_sources)
+                if not sources:
                     continue
-                seen.add(flow_id)
-                chain = list(dict.fromkeys(sink.call_chain))
-                steps: list[FlowStep] = [
-                    FlowStep(source.kind, source.label, source.location),
-                ]
-                for key in chain:
-                    info = functions.get(key)
-                    if not info:
+                for source in sources:
+                    flow_id = _flow_id(root, source, sink, agent)
+                    if flow_id in seen:
                         continue
-                    steps.append(
-                        FlowStep(
-                            "function",
-                            info.key,
-                            _location(info.path, info.node),
+                    seen.add(flow_id)
+                    chain = list(dict.fromkeys(sink.call_chain))
+                    steps: list[FlowStep] = [
+                        FlowStep(source.kind, source.label, source.location),
+                    ]
+                    for key in chain:
+                        info = functions.get(key)
+                        if not info:
+                            continue
+                        steps.append(
+                            FlowStep(
+                                "function",
+                                info.key,
+                                _location(info.path, info.node),
+                            )
+                        )
+                    steps.append(FlowStep(sink.kind, sink.label, sink.location))
+                    if len(steps) > MAX_FLOW_STEPS:
+                        steps = [*steps[: MAX_FLOW_STEPS - 1], steps[-1]]
+                    unresolved_items = [
+                        {
+                            "call": item.called,
+                            "path": _relative(item.location.path, root),
+                            "line": item.location.line,
+                        }
+                        for item in sink.value.unresolved
+                    ]
+                    basis = (
+                        "static_dataflow_partial"
+                        if unresolved_items
+                        else "static_dataflow"
+                    )
+                    confidence = (
+                        Confidence.POTENTIAL
+                        if unresolved_items
+                        else Confidence.SUPPORTED
+                    )
+                    result.append(
+                        FlowPath(
+                            flow_id=flow_id,
+                            source_kind=source.kind,
+                            sink_kind=sink.kind,
+                            source_label=source.label,
+                            sink_label=sink.label,
+                            steps=steps,
+                            agent=agent,
+                            basis=basis,
+                            confidence=confidence,
+                            metadata={
+                                "call_chain": chain,
+                                "unresolved_calls": unresolved_items,
+                                "agent_binding": agent_binding,
+                            },
                         )
                     )
-                steps.append(FlowStep(sink.kind, sink.label, sink.location))
-                if len(steps) > MAX_FLOW_STEPS:
-                    steps = [*steps[: MAX_FLOW_STEPS - 1], steps[-1]]
-                unresolved_items = [
-                    {
-                        "call": item.called,
-                        "path": _relative(item.location.path, root),
-                        "line": item.location.line,
-                    }
-                    for item in sink.value.unresolved
-                ]
-                basis = "static_dataflow_partial" if unresolved_items else "static_dataflow"
-                confidence = Confidence.POTENTIAL if unresolved_items else Confidence.SUPPORTED
-                result.append(
-                    FlowPath(
-                        flow_id=flow_id,
-                        source_kind=source.kind,
-                        sink_kind=sink.kind,
-                        source_label=source.label,
-                        sink_label=sink.label,
-                        steps=steps,
-                        agent=agent,
-                        basis=basis,
-                        confidence=confidence,
-                        metadata={
-                            "call_chain": chain,
-                            "unresolved_calls": unresolved_items,
-                            "agent_binding": agent_binding,
-                        },
-                    )
-                )
-                for item in sink.value.unresolved:
-                    add_diagnostic(
-                        graph.coverage,
-                        ScanDiagnostic(
-                            "unresolved_dataflow",
-                            "A tainted value crosses a call whose return/data-flow semantics could not be resolved.",
-                            item.location,
-                        ),
-                    )
-                if len(result) >= MAX_FLOW_PATHS:
-                    return sorted(result, key=lambda item: item.flow_id)
+                    for item in sink.value.unresolved:
+                        add_diagnostic(
+                            graph.coverage,
+                            ScanDiagnostic(
+                                "unresolved_dataflow",
+                                "A tainted value crosses a call whose return/data-flow semantics could not be resolved.",
+                                item.location,
+                            ),
+                        )
+                    if len(result) >= MAX_FLOW_PATHS:
+                        return sorted(result, key=lambda item: item.flow_id)
     return sorted(result, key=lambda item: item.flow_id)
