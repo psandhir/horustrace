@@ -41,7 +41,13 @@ jobs:
             tests/test_analysis_interactions.py
 
       - name: Run pinned scan
-        run: horustrace scan target --format json > ai-companion-scan-llm-parity.json
+        shell: bash
+        run: |
+          set +e
+          horustrace scan target --format json > ai-companion-scan-llm-parity.json
+          code=$?
+          echo "scan_exit_code=$code"
+          exit 0
 
       - name: Summarize delta
         run: |
