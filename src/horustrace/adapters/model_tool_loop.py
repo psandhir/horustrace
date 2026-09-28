@@ -146,7 +146,6 @@ def _class_signals(node: ast.ClassDef) -> dict[str, bool]:
 
     for child in ast.walk(node):
         if isinstance(child, ast.Call):
-            called = (_dotted(child.func) or _call_name(child.func) or "").lower()
             leaf = (_call_name(child.func) or "").lower()
             call_is_model = _is_model_callable(child.func)
             if not call_is_model:
