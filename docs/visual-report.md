@@ -35,7 +35,14 @@ security profile with five views:
 - **Overview** — authority counts, identities, reachable resources and destinations,
   write-capable relationships, finding severity, and contract posture.
 - **Agency map** — an interactive, agent-scoped path from the agent to tools/MCP
-  servers, effective identities, resources, and destinations.
+  servers, effective identities, resources, and destinations. Dense maps support
+  grouped collapse/expand, full-screen mode, zoom, pan, search, fit/reset, and
+  node focus.
+- **Attack paths** — evidence-aware end-to-end risk chains. Supported static
+  source-to-sink flows use solid connectors. Capability-cooccurrence paths use
+  dashed connectors so the report can show combinations such as untrusted input
+  → agent → secret-reading tool → outbound tool → unrestricted destination
+  without claiming that executable data flow was proven.
 - **Findings** — rule findings attributed to the selected agent, including evidence,
   provenance, and remediation.
 - **Contract** — the declared Authority Contract compared with reconstructed
