@@ -140,3 +140,27 @@ def test_mcp_config_environment_placeholder_is_not_literal_credential(
 
     assert server.metadata["literal_credential_sources"] == []
     assert not any(finding.rule_id == "AGT051" for finding in findings)
+
+
+def test_mcp_runtime_provided_token_is_treated_as_placeholder(
+    tmp_path: Path,
+) -> None:
+    config = tmp_path / "mcp.json"
+    config.write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "tickets": {
+                        "url": "https://mcp.example.test/mcp",
+                        "token": "runtime-provided",
+                        "allowedTools": ["read_ticket"],
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    _, findings = scan(tmp_path)
+
+    assert not any(finding.rule_id == "AGT051" for finding in findings)
