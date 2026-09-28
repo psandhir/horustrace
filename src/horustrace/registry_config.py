@@ -59,6 +59,40 @@ def _calls_name(node: ast.AST, name: str) -> bool:
     return False
 
 
+def _function_call_names(node: ast.AST) -> set[str]:
+    result: set[str] = set()
+    for child in ast.walk(node):
+        if not isinstance(child, ast.Call):
+            continue
+        called = (
+            child.func.id
+            if isinstance(child.func, ast.Name)
+            else child.func.attr
+            if isinstance(child.func, ast.Attribute)
+            else None
+        )
+        if called:
+            result.add(called)
+    return result
+
+
+def _config_names_from_node(
+    node: ast.AST,
+    *,
+    prefix: str,
+) -> list[str]:
+    names: list[str] = []
+    for _line, value in _literal_strings(node):
+        name = Path(value).name
+        if (
+            is_registry_config_filename(name)
+            and name.startswith(prefix)
+            and name not in names
+        ):
+            names.append(name)
+    return names
+
+
 def _runtime_evidence(python_paths: list[Path]) -> _RuntimeEvidence:
     agent_registry = False
     tool_registry = False
@@ -72,6 +106,7 @@ def _runtime_evidence(python_paths: list[Path]) -> _RuntimeEvidence:
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
 
+        defines_agent_initializer = False
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 methods = _method_names(node)
@@ -88,32 +123,61 @@ def _runtime_evidence(python_paths: list[Path]) -> _RuntimeEvidence:
                 } <= methods:
                     tool_registry = True
 
-        # A call site outside the loader proves the registry is actually wired
-        # into the application rather than being an unused support module.
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            called = (
-                node.func.id
-                if isinstance(node.func, ast.Name)
-                else node.func.attr
-                if isinstance(node.func, ast.Attribute)
-                else None
-            )
-            if called == "initialize_agent_registry":
-                active_initializer = True
+            calls = _function_call_names(node)
+            if node.name == "initialize_agent_registry":
+                defines_agent_initializer = True
+                if {
+                    "AgentRegistry",
+                    "load_agent_definitions",
+                    "instantiate_agents",
+                } <= calls:
+                    for name in _config_names_from_node(
+                        node,
+                        prefix="agent_definitions",
+                    ):
+                        if name not in agent_names:
+                            agent_names.append(name)
+            elif node.name == "initialize_tool_registry":
+                if {
+                    "ToolRegistry",
+                    "load_tool_definitions",
+                    "instantiate_tools",
+                } <= calls:
+                    for name in _config_names_from_node(
+                        node,
+                        prefix="tool_definitions",
+                    ):
+                        if name not in tool_names:
+                            tool_names.append(name)
 
-        for _line, value in _literal_strings(tree):
-            name = Path(value).name
-            if not is_registry_config_filename(name):
-                continue
-            if name.startswith("agent_definitions") and name not in agent_names:
-                agent_names.append(name)
-            elif name.startswith("tool_definitions") and name not in tool_names:
-                tool_names.append(name)
+        # A call site in a module that does not itself define the initializer
+        # proves the loader is wired into application code. This avoids treating
+        # a legacy/alternate initializer definition as its own runtime call site.
+        if not defines_agent_initializer:
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                called = (
+                    node.func.id
+                    if isinstance(node.func, ast.Name)
+                    else node.func.attr
+                    if isinstance(node.func, ast.Attribute)
+                    else None
+                )
+                if called == "initialize_agent_registry":
+                    active_initializer = True
+                    break
 
     return _RuntimeEvidence(
-        active=agent_registry and tool_registry and active_initializer,
+        active=(
+            agent_registry
+            and tool_registry
+            and active_initializer
+            and bool(agent_names)
+            and bool(tool_names)
+        ),
         agent_config_names=tuple(agent_names),
         tool_config_names=tuple(tool_names),
     )
