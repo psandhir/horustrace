@@ -1,4 +1,5 @@
 """Repository-level binding of source-proven external ingress to agent execution."""
+# ruff: noqa: I001
 from __future__ import annotations
 
 import ast
