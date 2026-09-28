@@ -3,7 +3,7 @@ from pathlib import Path
 
 from horustrace.analysis import build_attack_paths
 from horustrace.cli import main
-from horustrace.models import (
+from horustrace.models import (, Agent, Graph, InputSource, MCPServer, SourceLocation
     Agent,
     AgentReachability,
     Confidence,
@@ -180,3 +180,41 @@ def test_static_dataflow_path_suppresses_duplicate_capability_path() -> None:
     assert len(paths) == 1
     assert paths[0].metadata["basis"] == "static_dataflow"
     assert paths[0].metadata["flow_id"] == "flow-v1:proven"
+
+
+def test_untrusted_input_to_destructive_mcp_authority_creates_path002(
+    tmp_path: Path,
+) -> None:
+    location = SourceLocation(tmp_path / "agent.py", line=1)
+    server = MCPServer(
+        name="local-tools",
+        transport="stdio",
+        location=location,
+        metadata={"discovered_tool_capabilities": ["destructive.write"]},
+    )
+    graph = Graph(
+        agents=[
+            Agent(
+                name="agent",
+                inputs=[
+                    InputSource(
+                        name="cli-input",
+                        trust="untrusted",
+                        kind="external",
+                        location=location,
+                    )
+                ],
+                mcp_servers=[server],
+                location=location,
+            )
+        ]
+    )
+
+    paths = build_attack_paths(graph)
+
+    assert any(
+        path.path_id == "PATH002"
+        and path.agent == "agent"
+        and path.metadata.get("target_kind") == "mcp_server"
+        for path in paths
+    )
