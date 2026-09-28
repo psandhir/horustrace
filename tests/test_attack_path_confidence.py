@@ -3,7 +3,7 @@ from pathlib import Path
 
 from horustrace.analysis import build_attack_paths
 from horustrace.cli import main
-from horustrace.models import (, Agent, Graph, InputSource, MCPServer, SourceLocation
+from horustrace.models import (
     Agent,
     AgentReachability,
     Confidence,
@@ -11,6 +11,8 @@ from horustrace.models import (, Agent, Graph, InputSource, MCPServer, SourceLoc
     FlowStep,
     Graph,
     InputSource,
+    MCPServer,
+    SourceLocation,
     Tool,
 )
 from horustrace.scanner import scan
