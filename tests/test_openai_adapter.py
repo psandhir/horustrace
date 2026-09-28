@@ -246,6 +246,75 @@ agent = Agent(name="Publisher", tools=[confirm_and_publish])
     assert "suppressed_name_only_capabilities" not in tool.metadata
 
 
+def test_openai_legacy_server_sse_binds_direct_mcp_agent(tmp_path: Path) -> None:
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+from agents import Agent, ServerSse
+
+discord_mcp = ServerSse(url="http://localhost:5000")
+
+discord_agent = Agent(
+    name="Discord",
+    mcp_servers=[discord_mcp],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "Discord")
+
+    assert len(agent.mcp_servers) == 1
+    server = agent.mcp_servers[0]
+    assert server.name == "discord_mcp"
+    assert server.transport == "sse"
+    assert server.url == "http://localhost:5000"
+    assert server.metadata["context_binding"] == "bound"
+    assert server.metadata["effective_agent"] == "Discord"
+
+
+def test_openai_alias_of_imported_fastmcp_server_binds_to_agent(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "memory"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "server.py").write_text(
+        """
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("Memory Graph")
+""",
+        encoding="utf-8",
+    )
+    (package / "agent.py").write_text(
+        """
+from agents import Agent
+from .server import mcp
+
+memory_mcp = mcp
+
+memory_agent = Agent(
+    name="Memory Agent",
+    mcp_servers=[memory_mcp],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "Memory Agent")
+
+    assert len(agent.mcp_servers) == 1
+    server = agent.mcp_servers[0]
+    assert server.name == "Memory Graph"
+    assert server.metadata["repository_resolved"] is True
+    assert server.metadata["import_symbol"] == "mcp"
+    assert server.metadata["context_binding"] == "bound"
+    assert server.metadata["effective_agent"] == "Memory Agent"
+
+
 def test_openai_imported_mcp_server_reconstructs_agent_auth_and_tool_scope(tmp_path: Path) -> None:
     (tmp_path / "server.py").write_text(
         """
