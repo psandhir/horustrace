@@ -111,8 +111,122 @@ def _flow_backed_paths(graph: Graph) -> list[AttackPath]:
     return paths
 
 
+def _resolve_delegated_agent(graph: Graph, target: str) -> object | None:
+    leaf = target.split(".")[-1]
+    candidates = [
+        agent
+        for agent in graph.agents
+        if agent.name == target
+        or str(agent.metadata.get("source_alias") or "") == target
+    ]
+    if not candidates and "." in target:
+        candidates = [
+            agent
+            for agent in graph.agents
+            if str(agent.metadata.get("source_alias") or "") == leaf
+        ]
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def _delegated_paths(graph: Graph) -> list[AttackPath]:
+    paths: list[AttackPath] = []
+    for agent in graph.agents:
+        untrusted = [
+            item
+            for item in agent.inputs
+            if item.trust == "untrusted" or item.kind in UNTRUSTED_INPUT_KINDS
+        ]
+        if not untrusted:
+            continue
+        for delegate_tool in agent.tools:
+            if delegate_tool.kind != "delegated_agent":
+                continue
+            target_name = str(delegate_tool.metadata.get("delegate_target") or "")
+            if not target_name:
+                continue
+            delegated = _resolve_delegated_agent(graph, target_name)
+            if delegated is None:
+                continue
+            for tool in delegated.tools:
+                privileged = sorted(tool.capabilities & HIGH_RISK_CAPABILITIES)
+                if privileged and tool.approval is not True:
+                    paths.append(
+                        AttackPath(
+                            path_id="PATH008",
+                            title="Potential untrusted-input path through delegated agent to privileged action",
+                            agent=agent.name,
+                            nodes=[
+                                untrusted[0].name,
+                                agent.name,
+                                f"delegate:{delegated.name}",
+                                tool.name,
+                                privileged[0],
+                            ],
+                            severity=Severity.HIGH,
+                            rationale=(
+                                "The normalized model shows untrusted input reaching an "
+                                "agent that can delegate to another agent exposing a "
+                                "high-risk capability without detected approval."
+                            ),
+                            location=tool.location or delegated.location or agent.location,
+                            metadata={
+                                **_path_metadata(basis="capability_cooccurrence"),
+                                "delegate_target": delegated.name,
+                                "delegate_tool": delegate_tool.name,
+                            },
+                        )
+                    )
+
+                outbound = {
+                    "network.external",
+                    "external.write",
+                } & tool.capabilities
+                destination_constrained = bool(
+                    tool.destinations
+                    and all(destination.restricted for destination in tool.destinations)
+                ) or tool.metadata.get("network_scope") in {
+                    "fixed_managed_service",
+                    "explicit_destination",
+                }
+                if (
+                    outbound
+                    and not destination_constrained
+                    and tool.approval is not True
+                ):
+                    paths.append(
+                        AttackPath(
+                            path_id="PATH009",
+                            title="Potential untrusted-input path through delegated agent to unconstrained egress",
+                            agent=agent.name,
+                            nodes=[
+                                untrusted[0].name,
+                                agent.name,
+                                f"delegate:{delegated.name}",
+                                tool.name,
+                                "unrestricted external destination",
+                            ],
+                            severity=Severity.MEDIUM,
+                            rationale=(
+                                "The normalized model shows untrusted input reaching an "
+                                "agent that can delegate to external network/write "
+                                "authority without a detected destination constraint."
+                            ),
+                            location=tool.location or delegated.location or agent.location,
+                            metadata={
+                                **_path_metadata(basis="capability_cooccurrence"),
+                                "delegate_target": delegated.name,
+                                "delegate_tool": delegate_tool.name,
+                            },
+                        )
+                    )
+    return paths
+
+
 def build_attack_paths(graph: Graph) -> list[AttackPath]:
-    paths: list[AttackPath] = _flow_backed_paths(graph)
+    paths: list[AttackPath] = [
+        *_flow_backed_paths(graph),
+        *_delegated_paths(graph),
+    ]
     supported_rule_agents = {
         (path.path_id, path.agent)
         for path in paths
