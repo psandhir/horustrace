@@ -53,6 +53,7 @@ from horustrace.reporters.sarif import render as render_sarif
 from horustrace.rule_registry import iter_rule_metadata
 from horustrace.scanner import ScannerError, scan
 from horustrace.security_graph import build_agent_security_graph
+from horustrace.visual_report import render_visual_report_html
 from horustrace.source_context import SOURCE_CONTEXTS
 from horustrace.suppressions import SuppressionError, write_baseline
 
@@ -177,6 +178,23 @@ def _parser() -> argparse.ArgumentParser:
     security_graph_parser.add_argument("--output", type=Path)
     security_graph_parser.add_argument("--config", type=Path)
     security_graph_parser.add_argument(
+        "--authority-source",
+        type=Path,
+        help="Checked-out Terraform repository containing declared IAM bindings.",
+    )
+    report_parser = sub.add_parser(
+        "report",
+        help="Generate a self-contained interactive HTML security report",
+    )
+    report_parser.add_argument("path", nargs="?", default=".")
+    report_parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("horustrace-report.html"),
+        help="HTML output path (default: horustrace-report.html).",
+    )
+    report_parser.add_argument("--config", type=Path)
+    report_parser.add_argument(
         "--authority-source",
         type=Path,
         help="Checked-out Terraform repository containing declared IAM bindings.",
@@ -647,7 +665,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         return 0
 
-    if args.command in {"graph", "security-graph", "aibom", "authority", "policy", "query", "owasp"}:
+    if args.command in {"graph", "security-graph", "report", "aibom", "authority", "policy", "query", "owasp"}:
         try:
             root = target if target.is_dir() else target.parent
             config = load_config(root, args.config)
@@ -661,7 +679,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"horustrace: {exc}", file=sys.stderr)
             return 1
 
-        if args.command == "authority":
+        if args.command == "report":
+            output = render_visual_report_html(graph, findings, root)
+        elif args.command == "authority":
             report = effective_authority_report(graph)
             output = (
                 json.dumps(report, indent=2)
