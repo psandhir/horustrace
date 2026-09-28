@@ -1,0 +1,194 @@
+import json
+from pathlib import Path
+
+from horustrace import cli
+from horustrace.models import (
+    Agent,
+    AgentPolicy,
+    AuthorityContract,
+    AuthorityScope,
+    Graph,
+    Tool,
+)
+
+
+def _violation_graph() -> Graph:
+    return Graph(
+        agents=[
+            Agent(
+                name="support",
+                tools=[
+                    Tool(
+                        name="shell",
+                        kind="function",
+                        capabilities={"process.execute"},
+                        approval=True,
+                    )
+                ],
+                policy=AgentPolicy(
+                    authority=AuthorityContract(
+                        deny=AuthorityScope(capabilities={"process.execute"}),
+                    )
+                ),
+            )
+        ]
+    )
+
+
+def _unresolved_graph() -> Graph:
+    return Graph(
+        agents=[
+            Agent(
+                name="support",
+                tools=[
+                    Tool(
+                        name="read",
+                        kind="function",
+                        capabilities={"data.read"},
+                        approval=True,
+                    )
+                ],
+                policy=AgentPolicy(
+                    authority=AuthorityContract(
+                        allow=AuthorityScope(identities={"support-bot"}),
+                    )
+                ),
+            )
+        ]
+    )
+
+
+def test_scan_json_includes_separate_authority_contract_assessment(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(cli, "scan", lambda *_args, **_kwargs: (_violation_graph(), []))
+
+    result = cli.main(
+        [
+            "scan",
+            str(tmp_path),
+            "--format",
+            "json",
+            "--fail-on",
+            "none",
+        ]
+    )
+
+    assert result == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["findings"] == []
+    assert report["authority_contract"]["summary"]["agents_with_contract"] == 1
+    assert report["authority_contract"]["summary"]["violations"] == 1
+    assert report["authority_contract"]["violations"][0]["clause"] == "deny.capabilities"
+    assert report["summary"]["authority_contract_violations"] == 1
+
+
+def test_scan_policy_violation_gate_is_independent_of_finding_severity(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(cli, "scan", lambda *_args, **_kwargs: (_violation_graph(), []))
+
+    result = cli.main(
+        [
+            "scan",
+            str(tmp_path),
+            "--fail-on",
+            "none",
+            "--fail-on-policy-violation",
+        ]
+    )
+
+    assert result == 2
+
+
+def test_scan_policy_violation_gate_is_opt_in(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(cli, "scan", lambda *_args, **_kwargs: (_violation_graph(), []))
+
+    result = cli.main(
+        [
+            "scan",
+            str(tmp_path),
+            "--fail-on",
+            "none",
+        ]
+    )
+
+    assert result == 0
+
+
+def test_scan_policy_gate_does_not_treat_unresolved_as_violation(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(cli, "scan", lambda *_args, **_kwargs: (_unresolved_graph(), []))
+
+    result = cli.main(
+        [
+            "scan",
+            str(tmp_path),
+            "--format",
+            "json",
+            "--fail-on",
+            "none",
+            "--fail-on-policy-violation",
+        ]
+    )
+
+    assert result == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["authority_contract"]["summary"]["violations"] == 0
+    assert report["authority_contract"]["summary"]["unresolved"] == 1
+
+
+def test_scan_console_renders_contract_as_separate_assessment(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(cli, "scan", lambda *_args, **_kwargs: (_violation_graph(), []))
+
+    result = cli.main(
+        [
+            "scan",
+            str(tmp_path),
+            "--fail-on",
+            "none",
+        ]
+    )
+
+    assert result == 0
+    output = capsys.readouterr().out
+    assert "Authority Contract assessment" in output
+    assert "Violations: 1" in output
+    assert "VIOLATION agent=support target=tool:shell" in output
+
+
+def test_scan_sarif_carries_authority_contract_metadata(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(cli, "scan", lambda *_args, **_kwargs: (_violation_graph(), []))
+
+    result = cli.main(
+        [
+            "scan",
+            str(tmp_path),
+            "--format",
+            "sarif",
+            "--fail-on",
+            "none",
+        ]
+    )
+
+    assert result == 0
+    report = json.loads(capsys.readouterr().out)
+    properties = report["runs"][0]["properties"]
+    assert properties["authority_contract"]["summary"]["violations"] == 1

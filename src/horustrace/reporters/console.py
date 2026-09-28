@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
+from typing import Any
 
+from horustrace.authority_contract import authority_contract_report
 from horustrace.models import Finding, Graph, Severity
 from horustrace.provenance import control_observations
 
@@ -15,7 +17,12 @@ LAYER_NAMES = {
 }
 
 
-def render(graph: Graph, findings: list[Finding], root: Path) -> str:
+def render(
+    graph: Graph,
+    findings: list[Finding],
+    root: Path,
+    authority_contract: dict[str, Any] | None = None,
+) -> str:
     counts = Counter(f.severity for f in findings)
     layer_counts = Counter(f.layer for f in findings)
     source_context_counts = Counter(f.source_context for f in findings)
@@ -25,6 +32,8 @@ def render(graph: Graph, findings: list[Finding], root: Path) -> str:
     )
     flow_resolution = graph.coverage.resolution.get("flows", {})
     flow_reachability = flow_resolution.get("agent_reachability", {})
+    contract_report = authority_contract or authority_contract_report(graph)
+    contract_summary = contract_report["summary"]
     lines = [
         "HorusTrace Security Scan",
         "=" * 23,
@@ -78,6 +87,34 @@ def render(graph: Graph, findings: list[Finding], root: Path) -> str:
             )
         )
     lines.append("")
+
+    if contract_summary["agents_with_contract"]:
+        lines.extend([
+            "Authority Contract assessment",
+            f"  Agents with contract: {contract_summary['agents_with_contract']}",
+            f"  Relationships evaluated: {contract_summary['relationships_evaluated']}",
+            f"  Compliant relationships: {contract_summary['compliant_relationships']}",
+            f"  Violation relationships: {contract_summary['violation_relationships']}",
+            f"  Unresolved relationships: {contract_summary['unresolved_relationships']}",
+            f"  Violations: {contract_summary['violations']}",
+            f"  Unresolved clauses: {contract_summary['unresolved']}",
+            "  Runtime effectiveness: not_verified",
+        ])
+        for item in contract_report["violations"]:
+            lines.append(
+                "  VIOLATION "
+                f"agent={item['agent']} "
+                f"target={item['target']['kind']}:{item['target']['name']} "
+                f"clause={item['clause']} reason={item['reason']}"
+            )
+        for item in contract_report["unresolved"]:
+            lines.append(
+                "  UNRESOLVED "
+                f"agent={item['agent']} "
+                f"target={item['target']['kind']}:{item['target']['name']} "
+                f"clause={item['clause']} reason={item['reason']}"
+            )
+        lines.append("")
 
     if graph.suppressed_findings or graph.suppression_diagnostics:
         lines.append("Suppressions")

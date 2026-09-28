@@ -49,6 +49,26 @@ Contract evaluation produces three explicit outcomes:
 
 Unknown evidence is never silently treated as compliant.
 
+A normal `horustrace scan` now performs both evaluations in one pass: the built-in
+HorusTrace security rules assess generic security risk, while any repository Authority
+Contract is evaluated separately against reconstructed effective authority. JSON exposes
+the result under `authority_contract`; console output renders a distinct Authority
+Contract assessment; SARIF stores the contract assessment in run properties.
+
+The two CI gates remain independent:
+
+```bash
+# Generic HorusTrace security findings.
+horustrace scan . --fail-on high
+
+# Explicit agent-authority boundary violations.
+horustrace scan . --fail-on none --fail-on-policy-violation
+```
+
+Unresolved contract assessments do not fail `--fail-on-policy-violation`; they remain
+visible as unresolved evidence rather than being treated as compliant or as proven
+violations.
+
 `horustrace diff` compares both effective authority and Authority Contract posture. The optional policy gate fails on newly introduced violations **or on contract weakening**, including removed deny rules, widened allowlists, removed approval requirements and widened MCP tool scope:
 
 ```bash

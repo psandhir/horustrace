@@ -10,6 +10,7 @@ from horustrace import __version__
 from horustrace.adapters.manifest import ManifestError
 from horustrace.adapters.registry import adapter_catalogue
 from horustrace.aibom import build_aibom
+from horustrace.authority_contract import authority_contract_report
 from horustrace.authority_query import (
     query_effective_authority,
     render_authority_query_console,
@@ -121,6 +122,14 @@ def _parser() -> argparse.ArgumentParser:
         choices=["none", "low", "medium", "high", "critical"],
         default="high",
         help="Return exit code 2 when a finding at or above this severity is present.",
+    )
+    scan_parser.add_argument(
+        "--fail-on-policy-violation",
+        action="store_true",
+        help=(
+            "Return exit code 2 when the current scan proves an Authority Contract "
+            "violation. Unresolved contract assessments do not fail this gate."
+        ),
     )
     baseline_parser = sub.add_parser("baseline", help="Create expiring suppressions for current findings")
     baseline_parser.add_argument("path", nargs="?", default=".")
@@ -790,6 +799,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         disabled_rules = graph.configuration_audit.get("disabled_rules", [])
         authority_resolution = authority_resolution_summary(graph)
+        authority_contract = authority_contract_report(graph)
         source_context_counts_before = {
             context: sum(
                 finding.source_context == context for finding in findings
@@ -835,7 +845,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"horustrace: {exc}", file=sys.stderr)
         return 1
     if args.format == "console":
-        output = render_console(graph, findings, target)
+        output = render_console(graph, findings, target, authority_contract)
     elif args.format == "json":
         output = json.dumps(
             {
@@ -845,6 +855,7 @@ def main(argv: list[str] | None = None) -> int:
                 "mcp_authority": effective_mcp_authority_report(graph),
                 "effective_authority": effective_authority_report(graph),
                 "authority_resolution": authority_resolution,
+                "authority_contract": authority_contract,
                 "owasp_agentic": build_owasp_agentic_summary(
                     findings,
                     disabled_rules=disabled_rules,
@@ -905,6 +916,11 @@ def main(argv: list[str] | None = None) -> int:
                     "adg_nodes": len(graph.adg.nodes) if graph.adg else 0,
                     "adg_edges": len(graph.adg.edges) if graph.adg else 0,
                     "findings": len(findings),
+                    "authority_contract_violations": authority_contract["summary"]["violations"],
+                    "authority_contract_unresolved": authority_contract["summary"]["unresolved"],
+                    "authority_contract_relationships": authority_contract["summary"][
+                        "relationships_evaluated"
+                    ],
                     "suppressed_findings": len(graph.suppressed_findings),
                     "findings_by_source_context": dict(
                         sorted(source_context_counts_after.items())
@@ -963,7 +979,7 @@ def main(argv: list[str] | None = None) -> int:
         output = json.dumps(render_sarif(
             findings, graph.coverage, control_observations(graph),
             graph.suppressed_findings, graph.suppression_diagnostics,
-            graph.flow_paths, disabled_rules,
+            graph.flow_paths, disabled_rules, authority_contract,
         ), indent=2)
 
     if args.output:
@@ -987,6 +1003,9 @@ def main(argv: list[str] | None = None) -> int:
     expired_suppression = any(d["status"] == "expired" for d in graph.suppression_diagnostics)
     if (args.strict or config.strict) and (graph.coverage.incomplete or expired_suppression):
         return 1
+
+    if args.fail_on_policy_violation and authority_contract["summary"]["violations"]:
+        return 2
 
     if args.fail_on != "none":
         threshold = Severity.parse(args.fail_on)
