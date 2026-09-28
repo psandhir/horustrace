@@ -347,9 +347,7 @@ def propagate_repository_ingress(
                 receiver = _call_name(child.func.value)
                 target_agent = local_agents.get(receiver or "")
                 input_expr = child.args[0] if child.args else _kw(child, "input")
-            elif called in {"run", "run_sync", "run_streamed"}:
-                continue
-            elif called is None:
+            elif called in {"run", "run_sync", "run_streamed"} or called is None:
                 continue
 
             if (
