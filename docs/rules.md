@@ -18,6 +18,9 @@ metadata will become available through the CLI in WP02.
 - `AGT032` — remote MCP lacks an explicit tool allowlist; a denylist alone is insufficient.
 - `AGT040` — privileged tool without guardrail or approval.
 - `AGT050` — unpinned MCP package execution.
+- `AGT051` — literal credential material embedded in MCP configuration.
+- `AGT052` — MCP configuration explicitly enables a broad/unrestricted tool surface.
+- `AGT053` — bound MCP server exposes privileged in-repo tools without approval/guardrail controls.
 
 ### Google ADK
 
@@ -69,6 +72,8 @@ metadata will become available through the CLI in WP02.
 - `PATH005` — untrusted input to secret access and egress.
 - `PATH006` — untrusted input reaches multiple high-risk capability classes.
 - `PATH007` — supported untrusted-input flow reaches an agent memory/checkpoint write.
+- `PATH008` — potential untrusted-input path through a delegated agent to a privileged action.
+- `PATH009` — potential untrusted-input path through a delegated agent to unconstrained egress.
 
 ## Interpreting evidence
 
