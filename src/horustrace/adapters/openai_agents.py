@@ -687,22 +687,35 @@ def _resolve_sequence(expr: ast.AST | None, sequences: dict[str, list[ast.AST]])
     return []
 
 
-def _enclosing_function_parameter_names(
+def _enclosing_function(
     functions: list[ast.FunctionDef | ast.AsyncFunctionDef],
     node: ast.AST,
-) -> set[str]:
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
     line = getattr(node, "lineno", 0)
     candidates = [
         function
         for function in functions
-        if getattr(function, "lineno", 0) <= line <= getattr(function, "end_lineno", 0)
+        if getattr(function, "lineno", 0)
+        <= line
+        <= getattr(function, "end_lineno", 0)
     ]
     if not candidates:
-        return set()
-    function = min(
+        return None
+    return min(
         candidates,
-        key=lambda item: getattr(item, "end_lineno", 0) - getattr(item, "lineno", 0),
+        key=lambda item: (
+            getattr(item, "end_lineno", 0) - getattr(item, "lineno", 0)
+        ),
     )
+
+
+def _enclosing_function_parameter_names(
+    functions: list[ast.FunctionDef | ast.AsyncFunctionDef],
+    node: ast.AST,
+) -> set[str]:
+    function = _enclosing_function(functions, node)
+    if function is None:
+        return set()
     names = {
         arg.arg
         for arg in [
@@ -716,6 +729,64 @@ def _enclosing_function_parameter_names(
     if function.args.kwarg is not None:
         names.add(function.args.kwarg.arg)
     return names
+
+
+def _root_name(node: ast.AST | None) -> str | None:
+    current = node
+    while isinstance(current, ast.Attribute):
+        current = current.value
+    if isinstance(current, ast.Name):
+        return current.id
+    return None
+
+
+def _external_handler_evidence(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> str | None:
+    route_names = {
+        "websocket",
+        "get",
+        "post",
+        "put",
+        "patch",
+        "delete",
+        "route",
+        "api_route",
+    }
+    for decorator in function.decorator_list:
+        target = decorator.func if isinstance(decorator, ast.Call) else decorator
+        if _call_name(target) in route_names:
+            return "web_route_decorator"
+
+    parameters = [
+        *function.args.posonlyargs,
+        *function.args.args,
+        *function.args.kwonlyargs,
+    ]
+    for parameter in parameters:
+        annotation = _dotted_name(parameter.annotation) or _call_name(
+            parameter.annotation
+        )
+        if annotation and annotation.split(".")[-1] in {
+            "WebSocket",
+            "Request",
+            "HTTPConnection",
+        }:
+            return "web_framework_parameter"
+
+    for child in ast.walk(function):
+        if not isinstance(child, ast.Call):
+            continue
+        if _call_name(child.func) in {
+            "receive_json",
+            "receive_text",
+            "receive_bytes",
+            "json",
+            "body",
+            "form",
+        }:
+            return "web_input_read"
+    return None
 
 
 def scan_python_file(path: Path) -> Graph:
@@ -794,6 +865,7 @@ def scan_python_file(path: Path) -> Graph:
                     mcp_servers[alias] = server
 
     agent_names_by_alias: dict[str, str] = {}
+    agent_alias_by_line: dict[int, str] = {}
     for statement in ast.walk(tree):
         if not isinstance(statement, (ast.Assign, ast.AnnAssign)):
             continue
@@ -803,8 +875,12 @@ def scan_python_file(path: Path) -> Graph:
         targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
         alias = next((target.id for target in targets if isinstance(target, ast.Name)), None)
         if alias:
-            runtime_name = _literal(_kw(value, "name"))
+            name_node = _kw(value, "name")
+            runtime_name = _literal(name_node)
+            if runtime_name is None and isinstance(name_node, ast.Name):
+                runtime_name = constants.get(name_node.id)
             agent_names_by_alias[alias] = str(runtime_name or alias)
+            agent_alias_by_line[getattr(value, "lineno", 1)] = alias
 
     def resolve_alias(name: str) -> str:
         seen: set[str] = set()
@@ -818,12 +894,18 @@ def scan_python_file(path: Path) -> Graph:
         if not isinstance(node, ast.Call) or _call_name(node.func) != "Agent":
             continue
 
-        name_value = _literal(_kw(node, "name"))
+        name_node = _kw(node, "name")
+        name_value = _literal(name_node)
+        if name_value is None and isinstance(name_node, ast.Name):
+            name_value = constants.get(name_node.id)
         instructions = _literal(_kw(node, "instructions"))
         metadata: dict[str, Any] = {
             "framework": "openai-agents",
             "instance_key": f"{path.resolve()}:{getattr(node, 'lineno', 1)}",
         }
+        source_alias = agent_alias_by_line.get(getattr(node, "lineno", 1))
+        if source_alias:
+            metadata["source_alias"] = source_alias
         if isinstance(instructions, str):
             metadata["instructions"] = instructions
         model = _literal(_kw(node, "model"))
@@ -937,6 +1019,65 @@ def scan_python_file(path: Path) -> Graph:
             )
 
         graph.agents.append(agent)
+
+    agents_by_alias = {
+        str(agent.metadata.get("source_alias")): agent
+        for agent in graph.agents
+        if agent.metadata.get("source_alias")
+    }
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr not in {"run", "run_streamed", "run_sync"}:
+            continue
+        receiver = _dotted_name(node.func.value) or _call_name(node.func.value)
+        if receiver not in {"Runner", "agents.Runner"}:
+            continue
+        agent_expr = (
+            node.args[0]
+            if node.args
+            else _kw(node, "starting_agent") or _kw(node, "agent")
+        )
+        agent_alias = _call_name(agent_expr)
+        target = agents_by_alias.get(agent_alias or "")
+        if target is None:
+            continue
+        input_expr = _kw(node, "input")
+        if input_expr is None and len(node.args) > 1:
+            input_expr = node.args[1]
+        input_root = _root_name(input_expr)
+        if not input_root:
+            continue
+        function = _enclosing_function(functions, node)
+        if function is None:
+            continue
+        parameters = _enclosing_function_parameter_names(functions, node)
+        if input_root not in parameters:
+            continue
+        external_basis = _external_handler_evidence(function)
+        if external_basis is None:
+            continue
+        if any(
+            source.name == input_root
+            and source.metadata.get("binding_origin") == "runner_external_input"
+            for source in target.inputs
+        ):
+            continue
+        target.inputs.append(
+            InputSource(
+                name=input_root,
+                trust="untrusted",
+                kind="external",
+                location=_location(path, input_expr or node),
+                metadata={
+                    "inferred": True,
+                    "binding_origin": "runner_external_input",
+                    "basis": external_basis,
+                    "runner": node.func.attr,
+                    "handler": function.name,
+                },
+            )
+        )
 
     # OpenAI Agents commonly attach MCP servers to a runtime clone rather than the
     # base Agent declaration. Treat a statically resolvable clone as an effective
