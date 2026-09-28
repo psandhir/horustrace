@@ -275,3 +275,14 @@ Final artifacts:
 The original scanner baseline remains pinned to `418db4e29798a7d25df686dd7bccfd9fefa225bd`. Product changes discovered by the study must be validated as deltas against the same frozen cohort; the original baseline and locked truth must not be overwritten.
 
 The source reference is an independent automated dual-pass reference, not a human dual-review panel. Accordingly, finding precision/recall and exhaustive attack-path accuracy are not claimed by this study.
+
+
+## Post-hoc semantic parity benchmark
+
+A separate seven-case semantic benchmark now complements the locked broad-cohort reference under `semantic-benchmark/`.
+
+It preserves the original frozen truth and records source-adjudicated effective principals, tool/MCP authority, policy expectations, attack-path expectations, known false positives and unresolved/conditional relationships discovered during policy-aligned LLM review.
+
+This layer is intentionally **post-hoc**: scanner output was already available when these cases were selected and reviewed, so it must not be presented as preregistered validation. Its purpose is product regression testing and semantic parity, not replacement of the frozen-180 study metrics.
+
+The initial PR #203 semantic score is 3/23 assertions. Use `scripts/real_world_semantic_benchmark.py` to validate the benchmark and score future Frozen-180/post-fix artifacts.
