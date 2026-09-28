@@ -950,10 +950,21 @@ def _resolve_imported_tool_placeholders(graph: Graph) -> None:
                 tool.resources = list(source.resources)
                 tool.destinations = list(source.destinations)
                 tool.identity = source.identity
+                binding_metadata = {
+                    key: value
+                    for key, value in tool.metadata.items()
+                    if key
+                    in {
+                        "authority_binding",
+                        "authority_binding_basis",
+                        "tool_node",
+                        "import_module",
+                    }
+                }
                 tool.metadata = {
                     **source.metadata,
+                    **binding_metadata,
                     "repository_resolved": True,
-                    "import_module": tool.metadata.get("import_module"),
                 }
             else:
                 unresolved.append(tool.name)
