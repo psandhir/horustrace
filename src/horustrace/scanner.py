@@ -47,6 +47,8 @@ from horustrace.mcp_context import (
     resolve_imported_mcp_placeholders,
 )
 from horustrace.mcp_resolution import unresolved_mcp_summary
+from horustrace.repository_ingress import propagate_repository_ingress
+from horustrace.repository_openai_registry import enrich_configured_openai_agents
 from horustrace.models import (
     Agent,
     AgentReachability,
@@ -1211,6 +1213,12 @@ def scan(
         root if root.is_dir() else root.parent,
         approved_python_paths,
     )
+    enrich_configured_openai_agents(
+        graph,
+        root if root.is_dir() else root.parent,
+        approved_python_paths,
+    )
+    propagate_repository_ingress(graph, approved_python_paths)
     diagnose_dynamic_constructs(graph)
     for agent in graph.agents:
         if agent.metadata.get("dynamic_control_flow"):
