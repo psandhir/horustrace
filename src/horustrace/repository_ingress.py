@@ -5,7 +5,13 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 
-from horustrace.models import Agent, EvidenceFact, Graph, InputSource, SourceLocation
+from horustrace.models import (
+    Agent,
+    EvidenceFact,
+    Graph,
+    InputSource,
+    SourceLocation,
+)
 
 
 _ROUTE_METHODS = {"get", "post", "put", "patch", "delete", "route", "api_route", "websocket"}
