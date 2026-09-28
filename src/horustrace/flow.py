@@ -305,6 +305,31 @@ def _process_execution_value(called: str, call: ast.Call, evaluator) -> _Value:
     return _Value()
 
 
+def _without_context_lookup_unresolved(value: _Value) -> _Value:
+    """Do not let framework-context lookups downgrade independent tool input.
+
+    Context objects such as RunContextWrapper are intentionally excluded from
+    agent-tool input sources. Their accessors can be unresolved while a separate
+    symbolic tool parameter still has a direct, supported dependency on the sink.
+    Filter only unresolved calls whose receiver is a known context parameter;
+    preserve all other unresolved calls and all symbolic parameters/sources.
+    """
+    if not value.unresolved:
+        return value
+    remaining = tuple(
+        item
+        for item in value.unresolved
+        if item.called.split(".", 1)[0].lower() not in _AGENT_TOOL_CONTEXT_PARAMS
+    )
+    if remaining == value.unresolved:
+        return value
+    return _Value(
+        params=value.params,
+        sources=value.sources,
+        unresolved=remaining,
+    )
+
+
 def _sink_value(called: str, call: ast.Call, evaluator) -> _Value:
     kind = _sink_kind(called)
     if kind and kind[0] == "external_send":
@@ -320,6 +345,8 @@ def _sink_value(called: str, call: ast.Call, evaluator) -> _Value:
         return _process_execution_value(called, call, evaluator)
     values = [evaluator(arg) for arg in call.args]
     values.extend(evaluator(keyword.value) for keyword in call.keywords)
+    if kind and kind[0] == "memory_write":
+        values = [_without_context_lookup_unresolved(value) for value in values]
     return _Value.combine(values)
 
 
