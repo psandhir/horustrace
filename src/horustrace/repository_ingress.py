@@ -188,11 +188,18 @@ def _call_argument_map(
     callee: _Function,
 ) -> dict[str, ast.AST]:
     result: dict[str, ast.AST] = {}
+    parameters = list(callee.params)
+    if (
+        callee.class_name
+        and parameters
+        and parameters[0] in {"self", "cls"}
+    ):
+        parameters = parameters[1:]
     for index, argument in enumerate(call.args):
-        if index < len(callee.params):
-            result[callee.params[index]] = argument
+        if index < len(parameters):
+            result[parameters[index]] = argument
     for keyword in call.keywords:
-        if keyword.arg in callee.params:
+        if keyword.arg in parameters:
             result[keyword.arg] = keyword.value
     return result
 
