@@ -27,6 +27,7 @@ from horustrace.authority_source import (
 )
 from horustrace.config import ScanConfig
 from horustrace.config import apply as apply_config
+from horustrace.configured_agents import enrich_configured_agents
 from horustrace.coverage import add_diagnostic, diagnose_dynamic_constructs, diagnose_python
 from horustrace.entrypoint_provenance import annotate_flow_entrypoints
 from horustrace.flow import analyze_repository_flows
@@ -62,6 +63,7 @@ from horustrace.models import (
     Tool,
 )
 from horustrace.path_safety import canonical_root, is_within_root
+from horustrace.repository_ingress import bind_repository_ingress
 from horustrace.provenance import annotate, attach_findings, context
 from horustrace.rules.builtin import evaluate
 from horustrace.semantics import annotate_risk_semantics
@@ -1187,6 +1189,16 @@ def scan(
         python_paths=approved_python_paths,
     )
     _consolidate_agents(graph)
+    enrich_configured_agents(
+        graph,
+        python_paths=approved_python_paths,
+        json_paths=[
+            candidate
+            for candidate in candidates
+            if candidate.suffix.lower() == ".json"
+        ],
+    )
+    _consolidate_agents(graph)
     _propagate_adk_delegation(graph)
     resolve_imported_mcp_placeholders(
         graph,
@@ -1210,6 +1222,10 @@ def scan(
         graph,
         root if root.is_dir() else root.parent,
         approved_python_paths,
+    )
+    bind_repository_ingress(
+        graph,
+        python_paths=approved_python_paths,
     )
     diagnose_dynamic_constructs(graph)
     for agent in graph.agents:
