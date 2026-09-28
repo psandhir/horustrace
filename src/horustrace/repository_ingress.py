@@ -288,7 +288,14 @@ def propagate_repository_ingress(
                     callee_key = (callee.path.resolve(), callee.name)
                     positional = list(child.args)
                     keywords = {item.arg: item.value for item in child.keywords if item.arg}
-                    for index, param in enumerate(callee.params):
+                    parameters = list(callee.params)
+                    if (
+                        isinstance(child.func, ast.Attribute)
+                        and parameters
+                        and parameters[0] in {"self", "cls"}
+                    ):
+                        parameters = parameters[1:]
+                    for index, param in enumerate(parameters):
                         value = (
                             positional[index]
                             if index < len(positional)
