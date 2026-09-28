@@ -683,7 +683,8 @@ function filterGraph(query){{
 }}
 function bindGraphControls(a){{
  const state=agencyState(a), svg=document.getElementById("agency-svg"), shell=document.getElementById("agency-map-shell");
- if(!svg||!shell)return;
+ if(!svg||!shell||shell.dataset.bound==="1")return;
+ shell.dataset.bound="1";
  const groupBtn=document.getElementById("map-toggle-groups");
  const updateGroupLabel=()=>groupBtn.textContent=state.collapsed?"Expand all":"Collapse groups";
  updateGroupLabel();
@@ -771,6 +772,13 @@ function openAgent(name){{
  '<div id="tab-evidence" class="agent-tab">'+renderAgentEvidence(a)+'</div>';
  root.querySelector("#back-agents").addEventListener("click",()=>showView("agents"));
  root.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>{{
+   if(btn.dataset.tab!=="map"){{
+     const shell=root.querySelector("#agency-map-shell");
+     if(shell) shell.classList.remove("expanded");
+     document.body.classList.remove("graph-modal-open");
+     const full=root.querySelector("#map-fullscreen");
+     if(full) full.textContent="Expand map";
+   }}
    root.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x===btn));
    root.querySelectorAll(".agent-tab").forEach(x=>x.classList.toggle("active",x.id==="tab-"+btn.dataset.tab));
    if(btn.dataset.tab==="map"){{drawGraph(a);bindGraphControls(a);}}
