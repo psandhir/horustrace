@@ -317,14 +317,27 @@ def resolve_local_stdio_implementations(graph: Graph, root: Path) -> None:
     identity is retained while implementation capabilities are projected onto it.
     """
     root = root.resolve()
-    implementations = [
-        server
-        for server in graph.unbound_mcp_servers
-        if server.location is not None
-        and isinstance(server.metadata.get("discovered_tools"), list)
-        and bool(server.metadata.get("discovered_tools"))
-        and server.metadata.get("source") in {"FastMCP", "Server"}
-    ]
+    implementations_by_path: dict[Path, list[MCPServer]] = {}
+    for implementation in graph.unbound_mcp_servers:
+        if (
+            implementation.location is None
+            or not isinstance(
+                implementation.metadata.get("discovered_tools"),
+                list,
+            )
+            or not implementation.metadata.get("discovered_tools")
+            or implementation.metadata.get("source")
+            not in {"FastMCP", "Server"}
+        ):
+            continue
+        implementations_by_path.setdefault(
+            implementation.location.path.resolve(),
+            [],
+        ).append(implementation)
+
+    if not implementations_by_path:
+        return
+
     used: set[int] = set()
 
     for agent in graph.agents:
@@ -333,10 +346,12 @@ def resolve_local_stdio_implementations(graph: Graph, root: Path) -> None:
             if not script_candidates:
                 continue
             matches = [
-                candidate
-                for candidate in implementations
-                if candidate.location is not None
-                and candidate.location.path.resolve() in script_candidates
+                implementation
+                for candidate_path in script_candidates
+                for implementation in implementations_by_path.get(
+                    candidate_path,
+                    [],
+                )
             ]
             if len(matches) != 1:
                 if len(matches) > 1:
