@@ -77,6 +77,93 @@ def _write_capable(relationship: dict[str, Any]) -> bool:
     return any(marker in value.lower() for value in values for marker in markers)
 
 
+def _attack_path_view(
+    path: dict[str, Any],
+    *,
+    agent_name: str,
+    flows_by_id: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Project an attack path into an explicitly typed presentation chain.
+
+    This function does not infer new security facts. It only labels the evidence
+    already carried by AttackPath / FlowPath so the browser can render supported
+    data-flow and capability-cooccurrence paths differently.
+    """
+    metadata = path.get("metadata") or {}
+    basis = str(metadata.get("basis") or "capability_cooccurrence")
+    nodes = [str(item) for item in path.get("nodes") or []]
+    steps: list[dict[str, Any]] = []
+
+    flow_id = metadata.get("flow_id")
+    flow = flows_by_id.get(str(flow_id)) if flow_id else None
+    if basis == "static_dataflow" and flow:
+        flow_steps = list(flow.get("steps") or [])
+        if flow_steps:
+            first = flow_steps[0]
+            steps.append(
+                {
+                    "kind": "source",
+                    "label": str(first.get("label") or "source"),
+                    "role": str(first.get("kind") or metadata.get("source_kind") or "source"),
+                }
+            )
+            steps.append({"kind": "agent", "label": agent_name, "role": "Agent"})
+            for item in flow_steps[1:]:
+                step_kind = str(item.get("kind") or "flow_step")
+                semantic_kind = (
+                    "destination"
+                    if step_kind in {"external_send", "network_destination"}
+                    else "function"
+                )
+                steps.append(
+                    {
+                        "kind": semantic_kind,
+                        "label": str(item.get("label") or step_kind),
+                        "role": step_kind,
+                    }
+                )
+    elif path.get("path_id") == "PATH005" and len(nodes) >= 4:
+        steps = [
+            {"kind": "input", "label": nodes[0], "role": "Untrusted input"},
+            {"kind": "agent", "label": nodes[1], "role": "Agent"},
+            {"kind": "secret", "label": nodes[2], "role": "Reads secrets"},
+            {"kind": "tool", "label": nodes[3], "role": "Outbound tool"},
+            {
+                "kind": "destination",
+                "label": "Unrestricted external destination",
+                "role": "Destination constraint",
+            },
+        ]
+    elif path.get("path_id") == "PATH003" and len(nodes) >= 4:
+        steps = [
+            {"kind": "source", "label": nodes[0], "role": "Sensitive data"},
+            {"kind": "agent", "label": nodes[1], "role": "Agent"},
+            {"kind": "tool", "label": nodes[2], "role": "External write / HTTP tool"},
+            {"kind": "destination", "label": nodes[3], "role": "External destination"},
+        ]
+    else:
+        for index, label in enumerate(nodes):
+            steps.append(
+                {
+                    "kind": "agent" if label == agent_name else "step",
+                    "label": label,
+                    "role": "Agent" if label == agent_name else f"Path step {index + 1}",
+                }
+            )
+
+    return {
+        **path,
+        "basis": basis,
+        "evidence_strength": (
+            "supported_static_dataflow"
+            if basis == "static_dataflow"
+            else "potential_capability_cooccurrence"
+        ),
+        "edge_style": "solid" if basis == "static_dataflow" else "dashed",
+        "steps": steps,
+    }
+
+
 def build_visual_report(
     graph: Graph,
     findings: list[Finding],
@@ -89,6 +176,11 @@ def build_visual_report(
     security_graph = build_agent_security_graph(graph, root).as_dict()
     findings_docs = [_relativize(item.as_dict(), root) for item in findings]
     attack_paths = security_graph.get("attack_paths", [])
+    flows_by_id = {
+        str(item.get("flow_id")): item
+        for item in security_graph.get("flows", [])
+        if item.get("flow_id")
+    }
 
     contract_relationships = {
         item["authority_relationship_id"]: item
@@ -117,6 +209,14 @@ def build_visual_report(
         ]
         agent_attack_paths = [
             item for item in attack_paths if item.get("agent") == agent.name
+        ]
+        agent_path_views = [
+            _attack_path_view(
+                item,
+                agent_name=agent.name,
+                flows_by_id=flows_by_id,
+            )
+            for item in agent_attack_paths
         ]
         resources = sorted(
             {
@@ -201,6 +301,7 @@ def build_visual_report(
                 "effective_authority": relationships,
                 "findings": agent_findings,
                 "attack_paths": agent_attack_paths,
+                "path_views": agent_path_views,
                 "contract": {
                     "declared": contract_doc,
                     "relationships": relationship_contracts,
