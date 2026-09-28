@@ -90,6 +90,8 @@ def resolve_imported_mcp_placeholders(graph: Graph, root: Path) -> None:
                     **resolved.metadata,
                     "repository_resolved": True,
                     "import_module": import_module,
+                    "import_symbol": server.metadata.get("import_symbol"),
+                    "local_alias": server.metadata.get("local_alias"),
                     "imported_binding": True,
                     "binding_origin": "repository_import_reference",
                 }
