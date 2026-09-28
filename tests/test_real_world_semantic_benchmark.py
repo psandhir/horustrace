@@ -105,3 +105,24 @@ def test_finding_path_filter_only_rejects_targeted_false_positive() -> None:
     }
     report = mod.score(result, benchmark)
     assert report["cases"][0]["assertions"][2]["passed"] is True
+
+
+def test_checked_in_v11_benchmark_is_valid() -> None:
+    benchmark_path = (
+        Path(__file__).resolve().parents[1]
+        / "research"
+        / "real-world-agent-security-2026"
+        / "semantic-benchmark"
+        / "benchmark-v1.1.json"
+    )
+    benchmark = mod.load_json(benchmark_path)
+    assert mod.validate(benchmark) == []
+    assert benchmark["benchmark"] == "horustrace-semantic-parity-v1.1"
+    rw085 = next(case for case in benchmark["cases"] if case["case_id"] == "rw-085")
+    tool_assertion = next(
+        assertion
+        for assertion in rw085["regression_assertions"]
+        if assertion.get("type") == "summary_min"
+        and assertion.get("field") == "tools"
+    )
+    assert tool_assertion["value"] == 133
