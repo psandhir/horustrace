@@ -64,6 +64,10 @@ from horustrace.models import (
 )
 from horustrace.path_safety import canonical_root, is_within_root
 from horustrace.provenance import annotate, attach_findings, context
+from horustrace.registry_config import (
+    enrich_config_registry_agents,
+    is_registry_config_filename,
+)
 from horustrace.rules.builtin import evaluate
 from horustrace.semantics import annotate_risk_semantics
 from horustrace.source_context import classify_source_context, path_parts_match
@@ -515,7 +519,11 @@ def _is_supported_scan_candidate(path: Path) -> bool:
 def _is_repository_candidate(path: Path) -> bool:
     # pyproject.toml is retained for console-script entrypoint provenance even
     # though it is not parsed as a primary security-analysis input.
-    return _is_supported_scan_candidate(path) or path.name == "pyproject.toml"
+    return (
+        _is_supported_scan_candidate(path)
+        or path.name == "pyproject.toml"
+        or is_registry_config_filename(path.name)
+    )
 
 
 def _ignored(path: Path, root: Path) -> bool:
@@ -1336,6 +1344,17 @@ def scan(
             raise ScannerError(str(exc)) from exc
     _link_global_identities(graph)
     _resolve_imported_tool_placeholders(graph)
+    enrich_config_registry_agents(
+        graph,
+        root if root.is_dir() else root.parent,
+        python_paths=approved_python_paths,
+        config_paths=[
+            candidate
+            for candidate in candidates
+            if is_registry_config_filename(candidate.name)
+        ],
+    )
+    _consolidate_agents(graph)
     annotate_tool_source_provenance(
         graph,
         root if root.is_dir() else root.parent,
