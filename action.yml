@@ -14,7 +14,7 @@ inputs:
     required: false
     default: high
   fail-on-policy-violation:
-    description: Fail diff mode when the PR introduces a new Authority Contract violation or weakens the contract
+    description: Fail scan mode on current Authority Contract violations, or diff mode on introduced violations/contract weakening
     required: false
     default: "false"
   fail-on-authority-regression:
@@ -115,12 +115,18 @@ runs:
         SCAN_SUPPRESSIONS: ${{ inputs.suppressions }}
         SCAN_AUTHORITY_SOURCE: ${{ inputs.authority-source }}
         SCAN_MAX_UNRESOLVED_AUTHORITY: ${{ inputs.max-unresolved-authority }}
+        SCAN_FAIL_ON_POLICY_VIOLATION: ${{ inputs.fail-on-policy-violation }}
       run: |
         scan_args=(scan "$SCAN_PATH" --fail-on "$SCAN_FAIL_ON" --format "$SCAN_FORMAT")
         case "$SCAN_STRICT" in
           true) scan_args+=(--strict) ;;
           false) ;;
           *) echo "strict must be true or false" >&2; exit 1 ;;
+        esac
+        case "$SCAN_FAIL_ON_POLICY_VIOLATION" in
+          true) scan_args+=(--fail-on-policy-violation) ;;
+          false) ;;
+          *) echo "fail-on-policy-violation must be true or false" >&2; exit 1 ;;
         esac
         if [[ -n "$SCAN_SUPPRESSIONS" ]]; then
           scan_args+=(--suppressions "$SCAN_SUPPRESSIONS")
