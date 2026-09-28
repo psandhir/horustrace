@@ -109,10 +109,8 @@ def _has_explicit_untrusted_source(node: ast.AST) -> bool:
         leaf = (_call_name(child.func) or "").lower()
         if called == "input" or leaf == "input":
             return True
-        if leaf in _REQUEST_READS and (
-            called.startswith("request.")
-            or called.startswith("websocket.")
-            or called.startswith("ws.")
+        if leaf in _REQUEST_READS and called.startswith(
+            ("request.", "websocket.", "ws.")
         ):
             return True
     return False
@@ -297,10 +295,13 @@ def propagate_repository_ingress(
                             if index < len(positional)
                             else keywords.get(param)
                         )
-                        if value is not None and _expr_tainted(value, tainted):
-                            if param not in tainted_params[callee_key]:
-                                tainted_params[callee_key].add(param)
-                                changed = True
+                        if (
+                            value is not None
+                            and _expr_tainted(value, tainted)
+                            and param not in tainted_params[callee_key]
+                        ):
+                            tainted_params[callee_key].add(param)
+                            changed = True
 
                 target_agent: str | None = None
                 input_expr: ast.AST | None = None
