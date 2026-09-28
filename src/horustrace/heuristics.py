@@ -65,6 +65,41 @@ def infer_capabilities(name: str) -> set[str]:
     return capabilities
 
 
+_SENSITIVE_PROFILE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (
+        re.compile(
+            r"\b(birthdate|birth date|date of birth|dob)\b",
+            re.IGNORECASE,
+        ),
+        "profile:birthdate",
+    ),
+    (
+        re.compile(r"\b(location|gps|address)\b", re.IGNORECASE),
+        "profile:location",
+    ),
+    (
+        re.compile(r"\bgender\b", re.IGNORECASE),
+        "profile:gender",
+    ),
+    (
+        re.compile(
+            r"\b(personalized info|personal info|personalized information)\b",
+            re.IGNORECASE,
+        ),
+        "profile:personalized",
+    ),
+)
+
+
+def infer_sensitive_resource(name: str) -> tuple[str, str] | None:
+    """Infer narrow PII resource semantics from explicit tool/function names."""
+    normalized = re.sub(r"[_\-.]+", " ", name)
+    for pattern, selector in _SENSITIVE_PROFILE_PATTERNS:
+        if pattern.search(normalized):
+            return selector, "confidential"
+    return None
+
+
 def package_is_unpinned(command: str | None, args: list[str]) -> bool:
     if not command or command.lower() not in {"npx", "bunx", "pnpx"}:
         return False
