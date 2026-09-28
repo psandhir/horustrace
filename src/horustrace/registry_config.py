@@ -178,9 +178,29 @@ def _resolve_tool(
         ):
             matches.append(tool)
 
-    unique = {id(item): item for item in matches}
-    if len(unique) == 1:
-        tool = deepcopy(next(iter(unique.values())))
+    by_source: dict[tuple[str, int, str], Tool] = {}
+    for item in matches:
+        location = item.location
+        source_path = (
+            location.path.resolve().as_posix()
+            if location is not None
+            else str(item.metadata.get("source_path") or "")
+        )
+        source_line = (
+            location.line
+            if location is not None
+            else int(item.metadata.get("source_line") or 0)
+        )
+        source_name = str(
+            item.metadata.get("source_function")
+            or item.metadata.get("function")
+            or item.name
+        )
+        by_source.setdefault((source_path, source_line, source_name), item)
+
+    resolved = len(by_source) == 1
+    if resolved:
+        tool = deepcopy(next(iter(by_source.values())))
     else:
         tool = Tool(
             name=name,
@@ -197,7 +217,7 @@ def _resolve_tool(
         "registry_config": config_path.as_posix(),
         "source_module": module or tool.metadata.get("source_module"),
         "source_function": function or tool.metadata.get("source_function"),
-        "registry_resolved": len(unique) == 1,
+        "registry_resolved": resolved,
     }
     return tool
 
