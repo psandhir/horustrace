@@ -430,7 +430,12 @@ def _unreadable_path_diagnostic(
     )
 
 
-def _repository_candidates(root: Path, graph: Graph) -> list[Path]:
+def _repository_candidates(
+    root: Path,
+    graph: Graph,
+    *,
+    auxiliary_json_paths: list[Path] | None = None,
+) -> list[Path]:
     """Walk a repository without letting irrelevant payload exhaust scan limits."""
     candidates: list[Path] = []
     stack = [root]
@@ -438,6 +443,8 @@ def _repository_candidates(root: Path, graph: Graph) -> list[Path]:
     entries_visited = 0
 
     def add_candidate(candidate: Path) -> None:
+        if candidate.suffix.lower() == ".json" and auxiliary_json_paths is not None:
+            auxiliary_json_paths.append(candidate)
         if not _is_repository_candidate(candidate):
             # Preserve historical coverage accounting even though irrelevant
             # payload no longer consumes the analysis-candidate safety budget.
@@ -1007,10 +1014,17 @@ def scan(
     containment_root = canonical_root(root)
     graph = Graph()
 
+    auxiliary_json_paths: list[Path] = []
     if root.is_file():
         candidates = [root]
+        if root.suffix.lower() == ".json":
+            auxiliary_json_paths.append(root)
     else:
-        candidates = _repository_candidates(root, graph)
+        candidates = _repository_candidates(
+            root,
+            graph,
+            auxiliary_json_paths=auxiliary_json_paths,
+        )
 
     seen_real_paths: set[Path] = set()
     approved_python_paths: list[Path] = []
@@ -1192,11 +1206,7 @@ def scan(
     enrich_configured_agents(
         graph,
         python_paths=approved_python_paths,
-        json_paths=[
-            candidate
-            for candidate in candidates
-            if candidate.suffix.lower() == ".json"
-        ],
+        json_paths=auxiliary_json_paths,
     )
     _consolidate_agents(graph)
     _propagate_adk_delegation(graph)
