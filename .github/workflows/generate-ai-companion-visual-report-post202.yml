@@ -1,0 +1,73 @@
+name: Generate AI Companion visual report post-202
+
+on:
+  push:
+    branches:
+      - experiment/visual-report-ai-companion-post202
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out HorusTrace
+        uses: actions/checkout@v4
+
+      - name: Check out target repository at study SHA
+        uses: actions/checkout@v4
+        with:
+          repository: Danejw/ai-companion-backend
+          ref: 5868863046a6b3e69cba9d07e98fb2bd357976d1
+          path: target
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+
+      - name: Run JSON scan
+        shell: bash
+        run: |
+          set +e
+          horustrace scan target --format json > ai-companion-scan.json 2> ai-companion-scan.stderr
+          code=$?
+          echo "scan_exit_code=$code"
+          cat ai-companion-scan.stderr
+          exit 0
+
+      - name: Summarize scan
+        run: |
+          python - <<'PY'
+          import json
+          from collections import Counter
+          data=json.load(open("ai-companion-scan.json"))
+          summary=data.get("summary", {})
+          authority=data.get("effective_authority", {}).get("summary", {})
+          findings=data.get("findings", [])
+          graph=data.get("graph", {})
+          print("summary:", summary)
+          print("authority:", authority)
+          print("graph_agents:", len(graph.get("agents", [])))
+          print("findings:", len(findings))
+          print("severity:", dict(Counter(item.get("severity") for item in findings)))
+          print("rules:", dict(Counter(item.get("rule_id") for item in findings)))
+          for item in findings[:80]:
+              print(item.get("rule_id"), item.get("severity"), item.get("agent"), item.get("title"))
+          PY
+
+      - name: Generate visual report
+        run: horustrace report target --output ai-companion-horustrace-report-post202.html
+
+      - name: Upload report and scan
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-companion-horustrace-visual-report-post202
+          path: |
+            ai-companion-horustrace-report-post202.html
+            ai-companion-scan.json
+            ai-companion-scan.stderr
