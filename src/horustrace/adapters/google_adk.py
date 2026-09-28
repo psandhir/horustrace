@@ -707,7 +707,14 @@ def _agent_from_call(
     if agent_type not in AGENT_TYPES:
         return None
     name = _string(_kw(call, "name")) or alias
-    metadata: dict[str, Any] = {"framework": "google-adk", "agent_type": agent_type}
+    metadata: dict[str, Any] = {
+        "framework": "google-adk",
+        "agent_type": agent_type,
+        "source_alias": alias,
+        "instance_key": (
+            f"{path.resolve()}:{getattr(call, 'lineno', 1) or 1}:{alias}"
+        ),
+    }
     instruction = _string(_kw(call, "instruction")) or _string(_kw(call, "instructions"))
     if instruction:
         metadata["instruction"] = instruction
@@ -824,6 +831,34 @@ def _agent_from_call(
     return agent
 
 
+def _lexical_scope(tree: ast.AST, node: ast.AST) -> str:
+    """Return the innermost function/class scope containing a source node."""
+    line = getattr(node, "lineno", 0) or 0
+    candidates: list[tuple[int, int, str]] = []
+    for item in ast.walk(tree):
+        if not isinstance(
+            item,
+            (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
+        ):
+            continue
+        start = getattr(item, "lineno", 0) or 0
+        end = getattr(item, "end_lineno", start) or start
+        if start <= line <= end:
+            candidates.append((end - start, -start, f"{item.name}@{start}"))
+    if not candidates:
+        return "__module__"
+    return min(candidates)[2]
+
+
+def _construction_key(item: Tool | MCPServer) -> tuple[str, int, str]:
+    location = item.location
+    return (
+        location.path.resolve().as_posix() if location else "",
+        location.line if location else 0,
+        item.name,
+    )
+
+
 def scan_python_file(path: Path) -> Graph:
     graph = Graph()
     try:
@@ -839,7 +874,9 @@ def scan_python_file(path: Path) -> Graph:
     tools: dict[str, Tool] = {}
     mcp_servers: dict[str, MCPServer] = {}
     identities: dict[str, Identity] = {}
-    agent_calls: list[tuple[str, ast.Call]] = []
+    agent_calls: list[tuple[str, ast.Call, str]] = []
+    scoped_calls: dict[str, dict[str, ast.Call]] = {}
+    scoped_sequences: dict[str, dict[str, list[ast.AST]]] = {}
     safety_plugins: set[str] = set()
 
     for node in ast.walk(tree):
@@ -849,14 +886,17 @@ def scan_python_file(path: Path) -> Graph:
             alias = next((t.id for t in targets if isinstance(t, ast.Name)), None)
             if not alias:
                 continue
+            scope = _lexical_scope(tree, node)
             if isinstance(value, (ast.List, ast.Tuple, ast.Set)):
                 sequences[alias] = list(value.elts)
+                scoped_sequences.setdefault(scope, {})[alias] = list(value.elts)
                 continue
             if isinstance(value, ast.Call):
                 calls[alias] = value
+                scoped_calls.setdefault(scope, {})[alias] = value
                 call_name = _call_name(value.func) or ""
                 if call_name in AGENT_TYPES:
-                    agent_calls.append((alias, value))
+                    agent_calls.append((alias, value, scope))
                     continue
                 mcp = _mcp_from_toolset(path, value, alias, calls)
                 if mcp:
@@ -889,6 +929,77 @@ def scan_python_file(path: Path) -> Graph:
             elif isinstance(arg, ast.Name) and arg.id in sequences:
                 sequence.extend(sequences[arg.id])
 
+    # Build lexical-scope views so repeated aliases inside separate functions
+    # resolve to the construction visible in that function rather than the last
+    # same-named assignment encountered elsewhere in the module.
+    module_calls = scoped_calls.get("__module__", {})
+    module_sequences = scoped_sequences.get("__module__", {})
+    scoped_tools: dict[str, dict[str, Tool]] = {}
+    scoped_mcp_servers: dict[str, dict[str, MCPServer]] = {}
+    for scope, scope_calls in scoped_calls.items():
+        visible_calls = {**module_calls, **scope_calls}
+        visible_sequences = {
+            **module_sequences,
+            **scoped_sequences.get(scope, {}),
+        }
+        for alias, scoped_call in scope_calls.items():
+            mcp = _mcp_from_toolset(
+                path,
+                scoped_call,
+                alias,
+                visible_calls,
+            )
+            if mcp:
+                filter_node = _kw(scoped_call, "tool_filter")
+                if (
+                    isinstance(filter_node, ast.Name)
+                    and filter_node.id in visible_sequences
+                ):
+                    values = [
+                        value
+                        for element in visible_sequences[filter_node.id]
+                        if (
+                            value := (
+                                _string(element)
+                                or _dotted_name(element)
+                            )
+                        )
+                        is not None
+                    ]
+                    if values:
+                        mcp.allowed_tools = values
+                        mcp.metadata["dynamic_tool_filter"] = False
+                scoped_mcp_servers.setdefault(scope, {})[alias] = mcp
+                continue
+            tool = _tool_from_call(
+                path,
+                scoped_call,
+                alias,
+                visible_calls,
+                functions,
+            )
+            if tool:
+                filter_node = _kw(scoped_call, "tool_filter")
+                if (
+                    isinstance(filter_node, ast.Name)
+                    and filter_node.id in visible_sequences
+                ):
+                    values = [
+                        value
+                        for element in visible_sequences[filter_node.id]
+                        if (
+                            value := (
+                                _string(element)
+                                or _dotted_name(element)
+                            )
+                        )
+                        is not None
+                    ]
+                    if values:
+                        tool.metadata["tool_filter"] = values
+                        tool.metadata["dynamic_tool_filter"] = False
+                scoped_tools.setdefault(scope, {})[alias] = tool
+
     # Second pass catches aliases whose nested calls were declared later in the file.
     for alias, call in list(calls.items()):
         mcp = _mcp_from_toolset(path, call, alias, calls)
@@ -918,8 +1029,41 @@ def scan_python_file(path: Path) -> Graph:
             mcp_servers[alias].metadata["dynamic_tool_filter"] = False
 
     agents_by_alias: dict[str, Agent] = {}
-    for alias, call in agent_calls:
-        agent = _agent_from_call(path, call, alias, tools, mcp_servers, calls, sequences, functions)
+    for alias, call, scope in agent_calls:
+        visible_calls = {
+            **module_calls,
+            **scoped_calls.get(scope, {}),
+        }
+        visible_sequences = {
+            **module_sequences,
+            **scoped_sequences.get(scope, {}),
+        }
+        visible_tools = {
+            **{
+                name: item
+                for name, item in tools.items()
+                if name in module_calls
+            },
+            **scoped_tools.get(scope, {}),
+        }
+        visible_mcp_servers = {
+            **{
+                name: item
+                for name, item in mcp_servers.items()
+                if name in module_calls
+            },
+            **scoped_mcp_servers.get(scope, {}),
+        }
+        agent = _agent_from_call(
+            path,
+            call,
+            alias,
+            visible_tools,
+            visible_mcp_servers,
+            visible_calls,
+            visible_sequences,
+            functions,
+        )
         if agent:
             agents_by_alias[alias] = agent
             graph.agents.append(agent)
@@ -1025,8 +1169,24 @@ def scan_python_file(path: Path) -> Graph:
             tool.identity = identity_name
 
     graph.identities.extend(identities.values())
-    bound_tools = {id(t) for a in graph.agents for t in a.tools}
-    bound_mcp = {id(s) for a in graph.agents for s in a.mcp_servers}
-    graph.unbound_tools.extend(t for t in tools.values() if id(t) not in bound_tools)
-    graph.unbound_mcp_servers.extend(s for s in mcp_servers.values() if id(s) not in bound_mcp)
+    bound_tool_keys = {
+        _construction_key(tool)
+        for agent in graph.agents
+        for tool in agent.tools
+    }
+    bound_mcp_keys = {
+        _construction_key(server)
+        for agent in graph.agents
+        for server in agent.mcp_servers
+    }
+    graph.unbound_tools.extend(
+        tool
+        for tool in tools.values()
+        if _construction_key(tool) not in bound_tool_keys
+    )
+    graph.unbound_mcp_servers.extend(
+        server
+        for server in mcp_servers.values()
+        if _construction_key(server) not in bound_mcp_keys
+    )
     return graph
