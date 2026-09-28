@@ -22,6 +22,7 @@ _KNOWN_FRAMEWORK_PREFIXES = (
     "pydantic_ai",
     "langgraph",
     "fast_agent",
+    "mcp_agent",
 )
 _KNOWN_FRAMEWORK_MODULES = {"agents"}
 _EXPLICIT_AGENT_MODULES = {"livekit.agents"}
@@ -38,6 +39,7 @@ _MODEL_METHODS = {
     "completion",
     "invoke",
     "ainvoke",
+    "chat_collect",
 }
 
 
@@ -149,6 +151,18 @@ def _class_signals(node: ast.ClassDef) -> dict[str, bool]:
                 tool_catalogue = True
             if leaf == "call_tool":
                 tool_dispatch = True
+            elif leaf in {"execute", "dispatch", "invoke_tool", "run_tool"}:
+                receiver = (
+                    _dotted(child.func.value)
+                    if isinstance(child.func, ast.Attribute)
+                    else None
+                )
+                receiver_lower = (receiver or "").lower()
+                receiver_tokens = set(
+                    receiver_lower.replace("-", "_").replace(".", "_").split("_")
+                )
+                if receiver_tokens & {"tool", "tools", "registry"}:
+                    tool_dispatch = True
             if leaf in {"post", "request"}:
                 http_request = True
             for keyword in child.keywords:
