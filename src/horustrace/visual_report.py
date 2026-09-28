@@ -427,18 +427,34 @@ color:var(--muted);padding:9px 10px;cursor:pointer;border-bottom:2px solid trans
 .finding-title{{display:flex;gap:8px;align-items:center;flex-wrap:wrap}} code,pre{{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}}
 code{{background:#ffffff0b;padding:2px 5px;border-radius:5px}} details{{margin-top:8px}} pre{{white-space:pre-wrap;word-break:break-word;
 background:#09101e;border:1px solid var(--line);padding:12px;border-radius:8px;max-height:340px;overflow:auto}}
-.graph-wrap{{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px}} .graph{{width:100%;height:520px;background:#09101e;
-border:1px solid var(--line);border-radius:10px}} .inspector{{min-height:120px}} .legend{{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:7px 0 12px}}
+.map-toolbar{{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:8px 0 10px}}
+.map-toolbar input{{min-width:220px;flex:1;background:#09101e;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 9px}}
+.map-btn{{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:7px 9px;cursor:pointer}}
+.map-btn:hover{{border-color:#52688f;background:var(--panel2)}}
+.graph-wrap{{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;position:relative}}
+.graph-wrap.expanded{{position:fixed;inset:14px;z-index:9999;background:var(--bg);padding:14px;border:1px solid var(--line);border-radius:14px;grid-template-columns:minmax(0,1fr) 340px;box-shadow:0 24px 80px #000b}}
+.graph-wrap.expanded .graph{{height:calc(100vh - 105px)}} body.graph-modal-open{{overflow:hidden}}
+.graph-canvas{{position:relative;min-width:0}} .graph{{width:100%;height:520px;background:#09101e;border:1px solid var(--line);border-radius:10px;touch-action:none;cursor:grab}}
+.graph.panning{{cursor:grabbing}} .inspector{{min-height:120px;overflow:auto}} .legend{{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:7px 0 12px}}
 .dot{{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px}} .empty{{padding:24px;text-align:center;color:var(--muted);
 border:1px dashed var(--line);border-radius:10px}} .back{{border:1px solid var(--line);background:var(--panel);color:var(--text);padding:7px 10px;
 border-radius:8px;cursor:pointer}} .small{{font-size:12px}} .nowrap{{white-space:nowrap}} .sevbar{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}}
 svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} .edge{{stroke:#65728c;stroke-width:1.4;opacity:.72}}
 .node rect{{fill:#16213a;stroke:#42516f;stroke-width:1}} .node.agent rect{{fill:#1b3157;stroke:#78a8ff}} .node.identity rect{{fill:#2b2545;stroke:#a895ff}}
 .node.resource rect{{fill:#21362f;stroke:#63d69f}} .node.destination rect{{fill:#3a2d22;stroke:#f1b36a}} .node.unresolved rect{{stroke-dasharray:5 4}}
-.node{{cursor:pointer}} .node:hover rect{{stroke-width:2}} .label2{{fill:var(--muted);font-size:10px}} .footer{{color:var(--muted);font-size:11px;margin:28px 0 4px}}
+.node{{cursor:pointer;transition:opacity .12s}} .node:hover rect{{stroke-width:2}} .node.dim{{opacity:.16}} .node.match rect,.node.selected rect{{stroke-width:3}}
+.edge.dim{{opacity:.08}} .edge.selected{{stroke-width:2.5;opacity:1}} .label2{{fill:var(--muted);font-size:10px}}
+.path-card{{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin:12px 0}}
+.path-head{{display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap}}
+.path-chain{{display:flex;flex-direction:column;align-items:flex-start;margin-top:15px;padding-left:8px}}
+.path-step{{min-width:260px;max-width:620px;background:#0d1628;border:1px solid var(--line);border-radius:9px;padding:9px 11px}}
+.path-step.agent{{border-color:#78a8ff}} .path-step.secret{{border-color:#c98cff}} .path-step.destination{{border-color:#f1b36a}} .path-step.input,.path-step.source{{border-color:#8ab4ff}}
+.path-role{{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:2px}}
+.path-arrow{{height:22px;margin-left:28px;border-left:2px solid #6d7e9f}} .path-arrow.dashed{{border-left-style:dashed}}
+.path-meta{{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}} .footer{{color:var(--muted);font-size:11px;margin:28px 0 4px}}
 @media(max-width:900px){{.shell{{grid-template-columns:1fr}} aside{{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}}
 .nav{{display:flex;overflow:auto}} .nav button{{width:auto;white-space:nowrap}} main{{padding:18px}} .grid2,.graph-wrap{{grid-template-columns:1fr}}
-.graph{{height:440px}} .kv{{grid-template-columns:1fr}}}}
+.graph{{height:440px}} .graph-wrap.expanded{{inset:4px;padding:8px;grid-template-columns:1fr}} .graph-wrap.expanded .inspector{{display:none}} .kv{{grid-template-columns:1fr}}}}
 </style>
 </head>
 <body>
@@ -605,44 +621,129 @@ function renderAgentOverview(a){{
 function renderGraph(a){{
  const rels=a.effective_authority||[];
  if(!rels.length)return '<div class="empty">No effective-authority relationships were reconstructed for this agent.</div>';
- return '<div class="legend"><span><i class="dot" style="background:#78a8ff"></i>Agent</span><span><i class="dot" style="background:#6f84aa"></i>Tool / MCP</span>'+
+ return '<div class="map-toolbar"><input id="map-search" placeholder="Find tool, MCP, identity, resource or destination">'+
+ '<button class="map-btn" id="map-toggle-groups">Expand all</button><button class="map-btn" id="map-zoom-out">−</button>'+
+ '<button class="map-btn" id="map-zoom-in">+</button><button class="map-btn" id="map-fit">Fit</button>'+
+ '<button class="map-btn" id="map-fullscreen">Expand map</button></div>'+
+ '<div class="legend"><span><i class="dot" style="background:#78a8ff"></i>Agent</span><span><i class="dot" style="background:#6f84aa"></i>Tool / MCP</span>'+
  '<span><i class="dot" style="background:#a895ff"></i>Identity</span><span><i class="dot" style="background:#63d69f"></i>Resource</span><span><i class="dot" style="background:#f1b36a"></i>Destination</span></div>'+
- '<div class="graph-wrap"><svg class="graph" id="agency-svg" viewBox="0 0 1080 520" preserveAspectRatio="xMidYMid meet"></svg><div class="panel inspector" id="graph-inspector"><h3>Path inspector</h3><p class="muted">Select a graph node to inspect its evidence.</p></div></div>';
+ '<div class="graph-wrap" id="agency-map-shell"><div class="graph-canvas"><svg class="graph" id="agency-svg" viewBox="0 0 1080 520" preserveAspectRatio="xMidYMid meet">'+
+ '<g id="agency-stage"></g></svg></div><div class="panel inspector" id="graph-inspector"><h3>Path inspector</h3><p class="muted">Select a graph node to inspect its evidence.</p></div></div>';
 }}
 function svgNode(x,y,w,label,sub,kind,key,unresolved=false){{
  const cls="node "+kind+(unresolved?" unresolved":"");
- return '<g class="'+cls+'" data-node="'+esc(key)+'" transform="translate('+x+','+y+')"><rect width="'+w+'" height="54" rx="8"></rect>'+
- '<text x="12" y="22">'+esc(label.length>26?label.slice(0,24)+"…":label)+'</text><text class="label2" x="12" y="40">'+esc(sub)+'</text></g>';
+ return '<g class="'+cls+'" data-node="'+esc(key)+'" data-label="'+esc((label+" "+sub).toLowerCase())+'" transform="translate('+x+','+y+')"><rect width="'+w+'" height="54" rx="8"></rect>'+
+ '<text x="12" y="22">'+esc(label.length>28?label.slice(0,26)+"…":label)+'</text><text class="label2" x="12" y="40">'+esc(sub)+'</text></g>';
+}}
+const AGENCY_GRAPH_STATE=new Map();
+function agencyState(a){{
+ if(!AGENCY_GRAPH_STATE.has(a.name))AGENCY_GRAPH_STATE.set(a.name,{{collapsed:(a.effective_authority||[]).length>6,scale:1,tx:0,ty:0,selected:null}});
+ return AGENCY_GRAPH_STATE.get(a.name);
+}}
+function applyGraphTransform(a){{
+ const stage=document.getElementById("agency-stage"); if(!stage)return;
+ const state=agencyState(a);
+ stage.setAttribute("transform","translate("+state.tx+" "+state.ty+") scale("+state.scale+")");
+}}
+function graphEdge(x1,y1,x2,y2,from,to){{
+ return '<line class="edge" data-from="'+esc(from)+'" data-to="'+esc(to)+'" x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'"></line>';
+}}
+function inspectGraphNode(a,key,item){{
+ const panel=document.getElementById("graph-inspector"); if(!panel)return;
+ panel.innerHTML='<h3>'+esc(item.name||item.target?.name||item.selector||item.target||item.label||a.name)+'</h3>'+
+ '<div style="display:flex;gap:7px;margin-bottom:8px"><button class="map-btn" id="focus-node">Focus</button><button class="map-btn" id="clear-focus">Clear focus</button></div>'+
+ '<pre>'+esc(JSON.stringify(item,null,2))+'</pre>';
+ panel.querySelector("#focus-node").addEventListener("click",()=>focusGraphNode(key));
+ panel.querySelector("#clear-focus").addEventListener("click",()=>focusGraphNode(null));
+}}
+function focusGraphNode(key){{
+ const svg=document.getElementById("agency-svg"); if(!svg)return;
+ const neighbours=new Set(key?[key]:[]);
+ if(key){{
+   svg.querySelectorAll(".edge").forEach(edge=>{{
+     if(edge.dataset.from===key||edge.dataset.to===key){{neighbours.add(edge.dataset.from);neighbours.add(edge.dataset.to);edge.classList.add("selected");edge.classList.remove("dim");}}
+     else{{edge.classList.remove("selected");edge.classList.add("dim");}}
+   }});
+ }}else svg.querySelectorAll(".edge").forEach(edge=>edge.classList.remove("selected","dim"));
+ svg.querySelectorAll(".node").forEach(node=>{{
+   const selected=key&&node.dataset.node===key;
+   node.classList.toggle("selected",Boolean(selected));
+   node.classList.toggle("dim",Boolean(key&&!neighbours.has(node.dataset.node)));
+ }});
+}}
+function filterGraph(query){{
+ const svg=document.getElementById("agency-svg"); if(!svg)return;
+ const q=String(query||"").trim().toLowerCase();
+ svg.querySelectorAll(".node").forEach(node=>{{
+   const match=!q||String(node.dataset.label||"").includes(q);
+   node.classList.toggle("match",Boolean(q&&match));
+   node.classList.toggle("dim",Boolean(q&&!match));
+ }});
+ svg.querySelectorAll(".edge").forEach(edge=>edge.classList.toggle("dim",Boolean(q)));
+}}
+function bindGraphControls(a){{
+ const state=agencyState(a), svg=document.getElementById("agency-svg"), shell=document.getElementById("agency-map-shell");
+ if(!svg||!shell)return;
+ const groupBtn=document.getElementById("map-toggle-groups");
+ const updateGroupLabel=()=>groupBtn.textContent=state.collapsed?"Expand all":"Collapse groups";
+ updateGroupLabel();
+ groupBtn.addEventListener("click",()=>{{state.collapsed=!state.collapsed;state.selected=null;drawGraph(a);updateGroupLabel();}});
+ document.getElementById("map-zoom-in").addEventListener("click",()=>{{state.scale=Math.min(3,state.scale*1.2);applyGraphTransform(a);}});
+ document.getElementById("map-zoom-out").addEventListener("click",()=>{{state.scale=Math.max(.35,state.scale/1.2);applyGraphTransform(a);}});
+ document.getElementById("map-fit").addEventListener("click",()=>{{state.scale=1;state.tx=0;state.ty=0;applyGraphTransform(a);focusGraphNode(null);}});
+ document.getElementById("map-fullscreen").addEventListener("click",event=>{{
+   const expanded=shell.classList.toggle("expanded"); document.body.classList.toggle("graph-modal-open",expanded);
+   event.currentTarget.textContent=expanded?"Exit full screen":"Expand map";
+ }});
+ document.getElementById("map-search").addEventListener("input",event=>filterGraph(event.target.value));
+ svg.addEventListener("wheel",event=>{{event.preventDefault();state.scale=Math.max(.35,Math.min(3,state.scale*(event.deltaY<0?1.1:.9)));applyGraphTransform(a);}},{{passive:false}});
+ let dragging=false,lastX=0,lastY=0;
+ svg.addEventListener("pointerdown",event=>{{if(event.target.closest(".node"))return;dragging=true;lastX=event.clientX;lastY=event.clientY;svg.classList.add("panning");svg.setPointerCapture(event.pointerId);}});
+ svg.addEventListener("pointermove",event=>{{if(!dragging)return;state.tx+=(event.clientX-lastX)/state.scale;state.ty+=(event.clientY-lastY)/state.scale;lastX=event.clientX;lastY=event.clientY;applyGraphTransform(a);}});
+ const stop=()=>{{dragging=false;svg.classList.remove("panning");}};
+ svg.addEventListener("pointerup",stop);svg.addEventListener("pointercancel",stop);
 }}
 function drawGraph(a){{
- const svg=document.getElementById("agency-svg"); if(!svg)return;
- const rels=a.effective_authority.slice(0,14), row=Math.max(62,440/Math.max(1,rels.length)), center=235;
- const nodes=[], edges=[], info={{}};
- nodes.push(svgNode(30,center,185,a.name,a.framework,"agent","agent"));
- info.agent={{type:"Agent",name:a.name,location:a.location,framework:a.framework}};
- rels.forEach((r,i)=>{{
-   const y=24+i*row, targetKey="target-"+i;
-   edges.push('<line class="edge" x1="215" y1="'+(center+27)+'" x2="300" y2="'+(y+27)+'"></line>');
-   nodes.push(svgNode(300,y,205,r.target.name,r.target.kind,"target",targetKey,r.resolution!=="fully_resolved"));
-   info[targetKey]=r;
-   let prevX=505, prevY=y+27;
-   if(r.identity){{
-     const k="identity-"+i; edges.push('<line class="edge" x1="'+prevX+'" y1="'+prevY+'" x2="570" y2="'+prevY+'"></line>');
-     nodes.push(svgNode(570,y,190,r.identity.name,r.identity.provider||"identity","identity",k,r.dimensions.identity!=="resolved")); info[k]=r.identity; prevX=760;
-   }}
-   const outputs=[];
-   (r.resources||[]).slice(0,2).forEach(x=>outputs.push(["resource",x.selector,x.kind,x]));
-   (r.destinations||[]).slice(0,1).forEach(x=>outputs.push(["destination",x.target,x.direction,x]));
-   outputs.forEach((o,j)=>{{
-     const oy=y+(j-(outputs.length-1)/2)*58, k=o[0]+"-"+i+"-"+j;
-     edges.push('<line class="edge" x1="'+prevX+'" y1="'+prevY+'" x2="825" y2="'+(oy+27)+'"></line>');
-     nodes.push(svgNode(825,oy,220,o[1],o[2],o[0],k,false)); info[k]=o[3];
+ const svg=document.getElementById("agency-svg"), stage=document.getElementById("agency-stage"); if(!svg||!stage)return;
+ const state=agencyState(a), rels=a.effective_authority||[], nodes=[],edges=[],info={{}};
+ if(state.collapsed&&rels.length>6){{
+   const groups={{tools:rels.filter(r=>r.target.kind!=="mcp_server"),mcp:rels.filter(r=>r.target.kind==="mcp_server")}};
+   const visible=Object.entries(groups).filter(([,items])=>items.length);
+   const height=Math.max(520,140+visible.length*100),center=height/2-27;svg.setAttribute("viewBox","0 0 1080 "+height);
+   nodes.push(svgNode(60,center,190,a.name,a.framework,"agent","agent"));info.agent={{type:"Agent",name:a.name,location:a.location,framework:a.framework}};
+   visible.forEach(([kind,items],i)=>{{const y=center+(i-(visible.length-1)/2)*95,k="group-"+kind,label=kind==="mcp"?"MCP servers":"Tools";
+     edges.push(graphEdge(250,center+27,390,y+27,"agent",k));nodes.push(svgNode(390,y,230,label+" ("+items.length+")","click to expand","target",k,false));
+     info[k]={{name:label,count:items.length,targets:items.map(r=>r.target.name)}};}});
+ }}else{{
+   const height=Math.max(520,80+rels.length*68),row=Math.max(62,(height-80)/Math.max(1,rels.length)),center=height/2-27;svg.setAttribute("viewBox","0 0 1080 "+height);
+   nodes.push(svgNode(30,center,185,a.name,a.framework,"agent","agent"));info.agent={{type:"Agent",name:a.name,location:a.location,framework:a.framework}};
+   rels.forEach((r,i)=>{{const y=24+i*row,targetKey="target-"+i;
+     edges.push(graphEdge(215,center+27,300,y+27,"agent",targetKey));nodes.push(svgNode(300,y,205,r.target.name,r.target.kind,"target",targetKey,r.resolution!=="fully_resolved"));info[targetKey]=r;
+     let prevX=505,prevY=y+27,prevKey=targetKey;
+     if(r.identity){{const k="identity-"+i;edges.push(graphEdge(prevX,prevY,570,prevY,prevKey,k));nodes.push(svgNode(570,y,190,r.identity.name,r.identity.provider||"identity","identity",k,r.dimensions.identity!=="resolved"));info[k]=r.identity;prevX=760;prevKey=k;}}
+     const outputs=[];(r.resources||[]).slice(0,3).forEach(x=>outputs.push(["resource",x.selector,x.kind,x]));(r.destinations||[]).slice(0,2).forEach(x=>outputs.push(["destination",x.target,x.direction,x]));
+     outputs.forEach((o,j)=>{{const oy=y+(j-(outputs.length-1)/2)*58,k=o[0]+"-"+i+"-"+j;edges.push(graphEdge(prevX,prevY,825,oy+27,prevKey,k));nodes.push(svgNode(825,oy,220,o[1],o[2],o[0],k,false));info[k]=o[3];}});
    }});
- }});
- svg.innerHTML=edges.join("")+nodes.join("");
- svg.querySelectorAll("[data-node]").forEach(n=>n.addEventListener("click",()=>{{
-   const item=info[n.dataset.node]; document.getElementById("graph-inspector").innerHTML='<h3>'+esc(item.name||item.target?.name||item.selector||item.target||a.name)+'</h3><pre>'+esc(JSON.stringify(item,null,2))+'</pre>';
- }}));
+ }}
+ stage.innerHTML=edges.join("")+nodes.join("");applyGraphTransform(a);
+ stage.querySelectorAll("[data-node]").forEach(n=>n.addEventListener("click",()=>{{const key=n.dataset.node;if(key&&key.startsWith("group-")){{state.collapsed=false;drawGraph(a);const btn=document.getElementById("map-toggle-groups");if(btn)btn.textContent="Collapse groups";return;}}inspectGraphNode(a,key,info[key]);focusGraphNode(key);}}));
+}}
+function pathStep(step){{
+ return '<div class="path-step '+esc(step.kind||"step")+'"><div class="path-role">'+esc(step.role||step.kind||"step")+'</div><strong>'+esc(step.label||"")+'</strong></div>';
+}}
+function renderPathCard(path){{
+ const dashed=path.edge_style==="dashed", steps=path.steps||[];
+ const chain=steps.map((step,i)=>pathStep(step)+(i<steps.length-1?'<div class="path-arrow '+(dashed?"dashed":"")+'"></div>':"")).join("");
+ const basis=path.evidence_strength==="supported_static_dataflow"?"Supported static data flow":"Potential capability path";
+ return '<div class="path-card"><div class="path-head"><div><div class="finding-title"><strong>'+esc(path.path_id)+'</strong><span class="'+esc(path.severity)+'">'+esc(String(path.severity).toUpperCase())+'</span></div>'+
+ '<h3 style="margin-top:7px">'+esc(path.title)+'</h3></div><span class="badge '+(dashed?"unresolved":"compliant")+'">'+esc(basis)+'</span></div>'+
+ '<p class="muted">'+esc(path.rationale||"")+'</p><div class="path-chain">'+chain+'</div>'+
+ '<div class="path-meta"><span class="pill">basis: '+esc(path.basis||"unknown")+'</span><span class="pill">runtime exploitability: '+esc(path.metadata?.exploitability||"not verified")+'</span></div></div>';
+}}
+function renderAgentPaths(a){{
+ const paths=a.path_views||[];
+ if(!paths.length)return '<div class="empty">No attack path was reconstructed for this agent. Effective authority may still exist; a path is shown only when HorusTrace has the required source/capability evidence.</div>';
+ return '<p class="muted">Solid connectors represent supported static data flow. Dashed connectors represent capability co-occurrence: the components are present on the same agent, but executable data flow is not proven.</p>'+paths.map(renderPathCard).join("");
 }}
 function renderAgentFindings(a){{return a.findings.length?a.findings.map(findingCard).join(""):'<div class="empty">No active findings mapped to this agent.</div>'}}
 function renderAgentContract(a){{
@@ -664,15 +765,15 @@ function openAgent(name){{
  const a=DATA.agents.find(x=>x.name===name); if(!a)return;
  const root=document.getElementById("agent-detail");
  root.innerHTML='<button class="back" id="back-agents">← Agents</button><div class="agent-head"><div><h1>'+esc(a.name)+'</h1><div class="muted">'+esc(a.framework)+' · '+loc(a.location)+'</div></div>'+badge(a.summary.contract_status)+'</div>'+
- '<div class="tabs"><button class="active" data-tab="overview">Overview</button><button data-tab="map">Agency map</button><button data-tab="findings">Findings</button><button data-tab="contract">Contract</button><button data-tab="evidence">Evidence</button></div>'+
+ '<div class="tabs"><button class="active" data-tab="overview">Overview</button><button data-tab="map">Agency map</button><button data-tab="paths">Attack paths</button><button data-tab="findings">Findings</button><button data-tab="contract">Contract</button><button data-tab="evidence">Evidence</button></div>'+
  '<div id="tab-overview" class="agent-tab active">'+renderAgentOverview(a)+'</div><div id="tab-map" class="agent-tab">'+renderGraph(a)+'</div>'+
- '<div id="tab-findings" class="agent-tab">'+renderAgentFindings(a)+'</div><div id="tab-contract" class="agent-tab">'+renderAgentContract(a)+'</div>'+
+ '<div id="tab-paths" class="agent-tab">'+renderAgentPaths(a)+'</div><div id="tab-findings" class="agent-tab">'+renderAgentFindings(a)+'</div><div id="tab-contract" class="agent-tab">'+renderAgentContract(a)+'</div>'+
  '<div id="tab-evidence" class="agent-tab">'+renderAgentEvidence(a)+'</div>';
  root.querySelector("#back-agents").addEventListener("click",()=>showView("agents"));
  root.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>{{
    root.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x===btn));
    root.querySelectorAll(".agent-tab").forEach(x=>x.classList.toggle("active",x.id==="tab-"+btn.dataset.tab));
-   if(btn.dataset.tab==="map")drawGraph(a);
+   if(btn.dataset.tab==="map"){{drawGraph(a);bindGraphControls(a);}}
  }}));
  showView("agent-detail");
 }}
@@ -685,10 +786,9 @@ function renderFindings(severity="all"){{
  if(severity!=="all")root.querySelector("#clear-finding-filter").addEventListener("click",()=>renderFindings("all"));
 }}
 function renderAttack(){{
- const items=DATA.security_graph.attack_paths||[];
- const rows=items.map(x=>'<tr><td><strong>'+esc(x.path_id)+'</strong><div class="muted small">'+esc(x.title)+'</div></td><td>'+esc(x.agent)+'</td><td class="'+esc(x.severity)+'">'+esc(x.severity)+'</td><td>'+esc((x.nodes||[]).join(" → "))+'</td></tr>').join("");
- document.getElementById("attack").innerHTML='<h1>Attack paths</h1><p class="muted">Potential static attack paths. Runtime exploitability is not verified.</p>'+
- (rows?'<div class="panel"><table><thead><tr><th>Path</th><th>Agent</th><th>Severity</th><th>Chain</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">No attack paths detected.</div>');
+ const items=DATA.agents.flatMap(a=>(a.path_views||[]));
+ document.getElementById("attack").innerHTML='<h1>Attack paths</h1><p class="muted">Evidence-aware risk chains. Runtime exploitability is not verified.</p>'+
+ (items.length?items.map(renderPathCard).join(""):'<div class="empty">No attack paths detected.</div>');
 }}
 function renderContracts(mode="all"){{
  let items=DATA.agents;
