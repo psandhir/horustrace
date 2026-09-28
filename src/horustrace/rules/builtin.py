@@ -344,6 +344,77 @@ def evaluate(graph: Graph) -> list[Finding]:
                         ),
                     )
                 )
+        literal_credentials = list(
+            server.metadata.get("literal_credential_sources") or []
+        )
+        if literal_credentials:
+            findings.append(
+                Finding(
+                    "AGT051",
+                    Severity.HIGH,
+                    "Literal credential in MCP configuration",
+                    f"MCP server '{server.name}' has credential material embedded directly in static configuration.",
+                    "Remove committed credentials from MCP configuration and inject them through an environment variable, managed secret store, or workload identity.",
+                    layer=1,
+                    location=server.location,
+                    evidence=[
+                        "sources=" + ",".join(sorted(literal_credentials)),
+                        "credential_values=redacted",
+                    ],
+                )
+            )
+        if server.metadata.get("broad_tool_surface"):
+            findings.append(
+                Finding(
+                    "AGT052",
+                    Severity.MEDIUM,
+                    "MCP configured with broad tool surface",
+                    f"MCP server '{server.name}' explicitly enables an unrestricted tool surface.",
+                    "Restrict the MCP server to the smallest explicit tool allowlist required by the agent or developer workflow.",
+                    layer=1,
+                    location=server.location,
+                    evidence=["tool_scope=all"],
+                )
+            )
+        discovered_capabilities = set(
+            server.metadata.get("discovered_tool_capabilities") or []
+        )
+        privileged_mcp_capabilities = discovered_capabilities & PRIVILEGED_CAPABILITIES
+        server_authority = mcp_authority_by_object.get(id(server))
+        if (
+            privileged_mcp_capabilities
+            and server.approval is not True
+            and not server.guardrails
+        ):
+            findings.append(
+                Finding(
+                    "AGT053",
+                    Severity.MEDIUM,
+                    "MCP exposes privileged tools without an explicit action boundary",
+                    f"MCP server '{server.name}' exposes privileged tool capabilities without detected approval or guardrail controls.",
+                    "Add an MCP tool allowlist and require approval or equivalent policy controls for mutating, destructive, execution, or credential-access tools.",
+                    layer=1,
+                    location=server.location,
+                    agent=(
+                        server_authority.agent
+                        if server_authority is not None
+                        else None
+                    ),
+                    evidence=[
+                        "capabilities="
+                        + ",".join(sorted(privileged_mcp_capabilities)),
+                        "approval="
+                        + str(server.approval),
+                        "guardrails="
+                        + str(server.guardrails),
+                    ],
+                    authority_relationship_id=(
+                        server_authority.relationship_id
+                        if server_authority is not None
+                        else None
+                    ),
+                )
+            )
         if package_is_unpinned(server.command, server.args):
             findings.append(Finding("AGT050", Severity.MEDIUM, "Unpinned MCP package execution", f"MCP server '{server.name}' launches a package runner without an explicit package version.", "Pin MCP server packages to a reviewed version or immutable digest.", layer=1, location=server.location, evidence=[f"command={server.command}", "args=" + " ".join(server.args)]))
         if (
