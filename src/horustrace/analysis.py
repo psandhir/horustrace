@@ -25,6 +25,12 @@ def _path_metadata(*, basis: str, flow_id: str | None = None) -> dict:
             "A supported static source-to-sink dependency was established; "
             "runtime exploitability is not verified.",
         )
+    elif basis == "static_dataflow_partial":
+        limitations.insert(
+            0,
+            "A static source-to-sink dependency was partially established; "
+            "unresolved helper/context semantics remain.",
+        )
     else:
         limitations.insert(
             0,
@@ -41,7 +47,7 @@ def _path_metadata(*, basis: str, flow_id: str | None = None) -> dict:
 
 def _flow_path_metadata(flow: FlowPath) -> dict:
     return {
-        **_path_metadata(basis="static_dataflow", flow_id=flow.flow_id),
+        **_path_metadata(basis=flow.basis, flow_id=flow.flow_id),
         "source_kind": flow.source_kind,
         "sink_kind": flow.sink_kind,
         "agent_reachability": flow.agent_reachability.value,
@@ -55,9 +61,18 @@ def _flow_backed_paths(graph: Graph) -> list[AttackPath]:
         if (
             not flow.agent
             or flow.agent_reachability is not AgentReachability.PROVEN_AGENT_REACHABLE
-            or flow.basis != "static_dataflow"
-            or flow.confidence.value != "supported"
         ):
+            continue
+        supported_flow = (
+            flow.basis == "static_dataflow"
+            and flow.confidence.value == "supported"
+        )
+        partial_agent_memory_flow = (
+            flow.source_kind == "agent_tool_input"
+            and flow.sink_kind == "memory_write"
+            and flow.basis == "static_dataflow_partial"
+        )
+        if not (supported_flow or partial_agent_memory_flow):
             continue
         nodes = [step.label for step in flow.steps]
         if flow.source_kind in _UNTRUSTED_FLOW_SOURCES and flow.sink_kind == "process_execute":
