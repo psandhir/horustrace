@@ -11,6 +11,8 @@ from horustrace.models import (
     FlowStep,
     Graph,
     InputSource,
+    MCPServer,
+    SourceLocation,
     Tool,
 )
 from horustrace.scanner import scan
@@ -180,3 +182,47 @@ def test_static_dataflow_path_suppresses_duplicate_capability_path() -> None:
     assert len(paths) == 1
     assert paths[0].metadata["basis"] == "static_dataflow"
     assert paths[0].metadata["flow_id"] == "flow-v1:proven"
+
+
+def test_untrusted_input_reaches_destructive_bound_mcp() -> None:
+    location = SourceLocation(Path("agent.py"), line=10)
+    server = MCPServer(
+        name="plotting",
+        transport="stdio",
+        location=location,
+        metadata={
+            "discovered_tool_capabilities": [
+                "data.write",
+                "destructive.write",
+            ],
+        },
+    )
+    graph = Graph(
+        agents=[
+            Agent(
+                name="agent",
+                inputs=[
+                    InputSource(
+                        name="cli-input",
+                        trust="untrusted",
+                        kind="user",
+                        location=location,
+                    )
+                ],
+                mcp_servers=[server],
+                location=location,
+            )
+        ]
+    )
+
+    paths = build_attack_paths(graph)
+
+    path = next(item for item in paths if item.path_id == "PATH002")
+    assert path.agent == "agent"
+    assert path.nodes == [
+        "cli-input",
+        "agent",
+        "plotting",
+        "destructive.write",
+    ]
+    assert path.metadata["target_kind"] == "mcp_server"
