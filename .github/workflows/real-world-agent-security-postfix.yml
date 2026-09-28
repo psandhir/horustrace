@@ -96,6 +96,34 @@ jobs:
           python scripts/real_world_agent_security_compare.py             --baseline "$STUDY_ROOT/results/frozen-baseline.json"             --candidate "$OUT/result.json"             --output-json "$OUT/comparison.json"             --output-markdown "$OUT/comparison.md"             "${EXTRA[@]}"
           cat "$OUT/comparison.md" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Score semantic parity benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$STUDY_ROOT/results/postfix/$SCANNER_SHA"
+          python scripts/real_world_semantic_benchmark.py \
+            "$STUDY_ROOT/semantic-benchmark/benchmark-v1.json" \
+            --result "$OUT/result.json" \
+            --output "$OUT/semantic-parity.json"
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import os
+          from pathlib import Path
+
+          out = Path(os.environ["STUDY_ROOT"]) / "results" / "postfix" / os.environ["SCANNER_SHA"]
+          report = json.loads((out / "semantic-parity.json").read_text())
+          print("\n## Semantic parity benchmark\n")
+          print(
+              f"Passed **{report['passed']}/{report['assertions']}** assertions "
+              f"({report['pass_rate']:.1%})."
+          )
+          for case in report["cases"]:
+              print(
+                  f"- {case['case_id']}: {case['passed']} passed, "
+                  f"{case['failed']} failed"
+              )
+          PY
+
       - name: Upload post-fix validation artifacts
         if: always()
         uses: actions/upload-artifact@v4
