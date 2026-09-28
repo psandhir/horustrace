@@ -353,3 +353,50 @@ root_agent = Agent(
     assert flow.basis == "static_dataflow"
     assert flow.metadata["agent_binding"]["basis"] == "source_function_key"
     assert flow.metadata["agent_binding"]["function"] == "agent.run_command"
+
+
+def test_exact_source_function_shared_by_agents_emits_per_agent_flows(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "tools.py"
+    source.write_text(
+        """
+class MemoryStore:
+    def update_memory(self, agent_name, value):
+        return None
+
+memory_store = MemoryStore()
+
+def update_agent_memory(agent_name: str, value: dict):
+    return memory_store.update_memory(agent_name, value)
+""",
+        encoding="utf-8",
+    )
+    location = SourceLocation(source, 8, 1)
+    shared_tool = lambda: Tool(
+        name="update_agent_memory",
+        kind="function",
+        capabilities={"data.write"},
+        location=location,
+        metadata={"source_function_key": "tools.update_agent_memory"},
+    )
+    graph = Graph(
+        agents=[
+            Agent(name="Router", tools=[shared_tool()]),
+            Agent(name="Gatherer", tools=[shared_tool()]),
+        ]
+    )
+
+    flows = analyze_repository_flows(tmp_path, [source], graph)
+    memory_flows = [
+        flow
+        for flow in flows
+        if flow.source_kind == "agent_tool_input"
+        and flow.sink_kind == "memory_write"
+    ]
+
+    assert {flow.agent for flow in memory_flows} == {"Router", "Gatherer"}
+    assert all(
+        flow.metadata["agent_binding"]["basis"] == "source_function_key"
+        for flow in memory_flows
+    )
