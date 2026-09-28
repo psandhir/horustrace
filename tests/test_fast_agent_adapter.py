@@ -332,3 +332,35 @@ async def main():
     assert graph.coverage.resolution["flows"]["unknown_reachability_by_basis"] == {
         "no_agent_tool_binding_evidence": 1
     }
+
+
+def test_fast_agent_canonical_mcp_agent_import_is_detected(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from mcp_agent.core.fastagent import FastAgent
+
+fast = FastAgent("Writers")
+
+@fast.agent(name="writer")
+async def writer():
+    pass
+
+@fast.evaluator_optimizer(
+    name="refine",
+    generator="writer",
+    evaluator="writer",
+)
+async def refine():
+    pass
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    assert {agent.name for agent in graph.agents} == {"writer", "refine"}
+    refine = next(agent for agent in graph.agents if agent.name == "refine")
+    assert refine.metadata["framework"] == "fast-agent"
+    assert refine.metadata["delegates_to"] == ["writer"]
