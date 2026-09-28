@@ -8,6 +8,7 @@ from pathlib import Path
 
 from horustrace.coverage import add_diagnostic
 from horustrace.heuristics import infer_capabilities
+from horustrace.limits import MAX_JSON_BYTES
 from horustrace.models import Agent, EvidenceFact, Graph, ScanDiagnostic, SourceLocation, Tool
 
 
@@ -115,6 +116,8 @@ def _load_json_candidates(paths: list[Path]) -> dict[Path, dict]:
         if path.suffix.lower() != ".json":
             continue
         try:
+            if path.stat().st_size > MAX_JSON_BYTES:
+                continue
             value = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             continue
@@ -201,7 +204,16 @@ def enrich_configured_agents(
     if not active:
         return
 
-    documents = _load_json_candidates(json_paths)
+    if not agent_config_names:
+        return
+
+    tool_active, tool_config_names = _tool_registry_contract(trees)
+    referenced_names = set(agent_config_names)
+    if tool_active:
+        referenced_names.update(tool_config_names)
+    documents = _load_json_candidates(
+        [path for path in json_paths if path.name in referenced_names]
+    )
     agent_config = _pick_config(
         documents,
         top_key="agents",
@@ -210,7 +222,6 @@ def enrich_configured_agents(
     if agent_config is None:
         return
 
-    tool_active, tool_config_names = _tool_registry_contract(trees)
     tool_definitions: dict[str, dict] = {}
     if tool_active:
         tool_config = _pick_config(
