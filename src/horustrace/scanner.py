@@ -510,7 +510,7 @@ def _is_supported_scan_candidate(path: Path) -> bool:
             | MANIFEST_FILENAMES
             | SUPPRESSION_FILENAMES
             | FAST_AGENT_CONFIG_FILENAMES
-        ) or is_registry_config_filename(candidate.name)
+        )
         or path.name == ".env"
         or path.name.startswith(".env.")
         or is_registry_config_filename(path.name)
@@ -1183,7 +1183,7 @@ def scan(
             | MCP_FILENAMES
             | SUPPRESSION_FILENAMES
             | FAST_AGENT_CONFIG_FILENAMES
-        )
+        ) or is_registry_config_filename(candidate.name)
         seen_real_paths.add(real_candidate)
         try:
             size_limit = (
