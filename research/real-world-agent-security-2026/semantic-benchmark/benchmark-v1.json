@@ -1,0 +1,647 @@
+{
+  "schema_version": 1,
+  "benchmark": "horustrace-semantic-parity-v1",
+  "study": "real-world-agent-security-2026",
+  "status": "post_hoc_llm_assisted_source_adjudication",
+  "original_locked_truth_preserved": true,
+  "scanner_output_seen_before_adjudication": true,
+  "human_dual_review": false,
+  "methodology": {
+    "purpose": "Measure security-semantic parity against source-supported effective authority rather than raw lexical entity counts.",
+    "review_method": "Policy-aligned LLM source review followed by source verification and explicit observed/inferred/unresolved evidence states.",
+    "scanner_change_policy": "No scanner change is part of this benchmark commit. The benchmark is a separate post-hoc semantic layer and does not rewrite frozen ground truth.",
+    "evidence_states": [
+      "observed",
+      "inferred",
+      "unresolved"
+    ],
+    "case_count": 7
+  },
+  "cases": [
+    {
+      "case_id": "rw-022",
+      "source_reference": {
+        "repo": "iwasnothing/agentic-insight",
+        "sha": "6f6673103b4c8cf19c4630f0715e95bca8732c20",
+        "framework": "google-adk",
+        "paths": [
+          "api/tools.py",
+          "api/workflow.py",
+          "api/utils.py",
+          "mcp/duckdb_server.py"
+        ]
+      },
+      "semantic_model": {
+        "agent_principals": {
+          "count": 11,
+          "evidence_state": "observed",
+          "note": "Seven constructors are in api/tools.py and four additional constructors are in connected repository modules."
+        },
+        "workflow_entities": [],
+        "effective_tools": {
+          "minimum_count": 8,
+          "evidence_state": "observed",
+          "note": "The locked reference's 17 tool assertions include repeated agent-to-tool bindings; they are not 17 unique implementations."
+        },
+        "mcp_servers": {
+          "construction_instances": 6,
+          "effective_implementations": 1,
+          "evidence_state": "observed",
+          "note": "Six McpToolset construction sites bind the same in-repository DuckDB stdio implementation with construction-specific authority."
+        },
+        "authority_facts": [
+          {
+            "evidence_state": "observed",
+            "fact": "Agent constructors repeatedly bind skillset and duckdb_mcp instances; bindings must retain source-instance provenance rather than collapse by variable name."
+          },
+          {
+            "evidence_state": "observed",
+            "fact": "Reviewed agent-side DuckDB MCP constructors pass read_only=True."
+          }
+        ]
+      },
+      "policy_expectations": {
+        "required": [],
+        "forbidden": [],
+        "candidate": []
+      },
+      "regression_assertions": [
+        {
+          "type": "summary_min",
+          "field": "agents",
+          "value": 11,
+          "reason": "Cross-file ADK closure should recover all observed agent constructors."
+        },
+        {
+          "type": "summary_min",
+          "field": "mcp_servers",
+          "value": 6,
+          "reason": "Distinct MCP construction instances must not be collapsed before authority binding."
+        }
+      ],
+      "known_current_gap": "Cross-file closure and construction-instance identity for repeated ADK tool/MCP bindings."
+    },
+    {
+      "case_id": "rw-085",
+      "source_reference": {
+        "repo": "openlegion-ai/openlegion",
+        "sha": "24efd6e06b28768cbbcd9275f43c479b3df37b18",
+        "framework": "mcp-custom",
+        "paths": [
+          "src/agent/__main__.py",
+          "src/agent/loop.py",
+          "src/agent/tools.py",
+          "src/agent/mcp_client.py",
+          "src/agent/builtins/http_tool.py",
+          "src/agent/builtins/subagent_tool.py"
+        ]
+      },
+      "semantic_model": {
+        "agent_principals": {
+          "count": 1,
+          "evidence_state": "observed",
+          "names": [
+            "AgentLoop"
+          ],
+          "note": "AgentLoop is a bounded LLM tool-calling execution loop even though the locked lexical reference contains no agent root."
+        },
+        "workflow_entities": [],
+        "effective_tools": {
+          "minimum_count": 140,
+          "evidence_state": "observed",
+          "note": "Custom @tool metadata is recursively auto-discovered into ToolRegistry and exposed through OpenAI-compatible tool definitions."
+        },
+        "mcp_servers": {
+          "construction_instances": 1,
+          "effective_implementations": "dynamic",
+          "evidence_state": "observed",
+          "note": "MCPClient can manage multiple configured stdio servers and dynamically register their tools."
+        },
+        "authority_facts": [
+          {
+            "evidence_state": "observed",
+            "fact": "ToolRegistry.get_tool_definitions supplies tool schemas to the model and ToolRegistry.execute dispatches selected calls."
+          },
+          {
+            "evidence_state": "observed",
+            "fact": "Effective authority is filtered by allowed_tools, runtime gates, operator-only controls, subagent exclusions, dynamic MCP availability and remote connector availability."
+          },
+          {
+            "evidence_state": "observed",
+            "fact": "Subagents instantiate AgentLoop dynamically and remove unsafe tools including create_tool, reload_tools, spawn_subagent and wait_for_subagent."
+          },
+          {
+            "evidence_state": "observed",
+            "fact": "http_request can resolve $CRED{name} through the vault before outbound HTTP; implementation also contains SSRF, redirect, authorization-stripping and response-bounding mitigations."
+          }
+        ]
+      },
+      "policy_expectations": {
+        "required": [],
+        "forbidden": [],
+        "candidate": []
+      },
+      "regression_assertions": [
+        {
+          "type": "summary_min",
+          "field": "agents",
+          "value": 1,
+          "reason": "Framework-neutral model/tool loops should be represented as agents when model selection and dispatch are source-proven."
+        },
+        {
+          "type": "summary_min",
+          "field": "tools",
+          "value": 140,
+          "reason": "Custom registry/decorator tools should be discoverable without framework-specific decorators."
+        }
+      ],
+      "known_current_gap": "Framework-neutral model/tool-loop and generic tool-registry discovery with conditional authority."
+    },
+    {
+      "case_id": "rw-129",
+      "source_reference": {
+        "repo": "ALPHAbilal/test3",
+        "sha": "78c04c2b227ba8af0f152a5997c88609e9a1ed86",
+        "framework": "openai-agents",
+        "paths": [
+          "app.py",
+          "core/orchestration.py",
+          "core/memory.py",
+          "agents/config/agent_definitions_fixed.json",
+          "agents/registry/registry_loader.py",
+          "agents/registry/agent_registry.py",
+          "tools/config/tool_definitions_fixed.json",
+          "tools/memory_tools/memory_tools.py"
+        ]
+      },
+      "semantic_model": {
+        "agent_principals": {
+          "minimum_count": 6,
+          "evidence_state": "observed",
+          "note": "The active default registry loads six config-defined agents; additional directly constructed agents exist elsewhere in the repository."
+        },
+        "workflow_entities": [
+          "OrchestrationEngine"
+        ],
+        "effective_tools": {
+          "minimum_count": 12,
+          "evidence_state": "observed"
+        },
+        "mcp_servers": {
+          "construction_instances": 0,
+          "effective_implementations": 0,
+          "evidence_state": "observed"
+        },
+        "authority_facts": [
+          {
+            "evidence_state": "observed",
+            "fact": "User query reaches WorkflowRouterAgent; model output can select call_tool or call_agent and OrchestrationEngine executes the selected action."
+          },
+          {
+            "evidence_state": "observed",
+            "fact": "WorkflowRouterAgent has get_agent_memory, update_agent_memory and add_to_agent_memory_list authority from active configuration."
+          },
+          {
+            "evidence_state": "observed",
+            "fact": "MemoryStore persists memory under data/memory and update operations can target an agent_name supplied through tool parameters."
+          }
+        ]
+      },
+      "policy_expectations": {
+        "required": [
+          {
+            "rule_id": "AGT022",
+            "evidence_state": "observed",
+            "reason": "State-changing persistent-memory tools lack an explicit approval boundary."
+          },
+          {
+            "rule_id": "AGT040",
+            "evidence_state": "observed",
+            "reason": "Privileged data-write memory tools lack a detected guardrail or approval."
+          },
+          {
+            "rule_id": "CAP005",
+            "evidence_state": "observed",
+            "reason": "Router/data-gathering authority combines memory read and write capabilities."
+          },
+          {
+            "rule_id": "PATH007",
+            "evidence_state": "observed",
+            "reason": "Untrusted user input reaches model-directed persistent memory writes."
+          }
+        ],
+        "forbidden": [],
+        "candidate": [
+          {
+            "rule_id": "DATA001",
+            "evidence_state": "inferred",
+            "reason": "Memory update target agent_name is dynamically supplied and no static caller-only scope was found."
+          }
+        ]
+      },
+      "regression_assertions": [
+        {
+          "type": "finding_present",
+          "rule_id": "AGT022"
+        },
+        {
+          "type": "finding_present",
+          "rule_id": "AGT040"
+        },
+        {
+          "type": "finding_present",
+          "rule_id": "CAP005"
+        },
+        {
+          "type": "finding_present",
+          "rule_id": "PATH007"
+        }
+      ],
+      "known_current_gap": "Config-driven registry resolution and custom orchestration do not propagate tool authority and input trust into policy evaluation."
+    },
+    {
+      "case_id": "rw-158",
+      "source_reference": {
+        "repo": "newsbubbles/matplotlib_mcp",
+        "sha": "5628ad1370acb03b4cba265bcf0a322a7ded1c07",
+        "framework": "pydantic-ai",
+        "paths": [
+          "agent.py",
+          "mcp_server.py",
+          "src/matplotlib_client.py"
+        ]
+      },
+      "semantic_model": {
+        "agent_principals": {
+          "count": 1,
+          "evidence_state": "observed"
+        },
+        "workflow_entities": [],
+        "effective_tools": {
+          "count": 28,
+          "evidence_state": "observed"
+        },
+        "mcp_servers": {
+          "construction_instances": 2,
+          "effective_implementations": 1,
+          "evidence_state": "observed",
+          "note": "The first FastMCP assignment is overwritten; only the replacement object is used by mcp.run()."
+        },
+        "authority_facts": [
+          {
+            "evidence_state": "observed",
+            "fact": "CLI user input is passed to the Pydantic AI agent with the MCP server bound."
+          },
+          {
+            "evidence_state": "observed",
+            "fact": "The effective MCP exposes state-changing operations including save_figure, clear_figure and close_figure without an explicit approval/guardrail boundary."
+          }
+        ]
+      },
+      "policy_expectations": {
+        "required": [
+          {
+            "rule_id": "AGT053",
+            "evidence_state": "observed",
+            "reason": "The effective MCP exposes privileged state-changing tools without explicit action boundary."
+          },
+          {
+            "rule_id": "PATH002",
+            "evidence_state": "inferred",
+            "reason": "Untrusted CLI input can drive model-selected MCP calls to destructive/state-clearing operations."
+          }
+        ],
+        "forbidden": [],
+        "candidate": []
+      },
+      "regression_assertions": [
+        {
+          "type": "summary_max",
+          "field": "mcp_servers",
+          "value": 1,
+          "reason": "Overwritten FastMCP construction must not survive as an effective runtime server."
+        },
+        {
+          "type": "finding_present",
+          "rule_id": "AGT053"
+        },
+        {
+          "type": "finding_max_count",
+          "rule_id": "AGT053",
+          "value": 1,
+          "reason": "One effective server must not create duplicate identical findings."
+        },
+        {
+          "type": "finding_present",
+          "rule_id": "PATH002"
+        }
+      ],
+      "known_current_gap": "Object lifetime/reassignment creates duplicate MCP entities/findings and trust does not propagate from CLI input to MCP destructive authority."
+    },
+    {
+      "case_id": "rw-058",
+      "source_reference": {
+        "repo": "Tunnello/ChatBI",
+        "sha": "6f6f633d692a8c3de24f516d8bc5c5c56aa067f1",
+        "framework": "langgraph",
+        "paths": [
+          "agent.py",
+          "backend/api/chat.py",
+          "tools/tools_execute_sqlite.py",
+          "tools/tools_export.py",
+          "tools/tools_rag.py",
+          "tools/mcp_time.py"
+        ]
+      },
+      "semantic_model": {
+        "agent_principals": {
+          "count": 1,
+          "evidence_state": "observed",
+          "note": "One compiled LangGraph agent architecture is instantiated by multiple application surfaces; workflow nodes are not separate security principals."
+        },
+        "workflow_entities": [
+          "llm_agent",
+          "ToolNode"
+        ],
+        "effective_tools": {
+          "count": 7,
+          "evidence_state": "observed",
+          "note": "Locked reference tool assertions contain lexical/decorator duplicates."
+        },
+        "mcp_servers": {
+          "construction_instances": 1,
+          "effective_implementations": 1,
+          "evidence_state": "observed",
+          "note": "The local time MCP is a stdio server; a commented remote fetch server is not live authority."
+        },
+        "authority_facts": [
+          {
+            "evidence_state": "observed",
+            "fact": "FastAPI ChatRequest.query becomes HumanMessage content and reaches the LangGraph tool-capable agent."
+          },
+          {
+            "evidence_state": "observed",
+            "fact": "execute_sqlite_query calls sqlite cursor.execute(query) and commits every non-SELECT query; it does not spawn a process."
+          },
+          {
+            "evidence_state": "observed",
+            "fact": "The safer mutation filter in main.py is not the implementation bound as execute_sqlite_query in the LangGraph tools list."
+          }
+        ]
+      },
+      "policy_expectations": {
+        "required": [
+          {
+            "rule_id": "AGT021",
+            "evidence_state": "observed",
+            "reason": "Model-controlled SQL can include destructive operations and is committed without approval."
+          },
+          {
+            "rule_id": "AGT022",
+            "evidence_state": "observed",
+            "reason": "The bound SQL tool can perform state-changing INSERT/UPDATE and other writes without approval."
+          },
+          {
+            "rule_id": "AGT040",
+            "evidence_state": "observed",
+            "reason": "Privileged DB mutation lacks an explicit guardrail/approval boundary."
+          },
+          {
+            "rule_id": "CAP005",
+            "evidence_state": "observed",
+            "reason": "The agent combines database read and write authority."
+          },
+          {
+            "rule_id": "PATH002",
+            "evidence_state": "observed",
+            "reason": "Untrusted HTTP user input reaches a model-selected tool capable of destructive SQLite statements."
+          }
+        ],
+        "forbidden": [
+          {
+            "rule_id": "AGT020",
+            "evidence_state": "observed",
+            "path_contains": "tools_execute_sqlite.py",
+            "reason": "sqlite3 cursor.execute is SQL execution, not shell/process execution."
+          }
+        ],
+        "candidate": []
+      },
+      "regression_assertions": [
+        {
+          "type": "finding_absent",
+          "rule_id": "AGT020",
+          "path_contains": "tools_execute_sqlite.py"
+        },
+        {
+          "type": "finding_present",
+          "rule_id": "AGT021"
+        },
+        {
+          "type": "finding_present",
+          "rule_id": "AGT022"
+        },
+        {
+          "type": "finding_present",
+          "rule_id": "AGT040"
+        },
+        {
+          "type": "finding_present",
+          "rule_id": "CAP005"
+        },
+        {
+          "type": "finding_present",
+          "rule_id": "PATH002"
+        }
+      ],
+      "known_current_gap": "SQL execution is misclassified as process execution and input trust is not carried to destructive database authority."
+    },
+    {
+      "case_id": "rw-003",
+      "source_reference": {
+        "repo": "angrysky56/ai_writers_workshop",
+        "sha": "c160a299706dd0cd1dc9ae114b97aba905e9261d",
+        "framework": "fastagent",
+        "paths": [
+          "mcp_server/components/fast_agent_integration.py",
+          "mcp_server/server.py",
+          "mcp_server/main.py",
+          "mcp_server/fastagent_integration/fastagent_tools.py"
+        ]
+      },
+      "semantic_model": {
+        "agent_principals": {
+          "count": 8,
+          "evidence_state": "observed",
+          "names": [
+            "concept_developer",
+            "narrative_architect",
+            "character_developer",
+            "prose_generator",
+            "editor",
+            "story_generator",
+            "story_evaluator",
+            "narrative_assistant"
+          ]
+        },
+        "workflow_entities": [
+          "writing_workflow",
+          "story_refinement"
+        ],
+        "framework_runtime": {
+          "name": "FastAgent(AI Writing Agency)",
+          "count": 1,
+          "evidence_state": "observed"
+        },
+        "effective_tools": {
+          "minimum_count": 1,
+          "evidence_state": "observed",
+          "note": "The in-repository MCP server exposes numerous project, character, pattern, narrative, symbolic, plotline and FastAgent tools; exhaustive semantic tool count was not locked in this adjudication."
+        },
+        "mcp_servers": {
+          "construction_instances": 4,
+          "effective_implementations": 1,
+          "evidence_state": "inferred",
+          "note": "Initialization generates four named stdio aliases that all launch mcp_server/server.py; runtime availability remains conditional on the optional FastAgent dependency."
+        },
+        "authority_facts": [
+          {
+            "evidence_state": "observed",
+            "fact": "FastAgent agents are declared with @fast.agent decorators and explicit servers=[...] bindings."
+          },
+          {
+            "evidence_state": "observed",
+            "fact": "writing_workflow is a five-stage @fast.chain and story_refinement is an @fast.evaluator_optimizer workflow."
+          },
+          {
+            "evidence_state": "inferred",
+            "fact": "When FastAgent is installed and initialization runs, named MCP aliases launch the same in-repository MCP server implementation."
+          }
+        ]
+      },
+      "policy_expectations": {
+        "required": [],
+        "forbidden": [],
+        "candidate": [
+          {
+            "rule_id": "AGT053",
+            "evidence_state": "inferred",
+            "reason": "Conditionally bound in-repository MCP aliases expose state-changing project tools without an explicit action boundary."
+          },
+          {
+            "rule_id": "CAP005",
+            "evidence_state": "inferred",
+            "reason": "Some FastAgent server bindings combine project read and state-changing authority when the generated MCP configuration is active."
+          }
+        ]
+      },
+      "regression_assertions": [
+        {
+          "type": "summary_min",
+          "field": "agents",
+          "value": 8,
+          "reason": "All eight decorated FastAgent principals should be structurally visible when the optional integration source is present."
+        }
+      ],
+      "known_current_gap": "FastAgent decorators/workflows and generated MCP server bindings are structurally invisible; conditional runtime authority must be retained as conditional rather than asserted as unconditional."
+    },
+    {
+      "case_id": "rw-096",
+      "source_reference": {
+        "repo": "jakie528/mcp-oauth",
+        "sha": "8476ee620196e60114e9dc1d6d497e4edf614cf2",
+        "framework": "mcp-custom",
+        "paths": [
+          "agent.py",
+          "test_notion.py"
+        ]
+      },
+      "semantic_model": {
+        "agent_principals": {
+          "count": 1,
+          "evidence_state": "observed",
+          "names": [
+            "Agent"
+          ],
+          "note": "Multiple Agent() lexical occurrences include examples/docstrings and instantiation sites; they are not four independent principals."
+        },
+        "workflow_entities": [
+          "Agent.run model/tool loop"
+        ],
+        "effective_tools": {
+          "count": "dynamic_remote_catalogue",
+          "evidence_state": "observed"
+        },
+        "mcp_servers": {
+          "construction_instances": "dynamic",
+          "effective_implementations": "caller_selected_remote",
+          "evidence_state": "observed"
+        },
+        "authority_facts": [
+          {
+            "evidence_state": "observed",
+            "fact": "OAuthClientProvider implements authorization-code/refresh-token authentication and is passed to HTTP/SSE MCP transports."
+          },
+          {
+            "evidence_state": "observed",
+            "fact": "session.list_tools returns the remote MCP catalogue and all returned tools are passed to the LLM without an explicit allowlist."
+          },
+          {
+            "evidence_state": "observed",
+            "fact": "CLI --url or Agent.add_mcp accepts the remote MCP destination; no destination allowlist was found."
+          },
+          {
+            "evidence_state": "observed",
+            "fact": "The documented/default Notion configuration uses https://mcp.notion.com/mcp."
+          }
+        ]
+      },
+      "policy_expectations": {
+        "required": [
+          {
+            "rule_id": "AGT032",
+            "evidence_state": "observed",
+            "reason": "All remote list_tools results are exposed to the model without an explicit tool allowlist."
+          },
+          {
+            "rule_id": "NET001",
+            "evidence_state": "observed",
+            "reason": "Remote MCP destination is caller-selected and lacks a detected destination restriction."
+          }
+        ],
+        "forbidden": [
+          {
+            "rule_id": "AGT030",
+            "evidence_state": "observed",
+            "reason": "Recognized OAuth authentication is explicitly configured."
+          },
+          {
+            "rule_id": "AGT031",
+            "evidence_state": "observed",
+            "reason": "The observed documented/default Notion endpoint is HTTPS; a dynamic URL alone does not prove plaintext transport."
+          }
+        ],
+        "candidate": []
+      },
+      "regression_assertions": [
+        {
+          "type": "finding_present",
+          "rule_id": "AGT032"
+        },
+        {
+          "type": "finding_present",
+          "rule_id": "NET001"
+        },
+        {
+          "type": "finding_absent",
+          "rule_id": "AGT030"
+        },
+        {
+          "type": "finding_absent",
+          "rule_id": "AGT031"
+        }
+      ],
+      "known_current_gap": "Custom remote-MCP model/tool loop is visible only superficially; authentication is not converted into policy semantics and dynamic tool/destination scope is not evaluated."
+    }
+  ]
+}
