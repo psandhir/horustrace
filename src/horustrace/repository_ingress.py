@@ -305,7 +305,18 @@ def propagate_repository_ingress(
                 target_agent: str | None = None
                 input_expr: ast.AST | None = None
 
-                if isinstance(child.func, ast.Attribute) and child.func.attr in _RUNTIME_METHODS:
+                dotted = _dotted(child.func) or ""
+                if dotted.endswith(("Runner.run", "Runner.run_sync", "Runner.run_streamed")):
+                    agent_expr = child.args[0] if child.args else _kw(child, "starting_agent")
+                    alias = _call_name(agent_expr)
+                    target_agent = local_agents.get(alias or "") or agents_by_name.get(
+                        alias or "",
+                        None,
+                    )
+                    input_expr = _kw(child, "input")
+                    if input_expr is None and len(child.args) > 1:
+                        input_expr = child.args[1]
+                elif isinstance(child.func, ast.Attribute) and child.func.attr in _RUNTIME_METHODS:
                     receiver = _call_name(child.func.value)
                     target_agent = local_agents.get(receiver or "")
                     input_expr = child.args[0] if child.args else _kw(child, "input")
@@ -314,15 +325,6 @@ def propagate_repository_ingress(
                     continue
                 elif called is None:
                     continue
-
-                dotted = _dotted(child.func) or ""
-                if dotted.endswith(("Runner.run", "Runner.run_sync", "Runner.run_streamed")):
-                    agent_expr = child.args[0] if child.args else _kw(child, "starting_agent")
-                    alias = _call_name(agent_expr)
-                    target_agent = local_agents.get(alias or "") or agents_by_name.get(alias or "", None)
-                    input_expr = _kw(child, "input")
-                    if input_expr is None and len(child.args) > 1:
-                        input_expr = child.args[1]
 
                 if (
                     target_agent
