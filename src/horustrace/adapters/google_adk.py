@@ -950,6 +950,25 @@ def scan_python_file(path: Path) -> Graph:
                 visible_calls,
             )
             if mcp:
+                filter_node = _kw(scoped_call, "tool_filter")
+                if (
+                    isinstance(filter_node, ast.Name)
+                    and filter_node.id in visible_sequences
+                ):
+                    values = [
+                        value
+                        for element in visible_sequences[filter_node.id]
+                        if (
+                            value := (
+                                _string(element)
+                                or _dotted_name(element)
+                            )
+                        )
+                        is not None
+                    ]
+                    if values:
+                        mcp.allowed_tools = values
+                        mcp.metadata["dynamic_tool_filter"] = False
                 scoped_mcp_servers.setdefault(scope, {})[alias] = mcp
                 continue
             tool = _tool_from_call(
@@ -960,6 +979,25 @@ def scan_python_file(path: Path) -> Graph:
                 functions,
             )
             if tool:
+                filter_node = _kw(scoped_call, "tool_filter")
+                if (
+                    isinstance(filter_node, ast.Name)
+                    and filter_node.id in visible_sequences
+                ):
+                    values = [
+                        value
+                        for element in visible_sequences[filter_node.id]
+                        if (
+                            value := (
+                                _string(element)
+                                or _dotted_name(element)
+                            )
+                        )
+                        is not None
+                    ]
+                    if values:
+                        tool.metadata["tool_filter"] = values
+                        tool.metadata["dynamic_tool_filter"] = False
                 scoped_tools.setdefault(scope, {})[alias] = tool
 
     # Second pass catches aliases whose nested calls were declared later in the file.
