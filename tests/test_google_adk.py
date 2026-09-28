@@ -521,3 +521,36 @@ def build_summary(model):
         "left.py",
         "right.py",
     }
+
+
+def test_adk_reused_mcp_alias_resolves_within_lexical_scope(
+    tmp_path: Path,
+) -> None:
+    write(tmp_path, '''
+from google.adk.agents import LlmAgent
+from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
+
+def build_docs(model):
+    params = StdioConnectionParams(server_params={"command": "python", "args": ["docs.py"]})
+    mcp = McpToolset(connection_params=params, tool_filter=["read_docs"])
+    agent = LlmAgent(model=model, name=f"docs_{model}", tools=[mcp])
+    return agent
+
+def build_data(model):
+    params = StdioConnectionParams(server_params={"command": "python", "args": ["data.py"]})
+    mcp = McpToolset(connection_params=params, tool_filter=["read_data"])
+    agent = LlmAgent(model=model, name=f"data_{model}", tools=[mcp])
+    return agent
+''')
+
+    graph, _ = scan(tmp_path)
+
+    agents = [item for item in graph.agents if item.metadata.get("agent_type") == "LlmAgent"]
+    assert len(agents) == 2
+    servers = [server for agent in agents for server in agent.mcp_servers]
+    assert len(servers) == 2
+    assert len({server.location.line for server in servers if server.location}) == 2
+    assert {tuple(server.allowed_tools) for server in servers} == {
+        ("read_docs",),
+        ("read_data",),
+    }
