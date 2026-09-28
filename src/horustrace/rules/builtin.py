@@ -352,6 +352,32 @@ def evaluate(graph: Graph) -> list[Finding]:
             # scheme/destination cannot be assumed, so AGT031 remains
             # unresolved, but authentication and tool-scope controls can be
             # evaluated when source proves them independently of the URL.
+            server_authority = mcp_authority_by_object.get(id(server))
+            findings.append(
+                Finding(
+                    "NET001",
+                    Severity.HIGH,
+                    "Outbound reachability lacks a detected restriction",
+                    f"Dynamic remote MCP server '{server.name}' accepts a caller-selected destination without a detected allowlist.",
+                    "Constrain remote MCP endpoints to an explicit allowlist or fixed trusted destination.",
+                    layer=4,
+                    location=server.location,
+                    agent=(
+                        server_authority.agent
+                        if server_authority is not None
+                        else None
+                    ),
+                    evidence=[
+                        "destination=dynamic",
+                        f"transport={server.transport}",
+                    ],
+                    authority_relationship_id=(
+                        server_authority.relationship_id
+                        if server_authority is not None
+                        else None
+                    ),
+                )
+            )
             if server.authenticated is False:
                 findings.append(
                     Finding(
@@ -365,7 +391,6 @@ def evaluate(graph: Graph) -> list[Finding]:
                         evidence=["url=dynamic", f"authenticated={server.authenticated}"],
                     )
                 )
-            server_authority = mcp_authority_by_object.get(id(server))
             tool_scope_resolved = (
                 server_authority is not None
                 and server_authority.dimensions.get("tool_scope") == "resolved"
