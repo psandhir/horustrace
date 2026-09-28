@@ -707,7 +707,14 @@ def _agent_from_call(
     if agent_type not in AGENT_TYPES:
         return None
     name = _string(_kw(call, "name")) or alias
-    metadata: dict[str, Any] = {"framework": "google-adk", "agent_type": agent_type}
+    metadata: dict[str, Any] = {
+        "framework": "google-adk",
+        "agent_type": agent_type,
+        "source_alias": alias,
+        "instance_key": (
+            f"{path.resolve()}:{getattr(call, 'lineno', 1) or 1}:{alias}"
+        ),
+    }
     instruction = _string(_kw(call, "instruction")) or _string(_kw(call, "instructions"))
     if instruction:
         metadata["instruction"] = instruction
