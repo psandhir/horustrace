@@ -6,20 +6,10 @@ from horustrace.scanner import scan
 
 
 def test_web_route_ingress_reaches_langgraph_destructive_tool(tmp_path: Path) -> None:
-    source = tmp_path / "app.py"
-    source.write_text(
+    (tmp_path / "tools.py").write_text(
         """
 import sqlite3
-from fastapi import APIRouter
-from pydantic import BaseModel
 from langchain_core.tools import tool
-from langgraph.graph import StateGraph
-from langgraph.prebuilt import ToolNode
-
-router = APIRouter()
-
-class RequestModel(BaseModel):
-    query: str
 
 @tool
 def execute_sqlite_query(query: str):
@@ -30,6 +20,22 @@ def execute_sqlite_query(query: str):
         return cursor.fetchall()
     conn.commit()
     return "ok"
+""",
+        encoding="utf-8",
+    )
+    source = tmp_path / "app.py"
+    source.write_text(
+        """
+from fastapi import APIRouter
+from pydantic import BaseModel
+from langgraph.graph import StateGraph
+from langgraph.prebuilt import ToolNode
+from tools import execute_sqlite_query
+
+router = APIRouter()
+
+class RequestModel(BaseModel):
+    query: str
 
 tools = [execute_sqlite_query]
 
@@ -58,7 +64,6 @@ async def chat_query(request: RequestModel):
 
     rule_ids = {finding.rule_id for finding in findings if finding.agent == agent.name}
     assert {"AGT021", "AGT022", "AGT040", "CAP005", "PATH002"} <= rule_ids
-
 
 def test_untrusted_agent_input_can_reach_destructive_bound_mcp() -> None:
     location = SourceLocation(Path("agent.py"), line=10)
