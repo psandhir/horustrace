@@ -26,6 +26,7 @@ class _Function:
     name: str
     path: Path
     node: ast.FunctionDef | ast.AsyncFunctionDef
+    owner_class: str | None = None
     assignments: list[ast.Assign | ast.AnnAssign] = field(default_factory=list)
     calls: list[ast.Call] = field(default_factory=list)
 
@@ -141,14 +142,29 @@ def _expr_tainted(node: ast.AST | None, tainted: set[str]) -> bool:
     return False
 
 
-def _collect_functions(python_paths: list[Path]) -> tuple[list[_Function], dict[str, _Function]]:
+def _collect_functions(
+    python_paths: list[Path],
+) -> tuple[
+    list[_Function],
+    dict[str, _Function],
+    dict[tuple[str, str], _Function],
+]:
     functions: list[_Function] = []
     by_name_multi: dict[str, list[_Function]] = {}
+    methods_by_class_multi: dict[tuple[str, str], list[_Function]] = {}
     for path in python_paths:
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
+        owners: dict[int, str] = {}
+        for class_node in ast.walk(tree):
+            if not isinstance(class_node, ast.ClassDef):
+                continue
+            for member in class_node.body:
+                if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    owners[id(member)] = class_node.name
+
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 children = list(ast.walk(node))
@@ -156,6 +172,7 @@ def _collect_functions(python_paths: list[Path]) -> tuple[list[_Function], dict[
                     node.name,
                     path,
                     node,
+                    owner_class=owners.get(id(node)),
                     assignments=[
                         child
                         for child in children
@@ -169,8 +186,22 @@ def _collect_functions(python_paths: list[Path]) -> tuple[list[_Function], dict[
                 )
                 functions.append(info)
                 by_name_multi.setdefault(node.name, []).append(info)
-    unique = {name: values[0] for name, values in by_name_multi.items() if len(values) == 1}
-    return functions, unique
+                if info.owner_class:
+                    methods_by_class_multi.setdefault(
+                        (info.owner_class, info.name),
+                        [],
+                    ).append(info)
+    unique = {
+        name: values[0]
+        for name, values in by_name_multi.items()
+        if len(values) == 1
+    }
+    methods = {
+        key: values[0]
+        for key, values in methods_by_class_multi.items()
+        if len(values) == 1
+    }
+    return functions, unique, methods
 
 
 def _factory_agents(graph: Graph, functions: list[_Function]) -> dict[str, str]:
@@ -225,7 +256,7 @@ def propagate_repository_ingress(
     graph: Graph,
     python_paths: list[Path],
 ) -> None:
-    functions, unique_functions = _collect_functions(python_paths)
+    functions, unique_functions, methods_by_class = _collect_functions(python_paths)
     if not functions:
         return
 
@@ -250,6 +281,7 @@ def propagate_repository_ingress(
         queued.discard(key)
         tainted = set(tainted_params[key])
         local_agents: dict[str, str] = {}
+        local_types: dict[str, str] = {}
 
         # Explicit source reads taint their assignment targets.
         for child in info.assignments:
@@ -265,6 +297,13 @@ def propagate_repository_ingress(
 
             if isinstance(value, ast.Call):
                 called = _call_name(value.func)
+                if (
+                    isinstance(value.func, ast.Name)
+                    and called
+                    and called[:1].isupper()
+                ):
+                    for target_name in target_names:
+                        local_types[target_name] = called
                 if called in factory_agents:
                     for name in target_names:
                         local_agents[name] = factory_agents[called]
@@ -299,7 +338,14 @@ def propagate_repository_ingress(
             called = _call_name(child.func)
 
             # Propagate tainted arguments through uniquely-resolved functions.
-            callee = unique_functions.get(called or "")
+            callee = None
+            if isinstance(child.func, ast.Attribute):
+                receiver = _call_name(child.func.value)
+                receiver_type = local_types.get(receiver or "")
+                if receiver_type and called:
+                    callee = methods_by_class.get((receiver_type, called))
+            if callee is None:
+                callee = unique_functions.get(called or "")
             if callee is not None:
                 callee_key = (callee.path.resolve(), callee.name)
                 positional = list(child.args)
