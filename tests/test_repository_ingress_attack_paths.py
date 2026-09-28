@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from horustrace.models import Agent, Graph, InputSource, MCPServer, SourceLocation
 from horustrace.analysis import build_attack_paths
+from horustrace.models import Agent, Graph, InputSource, MCPServer, SourceLocation
 from horustrace.scanner import scan
 
 
