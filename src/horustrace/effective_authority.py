@@ -288,6 +288,10 @@ def _mcp_tool_scope(server: MCPServer) -> tuple[dict[str, Any], list[str], str]:
         scope = "dynamic_filter"
         status = "partially_resolved"
         unresolved.extend(["tool_catalogue", "tool_filter"])
+    elif server.metadata.get("discovered_tools"):
+        scope = "unrestricted_or_unknown"
+        status = "partially_resolved"
+        unresolved.append("tool_filter")
     else:
         scope = "unrestricted_or_unknown"
         status = "unknown"
@@ -297,7 +301,10 @@ def _mcp_tool_scope(server: MCPServer) -> tuple[dict[str, Any], list[str], str]:
             "scope": scope,
             "allowed": list(server.allowed_tools),
             "denied": list(server.denied_tools),
-            "catalogue_known": bool(server.allowed_tools),
+            "catalogue_known": bool(
+                server.allowed_tools or server.metadata.get("discovered_tools")
+            ),
+            "discovered": list(server.metadata.get("discovered_tools") or []),
         },
         unresolved,
         status,
@@ -367,7 +374,17 @@ def _mcp_relationship(
             }
         )
 
-    capabilities = ("mcp.remote", "network.external") if server.url else ("mcp.local",)
+    base_capabilities = (
+        {"mcp.remote", "network.external"}
+        if server.url
+        else {"mcp.local"}
+    )
+    capabilities = tuple(
+        sorted(
+            base_capabilities
+            | set(server.metadata.get("discovered_tool_capabilities") or [])
+        )
+    )
 
     return EffectiveAuthorityRelationship(
         relationship_id=_stable_relationship_id(agent.name, "mcp_server", server.name),
@@ -399,6 +416,9 @@ def _mcp_relationship(
             ),
             "authentication_mechanism": (
                 server.metadata.get("auth_mechanism") or "unknown"
+            ),
+            "discovered_tools": list(
+                server.metadata.get("discovered_tools") or []
             ),
         },
         dimensions=dimensions,
