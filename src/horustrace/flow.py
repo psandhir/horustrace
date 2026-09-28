@@ -305,22 +305,29 @@ def _process_execution_value(called: str, call: ast.Call, evaluator) -> _Value:
     return _Value()
 
 
-def _without_context_only_unresolved(value: _Value) -> _Value:
-    """Keep independent tool-input flow precise when only framework context is unresolved.
+def _without_context_lookup_unresolved(value: _Value) -> _Value:
+    """Do not let framework-context lookups downgrade independent tool input.
 
     Context objects such as RunContextWrapper are intentionally excluded from
-    agent-tool input sources. A lookup like ctx.context.get("chat_id") can still
-    contribute to a sink's scope, but its unresolved method semantics should not
-    downgrade a separate, directly-proven payload parameter such as memory_update.
+    agent-tool input sources. Their accessors can be unresolved while a separate
+    symbolic tool parameter still has a direct, supported dependency on the sink.
+    Filter only unresolved calls whose receiver is a known context parameter;
+    preserve all other unresolved calls and all symbolic parameters/sources.
     """
-    if (
-        value.unresolved
-        and value.params
-        and set(value.params) <= _AGENT_TOOL_CONTEXT_PARAMS
-        and not value.sources
-    ):
-        return _Value(params=value.params)
-    return value
+    if not value.unresolved:
+        return value
+    remaining = tuple(
+        item
+        for item in value.unresolved
+        if item.called.split(".", 1)[0].lower() not in _AGENT_TOOL_CONTEXT_PARAMS
+    )
+    if remaining == value.unresolved:
+        return value
+    return _Value(
+        params=value.params,
+        sources=value.sources,
+        unresolved=remaining,
+    )
 
 
 def _sink_value(called: str, call: ast.Call, evaluator) -> _Value:
@@ -339,7 +346,7 @@ def _sink_value(called: str, call: ast.Call, evaluator) -> _Value:
     values = [evaluator(arg) for arg in call.args]
     values.extend(evaluator(keyword.value) for keyword in call.keywords)
     if kind and kind[0] == "memory_write":
-        values = [_without_context_only_unresolved(value) for value in values]
+        values = [_without_context_lookup_unresolved(value) for value in values]
     return _Value.combine(values)
 
 
