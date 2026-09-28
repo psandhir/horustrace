@@ -262,6 +262,20 @@ canonical digest is stable across checkout locations, so the document can become
 portable input to future authority-delta, attestation, and runtime-correlation
 features. ASG remains static evidence; it does not claim runtime effectiveness.
 
+Generate the self-contained visual security report:
+
+```bash
+horustrace report .
+horustrace report . --output artifacts/horustrace-report.html
+```
+
+The offline report opens with an assessment dashboard and provides per-agent
+**Overview**, **Agency Map**, **Findings**, **Contract**, and **Evidence** views.
+It embeds all data, CSS, and JavaScript in the generated HTML and does not load
+CDN assets or send scan data to a hosted service. See
+[`docs/visual-report.md`](docs/visual-report.md) for the report model and trust
+boundary.
+
 Inspect effective agent authority reconstructed from static evidence:
 
 ```bash
