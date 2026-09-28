@@ -121,14 +121,17 @@ def test_owasp_summary_marks_non_runtime_only_category_without_hiding_findings()
 
 
 def test_owasp_summary_treats_fully_disabled_category_as_not_assessed() -> None:
-    report = build_owasp_agentic_summary([], disabled_rules=["AGT050"])
+    report = build_owasp_agentic_summary(
+        [],
+        disabled_rules=["AGT050", "AGT051"],
+    )
     asi04 = _category(report, "ASI04")
 
     assert asi04["status"] == "not_assessed"
     assert asi04["runtime_status"] == "not_assessed"
     assert asi04["mapped_rules"] == []
-    assert asi04["disabled_mapped_rules"] == ["AGT050"]
-    assert asi04["available_mapped_rules"] == ["AGT050"]
+    assert asi04["disabled_mapped_rules"] == ["AGT050", "AGT051"]
+    assert asi04["available_mapped_rules"] == ["AGT050", "AGT051"]
 
 
 def test_scan_json_includes_owasp_summary(tmp_path: Path, capsys) -> None:
