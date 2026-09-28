@@ -273,3 +273,5 @@ class MCPConnection:
     assert server.metadata["auth_mechanism"] == "oauth2.1"
     assert server.metadata["dynamic_mcp_endpoint"] is True
     assert not any(finding.rule_id == "AGT030" for finding in findings)
+    assert not any(finding.rule_id == "AGT031" for finding in findings)
+    assert any(finding.rule_id == "AGT032" for finding in findings)
