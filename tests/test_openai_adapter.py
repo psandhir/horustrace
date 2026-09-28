@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from horustrace.effective_authority import effective_authority_report
 from horustrace.scanner import scan
 
 
@@ -244,6 +245,155 @@ agent = Agent(name="Publisher", tools=[confirm_and_publish])
 
     assert {"external.write", "network.external"} <= tool.capabilities
     assert "suppressed_name_only_capabilities" not in tool.metadata
+
+
+def test_openai_legacy_server_sse_binds_direct_mcp_agent(tmp_path: Path) -> None:
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+from agents import Agent, ServerSse
+
+discord_mcp = ServerSse(url="http://localhost:5000")
+
+discord_agent = Agent(
+    name="Discord",
+    mcp_servers=[discord_mcp],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "Discord")
+
+    assert len(agent.mcp_servers) == 1
+    server = agent.mcp_servers[0]
+    assert server.name == "discord_mcp"
+    assert server.transport == "sse"
+    assert server.url == "http://localhost:5000"
+    assert server.metadata["context_binding"] == "bound"
+    assert server.metadata["effective_agent"] == "Discord"
+
+
+def test_openai_alias_of_imported_fastmcp_server_binds_to_agent(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "memory"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "server.py").write_text(
+        """
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("Memory Graph")
+
+@mcp.tool()
+async def create_entities(items):
+    return items
+
+@mcp.tool()
+async def delete_entities(names):
+    return None
+
+@mcp.tool()
+async def search_nodes(query):
+    return []
+""",
+        encoding="utf-8",
+    )
+    (package / "agent.py").write_text(
+        """
+from agents import Agent
+from .server import mcp
+
+memory_mcp = mcp
+
+memory_agent = Agent(
+    name="Memory Agent",
+    mcp_servers=[memory_mcp],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "Memory Agent")
+
+    assert len(agent.mcp_servers) == 1
+    server = agent.mcp_servers[0]
+    assert server.name == "Memory Graph"
+    assert server.metadata["repository_resolved"] is True
+    assert server.metadata["import_symbol"] == "mcp"
+    assert server.metadata["context_binding"] == "bound"
+    assert server.metadata["effective_agent"] == "Memory Agent"
+    assert {item["name"] for item in server.metadata["discovered_tools"]} == {
+        "create_entities",
+        "delete_entities",
+        "search_nodes",
+    }
+
+    authority = effective_authority_report(graph)
+    relationship = next(
+        item
+        for item in authority["relationships"]
+        if item["agent"] == "Memory Agent"
+        and item["target"]["kind"] == "mcp_server"
+    )
+    assert {"mcp.local", "data.read", "data.write", "destructive.write"} <= set(
+        relationship["capabilities"]
+    )
+    assert relationship["tool_scope"]["catalogue_known"] is True
+    assert relationship["tool_scope"]["scope"] == "unrestricted_or_unknown"
+
+
+def test_openai_semantic_tool_verbs_cover_clear_and_notification_actions(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent, function_tool
+
+@function_tool
+def clear_history():
+    return None
+
+@function_tool
+def schedule_a_push_notification():
+    return None
+
+@function_tool
+def unsubscribe_from_push_notification():
+    return None
+
+agent = Agent(
+    name="Operations",
+    tools=[
+        clear_history,
+        schedule_a_push_notification,
+        unsubscribe_from_push_notification,
+    ],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "Operations")
+    by_name = {tool.name: tool for tool in agent.tools}
+
+    assert "destructive.write" in by_name["clear_history"].capabilities
+    assert {"data.write", "external.write", "network.external"} <= (
+        by_name["schedule_a_push_notification"].capabilities
+    )
+    assert {"destructive.write", "external.write", "network.external"} <= (
+        by_name["unsubscribe_from_push_notification"].capabilities
+    )
+    assert any(
+        finding.rule_id == "AGT021"
+        and finding.agent == "Operations"
+        and finding.location
+        for finding in findings
+    )
 
 
 def test_openai_imported_mcp_server_reconstructs_agent_auth_and_tool_scope(tmp_path: Path) -> None:

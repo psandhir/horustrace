@@ -68,10 +68,17 @@ def resolve_imported_mcp_placeholders(graph: Graph, root: Path) -> None:
             import_module = server.metadata.get("import_module")
             matches = []
             if isinstance(import_module, str) and import_module:
+                import_symbol = str(
+                    server.metadata.get("import_symbol") or server.name
+                )
                 matches = [
                     candidate
                     for candidate in concrete
-                    if candidate.name == server.name
+                    if (
+                        candidate.name == server.name
+                        or str(candidate.metadata.get("alias") or "")
+                        == import_symbol
+                    )
                     and candidate.location is not None
                     and _module_matches(candidate.location.path, root, import_module)
                 ]
@@ -83,6 +90,8 @@ def resolve_imported_mcp_placeholders(graph: Graph, root: Path) -> None:
                     **resolved.metadata,
                     "repository_resolved": True,
                     "import_module": import_module,
+                    "import_symbol": server.metadata.get("import_symbol"),
+                    "local_alias": server.metadata.get("local_alias"),
                     "imported_binding": True,
                     "binding_origin": "repository_import_reference",
                 }

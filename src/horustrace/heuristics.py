@@ -6,11 +6,11 @@ from urllib.parse import urlparse
 
 CAPABILITY_PATTERNS: list[tuple[re.Pattern[str], set[str]]] = [
     (re.compile(r"\b(shell|exec|execute|command|terminal|bash|powershell)\b", re.IGNORECASE), {"process.execute"}),
-    (re.compile(r"\b(delete|remove|destroy|purge|drop|terminate)\b", re.IGNORECASE), {"destructive.write"}),
-    (re.compile(r"\b(send|email|post|publish|upload|notify|message)\b", re.IGNORECASE), {"external.write", "network.external"}),
+    (re.compile(r"\b(delete|remove|destroy|purge|drop|terminate|clear|unsubscribe|revoke|erase)\b", re.IGNORECASE), {"destructive.write"}),
+    (re.compile(r"\b(send|email|post|publish|upload|notify|notification|message|push)\b", re.IGNORECASE), {"external.write", "network.external"}),
     (re.compile(r"\b(http|https|web|request|fetch|browser|url|api)\b", re.IGNORECASE), {"network.external"}),
-    (re.compile(r"\b(write|update|create|modify|edit|patch|apply)\b", re.IGNORECASE), {"data.write"}),
-    (re.compile(r"\b(read|search|lookup|get|retrieve|document|file|query|list)\b", re.IGNORECASE), {"data.read"}),
+    (re.compile(r"\b(write|update|create|modify|edit|patch|apply|schedule|subscribe|enqueue|add|append|insert|save|store|upsert)\b", re.IGNORECASE), {"data.write"}),
+    (re.compile(r"\b(read|search|lookup|get|retrieve|document|file|query|list|open|load|view|inspect)\b", re.IGNORECASE), {"data.read"}),
     (re.compile(r"\b(secret|credential|token|password|key|vault)\b", re.IGNORECASE), {"secrets.read"}),
     (re.compile(r"\b(admin|iam|permission|role|policy|grant)\b", re.IGNORECASE), {"identity.admin"}),
 ]
