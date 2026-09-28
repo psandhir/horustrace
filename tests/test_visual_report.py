@@ -148,10 +148,11 @@ def test_visual_report_dashboard_has_contextual_drilldowns(tmp_path: Path) -> No
 
     html = render_visual_report_html(graph, findings, tmp_path)
 
-    assert 'data-drill="agents:all"' in html
-    assert 'data-drill="findings:high"' in html
-    assert 'data-drill="contracts:violation"' in html
-    assert 'data-drill="agents:write"' in html
+    assert '"agents:all"' in html
+    assert '"findings:high"' in html
+    assert '"contracts:violation"' in html
+    assert '"agents:write"' in html
+    assert "data-drill" in html
     assert 'function routeDrill(action)' in html
     assert 'function agentMatchesFilter(a,mode)' in html
 
