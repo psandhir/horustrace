@@ -152,7 +152,9 @@ def build_visual_report(
             for item in relationships
             if item["relationship_id"] in contract_relationships
         ]
-        contract_status = "not_declared"
+        contract_status = (
+            "declared" if agent.policy.authority is not None else "not_declared"
+        )
         if relationship_contracts:
             statuses = {item["status"] for item in relationship_contracts}
             if "violation" in statuses:
@@ -305,7 +307,7 @@ border-bottom:1px solid var(--line);text-align:left;vertical-align:top}} th{{fon
 tr.clickable{{cursor:pointer}} tr.clickable:hover{{background:#ffffff08}} .badge{{display:inline-block;padding:3px 7px;border-radius:999px;
 font-size:11px;font-weight:700;background:#ffffff0b;border:1px solid var(--line)}} .badge.violation{{color:var(--critical);border-color:#ff6b7560}}
 .badge.compliant{{color:var(--ok);border-color:#63d69f60}} .badge.unresolved{{color:var(--warn);border-color:#f1c75b60}}
-.badge.not_declared{{color:var(--muted)}} .search{{width:100%;max-width:420px;background:var(--panel);color:var(--text);border:1px solid var(--line);
+.badge.not_declared{{color:var(--muted)}} .badge.declared{{color:var(--accent);border-color:#8ab4ff60}} .search{{width:100%;max-width:420px;background:var(--panel);color:var(--text);border:1px solid var(--line);
 border-radius:9px;padding:9px 11px;margin:0 0 12px}} .agent-head{{display:flex;gap:14px;justify-content:space-between;align-items:start}}
 .tabs{{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:18px 0 14px;overflow:auto}} .tabs button{{border:0;background:transparent;
 color:var(--muted);padding:9px 10px;cursor:pointer;border-bottom:2px solid transparent}} .tabs button.active{{color:var(--text);border-bottom-color:var(--accent)}}
