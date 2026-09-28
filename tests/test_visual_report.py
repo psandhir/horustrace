@@ -104,6 +104,45 @@ def test_visual_report_projects_effective_agency_and_contract(tmp_path: Path) ->
     assert str(tmp_path) not in encoded
 
 
+def test_visual_report_preserves_declared_contract_without_relationships(
+    tmp_path: Path,
+) -> None:
+    graph = Graph(
+        agents=[
+            Agent(
+                name="contract-only",
+                policy=AgentPolicy(
+                    authority=AuthorityContract(
+                        allow=AuthorityScope(capabilities={"data.read"}),
+                        location=SourceLocation(
+                            tmp_path / "horustrace.manifest.yaml",
+                            line=4,
+                        ),
+                    )
+                ),
+            )
+        ]
+    )
+    graph.adg = build_adg(graph, tmp_path)
+
+    report = build_visual_report(graph, [], tmp_path)
+
+    agent = report["agents"][0]
+    assert agent["contract"]["declared"] is not None
+    assert agent["summary"]["contract_status"] == "declared"
+    assert agent["contract"]["relationships"] == []
+
+
+def test_visual_report_escapes_embedded_script_data(tmp_path: Path) -> None:
+    graph = Graph(agents=[Agent(name="</script><script>alert(1)</script>")])
+    graph.adg = build_adg(graph, tmp_path)
+
+    html = render_visual_report_html(graph, [], tmp_path)
+
+    assert "</script><script>alert(1)</script>" not in html
+    assert "\\u003c/script\\u003e\\u003cscript\\u003ealert(1)" in html
+
+
 def test_visual_report_html_is_self_contained(tmp_path: Path) -> None:
     graph, findings = _graph(tmp_path)
 
