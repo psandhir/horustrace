@@ -63,8 +63,8 @@ from horustrace.models import (
     Tool,
 )
 from horustrace.path_safety import canonical_root, is_within_root
-from horustrace.repository_ingress import bind_repository_ingress
 from horustrace.provenance import annotate, attach_findings, context
+from horustrace.repository_ingress import bind_repository_ingress
 from horustrace.rules.builtin import evaluate
 from horustrace.semantics import annotate_risk_semantics
 from horustrace.source_context import classify_source_context, path_parts_match
