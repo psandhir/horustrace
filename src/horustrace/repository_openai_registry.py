@@ -55,12 +55,19 @@ def _registry_semantics_present(python_paths: list[Path]) -> bool:
 
 
 def _agent_definition_files(root: Path) -> list[Path]:
-    return sorted(
+    paths = [
         path
         for path in root.rglob("*.json")
         if path.is_file()
         and "agent" in path.name.lower()
         and "definition" in path.name.lower()
+    ]
+    return sorted(
+        paths,
+        key=lambda path: (
+            0 if "fixed" in path.name.lower() else 1,
+            path.as_posix(),
+        ),
     )
 
 
