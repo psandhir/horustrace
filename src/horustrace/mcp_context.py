@@ -279,6 +279,77 @@ def resolve_fast_agent_mcp_references(graph: Graph) -> None:
     ]
     graph.unresolved_mcp_references.extend(unresolved)
 
+def resolve_bound_stdio_entrypoints(graph: Graph, root: Path) -> None:
+    """Merge in-repository stdio MCP implementation evidence into bound clients.
+
+    A framework adapter may normalize an Agent -> MCPServerStdio binding while the
+    MCP Python adapter separately discovers the FastMCP/Server implementation in
+    the referenced script. When the stdio script path resolves to exactly one
+    repository MCP declaration, merge that implementation's tool surface into the
+    bound server and remove the duplicate unbound declaration.
+    """
+    used: set[int] = set()
+    for agent in graph.agents:
+        for server in agent.mcp_servers:
+            if server.transport != "stdio" or not server.args:
+                continue
+            entry = next(
+                (
+                    arg
+                    for arg in server.args
+                    if isinstance(arg, str) and arg.endswith(".py")
+                ),
+                None,
+            )
+            if not entry:
+                continue
+            candidate_paths = [(root / entry).resolve()]
+            if agent.location is not None:
+                candidate_paths.append((agent.location.path.parent / entry).resolve())
+            targets = set(candidate_paths)
+            matches = [
+                candidate
+                for candidate in graph.unbound_mcp_servers
+                if candidate.location is not None
+                and candidate.location.path.resolve() in targets
+                and not candidate.metadata.get("placeholder")
+                and not candidate.metadata.get("reference_only")
+            ]
+            if len(matches) != 1:
+                continue
+            source = matches[0]
+            preserved = {
+                "framework": server.metadata.get("framework"),
+                "source": server.metadata.get("source"),
+                "constructor_alias": server.metadata.get("constructor_alias"),
+                "binding_origin": server.metadata.get("binding_origin"),
+                "effective_agent": agent.name,
+            }
+            server.metadata = {
+                **source.metadata,
+                **{key: value for key, value in preserved.items() if value is not None},
+                "repository_resolved": True,
+                "implementation_path": str(source.location.path),
+            }
+            if source.allowed_tools and not server.allowed_tools:
+                server.allowed_tools = list(source.allowed_tools)
+            if source.denied_tools and not server.denied_tools:
+                server.denied_tools = list(source.denied_tools)
+            if source.resources and not server.resources:
+                server.resources = deepcopy(source.resources)
+            if source.approval is True:
+                server.approval = True
+            server.guardrails = server.guardrails or source.guardrails
+            used.add(id(source))
+
+    if used:
+        graph.unbound_mcp_servers = [
+            server
+            for server in graph.unbound_mcp_servers
+            if id(server) not in used
+        ]
+
+
 def _authority_scope(server: MCPServer) -> str:
     if server.allowed_tools:
         return "explicit_allowlist"
