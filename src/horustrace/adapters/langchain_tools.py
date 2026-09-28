@@ -166,13 +166,13 @@ def _dynamic_sql_authority(
             commits = True
         if leaf in {"execute", "executemany", "executescript"} and child.args:
             query = child.args[0]
-            if isinstance(query, ast.Name) and query.id in parameters:
-                dynamic_sql = True
-            elif not (
-                isinstance(query, ast.Constant)
-                and isinstance(query.value, str)
-            ):
-                dynamic_sql = True
+            dynamic_sql = dynamic_sql or (
+                (isinstance(query, ast.Name) and query.id in parameters)
+                or not (
+                    isinstance(query, ast.Constant)
+                    and isinstance(query.value, str)
+                )
+            )
 
     return database_context and dynamic_sql, commits
 
