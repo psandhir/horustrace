@@ -488,3 +488,36 @@ root_agent = Workflow(
     assert root.metadata["agent_type"] == "Workflow"
     assert root.metadata["workflow"] == "Workflow"
     assert reviewer.metadata["agent_type"] == "LlmAgent"
+
+
+def test_adk_same_alias_constructions_keep_source_instance_identity(
+    tmp_path: Path,
+) -> None:
+    write(tmp_path, '''
+from google.adk.agents import LlmAgent
+
+def build_left(model):
+    agent = LlmAgent(model=model, name=f"left_{model}")
+    return agent
+
+def build_right(model):
+    agent = LlmAgent(model=model, name=f"right_{model}")
+    return agent
+''', "left.py")
+    write(tmp_path, '''
+from google.adk.agents import LlmAgent
+
+def build_summary(model):
+    agent = LlmAgent(model=model, name=f"summary_{model}")
+    return agent
+''', "right.py")
+
+    graph, _ = scan(tmp_path)
+
+    agents = [item for item in graph.agents if item.metadata.get("agent_type") == "LlmAgent"]
+    assert len(agents) == 3
+    assert len({item.metadata["instance_key"] for item in agents}) == 3
+    assert {item.location.path.name for item in agents if item.location} == {
+        "left.py",
+        "right.py",
+    }
