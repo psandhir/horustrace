@@ -275,3 +275,4 @@ class MCPConnection:
     assert not any(finding.rule_id == "AGT030" for finding in findings)
     assert not any(finding.rule_id == "AGT031" for finding in findings)
     assert any(finding.rule_id == "AGT032" for finding in findings)
+    assert any(finding.rule_id == "NET001" for finding in findings)
