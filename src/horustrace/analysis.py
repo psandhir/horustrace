@@ -259,6 +259,12 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
         destructive = [
             tool for tool in agent.tools if "destructive.write" in tool.capabilities
         ]
+        destructive_mcp = [
+            server
+            for server in agent.mcp_servers
+            if "destructive.write"
+            in set(server.metadata.get("discovered_tool_capabilities") or [])
+        ]
         secret_tools = [tool for tool in agent.tools if "secrets.read" in tool.capabilities]
 
         for tool in execution:
@@ -298,6 +304,37 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                         ),
                         location=tool.location or agent.location,
                         metadata=_path_metadata(basis="capability_cooccurrence"),
+                    )
+                )
+
+        for server in destructive_mcp:
+            if (
+                untrusted
+                and server.approval is not True
+                and not server.guardrails
+            ):
+                paths.append(
+                    AttackPath(
+                        path_id="PATH002",
+                        title="Potential untrusted-input path to destructive MCP action",
+                        agent=agent.name,
+                        nodes=[
+                            untrusted[0].name,
+                            agent.name,
+                            server.name,
+                            "destructive.write",
+                        ],
+                        severity=Severity.HIGH,
+                        rationale=(
+                            "The normalized agent model combines untrusted input with "
+                            "a bound MCP server exposing destructive-write capability "
+                            "without a detected approval or guardrail requirement."
+                        ),
+                        location=server.location or agent.location,
+                        metadata={
+                            **_path_metadata(basis="capability_cooccurrence"),
+                            "target_kind": "mcp_server",
+                        },
                     )
                 )
 

@@ -279,6 +279,131 @@ def resolve_fast_agent_mcp_references(graph: Graph) -> None:
     ]
     graph.unresolved_mcp_references.extend(unresolved)
 
+
+def _local_stdio_script_candidates(
+    server: MCPServer,
+    root: Path,
+) -> set[Path]:
+    """Return concrete in-repository Python scripts named by a stdio binding."""
+    if server.transport != "stdio" or server.location is None:
+        return set()
+
+    candidates: set[Path] = set()
+    for arg in server.args:
+        if not isinstance(arg, str) or not arg or arg.startswith("-"):
+            continue
+        script = Path(arg)
+        if script.suffix.lower() != ".py":
+            continue
+        if script.is_absolute():
+            resolved = script.resolve()
+            try:
+                resolved.relative_to(root.resolve())
+            except ValueError:
+                continue
+            candidates.add(resolved)
+            continue
+        candidates.add((server.location.path.parent / script).resolve())
+        candidates.add((root / script).resolve())
+    return candidates
+
+
+def resolve_local_stdio_implementations(graph: Graph, root: Path) -> None:
+    """Bind a local stdio client declaration to its in-repo MCP implementation.
+
+    The binding is source-proven only when a bound stdio server names a concrete
+    Python script and exactly one discovered in-repository MCP server with an
+    exposed tool catalogue lives in that script. The client-side transport
+    identity is retained while implementation capabilities are projected onto it.
+    """
+    root = root.resolve()
+    implementations_by_path: dict[Path, list[MCPServer]] = {}
+    for implementation in graph.unbound_mcp_servers:
+        if (
+            implementation.location is None
+            or not isinstance(
+                implementation.metadata.get("discovered_tools"),
+                list,
+            )
+            or not implementation.metadata.get("discovered_tools")
+            or implementation.metadata.get("source")
+            not in {"FastMCP", "Server"}
+        ):
+            continue
+        implementations_by_path.setdefault(
+            implementation.location.path.resolve(),
+            [],
+        ).append(implementation)
+
+    if not implementations_by_path:
+        return
+
+    used: set[int] = set()
+
+    for agent in graph.agents:
+        for server in agent.mcp_servers:
+            script_candidates = _local_stdio_script_candidates(server, root)
+            if not script_candidates:
+                continue
+            matches = [
+                implementation
+                for candidate_path in script_candidates
+                for implementation in implementations_by_path.get(
+                    candidate_path,
+                    [],
+                )
+            ]
+            if len(matches) != 1:
+                if len(matches) > 1:
+                    server.metadata["local_stdio_resolution"] = "ambiguous"
+                    server.metadata["local_stdio_candidate_count"] = len(matches)
+                continue
+
+            implementation = matches[0]
+            discovered_tools = implementation.metadata.get("discovered_tools")
+            discovered_capabilities = implementation.metadata.get(
+                "discovered_tool_capabilities"
+            )
+            if not isinstance(discovered_tools, list) or not discovered_tools:
+                continue
+
+            if isinstance(discovered_capabilities, list):
+                server.metadata["discovered_tool_capabilities"] = list(
+                    discovered_capabilities
+                )
+            server.metadata["discovered_tools"] = deepcopy(discovered_tools)
+            if implementation.metadata.get("shadowed_constructions"):
+                server.metadata["shadowed_constructions"] = deepcopy(
+                    implementation.metadata["shadowed_constructions"]
+                )
+            server.metadata.update(
+                {
+                    "repository_resolved": True,
+                    "binding_origin": "local_stdio_script",
+                    "implementation_name": implementation.name,
+                    "implementation_path": implementation.location.path.resolve().as_posix(),
+                    "implementation_line": implementation.location.line,
+                    "implementation_framework": implementation.metadata.get("framework"),
+                    "implementation_source": implementation.metadata.get("source"),
+                }
+            )
+            if server.authenticated is None and implementation.authenticated is not None:
+                server.authenticated = implementation.authenticated
+            if server.approval is None and implementation.approval is not None:
+                server.approval = implementation.approval
+            server.guardrails = server.guardrails or implementation.guardrails
+            for resource in implementation.resources:
+                if resource not in server.resources:
+                    server.resources.append(deepcopy(resource))
+            used.add(id(implementation))
+
+    if used:
+        graph.unbound_mcp_servers = [
+            server
+            for server in graph.unbound_mcp_servers
+            if id(server) not in used
+        ]
+
 def _authority_scope(server: MCPServer) -> str:
     if server.allowed_tools:
         return "explicit_allowlist"

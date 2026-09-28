@@ -816,6 +816,120 @@ def _diagnostic(graph: Graph, path: Path, node: ast.AST, message: str) -> None:
     )
 
 
+
+
+def _expr_has_untrusted_cli_input(node: ast.AST | None, tainted: set[str]) -> bool:
+    if node is None:
+        return False
+    for child in ast.walk(node):
+        if isinstance(child, ast.Name) and child.id in tainted:
+            return True
+        if (
+            isinstance(child, ast.Call)
+            and _call_name(child.func) == "input"
+        ):
+            return True
+    return False
+
+
+def _annotate_cli_run_inputs(
+    path: Path,
+    tree: ast.AST,
+    agents: dict[str, Agent],
+) -> None:
+    """Attach untrusted CLI input only when it reaches a Pydantic AI run call."""
+    functions = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    ]
+    if not functions or not agents:
+        return
+
+    def enclosing_function(line: int) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+        matches = [
+            fn
+            for fn in functions
+            if (getattr(fn, "lineno", 0) or 0)
+            <= line
+            <= (getattr(fn, "end_lineno", 0) or 0)
+        ]
+        if not matches:
+            return None
+        return max(matches, key=lambda fn: getattr(fn, "lineno", 0) or 0)
+
+    module_agents = {
+        alias: agent
+        for alias, agent in agents.items()
+        if agent.location is not None
+        and enclosing_function(agent.location.line) is None
+    }
+
+    for fn in functions:
+        available = dict(module_agents)
+        for alias, agent in agents.items():
+            if agent.location is None:
+                continue
+            owner = enclosing_function(agent.location.line)
+            if owner is fn:
+                available[alias] = agent
+        if not available:
+            continue
+
+        tainted: set[str] = set()
+        assignments = [
+            node
+            for node in ast.walk(fn)
+            if isinstance(node, (ast.Assign, ast.AnnAssign))
+            and node.value is not None
+        ]
+
+        changed = True
+        while changed:
+            changed = False
+            for assignment in assignments:
+                if not _expr_has_untrusted_cli_input(assignment.value, tainted):
+                    continue
+                for target in _target_names(assignment):
+                    if target not in tainted:
+                        tainted.add(target)
+                        changed = True
+
+        for call in (node for node in ast.walk(fn) if isinstance(node, ast.Call)):
+            if not isinstance(call.func, ast.Attribute):
+                continue
+            if call.func.attr not in _AGENT_RUN_METHODS:
+                continue
+            owner = _dotted(call.func.value) or _call_name(call.func.value)
+            agent = available.get(owner or "")
+            if agent is None:
+                continue
+            prompt = call.args[0] if call.args else next(
+                (
+                    keyword.value
+                    for keyword in call.keywords
+                    if keyword.arg in {"user_prompt", "prompt", "input"}
+                ),
+                None,
+            )
+            if not _expr_has_untrusted_cli_input(prompt, tainted):
+                continue
+            if any(
+                item.metadata.get("basis") == "pydantic_ai_cli_input_to_run"
+                for item in agent.inputs
+            ):
+                continue
+            agent.inputs.append(
+                InputSource(
+                    name="cli-input",
+                    trust="untrusted",
+                    kind="user",
+                    location=_location(path, call),
+                    metadata={"basis": "pydantic_ai_cli_input_to_run"},
+                )
+            )
+
+
 def scan_python_file(path: Path) -> Graph:
     graph = Graph()
     try:
@@ -1143,6 +1257,8 @@ def scan_python_file(path: Path) -> Graph:
             agent.mcp_servers.extend(servers)
             if dynamic:
                 agent.metadata["dynamic_tools"] = True
+
+    _annotate_cli_run_inputs(path, tree, agents)
 
     bound_mcp_keys = {
         (
