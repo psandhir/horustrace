@@ -296,19 +296,18 @@ def _mcp_tool_scope(server: MCPServer) -> tuple[dict[str, Any], list[str], str]:
         scope = "unrestricted_or_unknown"
         status = "unknown"
         unresolved.append("tool_catalogue")
-    return (
-        {
-            "scope": scope,
-            "allowed": list(server.allowed_tools),
-            "denied": list(server.denied_tools),
-            "catalogue_known": bool(
-                server.allowed_tools or server.metadata.get("discovered_tools")
-            ),
-            "discovered": list(server.metadata.get("discovered_tools") or []),
-        },
-        unresolved,
-        status,
-    )
+    result = {
+        "scope": scope,
+        "allowed": list(server.allowed_tools),
+        "denied": list(server.denied_tools),
+        "catalogue_known": bool(
+            server.allowed_tools or server.metadata.get("discovered_tools")
+        ),
+    }
+    discovered = list(server.metadata.get("discovered_tools") or [])
+    if discovered:
+        result["discovered"] = discovered
+    return result, unresolved, status
 
 
 def _mcp_relationship(
