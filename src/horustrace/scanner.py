@@ -513,14 +513,17 @@ def _is_supported_scan_candidate(path: Path) -> bool:
         )
         or path.name == ".env"
         or path.name.startswith(".env.")
-        or is_registry_config_filename(path.name)
     )
 
 
 def _is_repository_candidate(path: Path) -> bool:
     # pyproject.toml is retained for console-script entrypoint provenance even
     # though it is not parsed as a primary security-analysis input.
-    return _is_supported_scan_candidate(path) or path.name == "pyproject.toml"
+    return (
+        _is_supported_scan_candidate(path)
+        or path.name == "pyproject.toml"
+        or is_registry_config_filename(path.name)
+    )
 
 
 def _ignored(path: Path, root: Path) -> bool:
@@ -1183,7 +1186,7 @@ def scan(
             | MCP_FILENAMES
             | SUPPRESSION_FILENAMES
             | FAST_AGENT_CONFIG_FILENAMES
-        ) or is_registry_config_filename(candidate.name)
+        )
         seen_real_paths.add(real_candidate)
         try:
             size_limit = (
@@ -1207,11 +1210,11 @@ def scan(
                     ),
                 )
                 continue
-            if candidate.name in MCP_FILENAMES or is_registry_config_filename(candidate.name):
+            if candidate.name in MCP_FILENAMES:
                 validate_json_safety(text)
                 raw = json.loads(text)
                 if not isinstance(raw, dict):
-                    raise ValueError("invalid JSON security configuration")
+                    raise ValueError("invalid MCP configuration")
             elif candidate.suffix.lower() in {".yaml", ".yml"}:
                 validate_yaml_safety(text)
                 yaml.safe_load(text)
