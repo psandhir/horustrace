@@ -135,6 +135,14 @@ def _pick_config(
         if isinstance(document.get(top_key), list)
     ]
     preferred = [item for item in candidates if item[0].name in preferred_names]
+    if len(preferred) > 1:
+        fixed = [
+            item
+            for item in preferred
+            if "fixed" in item[0].stem.lower()
+        ]
+        if len(fixed) == 1:
+            return fixed[0]
     values = preferred or candidates
     return values[0] if len(values) == 1 else None
 
