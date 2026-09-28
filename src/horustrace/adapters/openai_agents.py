@@ -7,13 +7,14 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from horustrace.heuristics import infer_capabilities
+from horustrace.heuristics import infer_capabilities, infer_sensitive_resource
 from horustrace.models import (
     Agent,
     Graph,
     InputSource,
     MCPServer,
     NetworkDestination,
+    ResourceScope,
     SourceLocation,
     Tool,
 )
@@ -674,7 +675,31 @@ def _decorated_function_tool(path: Path, node: ast.FunctionDef | ast.AsyncFuncti
                     "approval_mandatory": True if inline_approval else None,
                 },
             )
-            tool.destinations.extend(_decorated_tool_network_destinations(path, node))
+            sensitive_resource = infer_sensitive_resource(node.name)
+            if sensitive_resource is not None:
+                selector, classification = sensitive_resource
+                access = capabilities & {
+                    "data.read",
+                    "data.write",
+                    "destructive.write",
+                }
+                if access:
+                    tool.resources.append(
+                        ResourceScope(
+                            kind="profile",
+                            selector=selector,
+                            access=set(access),
+                            classification=classification,
+                            location=_location(path, node),
+                            metadata={
+                                "inferred": True,
+                                "resource_origin": "tool_name_semantics",
+                            },
+                        )
+                    )
+            tool.destinations.extend(
+                _decorated_tool_network_destinations(path, node)
+            )
             return tool
     return None
 
