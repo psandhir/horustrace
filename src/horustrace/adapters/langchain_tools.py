@@ -105,10 +105,90 @@ def _decorator_name(
     return True, explicit
 
 
+def _name_capabilities(name: str) -> set[str]:
+    """Keep name heuristics conservative when "execute" is domain-specific.
+
+    A function such as execute_sqlite_query is not process execution merely
+    because its name contains "execute". Strong process-oriented companion
+    tokens retain the process capability; concrete process calls are handled
+    separately from the function body.
+    """
+    capabilities = set(infer_capabilities(name))
+    tokens = {
+        token
+        for token in name.lower().replace("-", "_").replace(".", "_").split("_")
+        if token
+    }
+    if "process.execute" in capabilities and not (
+        tokens
+        & {
+            "shell",
+            "bash",
+            "powershell",
+            "command",
+            "terminal",
+            "exec",
+            "process",
+            "subprocess",
+            "code",
+        }
+    ):
+        capabilities.discard("process.execute")
+    return capabilities
+
+
+def _dynamic_sql_authority(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> tuple[bool, bool]:
+    """Return (dynamic_sql, commits) for a source-proven DB execution shape."""
+    parameters = {
+        arg.arg
+        for arg in (
+            list(node.args.posonlyargs)
+            + list(node.args.args)
+            + list(node.args.kwonlyargs)
+        )
+    }
+    dynamic_sql = False
+    commits = False
+    database_context = False
+
+    for child in ast.walk(node):
+        if not isinstance(child, ast.Call):
+            continue
+        called = (_dotted(child.func) or _call_name(child.func) or "").lower()
+        leaf = (_call_name(child.func) or "").lower()
+        if called in {"sqlite3.connect", "duckdb.connect"} or called.endswith(
+            (".cursor", ".connect")
+        ):
+            database_context = True
+        if leaf == "commit":
+            commits = True
+        if leaf in {"execute", "executemany", "executescript"} and child.args:
+            query = child.args[0]
+            dynamic_sql = dynamic_sql or (
+                (isinstance(query, ast.Name) and query.id in parameters)
+                or not (
+                    isinstance(query, ast.Constant)
+                    and isinstance(query.value, str)
+                )
+            )
+
+    return database_context and dynamic_sql, commits
+
+
 def _function_capabilities(
     node: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> set[str]:
-    capabilities = set(infer_capabilities(node.name))
+    capabilities = _name_capabilities(node.name)
+    dynamic_sql, commits = _dynamic_sql_authority(node)
+    if dynamic_sql:
+        # An unconstrained SQL parameter can perform reads. A committed dynamic
+        # statement can also modify or destroy database state.
+        capabilities.add("data.read")
+        if commits:
+            capabilities.update({"data.write", "destructive.write"})
+
     for child in ast.walk(node):
         if isinstance(child, ast.Delete):
             capabilities.add("destructive.write")
@@ -158,7 +238,7 @@ def _tool(
     return Tool(
         name=name,
         kind="langchain_tool",
-        capabilities=set(capabilities or infer_capabilities(name)),
+        capabilities=set(capabilities or _name_capabilities(name)),
         location=_location(path, node),
         metadata={
             "framework": "langchain",

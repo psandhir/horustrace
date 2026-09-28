@@ -344,6 +344,61 @@ def evaluate(graph: Graph) -> list[Finding]:
                         ),
                     )
                 )
+        elif (
+            server.metadata.get("dynamic_mcp_endpoint") is True
+            and server.transport in {"http", "sse", "streamable-http", "streamable_http"}
+        ):
+            # A dynamic endpoint is still a remote MCP surface. Its exact
+            # scheme/destination cannot be assumed, so AGT031 remains
+            # unresolved, but authentication and tool-scope controls can be
+            # evaluated when source proves them independently of the URL.
+            if server.authenticated is False:
+                findings.append(
+                    Finding(
+                        "AGT030",
+                        Severity.HIGH,
+                        "Remote MCP server has no detected authentication",
+                        f"No recognized authentication mechanism was detected for dynamic remote MCP server '{server.name}'.",
+                        "Require authenticated MCP access using a scoped token/OAuth or workload identity.",
+                        layer=1,
+                        location=server.location,
+                        evidence=["url=dynamic", f"authenticated={server.authenticated}"],
+                    )
+                )
+            server_authority = mcp_authority_by_object.get(id(server))
+            tool_scope_resolved = (
+                server_authority is not None
+                and server_authority.dimensions.get("tool_scope") == "resolved"
+                and server_authority.tool_scope is not None
+                and server_authority.tool_scope.get("scope") == "explicit_allowlist"
+            )
+            if not tool_scope_resolved and not server.allowed_tools:
+                evidence = ["url=dynamic", "allowed_tools=none"]
+                if server_authority is not None:
+                    evidence.extend(
+                        [
+                            f"authority_relationship={server_authority.relationship_id}",
+                            "tool_scope_resolution="
+                            + server_authority.dimensions.get("tool_scope", "unknown"),
+                        ]
+                    )
+                findings.append(
+                    Finding(
+                        "AGT032",
+                        Severity.MEDIUM,
+                        "Remote MCP lacks an explicit tool allowlist",
+                        f"Dynamic remote MCP server '{server.name}' has no detected explicit tool allowlist.",
+                        "Use an explicit MCP tool allowlist for production agents, especially for privileged servers. A denylist alone cannot prove the remaining surface is safe.",
+                        layer=1,
+                        location=server.location,
+                        evidence=evidence,
+                        authority_relationship_id=(
+                            server_authority.relationship_id
+                            if server_authority is not None
+                            else None
+                        ),
+                    )
+                )
         literal_credentials = list(
             server.metadata.get("literal_credential_sources") or []
         )

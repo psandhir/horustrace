@@ -21,6 +21,13 @@ from horustrace.models import (
     Tool,
 )
 
+_FAST_AGENT_IMPORT_PREFIXES = (
+    "fast_agent",
+    # evalstate/fast-agent exposes FastAgent from this namespace in current
+    # releases and many real applications import it directly from here.
+    "mcp_agent.core.fastagent",
+)
+
 _AGENT_DECORATORS = {
     "agent",
     "custom",
@@ -88,13 +95,15 @@ def _fast_agent_imports(tree: ast.AST) -> tuple[set[str], set[str]]:
     class_aliases: set[str] = set()
     module_aliases: set[str] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("fast_agent"):
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith(
+            _FAST_AGENT_IMPORT_PREFIXES
+        ):
             for alias in node.names:
                 if alias.name == "FastAgent":
                     class_aliases.add(alias.asname or alias.name)
         elif isinstance(node, ast.Import):
             for alias in node.names:
-                if alias.name == "fast_agent":
+                if alias.name.startswith(_FAST_AGENT_IMPORT_PREFIXES):
                     module_aliases.add(alias.asname or alias.name)
     return class_aliases, module_aliases
 
