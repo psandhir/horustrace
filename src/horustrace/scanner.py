@@ -43,6 +43,7 @@ from horustrace.limits import (
 from horustrace.mcp_authority import reconstruct_mcp_authority
 from horustrace.mcp_context import (
     reconstruct_mcp_context,
+    resolve_bound_stdio_entrypoints,
     resolve_fast_agent_mcp_references,
     resolve_imported_mcp_placeholders,
 )
@@ -1195,6 +1196,10 @@ def scan(
         root if root.is_dir() else root.parent,
     )
     resolve_fast_agent_mcp_references(graph)
+    resolve_bound_stdio_entrypoints(
+        graph,
+        root if root.is_dir() else root.parent,
+    )
     reconstruct_mcp_authority(graph, approved_python_paths)
     reconstruct_mcp_context(graph)
     authority_enrichment = None
