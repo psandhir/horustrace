@@ -305,6 +305,24 @@ def _process_execution_value(called: str, call: ast.Call, evaluator) -> _Value:
     return _Value()
 
 
+def _without_context_only_unresolved(value: _Value) -> _Value:
+    """Keep independent tool-input flow precise when only framework context is unresolved.
+
+    Context objects such as RunContextWrapper are intentionally excluded from
+    agent-tool input sources. A lookup like ctx.context.get("chat_id") can still
+    contribute to a sink's scope, but its unresolved method semantics should not
+    downgrade a separate, directly-proven payload parameter such as memory_update.
+    """
+    if (
+        value.unresolved
+        and value.params
+        and set(value.params) <= _AGENT_TOOL_CONTEXT_PARAMS
+        and not value.sources
+    ):
+        return _Value(params=value.params)
+    return value
+
+
 def _sink_value(called: str, call: ast.Call, evaluator) -> _Value:
     kind = _sink_kind(called)
     if kind and kind[0] == "external_send":
@@ -320,6 +338,8 @@ def _sink_value(called: str, call: ast.Call, evaluator) -> _Value:
         return _process_execution_value(called, call, evaluator)
     values = [evaluator(arg) for arg in call.args]
     values.extend(evaluator(keyword.value) for keyword in call.keywords)
+    if kind and kind[0] == "memory_write":
+        values = [_without_context_only_unresolved(value) for value in values]
     return _Value.combine(values)
 
 
