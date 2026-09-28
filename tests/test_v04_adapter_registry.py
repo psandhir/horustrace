@@ -12,6 +12,7 @@ def test_framework_registry_has_stable_adapter_order() -> None:
         "google-adk",
         "langgraph",
         "langchain-tools",
+        "custom-tool-registry",
         "openai-agents",
         "pydantic-ai",
         "fast-agent",
