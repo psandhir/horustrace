@@ -1,0 +1,58 @@
+name: Generate Shotgun visual report
+
+on:
+  push:
+    branches:
+      - experiment/visual-report-shotgun
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out HorusTrace
+        uses: actions/checkout@v4
+
+      - name: Check out target repository at study SHA
+        uses: actions/checkout@v4
+        with:
+          repository: shotgun-sh/shotgun
+          ref: 4d344d5a46aafc815de441ff670d4131187f33e6
+          path: target
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+
+      - name: Run JSON scan
+        run: horustrace scan target --format json > shotgun-scan.json
+
+      - name: Summarize findings
+        run: |
+          python - <<'PY'
+          import json
+          from collections import Counter
+          data=json.load(open("shotgun-scan.json"))
+          findings=data.get("findings", [])
+          print("findings:", len(findings))
+          print("severity:", dict(Counter(item.get("severity") for item in findings)))
+          for item in findings:
+              print(item.get("rule_id"), item.get("severity"), item.get("agent"), item.get("title"))
+          PY
+
+      - name: Generate visual report
+        run: horustrace report target --output shotgun-horustrace-report.html
+
+      - name: Upload report and scan
+        uses: actions/upload-artifact@v4
+        with:
+          name: shotgun-horustrace-visual-report
+          path: |
+            shotgun-horustrace-report.html
+            shotgun-scan.json
