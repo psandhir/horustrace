@@ -47,8 +47,6 @@ from horustrace.mcp_context import (
     resolve_imported_mcp_placeholders,
 )
 from horustrace.mcp_resolution import unresolved_mcp_summary
-from horustrace.repository_ingress import propagate_repository_ingress
-from horustrace.repository_openai_registry import enrich_configured_openai_agents
 from horustrace.models import (
     Agent,
     AgentReachability,
@@ -65,6 +63,8 @@ from horustrace.models import (
 )
 from horustrace.path_safety import canonical_root, is_within_root
 from horustrace.provenance import annotate, attach_findings, context
+from horustrace.repository_ingress import propagate_repository_ingress
+from horustrace.repository_openai_registry import enrich_configured_openai_agents
 from horustrace.rules.builtin import evaluate
 from horustrace.semantics import annotate_risk_semantics
 from horustrace.source_context import classify_source_context, path_parts_match
