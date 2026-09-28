@@ -141,16 +141,32 @@ class Store:
 memory_store = Store()
 
 @function_tool
-def get_agent_memory(agent_name: str):
+def get_agent_memory(ctx, agent_name: str):
     return memory_store.get_memory(agent_name)
 
 @function_tool
-def update_agent_memory(agent_name: str, memory_update: dict):
-    return memory_store.update_memory(agent_name, memory_update)
+def update_agent_memory(ctx, memory_update: dict, agent_name: str = None):
+    if not agent_name:
+        agent_name = ctx.context.get("agent_name", "WorkflowRouterAgent")
+    session_id = ctx.context.get("chat_id")
+    return memory_store.update_memory(agent_name, memory_update, session_id)
 
 @function_tool
-def add_to_agent_memory_list(agent_name: str, list_key: str, item):
-    return memory_store.add_to_memory_list(agent_name, list_key, item)
+def add_to_agent_memory_list(
+    ctx,
+    list_key: str,
+    item,
+    agent_name: str = None,
+):
+    if not agent_name:
+        agent_name = ctx.context.get("agent_name", "WorkflowRouterAgent")
+    session_id = ctx.context.get("chat_id")
+    return memory_store.add_to_memory_list(
+        agent_name,
+        list_key,
+        item,
+        session_id,
+    )
 """,
         encoding="utf-8",
     )
