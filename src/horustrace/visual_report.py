@@ -314,7 +314,11 @@ border-radius:9px;padding:9px 11px;margin:0 0 12px}} .agent-head{{display:flex;g
 .tabs{{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:18px 0 14px;overflow:auto}} .tabs button{{border:0;background:transparent;
 color:var(--muted);padding:9px 10px;cursor:pointer;border-bottom:2px solid transparent}} .tabs button.active{{color:var(--text);border-bottom-color:var(--accent)}}
 .agent-tab{{display:none}} .agent-tab.active{{display:block}} .kv{{display:grid;grid-template-columns:170px 1fr;gap:7px 14px}}
-.drill-row{{cursor:pointer;border-radius:6px;padding:3px 5px;margin:-3px -5px}} .drill-row:hover{{background:#ffffff0a}}
+.drill-list{{display:flex;flex-direction:column;gap:2px}}
+.drill-row{{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;cursor:pointer;border-radius:7px;padding:7px 8px;margin:0 -8px;color:inherit}}
+.drill-row:hover{{background:#ffffff08}} .drill-row:focus{{outline:2px solid var(--accent);outline-offset:1px}}
+.drill-value{{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;font-weight:600}}
+.drill-value::after{{content:"›";color:var(--muted);font-size:16px;line-height:1;opacity:.7}}
 .filter-banner{{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#101a31;border:1px solid #344566;border-radius:9px;padding:9px 11px;margin:12px 0}}
 .kv div:nth-child(odd){{color:var(--muted)}} .finding{{border-left:3px solid var(--line);padding:12px 14px;margin:10px 0;background:#0d1426;border-radius:8px}}
 .finding[data-sev="critical"]{{border-left-color:var(--critical)}} .finding[data-sev="high"]{{border-left-color:var(--high)}}
@@ -395,8 +399,8 @@ function findingCard(f){{
 }}
 function renderDashboard(){{
  const s=DATA.summary;
- const drillRow=(label,value,drill,cls="")=>'<div class="drill-row" role="button" tabindex="0" data-drill="'+esc(drill)+'"><span>'+esc(label)+'</span><span class="'+esc(cls)+'">'+number(value)+'</span></div>';
- const kvRows=(rows)=>'<div class="kv">'+rows.join("")+'</div>';
+ const drillRow=(label,value,drill,cls="")=>'<div class="drill-row" role="button" tabindex="0" data-drill="'+esc(drill)+'"><span>'+esc(label)+'</span><span class="drill-value '+esc(cls)+'">'+number(value)+'</span></div>';
+ const drillList=(rows)=>'<div class="drill-list">'+rows.join("")+'</div>';
  const root=document.getElementById("dashboard");
  root.innerHTML='<div class="hero"><div><h1>Security assessment</h1><div class="muted">Effective authority, policy findings and agent-contract posture</div></div>'+
  (s.analysis_incomplete?'<span class="badge unresolved">analysis incomplete</span>':'<span class="badge compliant">no detected coverage gaps</span>')+'</div>'+
@@ -404,13 +408,14 @@ function renderDashboard(){{
  metric("Identities",s.identities,"","agents:identities")+metric("Reachable resources",s.resources,"","agents:resources")+metric("Attack paths",s.attack_paths,"","attack:all")+
  metric("Findings",s.findings,"","findings:all")+metric("Contract violations",s.contract_violations,"critical","contracts:violation")+'</div>'+
  '<h2>Finding severity</h2>'+severityCards(s.severity,true)+
- '<div class="grid2"><div><h2>Effective agency</h2><div class="panel">'+kvRows([
+ '<div class="grid2"><div><h2>Effective agency</h2><div class="panel">'+drillList([
  drillRow("Authority relationships",s.authority_relationships,"agents:authority"),
  drillRow("Not fully resolved",s.authority_not_fully_resolved,"agents:unresolved","warn"),
  drillRow("Write-capable paths",s.write_capable_relationships,"agents:write"),
  drillRow("Unique destinations",s.destinations,"agents:destinations")
  ])+'</div></div>'+
- '<div><h2>Agent contracts</h2><div class="panel">'+kvRows([
+ '<div><h2>Agent contracts</h2><div class="panel">'+drillList([
+ '<div class="drill-row" style="cursor:default"><span>Status</span><span>'+badge(s.contract_violations?"violation":(s.contract_unresolved?"unresolved":"compliant"))+'</span></div>',
  drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),
  drillRow("Violations",s.contract_violations,"contracts:violation","critical"),
  drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")
