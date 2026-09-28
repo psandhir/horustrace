@@ -259,3 +259,92 @@ async def main():
     assert source.trust == "untrusted"
     assert source.kind == "user"
     assert source.metadata["basis"] == "pydantic_ai_cli_input_to_run"
+
+
+def test_pydantic_ai_local_stdio_resolves_in_repo_fastmcp_and_path002(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "mcp_server.py").write_text(
+        """
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("Local Tools")
+
+@mcp.tool()
+def delete_record(record_id: str):
+    return storage.delete(record_id)
+
+if __name__ == "__main__":
+    mcp.run()
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+from pydantic_ai.mcp import MCPServerStdio
+
+async def main():
+    mcp_server = MCPServerStdio("python", ["mcp_server.py"])
+    agent = Agent("openai:gpt-5.2", mcp_servers=[mcp_server])
+    user_input = input("> ")
+    return await agent.run(user_input)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+
+    agent = next(item for item in graph.agents if item.name == "agent")
+    assert len(agent.mcp_servers) == 1
+    server = agent.mcp_servers[0]
+    assert server.metadata["repository_resolved"] is True
+    assert server.metadata["binding_origin"] == "local_stdio_script"
+    assert server.metadata["implementation_name"] == "Local Tools"
+    assert "destructive.write" in server.metadata["discovered_tool_capabilities"]
+    assert not graph.unbound_mcp_servers
+    assert any(
+        finding.rule_id == "PATH002" and finding.agent == "agent"
+        for finding in findings
+    )
+
+
+def test_pydantic_ai_local_stdio_does_not_guess_ambiguous_mcp_implementation(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "mcp_server.py").write_text(
+        """
+from mcp.server.fastmcp import FastMCP
+
+left = FastMCP("Left")
+right = FastMCP("Right")
+
+@left.tool()
+def delete_left(record_id: str):
+    return storage.delete(record_id)
+
+@right.tool()
+def delete_right(record_id: str):
+    return storage.delete(record_id)
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+from pydantic_ai.mcp import MCPServerStdio
+
+mcp_server = MCPServerStdio("python", ["mcp_server.py"])
+agent = Agent("openai:gpt-5.2", mcp_servers=[mcp_server])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    agent = next(item for item in graph.agents if item.name == "agent")
+    server = agent.mcp_servers[0]
+    assert server.metadata.get("repository_resolved") is not True
+    assert server.metadata["local_stdio_resolution"] == "ambiguous"
+    assert server.metadata["local_stdio_candidate_count"] == 2
+    assert len(graph.unbound_mcp_servers) == 2
