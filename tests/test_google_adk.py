@@ -554,3 +554,89 @@ def build_data(model):
         ("read_docs",),
         ("read_data",),
     }
+
+
+def test_adk_repository_resolves_imported_composed_tool_lists(tmp_path: Path) -> None:
+    write(tmp_path, '''
+def get_balance(account_id: str):
+    return ledger.get(account_id)
+
+def transfer_money(account_id: str, amount: float):
+    return ledger.update(account_id, amount)
+
+BANKING_TOOLS = [get_balance, transfer_money]
+''', "banking.py")
+    write(tmp_path, '''
+def safety_check(action: str):
+    return {"allowed": True}
+
+def resolve_escalation(ticket_id: str):
+    return store.update(ticket_id, {"resolved": True})
+
+OBSERVABILITY_TOOLS = [safety_check, resolve_escalation]
+''', "observability.py")
+    write(tmp_path, '''
+from banking import BANKING_TOOLS
+from observability import OBSERVABILITY_TOOLS
+
+ALL_TOOLS = BANKING_TOOLS + OBSERVABILITY_TOOLS
+''', "catalog.py")
+    write(tmp_path, '''
+from google.adk import Agent
+from catalog import ALL_TOOLS
+
+root_agent = Agent(
+    name="scope_safety_router",
+    model="gemini-flash-latest",
+    tools=ALL_TOOLS,
+)
+''', "agent.py")
+
+    graph, findings = scan(tmp_path)
+    agent = next(a for a in graph.agents if a.name == "scope_safety_router")
+    assert {tool.name for tool in agent.tools} == {
+        "get_balance",
+        "transfer_money",
+        "safety_check",
+        "resolve_escalation",
+    }
+    transfer = next(
+        tool for tool in agent.tools if tool.name == "transfer_money"
+    )
+    assert "data.write" in transfer.capabilities
+    assert any(
+        f.rule_id == "ADK001" and f.agent == "scope_safety_router"
+        for f in findings
+    )
+    assert any(
+        f.rule_id == "CAP005" and f.agent == "scope_safety_router"
+        for f in findings
+    )
+
+
+def test_adk_repository_does_not_execute_dynamic_tool_sequence_builders(
+    tmp_path: Path,
+) -> None:
+    write(tmp_path, '''
+def safe_read():
+    return "ok"
+
+def build_tools():
+    return [safe_read]
+
+DYNAMIC_TOOLS = build_tools()
+''', "catalog.py")
+    write(tmp_path, '''
+from google.adk import Agent
+from catalog import DYNAMIC_TOOLS
+
+root_agent = Agent(
+    name="safe_agent",
+    model="gemini-flash-latest",
+    tools=DYNAMIC_TOOLS,
+)
+''', "agent.py")
+
+    graph, _ = scan(tmp_path)
+    agent = next(a for a in graph.agents if a.name == "safe_agent")
+    assert agent.tools == []
