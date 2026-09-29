@@ -1,0 +1,71 @@
+{
+  "case_id": "rw-165",
+  "repo_name": "abuiles/ramon",
+  "sha": "890b364018b8aea2ec50405cdde700fe824a9082",
+  "source_review_status": "locked_before_horustrace_reveal",
+  "structural": {
+    "agents": {
+      "count": 1,
+      "evidence_state": "observed",
+      "note": "One Pydantic AI Agent."
+    },
+    "tools": {
+      "count": 12,
+      "evidence_state": "observed",
+      "note": "Twelve @agent.tool functions cover Jira and local task DB reads/writes plus utility operations."
+    },
+    "mcp": {
+      "count": 0,
+      "evidence_state": "observed"
+    }
+  },
+  "authority": [
+    {
+      "state": "observed",
+      "fact": "Interactive CLI user input reaches agent.run_sync."
+    },
+    {
+      "state": "observed",
+      "fact": "The agent can create Jira tickets, add Jira comments and open Jira issues in a browser."
+    },
+    {
+      "state": "observed",
+      "fact": "The agent can read and write the local task database and archive tasks."
+    },
+    {
+      "state": "observed",
+      "fact": "Jira credentials come from environment variables rather than literals."
+    }
+  ],
+  "policy_expectations": [
+    {
+      "rule_id": "AGT022",
+      "state": "observed",
+      "reason": "Multiple state-changing Jira/local task tools have no human approval boundary."
+    },
+    {
+      "rule_id": "AGT040",
+      "state": "observed",
+      "reason": "Privileged external/local data-write tools are directly model-callable without approval/guardrail."
+    },
+    {
+      "rule_id": "CAP005",
+      "state": "observed",
+      "reason": "The same agent combines Jira/task data reads with state-changing writes."
+    },
+    {
+      "rule_id": "PATH002",
+      "state": "observed",
+      "reason": "Untrusted interactive CLI input can drive destructive/state-changing operations including task archival and external Jira mutation."
+    }
+  ],
+  "unresolved": [
+    "Jira server destination is environment-configured but not model-selected; no broad-network finding is asserted."
+  ],
+  "evidence": [
+    "ramon/agent.py",
+    "ramon/cli.py",
+    "ramon/plugins/jira.py",
+    "ramon/models.py"
+  ]
+}

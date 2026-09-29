@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "study": "blind-semantic-cohort-2026",
+  "cohort_version": 1,
+  "status": "frozen_before_horustrace_result_review",
+  "source_cohort": "research/real-world-agent-security-2026/cohort.json",
+  "selection": {
+    "horustrace_results_used_for_selection": false,
+    "excluded_semantic_tuning_cases": [
+      "rw-022",
+      "rw-085",
+      "rw-129",
+      "rw-158",
+      "rw-058",
+      "rw-003",
+      "rw-096"
+    ],
+    "excluded_human_validation_case_ids": [
+      "rw-005",
+      "rw-007",
+      "rw-034",
+      "rw-036",
+      "rw-008",
+      "rw-047",
+      "rw-086",
+      "rw-078",
+      "rw-080",
+      "rw-155",
+      "rw-009",
+      "rw-118",
+      "rw-154",
+      "rw-076",
+      "rw-116",
+      "rw-148",
+      "rw-147",
+      "rw-004",
+      "rw-041"
+    ],
+    "eligible_only_if_previously_studied_false": true,
+    "deterministic_rule": "Within each framework_stratum, sort eligible cases lexicographically by the final 12 hex characters of the pinned repository SHA. Select one FastAgent case (only one eligible after exclusions) and the first two cases in every other stratum.",
+    "target_count": 11
+  },
+  "cases": [
+    {
+      "case_id": "rw-002",
+      "repo": "omnigentx/jarvis",
+      "sha": "90d1eb1620912e752be2e6fe8156923a0394216d",
+      "application_path": "backend/agent.py",
+      "framework_stratum": "fastagent"
+    },
+    {
+      "case_id": "rw-038",
+      "repo": "elitepunith/apdm-agent",
+      "sha": "c2f30462bc8663bec5c4046dc62006f52889c19a",
+      "application_path": "agent.py",
+      "framework_stratum": "google-adk"
+    },
+    {
+      "case_id": "rw-026",
+      "repo": "devchilll/scope",
+      "sha": "8a6e5f0b3a48bf2724d53c77e11507bea4e2ac8e",
+      "application_path": "scope/agent.py",
+      "framework_stratum": "google-adk"
+    },
+    {
+      "case_id": "rw-071",
+      "repo": "kaarthik108/snowChat",
+      "sha": "d0c2520e5a785f3a0fe496630a510015ef04c342",
+      "application_path": "agent.py",
+      "framework_stratum": "langgraph"
+    },
+    {
+      "case_id": "rw-066",
+      "repo": "t-redactyl/language-learning-agent",
+      "sha": "920caf19bd2b8e81523d8c326afb06e9856ac7dc",
+      "application_path": "main.py",
+      "framework_stratum": "langgraph"
+    },
+    {
+      "case_id": "rw-110",
+      "repo": "7bernie/meridian-chatbot",
+      "sha": "d8be1cf5ddf4bda6a38e30d4e857031df3199039",
+      "application_path": "agent.py",
+      "framework_stratum": "mcp-custom"
+    },
+    {
+      "case_id": "rw-081",
+      "repo": "Frostday/Agent4Molecule",
+      "sha": "131f7f8898a15a90e6e9faa9131c0fd4bb706797",
+      "application_path": "mcp_agent/client.py",
+      "framework_stratum": "mcp-custom"
+    },
+    {
+      "case_id": "rw-140",
+      "repo": "indrazm/ai-discord-bot",
+      "sha": "c2fb1924fc8efe7b2eed3929396f0281ae162585",
+      "application_path": "app/llm/agent.py",
+      "framework_stratum": "openai-agents"
+    },
+    {
+      "case_id": "rw-121",
+      "repo": "DunaSpice/JetsonMind",
+      "sha": "4dde749d932478c55c43de935efa21a67830fac5",
+      "application_path": "core/agents_system.py",
+      "framework_stratum": "openai-agents"
+    },
+    {
+      "case_id": "rw-165",
+      "repo": "abuiles/ramon",
+      "sha": "890b364018b8aea2ec50405cdde700fe824a9082",
+      "application_path": "ramon/agent.py",
+      "framework_stratum": "pydantic-ai"
+    },
+    {
+      "case_id": "rw-180",
+      "repo": "kai-feinberg/reddit-agent",
+      "sha": "f4503c6076c1e43d91d25f9feddf014c605c62e7",
+      "application_path": "ai_agent.py",
+      "framework_stratum": "pydantic-ai"
+    }
+  ]
+}

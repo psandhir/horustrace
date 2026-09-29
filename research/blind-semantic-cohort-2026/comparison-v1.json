@@ -1,0 +1,426 @@
+{
+  "schema_version": 1,
+  "study": "blind-semantic-cohort-2026",
+  "cohort_version": 1,
+  "comparison_status": "complete",
+  "scanner": {
+    "sha": "c881c223fd40c8a5025c80efdbcf55ef9eb1dbf3",
+    "workflow_run_id": 36489954757,
+    "artifact_id": 11000783471,
+    "artifact_name": "frozen-180-postfix-c881c223fd40c8a5025c80efdbcf55ef9eb1dbf3",
+    "artifact_digest": "sha256:a8df9ad6be2e83b9a8d3edb4c153a536920c6e682ebd5cdc671c2cceb14874ea"
+  },
+  "methodology": {
+    "source_reviews_locked_before_scanner_reveal": true,
+    "scanner_changes_before_all_comparisons": false,
+    "note": "Rule-contract reconciliation treats NET001 and NET002 as alternative states: NET001 for broad/dynamic destinations, NET002 when outbound capability exists but destination constraint remains unresolved."
+  },
+  "cases": [
+    {
+      "case_id": "rw-002",
+      "repo": "omnigentx/jarvis",
+      "framework": "fastagent",
+      "verdict": "scanner_gap",
+      "confidence": "high",
+      "scanner_observed": {
+        "agents": 9,
+        "tools": 99,
+        "mcp_servers": 17,
+        "findings": 11,
+        "attack_paths": 0,
+        "rules": [
+          "NET001",
+          "AGT032",
+          "AGT053"
+        ]
+      },
+      "agreements": [
+        "Broad MCP surface and privileged in-repository MCP tools are structurally discovered."
+      ],
+      "mismatches": [
+        {
+          "kind": "authority_binding",
+          "status": "confirmed_scanner_gap",
+          "detail": "FastAgent decorator server bindings are not propagated into effective MCP authority; AGT053 findings are unattributed (agent=null) despite source-level per-agent server lists."
+        },
+        {
+          "kind": "policy_detection",
+          "status": "probable_scanner_gap",
+          "detail": "Unpinned package runners in fastagent.config.yaml, including an explicit @latest MCP package, do not produce AGT050."
+        },
+        {
+          "kind": "scope_precision",
+          "status": "review_needed",
+          "detail": "Four findings originate from application-support MCP-builder code rather than the primary runtime path; they should remain distinguishable from runtime authority."
+        }
+      ]
+    },
+    {
+      "case_id": "rw-038",
+      "repo": "elitepunith/apdm-agent",
+      "framework": "google-adk",
+      "verdict": "substantial_agreement",
+      "confidence": "high",
+      "scanner_observed": {
+        "agents": 1,
+        "mcp_servers": 0,
+        "findings": 1,
+        "attack_paths": 0,
+        "rules": [
+          "NET001"
+        ]
+      },
+      "agreements": [
+        "One ADK principal is recovered.",
+        "Arbitrary model-selected URL reachability is reported as NET001."
+      ],
+      "reviewer_corrections": [
+        "The blind review initially expected both NET001 and NET002. Built-in semantics make these alternative states; NET001 is the correct finding when a broad/dynamic destination is observed."
+      ],
+      "mismatches": []
+    },
+    {
+      "case_id": "rw-026",
+      "repo": "devchilll/scope",
+      "framework": "google-adk",
+      "verdict": "scanner_gap",
+      "confidence": "high",
+      "scanner_observed": {
+        "agents": 1,
+        "tools": 1,
+        "mcp_servers": 0,
+        "findings": 0,
+        "attack_paths": 0,
+        "rules": []
+      },
+      "agreements": [
+        "The ADK root agent is detected."
+      ],
+      "mismatches": [
+        {
+          "kind": "tool_binding",
+          "status": "confirmed_scanner_gap",
+          "detail": "Source binds ALL_TOOLS = BANKING_TOOLS + OBSERVABILITY_TOOLS (13 tools), but HorusTrace recovers only one tool and emits no authority findings."
+        },
+        {
+          "kind": "policy_detection",
+          "status": "downstream_of_binding_gap",
+          "detail": "ADK001, AGT022 and CAP005 cannot fire because imported list composition is not resolved into effective agent authority."
+        }
+      ]
+    },
+    {
+      "case_id": "rw-071",
+      "repo": "kaarthik108/snowChat",
+      "framework": "langgraph",
+      "verdict": "mixed",
+      "confidence": "medium",
+      "scanner_observed": {
+        "agents": 1,
+        "tools": 4,
+        "mcp_servers": 0,
+        "findings": 0,
+        "attack_paths": 0,
+        "rules": []
+      },
+      "agreements": [
+        "No destructive SQL finding is emitted even though sql_executor_tool exists in source; it is not bound to the graph. This is an important effective-authority precision success."
+      ],
+      "mismatches": [
+        {
+          "kind": "trust_flow",
+          "status": "probable_scanner_gap",
+          "detail": "Streamlit chat input reaches a LangGraph compiled with MemorySaver checkpointer, but no PATH007 is built. The rule catalogue explicitly includes agent memory/checkpoint writes; whether in-memory MemorySaver should count remains a product-semantics decision."
+        },
+        {
+          "kind": "structural_tool_projection",
+          "status": "representation_noise",
+          "detail": "Scanner structural tool count exceeds the two source-effective ToolNode bindings, but this does not currently create privileged findings."
+        }
+      ]
+    },
+    {
+      "case_id": "rw-066",
+      "repo": "t-redactyl/language-learning-agent",
+      "framework": "langgraph",
+      "verdict": "mostly_unresolved",
+      "confidence": "medium",
+      "scanner_observed": {
+        "agents": 1,
+        "tools": 5,
+        "mcp_servers": 1,
+        "findings": 0,
+        "attack_paths": 0,
+        "rules": []
+      },
+      "agreements": [
+        "LangGraph principal and local stdio MCP construction are recovered."
+      ],
+      "mismatches": [],
+      "unresolved": [
+        "The MCP implementation is an absolute external JavaScript path not present in the repository, so privileged/state-changing MCP authority cannot be source-proven.",
+        "AGT052 was only inferred in the blind review and is not treated as a confirmed miss."
+      ]
+    },
+    {
+      "case_id": "rw-110",
+      "repo": "7bernie/meridian-chatbot",
+      "framework": "mcp-custom",
+      "verdict": "scanner_gap",
+      "confidence": "high",
+      "scanner_observed": {
+        "agents": 1,
+        "tools": 0,
+        "mcp_servers": 1,
+        "findings": 2,
+        "attack_paths": 0,
+        "rules": [
+          "NET001",
+          "AGT032"
+        ]
+      },
+      "agreements": [
+        "Custom model/tool loop principal is recognized.",
+        "Dynamic remote destination NET001 and unrestricted remote catalogue AGT032 are recovered.",
+        "AGT031 is correctly absent because the observed default endpoint is HTTPS."
+      ],
+      "mismatches": [
+        {
+          "kind": "authentication_semantics",
+          "status": "confirmed_scanner_gap",
+          "detail": "The streamable-HTTP client is constructed with no auth parameter and headers only Accept/User-Agent, yet MCP authentication remains unknown and AGT030 is missed."
+        }
+      ]
+    },
+    {
+      "case_id": "rw-081",
+      "repo": "Frostday/Agent4Molecule",
+      "framework": "mcp-custom",
+      "verdict": "scanner_gap",
+      "confidence": "high",
+      "scanner_observed": {
+        "agents": 0,
+        "tools": 42,
+        "mcp_servers": 6,
+        "findings": 30,
+        "attack_paths": 0,
+        "rules": [
+          "AGT020",
+          "AGT053"
+        ]
+      },
+      "agreements": [
+        "In-repository MCP servers and process-executing tools are discovered; AGT020 captures process execution risk."
+      ],
+      "mismatches": [
+        {
+          "kind": "agent_discovery_and_binding",
+          "status": "confirmed_scanner_gap",
+          "detail": "MCPClient implements a source-proven Gemini model -> list_tools -> function_call -> call_tool loop, but no agent is created and no MCP authority is bound to a principal."
+        },
+        {
+          "kind": "state_change_capability",
+          "status": "probable_scanner_gap",
+          "detail": "File/workspace-writing MCP operations do not produce AGT022."
+        },
+        {
+          "kind": "rule_contract_precision",
+          "status": "confirmed_semantic_issue",
+          "detail": "AGT053 is documented as a bound-MCP rule, yet three AGT053 findings are emitted with agent=null. With caller-selected sys.argv server binding, exact effective binding is unresolved and should not be promoted to an unconditional bound-MCP finding."
+        }
+      ]
+    },
+    {
+      "case_id": "rw-140",
+      "repo": "indrazm/ai-discord-bot",
+      "framework": "openai-agents",
+      "verdict": "mixed",
+      "confidence": "high",
+      "scanner_observed": {
+        "agents": 1,
+        "tools": 8,
+        "mcp_servers": 0,
+        "findings": 0,
+        "attack_paths": 0,
+        "rules": []
+      },
+      "agreements": [
+        "Effective authority matches the four runtime function tools.",
+        "Inactive @upstash/context7-mcp@latest constructor is correctly not promoted to an effective MCP server or AGT050 finding."
+      ],
+      "reviewer_corrections": [
+        "NET001, not NET001+NET002, is the expected network state when arbitrary/dynamic URL authority is source-proven."
+      ],
+      "mismatches": [
+        {
+          "kind": "network_scope",
+          "status": "confirmed_scanner_gap",
+          "detail": "Model-callable GitHub ingest and Tavily crawl/scrape accept URL arguments without a destination allowlist, but no NET001 is emitted."
+        }
+      ]
+    },
+    {
+      "case_id": "rw-121",
+      "repo": "DunaSpice/JetsonMind",
+      "framework": "openai-agents",
+      "verdict": "mixed_low_security_impact",
+      "confidence": "medium",
+      "scanner_observed": {
+        "agents": 1,
+        "tools": 3,
+        "mcp_servers": 21,
+        "findings": 0,
+        "attack_paths": 0,
+        "rules": []
+      },
+      "agreements": [
+        "No privileged findings are fabricated from adjacent MCP code that is not bound to the reviewed agent system."
+      ],
+      "mismatches": [
+        {
+          "kind": "dynamic_factory_principals",
+          "status": "probable_structural_gap",
+          "detail": "demo() source creates at least future_analyst and strategic_planner through AgentOrchestrator.create_agent, while the scanner represents one agent principal."
+        },
+        {
+          "kind": "repository_topology_noise",
+          "status": "representation_noise",
+          "detail": "Twenty-one MCP servers from adjacent repository subsystems are structurally visible despite no effective binding to the reviewed principals; zero findings mitigates security-impact noise."
+        }
+      ]
+    },
+    {
+      "case_id": "rw-165",
+      "repo": "abuiles/ramon",
+      "framework": "pydantic-ai",
+      "verdict": "scanner_gap",
+      "confidence": "high",
+      "scanner_observed": {
+        "agents": 1,
+        "tools": 11,
+        "mcp_servers": 0,
+        "findings": 6,
+        "attack_paths": 0,
+        "rules": [
+          "AGT022",
+          "AGT040",
+          "CAP005",
+          "NET002"
+        ]
+      },
+      "agreements": [
+        "Agent is detected.",
+        "State-changing Jira/task tools are recognized by AGT022/AGT040.",
+        "Combined read/write authority CAP005 is recovered."
+      ],
+      "mismatches": [
+        {
+          "kind": "trust_flow",
+          "status": "confirmed_scanner_gap",
+          "detail": "Interactive Click CLI input flows to agent.run_sync and source-proven state-changing tools, but no PATH002 is built."
+        },
+        {
+          "kind": "tool_recall",
+          "status": "minor_structural_gap",
+          "detail": "Eleven of twelve source-declared @agent.tool functions are recovered."
+        }
+      ],
+      "notes": [
+        "NET002 is plausible because Jira external-write authority is environment-configured and no explicit destination allowlist is represented; it is not classified as a false positive here."
+      ]
+    },
+    {
+      "case_id": "rw-180",
+      "repo": "kai-feinberg/reddit-agent",
+      "framework": "pydantic-ai",
+      "verdict": "substantial_agreement",
+      "confidence": "high",
+      "scanner_observed": {
+        "agents": 1,
+        "tools": 1,
+        "mcp_servers": 0,
+        "findings": 0,
+        "attack_paths": 0,
+        "rules": []
+      },
+      "agreements": [
+        "One Pydantic AI principal and its single read-only search tool are recovered.",
+        "No state-changing or broad-network finding is emitted for a source-constrained Brave/Reddit workflow."
+      ],
+      "mismatches": []
+    }
+  ],
+  "synthesis": {
+    "clear_or_substantial_agreement_cases": [
+      "rw-038",
+      "rw-066",
+      "rw-180"
+    ],
+    "mixed_precision_success_cases": [
+      "rw-071",
+      "rw-140",
+      "rw-121"
+    ],
+    "confirmed_high_value_gap_cases": [
+      "rw-002",
+      "rw-026",
+      "rw-081",
+      "rw-110",
+      "rw-165"
+    ],
+    "recurring_gap_families": [
+      {
+        "priority": 1,
+        "family": "effective_authority_binding",
+        "cases": [
+          "rw-002",
+          "rw-026",
+          "rw-081"
+        ],
+        "description": "Entities are often discovered, but source-proven per-agent bindings through FastAgent server lists, imported list composition, and custom MCP model/tool loops are lost."
+      },
+      {
+        "priority": 2,
+        "family": "trust_flow_to_privileged_state",
+        "cases": [
+          "rw-165",
+          "rw-071"
+        ],
+        "description": "User ingress reaches an agent and state/checkpoint mutation, but PATH construction is absent. rw-165 is confirmed; rw-071 depends on MemorySaver semantics."
+      },
+      {
+        "priority": 3,
+        "family": "network_and_auth_semantics",
+        "cases": [
+          "rw-110",
+          "rw-140"
+        ],
+        "description": "Remote MCP no-auth evidence and model-selected URL destinations are not fully converted into policy findings."
+      },
+      {
+        "priority": 4,
+        "family": "rule_contract_precision",
+        "cases": [
+          "rw-081",
+          "rw-002"
+        ],
+        "description": "AGT053 can be emitted without an effective agent binding even though the documented rule is specifically bound-MCP authority."
+      },
+      {
+        "priority": 5,
+        "family": "dynamic_factory_structural_recall",
+        "cases": [
+          "rw-121"
+        ],
+        "description": "Dynamic agent factory instances can collapse into one structural principal; low immediate security impact without privileged authority."
+      }
+    ],
+    "next_build_order": [
+      "Fix reusable authority-binding primitives first: imported tool-list composition, FastAgent per-agent MCP binding, custom MCP model/tool-loop binding.",
+      "Add CLI/Streamlit trust propagation only where source proves the concrete agent invocation and privileged/state sink.",
+      "Improve authentication/destination evidence extraction for custom remote MCP and URL-taking function tools.",
+      "Reconcile AGT053 implementation with its documented bound-MCP contract before expanding more MCP heuristics.",
+      "Rerun this frozen 11-case cohort and the full Frozen-180 precision gates after each tranche."
+    ]
+  }
+}

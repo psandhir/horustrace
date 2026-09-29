@@ -1,0 +1,72 @@
+{
+  "case_id": "rw-110",
+  "repo_name": "7bernie/meridian-chatbot",
+  "sha": "d8be1cf5ddf4bda6a38e30d4e857031df3199039",
+  "source_review_status": "locked_before_horustrace_reveal",
+  "structural": {
+    "agents": {
+      "count": 1,
+      "evidence_state": "observed",
+      "note": "Custom Agent implements a complete LLM -> tools -> model-selected dispatch loop."
+    },
+    "tools": {
+      "count": "dynamic_remote_catalogue",
+      "evidence_state": "observed"
+    },
+    "mcp": {
+      "construction_instances": 1,
+      "evidence_state": "observed",
+      "note": "Remote streamable-HTTP MCP endpoint, defaulting to a Cloud Run HTTPS URL and overrideable by constructor/environment."
+    }
+  },
+  "authority": [
+    {
+      "state": "observed",
+      "fact": "session.list_tools() is converted wholesale into OpenAI tool definitions and exposed to the model."
+    },
+    {
+      "state": "observed",
+      "fact": "Model-selected tool calls are dispatched directly through session.call_tool."
+    },
+    {
+      "state": "observed",
+      "fact": "No Authorization or other authentication header is configured in the MCP HTTP client."
+    },
+    {
+      "state": "observed",
+      "fact": "Streamlit user chat input reaches the custom agent loop."
+    }
+  ],
+  "policy_expectations": [
+    {
+      "rule_id": "AGT030",
+      "state": "observed",
+      "reason": "Remote MCP is used without recognized authentication."
+    },
+    {
+      "rule_id": "AGT032",
+      "state": "observed",
+      "reason": "All remote list_tools results are exposed to the model without an explicit allowlist."
+    },
+    {
+      "rule_id": "NET001",
+      "state": "observed",
+      "reason": "The MCP endpoint can be caller/environment selected and no destination restriction is present."
+    }
+  ],
+  "forbidden_expectations": [
+    {
+      "rule_id": "AGT031",
+      "state": "observed",
+      "reason": "The default observed endpoint is HTTPS; dynamic override alone does not prove plaintext transport."
+    }
+  ],
+  "unresolved": [
+    "Remote tool capabilities are not statically known, so destructive/data attack paths cannot be established from this repository alone."
+  ],
+  "evidence": [
+    "agent.py",
+    "mcp_client.py",
+    "app.py"
+  ]
+}

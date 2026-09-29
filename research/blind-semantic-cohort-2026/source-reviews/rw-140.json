@@ -1,0 +1,71 @@
+{
+  "case_id": "rw-140",
+  "repo_name": "indrazm/ai-discord-bot",
+  "sha": "c2fb1924fc8efe7b2eed3929396f0281ae162585",
+  "source_review_status": "locked_before_horustrace_reveal",
+  "structural": {
+    "agents": {
+      "count": 1,
+      "evidence_state": "observed",
+      "note": "One OpenAI Agents SDK agent is constructed per run_agent invocation."
+    },
+    "tools": {
+      "count": 4,
+      "evidence_state": "observed",
+      "note": "GitHub ingest plus Tavily search/crawl/scrape."
+    },
+    "mcp": {
+      "effective_count": 0,
+      "evidence_state": "observed",
+      "note": "get_context7_mcp_server defines an @latest stdio MCP constructor, but get_all_mcp_servers returns an empty list so run_agent receives no active MCP servers."
+    }
+  },
+  "authority": [
+    {
+      "state": "observed",
+      "fact": "Discord message content and attachments reach the agent as untrusted input."
+    },
+    {
+      "state": "observed",
+      "fact": "The agent can ingest model-selected GitHub repository URLs and crawl/scrape model-selected web URLs."
+    },
+    {
+      "state": "observed",
+      "fact": "No MCP server is effective in the reviewed runtime path because get_all_mcp_servers returns []."
+    }
+  ],
+  "policy_expectations": [
+    {
+      "rule_id": "NET001",
+      "state": "observed",
+      "reason": "Model-selected URL arguments reach GitHub/Tavily network tools without a repository-level destination allowlist."
+    },
+    {
+      "rule_id": "NET002",
+      "state": "observed",
+      "reason": "Crawl/scrape capability accepts arbitrary URL destinations."
+    }
+  ],
+  "forbidden_expectations": [
+    {
+      "rule_id": "AGT050",
+      "state": "observed",
+      "reason": "The @upstash/context7-mcp@latest constructor is not activated or bound into the effective agent runtime."
+    },
+    {
+      "rule_id": "AGT053",
+      "state": "observed",
+      "reason": "No effective MCP binding exists in this runtime path."
+    }
+  ],
+  "unresolved": [
+    "Whether the third-party gitingest/Tavily clients themselves impose destination restrictions beyond the source-visible arguments."
+  ],
+  "evidence": [
+    "app/llm/agent.py",
+    "app/llm/mcps.py",
+    "app/llm/tools/github.py",
+    "app/llm/tools/tavily.py",
+    "app/discord/handler.py"
+  ]
+}

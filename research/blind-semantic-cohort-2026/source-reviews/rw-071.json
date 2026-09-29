@@ -1,0 +1,67 @@
+{
+  "case_id": "rw-071",
+  "repo_name": "kaarthik108/snowChat",
+  "sha": "d0c2520e5a785f3a0fe496630a510015ef04c342",
+  "source_review_status": "locked_before_horustrace_reveal",
+  "structural": {
+    "agents": {
+      "count": 1,
+      "evidence_state": "observed",
+      "note": "One compiled LangGraph ReAct-style workflow."
+    },
+    "tools": {
+      "count": 2,
+      "evidence_state": "observed",
+      "note": "Only retriever_tool and DuckDuckGo search are bound; sql_executor_tool is imported but not included in tools."
+    },
+    "mcp": {
+      "count": 0,
+      "evidence_state": "observed"
+    }
+  },
+  "authority": [
+    {
+      "state": "observed",
+      "fact": "Streamlit chat input reaches the LangGraph agent."
+    },
+    {
+      "state": "observed",
+      "fact": "The agent can query a Supabase-backed schema retriever and DuckDuckGo search."
+    },
+    {
+      "state": "observed",
+      "fact": "sql_executor_tool exists in tools.py but is not bound into llm.bind_tools or ToolNode and therefore is not effective model authority."
+    },
+    {
+      "state": "observed",
+      "fact": "The graph is compiled with MemorySaver checkpointing."
+    }
+  ],
+  "policy_expectations": [
+    {
+      "rule_id": "PATH007",
+      "state": "inferred",
+      "reason": "Untrusted Streamlit chat input is written into a LangGraph checkpointer via MemorySaver; this is checkpoint authority even though storage is in-memory."
+    }
+  ],
+  "forbidden_expectations": [
+    {
+      "rule_id": "AGT021",
+      "state": "observed",
+      "reason": "The Snowflake SQL executor is not bound to the effective graph tools."
+    },
+    {
+      "rule_id": "AGT022",
+      "state": "observed",
+      "reason": "No effective state-changing SQL tool is bound to the model."
+    }
+  ],
+  "unresolved": [
+    "Whether HorusTrace treats in-memory LangGraph MemorySaver as PATH007-worthy checkpoint write or limits the path to persistent memory."
+  ],
+  "evidence": [
+    "agent.py",
+    "main.py",
+    "tools.py"
+  ]
+}

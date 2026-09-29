@@ -1,0 +1,62 @@
+{
+  "case_id": "rw-121",
+  "repo_name": "DunaSpice/JetsonMind",
+  "sha": "4dde749d932478c55c43de935efa21a67830fac5",
+  "source_review_status": "locked_before_horustrace_reveal",
+  "structural": {
+    "agents": {
+      "count_min": 2,
+      "evidence_state": "observed",
+      "note": "demo() creates future_analyst and strategic_planner through AgentOrchestrator; the orchestrator can create additional agents dynamically."
+    },
+    "tools": {
+      "count_min": 2,
+      "evidence_state": "observed",
+      "note": "Per-agent thinking tools are generated according to ThinkingMode."
+    },
+    "mcp": {
+      "effective_count": 0,
+      "evidence_state": "observed",
+      "note": "core/mcp_config.json exists but core/agents_system.py does not bind MCP into the reviewed Agents SDK principals."
+    }
+  },
+  "authority": [
+    {
+      "state": "observed",
+      "fact": "AgentOrchestrator dynamically constructs OpenAI Agents SDK Agent instances and stores them by name."
+    },
+    {
+      "state": "observed",
+      "fact": "Generated thinking tools return local analytical data structures and do not perform privileged I/O."
+    },
+    {
+      "state": "observed",
+      "fact": "The reviewed agent system has no tool handoffs or MCP authority despite adjacent MCP code/config elsewhere in the repository."
+    }
+  ],
+  "policy_expectations": [],
+  "forbidden_expectations": [
+    {
+      "rule_id": "AGT020",
+      "state": "observed",
+      "reason": "Reviewed thinking tools do not execute processes."
+    },
+    {
+      "rule_id": "AGT022",
+      "state": "observed",
+      "reason": "Reviewed thinking tools do not mutate external/application state."
+    },
+    {
+      "rule_id": "AGT053",
+      "state": "observed",
+      "reason": "No MCP server is bound to the reviewed Agents SDK principals."
+    }
+  ],
+  "unresolved": [
+    "Other repository subsystems contain many MCP/server implementations, but source linkage from those systems to core/agents_system.py is not established in the reviewed path."
+  ],
+  "evidence": [
+    "core/agents_system.py",
+    "core/mcp_config.json"
+  ]
+}

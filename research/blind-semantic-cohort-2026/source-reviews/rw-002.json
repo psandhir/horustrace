@@ -1,0 +1,70 @@
+{
+  "case_id": "rw-002",
+  "repo_name": "omnigentx/jarvis",
+  "sha": "90d1eb1620912e752be2e6fe8156923a0394216d",
+  "source_review_status": "locked_before_horustrace_reveal",
+  "structural": {
+    "agents": {
+      "count_min": 8,
+      "evidence_state": "observed",
+      "note": "Seven named specialist agents plus Jarvis are declared in backend/agent.py; runtime spawner may create additional dynamic agents."
+    },
+    "delegation": {
+      "evidence_state": "observed",
+      "note": "Jarvis exposes named subagents and optional agent_spawner/team orchestration."
+    },
+    "mcp": {
+      "evidence_state": "observed",
+      "note": "Per-agent server bindings plus a large FastAgent MCP catalogue are source-defined in backend/agent.py and backend/fastagent.config.yaml."
+    }
+  },
+  "authority": [
+    {
+      "state": "observed",
+      "fact": "Jarvis can delegate to specialist agents and conditionally create/spawn additional agents."
+    },
+    {
+      "state": "observed",
+      "fact": "Multiple agents have durable memory read/write authority through memory_server; caller identity is transport-bound and missing identity fails closed."
+    },
+    {
+      "state": "observed",
+      "fact": "Jarvis can access self-managed MCP catalogue functionality through mcp_admin and optional agent_spawner authority."
+    },
+    {
+      "state": "observed",
+      "fact": "ResearchAgent has web search/scraping and browser-control server access."
+    },
+    {
+      "state": "observed",
+      "fact": "PersonalAgent combines Gmail, Calendar, cron, scraping and memory authority."
+    }
+  ],
+  "policy_expectations": [
+    {
+      "rule_id": "AGT050",
+      "state": "observed",
+      "reason": "Several stdio MCP packages are launched through unpinned npx/uv package references; chrome-devtools explicitly uses @latest."
+    },
+    {
+      "rule_id": "CAP005",
+      "state": "observed",
+      "reason": "PersonalAgent combines data read/write-style productivity authority and persistent memory; Jarvis aggregates multiple stateful authorities."
+    },
+    {
+      "rule_id": "AGT053",
+      "state": "inferred",
+      "reason": "Jarvis-bound in-repo MCP servers include privileged/state-changing administration and memory tools; approval enforcement is tool-specific and requires deeper server review."
+    }
+  ],
+  "unresolved": [
+    "Whether remote serpapi authentication is recognized by HorusTrace AGT030 semantics.",
+    "Whether every mcp_admin/skill_server mutation has an approval boundary in the RPC backend.",
+    "Exact effective tool counts for dynamic agent_spawner and generated MCP catalogue."
+  ],
+  "evidence": [
+    "backend/agent.py",
+    "backend/fastagent.config.yaml",
+    "backend/tools/memory_server.py"
+  ]
+}

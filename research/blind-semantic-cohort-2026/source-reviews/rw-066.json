@@ -1,0 +1,53 @@
+{
+  "case_id": "rw-066",
+  "repo_name": "t-redactyl/language-learning-agent",
+  "sha": "920caf19bd2b8e81523d8c326afb06e9856ac7dc",
+  "source_review_status": "locked_before_horustrace_reveal",
+  "structural": {
+    "agents": {
+      "count": 1,
+      "evidence_state": "observed",
+      "note": "One LangGraph assistant workflow."
+    },
+    "tools": {
+      "count_min": 3,
+      "evidence_state": "observed",
+      "note": "Three local tools plus all tools dynamically returned by the clanki MCP server."
+    },
+    "mcp": {
+      "construction_instances": 1,
+      "evidence_state": "observed",
+      "note": "One local stdio MCP client to a fixed external JavaScript path."
+    }
+  },
+  "authority": [
+    {
+      "state": "observed",
+      "fact": "The model receives all local tools plus the complete MCP list_tools catalogue without an allowlist/filter."
+    },
+    {
+      "state": "inferred",
+      "fact": "The MCP catalogue includes state-changing Anki operations such as create-deck/create-card, based on source-level workflow instructions, but the server implementation is outside the repository."
+    },
+    {
+      "state": "observed",
+      "fact": "The checked-in main() uses a fixed demonstration prompt rather than interactive user input."
+    }
+  ],
+  "policy_expectations": [
+    {
+      "rule_id": "AGT052",
+      "state": "inferred",
+      "reason": "The full local MCP catalogue is exposed without an explicit per-tool restriction; whether this qualifies as explicitly broad surface depends on scanner semantics."
+    }
+  ],
+  "unresolved": [
+    "Exact MCP tool catalogue and implementation are unavailable because CLANKI_JS points outside the repository.",
+    "State-changing authority is source-indicated by tool names/workflow instructions but not implementation-proven.",
+    "No untrusted-input attack path is asserted from the checked-in fixed demonstration prompt."
+  ],
+  "evidence": [
+    "main.py",
+    "agent/tools.py"
+  ]
+}
