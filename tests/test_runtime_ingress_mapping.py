@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from horustrace.analysis import build_attack_paths
+from horustrace.models import Agent, Graph, InputSource, MCPServer
 from horustrace.scanner import scan
 
 
@@ -319,3 +321,36 @@ def build_http(holder: Holder):
         item.metadata.get("basis") == "source_bound_runtime_ingress"
         for item in agent.inputs
     )
+
+
+def test_runtime_bound_ingress_reaches_state_changing_mcp() -> None:
+    server = MCPServer(
+        name="workspace",
+        transport="stdio",
+        metadata={"discovered_tool_capabilities": ["data.write"]},
+    )
+    agent = Agent(
+        name="agent",
+        inputs=[
+            InputSource(
+                name="web.prompt",
+                trust="untrusted",
+                kind="web",
+                metadata={
+                    "basis": "source_bound_runtime_ingress",
+                    "runtime_invocation_proven": True,
+                },
+            )
+        ],
+        mcp_servers=[server],
+    )
+
+    path = next(
+        item
+        for item in build_attack_paths(Graph(agents=[agent]))
+        if item.path_id == "PATH002"
+        and item.metadata.get("target_kind") == "mcp_server"
+    )
+
+    assert path.nodes == ["web.prompt", "agent", "workspace", "data.write"]
+    assert path.metadata["basis"] == "source_bound_ingress_authority"
