@@ -6,8 +6,6 @@ concrete runtime receiver (a normalized agent class, a compiled LangGraph alias,
 a wrapper class that constructs a source-proven agent factory) and a handler-derived
 value passed into that receiver.
 """
-from __future__ import annotations
-
 import ast
 from pathlib import Path
 
