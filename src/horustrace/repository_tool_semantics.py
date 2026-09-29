@@ -4,7 +4,7 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 
-from horustrace.models import Graph, InputSource, SourceLocation, Tool
+from horustrace.models import Graph, InputSource, Tool
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,9 +127,11 @@ def _containment_detected(
             receiver = child.func.value if isinstance(child.func, ast.Attribute) else None
             if _expr_names(receiver) & tainted:
                 return True
-        if called in {"os.path.commonpath", "posixpath.commonpath", "ntpath.commonpath"}:
-            if _expr_names(child) & tainted:
-                return True
+        if (
+            called in {"os.path.commonpath", "posixpath.commonpath", "ntpath.commonpath"}
+            and _expr_names(child) & tainted
+        ):
+            return True
     return False
 
 
