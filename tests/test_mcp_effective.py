@@ -4,7 +4,8 @@ from pathlib import Path
 from horustrace.cli import main
 from horustrace.mcp_effective import effective_mcp_authority_report
 from horustrace.models import Agent, Graph, Identity, MCPServer
-from horustrace.rules.builtin import evaluate\nfrom horustrace.scanner import scan
+from horustrace.rules.builtin import evaluate
+from horustrace.scanner import scan
 
 
 def _write_bound_fixture(root: Path) -> None:
