@@ -114,15 +114,16 @@ def _scanner_findings(result: dict[str, Any]) -> tuple[str, dict[str, dict[str, 
         if not isinstance(case, dict):
             continue
         case_id = str(case.get("case_id") or "")
-        for finding in case.get("findings", []) or []:
+        for index, finding in enumerate(case.get("findings", []) or []):
             if not isinstance(finding, dict):
                 continue
             fingerprint = str(finding.get("fingerprint") or "")
             if not fingerprint:
                 raise DifferentialError(f"{case_id}: finding missing fingerprint")
-            key = f"{case_id}:{fingerprint}"
+            key = f"{case_id}:{index}"
             rows[key] = {
                 "case_id": case_id,
+                "index": index,
                 "fingerprint": fingerprint,
                 "rule_id": finding.get("rule_id"),
                 "severity": finding.get("severity"),
@@ -130,6 +131,25 @@ def _scanner_findings(result: dict[str, Any]) -> tuple[str, dict[str, dict[str, 
                 "title": finding.get("title"),
             }
     return scanner_sha, rows
+
+
+def _fingerprint_collisions(
+    scanner_findings: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for row in scanner_findings.values():
+        groups.setdefault((row["case_id"], row["fingerprint"]), []).append(row)
+    return [
+        {
+            "case_id": case_id,
+            "fingerprint": fingerprint,
+            "count": len(rows),
+            "indexes": [row["index"] for row in rows],
+            "rules": [row["rule_id"] for row in rows],
+        }
+        for (case_id, fingerprint), rows in sorted(groups.items())
+        if len(rows) > 1
+    ]
 
 
 def _gpt_findings(review: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -199,11 +219,18 @@ def score(
             if not isinstance(ref, dict):
                 raise DifferentialError(f"{finding_id}: invalid HorusTrace reference")
             case_id = str(ref.get("case_id") or "")
+            index = ref.get("index")
             fingerprint = str(ref.get("fingerprint") or "")
-            key = f"{case_id}:{fingerprint}"
+            if not isinstance(index, int):
+                raise DifferentialError(f"{finding_id}: scanner reference index is required")
+            key = f"{case_id}:{index}"
             scanner_row = scanner_findings.get(key)
             if scanner_row is None:
                 raise DifferentialError(f"{finding_id}: unknown scanner finding {key}")
+            if fingerprint and scanner_row["fingerprint"] != fingerprint:
+                raise DifferentialError(
+                    f"{finding_id}: scanner fingerprint mismatch for {key}"
+                )
             if case_id != gpt_findings[finding_id]["case_id"]:
                 raise DifferentialError(f"{finding_id}: cross-case scanner match")
             matched_scanner_keys.add(key)
@@ -227,10 +254,15 @@ def score(
         if not isinstance(row, dict):
             raise DifferentialError("HorusTrace alignment row must be an object")
         case_id = str(row.get("case_id") or "")
+        index = row.get("index")
         fingerprint = str(row.get("fingerprint") or "")
-        key = f"{case_id}:{fingerprint}"
+        if not isinstance(index, int):
+            raise DifferentialError("scanner adjudication index is required")
+        key = f"{case_id}:{index}"
         if key not in scanner_findings:
             raise DifferentialError(f"unknown scanner finding {key}")
+        if fingerprint and scanner_findings[key]["fingerprint"] != fingerprint:
+            raise DifferentialError(f"scanner fingerprint mismatch for {key}")
         if key in seen_ht:
             raise DifferentialError(f"duplicate scanner adjudication {key}")
         seen_ht.add(key)
@@ -273,6 +305,7 @@ def score(
         },
         "horustrace_finding_adjudication": dict(sorted(ht_outcomes.items())),
         "severity_alignment_on_matches": dict(sorted(severity.items())),
+        "fingerprint_collisions": _fingerprint_collisions(scanner_findings),
         "attack_paths": attack,
         "notes": [
             "These are differential coverage metrics, not product precision/recall.",
