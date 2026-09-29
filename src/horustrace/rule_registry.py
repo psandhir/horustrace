@@ -97,6 +97,7 @@ RULE_REGISTRY: dict[str, RuleMetadata] = {
         _rule("PATH007", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential untrusted-input path to persistent memory write", "Untrusted input that reaches persistent agent memory or checkpoint state can influence later agent behavior.", "Validate and constrain untrusted content before persistent memory writes; isolate memory scope and require review for high-impact state."),
         _rule("PATH008", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential untrusted-input path through delegated agent to privileged action", "Untrusted input can reach an agent that delegates to another agent exposing a high-risk capability without detected approval.", "Constrain delegation targets, narrow child-agent authority, validate untrusted input, and enforce approval at the privileged action boundary."),
         _rule("PATH009", 5, Severity.MEDIUM, "attack_path", "potential_risk", "Potential untrusted-input path through delegated agent to unconstrained egress", "Untrusted input can reach a delegated agent with outbound authority and no detected destination constraint.", "Restrict delegated outbound tools to explicit destinations and validate untrusted input before external actions."),
+        _rule("PATH010", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential untrusted-input local file read to external service", "A model-selected local file path can be read and the resulting data can reach an external service without a detected filesystem containment boundary.", "Constrain model-selected paths to an explicit workspace or allowlist and prevent local file contents from reaching external services unless that transfer is explicitly intended and controlled."),
     )
 }
 
@@ -156,6 +157,7 @@ _OWASP_MAPPINGS = {
     "PATH007": ("ASI06",),
     "PATH008": ("ASI01", "ASI02", "ASI07"),
     "PATH009": ("ASI01", "ASI02", "ASI07"),
+    "PATH010": ("ASI01", "ASI02"),
 }
 
 RULE_REGISTRY = {

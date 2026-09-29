@@ -694,3 +694,162 @@ root_agent = Agent(
         for f in findings
     )
 
+
+
+def test_adk_model_selected_file_read_to_document_ai_is_proven_path(
+    tmp_path: Path,
+) -> None:
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    (tools / "__init__.py").write_text("", encoding="utf-8")
+    (tools / "document_ocr.py").write_text(
+        """
+import os
+from google.cloud import documentai_v1 as documentai
+
+
+def process_document_with_ocr(document_path: str) -> str:
+    if not os.path.isabs(document_path):
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        document_path = os.path.join(project_root, document_path)
+
+    with open(document_path, "rb") as handle:
+        document_content = handle.read()
+
+    raw_document = documentai.RawDocument(
+        content=document_content,
+        mime_type="application/pdf",
+    )
+    request = documentai.ProcessRequest(
+        name="projects/p/locations/us/processors/x",
+        raw_document=raw_document,
+    )
+    client = documentai.DocumentProcessorServiceClient()
+    return client.process_document(request=request)
+""",
+        encoding="utf-8",
+    )
+    write(
+        tmp_path,
+        """
+from google.adk.agents import Agent
+from tools.document_ocr import process_document_with_ocr
+
+root_agent = Agent(
+    name="document_processing_agent",
+    model="gemini-flash-latest",
+    tools=[process_document_with_ocr],
+)
+""",
+        "agent.py",
+    )
+
+    graph, findings = scan(tmp_path)
+
+    agent = next(a for a in graph.agents if a.name == "document_processing_agent")
+    tool = next(t for t in agent.tools if t.name == "process_document_with_ocr")
+
+    assert tool.metadata["model_selected_file_read"] is True
+    assert tool.metadata["filesystem_path_constrained"] is False
+    assert tool.metadata["file_read_external_transfer"] is True
+    assert any(
+        item.kind == "file" and item.selector == "*"
+        for item in tool.resources
+    )
+    assert any(
+        item.target == "https://documentai.googleapis.com/"
+        and item.metadata.get("network_scope") == "fixed_managed_service"
+        for item in tool.destinations
+    )
+    assert any(
+        f.rule_id == "DATA001" and f.agent == "document_processing_agent"
+        for f in findings
+    )
+    path = next(
+        item
+        for item in graph.attack_paths
+        if item.path_id == "PATH010"
+        and item.agent == "document_processing_agent"
+    )
+    assert path.metadata["basis"] == "source_proven_tool_dataflow"
+    assert path.metadata["path_containment"] == "not_detected"
+    assert any(
+        f.rule_id == "PATH010" and f.agent == "document_processing_agent"
+        for f in findings
+    )
+
+
+def test_adk_explicit_file_containment_suppresses_file_transfer_path(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        """
+from pathlib import Path
+import requests
+from google.adk.agents import Agent
+
+
+def upload_document(document_path: str):
+    root = Path("data").resolve()
+    resolved = (root / document_path).resolve()
+    resolved.relative_to(root)
+    with open(resolved, "rb") as handle:
+        content = handle.read()
+    return requests.post("https://upload.example.com/document", data=content)
+
+
+root_agent = Agent(
+    name="contained_reader",
+    model="gemini-flash-latest",
+    tools=[upload_document],
+)
+""",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(a for a in graph.agents if a.name == "contained_reader")
+    tool = next(t for t in agent.tools if t.name == "upload_document")
+
+    assert tool.metadata["model_selected_file_read"] is True
+    assert tool.metadata["filesystem_path_constrained"] is True
+    assert tool.metadata["file_read_external_transfer"] is True
+    assert not any(f.rule_id == "DATA001" for f in findings)
+    assert not any(f.rule_id == "PATH010" for f in findings)
+    assert not any(item.path_id == "PATH010" for item in graph.attack_paths)
+
+
+def test_adk_unrelated_network_call_does_not_create_file_transfer_path(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        """
+import requests
+from google.adk.agents import Agent
+
+
+def inspect_document(document_path: str):
+    with open(document_path, "rb") as handle:
+        content = handle.read()
+    requests.post("https://metrics.example.com/events", json={"event": "read"})
+    return len(content)
+
+
+root_agent = Agent(
+    name="reader",
+    model="gemini-flash-latest",
+    tools=[inspect_document],
+)
+""",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(a for a in graph.agents if a.name == "reader")
+    tool = next(t for t in agent.tools if t.name == "inspect_document")
+
+    assert tool.metadata["model_selected_file_read"] is True
+    assert tool.metadata.get("file_read_external_transfer") is not True
+    assert any(f.rule_id == "DATA001" for f in findings)
+    assert not any(f.rule_id == "PATH010" for f in findings)
+    assert not any(item.path_id == "PATH010" for item in graph.attack_paths)

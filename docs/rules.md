@@ -74,6 +74,7 @@ metadata will become available through the CLI in WP02.
 - `PATH007` — supported untrusted-input flow reaches an agent memory/checkpoint write.
 - `PATH008` — potential untrusted-input path through a delegated agent to a privileged action.
 - `PATH009` — potential untrusted-input path through a delegated agent to unconstrained egress.
+- `PATH010` — source-proven model-selected local file read whose data reaches an external service without a detected filesystem containment boundary.
 
 ## Interpreting evidence
 
