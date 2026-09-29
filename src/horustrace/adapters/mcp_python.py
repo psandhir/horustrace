@@ -352,7 +352,11 @@ def _remote_client_server(
     )
 
 
-def _function_tool(path: Path, node: ast.FunctionDef | ast.AsyncFunctionDef, server_aliases: set[str]) -> Tool | None:
+def _function_tool(
+    path: Path,
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    server_aliases: set[str],
+) -> Tool | None:
     for decorator in node.decorator_list:
         target = decorator.func if isinstance(decorator, ast.Call) else decorator
         if not isinstance(target, ast.Attribute) or target.attr != "tool":
@@ -360,6 +364,32 @@ def _function_tool(path: Path, node: ast.FunctionDef | ast.AsyncFunctionDef, ser
         receiver = _dotted(target.value) or _call_name(target.value)
         if receiver not in server_aliases:
             continue
+
+        parameters = {
+            arg.arg
+            for arg in [
+                *node.args.posonlyargs,
+                *node.args.args,
+                *node.args.kwonlyargs,
+            ]
+        }
+        url_parameters = {
+            name
+            for name in parameters
+            if name.lower() in {"url", "urls", "uri", "uris", "endpoint"}
+            or name.lower().endswith(("_url", "_urls", "_uri", "_uris"))
+        }
+        destination_parameters: set[str] = set()
+        provider_url_sinks = {
+            "scrape_url",
+            "crawl_url",
+            "map_url",
+            "extract",
+            "scrape",
+            "crawl",
+            "map",
+        }
+
         capabilities = set(infer_capabilities(node.name))
         for child in ast.walk(node):
             if not isinstance(child, ast.Call):
@@ -376,21 +406,46 @@ def _function_tool(path: Path, node: ast.FunctionDef | ast.AsyncFunctionDef, ser
                 capabilities.add("data.write")
             if leaf in {"read", "get", "search", "retrieve", "fetch", "query"}:
                 capabilities.add("data.read")
+
+            if leaf in provider_url_sinks and url_parameters:
+                target_expr = _kw(child, "url") or _kw(child, "urls")
+                if target_expr is None and child.args:
+                    target_expr = child.args[0]
+                referenced = {
+                    item.id
+                    for item in ast.walk(target_expr)
+                    if isinstance(item, ast.Name)
+                } if target_expr is not None else set()
+                matched = referenced & url_parameters
+                if matched:
+                    destination_parameters.update(matched)
+                    capabilities.add("network.external")
+
+        metadata: dict[str, Any] = {
+            "framework": "mcp",
+            "server": receiver,
+            "topology_visible_unbound": True,
+            "binding_state": "unbound",
+            "discovery_source": "mcp_python_tool_decorator",
+        }
+        if destination_parameters:
+            metadata.update(
+                {
+                    "dynamic_destination_authority": True,
+                    "model_selected_url_parameters": sorted(destination_parameters),
+                    "network_scope": "dynamic_destination",
+                    "destination_basis": "mcp_provider_url_argument",
+                }
+            )
+
         return Tool(
             name=node.name,
             kind="mcp_exposed_tool",
             capabilities=capabilities,
             location=_location(path, node),
-            metadata={
-                "framework": "mcp",
-                "server": receiver,
-                "topology_visible_unbound": True,
-                "binding_state": "unbound",
-                "discovery_source": "mcp_python_tool_decorator",
-            },
+            metadata=metadata,
         )
     return None
-
 
 def _custom_mcp_wrapper_classes(tree: ast.AST) -> dict[str, str]:
     """Return source-proven custom MCP wrapper classes and their transport."""
@@ -668,6 +723,14 @@ def scan_python_file(path: Path) -> Graph:
                 {
                     "name": tool.name,
                     "capabilities": sorted(tool.capabilities),
+                    "dynamic_destination_authority": bool(
+                        tool.metadata.get("dynamic_destination_authority")
+                    ),
+                    "model_selected_url_parameters": list(
+                        tool.metadata.get("model_selected_url_parameters") or []
+                    ),
+                    "network_scope": tool.metadata.get("network_scope"),
+                    "destination_basis": tool.metadata.get("destination_basis"),
                     "location": (
                         {
                             "path": str(tool.location.path),
