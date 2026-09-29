@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "batch-002",
+  "phase": "case_blind_source_review",
+  "selection_locked_before_source_review": true,
+  "horustrace_case_output_seen": false,
+  "selection_basis": "first eligible not-previously-studied case per framework stratum after excluding Batch 001 and blind semantic cohort cases; no HorusTrace case output used",
+  "cases": [
+    {
+      "case_id": "rw-003",
+      "repo": "angrysky56/ai_writers_workshop",
+      "sha": "c160a299706dd0cd1dc9ae114b97aba905e9261d",
+      "framework": "fastagent",
+      "application_path": "mcp_server/components/fast_agent_integration.py"
+    },
+    {
+      "case_id": "rw-004",
+      "repo": "JoanMarinPages/agentGemini",
+      "sha": "0160690bb47cca17e70ceb8486209d7b1cacaf76",
+      "framework": "google-adk",
+      "application_path": "agent.py"
+    },
+    {
+      "case_id": "rw-041",
+      "repo": "mozaloom/event-rag-agent",
+      "sha": "010f17bc2fc4f50419ebdd2bdb77cd505041fa44",
+      "framework": "langgraph",
+      "application_path": "app.py"
+    },
+    {
+      "case_id": "rw-076",
+      "repo": "sashi-does/gamma",
+      "sha": "01f9ed81dd9aa33634ede60ed2914b5e29162a52",
+      "framework": "mcp-custom",
+      "application_path": "agent_ppt.py"
+    },
+    {
+      "case_id": "rw-116",
+      "repo": "KrishnaKumarSoni/barmuda",
+      "sha": "0387a8d11f54a9e07ae91b4d69acbe1f2ef5c98b",
+      "framework": "openai-agents",
+      "application_path": "chat_engine.py"
+    },
+    {
+      "case_id": "rw-147",
+      "repo": "hope-tatenda-mutema/Pedantic-AI-Deep-Research-Agent",
+      "sha": "0369d0675851071e9f2da850951144e2bb022b3f",
+      "framework": "pydantic-ai",
+      "application_path": "agent.py"
+    }
+  ]
+}
