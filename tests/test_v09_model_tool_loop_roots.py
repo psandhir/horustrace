@@ -543,7 +543,18 @@ def run_python(code: str) -> str:
         and item["target"] == {"kind": "mcp_server", "name": "workspace"}
     )
     assert "process.execute" in authority["capabilities"]
-    assert not any(tool.name == "run_python" for tool in graph.unbound_tools)
+    run_python = next(tool for tool in graph.unbound_tools if tool.name == "run_python")
+    assert run_python.metadata["binding_state"] == "bound_via_mcp"
+    assert run_python.metadata["bound_mcp_servers"] == ["workspace"]
+    assert run_python.metadata["effective_agents"] == [agent.name]
+    assert graph.adg is not None
+    run_python_node = next(
+        node
+        for node in graph.adg.nodes
+        if node.kind == "tool" and node.name == "run_python"
+    )
+    assert run_python_node.attributes["unbound"] is False
+    assert run_python_node.attributes["binding_state"] == "bound_via_mcp"
     assert any(
         finding.rule_id == "AGT053" and finding.agent == agent.name
         for finding in findings
