@@ -467,8 +467,9 @@ const badge=(s)=>'<span class="badge '+esc(s)+'">'+esc(String(s).replaceAll("_",
 const number=(v)=>Number(v||0).toLocaleString();
 const severityRank=(s)=>({{critical:5,high:4,medium:3,low:2,info:1}}[String(s||"").toLowerCase()]||0);
 function showView(id){{
+ const navId=id==="agent-detail"?"agents":id;
  document.querySelectorAll(".view").forEach(el=>el.classList.toggle("active",el.id===id));
- document.querySelectorAll(".nav button").forEach(el=>{{const active=el.dataset.view===id;el.classList.toggle("active",active);if(active)el.setAttribute("aria-current","page");else el.removeAttribute("aria-current");}});
+ document.querySelectorAll(".nav button").forEach(el=>{{const active=el.dataset.view===navId;el.classList.toggle("active",active);if(active)el.setAttribute("aria-current","page");else el.removeAttribute("aria-current");}});
  window.scrollTo(0,0);
 }}
 document.querySelectorAll(".nav button").forEach(btn=>btn.addEventListener("click",()=>showView(btn.dataset.view)));
@@ -491,7 +492,7 @@ function agentAttention(a){{
  if((a.summary.contract_violations||0)>0)return '<span class="badge violation">contract violation</span>';
  if((a.summary.attack_paths||0)>0)return '<span class="badge unresolved">attack path</span>';
  if((a.summary.contract_unresolved||0)>0)return '<span class="badge unresolved">unresolved</span>';
- return '<span class="badge compliant">reviewed</span>';
+ return '<span class="badge">no priority signal</span>';
 }}
 function agentPriority(a){{return (a.severity?.critical||0)*10000+(a.severity?.high||0)*1000+(a.summary.contract_violations||0)*500+(a.summary.attack_paths||0)*100+(a.severity?.medium||0)*20+(a.summary.contract_unresolved||0)*10+(a.summary.write_capable_relationships||0);}}
 function severityCards(s,interactive=false){{
