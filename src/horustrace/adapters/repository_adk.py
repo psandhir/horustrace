@@ -511,6 +511,7 @@ class ModuleInfo:
     functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = field(default_factory=dict)
     calls: dict[str, ast.Call] = field(default_factory=dict)
     sequences: dict[str, list[ast.AST]] = field(default_factory=dict)
+    assignments: dict[str, ast.AST] = field(default_factory=dict)
     constants: dict[str, object] = field(default_factory=dict)
     imports: dict[str, tuple[str, str]] = field(default_factory=dict)
 
@@ -605,6 +606,7 @@ def _build(root: Path, path: Path) -> ModuleInfo | None:
             for target in targets:
                 if not isinstance(target, ast.Name) or value is None:
                     continue
+                info.assignments[target.id] = value
                 literal = _literal(value)
                 if literal is not None:
                     info.constants[target.id] = literal
@@ -970,12 +972,94 @@ def _resolve_sequence(
         return _resolve_sequence(info, expr.value, sequences)
     if isinstance(expr, ast.IfExp):
         return _resolve_sequence(info, expr.body, sequences) + _resolve_sequence(info, expr.orelse, sequences)
+    if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Add):
+        return _resolve_sequence(info, expr.left, sequences) + _resolve_sequence(
+            info, expr.right, sequences
+        )
     if isinstance(expr, ast.Name) and expr.id in sequences:
         result: list[ast.AST] = []
         for element in sequences[expr.id]:
             result.extend(_resolve_sequence(info, element, sequences))
         return result
     return [expr] if expr is not None else []
+
+
+def _resolve_repository_sequence(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    expr: ast.AST | None,
+    sequences: dict[str, list[ast.AST]] | None = None,
+    visited: set[tuple[str, str]] | None = None,
+) -> list[ast.AST]:
+    """Resolve only statically proven repository-local sequence composition.
+
+    This deliberately supports literal sequence containers, unpacking, addition,
+    local aliases, and imported aliases. It does not execute comprehensions,
+    function calls, arbitrary operators, or target imports.
+    """
+    if expr is None:
+        return []
+    sequences = info.sequences if sequences is None else sequences
+    visited = set() if visited is None else set(visited)
+
+    if isinstance(expr, (ast.List, ast.Tuple, ast.Set)):
+        result: list[ast.AST] = []
+        for element in expr.elts:
+            result.extend(
+                _resolve_repository_sequence(
+                    modules, info, element, sequences, visited
+                )
+            )
+        return result
+
+    if isinstance(expr, ast.Starred):
+        return _resolve_repository_sequence(
+            modules, info, expr.value, sequences, visited
+        )
+
+    if isinstance(expr, ast.IfExp):
+        return (
+            _resolve_repository_sequence(
+                modules, info, expr.body, sequences, visited
+            )
+            + _resolve_repository_sequence(
+                modules, info, expr.orelse, sequences, visited
+            )
+        )
+
+    if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Add):
+        return (
+            _resolve_repository_sequence(
+                modules, info, expr.left, sequences, visited
+            )
+            + _resolve_repository_sequence(
+                modules, info, expr.right, sequences, visited
+            )
+        )
+
+    if isinstance(expr, ast.Name):
+        key = (info.module, expr.id)
+        if key in visited:
+            return []
+        next_visited = visited | {key}
+
+        if expr.id in sequences:
+            result: list[ast.AST] = []
+            for element in sequences[expr.id]:
+                result.extend(
+                    _resolve_repository_sequence(
+                        modules, info, element, sequences, next_visited
+                    )
+                )
+            return result
+
+        assigned = info.assignments.get(expr.id)
+        if assigned is not None and not isinstance(assigned, ast.Call):
+            return _resolve_repository_sequence(
+                modules, info, assigned, sequences, next_visited
+            )
+
+    return [expr]
 
 
 def _function_sequences(func: ast.FunctionDef | ast.AsyncFunctionDef) -> dict[str, list[ast.AST]]:
@@ -1058,11 +1142,15 @@ def _resolve_tools(
     info: ModuleInfo,
     expr: ast.AST | None,
     sequences: dict[str, list[ast.AST]] | None = None,
+    visited_sequences: set[tuple[str, str]] | None = None,
 ) -> tuple[list[Tool], list, list[Identity], set[tuple[Path, int]]]:
     tools: list[Tool] = []
     mcp_servers: list = []
     identities: list[Identity] = []
     resolved_refs: set[tuple[Path, int]] = set()
+    visited_sequences = (
+        set() if visited_sequences is None else set(visited_sequences)
+    )
 
     def add_function(target: ModuleInfo, func: ast.FunctionDef | ast.AsyncFunctionDef, ref: ast.AST) -> None:
         tool, identity = _function_tool(modules, target, func)
@@ -1071,7 +1159,7 @@ def _resolve_tools(
             identities.append(identity)
         resolved_refs.add((info.path, getattr(ref, "lineno", 1)))
 
-    for item in _resolve_sequence(info, expr, sequences):
+    for item in _resolve_repository_sequence(modules, info, expr, sequences):
         if isinstance(item, ast.Name):
             if item.id in info.functions:
                 add_function(info, info.functions[item.id], item)
@@ -1080,6 +1168,43 @@ def _resolve_tools(
             imported = _imported_symbol(modules, info, item.id)
             if imported:
                 target, symbol = imported
+                sequence_key = (target.module, symbol)
+                assigned = target.assignments.get(symbol)
+                if (
+                    sequence_key not in visited_sequences
+                    and assigned is not None
+                    and not isinstance(assigned, ast.Call)
+                    and (
+                        symbol in target.sequences
+                        or isinstance(
+                            assigned,
+                            (
+                                ast.List,
+                                ast.Tuple,
+                                ast.Set,
+                                ast.Starred,
+                                ast.IfExp,
+                                ast.BinOp,
+                                ast.Name,
+                            ),
+                        )
+                    )
+                ):
+                    nested_tools, nested_mcp, nested_identities, nested_refs = (
+                        _resolve_tools(
+                            modules,
+                            target,
+                            assigned,
+                            target.sequences,
+                            visited_sequences | {sequence_key},
+                        )
+                    )
+                    tools.extend(nested_tools)
+                    mcp_servers.extend(nested_mcp)
+                    identities.extend(nested_identities)
+                    resolved_refs.update(nested_refs)
+                    resolved_refs.add((info.path, item.lineno))
+                    continue
                 if symbol in target.functions:
                     add_function(target, target.functions[symbol], item)
                     continue
@@ -1271,7 +1396,9 @@ def _agent_from_call(
         )
 
     delegates: list[str] = []
-    for child in _resolve_sequence(info, _kw(call, "sub_agents"), sequences):
+    for child in _resolve_repository_sequence(
+        modules, info, _kw(call, "sub_agents"), sequences
+    ):
         if isinstance(child, ast.Name):
             delegates.append(_resolve_agent_name(modules, info, child))
         elif isinstance(child, ast.Call) and (_name(child.func) or "") in AGENT_TYPES:
