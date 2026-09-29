@@ -293,10 +293,18 @@ def _class_targets(
         targets[f"{module}.{source_class}" if module else source_class] = agent
 
     for _, (module, tree, imports) in modules.items():
-        for class_node in (node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)):
+        for class_node in (
+            node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)
+        ):
             matched: list[Agent] = []
+            agent_attributes: set[str] = set()
+            runtime_bound_attributes: set[str] = set()
+
             for init in class_node.body:
-                if not isinstance(init, (ast.FunctionDef, ast.AsyncFunctionDef)) or init.name != "__init__":
+                if (
+                    not isinstance(init, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    or init.name != "__init__"
+                ):
                     continue
                 for node in ast.walk(init):
                     if not isinstance(node, (ast.Assign, ast.AnnAssign)):
@@ -304,13 +312,54 @@ def _class_targets(
                     value = node.value
                     if not isinstance(value, ast.Call):
                         continue
+
                     called = _dotted(value.func) or _call_name(value.func) or ""
                     resolved = _resolve_symbol(module, imports, called)
                     agent = _agent_for_key(resolved, factories)
                     if agent is not None:
-                        matched.append(agent)
+                        targets_nodes = (
+                            node.targets
+                            if isinstance(node, ast.Assign)
+                            else [node.target]
+                        )
+                        for target in targets_nodes:
+                            if (
+                                isinstance(target, ast.Attribute)
+                                and isinstance(target.value, ast.Name)
+                                and target.value.id == "self"
+                            ):
+                                agent_attributes.add(target.attr)
+                                matched.append(agent)
+
+            if not agent_attributes:
+                continue
+
+            for node in ast.walk(class_node):
+                if not isinstance(node, ast.Call):
+                    continue
+                for keyword in node.keywords:
+                    value = keyword.value
+                    if (
+                        keyword.arg in {"agent", "root_agent"}
+                        and isinstance(value, ast.Attribute)
+                        and isinstance(value.value, ast.Name)
+                        and value.value.id == "self"
+                        and value.attr in agent_attributes
+                    ):
+                        runtime_bound_attributes.add(value.attr)
+                if isinstance(node.func, ast.Attribute):
+                    receiver = node.func.value
+                    if (
+                        isinstance(receiver, ast.Attribute)
+                        and isinstance(receiver.value, ast.Name)
+                        and receiver.value.id == "self"
+                        and receiver.attr in agent_attributes
+                        and node.func.attr in _RUNTIME_METHODS
+                    ):
+                        runtime_bound_attributes.add(receiver.attr)
+
             unique = {id(agent): agent for agent in matched}
-            if len(unique) == 1:
+            if len(unique) == 1 and runtime_bound_attributes:
                 key = f"{module}.{class_node.name}" if module else class_node.name
                 targets[key] = next(iter(unique.values()))
     return targets
