@@ -221,6 +221,7 @@ workflow.add_node("tools", ToolNode(tools))
 
     assert tool.metadata["authority_binding"] == "direct"
     assert tool.metadata["repository_resolved"] is True
+    assert tool.location.path.name == "tools.py"
     assert "process.execute" not in tool.capabilities
     assert {"data.read", "data.write", "destructive.write"} <= tool.capabilities
     assert any(
