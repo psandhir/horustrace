@@ -98,6 +98,7 @@ RULE_REGISTRY: dict[str, RuleMetadata] = {
         _rule("PATH008", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential untrusted-input path through delegated agent to privileged action", "Untrusted input can reach an agent that delegates to another agent exposing a high-risk capability without detected approval.", "Constrain delegation targets, narrow child-agent authority, validate untrusted input, and enforce approval at the privileged action boundary."),
         _rule("PATH009", 5, Severity.MEDIUM, "attack_path", "potential_risk", "Potential untrusted-input path through delegated agent to unconstrained egress", "Untrusted input can reach a delegated agent with outbound authority and no detected destination constraint.", "Restrict delegated outbound tools to explicit destinations and validate untrusted input before external actions."),
         _rule("PATH010", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential untrusted-input local file read to external service", "A model-selected local file path can be read and the resulting data can reach an external service without a detected filesystem containment boundary.", "Constrain model-selected paths to an explicit workspace or allowlist and prevent local file contents from reaching external services unless that transfer is explicitly intended and controlled."),
+        _rule("PATH011", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential untrusted-input path to server-side URL fetch", "Source-bound untrusted input reaches an agent with a model-selected URL parameter that is passed to a direct server-side HTTP client without a detected destination restriction.", "Restrict server-side fetch tools to approved schemes and destinations, block private/link-local address ranges as appropriate, validate redirects, and require explicit controls for sensitive fetches."),
     )
 }
 
@@ -158,6 +159,7 @@ _OWASP_MAPPINGS = {
     "PATH008": ("ASI01", "ASI02", "ASI07"),
     "PATH009": ("ASI01", "ASI02", "ASI07"),
     "PATH010": ("ASI01", "ASI02"),
+    "PATH011": ("ASI01", "ASI02"),
 }
 
 RULE_REGISTRY = {

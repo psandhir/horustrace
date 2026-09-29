@@ -459,3 +459,171 @@ def chat() -> None:
         for finding in findings
     )
 
+
+
+def test_pydantic_ai_streamlit_input_reaches_model_selected_server_fetch(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "src"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "agent.py").write_text(
+        """
+import httpx
+from pydantic_ai import Agent, RunContext
+
+agent = Agent("openai:gpt-5.2")
+
+@agent.tool
+async def fetch_curriculum(ctx: RunContext, url: str) -> str:
+    async with httpx.AsyncClient(
+        follow_redirects=True,
+        timeout=15.0,
+    ) as client:
+        response = await client.get(url)
+        response.raise_for_status()
+        return response.text
+""",
+        encoding="utf-8",
+    )
+    (package / "app.py").write_text(
+        """
+import streamlit as st
+from src.agent import agent
+
+def chat_page():
+    if user_input := st.chat_input("Type your response..."):
+        get_bot_response(user_input)
+
+def get_bot_response(user_input: str):
+    return agent.run_sync(user_input)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    ingress = next(
+        item
+        for item in agent.inputs
+        if item.metadata.get("basis")
+        == "repository_pydantic_streamlit_input_to_run"
+    )
+    tool = next(
+        item for item in agent.tools if item.name == "fetch_curriculum"
+    )
+
+    assert ingress.trust == "untrusted"
+    assert ingress.kind == "web"
+    assert ingress.metadata["runtime_invocation_proven"] is True
+    assert ingress.metadata["ingress_framework"] == "streamlit"
+
+    assert tool.metadata["model_selected_url_fetch"] is True
+    assert tool.metadata["model_selected_url_parameters"] == ["url"]
+    assert tool.metadata["server_side_fetch"] is True
+    assert tool.metadata["follow_redirects"] is True
+    assert any(
+        destination.target == "<dynamic-url>"
+        and destination.metadata.get("source")
+        == "model_selected_url_argument"
+        and destination.metadata.get("network_scope")
+        == "dynamic_destination"
+        for destination in tool.destinations
+    )
+
+    assert any(
+        finding.rule_id == "NET001" and finding.agent == "agent"
+        for finding in findings
+    )
+    path = next(
+        item
+        for item in graph.attack_paths
+        if item.path_id == "PATH011" and item.agent == "agent"
+    )
+    assert path.metadata["basis"] == "source_bound_ingress_authority"
+    assert path.metadata["ingress_basis"] == (
+        "repository_pydantic_streamlit_input_to_run"
+    )
+    assert path.metadata["url_parameters"] == ["url"]
+    assert path.metadata["follow_redirects"] is True
+    assert any(
+        finding.rule_id == "PATH011" and finding.agent == "agent"
+        for finding in findings
+    )
+
+
+def test_pydantic_ai_provider_search_is_not_arbitrary_server_fetch(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+
+agent = Agent("openai:gpt-5.2")
+
+@agent.tool
+def research_domain(query: str):
+    client = TavilyClient()
+    return client.search(query=query)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tool = next(item for item in agent.tools if item.name == "research_domain")
+
+    assert tool.metadata.get("model_selected_url_fetch") is not True
+    assert not any(
+        destination.metadata.get("source") == "model_selected_url_argument"
+        for destination in tool.destinations
+    )
+    assert not any(item.path_id == "PATH011" for item in graph.attack_paths)
+    assert not any(finding.rule_id == "PATH011" for finding in findings)
+
+
+def test_pydantic_ai_streamlit_input_requires_concrete_agent_run(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "src"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "agent.py").write_text(
+        """
+import httpx
+from pydantic_ai import Agent
+
+agent = Agent("openai:gpt-5.2")
+
+@agent.tool_plain
+async def fetch_url(url: str) -> str:
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+        return response.text
+""",
+        encoding="utf-8",
+    )
+    (package / "app.py").write_text(
+        """
+import streamlit as st
+from src.agent import agent
+
+def chat_page():
+    if user_input := st.chat_input("Message"):
+        print(user_input)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tool = next(item for item in agent.tools if item.name == "fetch_url")
+
+    assert tool.metadata["model_selected_url_fetch"] is True
+    assert not any(
+        item.metadata.get("basis")
+        == "repository_pydantic_streamlit_input_to_run"
+        for item in agent.inputs
+    )
+    assert not any(item.path_id == "PATH011" for item in graph.attack_paths)
+    assert not any(finding.rule_id == "PATH011" for finding in findings)

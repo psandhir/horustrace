@@ -803,6 +803,311 @@ def _enrich_cli_agent_run_inputs(
                     )
                 )
 
+
+def _enrich_streamlit_agent_run_inputs(
+    graph: Graph,
+    root: Path,
+    python_paths: list[Path],
+) -> None:
+    """Attach Streamlit chat input when source proves it reaches an imported Pydantic AI run call.
+
+    The proof may cross repository-local helper functions, but it remains bounded
+    to explicit positional/keyword argument passing and assignments. Merely
+    importing Streamlit or an agent is not enough.
+    """
+    root_package = root.name if (root / "__init__.py").exists() else None
+
+    def module_aliases(path: Path) -> tuple[str, ...]:
+        module = _module_name_for_path(path, root)
+        aliases: list[str] = []
+        if module:
+            aliases.append(module)
+        if root_package:
+            package_module = root_package if not module else f"{root_package}.{module}"
+            if package_module not in aliases:
+                aliases.append(package_module)
+        return tuple(aliases)
+
+    def preferred_module(path: Path) -> str:
+        aliases = module_aliases(path)
+        if root_package:
+            prefix = f"{root_package}."
+            package_alias = next(
+                (
+                    alias
+                    for alias in aliases
+                    if alias == root_package or alias.startswith(prefix)
+                ),
+                None,
+            )
+            if package_alias:
+                return package_alias
+        return aliases[0] if aliases else ""
+
+    module_paths: dict[str, Path] = {}
+    for path in python_paths:
+        for module in module_aliases(path):
+            module_paths[module] = path
+
+    agents_by_symbol: dict[tuple[str, str], list[Agent]] = {}
+    for agent in graph.agents:
+        if agent.metadata.get("framework") != "pydantic-ai" or agent.location is None:
+            continue
+        for module in module_aliases(agent.location.path):
+            agents_by_symbol.setdefault((module, agent.name), []).append(agent)
+    if not agents_by_symbol:
+        return
+
+    tree_cache: dict[Path, ast.AST | None] = {}
+
+    def tree_for(path: Path) -> ast.AST | None:
+        if path not in tree_cache:
+            try:
+                tree_cache[path] = ast.parse(
+                    path.read_text(encoding="utf-8"),
+                    filename=str(path),
+                )
+            except (OSError, UnicodeDecodeError, SyntaxError):
+                tree_cache[path] = None
+        return tree_cache[path]
+
+    def resolve_symbol(
+        module: str,
+        symbol: str,
+        seen: set[tuple[str, str]] | None = None,
+    ) -> Agent | None:
+        key = (module, symbol)
+        seen = set() if seen is None else set(seen)
+        if key in seen:
+            return None
+        seen.add(key)
+
+        direct = agents_by_symbol.get(key, [])
+        if len(direct) == 1:
+            return direct[0]
+        if len(direct) > 1:
+            return None
+
+        source_path = module_paths.get(module)
+        tree = tree_for(source_path) if source_path is not None else None
+        if source_path is None or tree is None:
+            return None
+
+        resolved: list[Agent] = []
+        for node in getattr(tree, "body", []):
+            if not isinstance(node, ast.ImportFrom):
+                continue
+            source_module = _resolved_import_module(module, source_path, node)
+            if not source_module:
+                continue
+            for alias in node.names:
+                if (alias.asname or alias.name) != symbol:
+                    continue
+                candidate = resolve_symbol(source_module, alias.name, seen)
+                if candidate is not None and all(
+                    candidate is not existing for existing in resolved
+                ):
+                    resolved.append(candidate)
+        return resolved[0] if len(resolved) == 1 else None
+
+    for path in python_paths:
+        tree = tree_for(path)
+        if tree is None:
+            continue
+        current_module = preferred_module(path)
+
+        imported_agents: dict[str, Agent] = {}
+        streamlit_modules: set[str] = set()
+        streamlit_chat_inputs: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "streamlit":
+                        streamlit_modules.add(alias.asname or alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                source_module = _resolved_import_module(current_module, path, node)
+                if source_module == "streamlit":
+                    for alias in node.names:
+                        if alias.name == "chat_input":
+                            streamlit_chat_inputs.add(alias.asname or alias.name)
+                if not source_module:
+                    continue
+                for alias in node.names:
+                    local_name = alias.asname or alias.name
+                    candidate = resolve_symbol(source_module, alias.name)
+                    if candidate is not None:
+                        imported_agents[local_name] = candidate
+
+        if not imported_agents or not (streamlit_modules or streamlit_chat_inputs):
+            continue
+
+        functions = {
+            node.name: node
+            for node in getattr(tree, "body", [])
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
+        if not functions:
+            continue
+
+        params: dict[str, list[str]] = {
+            name: [
+                arg.arg
+                for arg in [
+                    *fn.args.posonlyargs,
+                    *fn.args.args,
+                    *fn.args.kwonlyargs,
+                ]
+            ]
+            for name, fn in functions.items()
+        }
+        tainted: dict[str, set[str]] = {name: set() for name in functions}
+
+        def expr_has_streamlit_input(
+            node: ast.AST | None,
+            names: set[str],
+            streamlit_chat_input_names: frozenset[str] = frozenset(
+                streamlit_chat_inputs
+            ),
+            streamlit_module_names: frozenset[str] = frozenset(
+                streamlit_modules
+            ),
+        ) -> bool:
+            if node is None:
+                return False
+            for child in ast.walk(node):
+                if isinstance(child, ast.Name) and child.id in names:
+                    return True
+                if not isinstance(child, ast.Call):
+                    continue
+                if (
+                    isinstance(child.func, ast.Name)
+                    and child.func.id in streamlit_chat_input_names
+                ):
+                    return True
+                if isinstance(child.func, ast.Attribute):
+                    receiver = _ast_dotted_name(child.func.value)
+                    if (
+                        receiver in streamlit_module_names
+                        and child.func.attr == "chat_input"
+                    ):
+                        return True
+            return False
+
+        # Fixed point over assignments and explicit local helper calls.
+        for _ in range(12):
+            changed = False
+            for fn_name, fn_node in functions.items():
+                names = tainted[fn_name]
+
+                for node in ast.walk(fn_node):
+                    value: ast.AST | None = None
+                    targets: list[ast.AST] = []
+                    if isinstance(node, ast.Assign):
+                        value = node.value
+                        targets = list(node.targets)
+                    elif (
+                        isinstance(node, ast.AnnAssign)
+                        and node.value is not None
+                    ) or isinstance(node, ast.NamedExpr):
+                        value = node.value
+                        targets = [node.target]
+                    if value is not None and expr_has_streamlit_input(value, names):
+                        for target in targets:
+                            if isinstance(target, ast.Name) and target.id not in names:
+                                names.add(target.id)
+                                changed = True
+
+                for call in (
+                    node for node in ast.walk(fn_node) if isinstance(node, ast.Call)
+                ):
+                    if not isinstance(call.func, ast.Name):
+                        continue
+                    target_fn = functions.get(call.func.id)
+                    if target_fn is None:
+                        continue
+                    target_params = params[call.func.id]
+                    for index, argument in enumerate(call.args):
+                        if index >= len(target_params):
+                            break
+                        if (
+                            expr_has_streamlit_input(argument, names)
+                            and target_params[index] not in tainted[call.func.id]
+                        ):
+                            tainted[call.func.id].add(target_params[index])
+                            changed = True
+                    keyword_params = {
+                        keyword.arg: keyword.value
+                        for keyword in call.keywords
+                        if keyword.arg
+                    }
+                    for param in target_params:
+                        argument = keyword_params.get(param)
+                        if (
+                            argument is not None
+                            and expr_has_streamlit_input(argument, names)
+                            and param not in tainted[call.func.id]
+                        ):
+                            tainted[call.func.id].add(param)
+                            changed = True
+            if not changed:
+                break
+
+        for fn_name, fn_node in functions.items():
+            names = tainted[fn_name]
+            if not names:
+                continue
+            for call in (
+                node for node in ast.walk(fn_node) if isinstance(node, ast.Call)
+            ):
+                if not isinstance(call.func, ast.Attribute):
+                    continue
+                if call.func.attr not in _PYDANTIC_RUNTIME_METHODS:
+                    continue
+                owner = _ast_dotted_name(call.func.value)
+                if not owner or "." in owner:
+                    continue
+                agent = imported_agents.get(owner)
+                if agent is None:
+                    continue
+                prompt = call.args[0] if call.args else next(
+                    (
+                        keyword.value
+                        for keyword in call.keywords
+                        if keyword.arg in {"user_prompt", "prompt", "input"}
+                    ),
+                    None,
+                )
+                if not expr_has_streamlit_input(prompt, names):
+                    continue
+
+                input_name = f"{path.stem}.{fn_name}:streamlit-input"
+                basis = "repository_pydantic_streamlit_input_to_run"
+                if any(
+                    item.name == input_name
+                    and item.metadata.get("basis") == basis
+                    for item in agent.inputs
+                ):
+                    continue
+                agent.inputs.append(
+                    InputSource(
+                        name=input_name,
+                        trust="untrusted",
+                        kind="web",
+                        location=SourceLocation(
+                            path,
+                            getattr(call, "lineno", 1) or 1,
+                            (getattr(call, "col_offset", 0) or 0) + 1,
+                        ),
+                        metadata={
+                            "basis": basis,
+                            "runtime_invocation_proven": True,
+                            "runtime_method": call.func.attr,
+                            "source_module": current_module,
+                            "ingress_framework": "streamlit",
+                        },
+                    )
+                )
+
 def _is_source_fragment(path: Path) -> bool:
     return any(part.lower() in SOURCE_FRAGMENT_DIRS for part in path.parts)
 
@@ -1724,6 +2029,7 @@ def scan(
     _enrich_web_ingress_inputs(graph, analysis_root, approved_python_paths)
     enrich_runtime_ingress_inputs(graph, analysis_root, approved_python_paths)
     _enrich_cli_agent_run_inputs(graph, analysis_root, approved_python_paths)
+    _enrich_streamlit_agent_run_inputs(graph, analysis_root, approved_python_paths)
     graph.flow_paths = analyze_repository_flows(analysis_root, approved_python_paths, graph)
     _remap_flow_locations(graph, notebook_path_map)
     main_guard_entrypoints = _collect_main_guard_entrypoints(
