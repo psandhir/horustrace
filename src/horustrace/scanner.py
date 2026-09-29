@@ -46,6 +46,7 @@ from horustrace.mcp_context import (
     resolve_fast_agent_mcp_references,
     resolve_imported_mcp_placeholders,
     resolve_local_stdio_implementations,
+    resolve_model_tool_loop_default_mcp_config,
 )
 from horustrace.mcp_resolution import unresolved_mcp_summary
 from horustrace.models import (
@@ -1636,6 +1637,10 @@ def scan(
         root if root.is_dir() else root.parent,
     )
     resolve_fast_agent_mcp_references(graph)
+    resolve_model_tool_loop_default_mcp_config(
+        graph,
+        root if root.is_dir() else root.parent,
+    )
     resolve_local_stdio_implementations(
         graph,
         root if root.is_dir() else root.parent,
