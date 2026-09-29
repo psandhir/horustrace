@@ -70,7 +70,7 @@ def test_same_reviewer_cannot_fill_both_slots(tmp_path: Path) -> None:
     case = tmp_path / "ap-001.yaml"
     _write(case, reviewer_b="reviewer-a")
 
-    with pytest.raises(ReviewPackError, match="different people"):
+    with pytest.raises(ReviewPackError, match="different reviewer_id"):
         validate_review_case(case)
 
 
@@ -151,3 +151,61 @@ cases:
     assert report["attack_path_cases"] == 1
     assert report["finding_cases"] == 1
     assert report["scanner_reveal_allowed"] is True
+
+
+def test_two_blinded_llm_reviews_are_valid_and_disagreements_escalate(tmp_path: Path) -> None:
+    packet = tmp_path / "llm-review-packet.yaml"
+    packet.write_text(
+        """
+schema_version: 1
+study: attack-path-finding-validation-2026
+cases:
+  - case_id: ap-llm-001
+    case_type: attack_path
+    repository:
+      repo: owner/repo
+      sha: "1111111111111111111111111111111111111111"
+    source_scope: [app.py]
+    question:
+      type: attack_path
+    reviewers:
+      - reviewer_id: openai-run-1
+        reviewer_kind: llm
+        independent_review: true
+        independent_human: false
+        horustrace_output_seen: false
+        locked: true
+        model:
+          provider: openai
+          name: gpt-5.6-sol
+          prompt_version: llm-review-v1
+        verdict: valid
+        severity: high
+        evidence: [app.py:10]
+        rationale: source proves the edge
+      - reviewer_id: google-run-1
+        reviewer_kind: llm
+        independent_review: true
+        independent_human: false
+        horustrace_output_seen: false
+        locked: true
+        model:
+          provider: google
+          name: gemini-pro
+          prompt_version: llm-review-v1
+        verdict: invalid
+        severity: medium
+        evidence: [app.py:10]
+        rationale: source does not prove dispatch
+""",
+        encoding="utf-8",
+    )
+
+    rows = validate_review_packet(packet)
+    report = summarize_rows(rows)
+
+    assert rows[0]["reviewer_kinds"] == ["llm", "llm"]
+    assert rows[0]["evaluator_models"][0]["prompt_version"] == "llm-review-v1"
+    assert report["disagreement_cases"] == 1
+    assert report["scanner_reveal_allowed"] is True
+    assert report["escalation_cases"] == ["ap-llm-001"]
