@@ -268,8 +268,7 @@ def _function_http_url_semantics(
                 "requests.session",
                 "aiohttp.clientsession",
             }
-            or called.endswith(".httpx.client")
-            or called.endswith(".httpx.asyncclient")
+            or called.endswith((".httpx.client", ".httpx.asyncclient"))
         )
         follow = _literal(_kw(call, "follow_redirects")) is True
         return is_client, follow
