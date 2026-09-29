@@ -348,3 +348,114 @@ agent = Agent("openai:gpt-5.2", mcp_servers=[mcp_server])
     assert server.metadata["local_stdio_resolution"] == "ambiguous"
     assert server.metadata["local_stdio_candidate_count"] == 2
     assert len(graph.unbound_mcp_servers) == 2
+
+def test_pydantic_ai_cross_file_click_input_reaches_imported_agent_state_write(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "ramon"
+    package.mkdir()
+    (package / "__init__.py").write_text(
+        "from .agent import agent\n",
+        encoding="utf-8",
+    )
+    (package / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+
+agent = Agent("openai:gpt-5.2")
+
+@agent.tool_plain
+def update_record(record_id: str, value: str) -> str:
+    return store.update(record_id, value)
+""",
+        encoding="utf-8",
+    )
+    (package / "cli.py").write_text(
+        """
+import click
+from ramon import agent
+
+def chat() -> None:
+    prompt = click.prompt("", prompt_suffix="> ")
+    agent.run_sync(prompt)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(package)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    ingress = next(
+        item
+        for item in agent.inputs
+        if item.metadata.get("basis")
+        == "repository_pydantic_cli_input_to_run"
+    )
+
+    assert ingress.trust == "untrusted"
+    assert ingress.metadata["runtime_invocation_proven"] is True
+    assert "data.write" in next(
+        tool for tool in agent.tools if tool.name == "update_record"
+    ).capabilities
+
+    path = next(
+        item
+        for item in graph.attack_paths
+        if item.path_id == "PATH002"
+        and item.metadata.get("basis") == "source_bound_ingress_authority"
+    )
+    assert path.agent == "agent"
+    assert path.nodes[-2:] == ["update_record", "data.write"]
+    assert path.metadata["ingress_basis"] == (
+        "repository_pydantic_cli_input_to_run"
+    )
+    assert any(
+        finding.rule_id == "PATH002" and finding.agent == "agent"
+        for finding in findings
+    )
+
+
+def test_pydantic_ai_cross_file_click_input_requires_concrete_agent_run(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "ramon"
+    package.mkdir()
+    (package / "__init__.py").write_text(
+        "from .agent import agent\n",
+        encoding="utf-8",
+    )
+    (package / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+
+agent = Agent("openai:gpt-5.2")
+
+@agent.tool_plain
+def update_record(record_id: str, value: str) -> str:
+    return store.update(record_id, value)
+""",
+        encoding="utf-8",
+    )
+    (package / "cli.py").write_text(
+        """
+import click
+from ramon import agent
+
+def chat() -> None:
+    prompt = click.prompt("", prompt_suffix="> ")
+    print(prompt)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(package)
+    agent = next(item for item in graph.agents if item.name == "agent")
+
+    assert not any(
+        item.metadata.get("basis") == "repository_pydantic_cli_input_to_run"
+        for item in agent.inputs
+    )
+    assert not any(
+        finding.rule_id == "PATH002" and finding.agent == "agent"
+        for finding in findings
+    )
+

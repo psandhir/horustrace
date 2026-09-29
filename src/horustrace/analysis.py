@@ -259,6 +259,18 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
         destructive = [
             tool for tool in agent.tools if "destructive.write" in tool.capabilities
         ]
+        runtime_bound_untrusted = [
+            item
+            for item in untrusted
+            if item.metadata.get("runtime_invocation_proven") is True
+            or item.metadata.get("basis") == "pydantic_ai_cli_input_to_run"
+        ]
+        state_changing = [
+            tool
+            for tool in agent.tools
+            if "destructive.write" not in tool.capabilities
+            and {"data.write", "external.write"} & tool.capabilities
+        ]
         destructive_mcp = [
             server
             for server in agent.mcp_servers
@@ -304,6 +316,44 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                         ),
                         location=tool.location or agent.location,
                         metadata=_path_metadata(basis="capability_cooccurrence"),
+                    )
+                )
+
+        for tool in state_changing:
+            if runtime_bound_untrusted and tool.approval is not True:
+                capability = (
+                    "data.write"
+                    if "data.write" in tool.capabilities
+                    else "external.write"
+                )
+                ingress = runtime_bound_untrusted[0]
+                paths.append(
+                    AttackPath(
+                        path_id="PATH002",
+                        title="Potential untrusted-input path to state-changing action",
+                        agent=agent.name,
+                        nodes=[
+                            ingress.name,
+                            agent.name,
+                            tool.name,
+                            capability,
+                        ],
+                        severity=Severity.HIGH,
+                        rationale=(
+                            "Source analysis proves untrusted CLI input reaches the "
+                            "agent runtime invocation, and the effective authority model "
+                            "binds a state-changing tool without a detected approval "
+                            "requirement. Runtime model selection is not verified."
+                        ),
+                        location=tool.location or agent.location,
+                        metadata={
+                            **_path_metadata(
+                                basis="source_bound_ingress_authority"
+                            ),
+                            "ingress_basis": ingress.metadata.get("basis"),
+                            "authority_capability": capability,
+                            "target_kind": "tool",
+                        },
                     )
                 )
 
