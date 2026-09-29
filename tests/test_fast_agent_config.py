@@ -227,3 +227,70 @@ async def main():
     assert server.authenticated is False
     assert "oauth" not in server.metadata["auth_keys"]
     assert any(item.rule_id == "AGT030" for item in findings)
+
+
+def test_fastagent_config_yaml_filename_binds_named_server(tmp_path: Path) -> None:
+    (tmp_path / "fastagent.config.yaml").write_text(
+        """
+mcp:
+  servers:
+    browser:
+      target: "npx -y chrome-devtools-mcp@latest"
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from fast_agent import FastAgent
+
+fast = FastAgent("App")
+
+@fast.agent(name="researcher", servers=["browser"])
+async def main():
+    pass
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "researcher")
+
+    assert [server.name for server in agent.mcp_servers] == ["browser"]
+    assert agent.mcp_servers[0].metadata["binding_origin"] == (
+        "fast_agent_servers_reference"
+    )
+    assert agent.mcp_servers[0].metadata["effective_agent"] == "researcher"
+    assert any(
+        item.rule_id == "AGT050"
+        and item.location
+        and item.location.path.name == "fastagent.config.yaml"
+        for item in findings
+    )
+
+
+def test_fastagent_config_yml_filename_is_supported(tmp_path: Path) -> None:
+    (tmp_path / "fastagent.config.yml").write_text(
+        """
+mcp:
+  servers:
+    local:
+      target: "python local_server.py"
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from fast_agent import FastAgent
+
+fast = FastAgent("App")
+
+@fast.agent(name="worker", servers=["local"])
+async def main():
+    pass
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "worker")
+    assert [server.name for server in agent.mcp_servers] == ["local"]
