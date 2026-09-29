@@ -69,6 +69,7 @@ from horustrace.registry_config import (
     enrich_config_registry_agents,
     is_registry_config_filename,
 )
+from horustrace.repository_tool_semantics import enrich_indirect_tool_content_semantics
 from horustrace.rules.builtin import evaluate
 from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
 from horustrace.semantics import annotate_risk_semantics
@@ -1972,6 +1973,11 @@ def scan(
     )
     _consolidate_agents(graph)
     annotate_tool_source_provenance(
+        graph,
+        root if root.is_dir() else root.parent,
+        approved_python_paths,
+    )
+    enrich_indirect_tool_content_semantics(
         graph,
         root if root.is_dir() else root.parent,
         approved_python_paths,

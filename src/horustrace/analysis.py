@@ -586,6 +586,71 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                         )
                     )
 
+        indirect_tool_content = [
+            item
+            for item in untrusted
+            if item.metadata.get("basis") == "source_proven_tool_result_content"
+            and item.metadata.get("indirect") is True
+        ]
+        unconstrained_filesystem_tools = [
+            tool
+            for tool in agent.tools
+            if tool.metadata.get("model_selected_filesystem_path") is True
+            and tool.metadata.get("filesystem_path_constrained") is not True
+            and tool.metadata.get("filesystem_access")
+        ]
+        if indirect_tool_content and unconstrained_filesystem_tools:
+            target = min(
+                unconstrained_filesystem_tools,
+                key=lambda item: (
+                    "write" not in set(item.metadata.get("filesystem_access") or []),
+                    item.name,
+                ),
+            )
+            access_modes = list(target.metadata.get("filesystem_access") or [])
+            access_label = (
+                "filesystem write"
+                if "write" in access_modes
+                else "filesystem read"
+            )
+            source = indirect_tool_content[0]
+            paths.append(
+                AttackPath(
+                    path_id="PATH012",
+                    title="Potential indirect tool-content path to unconstrained filesystem access",
+                    agent=agent.name,
+                    nodes=[
+                        source.name,
+                        agent.name,
+                        target.name,
+                        access_label,
+                    ],
+                    severity=Severity.HIGH,
+                    rationale=(
+                        "Source analysis proves a bound tool returns local or repository "
+                        "file content into the model context, while the same effective "
+                        "agent can select filesystem paths that reach read/write sinks "
+                        "without a detected containment boundary."
+                    ),
+                    location=target.location or source.location or agent.location,
+                    metadata={
+                        **_path_metadata(
+                            basis="source_proven_indirect_tool_content"
+                        ),
+                        "source_tool": source.metadata.get("source_tool"),
+                        "target_kind": "tool",
+                        "filesystem_access": access_modes,
+                        "path_parameters": list(
+                            target.metadata.get(
+                                "model_selected_path_parameters"
+                            )
+                            or []
+                        ),
+                        "path_containment": "not_detected",
+                    },
+                )
+            )
+
         for tool in outbound:
             if sensitive and tool.approval is not True:
                 paths.append(

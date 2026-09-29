@@ -666,3 +666,121 @@ agent = Agent(name="Formatter", tools=[format_url])
     assert not tool.destinations
     assert not any(finding.rule_id == "NET001" for finding in findings)
 
+
+
+def test_openai_tool_result_content_composes_with_unconstrained_filesystem_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "shared_tools.py").write_text(
+        """
+from pathlib import Path
+
+def list_files_in_directory(directory: str) -> list[str]:
+    root_path = Path(directory).resolve()
+    return [str(path) for path in root_path.rglob("*.py")]
+
+def read_file_contents(file_path: str, base_directory: str = ".") -> str:
+    full_path = Path(base_directory).resolve() / file_path
+    return full_path.read_text(encoding="utf-8")
+
+def write_todo_report(output_path: str) -> str:
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("report", encoding="utf-8")
+    return str(out)
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent, Runner, function_tool
+from shared_tools import list_files_in_directory, read_file_contents, write_todo_report
+
+SCAN_DIR = "/workspace/project"
+REPORT_PATH = "/workspace/report.md"
+
+@function_tool
+def list_files(directory: str) -> list[str]:
+    return list_files_in_directory(directory)
+
+@function_tool
+def read_file(file_path: str) -> str:
+    return read_file_contents(file_path, base_directory=SCAN_DIR)
+
+@function_tool
+def write_report(output_path: str) -> str:
+    return write_todo_report(output_path)
+
+agent = Agent(
+    name="todo_researcher",
+    tools=[list_files, read_file, write_report],
+)
+
+if __name__ == "__main__":
+    Runner.run_sync(
+        agent,
+        f"Scan {SCAN_DIR} and write to {REPORT_PATH}",
+    )
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "todo_researcher")
+    by_name = {tool.name: tool for tool in agent.tools}
+
+    assert by_name["read_file"].metadata["returns_local_file_content"] is True
+    assert by_name["read_file"].metadata["filesystem_path_constrained"] is False
+    assert by_name["write_report"].metadata["filesystem_path_constrained"] is False
+    assert any(
+        source.metadata.get("basis") == "source_proven_tool_result_content"
+        and source.metadata.get("source_tool") == "read_file"
+        for source in agent.inputs
+    )
+    assert any(path.path_id == "PATH012" for path in graph.attack_paths)
+    assert any(finding.rule_id == "PATH012" for finding in findings)
+    assert not any(
+        source.metadata.get("binding_origin") == "runner_external_input"
+        for source in agent.inputs
+    )
+
+
+def test_openai_contained_tool_result_filesystem_path_does_not_emit_path012(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "shared_tools.py").write_text(
+        """
+from pathlib import Path
+
+def read_file_contents(file_path: str, base_directory: str = ".") -> str:
+    base = Path(base_directory).resolve()
+    full_path = (base / file_path).resolve()
+    full_path.relative_to(base)
+    return full_path.read_text(encoding="utf-8")
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent, function_tool
+from shared_tools import read_file_contents
+
+SCAN_DIR = "/workspace/project"
+
+@function_tool
+def read_file(file_path: str) -> str:
+    return read_file_contents(file_path, base_directory=SCAN_DIR)
+
+agent = Agent(name="contained_reader", tools=[read_file])
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "contained_reader")
+    tool = next(item for item in agent.tools if item.name == "read_file")
+
+    assert tool.metadata["returns_local_file_content"] is True
+    assert tool.metadata["filesystem_path_constrained"] is True
+    assert not any(path.path_id == "PATH012" for path in graph.attack_paths)
+    assert not any(finding.rule_id == "PATH012" for finding in findings)
