@@ -11,6 +11,7 @@ import yaml
 ATTACK_VERDICTS = {"valid", "invalid", "unresolved"}
 FINDING_VERDICTS = {"supported", "unsupported", "unresolved"}
 SEVERITIES = {"critical", "high", "medium", "low", "informational", "unresolved"}
+CONFIDENCES = {"high", "medium", "low"}
 
 
 class ReviewPackError(ValueError):
@@ -97,6 +98,13 @@ def _validate_case_doc(case: dict[str, Any], where: str) -> dict[str, Any]:
                 normalized["run_id"] = run_id.strip()
             evaluator_models.append(normalized)
 
+        if reviewer_kind == "llm":
+            confidence = review.get("confidence")
+            if confidence not in CONFIDENCES:
+                raise ReviewPackError(
+                    f"{review_where}: LLM confidence must be high, medium or low"
+                )
+
         if review.get("horustrace_output_seen") is not False:
             raise ReviewPackError(f"{review_where}: reviewer must be blinded")
         if review.get("locked") is not True:
@@ -132,6 +140,10 @@ def _validate_case_doc(case: dict[str, Any], where: str) -> dict[str, Any]:
         "consensus_severity": severities[0] if severities[0] == severities[1] else None,
         "reviewers": ids,
         "reviewer_kinds": reviewer_kinds,
+        "review_confidences": [
+            review.get("confidence") if reviewer_kinds[index] == "llm" else None
+            for index, review in enumerate(reviewers)
+        ],
         "evaluator_models": evaluator_models,
     }
 
@@ -174,7 +186,16 @@ def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     escalation = [
         row["case_id"]
         for row in rows
-        if not row["consensus"] or not row["severity_consensus"]
+        if (
+            not row["consensus"]
+            or not row["severity_consensus"]
+            or "low" in row.get("review_confidences", [])
+        )
+    ]
+    low_confidence = [
+        row["case_id"]
+        for row in rows
+        if "low" in row.get("review_confidences", [])
     ]
     return {
         "schema_version": 1,
@@ -186,6 +207,7 @@ def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "disagreement_cases": disagreements,
         "consensus_rate": round(consensus / len(rows), 4) if rows else None,
         "escalation_cases": escalation,
+        "low_confidence_cases": low_confidence,
         "rows": rows,
         # Reveal is safe once both blinded reviews are locked. Disagreements remain
         # excluded from accuracy denominators and are escalated separately.
