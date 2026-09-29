@@ -82,7 +82,8 @@ def _review() -> dict:
                         "severity": "high",
                     },
                 ],
-            }
+            },
+            {"case_id": "rw-002", "findings": []},
         ],
     }
 
@@ -138,7 +139,7 @@ def test_export_packet_withholds_case_specific_scanner_output() -> None:
     packet = build_packet(_scanner(), ["rw-001", "rw-002"])
 
     assert packet["horustrace_findings_in_packet"] is False
-    assert packet["scanner_sha_withheld_until_review_lock"] == "a" * 40
+    assert packet["scanner_sha_for_later_join"] == "a" * 40
     assert packet["cases"] == [
         {
             "case_id": "rw-001",
