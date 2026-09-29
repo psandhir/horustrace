@@ -531,7 +531,7 @@ if __name__ == "__main__":
         for item in graph.agents
         if item.metadata.get("framework") == "model-tool-loop"
     )
-    assert agent.name == "open_ai_m_c_p_agent"
+    assert agent.metadata["source_class"] == "OpenAIMCPAgent"
     assert [server.name for server in agent.mcp_servers] == ["workspace"]
     server = agent.mcp_servers[0]
     assert server.metadata["binding_origin"] == "local_stdio_script"
