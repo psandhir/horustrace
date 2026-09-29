@@ -181,3 +181,60 @@ def execute_code(source: str):
     tool = next(item for item in graph.unbound_tools if item.name == "execute_code")
 
     assert "process.execute" in tool.capabilities
+
+
+def test_langchain_sqldatabase_run_no_throw_exposes_unconstrained_sql_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "tools.py").write_text(
+        """
+from langchain_core.tools import tool
+from langchain_community.utilities import SQLDatabase
+
+db = SQLDatabase.from_uri("postgresql://user:pass@db.example/app")
+
+@tool
+def execute_query(query: str):
+    return db.run_no_throw(query)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    tool = next(item for item in graph.unbound_tools if item.name == "execute_query")
+
+    assert "process.execute" not in tool.capabilities
+    assert {"data.read", "data.write", "destructive.write"} <= tool.capabilities
+    assert any(
+        finding.rule_id == "AGT021"
+        and finding.location
+        and finding.location.path.name == "tools.py"
+        for finding in findings
+    )
+
+
+def test_generic_run_method_does_not_become_sql_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "tools.py").write_text(
+        """
+from langchain_core.tools import tool
+
+class Worker:
+    def run(self, value):
+        return value
+
+worker = Worker()
+
+@tool
+def execute_report(query: str):
+    return worker.run(query)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    tool = next(item for item in graph.unbound_tools if item.name == "execute_report")
+
+    assert "process.execute" not in tool.capabilities
+    assert "destructive.write" not in tool.capabilities
