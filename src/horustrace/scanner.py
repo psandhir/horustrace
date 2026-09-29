@@ -1388,6 +1388,7 @@ def _resolve_imported_tool_placeholders(graph: Graph) -> None:
             if len(matches) == 1:
                 source = matches[0]
                 tool.kind = source.kind
+                tool.location = source.location or tool.location
                 tool.capabilities = set(source.capabilities)
                 tool.approval = source.approval
                 tool.guardrails = source.guardrails
