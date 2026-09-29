@@ -1,4 +1,5 @@
-from __future__ import annotations
+from __future__ import copy
+import annotations
 
 import ast
 import json
@@ -1745,6 +1746,32 @@ def _link_global_identities(graph: Graph) -> None:
                 agent.identities.append(by_name[name])
 
 
+def _security_principal_view(graph: Graph) -> Graph:
+    """Return a lossless copy filtered to source-proven effective agent principals.
+
+    LangGraph StateGraph is also used for deterministic orchestration. The adapter
+    retains those workflow containers for topology and reporting, but a graph whose
+    nodes contain no model invocation or ToolNode dispatch surface is not itself an
+    agent security principal.
+    """
+    view = copy.deepcopy(graph)
+    excluded = {
+        agent.name
+        for agent in view.agents
+        if agent.metadata.get("framework") == "langgraph"
+        and agent.metadata.get("model_driven_workflow") is False
+    }
+    if not excluded:
+        return view
+    view.agents = [agent for agent in view.agents if agent.name not in excluded]
+    view.flow_paths = [
+        flow
+        for flow in view.flow_paths
+        if flow.agent is None or flow.agent not in excluded
+    ]
+    return view
+
+
 def scan(
     path: Path,
     suppressions_path: Path | None = None,
@@ -2144,10 +2171,13 @@ def scan(
     if authority_enrichment is not None:
         graph.coverage.resolution["authority_source"] = authority_enrichment.as_dict()
 
-    annotate_risk_semantics(graph)
-    graph.attack_paths = build_attack_paths(graph)
-    graph.adg = build_adg(graph, analysis_root)
-    findings = evaluate(graph)
+    security_graph = _security_principal_view(graph)
+    annotate_risk_semantics(security_graph)
+    security_graph.attack_paths = build_attack_paths(security_graph)
+    security_graph.adg = build_adg(security_graph, analysis_root)
+    graph.attack_paths = security_graph.attack_paths
+    graph.adg = security_graph.adg
+    findings = evaluate(security_graph)
     for finding in findings:
         finding.source_context = classify_source_context(
             finding.location.path if finding.location else None
