@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "batch-003",
+  "phase": "selection_locked_before_source_review",
+  "selection_locked_before_source_review": true,
+  "horustrace_case_output_seen": false,
+  "selection_method": "For each non-exhausted framework stratum, choose the eligible case with lexicographically smallest final 12 hex characters of pinned SHA after excluding previously_studied cohort cases and every case used in semantic benchmark v1.1, blind semantic cohort, differential Batch 001, or differential Batch 002. FastAgent is omitted because all three frozen FastAgent cases are already studied.",
+  "exhausted_strata": {
+    "fastagent": [
+      "rw-001",
+      "rw-002",
+      "rw-003"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "rw-007",
+      "repo": "joshnaim1/ocr-test",
+      "sha": "12a850dec83f04039862fb6ef03e0fc80c462bf3",
+      "framework": "google-adk",
+      "application_path": "agent.py"
+    },
+    {
+      "case_id": "rw-049",
+      "repo": "mshojaei77/ReActMCP",
+      "sha": "3fe0886eefa7ec6744d7ca78ad430d6e1749f126",
+      "framework": "langgraph",
+      "application_path": "main.py"
+    },
+    {
+      "case_id": "rw-084",
+      "repo": "AndreaCadonna/redmine-ai-cli",
+      "sha": "1b2976858b61f8f0b6fe1ce1d0d0173cd52e4452",
+      "framework": "mcp-custom",
+      "application_path": "agent.py"
+    },
+    {
+      "case_id": "rw-131",
+      "repo": "cuttlesoft/agent-loop-examples",
+      "sha": "959ce356fadb4577f40c35e2942a3237ad8f7988",
+      "framework": "openai-agents",
+      "application_path": "openai-agents/agent.py"
+    },
+    {
+      "case_id": "rw-150",
+      "repo": "Amar-Ag/project-ideation-tool",
+      "sha": "169a9d50841de7cf05bfd5240f9509e0eccd5167",
+      "framework": "pydantic-ai",
+      "application_path": "src/agent.py"
+    }
+  ],
+  "explicit_exclusions": {
+    "semantic_benchmark_v1_1": [
+      "rw-022",
+      "rw-085",
+      "rw-129",
+      "rw-158",
+      "rw-058",
+      "rw-003",
+      "rw-096"
+    ],
+    "blind_semantic_cohort": [
+      "rw-002",
+      "rw-026",
+      "rw-038",
+      "rw-066",
+      "rw-071",
+      "rw-081",
+      "rw-110",
+      "rw-121",
+      "rw-140",
+      "rw-165",
+      "rw-180"
+    ],
+    "differential_batch_001": [
+      "rw-017",
+      "rw-065",
+      "rw-112",
+      "rw-139",
+      "rw-152"
+    ],
+    "differential_batch_002": [
+      "rw-003",
+      "rw-004",
+      "rw-041",
+      "rw-076",
+      "rw-116",
+      "rw-147"
+    ]
+  }
+}

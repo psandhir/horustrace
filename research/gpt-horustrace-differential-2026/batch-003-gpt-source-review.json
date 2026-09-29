@@ -1,0 +1,323 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "batch-003",
+  "mode": "case-blind-source-review",
+  "reviewer": {
+    "model": "GPT-5.6 Sol",
+    "case_specific_horustrace_findings_seen_before_lock": false,
+    "general_horustrace_product_context_seen": true,
+    "note": "Batch selection was committed before source review. This artifact is based on pinned source only; no case-specific HorusTrace output for Batch 003 was inspected before lock."
+  },
+  "cases": [
+    {
+      "case_id": "rw-007",
+      "repo": "joshnaim1/ocr-test",
+      "sha": "12a850dec83f04039862fb6ef03e0fc80c462bf3",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "tools/document_ocr.py",
+        "README.md"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "README documents interactive deployment through `adk web --port 4200`.",
+        "Document AI execution requires GCP project/location/processor credentials and an enabled processor."
+      ],
+      "authority_facts": [
+        {
+          "fact": "The ADK agent binds `process_document_with_ocr` and `search_document` directly as model-callable tools.",
+          "confidence": "high"
+        },
+        {
+          "fact": "`process_document_with_ocr(document_path)` accepts an absolute path unchanged, or joins any relative path to the project root, then opens the resulting path with `open(..., 'rb')` without a containment/allowlist check.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The bytes read from the selected file are placed into a Google Document AI RawDocument and sent to `process_document`; therefore a model-selected readable local path can cause file content to cross an external service boundary.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The agent prompt says documents are in `data/sample/` and asks the assistant to confirm paths, but that restriction is not enforced in tool code.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-007-01",
+          "semantic_key": "model_selected_local_file_read_to_external_document_ai",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "Interactive agent input can induce a model tool call with a path outside the intended sample directory; the tool reads that local file and submits its bytes to Google Document AI. Source contains no path-containment or file allowlist enforcement.",
+          "evidence": [
+            "agent.py: root_agent tools include process_document_with_ocr and search_document",
+            "tools/document_ocr.py: absolute paths are accepted unchanged and relative paths are joined to project root",
+            "tools/document_ocr.py: open(document_path, 'rb') reads the selected file",
+            "tools/document_ocr.py: RawDocument(content=document_content) is sent through process_document",
+            "README.md: interactive deployment documented via adk web"
+          ],
+          "reachability": "configuration_dependent_but_source_proven_after_interactive_agent_run"
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-007-ap1",
+          "severity": "high",
+          "confidence": "high",
+          "chain": [
+            "interactive ADK user input",
+            "document_processing_agent",
+            "model-selected document_path",
+            "local file read outside intended sample directory",
+            "Google Document AI external processing"
+          ]
+        }
+      ],
+      "controls": [
+        "Prompt text recommends `data/sample/` paths and asks the model to confirm the document path.",
+        "The file must exist and Document AI credentials/runtime dependencies must be configured."
+      ]
+    },
+    {
+      "case_id": "rw-049",
+      "repo": "mshojaei77/ReActMCP",
+      "sha": "3fe0886eefa7ec6744d7ca78ad430d6e1749f126",
+      "framework": "langgraph",
+      "source_files_reviewed": [
+        "main.py",
+        "mcp_config.json",
+        "servers/exa_web_search.py",
+        "servers/fire_crawl.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "Both configured MCP servers are active in the checked-in config but require EXA_API_KEY/FIRECRAWL_API_KEY.",
+        "The committed `__main__` entrypoint uses a fixed research prompt rather than reading CLI/web user input."
+      ],
+      "authority_facts": [
+        {
+          "fact": "The LangGraph ReAct agent is created with `client.get_tools()` from every successfully connected active MCP server.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The Firecrawl MCP exposes scrape_url, crawl_website, map_website and extract_structured_data with model-supplied URL/URL-list parameters and no source-visible destination allowlist.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The Exa tools are provider-mediated search; query/domain filters do not give the model a direct arbitrary socket destination.",
+          "confidence": "high"
+        },
+        {
+          "fact": "At the pinned entrypoint there is no source-proven untrusted runtime ingress because the query passed to main() is a constant.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-049-01",
+          "semantic_key": "model_callable_firecrawl_arbitrary_remote_url_authority",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "When the configured Firecrawl MCP is available, the model has source-proven authority to select arbitrary URL targets for scrape/crawl/map/extract operations without a destination allowlist. The pinned entrypoint does not expose this authority to untrusted user input.",
+          "evidence": [
+            "main.py: create_react_agent(model, client.get_tools(), ...)",
+            "mcp_config.json: firecrawl server active=true",
+            "servers/fire_crawl.py: scrape_url(url), crawl_website(url), map_website(url), extract_structured_data(urls, ...) accept caller-selected destinations",
+            "servers/fire_crawl.py: no URL allowlist/private-network restriction is visible"
+          ],
+          "reachability": "effective_if_firecrawl_credentials_present; no untrusted ingress proven at pinned entrypoint"
+        }
+      ],
+      "attack_paths": [],
+      "controls": [
+        "Firecrawl performs the remote fetch through a provider SDK rather than a direct requests/httpx call from the local application.",
+        "The committed main entrypoint supplies a fixed query, so this batch does not assert an attacker-controlled end-to-end path."
+      ]
+    },
+    {
+      "case_id": "rw-084",
+      "repo": "AndreaCadonna/redmine-ai-cli",
+      "sha": "1b2976858b61f8f0b6fe1ce1d0d0173cd52e4452",
+      "framework": "mcp-custom",
+      "source_files_reviewed": [
+        "cli.py",
+        "agent.py",
+        "tool_schemas.py",
+        "redmine_mcp_server.py",
+        "redmine_client.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "The CLI requires REDMINE_URL and REDMINE_API_KEY, plus a reachable local Ollama-compatible endpoint.",
+        "The REPL provides source-proven user input to the custom model/tool loop."
+      ],
+      "authority_facts": [
+        {
+          "fact": "CLI input enters Agent.chat(), the local LLM receives a fixed catalogue of five Redmine tools, and model tool calls are name-validated before MCP dispatch.",
+          "confidence": "high"
+        },
+        {
+          "fact": "Every exposed Redmine tool is read-only: projects/issues/time entries ultimately use HTTP GET against paths under a configured Redmine base URL.",
+          "confidence": "high"
+        },
+        {
+          "fact": "No issue update/create/delete, time-entry mutation, filesystem write, process-execution or arbitrary destination tool is exposed in the reviewed effective catalogue.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [],
+      "attack_paths": [],
+      "controls": [
+        "Tool names are checked against TOOL_NAMES before dispatch.",
+        "MCP server exposes only read operations.",
+        "Redmine requests use a configured authenticated base URL rather than model-selected hosts.",
+        "This is a precision-control case: untrusted CLI ingress plus authenticated data.read authority should not become state-change/process/broad-destination findings."
+      ]
+    },
+    {
+      "case_id": "rw-131",
+      "repo": "cuttlesoft/agent-loop-examples",
+      "sha": "959ce356fadb4577f40c35e2942a3237ad8f7988",
+      "framework": "openai-agents",
+      "source_files_reviewed": [
+        "openai-agents/agent.py",
+        "shared_tools.py",
+        "sample_project/src/api/routes.py",
+        "sample_project/src/utils/cache.py"
+      ],
+      "runtime_viability": "source_runnable_with_openai_credentials",
+      "runtime_notes": [
+        "The committed main entrypoint uses fixed SCAN_DIR/REPORT_PATH values and a fixed instruction prompt.",
+        "Repository source files are intentionally read and returned into the model context."
+      ],
+      "authority_facts": [
+        {
+          "fact": "The model is directly bound to list_files, read_file and write_report.",
+          "confidence": "high"
+        },
+        {
+          "fact": "list_files passes a model-selected directory directly to Path(directory).resolve().rglob without enforcing SCAN_DIR containment.",
+          "confidence": "high"
+        },
+        {
+          "fact": "read_file joins SCAN_DIR with a model-selected file_path but never resolves-and-checks the resulting path, so `../` path traversal can escape the intended scan directory.",
+          "confidence": "high"
+        },
+        {
+          "fact": "write_report accepts a model-selected output_path, creates parent directories and writes text without restricting the path to REPORT_PATH or a safe directory.",
+          "confidence": "high"
+        },
+        {
+          "fact": "Contents of scanned source files are returned to the model, creating an indirect untrusted-content channel into a model that holds the above filesystem authority.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-131-01",
+          "semantic_key": "untrusted_source_content_to_unconstrained_filesystem_read_write",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "The code-review agent feeds repository file content into a model that can select directories/file paths and report output paths without containment enforcement. Malicious or adversarial source content can therefore influence a tool-using model with broader filesystem read/write authority than the intended sample-project/report scope.",
+          "evidence": [
+            "openai-agents/agent.py: tools=[list_files, read_file, write_report]",
+            "shared_tools.py: list_files_in_directory resolves arbitrary model-selected directory",
+            "shared_tools.py: read_file_contents builds base_directory / file_path without containment validation",
+            "shared_tools.py: write_todo_report writes Path(output_path) and creates parents",
+            "openai-agents/agent.py: source file contents are returned by read_file into the model/tool loop"
+          ],
+          "reachability": "source_proven_model_authority; exploitability depends on model response to adversarial repository content"
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-131-ap1",
+          "severity": "high",
+          "confidence": "medium",
+          "chain": [
+            "untrusted/adversarial repository source content",
+            "read_file tool result",
+            "todo_researcher model context",
+            "model-selected traversal/output path",
+            "filesystem read outside SCAN_DIR or write outside intended REPORT_PATH"
+          ]
+        }
+      ],
+      "controls": [
+        "The normal main prompt supplies fixed SCAN_DIR and REPORT_PATH.",
+        "The sample repository content reviewed here is ordinary TODO-bearing source, not a demonstrated malicious prompt payload.",
+        "No path containment check enforces the intended fixed scope if the model selects a different path."
+      ]
+    },
+    {
+      "case_id": "rw-150",
+      "repo": "Amar-Ag/project-ideation-tool",
+      "sha": "169a9d50841de7cf05bfd5240f9509e0eccd5167",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "src/agent.py",
+        "src/app.py",
+        "src/tavily_research.py",
+        "src/database.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "The Streamlit app requires Supabase authentication and Groq/Tavily configuration for the relevant flows.",
+        "Authenticated chat input is source-proven to reach agent.run_sync."
+      ],
+      "authority_facts": [
+        {
+          "fact": "Authenticated Streamlit user input is passed to the PydanticAI agent through agent.run_sync.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The agent exposes fetch_curriculum(url), whose documented intended use is explicitly a URL supplied by the user.",
+          "confidence": "high"
+        },
+        {
+          "fact": "fetch_curriculum calls httpx.AsyncClient(follow_redirects=True).get(url) with no source-visible host, scheme, private-address or redirect-destination allowlist.",
+          "confidence": "high"
+        },
+        {
+          "fact": "research_domain is provider-mediated Tavily search and is distinct from the direct arbitrary URL fetch authority of fetch_curriculum.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-150-01",
+          "semantic_key": "authenticated_user_url_to_server_side_http_fetch",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "An authenticated user can supply a curriculum URL that the agent may pass to a server-side httpx client with redirects enabled and no destination restriction. This is source-proven broad server-side URL-fetch authority and can include destinations outside the intended public curriculum sites.",
+          "evidence": [
+            "src/app.py: st.chat_input -> get_bot_response(user_input) -> agent.run_sync(user_input, ...)",
+            "src/agent.py: @agent.tool fetch_curriculum(ctx, url)",
+            "src/agent.py: AsyncClient(follow_redirects=True).get(url)",
+            "src/agent.py: no host/private-IP/redirect allowlist is enforced"
+          ],
+          "reachability": "authenticated_user_to_model_selected_server_side_fetch"
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-150-ap1",
+          "severity": "high",
+          "confidence": "high",
+          "chain": [
+            "authenticated Streamlit chat input",
+            "PydanticAI agent",
+            "fetch_curriculum(url)",
+            "httpx server-side request with redirects",
+            "model/user-influenced network destination"
+          ]
+        }
+      ],
+      "controls": [
+        "Authentication is required before the main chat page.",
+        "System/tool instructions tell the model to call fetch_curriculum only for a URL explicitly supplied by the user; this limits autonomous invention but does not restrict the destination itself."
+      ]
+    }
+  ]
+}
