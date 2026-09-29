@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "batch-003",
+  "gpt_review_lock_commit": "1adf51eb69b54de8060bef4039bce61060e039fb",
+  "scanner": {
+    "sha": "6cff0bbab343dcfd9de9c7ecb7763f0d50423c06",
+    "workflow_run": 36620578672,
+    "artifact_id": 11058625749,
+    "artifact_digest": "sha256:c1bca69bcc726e1fa005b008f1f16694d34096f2b740933433bc91aca2857e94",
+    "note": "Post-#248 Frozen-180 artifact. #247 is research-only and does not alter scanner behavior, so this scanner state is semantically equivalent to main for Batch 003."
+  },
+  "summary": {
+    "cases": 5,
+    "gpt_semantic_findings": 4,
+    "full_semantic_matches": 0,
+    "partial_semantic_matches": 2,
+    "gpt_findings_without_equivalent_horustrace_claim": 2,
+    "precision_control_cases": 1,
+    "precision_controls_passed": 1,
+    "gpt_source_chains": 3,
+    "horustrace_attack_paths": 0,
+    "note": "Entity/tool discovery is generally present; the dominant misses are containment, destination provenance, indirect untrusted content, and end-to-end path composition."
+  },
+  "cases": [
+    {
+      "case_id": "rw-007",
+      "outcome": "gap",
+      "gpt_findings": [
+        "gpt-rw-007-01"
+      ],
+      "horustrace_rules": [],
+      "gpt_attack_paths": [
+        "gpt-rw-007-ap1"
+      ],
+      "horustrace_attack_paths": [],
+      "adjudication": "HorusTrace correctly discovers the ADK agent and both effective tool bindings, but emits no claim for model-selected local file paths, no file-containment semantic, no local-file-to-Document-AI external transfer finding, and no attack path.",
+      "gap_family": "model_selected_file_path_containment_and_file_to_external_transfer",
+      "priority": "P0"
+    },
+    {
+      "case_id": "rw-049",
+      "outcome": "gap_authority_without_ingress",
+      "gpt_findings": [
+        "gpt-rw-049-01"
+      ],
+      "horustrace_rules": [],
+      "gpt_attack_paths": [],
+      "horustrace_attack_paths": [],
+      "adjudication": "HorusTrace structurally discovers the LangGraph agent, MCP servers and tools but does not express Firecrawl's model-callable arbitrary URL authority. Source does not prove untrusted runtime ingress at the pinned entrypoint, so this is an authority/destination-semantic gap rather than an attacker-reachable path gap.",
+      "gap_family": "mcp_tool_url_parameter_destination_authority",
+      "priority": "P1"
+    },
+    {
+      "case_id": "rw-084",
+      "outcome": "agreement_precision_control",
+      "gpt_findings": [],
+      "horustrace_rules": [],
+      "gpt_attack_paths": [],
+      "horustrace_attack_paths": [],
+      "adjudication": "The custom MCP loop has source-proven CLI ingress and authenticated Redmine access, but the exposed effective tool catalogue is read-only and constrained to the configured Redmine base URL. HorusTrace emits no findings or attack paths, matching the source review.",
+      "gap_family": null,
+      "priority": null
+    },
+    {
+      "case_id": "rw-131",
+      "outcome": "partial_containment_and_attack_path_gap",
+      "gpt_findings": [
+        "gpt-rw-131-01"
+      ],
+      "horustrace_rules": [
+        "AGT022",
+        "AGT040",
+        "CAP005"
+      ],
+      "gpt_attack_paths": [
+        "gpt-rw-131-ap1"
+      ],
+      "horustrace_attack_paths": [],
+      "adjudication": "HorusTrace recognizes generic read/write authority and missing approval, but does not model path containment, repository/source content as indirect untrusted model input, or compose that input to model-selected filesystem paths outside the intended SCAN_DIR/REPORT_PATH boundaries.",
+      "gap_family": "filesystem_path_containment_and_indirect_untrusted_content_composition",
+      "priority": "P0"
+    },
+    {
+      "case_id": "rw-150",
+      "outcome": "partial_destination_and_attack_path_gap",
+      "gpt_findings": [
+        "gpt-rw-150-01"
+      ],
+      "horustrace_rules": [
+        "NET002"
+      ],
+      "gpt_attack_paths": [
+        "gpt-rw-150-ap1"
+      ],
+      "horustrace_attack_paths": [],
+      "adjudication": "HorusTrace recognizes unconstrained external network authority generically, but does not preserve the stronger provenance: authenticated Streamlit input reaches the Pydantic agent, a user/model-selected URL reaches fetch_curriculum, and httpx performs a server-side request with redirects and no destination restriction.",
+      "gap_family": "user_url_to_server_side_fetch_destination_provenance",
+      "priority": "P0"
+    }
+  ],
+  "next_build_order": [
+    "P0: model-selected filesystem path + containment semantics, including file-read to external-service composition",
+    "P0: user/model URL provenance to server-side HTTP destination and attack-path composition",
+    "P1: indirect untrusted content (repository/tool result) as model input when source proves the loop",
+    "P1: MCP tool URL-parameter destination authority without requiring untrusted ingress"
+  ]
+}
