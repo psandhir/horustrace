@@ -462,7 +462,8 @@ def evaluate(graph: Graph) -> list[Finding]:
         privileged_mcp_capabilities = discovered_capabilities & PRIVILEGED_CAPABILITIES
         server_authority = mcp_authority_by_object.get(id(server))
         if (
-            privileged_mcp_capabilities
+            server_authority is not None
+            and privileged_mcp_capabilities
             and server.approval is not True
             and not server.guardrails
         ):
