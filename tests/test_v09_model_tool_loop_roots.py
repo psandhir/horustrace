@@ -415,3 +415,180 @@ def dangerous_b():
         server.name != "a" and server.name != "b"
         for server in agent.mcp_servers
     )
+
+
+def test_openai_responses_mcp_loop_binds_source_visible_default_stdio_server(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import json
+import sys
+from pathlib import Path
+
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+from openai import AsyncOpenAI
+
+
+def _repo_root():
+    return Path(__file__).resolve().parent
+
+
+def _load_config(config_path=None):
+    path = Path(config_path or "mcp_config.json")
+    if path.exists():
+        return json.loads(path.read_text())
+    return {
+        "mcpServers": {
+            "workspace": {
+                "enabled": True,
+                "command": sys.executable,
+                "args": [str(_repo_root() / "mcp_server_example.py")],
+            }
+        }
+    }
+
+
+class OpenAIMCPAgent:
+    def __init__(self):
+        self.client = AsyncOpenAI()
+        self.openai_tools = []
+        self.tool_map = {}
+        self.servers = {}
+
+    async def connect(self):
+        config = _load_config()
+        for server_name, server_config in config["mcpServers"].items():
+            params = StdioServerParameters(
+                command=server_config["command"],
+                args=server_config.get("args", []),
+            )
+            read_stream, write_stream = await stdio_client(params).__aenter__()
+            session = ClientSession(read_stream, write_stream)
+            await session.initialize()
+            self.servers[server_name] = session
+            tools_result = await session.list_tools()
+            for tool in tools_result.tools:
+                openai_name = f"{server_name}__{tool.name}"
+                self.tool_map[openai_name] = (server_name, tool.name)
+                self.openai_tools.append(
+                    {
+                        "type": "function",
+                        "name": openai_name,
+                        "parameters": tool.inputSchema,
+                    }
+                )
+
+    async def call_tool(self, openai_tool_name, tool_input):
+        server_name, real_tool_name = self.tool_map[openai_tool_name]
+        return await self.servers[server_name].call_tool(real_tool_name, tool_input)
+
+    async def run(self, prompt):
+        response = await self.client.responses.create(
+            model="gpt-test",
+            input=prompt,
+            tools=self.openai_tools,
+        )
+        for item in response.output:
+            if item.type == "function_call":
+                await self.call_tool(item.name, json.loads(item.arguments))
+        return response
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "mcp_server_example.py").write_text(
+        """
+import subprocess
+import sys
+
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("jarvis-workspace")
+
+
+@mcp.tool()
+def run_python(code: str) -> str:
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return completed.stdout
+
+
+if __name__ == "__main__":
+    mcp.run()
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "model-tool-loop"
+    )
+    assert agent.name == "open_ai_m_c_p_agent"
+    assert [server.name for server in agent.mcp_servers] == ["workspace"]
+    server = agent.mcp_servers[0]
+    assert server.metadata["binding_origin"] == "local_stdio_script"
+    assert server.metadata["repository_resolved"] is True
+    assert server.metadata["implementation_name"] == "jarvis-workspace"
+    assert server.metadata["discovered_tool_capabilities"] == ["process.execute"]
+    assert any(
+        item.rule_id == "AGT053"
+        and item.agent == agent.name
+        for item in findings
+    )
+    assert not any(
+        item.rule_id == "AGT020"
+        and "Unbound tool 'run_python'" in item.message
+        for item in findings
+    )
+    assert not any(tool.name == "run_python" for tool in graph.unbound_tools)
+    assert effective_authority_report(graph)["relationships"] == [
+        {
+            "relationship_id": effective_authority_report(graph)["relationships"][0][
+                "relationship_id"
+            ],
+            "agent": agent.name,
+            "target_kind": "mcp_server",
+            "target_name": "workspace",
+            "capabilities": ["mcp.local"],
+            "resources": [],
+            "destinations": [],
+            "identity": None,
+            "dimensions": {
+                "binding": "resolved",
+                "scope": "unknown",
+                "identity": "unknown",
+                "destination": "not_applicable",
+                "approval": "unknown",
+            },
+            "scope": {
+                "allowed_tools": [],
+                "denied_tools": [],
+                "resources": [],
+            },
+            "approval": {
+                "required": None,
+                "guardrails": [],
+                "inherited_control": False,
+            },
+            "evidence": [
+                {
+                    "origin": "observed",
+                    "fact": "agent_mcp_binding",
+                    "subject": "workspace",
+                    "location": {
+                        "path": str((tmp_path / "agent.py").resolve()),
+                        "line": 21,
+                        "column": 20,
+                    },
+                }
+            ],
+        }
+    ]
