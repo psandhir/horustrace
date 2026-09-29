@@ -1,0 +1,55 @@
+{
+  "case_id": "rw-038",
+  "repo_name": "elitepunith/apdm-agent",
+  "sha": "c2f30462bc8663bec5c4046dc62006f52889c19a",
+  "source_review_status": "locked_before_horustrace_reveal",
+  "structural": {
+    "agents": {
+      "count": 1,
+      "evidence_state": "observed",
+      "note": "One Google ADK Agent named APDM."
+    },
+    "tools": {
+      "count": 4,
+      "evidence_state": "observed",
+      "note": "Four FunctionTool wrappers are explicitly bound."
+    },
+    "mcp": {
+      "count": 0,
+      "evidence_state": "observed"
+    }
+  },
+  "authority": [
+    {
+      "state": "observed",
+      "fact": "APDM can issue arbitrary HTTP GET requests to a model-supplied URL via check_url(url)."
+    },
+    {
+      "state": "observed",
+      "fact": "The remaining tools are local phishing/malware scoring helpers without state changes."
+    }
+  ],
+  "policy_expectations": [
+    {
+      "rule_id": "NET001",
+      "state": "observed",
+      "reason": "The URL checker accepts a caller/model-selected destination with no destination allowlist or scope restriction."
+    },
+    {
+      "rule_id": "NET002",
+      "state": "observed",
+      "reason": "Outbound HTTP capability has no detected destination constraint."
+    }
+  ],
+  "attack_paths": [],
+  "unresolved": [
+    "Whether application-level input is directly untrusted at the ADK agent invocation surface is not established by the reviewed files, so no PATH finding is asserted."
+  ],
+  "evidence": [
+    "agent.py",
+    "tools/url_checker.py",
+    "tools/phishing_detector.py",
+    "tools/malware_detector.py",
+    "tools/threat_score.py"
+  ]
+}
