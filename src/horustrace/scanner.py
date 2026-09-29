@@ -73,6 +73,7 @@ from horustrace.rules.builtin import evaluate
 from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
 from horustrace.semantics import annotate_risk_semantics
 from horustrace.source_context import classify_source_context, path_parts_match
+from horustrace.sql_authority import enrich_langchain_sql_authority
 from horustrace.source_provenance import annotate_tool_source_provenance
 from horustrace.suppressions import SUPPRESSION_FILENAMES, SuppressionError
 from horustrace.suppressions import apply as apply_suppressions
@@ -1666,6 +1667,11 @@ def scan(
     )
     _consolidate_agents(graph)
     annotate_tool_source_provenance(
+        graph,
+        root if root.is_dir() else root.parent,
+        approved_python_paths,
+    )
+    enrich_langchain_sql_authority(
         graph,
         root if root.is_dir() else root.parent,
         approved_python_paths,
