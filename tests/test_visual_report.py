@@ -201,6 +201,23 @@ def test_visual_report_projects_attack_path_chain(tmp_path: Path) -> None:
     assert path["steps"][-1]["label"] == "Unrestricted external destination"
 
 
+def test_visual_report_exposes_production_review_workflows(tmp_path: Path) -> None:
+    graph, findings = _graph(tmp_path)
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+
+    assert "Priority review queue" in html
+    assert "Assessment signal" in html
+    assert 'aria-label="Report sections"' in html
+    assert 'data-agent-filter=' in html
+    assert 'data-finding-filter=' in html
+    assert "Search rule, title, agent, message or file" in html
+    assert "Trust & provenance" in html
+    assert "prefers-reduced-motion" in html
+    assert "</style></style>" not in html
+    assert '<script id="horus-data"<script' not in html
+
+
 def test_visual_report_has_expandable_map_controls(tmp_path: Path) -> None:
     graph, findings = _graph(tmp_path)
 
