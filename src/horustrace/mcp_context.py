@@ -488,6 +488,19 @@ def resolve_local_stdio_implementations(graph: Graph, root: Path) -> None:
             for server in graph.unbound_mcp_servers
             if id(server) not in used
         ]
+        graph.unbound_tools = [
+            tool
+            for tool in graph.unbound_tools
+            if not (
+                tool.location is not None
+                and (
+                    tool.location.path.resolve(),
+                    str(tool.metadata.get("server") or ""),
+                )
+                in bound_implementation_tools
+            )
+        ]
+
 
 def _authority_scope(server: MCPServer) -> str:
     if server.allowed_tools:
