@@ -272,3 +272,46 @@ async def stream_agent_response(query: str):
         finding.rule_id == "PATH002" and finding.agent == agent.name
         for finding in findings
     )
+
+
+def test_deterministic_langgraph_workflow_is_not_promoted_to_agent(tmp_path: Path) -> None:
+    (tmp_path / "workflow.py").write_text(
+        """
+from langgraph.graph import END, START, StateGraph
+
+def normalize(state):
+    return {"value": state.get("value", 0)}
+
+def transform(state):
+    return {"value": state["value"] + 1}
+
+def finalize(state):
+    return {"result": state["value"]}
+
+workflow = StateGraph(dict)
+workflow.add_node("normalize", normalize)
+workflow.add_node("transform", transform)
+workflow.add_node("finalize", finalize)
+workflow.add_edge(START, "normalize")
+workflow.add_edge("normalize", "transform")
+workflow.add_edge("transform", "finalize")
+workflow.add_edge("finalize", END)
+graph = workflow.compile()
+graph.invoke({})
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+
+    assert not any(
+        agent.metadata.get("framework") == "langgraph"
+        for agent in graph.agents
+    )
+    roles = {node.name: node.role for node in graph.workflow_nodes}
+    assert roles == {
+        "normalize": "deterministic_transform",
+        "transform": "deterministic_transform",
+        "finalize": "deterministic_transform",
+    }
+    assert not findings
