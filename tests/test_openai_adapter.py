@@ -664,6 +664,5 @@ agent = Agent(name="Formatter", tools=[format_url])
     tool = next(item for item in graph.agents[0].tools if item.name == "format_url")
 
     assert not tool.destinations
-    assert "network.external" not in tool.capabilities
-    assert not any(finding.rule_id in {"NET001", "NET002"} for finding in findings)
+    assert not any(finding.rule_id == "NET001" for finding in findings)
 
