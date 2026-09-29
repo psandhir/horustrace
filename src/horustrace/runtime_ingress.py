@@ -260,11 +260,6 @@ def _factory_targets(
                 agent
                 for agent in path_agents
                 if agent.location is not None
-                and _inside(function, agent.location_as_ast)
-            ] if False else [
-                agent
-                for agent in path_agents
-                if agent.location is not None
                 and (getattr(function, "lineno", 0) or 0)
                 <= agent.location.line
                 <= (getattr(function, "end_lineno", 0) or 0)
@@ -282,9 +277,8 @@ def _class_targets(
     graph: Graph,
     modules: dict[Path, tuple[str, ast.Module, dict[str, str]]],
     factories: dict[str, Agent],
-) -> tuple[dict[str, Agent], set[str]]:
+) -> dict[str, Agent]:
     targets: dict[str, Agent] = {}
-    wrapper_keys: set[str] = set()
 
     for agent in graph.agents:
         if agent.location is None:
@@ -292,11 +286,10 @@ def _class_targets(
         source_class = agent.metadata.get("source_class")
         if not isinstance(source_class, str) or not source_class:
             continue
-        module = _module_name(agent.location.path, next(iter(modules.keys())).parent)
-        # The exact module is corrected below from the parsed-module table.
         parsed = modules.get(agent.location.path.resolve())
-        if parsed is not None:
-            module = parsed[0]
+        if parsed is None:
+            continue
+        module = parsed[0]
         targets[f"{module}.{source_class}" if module else source_class] = agent
 
     for _, (module, tree, imports) in modules.items():
@@ -320,8 +313,7 @@ def _class_targets(
             if len(unique) == 1:
                 key = f"{module}.{class_node.name}" if module else class_node.name
                 targets[key] = next(iter(unique.values()))
-                wrapper_keys.add(key)
-    return targets, wrapper_keys
+    return targets
 
 
 def _compiled_alias_targets(
@@ -517,7 +509,7 @@ def enrich_runtime_ingress_inputs(
         return
 
     factories = _factory_targets(graph, modules)
-    class_targets, _ = _class_targets(graph, modules, factories)
+    class_targets = _class_targets(graph, modules, factories)
     compiled_targets = _compiled_alias_targets(graph, modules)
 
     for path, (module, tree, imports) in modules.items():
