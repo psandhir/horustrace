@@ -13,7 +13,7 @@ import ast
 import re
 from pathlib import Path
 
-from horustrace.models import Agent, Graph, SourceLocation
+from horustrace.models import Agent, Graph, MCPServer, SourceLocation
 from horustrace.semantic_discovery import SemanticEntityKind, stable_entity_id
 
 
@@ -163,7 +163,7 @@ def _class_signals(node: ast.ClassDef) -> dict[str, bool]:
                 )
             if call_is_model:
                 model_call = True
-            if leaf == "set_tools":
+            if leaf in {"set_tools", "list_tools"}:
                 tool_catalogue = True
             if leaf == "call_tool":
                 tool_dispatch = True
@@ -186,7 +186,7 @@ def _class_signals(node: ast.ClassDef) -> dict[str, bool]:
                     tool_catalogue = True
 
         elif isinstance(child, ast.Attribute):
-            if child.attr == "tool_calls":
+            if child.attr in {"tool_calls", "function_call"}:
                 model_selection = True
             if child.attr in {"tools", "tool_schema", "tool_schemas", "all_tools_schema"}:
                 tool_catalogue = True
@@ -221,6 +221,50 @@ def _class_signals(node: ast.ClassDef) -> dict[str, bool]:
     }
 
 
+def _mcp_loop_evidence(node: ast.ClassDef) -> dict[str, bool]:
+    list_tools = False
+    call_tool = False
+    stdio_transport = False
+
+    for child in ast.walk(node):
+        if not isinstance(child, ast.Call):
+            continue
+        leaf = (_call_name(child.func) or "").lower()
+        if leaf == "list_tools":
+            list_tools = True
+        elif leaf == "call_tool":
+            call_tool = True
+        elif leaf in {"stdioserverparameters", "stdio_client"}:
+            stdio_transport = True
+
+    return {
+        "list_tools": list_tools,
+        "call_tool": call_tool,
+        "stdio_transport": stdio_transport,
+    }
+
+
+def _dynamic_stdio_mcp(path: Path, node: ast.ClassDef) -> MCPServer | None:
+    evidence = _mcp_loop_evidence(node)
+    if not all(evidence.values()):
+        return None
+    return MCPServer(
+        name="<dynamic-stdio-mcp>",
+        transport="stdio",
+        command="<python-or-node>",
+        args=["<caller-selected-script>"],
+        authenticated=None,
+        location=_location(path, node),
+        metadata={
+            "framework": "model-tool-loop",
+            "binding_origin": "source_proven_dynamic_stdio_selection",
+            "dynamic_server_selection": True,
+            "tool_catalogue_dynamic": True,
+            "repository_resolved": False,
+        },
+    )
+
+
 def _snake_name(value: str) -> str:
     if value.lower() == "agent":
         return "agent"
@@ -236,9 +280,14 @@ def _custom_class_agents(path: Path, tree: ast.AST) -> list[Agent]:
     for node in ast.walk(tree):
         if not isinstance(node, ast.ClassDef):
             continue
-        if "agent" not in node.name.lower():
-            continue
         signals = _class_signals(node)
+        mcp_evidence = _mcp_loop_evidence(node)
+        class_named_agent = "agent" in node.name.lower()
+        source_proven_mcp_loop = (
+            mcp_evidence["list_tools"] and mcp_evidence["call_tool"]
+        )
+        if not class_named_agent and not source_proven_mcp_loop:
+            continue
         if not all(signals.values()):
             continue
         name = _snake_name(node.name)
@@ -250,23 +299,27 @@ def _custom_class_agents(path: Path, tree: ast.AST) -> list[Agent]:
             source_key=path.as_posix(),
             line=location.line,
         )
-        agents.append(
-            Agent(
-                name=name,
-                location=location,
-                metadata={
-                    "framework": "model-tool-loop",
-                    "agent_type": "custom_model_tool_loop",
-                    "discovery_basis": "model_tools_selection_dispatch",
-                    "discovery_signals": sorted(
-                        key for key, present in signals.items() if present
-                    ),
-                    "semantic_entity_id": semantic_id,
-                    "semantic_entity_kind": SemanticEntityKind.AGENT.value,
-                    "instance_key": f"{path.resolve()}:{location.line}:{node.name}",
-                },
-            )
+        agent = Agent(
+            name=name,
+            location=location,
+            metadata={
+                "framework": "model-tool-loop",
+                "agent_type": "custom_model_tool_loop",
+                "discovery_basis": "model_tools_selection_dispatch",
+                "discovery_signals": sorted(
+                    key for key, present in signals.items() if present
+                ),
+                "semantic_entity_id": semantic_id,
+                "semantic_entity_kind": SemanticEntityKind.AGENT.value,
+                "instance_key": f"{path.resolve()}:{location.line}:{node.name}",
+                "source_class": node.name,
+            },
         )
+        dynamic_mcp = _dynamic_stdio_mcp(path, node)
+        if dynamic_mcp is not None:
+            agent.mcp_servers.append(dynamic_mcp)
+            agent.metadata["dynamic_mcp_servers"] = True
+        agents.append(agent)
     return agents
 
 

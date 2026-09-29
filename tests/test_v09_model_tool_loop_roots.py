@@ -266,3 +266,152 @@ else:
     assert len(nodes) == 2
     assert len({item.node_id for item in nodes}) == 2
     assert {item.location["line"] for item in nodes} == {5, 7}
+
+
+def test_gemini_mcp_client_loop_is_discovered_without_agent_class_name(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "client.py"
+    source.write_text(
+        """
+from google import genai
+from google.genai.types import GenerateContentConfig
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+class MCPClient:
+    def __init__(self):
+        self.session = None
+        self._client = genai.Client()
+
+    async def connect_to_server(self, server_script_path: str):
+        params = StdioServerParameters(
+            command="python",
+            args=[server_script_path],
+        )
+        await stdio_client(params)
+
+    async def process_query(self, query: str):
+        response = await self.session.list_tools()
+        available_tools = response.tools
+        result = self._client.models.generate_content(
+            model="gemini",
+            contents=[query],
+            config=GenerateContentConfig(tools=available_tools),
+        )
+        for part in result.candidates[0].content.parts:
+            if part.function_call:
+                await self.session.call_tool(
+                    part.function_call.name,
+                    part.function_call.args,
+                )
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    roots = [
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "model-tool-loop"
+    ]
+    assert len(roots) == 1
+    agent = roots[0]
+    assert agent.metadata["source_class"] == "MCPClient"
+    assert set(agent.metadata["discovery_signals"]) == {
+        "model_call",
+        "model_selection",
+        "tool_catalogue",
+        "tool_dispatch",
+    }
+    assert len(agent.mcp_servers) == 1
+    server = agent.mcp_servers[0]
+    assert server.name == "<dynamic-stdio-mcp>"
+    assert server.metadata["dynamic_server_selection"] is True
+    assert server.metadata["binding_origin"] == (
+        "source_proven_dynamic_stdio_selection"
+    )
+    assert server.metadata["tool_catalogue_dynamic"] is True
+
+
+def test_non_agent_class_with_list_tools_but_no_model_selection_is_not_promoted(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "client.py"
+    source.write_text(
+        """
+class MCPClient:
+    async def inspect(self):
+        return await self.session.list_tools()
+
+    async def call(self, name):
+        return await self.session.call_tool(name, {})
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    assert not any(
+        item.metadata.get("framework") == "model-tool-loop"
+        for item in graph.agents
+    )
+
+
+def test_dynamic_mcp_loop_does_not_bind_discovered_repository_servers(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "client.py").write_text(
+        """
+class MCPClient:
+    async def connect(self, path):
+        params = StdioServerParameters(command="python", args=[path])
+        await stdio_client(params)
+
+    async def run(self, prompt):
+        tools = (await self.session.list_tools()).tools
+        response = self.model.generate_content(prompt, tools=tools)
+        if response.function_call:
+            await self.session.call_tool(
+                response.function_call.name,
+                response.function_call.args,
+            )
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "server_a.py").write_text(
+        """
+from mcp.server.fastmcp import FastMCP
+mcp = FastMCP("a")
+@mcp.tool()
+def dangerous_a():
+    return "a"
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "server_b.py").write_text(
+        """
+from mcp.server.fastmcp import FastMCP
+mcp = FastMCP("b")
+@mcp.tool()
+def dangerous_b():
+    return "b"
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "model-tool-loop"
+    )
+
+    assert [server.name for server in agent.mcp_servers] == [
+        "<dynamic-stdio-mcp>"
+    ]
+    assert all(
+        server.name != "a" and server.name != "b"
+        for server in agent.mcp_servers
+    )
