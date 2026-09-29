@@ -550,20 +550,51 @@ def _enrich_cli_agent_run_inputs(
     python_paths: list[Path],
 ) -> None:
     """Attach CLI input only when repository source proves it reaches an imported Pydantic AI run call."""
+    root_package = root.name if (root / "__init__.py").exists() else None
+
+    def module_aliases(path: Path) -> tuple[str, ...]:
+        module = _module_name_for_path(path, root)
+        aliases: list[str] = []
+        if module:
+            aliases.append(module)
+        if root_package:
+            package_module = (
+                root_package
+                if not module
+                else f"{root_package}.{module}"
+            )
+            if package_module not in aliases:
+                aliases.append(package_module)
+        return tuple(aliases)
+
+    def preferred_module(path: Path) -> str:
+        aliases = module_aliases(path)
+        if root_package:
+            package_prefix = f"{root_package}."
+            package_alias = next(
+                (
+                    alias
+                    for alias in aliases
+                    if alias == root_package
+                    or alias.startswith(package_prefix)
+                ),
+                None,
+            )
+            if package_alias:
+                return package_alias
+        return aliases[0] if aliases else ""
+
     module_paths: dict[str, Path] = {}
     for path in python_paths:
-        module = _module_name_for_path(path, root)
-        if module:
+        for module in module_aliases(path):
             module_paths[module] = path
 
     agents_by_symbol: dict[tuple[str, str], list[Agent]] = {}
     for agent in graph.agents:
         if agent.metadata.get("framework") != "pydantic-ai" or agent.location is None:
             continue
-        module = _module_name_for_path(agent.location.path, root)
-        if not module:
-            continue
-        agents_by_symbol.setdefault((module, agent.name), []).append(agent)
+        for module in module_aliases(agent.location.path):
+            agents_by_symbol.setdefault((module, agent.name), []).append(agent)
 
     if not agents_by_symbol:
         return
@@ -631,7 +662,7 @@ def _enrich_cli_agent_run_inputs(
         tree = tree_for(path)
         if tree is None:
             continue
-        current_module = _module_name_for_path(path, root)
+        current_module = preferred_module(path)
 
         imported_agents: dict[str, Agent] = {}
         click_modules: set[str] = set()
