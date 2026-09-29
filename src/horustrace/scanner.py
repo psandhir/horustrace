@@ -663,7 +663,12 @@ def _enrich_cli_agent_run_inputs(
         if not imported_agents:
             continue
 
-        def expr_has_cli_input(node: ast.AST | None, tainted: set[str]) -> bool:
+        def expr_has_cli_input(
+            node: ast.AST | None,
+            tainted: set[str],
+            click_prompt_names: frozenset[str] = frozenset(click_prompts),
+            click_module_names: frozenset[str] = frozenset(click_modules),
+        ) -> bool:
             if node is None:
                 return False
             for child in ast.walk(node):
@@ -671,12 +676,20 @@ def _enrich_cli_agent_run_inputs(
                     return True
                 if not isinstance(child, ast.Call):
                     continue
-                if isinstance(child.func, ast.Name):
-                    if child.func.id == "input" or child.func.id in click_prompts:
-                        return True
+                if (
+                    isinstance(child.func, ast.Name)
+                    and (
+                        child.func.id == "input"
+                        or child.func.id in click_prompt_names
+                    )
+                ):
+                    return True
                 if isinstance(child.func, ast.Attribute):
                     receiver = _ast_dotted_name(child.func.value)
-                    if receiver in click_modules and child.func.attr == "prompt":
+                    if (
+                        receiver in click_module_names
+                        and child.func.attr == "prompt"
+                    ):
                         return True
             return False
 
