@@ -1,0 +1,65 @@
+{
+  "case_id": "rw-180",
+  "repo_name": "kai-feinberg/reddit-agent",
+  "sha": "f4503c6076c1e43d91d25f9feddf014c605c62e7",
+  "source_review_status": "locked_before_horustrace_reveal",
+  "structural": {
+    "agents": {
+      "count": 1,
+      "evidence_state": "observed",
+      "note": "One Pydantic AI Agent."
+    },
+    "tools": {
+      "count": 1,
+      "evidence_state": "observed",
+      "note": "search_reddit is the sole @ai_agent.tool in the reviewed source."
+    },
+    "mcp": {
+      "count": 0,
+      "evidence_state": "observed"
+    }
+  },
+  "authority": [
+    {
+      "state": "observed",
+      "fact": "Untrusted Streamlit chat input reaches ai_agent.run_stream."
+    },
+    {
+      "state": "observed",
+      "fact": "search_reddit calls a fixed Brave Search API endpoint then processes only returned URLs beginning with https://www.reddit.com/r/."
+    },
+    {
+      "state": "observed",
+      "fact": "Reddit/Brave credentials are dependency/env supplied, not literal source credentials."
+    },
+    {
+      "state": "observed",
+      "fact": "The tool is read-only with respect to Reddit/application state in the reviewed code."
+    }
+  ],
+  "policy_expectations": [],
+  "forbidden_expectations": [
+    {
+      "rule_id": "AGT022",
+      "state": "observed",
+      "reason": "No state-changing tool is bound."
+    },
+    {
+      "rule_id": "NET001",
+      "state": "observed",
+      "reason": "Network destinations are source-constrained to Brave Search and Reddit URLs rather than caller/model-selected arbitrary destinations."
+    },
+    {
+      "rule_id": "NET002",
+      "state": "observed",
+      "reason": "The tool implementation contains explicit destination structure rather than unconstrained outbound URL authority."
+    }
+  ],
+  "unresolved": [
+    "Third-party asyncpraw may follow Reddit-owned redirects or ancillary endpoints not visible in this source, but no broad destination authority is established."
+  ],
+  "evidence": [
+    "ai_agent.py",
+    "streamlit_ui.py"
+  ]
+}
