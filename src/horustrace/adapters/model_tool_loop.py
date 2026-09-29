@@ -191,6 +191,24 @@ def _class_signals(node: ast.ClassDef) -> dict[str, bool]:
             if child.attr in {"tools", "tool_schema", "tool_schemas", "all_tools_schema"}:
                 tool_catalogue = True
 
+        elif isinstance(child, ast.Compare):
+            # OpenAI Responses API exposes selected tool calls as output items
+            # whose discriminator is `item.type == "function_call"`. Require
+            # the surrounding class to also satisfy the existing model-call,
+            # catalogue and dispatch signals before this contributes to an
+            # agent root.
+            left = child.left
+            compares_function_call = any(
+                isinstance(comparator, ast.Constant)
+                and comparator.value == "function_call"
+                for comparator in child.comparators
+            )
+            if compares_function_call:
+                if isinstance(left, ast.Attribute) and left.attr == "type":
+                    model_selection = True
+                elif isinstance(left, ast.Subscript) and _subscript_key(left) == "type":
+                    model_selection = True
+
         elif isinstance(child, ast.Name):
             if child.id == "tool_calls":
                 model_selection = True
