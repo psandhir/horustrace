@@ -202,3 +202,114 @@ async def main():
         for edge in graph.adg.edges
     )
 
+
+
+def test_bound_mcp_url_parameters_emit_destination_authority_without_attack_path(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "fire_crawl.py").write_text(
+        """
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("firecrawl")
+
+class FirecrawlApp:
+    def scrape_url(self, url, params=None):
+        return {"url": url}
+
+    def crawl_url(self, url, params=None):
+        return {"url": url}
+
+app = FirecrawlApp()
+
+@mcp.tool()
+async def scrape_url(url: str) -> str:
+    response = app.scrape_url(url=url, params={"formats": ["markdown"]})
+    return str(response)
+
+@mcp.tool()
+async def crawl_website(url: str) -> str:
+    response = app.crawl_url(url, params={"limit": 10})
+    return str(response)
+
+if __name__ == "__main__":
+    mcp.run()
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "exa_web_search.py").write_text(
+        """
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("websearch")
+
+class Exa:
+    def search_and_contents(self, query, **kwargs):
+        return []
+
+exa = Exa()
+
+@mcp.tool()
+async def search_web(query: str) -> str:
+    return str(exa.search_and_contents(query, summary={"query": "points"}))
+
+if __name__ == "__main__":
+    mcp.run()
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langgraph.prebuilt import create_react_agent
+
+client = MultiServerMCPClient({
+    "firecrawl": {
+        "command": "python",
+        "args": ["fire_crawl.py"],
+        "transport": "stdio",
+    },
+    "websearch": {
+        "command": "python",
+        "args": ["exa_web_search.py"],
+        "transport": "stdio",
+    },
+})
+
+async def build():
+    tools = await client.get_tools()
+    agent = create_react_agent("openai:gpt-4o", tools=tools)
+    return agent
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+
+    agent = next(item for item in graph.agents if item.name == "agent")
+    by_name = {server.name: server for server in agent.mcp_servers}
+
+    firecrawl_tools = by_name["firecrawl"].metadata["discovered_tools"]
+    assert any(
+        item["name"] == "scrape_url"
+        and item["dynamic_destination_authority"] is True
+        and item["model_selected_url_parameters"] == ["url"]
+        for item in firecrawl_tools
+    )
+    assert any(
+        item["name"] == "crawl_website"
+        and item["dynamic_destination_authority"] is True
+        for item in firecrawl_tools
+    )
+
+    search_tools = by_name["websearch"].metadata["discovered_tools"]
+    assert all(
+        item["dynamic_destination_authority"] is False
+        for item in search_tools
+    )
+
+    net004 = [finding for finding in findings if finding.rule_id == "NET004"]
+    assert len(net004) == 1
+    assert net004[0].agent == "agent"
+    assert "firecrawl" in net004[0].message.lower()
+    assert not any(path.path_id.startswith("PATH") for path in graph.attack_paths)

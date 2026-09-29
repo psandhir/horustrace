@@ -88,6 +88,7 @@ RULE_REGISTRY: dict[str, RuleMetadata] = {
         _rule("NET001", 4, Severity.HIGH, "network", "heuristic_risk", "Outbound reachability lacks a detected restriction", "Broad or unrestrained destinations can allow data to leave the intended trust boundary.", "Use egress allowlists or proxies and restrict outbound connectivity to required hosts."),
         _rule("NET002", 4, Severity.MEDIUM, "network", "heuristic_risk", "Outbound capability has no destination constraint", "An outbound-capable agent without a declared destination constraint has unknown egress scope.", "Declare and enforce permitted destinations for outbound tools."),
         _rule("NET003", 4, Severity.HIGH, "network", "policy_violation", "Network destination exceeds declared allowlist", "The agent can reach a destination outside its declared network allowlist.", "Restrict tool and MCP egress to the approved destination set."),
+        _rule("NET004", 4, Severity.MEDIUM, "network", "heuristic_risk", "MCP tool exposes model-selected URL destination authority", "A bound MCP tool accepts model-selected URL parameters that source-proven provider fetch/crawl/map/extract operations use as remote destinations without a detected allowlist.", "Restrict URL-bearing MCP tools to approved schemes and destinations and enforce destination validation before provider operations."),
         _rule("PATH001", 5, Severity.CRITICAL, "attack_path", "potential_risk", "Potential untrusted-input path to command execution", "Untrusted input and process execution coexist without a detected approval requirement.", "Break the path by validating untrusted input, reducing execution authority, sandboxing, or enforcing approval."),
         _rule("PATH002", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential untrusted-input path to destructive action", "Untrusted input and destructive-write capability coexist without a detected approval requirement.", "Break the path by validating untrusted input, reducing write authority, or enforcing approval."),
         _rule("PATH003", 5, Severity.CRITICAL, "attack_path", "potential_risk", "Potential sensitive-data path to an external destination", "Sensitive-data access and outbound capability coexist without a detected approval requirement.", "Break the path by reducing data access, restricting egress, or enforcing approval."),
@@ -162,6 +163,7 @@ _OWASP_MAPPINGS = {
     "PATH010": ("ASI01", "ASI02"),
     "PATH011": ("ASI01", "ASI02"),
     "PATH012": ("ASI01", "ASI02", "ASI06"),
+    "NET004": ("ASI02",),
 }
 
 RULE_REGISTRY = {

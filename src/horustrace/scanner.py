@@ -1944,11 +1944,11 @@ def scan(
         root if root.is_dir() else root.parent,
     )
     resolve_fast_agent_mcp_references(graph)
+    reconstruct_mcp_authority(graph, approved_python_paths)
     resolve_local_stdio_implementations(
         graph,
         root if root.is_dir() else root.parent,
     )
-    reconstruct_mcp_authority(graph, approved_python_paths)
     reconstruct_mcp_context(graph)
     authority_enrichment = None
     if authority_source is not None:

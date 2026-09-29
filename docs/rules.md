@@ -62,6 +62,7 @@ metadata will become available through the CLI in WP02.
 - `NET001` — broad destinations or a possible destination without a detected restriction.
 - `NET002` — outbound capability has no destination constraint.
 - `NET003` — destination exceeds declared network allowlist.
+- `NET004` — bound MCP tool exposes model-selected URL destination authority without a detected destination allowlist.
 
 ## Layer 5 — Attack paths
 
