@@ -792,11 +792,29 @@ def _analyze_function(
                 mode = mode or "r"
                 caps.add("data.write" if any(ch in mode for ch in "wax+") else "data.read")
 
-            if leaf in {"get", "list", "search", "fetch", "download", "export", "get_media"}:
+            # Repository-local business methods commonly qualify the action
+            # verb (for example db.update_account() or db.create_transaction()).
+            # Preserve the same source semantics as exact update()/create() calls
+            # without treating arbitrary verb occurrences later in a name as proof.
+            action = leaf.split("_", 1)[0]
+            if leaf in {"get_media"} or action in {
+                "get",
+                "list",
+                "search",
+                "fetch",
+                "download",
+                "export",
+            }:
                 caps.add("data.read")
-            if leaf in {"set", "create", "update", "insert", "upload", "write", "save_artifact"}:
+            if leaf in {"set", "save_artifact"} or action in {
+                "create",
+                "update",
+                "insert",
+                "upload",
+                "write",
+            }:
                 caps.add("data.write")
-            if leaf in {"delete", "remove", "destroy", "purge"}:
+            if action in {"delete", "remove", "destroy", "purge"}:
                 caps.update({"data.write", "destructive.write"})
 
             network_destination = _network_call_destination(info, node, called)

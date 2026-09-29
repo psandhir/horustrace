@@ -640,3 +640,57 @@ root_agent = Agent(
     graph, _ = scan(tmp_path)
     agent = next(a for a in graph.agents if a.name == "safe_agent")
     assert agent.tools == []
+
+def test_adk_repository_infers_qualified_mutation_method_calls(
+    tmp_path: Path,
+) -> None:
+    write(tmp_path, """
+class Ledger:
+    def get_account(self, account_id: str):
+        return account_id
+
+    def update_account(self, account_id: str, amount: float):
+        return None
+
+    def create_transaction(self, account_id: str, amount: float):
+        return None
+
+ledger = Ledger()
+
+def get_account_balance(account_id: str):
+    return ledger.get_account(account_id)
+
+def transfer_money(account_id: str, amount: float):
+    ledger.update_account(account_id, amount)
+    ledger.create_transaction(account_id, amount)
+    return "ok"
+
+BANKING_TOOLS = [get_account_balance, transfer_money]
+""", "banking.py")
+    write(tmp_path, """
+from google.adk import Agent
+from banking import BANKING_TOOLS
+
+root_agent = Agent(
+    name="scope_safety_router",
+    model="gemini-flash-latest",
+    tools=BANKING_TOOLS,
+)
+""", "agent.py")
+
+    graph, findings = scan(tmp_path)
+    agent = next(a for a in graph.agents if a.name == "scope_safety_router")
+    balance = next(t for t in agent.tools if t.name == "get_account_balance")
+    transfer = next(t for t in agent.tools if t.name == "transfer_money")
+
+    assert "data.read" in balance.capabilities
+    assert "data.write" in transfer.capabilities
+    assert any(
+        f.rule_id == "ADK001" and f.agent == "scope_safety_router"
+        for f in findings
+    )
+    assert any(
+        f.rule_id == "CAP005" and f.agent == "scope_safety_router"
+        for f in findings
+    )
+
