@@ -203,11 +203,14 @@ def _class_signals(node: ast.ClassDef) -> dict[str, bool]:
                 and comparator.value == "function_call"
                 for comparator in child.comparators
             )
-            if compares_function_call:
-                if isinstance(left, ast.Attribute) and left.attr == "type":
-                    model_selection = True
-                elif isinstance(left, ast.Subscript) and _subscript_key(left) == "type":
-                    model_selection = True
+            if compares_function_call and (
+                (isinstance(left, ast.Attribute) and left.attr == "type")
+                or (
+                    isinstance(left, ast.Subscript)
+                    and _subscript_key(left) == "type"
+                )
+            ):
+                model_selection = True
 
         elif isinstance(child, ast.Name):
             if child.id == "tool_calls":
