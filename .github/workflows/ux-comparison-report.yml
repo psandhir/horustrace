@@ -17,10 +17,16 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Check out HorusTrace candidate
+      - name: Check out production UX candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          path: horustrace
+          path: horustrace-candidate
+
+      - name: Check out pre-UX baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fbbbce67cce7cf7a55a5410697c8abe55330b5bb
+          path: horustrace-baseline
 
       - name: Check out comparison target
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -33,61 +39,79 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install HorusTrace candidate
-        run: python -m pip install ./horustrace
+      - name: Install both HorusTrace versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv /tmp/horus-candidate
+          python -m venv /tmp/horus-baseline
+          /tmp/horus-candidate/bin/pip install ./horustrace-candidate
+          /tmp/horus-baseline/bin/pip install ./horustrace-baseline
 
-      - name: Generate comparison report
+      - name: Generate baseline and production UX reports
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p output
-          horustrace report ./target --output ./output/horustrace-report.html
+          /tmp/horus-baseline/bin/horustrace report ./target --output ./output/horustrace-report-baseline.html
+          /tmp/horus-candidate/bin/horustrace report ./target --output ./output/horustrace-report-prod-ux.html
           git -C target rev-parse HEAD > ./output/target-commit.txt
-          git -C horustrace rev-parse HEAD > ./output/horustrace-commit.txt
+          git -C horustrace-baseline rev-parse HEAD > ./output/baseline-commit.txt
+          git -C horustrace-candidate rev-parse HEAD > ./output/candidate-commit.txt
+
+      - name: Compare embedded security data
+        shell: bash
+        run: |
+          set -euo pipefail
           python - <<'PY'
           import json
           import re
           from pathlib import Path
 
-          html = Path("output/horustrace-report.html").read_text(encoding="utf-8")
-          match = re.search(
-              r'<script id="horus-data" type="application/json">(.*?)</script>',
-              html,
-              re.S,
-          )
-          if not match:
-              raise SystemExit("embedded visual-report payload not found")
-          data = json.loads(match.group(1))
-          Path("output/summary.json").write_text(
-              json.dumps(
-                  {
-                      "summary": data["summary"],
-                      "agents": [
-                          {
-                              "name": item["name"],
-                              "framework": item["framework"],
-                              "summary": item["summary"],
-                              "severity": item["severity"],
-                          }
-                          for item in data["agents"]
-                      ],
-                      "attack_paths": [
-                          {
-                              "agent": item.get("agent"),
-                              "path_id": item.get("path_id"),
-                              "title": item.get("title"),
-                              "severity": item.get("severity"),
-                              "basis": item.get("basis"),
-                              "evidence_strength": item.get("evidence_strength"),
-                          }
-                          for agent in data["agents"]
-                          for item in agent.get("path_views", [])
-                      ],
-                  },
-                  indent=2,
-                  sort_keys=True,
+          def read_payload(path: str):
+              html = Path(path).read_text(encoding="utf-8")
+              match = re.search(
+                  r'<script id="horus-data" type="application/json">(.*?)</script>',
+                  html,
+                  re.S,
               )
-              + "\n",
+              if not match:
+                  raise SystemExit(f"embedded visual-report payload not found in {path}")
+              return json.loads(match.group(1))
+
+          baseline = read_payload("output/horustrace-report-baseline.html")
+          candidate = read_payload("output/horustrace-report-prod-ux.html")
+
+          if baseline != candidate:
+              raise SystemExit("security-data payload changed between baseline and UX candidate")
+
+          summary = {
+              "summary": candidate["summary"],
+              "agents": [
+                  {
+                      "name": item["name"],
+                      "framework": item["framework"],
+                      "summary": item["summary"],
+                      "severity": item["severity"],
+                  }
+                  for item in candidate["agents"]
+              ],
+              "attack_paths": [
+                  {
+                      "agent": item.get("agent"),
+                      "path_id": item.get("path_id"),
+                      "title": item.get("title"),
+                      "severity": item.get("severity"),
+                      "basis": item.get("basis"),
+                      "evidence_strength": item.get("evidence_strength"),
+                  }
+                  for agent in candidate["agents"]
+                  for item in agent.get("path_views", [])
+              ],
+              "security_payload_identical": True,
+          }
+          Path("output/summary.json").write_text(
+              json.dumps(summary, indent=2, sort_keys=True) + "\n",
               encoding="utf-8",
           )
           PY
@@ -101,21 +125,21 @@ jobs:
           s = data["summary"]
           print("## Danejw/ai-companion-backend")
           print()
+          print("- Baseline and production-UX security payloads: **identical**")
           print(f"- Agents: **{s['agents']}**")
           print(f"- Tools: **{s['tools']}**")
           print(f"- MCP servers: **{s['mcp_servers']}**")
           print(f"- Findings: **{s['findings']}**")
           print(f"- Attack paths: **{s['attack_paths']}**")
-          print(f"- Contract violations: **{s['contract_violations']}**")
           print(f"- Authority relationships: **{s['authority_relationships']}**")
           print(f"- Write-capable relationships: **{s['write_capable_relationships']}**")
           print(f"- Analysis incomplete: **{s['analysis_incomplete']}**")
           PY
 
-      - name: Upload comparison report
+      - name: Upload comparison reports
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: horustrace-ai-companion-ux-report
+          name: horustrace-ai-companion-ux-comparison
           path: output/
           if-no-files-found: error
           retention-days: 30
