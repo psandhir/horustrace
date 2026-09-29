@@ -4,7 +4,7 @@ from pathlib import Path
 from horustrace.cli import main
 from horustrace.mcp_effective import effective_mcp_authority_report
 from horustrace.models import Agent, Graph, Identity, MCPServer
-from horustrace.scanner import scan
+from horustrace.rules.builtin import evaluate\nfrom horustrace.scanner import scan
 
 
 def _write_bound_fixture(root: Path) -> None:
@@ -287,3 +287,40 @@ def test_authenticated_relationship_without_credential_source_is_not_fully_resol
     assert authority["fully_resolved"] is False
     assert authority["unresolved"] == ["credential_source"]
 
+
+
+def test_agt053_requires_effective_agent_mcp_binding() -> None:
+    unbound = MCPServer(
+        name="privileged",
+        transport="stdio",
+        command="python",
+        metadata={
+            "discovered_tool_capabilities": [
+                "data.write",
+                "process.execute",
+            ],
+        },
+    )
+    graph = Graph(unbound_mcp_servers=[unbound])
+
+    assert not any(item.rule_id == "AGT053" for item in evaluate(graph))
+
+
+def test_agt053_retained_for_bound_privileged_mcp() -> None:
+    bound = MCPServer(
+        name="privileged",
+        transport="stdio",
+        command="python",
+        metadata={
+            "discovered_tool_capabilities": [
+                "data.write",
+                "process.execute",
+            ],
+            "binding_origin": "framework_agent_configuration",
+        },
+    )
+    graph = Graph(agents=[Agent(name="worker", mcp_servers=[bound])])
+
+    finding = next(item for item in evaluate(graph) if item.rule_id == "AGT053")
+    assert finding.agent == "worker"
+    assert finding.authority_relationship_id is not None
