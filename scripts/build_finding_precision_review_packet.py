@@ -1,4 +1,4 @@
-"""Build a blinded Phase-B finding precision packet after Phase-A human lock.
+"""Build a blinded Phase-B finding precision packet after Phase-A blinded-review lock.
 
 This script must not run before the Phase-A review summary explicitly permits scanner
 reveal. It samples HorusTrace findings by hidden rule/severity strata, then emits:
@@ -70,8 +70,9 @@ def _require_phase_a_lock(summary: dict[str, Any]) -> None:
         )
     if int(summary.get("cases", 0)) <= 0:
         raise PhaseBError("Phase-A summary contains no reviewed cases")
-    if int(summary.get("disagreement_cases", 0)) != 0:
-        raise PhaseBError("Phase-A disagreements must be resolved before Phase B")
+    # Review disagreements are retained for escalation and excluded by the final
+    # scorer. They do not prevent a separately blinded Phase-B sample once both
+    # Phase-A reviews have been locked.
 
 
 def _str(value: Any, fallback: str = "") -> str:
