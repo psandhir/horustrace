@@ -19,6 +19,7 @@ from horustrace.models import (
     Identity,
     InputSource,
     NetworkDestination,
+    ResourceScope,
     SourceLocation,
     Tool,
 )
@@ -750,6 +751,201 @@ def _managed_destination(
     )
 
 
+def _expr_uses_names(node: ast.AST | None, names: set[str]) -> bool:
+    if node is None or not names:
+        return False
+    return any(
+        isinstance(child, ast.Name) and child.id in names
+        for child in ast.walk(node)
+    )
+
+
+def _assignment_targets(node: ast.AST) -> set[str]:
+    targets: list[ast.AST]
+    if isinstance(node, ast.Assign):
+        targets = list(node.targets)
+    elif isinstance(node, ast.AnnAssign):
+        targets = [node.target]
+    else:
+        return set()
+
+    result: set[str] = set()
+    for target in targets:
+        for child in ast.walk(target):
+            if isinstance(child, ast.Name):
+                result.add(child.id)
+    return result
+
+
+def _function_file_transfer_semantics(
+    info: ModuleInfo,
+    func: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> tuple[list[ResourceScope], dict[str, object]]:
+    """Prove model-selected local file access and read-derived external transfer.
+
+    Function parameters of model-callable ADK tools are caller/model selected.
+    This analysis stays deliberately intraprocedural: it propagates path/data
+    aliases through assignments, recognizes explicit containment checks, and only
+    marks external transfer when data derived from a model-selected file read
+    reaches a known external call argument.
+    """
+    params = {
+        arg.arg
+        for arg in [
+            *func.args.posonlyargs,
+            *func.args.args,
+            *func.args.kwonlyargs,
+        ]
+    }
+    if not params:
+        return [], {}
+
+    assignments = [
+        node
+        for node in ast.walk(func)
+        if isinstance(node, (ast.Assign, ast.AnnAssign))
+        and node.value is not None
+    ]
+
+    path_taint = set(params)
+    changed = True
+    while changed:
+        changed = False
+        for assignment in assignments:
+            if not _expr_uses_names(assignment.value, path_taint):
+                continue
+            for name in _assignment_targets(assignment):
+                if name not in path_taint:
+                    path_taint.add(name)
+                    changed = True
+
+    containment = False
+    for call in (node for node in ast.walk(func) if isinstance(node, ast.Call)):
+        leaf = (_name(call.func) or "").lower()
+        called = (_dotted(call.func) or _name(call.func) or "").lower()
+        if leaf in {"relative_to", "is_relative_to"}:
+            receiver = call.func.value if isinstance(call.func, ast.Attribute) else None
+            if _expr_uses_names(receiver, path_taint):
+                containment = True
+        if called in {"os.path.commonpath", "commonpath"} and _expr_uses_names(
+            call, path_taint
+        ):
+            containment = True
+
+    file_handles: set[str] = set()
+    read_locations: list[SourceLocation] = []
+
+    def read_mode(call: ast.Call) -> bool:
+        mode = (
+            _string(call.args[1])
+            if len(call.args) > 1
+            else _string(_kw(call, "mode"))
+        ) or "r"
+        return not any(ch in mode for ch in "wax+")
+
+    for node in ast.walk(func):
+        if isinstance(node, (ast.With, ast.AsyncWith)):
+            for item in node.items:
+                call = item.context_expr
+                if not isinstance(call, ast.Call):
+                    continue
+                called = (_dotted(call.func) or _name(call.func) or "").lower()
+                if not (called == "open" or called.endswith(".open")):
+                    continue
+                path_expr = call.args[0] if call.args else _kw(call, "file")
+                if not read_mode(call) or not _expr_uses_names(path_expr, path_taint):
+                    continue
+                read_locations.append(_loc(info.path, call))
+                if isinstance(item.optional_vars, ast.Name):
+                    file_handles.add(item.optional_vars.id)
+
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and isinstance(
+            node.value, ast.Call
+        ):
+            call = node.value
+            called = (_dotted(call.func) or _name(call.func) or "").lower()
+            if called == "open" or called.endswith(".open"):
+                path_expr = call.args[0] if call.args else _kw(call, "file")
+                if read_mode(call) and _expr_uses_names(path_expr, path_taint):
+                    read_locations.append(_loc(info.path, call))
+                    file_handles.update(_assignment_targets(node))
+
+    file_data: set[str] = set()
+    for assignment in assignments:
+        value = assignment.value
+        if not isinstance(value, ast.Call):
+            continue
+        leaf = (_name(value.func) or "").lower()
+        if leaf not in {"read", "read_bytes", "read_text"}:
+            continue
+        receiver = value.func.value if isinstance(value.func, ast.Attribute) else None
+        receiver_from_handle = (
+            isinstance(receiver, ast.Name) and receiver.id in file_handles
+        )
+        receiver_from_path = _expr_uses_names(receiver, path_taint)
+        if receiver_from_handle or receiver_from_path:
+            file_data.update(_assignment_targets(assignment))
+
+    changed = True
+    while changed:
+        changed = False
+        for assignment in assignments:
+            if not _expr_uses_names(assignment.value, file_data):
+                continue
+            for name in _assignment_targets(assignment):
+                if name not in file_data:
+                    file_data.add(name)
+                    changed = True
+
+    imports = _function_imports(info, func)
+    document_ai = any(
+        value.startswith("google.cloud.documentai")
+        for value in imports
+    )
+    external_sinks: list[str] = []
+    for call in (node for node in ast.walk(func) if isinstance(node, ast.Call)):
+        called = (_dotted(call.func) or _name(call.func) or "").lower()
+        leaf = (_name(call.func) or "").lower()
+        network = _network_call_destination(info, call, called) is not None
+        managed_document_ai = document_ai and leaf in {
+            "process_document",
+            "batch_process_documents",
+        }
+        if not (network or managed_document_ai):
+            continue
+        values = [*call.args, *(keyword.value for keyword in call.keywords)]
+        if any(_expr_uses_names(value, file_data) for value in values):
+            external_sinks.append(called or leaf or "external_call")
+
+    if not read_locations:
+        return [], {}
+
+    parameters = sorted(params & path_taint)
+    metadata: dict[str, object] = {
+        "model_selected_file_read": True,
+        "model_selected_path_parameters": parameters,
+        "filesystem_path_constrained": containment,
+    }
+    if external_sinks:
+        metadata["file_read_external_transfer"] = True
+        metadata["file_read_external_sinks"] = sorted(set(external_sinks))
+
+    resources = [
+        ResourceScope(
+            kind="file",
+            selector="<model-selected-file>" if containment else "*",
+            access={"data.read"},
+            location=read_locations[0],
+            metadata={
+                "source": "model_selected_function_parameter",
+                "path_parameters": parameters,
+                "path_containment": "explicit" if containment else "not_detected",
+            },
+        )
+    ]
+    return resources, metadata
+
+
 def _analyze_function(
     modules: dict[str, ModuleInfo],
     info: ModuleInfo,
@@ -843,6 +1039,19 @@ def _analyze_function(
             if called.startswith("vertexai.") or ".vertexai." in called or "generativemodel" in called:
                 caps.add("network.external")
                 destinations.append(_managed_destination(info, node, "https://aiplatform.googleapis.com/", "google_vertex_ai"))
+            if any(
+                value.startswith("google.cloud.documentai")
+                for value in _function_imports(info, func)
+            ) and leaf in {"process_document", "batch_process_documents"}:
+                caps.add("network.external")
+                destinations.append(
+                    _managed_destination(
+                        info,
+                        node,
+                        "https://documentai.googleapis.com/",
+                        "google_document_ai",
+                    )
+                )
             if "secretmanager" in called or leaf == "access_secret_version":
                 caps.update({"network.external", "secrets.read"})
                 destinations.append(_managed_destination(info, node, "https://secretmanager.googleapis.com/", "google_secret_manager"))
@@ -923,6 +1132,7 @@ def _function_tool(
     func: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> tuple[Tool, Identity | None]:
     caps, destinations, scopes = _analyze_function(modules, info, func)
+    resources, file_metadata = _function_file_transfer_semantics(info, func)
     required_roles, required_role_evidence = _analyze_required_gcp_roles(
         modules,
         info,
@@ -953,6 +1163,7 @@ def _function_tool(
     metadata = {
         "framework": "google-adk",
         "repository_resolved": True,
+        **file_metadata,
     }
     if network_scope:
         metadata["network_scope"] = network_scope
@@ -966,6 +1177,7 @@ def _function_tool(
             name=func.name,
             kind="adk_function",
             capabilities=caps,
+            resources=resources,
             destinations=destinations,
             identity=identity_name,
             location=_loc(info.path, func),
@@ -1451,11 +1663,35 @@ def _merge_agent(existing: Agent, incoming: Agent) -> None:
             continue
 
         if tool.metadata.get("repository_resolved") is True:
-            # Repository resolution can prove additional authority requirements
-            # for a tool already normalized by the first-pass adapter. Keep this
-            # enrichment authority-only: changing capabilities/destinations here
-            # would also change risk/path semantics outside reconciliation.
+            # Repository resolution can prove additional authority requirements.
+            # Source-proven file-flow semantics are also safe to merge because
+            # they require an explicit model-selected file sink and, for external
+            # transfer, read-derived dataflow to the external call.
             existing_tool.metadata["repository_resolved"] = True
+            for key in (
+                "model_selected_file_read",
+                "model_selected_path_parameters",
+                "filesystem_path_constrained",
+                "file_read_external_transfer",
+                "file_read_external_sinks",
+            ):
+                if key in tool.metadata:
+                    existing_tool.metadata[key] = tool.metadata[key]
+            if tool.metadata.get("model_selected_file_read"):
+                existing_tool.resources.extend(
+                    resource
+                    for resource in tool.resources
+                    if resource not in existing_tool.resources
+                )
+            if tool.metadata.get("file_read_external_transfer"):
+                existing_tool.capabilities.update(
+                    tool.capabilities & {"data.read", "network.external"}
+                )
+                existing_tool.destinations.extend(
+                    destination
+                    for destination in tool.destinations
+                    if destination not in existing_tool.destinations
+                )
 
             required_roles = set(
                 existing_tool.metadata.get("required_roles") or []
