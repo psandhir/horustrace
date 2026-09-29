@@ -1,7 +1,7 @@
-from __future__ import copy
-import annotations
+from __future__ import annotations
 
 import ast
+import copy
 import json
 import tempfile
 import tomllib
