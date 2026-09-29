@@ -70,6 +70,7 @@ from horustrace.registry_config import (
     is_registry_config_filename,
 )
 from horustrace.rules.builtin import evaluate
+from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
 from horustrace.semantics import annotate_risk_semantics
 from horustrace.source_context import classify_source_context, path_parts_match
 from horustrace.source_provenance import annotate_tool_source_provenance
@@ -1720,6 +1721,7 @@ def scan(
     )
     analysis_root = root if root.is_dir() else root.parent
     _enrich_web_ingress_inputs(graph, analysis_root, approved_python_paths)
+    enrich_runtime_ingress_inputs(graph, analysis_root, approved_python_paths)
     _enrich_cli_agent_run_inputs(graph, analysis_root, approved_python_paths)
     graph.flow_paths = analyze_repository_flows(analysis_root, approved_python_paths, graph)
     _remap_flow_locations(graph, notebook_path_map)

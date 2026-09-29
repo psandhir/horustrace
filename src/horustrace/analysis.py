@@ -256,6 +256,12 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
             )
         ]
         execution = [tool for tool in agent.tools if "process.execute" in tool.capabilities]
+        execution_mcp = [
+            server
+            for server in agent.mcp_servers
+            if "process.execute"
+            in set(server.metadata.get("discovered_tool_capabilities") or [])
+        ]
         destructive = [
             tool for tool in agent.tools if "destructive.write" in tool.capabilities
         ]
@@ -276,6 +282,16 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
             for server in agent.mcp_servers
             if "destructive.write"
             in set(server.metadata.get("discovered_tool_capabilities") or [])
+        ]
+        state_changing_mcp = [
+            server
+            for server in agent.mcp_servers
+            if (
+                "destructive.write"
+                not in set(server.metadata.get("discovered_tool_capabilities") or [])
+                and {"data.write", "external.write"}
+                & set(server.metadata.get("discovered_tool_capabilities") or [])
+            )
         ]
         secret_tools = [tool for tool in agent.tools if "secrets.read" in tool.capabilities]
 
@@ -298,6 +314,48 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                         ),
                         location=tool.location or agent.location,
                         metadata=_path_metadata(basis="capability_cooccurrence"),
+                    )
+                )
+
+        for server in execution_mcp:
+            if (
+                untrusted
+                and server.approval is not True
+                and not server.guardrails
+            ):
+                ingress = (
+                    runtime_bound_untrusted[0]
+                    if runtime_bound_untrusted
+                    else untrusted[0]
+                )
+                basis = (
+                    "source_bound_ingress_authority"
+                    if runtime_bound_untrusted
+                    else "capability_cooccurrence"
+                )
+                paths.append(
+                    AttackPath(
+                        path_id="PATH001",
+                        title="Potential untrusted-input path to MCP command execution",
+                        agent=agent.name,
+                        nodes=[
+                            ingress.name,
+                            agent.name,
+                            server.name,
+                            "process.execute",
+                        ],
+                        severity=Severity.CRITICAL,
+                        rationale=(
+                            "The normalized agent model binds untrusted input to an MCP "
+                            "server exposing process-execution capability without a "
+                            "detected approval or guardrail requirement."
+                        ),
+                        location=server.location or agent.location,
+                        metadata={
+                            **_path_metadata(basis=basis),
+                            "ingress_basis": ingress.metadata.get("basis"),
+                            "target_kind": "mcp_server",
+                        },
                     )
                 )
 
@@ -340,7 +398,7 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                         ],
                         severity=Severity.HIGH,
                         rationale=(
-                            "Source analysis proves untrusted CLI input reaches the "
+                            "Source analysis proves untrusted input reaches the "
                             "agent runtime invocation, and the effective authority model "
                             "binds a state-changing tool without a detected approval "
                             "requirement. Runtime model selection is not verified."
@@ -353,6 +411,51 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                             "ingress_basis": ingress.metadata.get("basis"),
                             "authority_capability": capability,
                             "target_kind": "tool",
+                        },
+                    )
+                )
+
+        for server in state_changing_mcp:
+            if (
+                runtime_bound_untrusted
+                and server.approval is not True
+                and not server.guardrails
+            ):
+                capabilities = set(
+                    server.metadata.get("discovered_tool_capabilities") or []
+                )
+                capability = (
+                    "data.write"
+                    if "data.write" in capabilities
+                    else "external.write"
+                )
+                ingress = runtime_bound_untrusted[0]
+                paths.append(
+                    AttackPath(
+                        path_id="PATH002",
+                        title="Potential untrusted-input path to state-changing MCP action",
+                        agent=agent.name,
+                        nodes=[
+                            ingress.name,
+                            agent.name,
+                            server.name,
+                            capability,
+                        ],
+                        severity=Severity.HIGH,
+                        rationale=(
+                            "Source analysis proves untrusted input reaches the agent "
+                            "runtime invocation, and the effective authority model binds "
+                            "an MCP server exposing state-changing capability without a "
+                            "detected approval or guardrail requirement."
+                        ),
+                        location=server.location or agent.location,
+                        metadata={
+                            **_path_metadata(
+                                basis="source_bound_ingress_authority"
+                            ),
+                            "ingress_basis": ingress.metadata.get("basis"),
+                            "authority_capability": capability,
+                            "target_kind": "mcp_server",
                         },
                     )
                 )
