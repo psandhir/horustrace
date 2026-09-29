@@ -11,7 +11,12 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from horustrace.models import Agent, Graph, InputSource, SourceLocation
+from horustrace.models import (
+    Agent,
+    Graph,
+    InputSource,
+    SourceLocation,
+)
 
 
 _RUNTIME_METHODS = {
