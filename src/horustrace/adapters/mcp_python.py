@@ -533,6 +533,8 @@ def scan_python_file(path: Path) -> Graph:
                 continue
             call_name = _call_name(item.context_expr.func) or ""
             alias = _target_name(item.optional_vars)
+            if alias:
+                assignments[alias] = item.context_expr
             if call_name == "MultiServerMCPClient" and alias:
                 clients.add(alias)
                 config_node = (
