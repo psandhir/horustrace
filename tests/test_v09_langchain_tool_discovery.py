@@ -199,14 +199,33 @@ def execute_query(query: str):
 """,
         encoding="utf-8",
     )
+    (tmp_path / "agent.py").write_text(
+        """
+from langgraph.graph import StateGraph
+from langgraph.prebuilt import ToolNode
+from tools import execute_query
+
+tools = [execute_query]
+workflow = StateGraph(dict)
+workflow.add_node("tools", ToolNode(tools))
+""",
+        encoding="utf-8",
+    )
 
     graph, findings = scan(tmp_path)
-    tool = next(item for item in graph.unbound_tools if item.name == "execute_query")
+    agent = next(
+        item for item in graph.agents
+        if item.metadata.get("framework") == "langgraph"
+    )
+    tool = next(item for item in agent.tools if item.name == "execute_query")
 
+    assert tool.metadata["authority_binding"] == "direct"
+    assert tool.metadata["repository_resolved"] is True
     assert "process.execute" not in tool.capabilities
     assert {"data.read", "data.write", "destructive.write"} <= tool.capabilities
     assert any(
         finding.rule_id == "AGT021"
+        and finding.agent == agent.name
         and finding.location
         and finding.location.path.name == "tools.py"
         for finding in findings
