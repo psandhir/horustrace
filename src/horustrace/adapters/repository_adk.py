@@ -1059,32 +1059,6 @@ def _resolve_repository_sequence(
                 modules, info, assigned, sequences, next_visited
             )
 
-        imported = _imported_symbol(modules, info, expr.id)
-        if imported:
-            target, symbol = imported
-            if symbol in target.sequences:
-                result: list[ast.AST] = []
-                for element in target.sequences[symbol]:
-                    result.extend(
-                        _resolve_repository_sequence(
-                            modules,
-                            target,
-                            element,
-                            target.sequences,
-                            next_visited,
-                        )
-                    )
-                return result
-            assigned = target.assignments.get(symbol)
-            if assigned is not None and not isinstance(assigned, ast.Call):
-                return _resolve_repository_sequence(
-                    modules,
-                    target,
-                    assigned,
-                    target.sequences,
-                    next_visited,
-                )
-
     return [expr]
 
 
@@ -1168,11 +1142,15 @@ def _resolve_tools(
     info: ModuleInfo,
     expr: ast.AST | None,
     sequences: dict[str, list[ast.AST]] | None = None,
+    visited_sequences: set[tuple[str, str]] | None = None,
 ) -> tuple[list[Tool], list, list[Identity], set[tuple[Path, int]]]:
     tools: list[Tool] = []
     mcp_servers: list = []
     identities: list[Identity] = []
     resolved_refs: set[tuple[Path, int]] = set()
+    visited_sequences = (
+        set() if visited_sequences is None else set(visited_sequences)
+    )
 
     def add_function(target: ModuleInfo, func: ast.FunctionDef | ast.AsyncFunctionDef, ref: ast.AST) -> None:
         tool, identity = _function_tool(modules, target, func)
@@ -1190,6 +1168,43 @@ def _resolve_tools(
             imported = _imported_symbol(modules, info, item.id)
             if imported:
                 target, symbol = imported
+                sequence_key = (target.module, symbol)
+                assigned = target.assignments.get(symbol)
+                if (
+                    sequence_key not in visited_sequences
+                    and assigned is not None
+                    and not isinstance(assigned, ast.Call)
+                    and (
+                        symbol in target.sequences
+                        or isinstance(
+                            assigned,
+                            (
+                                ast.List,
+                                ast.Tuple,
+                                ast.Set,
+                                ast.Starred,
+                                ast.IfExp,
+                                ast.BinOp,
+                                ast.Name,
+                            ),
+                        )
+                    )
+                ):
+                    nested_tools, nested_mcp, nested_identities, nested_refs = (
+                        _resolve_tools(
+                            modules,
+                            target,
+                            assigned,
+                            target.sequences,
+                            visited_sequences | {sequence_key},
+                        )
+                    )
+                    tools.extend(nested_tools)
+                    mcp_servers.extend(nested_mcp)
+                    identities.extend(nested_identities)
+                    resolved_refs.update(nested_refs)
+                    resolved_refs.add((info.path, item.lineno))
+                    continue
                 if symbol in target.functions:
                     add_function(target, target.functions[symbol], item)
                     continue
