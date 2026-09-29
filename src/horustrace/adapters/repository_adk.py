@@ -806,14 +806,12 @@ def _analyze_function(
                 "export",
             }:
                 caps.add("data.read")
-            if leaf in {"save_artifact"} or action in {
-                "set",
+            if leaf in {"set", "save_artifact"} or action in {
                 "create",
                 "update",
                 "insert",
                 "upload",
                 "write",
-                "save",
             }:
                 caps.add("data.write")
             if action in {"delete", "remove", "destroy", "purge"}:
