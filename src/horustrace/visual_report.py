@@ -383,105 +383,81 @@ def render_visual_report_html(
       content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
 <title>{title}</title>
 <style>
-:root{{--bg:#0b1020;--panel:#11182b;--panel2:#161f35;--text:#eef3ff;--muted:#9aa9c2;
---line:#29344f;--accent:#8ab4ff;--critical:#ff6b75;--high:#ff9a62;--medium:#ffd166;
---low:#74c0fc;--ok:#63d69f;--warn:#f1c75b;--unknown:#a8b3c7;--shadow:0 12px 30px #0004}}
-*{{box-sizing:border-box}} body{{margin:0;font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,
-Segoe UI,sans-serif;background:var(--bg);color:var(--text)}} button,input{{font:inherit}}
-.shell{{display:grid;grid-template-columns:240px 1fr;min-height:100vh}}
-aside{{border-right:1px solid var(--line);padding:22px 16px;position:sticky;top:0;height:100vh;background:#0d1324}}
-.brand{{font-size:20px;font-weight:800;letter-spacing:.2px;margin:0 8px 24px}}
-.brand small{{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-top:3px}}
-.nav button{{width:100%;text-align:left;background:transparent;color:var(--muted);border:0;border-radius:9px;
-padding:10px 12px;margin:2px 0;cursor:pointer}} .nav button.active,.nav button:hover{{background:var(--panel2);color:var(--text)}}
-main{{padding:28px;max-width:1500px;width:100%}} h1{{font-size:28px;margin:0 0 6px}} h2{{font-size:20px;margin:28px 0 12px}}
-h3{{font-size:15px;margin:0 0 10px}} .muted{{color:var(--muted)}} .view{{display:none}} .view.active{{display:block}}
-.hero{{display:flex;justify-content:space-between;gap:20px;align-items:start;margin-bottom:22px}} .pill{{display:inline-block;
-padding:4px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:12px}}
-.cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}} .card{{background:var(--panel);
-border:1px solid var(--line);border-radius:12px;padding:15px;box-shadow:var(--shadow)}} .card.drill{{cursor:pointer;transition:transform .12s ease,border-color .12s ease,background .12s ease}}
-.card.drill:hover{{transform:translateY(-1px);border-color:#52688f;background:#151f36}} .card.drill:focus{{outline:2px solid var(--accent);outline-offset:2px}}
-.metric{{font-size:28px;font-weight:800}}
-.metric-label{{color:var(--muted);font-size:12px;margin-top:3px}} .critical{{color:var(--critical)}} .high{{color:var(--high)}}
-.medium{{color:var(--medium)}} .low{{color:var(--low)}} .ok{{color:var(--ok)}} .warn{{color:var(--warn)}}
-.grid2{{display:grid;grid-template-columns:1fr 1fr;gap:14px}} .panel{{background:var(--panel);border:1px solid var(--line);
-border-radius:12px;padding:16px;margin-bottom:14px}} table{{width:100%;border-collapse:collapse}} th,td{{padding:10px 8px;
-border-bottom:1px solid var(--line);text-align:left;vertical-align:top}} th{{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}}
-tr.clickable{{cursor:pointer}} tr.clickable:hover{{background:#ffffff08}} .badge{{display:inline-block;padding:3px 7px;border-radius:999px;
-font-size:11px;font-weight:700;background:#ffffff0b;border:1px solid var(--line)}} .badge.violation{{color:var(--critical);border-color:#ff6b7560}}
-.badge.compliant{{color:var(--ok);border-color:#63d69f60}} .badge.unresolved{{color:var(--warn);border-color:#f1c75b60}}
-.badge.not_declared{{color:var(--muted)}} .badge.declared{{color:var(--accent);border-color:#8ab4ff60}} .search{{width:100%;max-width:420px;background:var(--panel);color:var(--text);border:1px solid var(--line);
-border-radius:9px;padding:9px 11px;margin:0 0 12px}} .agent-head{{display:flex;gap:14px;justify-content:space-between;align-items:start}}
-.tabs{{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:18px 0 14px;overflow:auto}} .tabs button{{border:0;background:transparent;
-color:var(--muted);padding:9px 10px;cursor:pointer;border-bottom:2px solid transparent}} .tabs button.active{{color:var(--text);border-bottom-color:var(--accent)}}
-.agent-tab{{display:none}} .agent-tab.active{{display:block}} .kv{{display:grid;grid-template-columns:170px 1fr;gap:7px 14px}}
-.drill-list{{display:flex;flex-direction:column;gap:2px}}
-.drill-row{{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;cursor:pointer;border-radius:7px;padding:7px 8px;margin:0 -8px;color:inherit}}
-.drill-row:hover{{background:#ffffff08}} .drill-row:focus{{outline:2px solid var(--accent);outline-offset:1px}}
-.drill-value{{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;font-weight:600}}
-.drill-value::after{{content:"›";color:var(--muted);font-size:16px;line-height:1;opacity:.7}}
+:root{{--bg:#080d18;--sidebar:#0b1220;--surface:#101827;--surface2:#151f31;--surface3:#0c1422;
+--text:#f3f6fb;--muted:#93a1b5;--muted2:#6f7e92;--line:#263247;--line-strong:#3a4b67;
+--accent:#86aefb;--accent-soft:#172846;--critical:#ff707a;--high:#ff9e66;--medium:#f6cd62;
+--low:#73bdf4;--ok:#63d6a0;--warn:#f1c75b;--unknown:#a8b3c7;--shadow:0 14px 38px #00000038;
+--radius:12px;--radius-lg:16px}}
+*{{box-sizing:border-box}} html{{scroll-behavior:smooth}} body{{margin:0;font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,
+BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}}
+button,input{{font:inherit}} button{{color:inherit}} button:focus-visible,input:focus-visible,[tabindex]:focus-visible{{outline:2px solid var(--accent);outline-offset:2px}}
+.shell{{display:grid;grid-template-columns:264px minmax(0,1fr);min-height:100vh}}
+aside{{border-right:1px solid var(--line);padding:18px 14px;position:sticky;top:0;height:100vh;background:var(--sidebar);display:flex;flex-direction:column;z-index:20}}
+.brand-row{{display:flex;align-items:center;gap:10px;padding:5px 8px 19px;border-bottom:1px solid #ffffff0a;margin-bottom:16px}}
+.brand-mark{{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(145deg,#233c66,#17243d);border:1px solid #48658f;font-size:12px;font-weight:900;letter-spacing:.05em;box-shadow:inset 0 1px #ffffff12}}
+.brand{{font-size:17px;font-weight:800;letter-spacing:.1px;line-height:1.15}} .brand small{{display:block;font-size:10px;color:var(--muted);font-weight:650;margin-top:4px;text-transform:uppercase;letter-spacing:.08em}}
+.nav-label{{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted2);font-weight:800;padding:4px 10px 7px}} .nav{{display:flex;flex-direction:column;gap:3px}}
+.nav button{{position:relative;width:100%;text-align:left;background:transparent;color:var(--muted);border:1px solid transparent;border-radius:9px;padding:9px 11px 9px 31px;cursor:pointer;font-weight:620}}
+.nav button::before{{content:"";position:absolute;left:12px;top:50%;width:6px;height:6px;border-radius:50%;background:#53627a;transform:translateY(-50%)}}
+.nav button.active{{background:var(--accent-soft);border-color:#314b71;color:var(--text)}} .nav button.active::before{{background:var(--accent);box-shadow:0 0 0 4px #86aefb18}} .nav button:hover{{background:var(--surface2);color:var(--text)}}
+.sidebar-meta{{margin-top:auto;border-top:1px solid #ffffff0a;padding:14px 8px 3px}} .sidebar-meta strong{{display:block;font-size:11px;margin-bottom:4px}} .sidebar-meta span{{display:block;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+main{{padding:32px 38px 42px;max-width:1560px;width:100%;min-width:0}} h1{{font-size:28px;letter-spacing:-.025em;margin:0 0 5px;line-height:1.2}} h2{{font-size:18px;letter-spacing:-.01em;margin:26px 0 11px}} h3{{font-size:14px;margin:0 0 9px}} p{{margin:8px 0 12px}}
+.muted{{color:var(--muted)}} .muted2{{color:var(--muted2)}} .view{{display:none}} .view.active{{display:block}}
+.page-head{{display:flex;justify-content:space-between;gap:22px;align-items:flex-start;margin-bottom:22px}} .eyebrow{{font-size:10px;text-transform:uppercase;letter-spacing:.13em;color:var(--muted2);font-weight:850;margin-bottom:6px}} .page-actions{{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}}
+.hero{{display:flex;justify-content:space-between;gap:20px;align-items:start;margin-bottom:22px}}
+.assessment-banner{{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:22px;align-items:center;padding:20px 22px;border:1px solid var(--line-strong);border-radius:var(--radius-lg);background:linear-gradient(135deg,#111c2f,#0e1727 62%,#111827);box-shadow:var(--shadow);margin-bottom:18px;cursor:pointer}}
+.assessment-banner.critical{{border-color:#7d3a45;background:linear-gradient(135deg,#2a171e,#111827 62%)}} .assessment-banner.high{{border-color:#70452f;background:linear-gradient(135deg,#251b18,#111827 62%)}} .assessment-banner.warn{{border-color:#66552e;background:linear-gradient(135deg,#231f16,#111827 62%)}}
+.assessment-title{{font-size:19px;font-weight:820;letter-spacing:-.01em;margin-bottom:4px}} .assessment-copy{{max-width:760px;color:var(--muted)}} .assessment-side{{display:flex;align-items:center;gap:16px}} .assessment-count{{font-size:34px;font-weight:850;letter-spacing:-.04em;text-align:right}} .assessment-count small{{display:block;font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.06em;text-transform:uppercase}}
+.pill{{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:11px;white-space:nowrap}}
+.cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:11px}} .card{{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 15px;box-shadow:0 5px 18px #00000018;min-width:0}}
+.card.drill{{cursor:pointer;transition:transform .12s ease,border-color .12s ease,background .12s ease}} .card.drill:hover{{transform:translateY(-1px);border-color:#52688f;background:var(--surface2)}} .metric{{font-size:26px;font-weight:850;letter-spacing:-.035em;font-variant-numeric:tabular-nums}} .metric-label{{color:var(--muted);font-size:11px;font-weight:650;margin-top:2px}} .metric-detail{{color:var(--muted2);font-size:10px;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+.critical{{color:var(--critical)}} .high{{color:var(--high)}} .medium{{color:var(--medium)}} .low{{color:var(--low)}} .ok{{color:var(--ok)}} .warn{{color:var(--warn)}}
+.grid2{{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}} .panel{{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:15px;margin-bottom:14px;min-width:0}} .panel.flush{{padding:0;overflow:hidden}}
+.section-head{{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:26px 0 10px}} .section-head h2{{margin:0}} .section-head p{{margin:2px 0 0;font-size:12px;color:var(--muted)}}
+.table-wrap{{overflow:auto}} table{{width:100%;border-collapse:collapse;min-width:690px}} th,td{{padding:10px 11px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}} th{{font-size:10px;text-transform:uppercase;letter-spacing:.075em;color:var(--muted2);font-weight:800;background:#0e1625;position:sticky;top:0}} tbody tr:last-child td{{border-bottom:0}} tr.clickable{{cursor:pointer}} tr.clickable:hover{{background:#ffffff08}}
+.row-title{{font-weight:720}} .row-sub{{color:var(--muted);font-size:11px;margin-top:2px}} .row-chevron{{color:var(--muted2);font-size:18px;text-align:right}}
+.badge{{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:999px;font-size:10px;font-weight:800;background:#ffffff0b;border:1px solid var(--line);white-space:nowrap}} .badge.violation{{color:var(--critical);border-color:#ff6b7560;background:#ff6b7510}} .badge.compliant{{color:var(--ok);border-color:#63d69f60;background:#63d69f0c}} .badge.unresolved{{color:var(--warn);border-color:#f1c75b60;background:#f1c75b0b}} .badge.not_declared{{color:var(--muted)}} .badge.declared{{color:var(--accent);border-color:#8ab4ff60}} .badge.critical{{color:var(--critical);border-color:#ff707a55}} .badge.high{{color:var(--high);border-color:#ff9e6655}} .badge.medium{{color:var(--medium);border-color:#f6cd6255}}
+.search{{width:100%;max-width:520px;background:var(--surface3);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin:0}} .toolbar{{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:12px 0}} .toolbar-left,.toolbar-right{{display:flex;align-items:center;gap:8px;flex-wrap:wrap}} .filter-chips{{display:flex;gap:6px;flex-wrap:wrap}} .filter-chip{{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:6px 10px;font-size:11px;font-weight:720;cursor:pointer}} .filter-chip:hover{{border-color:var(--line-strong);color:var(--text)}} .filter-chip.active{{background:var(--accent-soft);border-color:#3b5a84;color:var(--text)}}
+.agent-head{{display:flex;gap:14px;justify-content:space-between;align-items:start;padding:18px 0 3px}} .breadcrumb{{border:0;background:transparent;color:var(--muted);padding:0;cursor:pointer;font-size:12px;margin-bottom:9px}} .breadcrumb:hover{{color:var(--text)}}
+.tabs{{display:flex;gap:3px;border-bottom:1px solid var(--line);margin:15px 0 15px;overflow:auto;position:sticky;top:0;background:var(--bg);z-index:9;padding-top:5px}} .tabs button{{border:0;background:transparent;color:var(--muted);padding:9px 10px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;font-size:12px;font-weight:700}} .tabs button.active{{color:var(--text);border-bottom-color:var(--accent)}} .tab-count{{margin-left:4px;color:var(--muted2);font-size:10px}}
+.agent-tab{{display:none}} .agent-tab.active{{display:block}} .kv{{display:grid;grid-template-columns:170px minmax(0,1fr);gap:7px 14px}} .kv div:nth-child(odd){{color:var(--muted)}} .kv div:nth-child(even){{min-width:0;overflow-wrap:anywhere}}
+.drill-list{{display:flex;flex-direction:column;gap:2px}} .drill-row{{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;cursor:pointer;border-radius:7px;padding:7px 8px;margin:0 -8px;color:inherit}} .drill-row:hover{{background:#ffffff08}} .drill-value{{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;font-weight:700}} .drill-value::after{{content:"›";color:var(--muted);font-size:16px;line-height:1;opacity:.7}}
 .filter-banner{{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#101a31;border:1px solid #344566;border-radius:9px;padding:9px 11px;margin:12px 0}}
-.kv div:nth-child(odd){{color:var(--muted)}} .finding{{border-left:3px solid var(--line);padding:12px 14px;margin:10px 0;background:#0d1426;border-radius:8px}}
-.finding[data-sev="critical"]{{border-left-color:var(--critical)}} .finding[data-sev="high"]{{border-left-color:var(--high)}}
-.finding[data-sev="medium"]{{border-left-color:var(--medium)}} .finding[data-sev="low"]{{border-left-color:var(--low)}}
-.finding-title{{display:flex;gap:8px;align-items:center;flex-wrap:wrap}} code,pre{{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}}
-code{{background:#ffffff0b;padding:2px 5px;border-radius:5px}} details{{margin-top:8px}} pre{{white-space:pre-wrap;word-break:break-word;
-background:#09101e;border:1px solid var(--line);padding:12px;border-radius:8px;max-height:340px;overflow:auto}}
-.map-toolbar{{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:8px 0 10px}}
-.map-toolbar input{{min-width:220px;flex:1;background:#09101e;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 9px}}
-.map-btn{{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:7px 9px;cursor:pointer}}
-.map-btn:hover{{border-color:#52688f;background:var(--panel2)}}
-.graph-wrap{{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;position:relative}}
-.graph-wrap.expanded{{position:fixed;inset:14px;z-index:9999;background:var(--bg);padding:14px;border:1px solid var(--line);border-radius:14px;grid-template-columns:minmax(0,1fr) 340px;box-shadow:0 24px 80px #000b}}
-.graph-wrap.expanded .graph{{height:calc(100vh - 105px)}} body.graph-modal-open{{overflow:hidden}}
-.graph-canvas{{position:relative;min-width:0}} .graph{{width:100%;height:520px;background:#09101e;border:1px solid var(--line);border-radius:10px;touch-action:none;cursor:grab}}
-.graph.panning{{cursor:grabbing}} .inspector{{min-height:120px;overflow:auto}} .legend{{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:7px 0 12px}}
-.dot{{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px}} .empty{{padding:24px;text-align:center;color:var(--muted);
-border:1px dashed var(--line);border-radius:10px}} .back{{border:1px solid var(--line);background:var(--panel);color:var(--text);padding:7px 10px;
-border-radius:8px;cursor:pointer}} .small{{font-size:12px}} .nowrap{{white-space:nowrap}} .sevbar{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}}
-svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} .edge{{stroke:#65728c;stroke-width:1.4;opacity:.72}}
-.node rect{{fill:#16213a;stroke:#42516f;stroke-width:1}} .node.agent rect{{fill:#1b3157;stroke:#78a8ff}} .node.identity rect{{fill:#2b2545;stroke:#a895ff}}
-.node.resource rect{{fill:#21362f;stroke:#63d69f}} .node.destination rect{{fill:#3a2d22;stroke:#f1b36a}} .node.unresolved rect{{stroke-dasharray:5 4}}
-.node{{cursor:pointer;transition:opacity .12s}} .node:hover rect{{stroke-width:2}} .node.dim{{opacity:.16}} .node.match rect,.node.selected rect{{stroke-width:3}}
-.edge.dim{{opacity:.08}} .edge.selected{{stroke-width:2.5;opacity:1}} .label2{{fill:var(--muted);font-size:10px}}
-.path-card{{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin:12px 0}}
-.path-head{{display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap}}
-.path-chain{{display:flex;flex-direction:column;align-items:flex-start;margin-top:15px;padding-left:8px}}
-.path-step{{min-width:260px;max-width:620px;background:#0d1628;border:1px solid var(--line);border-radius:9px;padding:9px 11px}}
-.path-step.agent{{border-color:#78a8ff}} .path-step.secret{{border-color:#c98cff}} .path-step.destination{{border-color:#f1b36a}} .path-step.input,.path-step.source{{border-color:#8ab4ff}}
-.path-role{{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:2px}}
-.path-arrow{{height:22px;margin-left:28px;border-left:2px solid #6d7e9f}} .path-arrow.dashed{{border-left-style:dashed}}
-.path-meta{{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}} .footer{{color:var(--muted);font-size:11px;margin:28px 0 4px}}
-@media(max-width:900px){{.shell{{grid-template-columns:1fr}} aside{{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}}
-.nav{{display:flex;overflow:auto}} .nav button{{width:auto;white-space:nowrap}} main{{padding:18px}} .grid2,.graph-wrap{{grid-template-columns:1fr}}
-.graph{{height:440px}} .graph-wrap.expanded{{inset:4px;padding:8px;grid-template-columns:1fr}} .graph-wrap.expanded .inspector{{display:none}} .kv{{grid-template-columns:1fr}}}}
-</style>
+.finding{{border-left:3px solid var(--line);padding:14px 15px;margin:10px 0;background:var(--surface);border-radius:9px;border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}} .finding[data-sev="critical"]{{border-left-color:var(--critical)}} .finding[data-sev="high"]{{border-left-color:var(--high)}} .finding[data-sev="medium"]{{border-left-color:var(--medium)}} .finding[data-sev="low"]{{border-left-color:var(--low)}} .finding-head{{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}} .finding-title{{display:flex;gap:7px;align-items:center;flex-wrap:wrap}} .finding-name{{font-size:14px;font-weight:760;margin-top:7px}} .finding-meta{{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0 0;color:var(--muted);font-size:11px}} .finding p{{color:#d8dfeb}}
+code,pre{{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}} code{{background:#ffffff0b;padding:2px 5px;border-radius:5px}} details{{margin-top:8px;border-top:1px solid #ffffff0a;padding-top:7px}} details summary{{cursor:pointer;color:#c9d4e5;font-weight:650;font-size:12px}} pre{{white-space:pre-wrap;word-break:break-word;background:#09101e;border:1px solid var(--line);padding:12px;border-radius:8px;max-height:340px;overflow:auto}}
+.map-toolbar{{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:8px 0 10px}} .map-toolbar input{{min-width:250px;flex:1;background:#09101e;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 9px}} .map-btn{{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;padding:7px 9px;cursor:pointer;font-size:12px}} .map-btn:hover{{border-color:#52688f;background:var(--surface2)}} .map-hint{{font-size:11px;color:var(--muted);margin:-2px 0 10px}}
+.graph-wrap{{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:12px;position:relative}} .graph-wrap.expanded{{position:fixed;inset:14px;z-index:9999;background:var(--bg);padding:14px;border:1px solid var(--line);border-radius:14px;grid-template-columns:minmax(0,1fr) 340px;box-shadow:0 24px 80px #000b}} .graph-wrap.expanded .graph{{height:calc(100vh - 105px)}} body.graph-modal-open{{overflow:hidden}} .graph-canvas{{position:relative;min-width:0}} .graph{{width:100%;height:520px;background:#09101e;border:1px solid var(--line);border-radius:10px;touch-action:none;cursor:grab}} .graph.panning{{cursor:grabbing}} .inspector{{min-height:120px;overflow:auto}} .legend{{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin:7px 0 10px}}
+.dot{{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}} .empty{{padding:28px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px;background:#0b1321}} .back{{border:1px solid var(--line);background:var(--surface);color:var(--text);padding:7px 10px;border-radius:8px;cursor:pointer}} .small{{font-size:11px}} .nowrap{{white-space:nowrap}} .sevbar{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}}
+svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} .edge{{stroke:#65728c;stroke-width:1.4;opacity:.72}} .node rect{{fill:#16213a;stroke:#42516f;stroke-width:1}} .node.agent rect{{fill:#1b3157;stroke:#78a8ff}} .node.identity rect{{fill:#2b2545;stroke:#a895ff}} .node.resource rect{{fill:#21362f;stroke:#63d69f}} .node.destination rect{{fill:#3a2d22;stroke:#f1b36a}} .node.unresolved rect{{stroke-dasharray:5 4}} .node{{cursor:pointer;transition:opacity .12s}} .node:hover rect{{stroke-width:2}} .node.dim{{opacity:.16}} .node.match rect,.node.selected rect{{stroke-width:3}} .edge.dim{{opacity:.08}} .edge.selected{{stroke-width:2.5;opacity:1}} .label2{{fill:var(--muted);font-size:10px}}
+.path-card{{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:12px 0}} .path-head{{display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap}} .path-chain{{display:flex;flex-direction:column;align-items:flex-start;margin-top:15px;padding-left:8px}} .path-step{{min-width:260px;max-width:680px;background:#0d1628;border:1px solid var(--line);border-radius:9px;padding:9px 11px}} .path-step.agent{{border-color:#78a8ff}} .path-step.secret{{border-color:#c98cff}} .path-step.destination{{border-color:#f1b36a}} .path-step.input,.path-step.source{{border-color:#8ab4ff}} .path-role{{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:2px;font-weight:800}} .path-arrow{{height:22px;margin-left:28px;border-left:2px solid #6d7e9f}} .path-arrow.dashed{{border-left-style:dashed}} .path-meta{{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}}
+.coverage-track{{height:8px;background:#09101e;border-radius:999px;overflow:hidden;border:1px solid var(--line);margin-top:9px}} .coverage-fill{{height:100%;background:var(--ok);border-radius:inherit}} .footer{{color:var(--muted2);font-size:10px;margin:30px 0 3px;padding-top:14px;border-top:1px solid #ffffff0a}}
+@media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}
+@media(max-width:1000px){{.shell{{grid-template-columns:220px minmax(0,1fr)}} main{{padding:26px 24px}} .graph-wrap{{grid-template-columns:1fr}} .inspector{{max-height:280px}}}}
+@media(max-width:760px){{.shell{{grid-template-columns:1fr}} aside{{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:12px}} .brand-row{{padding-bottom:11px;margin-bottom:9px}} .nav-label,.sidebar-meta{{display:none}} .nav{{display:flex;flex-direction:row;overflow:auto;gap:4px}} .nav button{{width:auto;white-space:nowrap;padding:8px 10px}} .nav button::before{{display:none}} main{{padding:20px 14px 30px}} .grid2,.assessment-banner{{grid-template-columns:1fr}} .assessment-side{{justify-content:flex-start}} .assessment-count{{text-align:left}} .page-head{{flex-direction:column}} .page-actions{{justify-content:flex-start}} .sevbar{{grid-template-columns:repeat(2,1fr)}} .kv{{grid-template-columns:1fr}} .graph{{height:440px}} .graph-wrap.expanded{{inset:4px;padding:8px;grid-template-columns:1fr}} .graph-wrap.expanded .inspector{{display:none}} .tabs{{position:static}}}}
+</style></style>
 </head>
 <body>
 <div class="shell">
 <aside>
-  <div class="brand">HorusTrace<small>Effective Agency Report</small></div>
-  <div class="nav">
+  <div class="brand-row"><div class="brand-mark" aria-hidden="true">HT</div><div class="brand">HorusTrace<small>Effective Agency Report</small></div></div>
+  <div class="nav-label">Assessment</div>
+  <nav class="nav" aria-label="Report sections">
     <button class="active" data-view="dashboard">Dashboard</button>
     <button data-view="agents">Agents</button>
     <button data-view="findings">Findings</button>
     <button data-view="attack">Attack paths</button>
     <button data-view="contracts">Agent contracts</button>
     <button data-view="evidence">Scan evidence</button>
-  </div>
+  </nav>
+  <div class="sidebar-meta"><strong>Offline security evidence</strong><span title="{escape(root.name or '.')}">Scope: {escape(root.name or '.')}</span><span>Schema v{VISUAL_REPORT_SCHEMA_VERSION}</span></div>
 </aside>
 <main>
-  <section id="dashboard" class="view active"></section>
-  <section id="agents" class="view"></section>
-  <section id="agent-detail" class="view"></section>
-  <section id="findings" class="view"></section>
-  <section id="attack" class="view"></section>
-  <section id="contracts" class="view"></section>
-  <section id="evidence" class="view"></section>
-  <div class="footer">Static evidence only. Runtime effectiveness is not verified.</div>
+  <section id="dashboard" class="view active"></section><section id="agents" class="view"></section><section id="agent-detail" class="view"></section>
+  <section id="findings" class="view"></section><section id="attack" class="view"></section><section id="contracts" class="view"></section><section id="evidence" class="view"></section>
+  <div class="footer">Static evidence only · Runtime effectiveness is not verified · No report data leaves this file.</div>
 </main>
 </div>
-<script id="horus-data" type="application/json">{payload}</script>
+<script id="horus-data"<script id="horus-data" type="application/json">{payload}</script>
 <script>
 "use strict";
 const DATA=JSON.parse(document.getElementById("horus-data").textContent);
@@ -489,16 +465,35 @@ const esc=(v)=>String(v??"").replace(/[&<>"']/g,c=>({{"&":"&amp;","<":"&lt;",">"
 const loc=(v)=>v&&v.path?esc(v.path)+":"+esc(v.line||1):"n/a";
 const badge=(s)=>'<span class="badge '+esc(s)+'">'+esc(String(s).replaceAll("_"," "))+'</span>';
 const number=(v)=>Number(v||0).toLocaleString();
+const severityRank=(s)=>({{critical:5,high:4,medium:3,low:2,info:1}}[String(s||"").toLowerCase()]||0);
 function showView(id){{
-  document.querySelectorAll(".view").forEach(el=>el.classList.toggle("active",el.id===id));
-  document.querySelectorAll(".nav button").forEach(el=>el.classList.toggle("active",el.dataset.view===id));
-  window.scrollTo(0,0);
+ document.querySelectorAll(".view").forEach(el=>el.classList.toggle("active",el.id===id));
+ document.querySelectorAll(".nav button").forEach(el=>{{const active=el.dataset.view===id;el.classList.toggle("active",active);if(active)el.setAttribute("aria-current","page");else el.removeAttribute("aria-current");}});
+ window.scrollTo(0,0);
 }}
 document.querySelectorAll(".nav button").forEach(btn=>btn.addEventListener("click",()=>showView(btn.dataset.view)));
-function metric(label,value,cls="",drill=""){{
+function metric(label,value,cls="",drill="",detail=""){{
  const attrs=drill?' drill" role="button" tabindex="0" data-drill="'+esc(drill):'"';
- return '<div class="card'+attrs+'"><div class="metric '+cls+'">'+number(value)+'</div><div class="metric-label">'+esc(label)+'</div></div>';
+ return '<div class="card'+attrs+'"><div class="metric '+cls+'">'+number(value)+'</div><div class="metric-label">'+esc(label)+'</div>'+(detail?'<div class="metric-detail">'+esc(detail)+'</div>':"")+'</div>';
 }}
+function pageHead(eyebrow,title,copy,actions=""){{return '<div class="page-head"><div><div class="eyebrow">'+esc(eyebrow)+'</div><h1>'+esc(title)+'</h1><div class="muted">'+esc(copy)+'</div></div>'+(actions?'<div class="page-actions">'+actions+'</div>':"")+'</div>';}}
+function sectionHead(title,copy="",action=""){{return '<div class="section-head"><div><h2>'+esc(title)+'</h2>'+(copy?'<p>'+esc(copy)+'</p>':"")+'</div>'+action+'</div>';}}
+function assessmentState(s){{
+ if((s.severity?.critical||0)>0)return {{tone:"critical",label:"Critical review required",count:s.severity.critical,unit:"critical findings",copy:"Critical static findings were detected. Review the affected agents and evidence before deployment or approval."}};
+ if((s.severity?.high||0)>0)return {{tone:"high",label:"High-priority review",count:s.severity.high,unit:"high findings",copy:"High-severity static findings were detected. Prioritise the affected agents and attack paths."}};
+ if((s.contract_violations||0)>0)return {{tone:"critical",label:"Contract review required",count:s.contract_violations,unit:"contract violations",copy:"Effective authority exceeds at least one declared Authority Contract constraint."}};
+ if(s.analysis_incomplete)return {{tone:"warn",label:"Coverage review required",count:s.authority_not_fully_resolved||0,unit:"unresolved relationships",copy:"The scan completed with evidence gaps. Treat conclusions as incomplete until the unresolved authority is reviewed."}};
+ return {{tone:"ok",label:"No critical/high findings detected",count:s.findings||0,unit:"total findings",copy:"Within the scanned static evidence, no critical or high-severity finding was detected. Review medium/low findings and coverage before relying on this assessment."}};
+}}
+function agentAttention(a){{
+ if((a.severity?.critical||0)>0)return '<span class="badge critical">critical</span>';
+ if((a.severity?.high||0)>0)return '<span class="badge high">high</span>';
+ if((a.summary.contract_violations||0)>0)return '<span class="badge violation">contract violation</span>';
+ if((a.summary.attack_paths||0)>0)return '<span class="badge unresolved">attack path</span>';
+ if((a.summary.contract_unresolved||0)>0)return '<span class="badge unresolved">unresolved</span>';
+ return '<span class="badge compliant">reviewed</span>';
+}}
+function agentPriority(a){{return (a.severity?.critical||0)*10000+(a.severity?.high||0)*1000+(a.summary.contract_violations||0)*500+(a.summary.attack_paths||0)*100+(a.severity?.medium||0)*20+(a.summary.contract_unresolved||0)*10+(a.summary.write_capable_relationships||0);}}
 function severityCards(s,interactive=false){{
  return '<div class="sevbar">'+metric("Critical",s.critical,"critical",interactive?"findings:critical":"")+
  metric("High",s.high,"high",interactive?"findings:high":"")+metric("Medium",s.medium,"medium",interactive?"findings:medium":"")+
@@ -507,40 +502,28 @@ function severityCards(s,interactive=false){{
 function findingCard(f){{
  const evidence=(f.evidence||[]).map(x=>"<li>"+esc(x)+"</li>").join("");
  const prov=(f.provenance||[]).map(x=>"<li>"+esc(x.origin)+": "+esc(x.fact)+(x.location?" — "+loc(x.location):"")+"</li>").join("");
- return '<div class="finding" data-sev="'+esc(f.severity)+'"><div class="finding-title"><strong>'+esc(f.rule_id)+'</strong>'+
- '<span class="'+esc(f.severity)+'">'+esc(f.severity.toUpperCase())+'</span><span>'+esc(f.title)+'</span></div>'+
- '<div class="muted small">'+loc(f.location)+' · '+esc(f.assessment||"static")+'</div><p>'+esc(f.message)+'</p>'+
- (evidence?'<details><summary>Evidence</summary><ul>'+evidence+'</ul></details>':"")+
- (prov?'<details><summary>Provenance</summary><ul>'+prov+'</ul></details>':"")+
- (f.recommendation?'<details><summary>Remediation</summary><p>'+esc(f.recommendation)+'</p></details>':"")+'</div>';
+ const agent=f.agent?'<span class="pill">agent: '+esc(f.agent)+'</span>':"";
+ return '<article class="finding" data-sev="'+esc(f.severity)+'"><div class="finding-head"><div><div class="finding-title"><strong>'+esc(f.rule_id)+'</strong><span class="badge '+esc(f.severity)+'">'+esc(String(f.severity).toUpperCase())+'</span>'+agent+'</div><div class="finding-name">'+esc(f.title)+'</div></div><span class="muted small">'+loc(f.location)+'</span></div>'+
+ '<div class="finding-meta"><span>'+esc(f.assessment||"static")+' assessment</span></div><p>'+esc(f.message)+'</p>'+
+ (evidence?'<details><summary>Evidence</summary><ul>'+evidence+'</ul></details>':"")+(prov?'<details><summary>Provenance</summary><ul>'+prov+'</ul></details>':"")+
+ (f.recommendation?'<details><summary>Remediation</summary><p>'+esc(f.recommendation)+'</p></details>':"")+'</article>';
 }}
+
 function renderDashboard(){{
- const s=DATA.summary;
+ const s=DATA.summary,state=assessmentState(s),root=document.getElementById("dashboard");
+ const attention=DATA.agents.filter(a=>a.summary.findings||a.summary.contract_violations||a.summary.contract_unresolved||a.summary.attack_paths).sort((a,b)=>agentPriority(b)-agentPriority(a)).slice(0,10);
  const drillRow=(label,value,drill,cls="")=>'<div class="drill-row" role="button" tabindex="0" data-drill="'+esc(drill)+'"><span>'+esc(label)+'</span><span class="drill-value '+esc(cls)+'">'+number(value)+'</span></div>';
  const drillList=(rows)=>'<div class="drill-list">'+rows.join("")+'</div>';
- const root=document.getElementById("dashboard");
- root.innerHTML='<div class="hero"><div><h1>Security assessment</h1><div class="muted">Effective authority, policy findings and agent-contract posture</div></div>'+
- (s.analysis_incomplete?'<span class="badge unresolved">analysis incomplete</span>':'<span class="badge compliant">no detected coverage gaps</span>')+'</div>'+
- '<div class="cards">'+metric("Agents",s.agents,"","agents:all")+metric("Tools",s.tools,"","agents:tools")+metric("MCP servers",s.mcp_servers,"","agents:mcp")+
- metric("Identities",s.identities,"","agents:identities")+metric("Reachable resources",s.resources,"","agents:resources")+metric("Attack paths",s.attack_paths,"","attack:all")+
- metric("Findings",s.findings,"","findings:all")+metric("Contract violations",s.contract_violations,"critical","contracts:violation")+'</div>'+
- '<h2>Finding severity</h2>'+severityCards(s.severity,true)+
- '<div class="grid2"><div><h2>Effective agency</h2><div class="panel">'+drillList([
- drillRow("Authority relationships",s.authority_relationships,"agents:authority"),
- drillRow("Not fully resolved",s.authority_not_fully_resolved,"agents:unresolved","warn"),
- drillRow("Write-capable paths",s.write_capable_relationships,"agents:write"),
- drillRow("Unique destinations",s.destinations,"agents:destinations")
- ])+'</div></div>'+
- '<div><h2>Agent contracts</h2><div class="panel">'+drillList([
- '<div class="drill-row" style="cursor:default"><span>Status</span><span>'+badge(s.contract_violations?"violation":(s.contract_unresolved?"unresolved":"compliant"))+'</span></div>',
- drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),
- drillRow("Violations",s.contract_violations,"contracts:violation","critical"),
- drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")
- ])+'</div></div></div>'+
- '<h2>Agents needing attention</h2>'+agentTable(DATA.agents.filter(a=>a.summary.findings||a.summary.contract_violations||a.summary.contract_unresolved).slice(0,12));
- bindDashboardDrill(root);
- bindAgentRows(root);
+ const primaryDrill=(s.severity?.critical||0)?"findings:critical":((s.severity?.high||0)?"findings:high":(s.contract_violations?"contracts:violation":"findings:all"));
+ root.innerHTML=pageHead("Repository overview","Security assessment","Prioritised static evidence for effective authority, findings, attack paths and declared agent contracts.",badge(s.analysis_incomplete?"unresolved":"compliant"))+
+ '<div class="assessment-banner '+esc(state.tone)+'" data-drill="'+primaryDrill+'" role="button" tabindex="0"><div><div class="eyebrow">Assessment signal</div><div class="assessment-title '+esc(state.tone)+'">'+esc(state.label)+'</div><div class="assessment-copy">'+esc(state.copy)+'</div></div><div class="assessment-side"><div class="assessment-count">'+number(state.count)+'<small>'+esc(state.unit)+'</small></div></div></div>'+
+ '<div class="cards">'+metric("Active findings",s.findings,(s.severity?.critical||s.severity?.high)?"high":"","Critical "+number(s.severity?.critical||0)+" · High "+number(s.severity?.high||0))+metric("Agents",s.agents,"","agents:all",number(s.write_capable_relationships)+" write-capable relationships")+metric("Attack paths",s.attack_paths,"","attack:all","Static evidence; exploitability not verified")+metric("Contract violations",s.contract_violations,s.contract_violations?"critical":"","contracts:violation",number(s.contract_unresolved)+" unresolved checks")+'</div>'+
+ sectionHead("Priority review queue","Agents ordered by static review priority.")+agentTable(attention)+
+ '<div class="grid2"><div>'+sectionHead("Finding severity","Active findings by scanner severity.")+severityCards(s.severity,true)+'</div><div>'+sectionHead("Effective agency","Reconstructed authority and destination scope.")+'<div class="panel">'+drillList([drillRow("Authority relationships",s.authority_relationships,"agents:authority"),drillRow("Not fully resolved",s.authority_not_fully_resolved,"agents:unresolved","warn"),drillRow("Write-capable relationships",s.write_capable_relationships,"agents:write"),drillRow("Unique destinations",s.destinations,"agents:destinations")])+'</div></div></div>'+
+ '<div class="grid2"><div>'+sectionHead("Environment inventory","Security-relevant components found in the scan.")+'<div class="cards">'+metric("Tools",s.tools,"","agents:tools")+metric("MCP servers",s.mcp_servers,"","agents:mcp")+metric("Identities",s.identities,"","agents:identities")+metric("Resources",s.resources,"","agents:resources")+'</div></div><div>'+sectionHead("Agent contracts","Declared authority compared with effective authority.")+'<div class="panel">'+drillList(['<div class="drill-row" style="cursor:default"><span>Overall status</span><span>'+badge(s.contract_violations?"violation":(s.contract_unresolved?"unresolved":"compliant"))+'</span></div>',drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),drillRow("Violations",s.contract_violations,"contracts:violation","critical"),drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")])+'</div></div></div>';
+ bindDashboardDrill(root);bindAgentRows(root);
 }}
+
 function drillLabel(kind,value){{
  const labels={{
   "agents:all":"All agents","agents:tools":"Agents with tools","agents:mcp":"Agents with MCP servers",
@@ -550,7 +533,7 @@ function drillLabel(kind,value){{
   "findings:all":"All findings","findings:critical":"Critical findings","findings:high":"High findings",
   "findings:medium":"Medium findings","findings:low":"Low findings","contracts:declared":"Agents with declared contracts",
   "contracts:violation":"Agents with contract violations","contracts:unresolved":"Agents with unresolved contract checks",
-  "attack:all":"Attack paths"
+  "attack:all":"Attack paths","agents:attention":"Agents needing attention","agents:attack":"Agents with attack paths","agents:contract":"Agents with contract issues"
  }};
  return labels[kind+":"+value]||"Dashboard filter";
 }}
@@ -569,40 +552,33 @@ function bindDashboardDrill(root=document){{
  }});
 }}
 function agentTable(items){{
- if(!items.length)return '<div class="empty">No agents matched.</div>';
- const rows=items.map(a=>'<tr class="clickable" data-agent="'+encodeURIComponent(a.name)+'"><td><strong>'+esc(a.name)+'</strong><div class="muted small">'+esc(a.framework)+'</div></td>'+
- '<td>'+badge(a.summary.contract_status)+'</td><td>'+number(a.summary.findings)+'</td><td>'+number(a.summary.authority_relationships)+'</td><td>'+number(a.summary.resources)+'</td>'+
- '<td>'+number(a.summary.write_capable_relationships)+'</td><td class="nowrap">'+loc(a.location)+'</td></tr>').join("");
- return '<div class="panel"><table><thead><tr><th>Agent</th><th>Contract</th><th>Findings</th><th>Authority</th><th>Resources</th><th>Write paths</th><th>Location</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+ if(!items.length)return '<div class="empty">No agents matched this view.</div>';
+ const rows=items.map(a=>'<tr class="clickable" role="button" tabindex="0" data-agent="'+encodeURIComponent(a.name)+'"><td><div class="row-title">'+esc(a.name)+'</div><div class="row-sub">'+esc(a.framework)+' · '+loc(a.location)+'</div></td><td>'+agentAttention(a)+'</td><td>'+badge(a.summary.contract_status)+'</td><td>'+number(a.summary.findings)+'</td><td>'+number(a.summary.attack_paths)+'</td><td>'+number(a.summary.authority_relationships)+'</td><td>'+number(a.summary.write_capable_relationships)+'</td><td class="row-chevron">›</td></tr>').join("");
+ return '<div class="panel flush table-wrap"><table><thead><tr><th>Agent</th><th>Attention</th><th>Contract</th><th>Findings</th><th>Attack paths</th><th>Authority</th><th>Write-capable</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }}
+
 function bindAgentRows(root=document){{
- root.querySelectorAll("[data-agent]").forEach(row=>row.addEventListener("click",()=>openAgent(decodeURIComponent(row.dataset.agent))));
+ root.querySelectorAll("[data-agent]").forEach(row=>{{const activate=()=>openAgent(decodeURIComponent(row.dataset.agent));row.addEventListener("click",activate);row.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});}});
 }}
+
 function agentMatchesFilter(a,mode){{
- if(mode==="tools")return a.summary.tools>0;
- if(mode==="mcp")return a.summary.mcp_servers>0;
- if(mode==="identities")return a.summary.identities>0;
- if(mode==="resources")return a.summary.resources>0;
- if(mode==="authority")return a.summary.authority_relationships>0;
- if(mode==="unresolved")return (a.effective_authority||[]).some(r=>r.resolution!=="fully_resolved");
- if(mode==="write")return a.summary.write_capable_relationships>0;
- if(mode==="destinations")return a.summary.destinations>0;
- return true;
+ if(mode==="attention")return a.summary.findings>0||a.summary.attack_paths>0||a.summary.contract_violations>0||a.summary.contract_unresolved>0;
+ if(mode==="attack")return a.summary.attack_paths>0;
+ if(mode==="contract")return a.summary.contract_violations>0||a.summary.contract_unresolved>0;
+ if(mode==="tools")return a.summary.tools>0;if(mode==="mcp")return a.summary.mcp_servers>0;if(mode==="identities")return a.summary.identities>0;if(mode==="resources")return a.summary.resources>0;if(mode==="authority")return a.summary.authority_relationships>0;
+ if(mode==="unresolved")return (a.effective_authority||[]).some(r=>r.resolution!=="fully_resolved");if(mode==="write")return a.summary.write_capable_relationships>0;if(mode==="destinations")return a.summary.destinations>0;return true;
 }}
+
 function renderAgents(mode="all"){{
- const root=document.getElementById("agents");
- const scoped=DATA.agents.filter(a=>agentMatchesFilter(a,mode));
+ const root=document.getElementById("agents"),scoped=DATA.agents.filter(a=>agentMatchesFilter(a,mode)).sort((a,b)=>agentPriority(b)-agentPriority(a)||a.name.localeCompare(b.name));
+ const filters=[["all","All"],["attention","Needs attention"],["attack","Attack paths"],["write","Write-capable"],["contract","Contract issues"]];
+ const chips=filters.map(([value,label])=>'<button class="filter-chip '+(mode===value?"active":"")+'" data-agent-filter="'+value+'">'+esc(label)+'</button>').join("");
  const banner=mode==="all"?"":'<div class="filter-banner"><span>'+esc(drillLabel("agents",mode))+' · '+number(scoped.length)+' agents</span><button class="back" id="clear-agent-filter">Clear filter</button></div>';
- root.innerHTML='<h1>Agents</h1><p class="muted">Select an agent to inspect declared and effective agency.</p>'+banner+
- '<input id="agent-search" class="search" placeholder="Filter agents, frameworks or locations"><div id="agent-table">'+agentTable(scoped)+'</div>';
- bindAgentRows(root);
- if(mode!=="all")root.querySelector("#clear-agent-filter").addEventListener("click",()=>renderAgents("all"));
- root.querySelector("#agent-search").addEventListener("input",e=>{{
-   const q=e.target.value.toLowerCase();
-   const items=scoped.filter(a=>JSON.stringify([a.name,a.framework,a.location,a.resources,a.identities]).toLowerCase().includes(q));
-   root.querySelector("#agent-table").innerHTML=agentTable(items); bindAgentRows(root);
- }});
+ root.innerHTML=pageHead("Inventory","Agents","Review effective agency, attack paths, findings and Authority Contract posture for each discovered agent.")+banner+'<div class="toolbar"><div class="toolbar-left"><div class="filter-chips">'+chips+'</div></div><div class="toolbar-right"><input id="agent-search" class="search" aria-label="Search agents" placeholder="Search agents, frameworks, identities or resources"></div></div><div class="muted small" id="agent-count">'+number(scoped.length)+' agents</div><div id="agent-table">'+agentTable(scoped)+'</div>';
+ bindAgentRows(root);root.querySelectorAll("[data-agent-filter]").forEach(btn=>btn.addEventListener("click",()=>renderAgents(btn.dataset.agentFilter)));if(mode!=="all")root.querySelector("#clear-agent-filter").addEventListener("click",()=>renderAgents("all"));
+ root.querySelector("#agent-search").addEventListener("input",e=>{{const q=e.target.value.trim().toLowerCase();const items=scoped.filter(a=>JSON.stringify([a.name,a.framework,a.location,a.resources,a.identities,a.destinations,a.findings]).toLowerCase().includes(q));root.querySelector("#agent-count").textContent=number(items.length)+" agents";root.querySelector("#agent-table").innerHTML=agentTable(items);bindAgentRows(root);}});
 }}
+
 function contractItem(item){{
  return '<div class="finding" data-sev="'+(item.status==="violation"?"high":"medium")+'"><div class="finding-title">'+badge(item.status)+
  '<strong>'+esc(item.clause)+'</strong><span>'+esc(item.reason)+'</span></div><div class="kv small"><div>Dimension</div><div>'+esc(item.dimension)+'</div>'+
