@@ -339,7 +339,6 @@ def resolve_local_stdio_implementations(graph: Graph, root: Path) -> None:
         return
 
     used: set[int] = set()
-    bound_tool_sources: set[tuple[Path, str]] = set()
 
     for agent in graph.agents:
         for server in agent.mcp_servers:
@@ -401,27 +400,35 @@ def resolve_local_stdio_implementations(graph: Graph, root: Path) -> None:
                 implementation.metadata.get("alias") or ""
             )
             if implementation_alias:
-                bound_tool_sources.add(
-                    (implementation.location.path.resolve(), implementation_alias)
-                )
+                for tool in graph.unbound_tools:
+                    if (
+                        tool.location is None
+                        or tool.location.path.resolve()
+                        != implementation.location.path.resolve()
+                        or str(tool.metadata.get("server") or "")
+                        != implementation_alias
+                    ):
+                        continue
+                    tool.metadata["binding_state"] = "bound_via_mcp"
+                    tool.metadata["authority_binding_basis"] = "local_stdio_script"
+                    bound_servers = tool.metadata.setdefault(
+                        "bound_mcp_servers",
+                        [],
+                    )
+                    if server.name not in bound_servers:
+                        bound_servers.append(server.name)
+                    effective_agents = tool.metadata.setdefault(
+                        "effective_agents",
+                        [],
+                    )
+                    if agent.name not in effective_agents:
+                        effective_agents.append(agent.name)
 
     if used:
         graph.unbound_mcp_servers = [
             server
             for server in graph.unbound_mcp_servers
             if id(server) not in used
-        ]
-        graph.unbound_tools = [
-            tool
-            for tool in graph.unbound_tools
-            if not (
-                tool.location is not None
-                and (
-                    tool.location.path.resolve(),
-                    str(tool.metadata.get("server") or ""),
-                )
-                in bound_tool_sources
-            )
         ]
 
 def _authority_scope(server: MCPServer) -> str:
