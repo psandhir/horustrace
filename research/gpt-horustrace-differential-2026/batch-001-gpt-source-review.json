@@ -1,0 +1,440 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "batch-001",
+  "mode": "case-blind-source-review",
+  "reviewer": {
+    "model": "GPT-5.6 Sol",
+    "case_specific_horustrace_findings_seen_before_lock": false,
+    "general_horustrace_product_context_seen": true,
+    "note": "The reviewer knew HorusTrace concepts/rules from prior project work, but individual HorusTrace findings for these five cases were not inspected until after this file was locked."
+  },
+  "selection": {
+    "criteria": [
+      "not previously studied in Frozen-180",
+      "not among recent scanner-fix exemplar cases",
+      "framework diversity",
+      "non-trivial source-level authority"
+    ],
+    "cases": ["rw-017", "rw-065", "rw-112", "rw-139", "rw-152"]
+  },
+  "cases": [
+    {
+      "case_id": "rw-065",
+      "repo": "KomachiZ/BICO",
+      "sha": "8bfc1b6dd254bff3a5969baa467efca28d7a6c46",
+      "framework": "langgraph",
+      "source_files_reviewed": [
+        "app.py",
+        "function_tools/db_tools.py",
+        "function_tools/search_tool.py",
+        "function_tools/quicksight_chaintools.py",
+        "utils/database.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "agents": [
+        {
+          "name": "compiled LangGraph BI agent",
+          "kind": "langgraph",
+          "evidence": "app.py: StateGraph with call_model agent node, ToolNode(tools), llm.bind_tools(tools), then workflow.compile()."
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The model is directly bound to execute_query, which passes the model-provided SQL string to SQLDatabase.run_no_throw against a PostgreSQL connection.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The same model is bound to QuickSight construction tools and build_compile, which writes analysis_json.json and calls client_qs.create_analysis.",
+          "confidence": "high"
+        },
+        {
+          "fact": "Chainlit chat text and uploaded file content enter the LangGraph model/tool loop.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-065-01",
+          "semantic_key": "model_controlled_database_execution",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "Model-selected SQL reaches a PostgreSQL execution primitive without a source-visible read-only restriction or approval boundary.",
+          "evidence": ["app.py: tools includes db_tools.execute_query", "function_tools/db_tools.py: execute_query -> db.run_no_throw(query)", "utils/database.py: SQLDatabase PostgreSQL connection"]
+        },
+        {
+          "finding_id": "gpt-rw-065-02",
+          "semantic_key": "model_controlled_cloud_write",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "The agent can construct and create an AWS QuickSight analysis through model-selected tool calls without an explicit human approval gate.",
+          "evidence": ["app.py: QuickSight tools are bound to the model", "function_tools/quicksight_chaintools.py: build_compile -> client_qs.create_analysis(**analysis_json)"]
+        },
+        {
+          "finding_id": "gpt-rw-065-03",
+          "semantic_key": "untrusted_ingress_to_state_change",
+          "severity": "high",
+          "confidence": "medium",
+          "claim": "Interactive chat/file content can influence model-directed database or QuickSight state changes; no application-level approval step is visible before those tools execute.",
+          "evidence": ["app.py: @cl.on_message -> app.invoke(HumanMessage(...))", "app.py: ToolNode executes model tool calls"]
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-065-ap1",
+          "severity": "high",
+          "confidence": "high",
+          "chain": ["Chainlit message/upload", "LangGraph model", "execute_query(query)", "PostgreSQL SQL execution"]
+        },
+        {
+          "path_id": "gpt-rw-065-ap2",
+          "severity": "high",
+          "confidence": "high",
+          "chain": ["Chainlit message/upload", "LangGraph model", "QuickSight builder tools", "build_compile", "AWS QuickSight create_analysis"]
+        }
+      ],
+      "controls": [
+        "Database/QuickSight endpoints depend on deployment configuration; blank source defaults may make the sample non-operational until configured.",
+        "No process-execution primitive was found in the reviewed BICO tool surface."
+      ]
+    },
+    {
+      "case_id": "rw-139",
+      "repo": "IAmTomShaw/stock-tracker-agent",
+      "sha": "c2e02428e3360ed00a94052b211d2422c6c8155c",
+      "framework": "openai-agents",
+      "source_files_reviewed": ["lib/agent.py", "lib/tools.py", "main.py", "lib/sms.py"],
+      "runtime_viability": "configuration_dependent",
+      "agents": [
+        {"name": "Message Handler Agent", "kind": "openai-agents"},
+        {"name": "Stock Research Agent", "kind": "openai-agents"},
+        {"name": "Summariser Agent", "kind": "openai-agents"}
+      ],
+      "authority_facts": [
+        {
+          "fact": "Message Handler Agent can read and mutate resources/tracker_list.json through get/add/remove tracker tools.",
+          "confidence": "high"
+        },
+        {
+          "fact": "Stock Research Agent can read stock-price information and use WebSearchTool; Summariser Agent has no tools.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The HTTP message ingress validates Twilio signature plus fixed sender and receiver numbers before invoking Message Handler Agent.",
+          "confidence": "high"
+        },
+        {
+          "fact": "Agent-generated SMS is sent only to TARGET_PHONE_NUMBER through application code, not to a model-selected destination.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-139-01",
+          "semantic_key": "model_directed_persistent_state_change_without_confirmation",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "The Message Handler Agent can add/remove tracker entries and persist them to a local JSON file without a separate confirmation/approval step.",
+          "evidence": ["lib/agent.py: Message Handler Agent tools include add_stock_to_tracker/remove_stock_from_tracker", "lib/tools.py: tools rewrite resources/tracker_list.json"]
+        },
+        {
+          "finding_id": "gpt-rw-139-02",
+          "semantic_key": "read_write_capability_combination",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "The Message Handler Agent combines tracker-list read and write authority.",
+          "evidence": ["lib/agent.py: get_stock_tracker_list plus add/remove tools are bound to one agent"]
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-139-ap1",
+          "severity": "medium",
+          "confidence": "high",
+          "chain": ["authenticated Twilio message or local CLI input", "Message Handler Agent", "add/remove tracker tool", "persistent tracker_list.json mutation"]
+        }
+      ],
+      "controls": [
+        "Twilio ingress validates the request signature and constrains From/To numbers.",
+        "Outbound SMS destination is fixed by environment configuration.",
+        "No arbitrary code/process execution tool was found."
+      ]
+    },
+    {
+      "case_id": "rw-152",
+      "repo": "kumarvipu1/agentic-ppt-slide",
+      "sha": "2614076f9fbb0cdde10e481918b5177c5c3399c8",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": ["agent.py", "agent_tools.py", "app.py"],
+      "runtime_viability": "blocked_by_source_error",
+      "runtime_notes": [
+        "agent.py constructs presentation_agent with model_settings=settings, but no source definition/import for settings was found; importing agent.py should raise NameError before the application can run.",
+        "agent_tools.get_column_list references pd.read_csv but pandas is not imported in agent_tools.py."
+      ],
+      "agents": [
+        {"name": "planner_agent", "kind": "pydantic-ai"},
+        {"name": "slide_agent", "kind": "pydantic-ai"},
+        {"name": "presentation_agent", "kind": "pydantic-ai"}
+      ],
+      "authority_facts": [
+        {
+          "fact": "If the source-level import blocker is corrected, slide_agent is declared with unsandboxed Python execution, graph execution, arbitrary URL scraping, image generation/file write, and CSV helper tools.",
+          "confidence": "high"
+        },
+        {
+          "fact": "If the blocker is corrected, presentation_agent is declared with generate_powerpoint_slides, which execs model-provided Python in process globals.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-152-01",
+          "semantic_key": "declared_unsandboxed_model_code_execution",
+          "severity": "critical",
+          "confidence": "high",
+          "claim": "The declared slide/presentation tool surface contains multiple primitives that compile and exec model-supplied Python with globals(), without sandboxing or approval.",
+          "evidence": ["agent.py: slide_agent binds python_execution_tool and graph_generator", "agent.py: presentation_agent binds generate_powerpoint_slides", "agent_tools.py: each execution helper uses compile(..., 'exec') then exec(..., globals(), globals())"],
+          "reachability": "conditional_on_fixing_current_agent.py_import_error"
+        },
+        {
+          "finding_id": "gpt-rw-152-02",
+          "semantic_key": "declared_model_selected_network_destination",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "The declared slide agent can pass model-selected URLs to WebBaseLoader without a destination allowlist.",
+          "evidence": ["agent.py: slide_agent binds web_scraper", "agent_tools.py: web_scraper(urls) -> WebBaseLoader(url).load()"],
+          "reachability": "conditional_on_fixing_current_agent.py_import_error"
+        },
+        {
+          "finding_id": "gpt-rw-152-03",
+          "semantic_key": "declared_model_controlled_file_write",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "Declared tools allow model-controlled filenames and executable code to create local image/PowerPoint/graph outputs without path confinement.",
+          "evidence": ["agent_tools.py: generate_and_save_image opens model-provided filename", "agent_tools.py: generate_powerpoint_slides execs model code and accepts filename", "agent_tools.py: graph_generator execs model code"],
+          "reachability": "conditional_on_fixing_current_agent.py_import_error"
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-152-ap1",
+          "severity": "critical",
+          "confidence": "high",
+          "chain": ["Streamlit user query", "slide_agent", "python_execution_tool / graph_generator", "unsandboxed Python exec"],
+          "reachability": "conditional_on_fixing_current_agent.py_import_error"
+        },
+        {
+          "path_id": "gpt-rw-152-ap2",
+          "severity": "high",
+          "confidence": "high",
+          "chain": ["Streamlit user query", "slide_agent", "web_scraper(model URL)", "arbitrary HTTP(S) destination"],
+          "reachability": "conditional_on_fixing_current_agent.py_import_error"
+        },
+        {
+          "path_id": "gpt-rw-152-ap3",
+          "severity": "critical",
+          "confidence": "high",
+          "chain": ["presentation content", "presentation_agent", "generate_powerpoint_slides(model Python)", "unsandboxed Python exec"],
+          "reachability": "conditional_on_fixing_current_agent.py_import_error"
+        }
+      ],
+      "controls": [
+        "The current pinned source appears non-runnable due to an undefined settings variable; declared authority must not be reported as proven live runtime authority without acknowledging this."
+      ]
+    },
+    {
+      "case_id": "rw-017",
+      "repo": "mxyhi/always-on-memory-agent",
+      "sha": "5a92fd6fa34baa2920ac5ec6b1e1ac4def940311",
+      "framework": "google-adk",
+      "source_files_reviewed": ["agent.py", "server.py"],
+      "runtime_viability": "configuration_dependent",
+      "agents": [
+        {"name": "memory_orchestrator", "kind": "google-adk"},
+        {"name": "ingest_agent", "kind": "google-adk"},
+        {"name": "consolidate_agent", "kind": "google-adk"},
+        {"name": "query_agent", "kind": "google-adk"}
+      ],
+      "authority_facts": [
+        {
+          "fact": "memory_orchestrator delegates to three specialist agents; ingest_agent writes persistent memory, consolidate_agent reads/writes consolidation state, and query_agent reads memory/history.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The legacy agent.py HTTP service defaults to public user mode when MEMORY_API_KEYS is empty, allowing unauthenticated ingest/query/consolidate requests.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The newer server.py surface requires authenticated JWT or API-key users for memory endpoints.",
+          "confidence": "high"
+        },
+        {
+          "fact": "delete_memory and clear_all_memories are direct application endpoints/functions and are not bound as ADK agent tools in build_agents().",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-017-01",
+          "semantic_key": "public_default_ingress_to_persistent_agent_write",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "In the legacy agent.py service, absence of MEMORY_API_KEYS intentionally enables public mode; unauthenticated /ingest content reaches the orchestrator/ingest agent and store_memory persistent SQLite write.",
+          "evidence": ["agent.py: api_key_auth_middleware assigns DEFAULT_PUBLIC_USER_ID when no API keys are configured", "agent.py: /ingest -> MemoryAgent.ingest -> run -> orchestrator/sub-agent flow", "agent.py: ingest_agent tools=[store_memory]"]
+        },
+        {
+          "finding_id": "gpt-rw-017-02",
+          "semantic_key": "agent_persistent_state_change_without_approval",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "Ingest and consolidation agents have persistent SQLite write authority with no separate human approval boundary.",
+          "evidence": ["agent.py: ingest_agent -> store_memory", "agent.py: consolidate_agent -> store_consolidation"]
+        },
+        {
+          "finding_id": "gpt-rw-017-03",
+          "semantic_key": "delegated_read_write_authority",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "The orchestrator can delegate into specialist agents spanning persistent memory read and write capabilities.",
+          "evidence": ["agent.py: memory_orchestrator sub_agents=[ingest_agent, consolidate_agent, query_agent]"]
+        }
+      ],
+      "application_findings_not_agent_authority": [
+        {
+          "semantic_key": "public_default_direct_destructive_api",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "The legacy public-mode API also exposes /delete and /clear, but these call delete_memory/clear_all_memories directly and are not agent-reachable tools."
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-017-ap1",
+          "severity": "high",
+          "confidence": "high",
+          "chain": ["unauthenticated HTTP /ingest when MEMORY_API_KEYS is empty", "memory_orchestrator", "ingest_agent", "store_memory", "per-user SQLite persistent write"]
+        },
+        {
+          "path_id": "gpt-rw-017-ap2",
+          "severity": "medium",
+          "confidence": "high",
+          "chain": ["unauthenticated HTTP /consolidate in public mode", "memory_orchestrator", "consolidate_agent", "store_consolidation", "persistent consolidation state"]
+        }
+      ],
+      "controls": [
+        "Per-user paths and contextvars isolate data by resolved user_id.",
+        "server.py implements JWT/API-key authentication for the newer API surface.",
+        "Agent tool bindings do not include delete_memory or clear_all_memories."
+      ]
+    },
+    {
+      "case_id": "rw-112",
+      "repo": "ayushshah04/DashBoard_Agent",
+      "sha": "df75fa280204db2cdaac3d46096f2545526bd991",
+      "framework": "mcp-custom",
+      "source_files_reviewed": [
+        "agent.py",
+        "mcp_server_example.py",
+        "newsdata_mcp_server.py",
+        "mcp_config.example.json",
+        "server.py",
+        "website_scan.py",
+        "research_vault.py",
+        ".env.example"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "agents": [
+        {"name": "OpenAIMCPAgent", "kind": "custom OpenAI Responses + MCP loop"}
+      ],
+      "authority_facts": [
+        {
+          "fact": "The default config fallback starts the local workspace MCP server and exposes every returned workspace tool to the model.",
+          "confidence": "high"
+        },
+        {
+          "fact": "workspace run_python executes model-provided Python in a subprocess; cwd is confined to WORKSPACE_ROOT but the Python process itself is not sandboxed.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The /ws/agent WebSocket accepts connections and model prompts without an authentication check.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The workspace MCP also exposes model-selected HTTP(S) company-site scanning, workspace file read/write, and persistent research-note writes.",
+          "confidence": "high"
+        },
+        {
+          "fact": "Alpaca/Robinhood trading tools have explicit source-level lock/filter controls and are not part of the default fallback workspace-only configuration.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-112-01",
+          "semantic_key": "unauthenticated_ingress_to_unsandboxed_code_execution",
+          "severity": "critical",
+          "confidence": "high",
+          "claim": "Unauthenticated WebSocket prompts can drive a model that is bound to workspace__run_python, which executes arbitrary Python in a subprocess without a security sandbox or approval gate.",
+          "evidence": ["server.py: /ws/agent accepts then agent.run(prompt) with no auth check", "agent.py: default fallback config binds workspace MCP", "mcp_server_example.py: run_python -> subprocess.run([sys.executable, '-c', code], cwd=WORKSPACE_ROOT)"]
+        },
+        {
+          "finding_id": "gpt-rw-112-02",
+          "semantic_key": "model_selected_network_destination",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "The model can choose the URL passed to scan_company_website; the scanner accepts arbitrary http/https hosts and follows redirects with no destination allowlist.",
+          "evidence": ["mcp_server_example.py: scan_company_website(url) tool", "website_scan.py: normalize_url permits http/https; httpx.Client(follow_redirects=True).get(normalized)"]
+        },
+        {
+          "finding_id": "gpt-rw-112-03",
+          "semantic_key": "broad_mcp_tool_exposure_without_action_approval",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "All tools returned by enabled non-trading MCP servers are passed to the model; dangerous workspace code/file-write tools have no per-action approval boundary.",
+          "evidence": ["agent.py: session.list_tools loop appends tools to self.openai_tools", "agent.py: only Alpaca/Robinhood names receive _tool_allowed filtering"]
+        },
+        {
+          "finding_id": "gpt-rw-112-04",
+          "semantic_key": "client_controlled_mcp_configuration_path",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "The unauthenticated WebSocket payload controls config_path, allowing a caller to choose which existing local MCP configuration JSON is loaded and thereby alter the agent's tool/server authority.",
+          "evidence": ["server.py: config_path = payload.get('config_path') or 'mcp_config.json'", "agent.py: _load_config(config_path) reads the selected path"]
+        }
+      ],
+      "application_findings_not_agent_authority": [
+        {
+          "semantic_key": "unauthenticated_paper_order_endpoint",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "server.py exposes direct REST paper-order functionality without an authentication layer; this is application authority, not an agent tool path."
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-112-ap1",
+          "severity": "critical",
+          "confidence": "high",
+          "chain": ["unauthenticated WebSocket prompt", "OpenAIMCPAgent", "workspace__run_python", "Python subprocess", "arbitrary process/file/network capability"]
+        },
+        {
+          "path_id": "gpt-rw-112-ap2",
+          "severity": "high",
+          "confidence": "high",
+          "chain": ["unauthenticated WebSocket prompt", "OpenAIMCPAgent", "workspace__scan_company_website", "model-selected HTTP(S) URL", "external/internal network destination"]
+        },
+        {
+          "path_id": "gpt-rw-112-ap3",
+          "severity": "medium",
+          "confidence": "high",
+          "chain": ["unauthenticated WebSocket prompt", "OpenAIMCPAgent", "workspace__write_file / add_research_note", "persistent local state"]
+        }
+      ],
+      "controls": [
+        "workspace read/write paths are confined by safe_path, but run_python is not OS-sandboxed and can escape that filesystem intent.",
+        "Live trading tool exposure is guarded by environment confirmations and name-based filters.",
+        "Robinhood remote MCP is disabled by default unless explicitly enabled."
+      ]
+    }
+  ]
+}
