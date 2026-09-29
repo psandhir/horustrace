@@ -1,0 +1,156 @@
+name: LLM Adjudication Phase A
+
+on:
+  workflow_dispatch:
+    inputs:
+      openai_model:
+        description: OpenAI judge model
+        required: true
+        default: gpt-5.6-sol
+        type: string
+      gemini_model:
+        description: Gemini judge model
+        required: true
+        default: gemini-3.8-flash
+        type: string
+      max_source_chars:
+        description: Maximum pinned-source characters supplied per repository/judge call
+        required: true
+        default: "600000"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: llm-adjudication-phase-a-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  adjudicate:
+    name: Dual blinded LLM judges
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      OUT: research/attack-path-finding-validation-2026/generated/llm-phase-a
+
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+
+      - name: Validate evaluator secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+            echo "::error::Repository secret OPENAI_API_KEY is required."
+            exit 1
+          fi
+          if [[ -z "${GEMINI_API_KEY:-}" ]]; then
+            echo "::error::Repository secret GEMINI_API_KEY is required."
+            exit 1
+          fi
+
+      - name: Rebuild and verify immutable Phase-A packet
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT"
+          python scripts/build_attack_path_review_packet.py \
+            --output "$OUT/review-packet.yaml"
+          echo "0e912491abe5db8c7a1b9cd2eefdab0630e2ff6ab026460396251853b35933e7  $OUT/review-packet.yaml" \
+            | sha256sum -c -
+
+      - name: Run independent blinded judges
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/run_llm_adjudication.py \
+            "$OUT/review-packet.yaml" \
+            --output "$OUT/phase-a-llm-review-packet.yaml" \
+            --judge-a-id "openai-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --judge-a-provider openai \
+            --judge-a-model "${{ inputs.openai_model }}" \
+            --judge-b-id "google-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --judge-b-provider google \
+            --judge-b-model "${{ inputs.gemini_model }}" \
+            --prompt-version llm-review-v1 \
+            --max-source-chars "${{ inputs.max_source_chars }}"
+
+      - name: Validate locked reviews
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/attack_path_finding_review.py \
+            "$OUT/phase-a-llm-review-packet.yaml" \
+            --output "$OUT/phase-a-summary.json"
+
+      - name: Publish adjudication summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -f "$OUT/phase-a-summary.json" ]]; then
+            echo "## LLM Phase-A adjudication" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "The adjudication run did not reach final summary generation." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["OUT"])
+          summary = json.loads((root / "phase-a-summary.json").read_text())
+          packet = __import__("yaml").safe_load(
+              (root / "phase-a-llm-review-packet.yaml").read_text()
+          )
+
+          print("## LLM Phase-A adjudication")
+          print()
+          print(f"- Cases: **{summary['cases']}**")
+          print(f"- Consensus: **{summary['consensus_cases']}**")
+          print(f"- Disagreements: **{summary['disagreement_cases']}**")
+          print(f"- Consensus rate: **{summary.get('consensus_rate')}**")
+          print(f"- Low-confidence cases: **{len(summary.get('low_confidence_cases', []))}**")
+          print(f"- Escalation queue: **{len(summary.get('escalation_cases', []))}**")
+          print(f"- Scanner reveal allowed: **{summary['scanner_reveal_allowed']}**")
+          print()
+          print("### Judges")
+          for judge in packet.get("llm_judges", []):
+              print(
+                  f"- {judge['reviewer_id']}: "
+                  f"{judge['provider']} / {judge['model']}"
+              )
+          print()
+          print(f"- Prompt version: {packet.get('llm_prompt_version')}")
+          print(f"- Prompt SHA-256: {packet.get('llm_prompt_sha256')}")
+          if summary.get("escalation_cases"):
+              print()
+              print("### Escalation cases")
+              for case_id in summary["escalation_cases"]:
+                  print(f"- {case_id}")
+          PY
+
+      - name: Upload adjudication artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-phase-a-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            research/attack-path-finding-validation-2026/generated/llm-phase-a/review-packet.yaml
+            research/attack-path-finding-validation-2026/generated/llm-phase-a/phase-a-llm-review-packet.yaml
+            research/attack-path-finding-validation-2026/generated/llm-phase-a/phase-a-summary.json
+          if-no-files-found: warn
+          retention-days: 90

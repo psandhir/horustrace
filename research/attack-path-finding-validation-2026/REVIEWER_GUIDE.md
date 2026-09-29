@@ -27,6 +27,34 @@ Before a judge locks its review, do **not** expose:
 The canonical evaluator prompt is
 `LLM_REVIEW_PROMPT_V1.md`. Record its version as `llm-review-v1`.
 
+## Automated Phase-A runner
+
+The preferred execution path is the GitHub Actions workflow
+`.github/workflows/llm-adjudication-phase-a.yml`. It performs the full blinded
+Phase-A run in isolated API calls:
+
+1. rebuilds the source-only packet from the locked generator;
+2. verifies its SHA-256 against the immutable published digest;
+3. fetches only the source paths named by each case at the exact pinned commit;
+4. strips selection labels such as `proven_authority` / `invalid_near_miss`
+   before model evaluation;
+5. runs the OpenAI and Gemini judges independently;
+6. records model, prompt, provider response/run ID, source-file hashes and
+   confidence;
+7. validates the locked review packet and emits the escalation queue.
+
+The workflow requires these repository Actions secrets:
+
+- `OPENAI_API_KEY`;
+- `GEMINI_API_KEY`.
+
+Its default models are `gpt-5.6-sol` and `gemini-3.8-flash`, but both are
+workflow inputs so the exact evaluator versions remain explicit in every run.
+
+Repository source is treated as untrusted input. The runner instructs evaluators to
+ignore instructions embedded in source comments, documentation, notebooks, strings,
+prompts or links, and never executes reviewed source.
+
 ## Prepare the frozen packet for LLM judges
 
 Do not modify or regenerate the locked source packet merely to switch reviewer type.
