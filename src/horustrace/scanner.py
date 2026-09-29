@@ -498,6 +498,266 @@ def _enrich_web_ingress_inputs(
                     )
 
 
+
+_PYDANTIC_RUNTIME_METHODS = {
+    "run",
+    "run_sync",
+    "run_stream",
+    "run_stream_sync",
+    "run_stream_events",
+    "iter",
+}
+
+
+def _ast_dotted_name(node: ast.AST | None) -> str | None:
+    if node is None:
+        return None
+    parts: list[str] = []
+    current = node
+    while isinstance(current, ast.Attribute):
+        parts.append(current.attr)
+        current = current.value
+    if isinstance(current, ast.Name):
+        parts.append(current.id)
+        return ".".join(reversed(parts))
+    return None
+
+
+def _resolved_import_module(
+    current_module: str,
+    current_path: Path,
+    node: ast.ImportFrom,
+) -> str | None:
+    if node.level == 0:
+        return node.module or ""
+
+    package_parts = current_module.split(".") if current_module else []
+    if current_path.stem != "__init__" and package_parts:
+        package_parts = package_parts[:-1]
+
+    parents = node.level - 1
+    if parents > len(package_parts):
+        return None
+    base = package_parts[: len(package_parts) - parents]
+    if node.module:
+        base.extend(part for part in node.module.split(".") if part)
+    return ".".join(base)
+
+
+def _enrich_cli_agent_run_inputs(
+    graph: Graph,
+    root: Path,
+    python_paths: list[Path],
+) -> None:
+    """Attach CLI input only when repository source proves it reaches an imported Pydantic AI run call."""
+    module_paths: dict[str, Path] = {}
+    for path in python_paths:
+        module = _module_name_for_path(path, root)
+        if module:
+            module_paths[module] = path
+
+    agents_by_symbol: dict[tuple[str, str], list[Agent]] = {}
+    for agent in graph.agents:
+        if agent.metadata.get("framework") != "pydantic-ai" or agent.location is None:
+            continue
+        module = _module_name_for_path(agent.location.path, root)
+        if not module:
+            continue
+        agents_by_symbol.setdefault((module, agent.name), []).append(agent)
+
+    if not agents_by_symbol:
+        return
+
+    tree_cache: dict[Path, ast.AST | None] = {}
+
+    def tree_for(path: Path) -> ast.AST | None:
+        if path not in tree_cache:
+            try:
+                tree_cache[path] = ast.parse(
+                    path.read_text(encoding="utf-8"),
+                    filename=str(path),
+                )
+            except (OSError, UnicodeDecodeError, SyntaxError):
+                tree_cache[path] = None
+        return tree_cache[path]
+
+    def resolve_symbol(
+        module: str,
+        symbol: str,
+        seen: set[tuple[str, str]] | None = None,
+    ) -> Agent | None:
+        key = (module, symbol)
+        seen = set() if seen is None else set(seen)
+        if key in seen:
+            return None
+        seen.add(key)
+
+        direct = agents_by_symbol.get(key, [])
+        if len(direct) == 1:
+            return direct[0]
+        if len(direct) > 1:
+            return None
+
+        source_path = module_paths.get(module)
+        if source_path is None:
+            return None
+        tree = tree_for(source_path)
+        if tree is None:
+            return None
+
+        resolved: list[Agent] = []
+        for node in getattr(tree, "body", []):
+            if not isinstance(node, ast.ImportFrom):
+                continue
+            source_module = _resolved_import_module(module, source_path, node)
+            if not source_module:
+                continue
+            for alias in node.names:
+                local_name = alias.asname or alias.name
+                if local_name != symbol:
+                    continue
+                candidate = resolve_symbol(
+                    source_module,
+                    alias.name,
+                    seen,
+                )
+                if candidate is not None and all(
+                    candidate is not existing for existing in resolved
+                ):
+                    resolved.append(candidate)
+        return resolved[0] if len(resolved) == 1 else None
+
+    for path in python_paths:
+        tree = tree_for(path)
+        if tree is None:
+            continue
+        current_module = _module_name_for_path(path, root)
+
+        imported_agents: dict[str, Agent] = {}
+        click_modules: set[str] = set()
+        click_prompts: set[str] = set()
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "click":
+                        click_modules.add(alias.asname or alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                source_module = _resolved_import_module(
+                    current_module,
+                    path,
+                    node,
+                )
+                if source_module == "click":
+                    for alias in node.names:
+                        if alias.name == "prompt":
+                            click_prompts.add(alias.asname or alias.name)
+                if not source_module:
+                    continue
+                for alias in node.names:
+                    local_name = alias.asname or alias.name
+                    candidate = resolve_symbol(source_module, alias.name)
+                    if candidate is not None:
+                        imported_agents[local_name] = candidate
+
+        if not imported_agents:
+            continue
+
+        def expr_has_cli_input(node: ast.AST | None, tainted: set[str]) -> bool:
+            if node is None:
+                return False
+            for child in ast.walk(node):
+                if isinstance(child, ast.Name) and child.id in tainted:
+                    return True
+                if not isinstance(child, ast.Call):
+                    continue
+                if isinstance(child.func, ast.Name):
+                    if child.func.id == "input" or child.func.id in click_prompts:
+                        return True
+                if isinstance(child.func, ast.Attribute):
+                    receiver = _ast_dotted_name(child.func.value)
+                    if receiver in click_modules and child.func.attr == "prompt":
+                        return True
+            return False
+
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+
+            assignments = [
+                node
+                for node in ast.walk(fn)
+                if isinstance(node, (ast.Assign, ast.AnnAssign))
+                and node.value is not None
+            ]
+            tainted: set[str] = set()
+            changed = True
+            while changed:
+                changed = False
+                for assignment in assignments:
+                    if not expr_has_cli_input(assignment.value, tainted):
+                        continue
+                    targets = (
+                        assignment.targets
+                        if isinstance(assignment, ast.Assign)
+                        else [assignment.target]
+                    )
+                    for target in targets:
+                        if isinstance(target, ast.Name) and target.id not in tainted:
+                            tainted.add(target.id)
+                            changed = True
+
+            for call in (
+                node for node in ast.walk(fn) if isinstance(node, ast.Call)
+            ):
+                if not isinstance(call.func, ast.Attribute):
+                    continue
+                if call.func.attr not in _PYDANTIC_RUNTIME_METHODS:
+                    continue
+                owner = _ast_dotted_name(call.func.value)
+                if not owner or "." in owner:
+                    continue
+                agent = imported_agents.get(owner)
+                if agent is None:
+                    continue
+                prompt = call.args[0] if call.args else next(
+                    (
+                        keyword.value
+                        for keyword in call.keywords
+                        if keyword.arg in {"user_prompt", "prompt", "input"}
+                    ),
+                    None,
+                )
+                if not expr_has_cli_input(prompt, tainted):
+                    continue
+
+                input_name = f"{path.stem}.{fn.name}:cli-input"
+                if any(
+                    item.name == input_name
+                    and item.metadata.get("basis")
+                    == "repository_pydantic_cli_input_to_run"
+                    for item in agent.inputs
+                ):
+                    continue
+                agent.inputs.append(
+                    InputSource(
+                        name=input_name,
+                        trust="untrusted",
+                        kind="user",
+                        location=SourceLocation(
+                            path,
+                            getattr(call, "lineno", 1) or 1,
+                            (getattr(call, "col_offset", 0) or 0) + 1,
+                        ),
+                        metadata={
+                            "basis": "repository_pydantic_cli_input_to_run",
+                            "runtime_invocation_proven": True,
+                            "runtime_method": call.func.attr,
+                            "source_module": current_module,
+                        },
+                    )
+                )
+
 def _is_source_fragment(path: Path) -> bool:
     return any(part.lower() in SOURCE_FRAGMENT_DIRS for part in path.parts)
 
@@ -1416,6 +1676,7 @@ def scan(
     )
     analysis_root = root if root.is_dir() else root.parent
     _enrich_web_ingress_inputs(graph, analysis_root, approved_python_paths)
+    _enrich_cli_agent_run_inputs(graph, analysis_root, approved_python_paths)
     graph.flow_paths = analyze_repository_flows(analysis_root, approved_python_paths, graph)
     _remap_flow_locations(graph, notebook_path_map)
     main_guard_entrypoints = _collect_main_guard_entrypoints(
