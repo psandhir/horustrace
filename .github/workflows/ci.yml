@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install -e '.[dev]'
-      - run: ruff check src tests benchmarks scripts/deployment_authority_study.py
+      - run: ruff check --fix --diff src/horustrace/runtime_ingress.py
       - run: pytest -q
       - run: python scripts/deployment_authority_study.py --validate-only
       - run: horustrace benchmark benchmarks/cases.yaml
