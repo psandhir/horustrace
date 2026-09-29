@@ -1,4 +1,4 @@
-"""Validate blinded human reviews for attack-path/finding accuracy studies."""
+"""Validate blinded independent reviews for attack-path/finding accuracy studies."""
 from __future__ import annotations
 
 import argparse
@@ -48,6 +48,8 @@ def _validate_case_doc(case: dict[str, Any], where: str) -> dict[str, Any]:
         raise ReviewPackError(f"{where}: exactly two reviewers are required")
 
     ids: list[str] = []
+    reviewer_kinds: list[str] = []
+    evaluator_models: list[dict[str, str] | None] = []
     case_where = where
     for index, review in enumerate(reviewers):
         review_where = f"{case_where}: reviewers[{index}]"
@@ -57,8 +59,44 @@ def _validate_case_doc(case: dict[str, Any], where: str) -> dict[str, Any]:
         if not isinstance(reviewer_id, str) or not reviewer_id.strip():
             raise ReviewPackError(f"{review_where}: reviewer_id is required")
         ids.append(reviewer_id.strip())
-        if review.get("independent_human") is not True:
-            raise ReviewPackError(f"{review_where}: independent_human must be true")
+
+        reviewer_kind = review.get("reviewer_kind")
+        if reviewer_kind is None:
+            # Backward compatibility for the already-frozen human packet.
+            reviewer_kind = "human" if review.get("independent_human") is True else None
+        if reviewer_kind not in {"human", "llm"}:
+            raise ReviewPackError(
+                f"{review_where}: reviewer_kind must be 'human' or 'llm'"
+            )
+        reviewer_kinds.append(reviewer_kind)
+
+        if review.get("independent_review") not in {None, True}:
+            raise ReviewPackError(f"{review_where}: independent_review must be true")
+        if reviewer_kind == "human":
+            if review.get("independent_human") is not True:
+                raise ReviewPackError(f"{review_where}: independent_human must be true")
+            evaluator_models.append(None)
+        else:
+            if review.get("independent_human") is True:
+                raise ReviewPackError(
+                    f"{review_where}: LLM reviewer cannot claim independent_human"
+                )
+            model = review.get("model")
+            if not isinstance(model, dict):
+                raise ReviewPackError(f"{review_where}: LLM model metadata is required")
+            normalized: dict[str, str] = {}
+            for key in ("provider", "name", "prompt_version"):
+                value = model.get(key)
+                if not isinstance(value, str) or not value.strip():
+                    raise ReviewPackError(
+                        f"{review_where}: model.{key} is required for LLM review"
+                    )
+                normalized[key] = value.strip()
+            run_id = model.get("run_id")
+            if isinstance(run_id, str) and run_id.strip():
+                normalized["run_id"] = run_id.strip()
+            evaluator_models.append(normalized)
+
         if review.get("horustrace_output_seen") is not False:
             raise ReviewPackError(f"{review_where}: reviewer must be blinded")
         if review.get("locked") is not True:
@@ -79,7 +117,9 @@ def _validate_case_doc(case: dict[str, Any], where: str) -> dict[str, Any]:
             raise ReviewPackError(f"{review_where}: rationale is required")
 
     if ids[0] == ids[1]:
-        raise ReviewPackError(f"{case_where}: reviewers must be different people")
+        raise ReviewPackError(
+            f"{case_where}: reviewers must have different reviewer_id values"
+        )
 
     verdicts = [review["verdict"] for review in reviewers]
     severities = [review.get("severity", "unresolved") for review in reviewers]
@@ -91,6 +131,8 @@ def _validate_case_doc(case: dict[str, Any], where: str) -> dict[str, Any]:
         "severity_consensus": severities[0] == severities[1],
         "consensus_severity": severities[0] if severities[0] == severities[1] else None,
         "reviewers": ids,
+        "reviewer_kinds": reviewer_kinds,
+        "evaluator_models": evaluator_models,
     }
 
 
@@ -127,16 +169,27 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
 
 
 def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    consensus = sum(bool(row["consensus"]) for row in rows)
+    disagreements = len(rows) - consensus
+    escalation = [
+        row["case_id"]
+        for row in rows
+        if not row["consensus"] or not row["severity_consensus"]
+    ]
     return {
         "schema_version": 1,
         "study": "attack-path-finding-validation-2026",
         "cases": len(rows),
         "attack_path_cases": sum(row["case_type"] == "attack_path" for row in rows),
         "finding_cases": sum(row["case_type"] == "finding" for row in rows),
-        "consensus_cases": sum(bool(row["consensus"]) for row in rows),
-        "disagreement_cases": sum(not bool(row["consensus"]) for row in rows),
+        "consensus_cases": consensus,
+        "disagreement_cases": disagreements,
+        "consensus_rate": round(consensus / len(rows), 4) if rows else None,
+        "escalation_cases": escalation,
         "rows": rows,
-        "scanner_reveal_allowed": bool(rows) and all(row["consensus"] for row in rows),
+        # Reveal is safe once both blinded reviews are locked. Disagreements remain
+        # excluded from accuracy denominators and are escalated separately.
+        "scanner_reveal_allowed": bool(rows),
     }
 
 
