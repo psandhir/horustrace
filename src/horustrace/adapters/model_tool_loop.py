@@ -136,6 +136,29 @@ def _is_model_callable(node: ast.AST | None) -> bool:
     return any(called.endswith(suffix) for suffix in _MODEL_CALL_SUFFIXES) or leaf in _MODEL_METHODS
 
 
+def _is_function_call_discriminator(node: ast.Compare) -> bool:
+    """Recognize Responses-style item.type == "function_call" dispatch evidence."""
+    left = node.left
+    left_is_type = (
+        isinstance(left, ast.Attribute)
+        and left.attr == "type"
+    ) or (
+        isinstance(left, ast.Subscript)
+        and _subscript_key(left) == "type"
+    )
+    if not left_is_type:
+        return False
+    for operator, comparator in zip(node.ops, node.comparators):
+        if not isinstance(operator, (ast.Eq, ast.Is)):
+            continue
+        if (
+            isinstance(comparator, ast.Constant)
+            and comparator.value == "function_call"
+        ):
+            return True
+    return False
+
+
 def _class_signals(node: ast.ClassDef) -> dict[str, bool]:
     model_call = False
     tool_catalogue = False
@@ -208,6 +231,10 @@ def _class_signals(node: ast.ClassDef) -> dict[str, bool]:
                 tool_catalogue = True
             if {"tools", "messages"} <= keys:
                 model_payload = True
+
+        elif isinstance(child, ast.Compare):
+            if _is_function_call_discriminator(child):
+                model_selection = True
 
     if http_request and model_payload:
         model_call = True
