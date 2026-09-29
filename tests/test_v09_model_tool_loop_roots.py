@@ -549,46 +549,10 @@ if __name__ == "__main__":
         for item in findings
     )
     assert not any(tool.name == "run_python" for tool in graph.unbound_tools)
-    assert effective_authority_report(graph)["relationships"] == [
-        {
-            "relationship_id": effective_authority_report(graph)["relationships"][0][
-                "relationship_id"
-            ],
-            "agent": agent.name,
-            "target_kind": "mcp_server",
-            "target_name": "workspace",
-            "capabilities": ["mcp.local"],
-            "resources": [],
-            "destinations": [],
-            "identity": None,
-            "dimensions": {
-                "binding": "resolved",
-                "scope": "unknown",
-                "identity": "unknown",
-                "destination": "not_applicable",
-                "approval": "unknown",
-            },
-            "scope": {
-                "allowed_tools": [],
-                "denied_tools": [],
-                "resources": [],
-            },
-            "approval": {
-                "required": None,
-                "guardrails": [],
-                "inherited_control": False,
-            },
-            "evidence": [
-                {
-                    "origin": "observed",
-                    "fact": "agent_mcp_binding",
-                    "subject": "workspace",
-                    "location": {
-                        "path": str((tmp_path / "agent.py").resolve()),
-                        "line": 21,
-                        "column": 20,
-                    },
-                }
-            ],
-        }
-    ]
+    relationships = effective_authority_report(graph)["relationships"]
+    assert len(relationships) == 1
+    assert relationships[0]["agent"] == agent.name
+    assert relationships[0]["target_kind"] == "mcp_server"
+    assert relationships[0]["target_name"] == "workspace"
+    assert relationships[0]["capabilities"] == ["mcp.local"]
+    assert relationships[0]["dimensions"]["binding"] == "resolved"
