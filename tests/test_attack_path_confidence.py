@@ -226,3 +226,31 @@ def test_untrusted_input_reaches_destructive_bound_mcp() -> None:
         "destructive.write",
     ]
     assert path.metadata["target_kind"] == "mcp_server"
+
+def test_langgraph_memory_saver_is_not_a_persistent_path007_sink(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from langgraph.graph import StateGraph
+from langgraph.checkpoint.memory import MemorySaver
+
+def passthrough(state):
+    return state
+
+graph = StateGraph(dict)
+graph.add_node("passthrough", passthrough)
+memory = MemorySaver()
+app = graph.compile(checkpointer=memory)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "graph")
+    memory = agent.metadata["memory"][0]
+
+    assert memory["backend"] == "memory"
+    assert memory["persistent"] is False
+    assert not any(finding.rule_id == "PATH007" for finding in findings)
+
