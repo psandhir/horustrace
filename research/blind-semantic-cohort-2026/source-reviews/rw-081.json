@@ -1,0 +1,66 @@
+{
+  "case_id": "rw-081",
+  "repo_name": "Frostday/Agent4Molecule",
+  "sha": "131f7f8898a15a90e6e9faa9131c0fd4bb706797",
+  "source_review_status": "locked_before_horustrace_reveal",
+  "structural": {
+    "agents": {
+      "count": 1,
+      "evidence_state": "observed",
+      "note": "Custom Gemini MCPClient implements model-selected tool dispatch."
+    },
+    "tools": {
+      "count": "dynamic_by_selected_server",
+      "evidence_state": "observed"
+    },
+    "mcp": {
+      "construction_instances": 1,
+      "evidence_state": "observed",
+      "note": "Caller selects a local Python/JS server script via command-line argument."
+    }
+  },
+  "authority": [
+    {
+      "state": "observed",
+      "fact": "All tools returned by the selected MCP server are converted to Gemini function declarations and exposed to the model."
+    },
+    {
+      "state": "observed",
+      "fact": "Model function calls are dispatched directly through session.call_tool."
+    },
+    {
+      "state": "observed",
+      "fact": "In-repository docking/enzygen MCP servers expose file-writing and subprocess-backed operations."
+    },
+    {
+      "state": "observed",
+      "fact": "The selected server subprocess inherits os.environ.copy()."
+    }
+  ],
+  "policy_expectations": [
+    {
+      "rule_id": "AGT020",
+      "state": "observed",
+      "reason": "In-repository MCP tools invoke subprocesses/commands without a human approval boundary."
+    },
+    {
+      "rule_id": "AGT022",
+      "state": "observed",
+      "reason": "In-repository MCP tools write files and mutate workspaces without approval."
+    },
+    {
+      "rule_id": "AGT053",
+      "state": "observed",
+      "reason": "When bound to the reviewed in-repository servers, the MCP exposes privileged process/file-write tools without approval/guardrail."
+    }
+  ],
+  "unresolved": [
+    "The exact effective server at runtime is caller-selected via sys.argv[1].",
+    "The checked-in chat_loop uses a fixed query, so untrusted-input PATH assertions are not established."
+  ],
+  "evidence": [
+    "mcp_agent/client.py",
+    "mcp_agent/docking_server.py",
+    "mcp_agent/enzygen_server.py"
+  ]
+}
