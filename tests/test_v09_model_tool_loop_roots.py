@@ -462,7 +462,7 @@ class OpenAIMCPAgent:
         for item in graph.agents
         if item.metadata.get("framework") == "model-tool-loop"
     )
-    assert agent.name == "open_ai_m_c_p_agent"
+    assert agent.metadata["source_class"] == "OpenAIMCPAgent"
     assert set(agent.metadata["discovery_signals"]) == {
         "model_call",
         "model_selection",
