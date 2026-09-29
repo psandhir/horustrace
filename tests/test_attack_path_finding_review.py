@@ -181,6 +181,7 @@ cases:
           prompt_version: llm-review-v1
         verdict: valid
         severity: high
+        confidence: high
         evidence: [app.py:10]
         rationale: source proves the edge
       - reviewer_id: google-run-1
@@ -195,6 +196,7 @@ cases:
           prompt_version: llm-review-v1
         verdict: invalid
         severity: medium
+        confidence: low
         evidence: [app.py:10]
         rationale: source does not prove dispatch
 """,
@@ -209,3 +211,4 @@ cases:
     assert report["disagreement_cases"] == 1
     assert report["scanner_reveal_allowed"] is True
     assert report["escalation_cases"] == ["ap-llm-001"]
+    assert report["low_confidence_cases"] == ["ap-llm-001"]
