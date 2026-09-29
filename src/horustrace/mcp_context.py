@@ -355,6 +355,18 @@ def resolve_model_tool_loop_default_mcp_config(
             for server in graph.unbound_mcp_servers
             if id(server) not in used
         ]
+        graph.unbound_tools = [
+            tool
+            for tool in graph.unbound_tools
+            if not (
+                tool.location is not None
+                and (
+                    tool.location.path.resolve(),
+                    str(tool.metadata.get("server") or ""),
+                )
+                in bound_implementation_tools
+            )
+        ]
 
 
 def _local_stdio_script_candidates(
@@ -416,6 +428,7 @@ def resolve_local_stdio_implementations(graph: Graph, root: Path) -> None:
         return
 
     used: set[int] = set()
+    bound_implementation_tools: set[tuple[Path, str]] = set()
 
     for agent in graph.agents:
         for server in agent.mcp_servers:
@@ -473,6 +486,13 @@ def resolve_local_stdio_implementations(graph: Graph, root: Path) -> None:
                 if resource not in server.resources:
                     server.resources.append(deepcopy(resource))
             used.add(id(implementation))
+            implementation_alias = str(
+                implementation.metadata.get("alias") or implementation.name
+            )
+            if implementation.location is not None and implementation_alias:
+                bound_implementation_tools.add(
+                    (implementation.location.path.resolve(), implementation_alias)
+                )
 
     if used:
         graph.unbound_mcp_servers = [
