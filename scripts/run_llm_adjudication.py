@@ -427,6 +427,7 @@ def _call_judge(
                 "instructions": system_prompt,
                 "input": user_prompt,
                 "reasoning": {"effort": "high"},
+                "store": False,
                 "text": {
                     "format": {
                         "type": "json_schema",
@@ -455,6 +456,7 @@ def _call_judge(
                     }
                 ],
                 "generationConfig": {
+                    "thinkingConfig": {"thinkingLevel": "high"},
                     "responseFormat": {
                         "text": {
                             "mimeType": "application/json",
