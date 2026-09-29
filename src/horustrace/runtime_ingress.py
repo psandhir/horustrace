@@ -201,9 +201,9 @@ def _propagate_taint(
                 for name in _target_names(target)
             ]
             assignments.append((names, node.value))
-        elif isinstance(node, ast.AnnAssign) and node.value is not None:
-            assignments.append((_target_names(node.target), node.value))
-        elif isinstance(node, ast.NamedExpr):
+        elif (
+            isinstance(node, ast.AnnAssign) and node.value is not None
+        ) or isinstance(node, ast.NamedExpr):
             assignments.append((_target_names(node.target), node.value))
 
     for _ in range(8):
@@ -292,7 +292,7 @@ def _class_targets(
         module = parsed[0]
         targets[f"{module}.{source_class}" if module else source_class] = agent
 
-    for _, (module, tree, imports) in modules.items():
+    for module, tree, imports in modules.values():
         for class_node in (
             node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)
         ):
