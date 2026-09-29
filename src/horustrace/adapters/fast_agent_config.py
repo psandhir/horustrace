@@ -14,7 +14,12 @@ import yaml
 
 from horustrace.models import Graph, MCPServer, SourceLocation
 
-FAST_AGENT_CONFIG_FILENAMES = {"fast-agent.yaml", "fast-agent.yml"}
+FAST_AGENT_CONFIG_FILENAMES = {
+    "fast-agent.yaml",
+    "fast-agent.yml",
+    "fastagent.config.yaml",
+    "fastagent.config.yml",
+}
 _ENV_REF = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
