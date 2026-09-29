@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "batch-001",
+  "scanner_sha": "9149f4cb27b509cacc150c1f533a8db9927e05df",
+  "gpt_findings": [
+    {"finding_id":"gpt-rw-017-01","coverage":"missed","matched_horustrace":[],"rationale":"HorusTrace does not connect legacy public-mode HTTP ingress to the ADK ingest/write authority and reports zero attack paths."},
+    {"finding_id":"gpt-rw-017-02","coverage":"covered","matched_horustrace":[
+      {"case_id":"rw-017","index":0,"fingerprint":"arg-v1:c36557ca21fce2cb5b3cad04"},
+      {"case_id":"rw-017","index":1,"fingerprint":"arg-v1:325b124ab608e16dd16bae8b"},
+      {"case_id":"rw-017","index":3,"fingerprint":"arg-v1:77584f5071f6982d639b6a2d"},
+      {"case_id":"rw-017","index":4,"fingerprint":"arg-v1:bfe4d965175749c49da8b088"}],"rationale":"ADK001 and AGT040 cover the no-control persistent write semantics."},
+    {"finding_id":"gpt-rw-017-03","coverage":"covered","matched_horustrace":[
+      {"case_id":"rw-017","index":2,"fingerprint":"arg-v1:4bec94befe4dde64f4d25611"},
+      {"case_id":"rw-017","index":5,"fingerprint":"arg-v1:a74f00b13de8f2ce5193e4fd"},
+      {"case_id":"rw-017","index":6,"fingerprint":"arg-v1:5d3a5f83b2bb19de77e0cc35"},
+      {"case_id":"rw-017","index":7,"fingerprint":"arg-v1:5922cddb30c63c187f8e3847"},
+      {"case_id":"rw-017","index":8,"fingerprint":"arg-v1:fe82c794b4bac785870064c1"}],"rationale":"Delegated privileged authority and combined read/write authority are represented."},
+
+    {"finding_id":"gpt-rw-065-01","coverage":"missed","matched_horustrace":[],"rationale":"execute_query(query) -> SQLDatabase.run_no_throw(PostgreSQL) is not classified as model-controlled database execution."},
+    {"finding_id":"gpt-rw-065-02","coverage":"partial","matched_horustrace":[
+      {"case_id":"rw-065","index":0,"fingerprint":"arg-v1:b0913ceee3e9e215f4828409"},
+      {"case_id":"rw-065","index":1,"fingerprint":"arg-v1:b0913ceee3e9e215f4828409"},
+      {"case_id":"rw-065","index":2,"fingerprint":"arg-v1:b0913ceee3e9e215f4828409"},
+      {"case_id":"rw-065","index":3,"fingerprint":"arg-v1:b0913ceee3e9e215f4828409"},
+      {"case_id":"rw-065","index":4,"fingerprint":"arg-v1:d53dc25b996daff9207bded3"},
+      {"case_id":"rw-065","index":5,"fingerprint":"arg-v1:25b6ea2627377fe2808fb75a"},
+      {"case_id":"rw-065","index":6,"fingerprint":"arg-v1:c0e6e3ce98d599a7980dbc78"},
+      {"case_id":"rw-065","index":7,"fingerprint":"arg-v1:156239438b0e1fd36e0571de"}],"rationale":"HorusTrace detects intermediate QuickSight builder mutations but misses build_compile -> client_qs.create_analysis, the actual external cloud-write sink."},
+    {"finding_id":"gpt-rw-065-03","coverage":"missed","matched_horustrace":[],"rationale":"Chainlit message/file ingress is not bound into an attack path to SQL or QuickSight state change."},
+
+    {"finding_id":"gpt-rw-112-01","coverage":"partial","matched_horustrace":[
+      {"case_id":"rw-112","index":0,"fingerprint":"arg-v1:4856a17c2fdf88b1cd158a35"}],"rationale":"HorusTrace finds run_python as an unbound process-execution tool but misses OpenAIMCPAgent, the effective MCP binding, unauthenticated WebSocket ingress, and therefore the critical end-to-end path."},
+    {"finding_id":"gpt-rw-112-02","coverage":"missed","matched_horustrace":[],"rationale":"workspace scan_company_website(model URL) -> unrestricted httpx destination is not represented; existing NET001 findings concern remote MCP transport construction instead."},
+    {"finding_id":"gpt-rw-112-03","coverage":"missed","matched_horustrace":[],"rationale":"The local workspace MCP catalog is effectively exposed to the model without per-action approval, but AGT032 findings refer to generic remote MCP transport branches, not this bound local server."},
+    {"finding_id":"gpt-rw-112-04","coverage":"partial","matched_horustrace":[
+      {"case_id":"rw-112","index":1,"fingerprint":"arg-v1:58984460dd5054b877542871"},
+      {"case_id":"rw-112","index":2,"fingerprint":"arg-v1:c99484875792658747711dd4"}],"rationale":"Dynamic MCP transport logic is noticed, but HorusTrace does not model that unauthenticated WebSocket payload controls config_path and therefore which existing MCP configuration is loaded."},
+
+    {"finding_id":"gpt-rw-139-01","coverage":"covered","matched_horustrace":[
+      {"case_id":"rw-139","index":0,"fingerprint":"arg-v1:19596284ee30a432de5d4709"},
+      {"case_id":"rw-139","index":1,"fingerprint":"arg-v1:fa1b57775f233b43ff73474b"},
+      {"case_id":"rw-139","index":2,"fingerprint":"arg-v1:667d45ed4bac4cde2df29bf8"},
+      {"case_id":"rw-139","index":3,"fingerprint":"arg-v1:ca42a3d92d4f6b0dbff8e274"}],"rationale":"State-changing add/remove tracker authority is detected. The AGT021 high severity on removing one local tracker entry is stronger than the GPT source review's medium assessment because ingress is authenticated and the operation is narrow."},
+    {"finding_id":"gpt-rw-139-02","coverage":"covered","matched_horustrace":[
+      {"case_id":"rw-139","index":4,"fingerprint":"arg-v1:5307f7cbd7311b7d1fb426e3"}],"rationale":"CAP005 directly covers combined tracker read/write authority."},
+
+    {"finding_id":"gpt-rw-152-01","coverage":"covered","matched_horustrace":[
+      {"case_id":"rw-152","index":0,"fingerprint":"arg-v1:7e04c927f44274f19c4fd994"},
+      {"case_id":"rw-152","index":1,"fingerprint":"arg-v1:124a499513b9807212fc6d8d"},
+      {"case_id":"rw-152","index":2,"fingerprint":"arg-v1:2f50f92177f6054458c9c460"}],"rationale":"Three PATH001 findings correctly capture the presentation, python-execution, and graph unsandboxed code-execution flows."},
+    {"finding_id":"gpt-rw-152-02","coverage":"partial","matched_horustrace":[
+      {"case_id":"rw-152","index":6,"fingerprint":"arg-v1:c080b5b067047c525bb43024"}],"rationale":"NET002 recognizes outbound capability, but does not source-prove the more specific model-selected URL -> WebBaseLoader flow and reports medium rather than the GPT review's high severity."},
+    {"finding_id":"gpt-rw-152-03","coverage":"partial","matched_horustrace":[
+      {"case_id":"rw-152","index":3,"fingerprint":"arg-v1:e94574be1a3ac51621728a0f"},
+      {"case_id":"rw-152","index":4,"fingerprint":"arg-v1:ffccd3cf4cd75d031266bfea"}],"rationale":"The image write is detected; broader model-controlled filesystem consequences also exist through unsandboxed code-execution tools."}
+  ],
+  "horustrace_findings": [
+    {"case_id":"rw-017","index":0,"fingerprint":"arg-v1:c36557ca21fce2cb5b3cad04","outcome":"source_supported"},
+    {"case_id":"rw-017","index":1,"fingerprint":"arg-v1:325b124ab608e16dd16bae8b","outcome":"source_supported"},
+    {"case_id":"rw-017","index":2,"fingerprint":"arg-v1:4bec94befe4dde64f4d25611","outcome":"source_supported"},
+    {"case_id":"rw-017","index":3,"fingerprint":"arg-v1:77584f5071f6982d639b6a2d","outcome":"semantic_duplicate"},
+    {"case_id":"rw-017","index":4,"fingerprint":"arg-v1:bfe4d965175749c49da8b088","outcome":"semantic_duplicate"},
+    {"case_id":"rw-017","index":5,"fingerprint":"arg-v1:a74f00b13de8f2ce5193e4fd","outcome":"semantic_duplicate"},
+    {"case_id":"rw-017","index":6,"fingerprint":"arg-v1:5d3a5f83b2bb19de77e0cc35","outcome":"semantic_duplicate"},
+    {"case_id":"rw-017","index":7,"fingerprint":"arg-v1:5922cddb30c63c187f8e3847","outcome":"source_supported"},
+    {"case_id":"rw-017","index":8,"fingerprint":"arg-v1:fe82c794b4bac785870064c1","outcome":"source_supported"},
+
+    {"case_id":"rw-065","index":0,"fingerprint":"arg-v1:b0913ceee3e9e215f4828409","outcome":"source_supported"},
+    {"case_id":"rw-065","index":1,"fingerprint":"arg-v1:b0913ceee3e9e215f4828409","outcome":"source_supported"},
+    {"case_id":"rw-065","index":2,"fingerprint":"arg-v1:b0913ceee3e9e215f4828409","outcome":"source_supported"},
+    {"case_id":"rw-065","index":3,"fingerprint":"arg-v1:b0913ceee3e9e215f4828409","outcome":"source_supported"},
+    {"case_id":"rw-065","index":4,"fingerprint":"arg-v1:d53dc25b996daff9207bded3","outcome":"semantic_duplicate"},
+    {"case_id":"rw-065","index":5,"fingerprint":"arg-v1:25b6ea2627377fe2808fb75a","outcome":"semantic_duplicate"},
+    {"case_id":"rw-065","index":6,"fingerprint":"arg-v1:c0e6e3ce98d599a7980dbc78","outcome":"semantic_duplicate"},
+    {"case_id":"rw-065","index":7,"fingerprint":"arg-v1:156239438b0e1fd36e0571de","outcome":"semantic_duplicate"},
+    {"case_id":"rw-065","index":8,"fingerprint":"arg-v1:9f93bbcbdeb1e9026c64de92","outcome":"source_supported"},
+
+    {"case_id":"rw-112","index":0,"fingerprint":"arg-v1:4856a17c2fdf88b1cd158a35","outcome":"effective_authority_review"},
+    {"case_id":"rw-112","index":1,"fingerprint":"arg-v1:58984460dd5054b877542871","outcome":"effective_authority_review"},
+    {"case_id":"rw-112","index":2,"fingerprint":"arg-v1:c99484875792658747711dd4","outcome":"effective_authority_review"},
+    {"case_id":"rw-112","index":3,"fingerprint":"arg-v1:d144b96cfa1a18e6987408cd","outcome":"effective_authority_review"},
+    {"case_id":"rw-112","index":4,"fingerprint":"arg-v1:d144b96cfa1a18e6987408cd","outcome":"effective_authority_review"},
+
+    {"case_id":"rw-139","index":0,"fingerprint":"arg-v1:19596284ee30a432de5d4709","outcome":"source_supported"},
+    {"case_id":"rw-139","index":1,"fingerprint":"arg-v1:fa1b57775f233b43ff73474b","outcome":"source_supported"},
+    {"case_id":"rw-139","index":2,"fingerprint":"arg-v1:667d45ed4bac4cde2df29bf8","outcome":"semantic_duplicate"},
+    {"case_id":"rw-139","index":3,"fingerprint":"arg-v1:ca42a3d92d4f6b0dbff8e274","outcome":"semantic_duplicate"},
+    {"case_id":"rw-139","index":4,"fingerprint":"arg-v1:5307f7cbd7311b7d1fb426e3","outcome":"source_supported"},
+    {"case_id":"rw-139","index":5,"fingerprint":"arg-v1:c219df564e3f676931f8e3bf","outcome":"policy_semantics_review"},
+
+    {"case_id":"rw-152","index":0,"fingerprint":"arg-v1:7e04c927f44274f19c4fd994","outcome":"effective_authority_review"},
+    {"case_id":"rw-152","index":1,"fingerprint":"arg-v1:124a499513b9807212fc6d8d","outcome":"effective_authority_review"},
+    {"case_id":"rw-152","index":2,"fingerprint":"arg-v1:2f50f92177f6054458c9c460","outcome":"effective_authority_review"},
+    {"case_id":"rw-152","index":3,"fingerprint":"arg-v1:e94574be1a3ac51621728a0f","outcome":"effective_authority_review"},
+    {"case_id":"rw-152","index":4,"fingerprint":"arg-v1:ffccd3cf4cd75d031266bfea","outcome":"effective_authority_review"},
+    {"case_id":"rw-152","index":5,"fingerprint":"arg-v1:6ea2360854d3b08eb912056a","outcome":"effective_authority_review"},
+    {"case_id":"rw-152","index":6,"fingerprint":"arg-v1:c080b5b067047c525bb43024","outcome":"effective_authority_review"}
+  ],
+  "attack_paths": {
+    "gpt_source_supported_paths": 11,
+    "gpt_high_or_critical_paths": 8,
+    "horustrace_reported_paths": 3,
+    "gpt_high_or_critical_semantic_paths_fully_covered": 2,
+    "gpt_high_or_critical_semantic_paths_not_covered": 6,
+    "notes": [
+      "All three HorusTrace paths occur in rw-152 and correspond to the three concrete code-execution flows.",
+      "The six missed high/critical GPT chains are: rw-017 public ingress to memory write; rw-065 chat to SQL execution and QuickSight cloud write; rw-112 unauthenticated WebSocket to Python execution and arbitrary URL fetch; rw-152 model-selected URL fetch.",
+      "This is source-adjudicated differential coverage, not formal recall against exhaustive ground truth."
+    ]
+  },
+  "product_gaps": [
+    {
+      "priority": "P0",
+      "gap": "Custom OpenAI Responses + MCP model/tool loop is not recognized as an agent/effective binding in rw-112.",
+      "evidence": "HorusTrace reports agents=0 and run_python as unbound despite source-proven list_tools -> responses.create(tools=...) -> function_call -> session.call_tool."
+    },
+    {
+      "priority": "P0",
+      "gap": "Ingress-to-authority attack-path recall is weak for aiohttp public mode, Chainlit, and FastAPI WebSocket.",
+      "evidence": "rw-017, rw-065 and rw-112 have source-supported high/critical chains but zero HorusTrace attack paths."
+    },
+    {
+      "priority": "P0",
+      "gap": "LangChain SQLDatabase.run_no_throw model-controlled SQL is not classified as database execution/write authority.",
+      "evidence": "rw-065 execute_query is bound to the model and targets PostgreSQL, but no SQL/destructive finding is emitted."
+    },
+    {
+      "priority": "P1",
+      "gap": "Specific model-selected URL dataflow is lost through wrappers.",
+      "evidence": "rw-112 scan_company_website(url)->httpx and rw-152 web_scraper(urls)->WebBaseLoader are source-proven; HorusTrace misses the first and emits only generic NET002 for the second."
+    },
+    {
+      "priority": "P1",
+      "gap": "Cloud-write sink recognition misses QuickSight create_analysis.",
+      "evidence": "rw-065 build_compile -> client_qs.create_analysis is not represented; only intermediate builder mutations are flagged."
+    },
+    {
+      "priority": "P1",
+      "gap": "Managed WebSearchTool is treated as generic unconstrained network authority.",
+      "evidence": "rw-139 NET002 requires rule-contract review because the source exposes a provider-managed web-search tool rather than a raw caller-selected network destination."
+    },
+    {
+      "priority": "P1",
+      "gap": "Runtime viability is not reflected strongly enough in effective-authority claims.",
+      "evidence": "rw-152 agent.py references undefined settings and should fail import, yet findings/attack paths are labeled runtime; declared dangerous authority is real but live reachability is conditional."
+    },
+    {
+      "priority": "P1",
+      "gap": "Finding fingerprint collisions exist.",
+      "evidence": "rw-065 has four distinct AGT022 findings sharing one fingerprint; rw-112 has two AGT032 findings sharing one fingerprint."
+    }
+  ]
+}
