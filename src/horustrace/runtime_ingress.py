@@ -16,7 +16,6 @@ from horustrace.models import (
     SourceLocation,
 )
 
-
 _RUNTIME_METHODS = {
     "run",
     "run_sync",
