@@ -1,0 +1,249 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "batch-004",
+  "mode": "case-blind-source-review",
+  "reviewer": {
+    "model": "GPT-5.6 Sol",
+    "case_specific_horustrace_findings_seen_before_lock": false,
+    "general_horustrace_product_context_seen": true,
+    "note": "Batch selection was locked before source review. Review used pinned repository source only; case-specific HorusTrace findings were not inspected before this artifact was committed."
+  },
+  "cases": [
+    {
+      "case_id": "rw-012",
+      "repo": "namanraina16/morning-wire",
+      "sha": "29529fbf066b30eb0d7c45d1a70b1eda5dfb53dd",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "scout.py",
+        "scheduler_api.py",
+        "README.md"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "ADK root agent is source-defined and requires Gemini runtime configuration.",
+        "The scheduler API is a separate application surface and is not the ADK model/tool loop."
+      ],
+      "authority_facts": [
+        {
+          "fact": "The ADK LlmAgent binds only preview_agent_builder_brief(top_n), which calls run_ambient_scout.",
+          "confidence": "high"
+        },
+        {
+          "fact": "Live network fetching in scout.py targets a fixed Hacker News URL; the model does not select a destination.",
+          "confidence": "high"
+        },
+        {
+          "fact": "scheduler_api.py exposes HTTP endpoints that can set dry_run=false and invoke configured delivery, but that authority is application-only and is not bound as an ADK agent tool.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [],
+      "attack_paths": [],
+      "controls": [
+        "The agent prompt explicitly says not to claim delivery or scheduling.",
+        "The only model-callable argument is bounded briefing size; network destination is fixed.",
+        "Application scheduler/delivery authority is kept separate from model authority."
+      ]
+    },
+    {
+      "case_id": "rw-042",
+      "repo": "sysadmin-info/reloaded",
+      "sha": "0d15f1268024ee09d87c21fa7ef00e61e453cf0e",
+      "framework": "langgraph",
+      "source_files_reviewed": [
+        "agent.py",
+        "README.md"
+      ],
+      "runtime_viability": "declared_graph_not_runtime_reachable_at_pinned_entrypoint",
+      "runtime_notes": [
+        "main() constructs a LangGraph with run_task, run_secret and read_env bound to the LLM, but calls builder.compile() without retaining or invoking the compiled graph.",
+        "The actual REPL passes input to process_command(), which recognizes only explicit command prefixes and calls the underlying functions directly."
+      ],
+      "authority_facts": [
+        {
+          "fact": "Declared LangGraph tools include run_task, run_secret, and read_env; run_task/run_secret launch whitelisted local Python scripts and read_env returns an arbitrary named environment variable.",
+          "confidence": "high"
+        },
+        {
+          "fact": "Task/secret identifiers are constrained to fixed numeric allowlists.",
+          "confidence": "high"
+        },
+        {
+          "fact": "At the pinned executable entrypoint, user text is not sent into llm_with_tools or an invoked compiled graph, so the declared tool catalogue is not effective model authority.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [],
+      "attack_paths": [],
+      "controls": [
+        "Runtime command parser constrains task and secret IDs.",
+        "The apparent model tool graph is not invoked by the actual REPL.",
+        "This is a runtime-viability/effective-authority precision case; static declaration alone must not be promoted to proven agent execution."
+      ]
+    },
+    {
+      "case_id": "rw-104",
+      "repo": "ZygimantasB/AI-with-jupyter",
+      "sha": "ac8b74ff4aecf17e8026e8666fb917effd1355ed",
+      "framework": "mcp-custom",
+      "source_files_reviewed": [
+        "MCP/app.py",
+        "MCP/mcp_client.py",
+        "MCP/mcp_server.py"
+      ],
+      "runtime_viability": "source_runnable_with_local_lm_studio_and_dataset",
+      "runtime_notes": [
+        "Flask /api/chat provides source-proven user ingress to an LLM decision loop when LM Studio is available.",
+        "The local MCP server reads a packaged jobs CSV and is launched over stdio."
+      ],
+      "authority_facts": [
+        {
+          "fact": "User chat input reaches an LLM that selects from the MCP tool catalogue and dispatches through session.call_tool.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The MCP server exposes search/statistics operations over a local jobs dataframe; reviewed tools do not write files, execute commands, mutate external state, or select arbitrary network destinations.",
+          "confidence": "high"
+        },
+        {
+          "fact": "A separate /api/tool/<tool_name> route permits direct application-level MCP calls, but the underlying catalogue remains read-only dataset analysis.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [],
+      "attack_paths": [],
+      "controls": [
+        "Effective MCP catalogue is read-only.",
+        "Dataset path is fixed relative to the server implementation.",
+        "This is a precision-control case: untrusted web ingress plus MCP data-read authority should not become process/state-change/broad-network findings."
+      ]
+    },
+    {
+      "case_id": "rw-138",
+      "repo": "elastic/observability-examples",
+      "sha": "b69114e63fa0bfc483f56d4cb3af3512f58fb451",
+      "framework": "openai-agents",
+      "source_files_reviewed": [
+        "genai-function-calling/openai-agents/main.py",
+        "inference-platforms/agent.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "Examples use fixed prompts at the reviewed entrypoints.",
+        "Remote MCP mode depends on an operator-configured MCP_URL and optional headers."
+      ],
+      "authority_facts": [
+        {
+          "fact": "The direct OpenAI Agents example binds a function tool that fetches a fixed Elastic releases endpoint and executes a fixed prompt.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The inference-platforms example can dynamically import tools from an operator-configured remote MCP server; HostedMCPTool sets require_approval='never', and client-side mode converts every listed MCP tool into an agent function tool.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The pinned run_agent entrypoint supplies a fixed flight-search prompt rather than untrusted runtime ingress.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-138-01",
+          "semantic_key": "dynamic_remote_mcp_catalogue_without_per_call_approval",
+          "severity": "medium",
+          "confidence": "medium",
+          "claim": "When configured for remote MCP, the agent accepts a dynamically supplied remote MCP tool catalogue and can invoke it without per-call approval. This is source-proven external MCP authority, but the pinned example uses a fixed prompt and the server URL is operator configuration rather than model/user-selected input.",
+          "evidence": [
+            "inference-platforms/agent.py: MCP_URL selects the remote server",
+            "HostedMCPTool(... require_approval='never')",
+            "client-side path calls server.list_tools() and converts every returned tool with MCPUtil.to_function_tool(..., False)",
+            "run_agent() uses a fixed flight-search input"
+          ],
+          "reachability": "effective_if_remote_mcp_configuration_is_present; no untrusted runtime ingress proven at pinned entrypoint"
+        }
+      ],
+      "attack_paths": [],
+      "controls": [
+        "Prompt is fixed in the reviewed entrypoint.",
+        "MCP URL is operator-controlled configuration, not model-selected.",
+        "Observed intended remote service is a flight-search MCP; source review does not assert arbitrary local command execution."
+      ]
+    },
+    {
+      "case_id": "rw-164",
+      "repo": "amscotti/local-LLM-with-RAG",
+      "sha": "832fb9a2970884e61a6ca2eabcfa103b78df4cfb",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "interfaces/streamlit_app.py",
+        "core/agent.py",
+        "core/document_loader.py"
+      ],
+      "runtime_viability": "source_runnable_with_local_ollama_models",
+      "runtime_notes": [
+        "Streamlit UI has no source-visible authentication gate.",
+        "Selected folder must exist on the server and file types must be supported by the document loader."
+      ],
+      "authority_facts": [
+        {
+          "fact": "The Streamlit sidebar accepts an arbitrary Documents folder string and validates only os.path.isdir(folder_path).",
+          "confidence": "high"
+        },
+        {
+          "fact": "That user-selected path is passed to create_research_agent(... documents_path=folder_path, reload=True/first load).",
+          "confidence": "high"
+        },
+        {
+          "fact": "load_documents() recursively enumerates supported files under Path(path).rglob(...) and loads their content into LanceDB without a base-directory containment policy.",
+          "confidence": "high"
+        },
+        {
+          "fact": "User chat input reaches the Pydantic AI agent, whose search_documents tool returns retrieved document text and source metadata to the model, allowing indexed server-side file content to be surfaced in responses.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-164-01",
+          "semantic_key": "unauthenticated_user_selected_server_directory_to_rag_exfiltration",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "A Streamlit user can select any existing server-side directory, causing supported files below that directory to be recursively ingested into the RAG store; the same user can then query the Pydantic AI agent to retrieve indexed content. No source-visible authentication or filesystem containment restricts the folder to the intended Research directory.",
+          "evidence": [
+            "interfaces/streamlit_app.py: folder_path = st.text_input('Documents folder:', DEFAULT_FOLDER)",
+            "interfaces/streamlit_app.py: validation is only os.path.isdir(folder_path)",
+            "interfaces/streamlit_app.py: create_research_agent(... documents_path=folder_path, reload=need_reload)",
+            "core/document_loader.py: root = Path(path); root.rglob(f'*{ext}') recursively loads supported files",
+            "core/agent.py: search_documents returns retrieved text to the model",
+            "interfaces/streamlit_app.py: st.chat_input reaches the agent streaming handler"
+          ],
+          "reachability": "source_proven_web_user_to_server_filesystem_ingestion_to_model_retrieval"
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-164-ap1",
+          "severity": "high",
+          "confidence": "high",
+          "chain": [
+            "unauthenticated Streamlit user",
+            "user-selected existing server directory",
+            "recursive supported-file ingestion",
+            "LanceDB vector store",
+            "model search_documents tool",
+            "file content returned in chat response"
+          ]
+        }
+      ],
+      "controls": [
+        "Only supported document extensions are ingested.",
+        "Selected path must be an existing directory.",
+        "UI defaults to Research but does not enforce that base directory.",
+        "Tool-call limit bounds search loops but does not constrain filesystem ingestion scope."
+      ]
+    }
+  ]
+}
