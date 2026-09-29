@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -202,3 +203,36 @@ def test_score_rejects_omitted_scanner_finding() -> None:
 
     with pytest.raises(DifferentialError, match="omitted scanner findings"):
         score(_review(), _scanner(), alignment)
+
+
+def test_batch_001_artifacts_are_complete_and_case_aligned() -> None:
+    root = Path(__file__).resolve().parents[1] / "research" / "gpt-horustrace-differential-2026"
+    review = json.loads((root / "batch-001-gpt-source-review.json").read_text(encoding="utf-8"))
+    alignment = json.loads((root / "batch-001-alignment.json").read_text(encoding="utf-8"))
+
+    review_case_ids = {case["case_id"] for case in review["cases"]}
+    assert review_case_ids == {"rw-017", "rw-065", "rw-112", "rw-139", "rw-152"}
+    assert review["reviewer"]["case_specific_horustrace_findings_seen_before_lock"] is False
+
+    gpt_ids = {
+        finding["finding_id"]
+        for case in review["cases"]
+        for finding in case.get("findings", [])
+    }
+    aligned_ids = {row["finding_id"] for row in alignment["gpt_findings"]}
+    assert len(gpt_ids) == 15
+    assert aligned_ids == gpt_ids
+
+    statuses = [row["coverage"] for row in alignment["gpt_findings"]]
+    assert statuses.count("covered") == 5
+    assert statuses.count("partial") == 5
+    assert statuses.count("missed") == 5
+
+    scanner_refs = [
+        (row["case_id"], row["index"])
+        for row in alignment["horustrace_findings"]
+    ]
+    assert len(scanner_refs) == 36
+    assert len(set(scanner_refs)) == len(scanner_refs)
+    assert {case_id for case_id, _ in scanner_refs} == review_case_ids
+    assert alignment["scanner_sha"] == "9149f4cb27b509cacc150c1f533a8db9927e05df"
