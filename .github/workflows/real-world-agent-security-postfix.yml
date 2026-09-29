@@ -1,7 +1,9 @@
 name: Real World Agent Security Post-Fix Validation
 
 on:
-  pull_request:
+  push:
+    branches:
+      - main
     paths:
       - "src/horustrace/**"
       - "scripts/real_world_agent_security_execute.py"
@@ -22,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: real-world-agent-security-postfix-${{ github.event.pull_request.head.sha || inputs.scanner_sha }}
+  group: real-world-agent-security-postfix-${{ github.sha || inputs.scanner_sha }}
   cancel-in-progress: true
 
 jobs:
@@ -31,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
-      SCANNER_SHA: ${{ github.event.pull_request.head.sha || inputs.scanner_sha }}
+      SCANNER_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.scanner_sha || github.sha }}
       STUDY_ROOT: research/real-world-agent-security-2026
 
     steps:
@@ -128,7 +130,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: frozen-180-postfix-${{ github.event.pull_request.head.sha || inputs.scanner_sha }}
+          name: frozen-180-postfix-${{ github.event_name == 'workflow_dispatch' && inputs.scanner_sha || github.sha }}
           path: research/real-world-agent-security-2026/results/postfix/${{ github.event.pull_request.head.sha || inputs.scanner_sha }}/
           if-no-files-found: error
           retention-days: 30
