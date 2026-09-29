@@ -382,7 +382,7 @@ def chat() -> None:
         encoding="utf-8",
     )
 
-    graph, findings = scan(tmp_path)
+    graph, findings = scan(package)
     agent = next(item for item in graph.agents if item.name == "agent")
     ingress = next(
         item
@@ -447,7 +447,7 @@ def chat() -> None:
         encoding="utf-8",
     )
 
-    graph, findings = scan(tmp_path)
+    graph, findings = scan(package)
     agent = next(item for item in graph.agents if item.name == "agent")
 
     assert not any(
