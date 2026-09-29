@@ -1,6 +1,9 @@
 name: LLM Adjudication Phase A
 
 on:
+  push:
+    branches:
+      - run/llm-phase-a-20260929
   workflow_dispatch:
     inputs:
       openai_model:
@@ -80,12 +83,12 @@ jobs:
             --output "$OUT/phase-a-llm-review-packet.yaml" \
             --judge-a-id "openai-${{ github.run_id }}-${{ github.run_attempt }}" \
             --judge-a-provider openai \
-            --judge-a-model "${{ inputs.openai_model }}" \
+            --judge-a-model "${{ inputs.openai_model || 'gpt-5.6-sol' }}" \
             --judge-b-id "google-${{ github.run_id }}-${{ github.run_attempt }}" \
             --judge-b-provider google \
-            --judge-b-model "${{ inputs.gemini_model }}" \
+            --judge-b-model "${{ inputs.gemini_model || 'gemini-3.8-flash' }}" \
             --prompt-version llm-review-v1 \
-            --max-source-chars "${{ inputs.max_source_chars }}"
+            --max-source-chars "${{ inputs.max_source_chars || '600000' }}"
 
       - name: Validate locked reviews
         shell: bash
