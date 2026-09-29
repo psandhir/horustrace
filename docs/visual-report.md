@@ -30,8 +30,8 @@ effective-authority posture, environment inventory, Authority Contract status, a
 scan coverage. Dashboard metrics remain drillable into the corresponding agent,
 finding, attack-path, or contract view.
 
-The top-level agent, finding, and contract views include reviewer-oriented filters
-and search. Agent rows are ordered by static review priority so critical/high
+The top-level agent, finding, and contract views include reviewer-oriented filters;
+agent and finding views also provide search. Agent rows are ordered by static review priority so critical/high
 findings, contract violations, attack paths, unresolved checks, and write-capable
 authority rise above lower-signal inventory.
 
