@@ -278,7 +278,7 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                 "tool_name": tool.name,
                 "tool_kind": tool.kind,
                 "capabilities": sorted(tool.capabilities),
-                "unbound": True,
+                "unbound": tool.metadata.get("binding_state") != "bound_via_mcp",
                 "binding_state": tool.metadata.get("binding_state") or "unbound",
                 "discovery_source": tool.metadata.get("discovery_source"),
             },
