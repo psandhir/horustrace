@@ -60,3 +60,38 @@ workflow.add_node("chatbot", chatbot)
     )
     assert workflow.metadata["model_driven_workflow"] is True
     assert workflow.metadata["workflow_roles"] == ["model_agent"]
+
+
+def test_deterministic_workflow_capabilities_do_not_become_agent_findings(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "workflow.py").write_text(
+        """
+from langgraph.graph import StateGraph
+
+def transform(state):
+    current = state.get("value")
+    state.update({"value": current})
+    return state
+
+workflow = StateGraph(dict)
+workflow.add_node("transform", transform)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+
+    workflow = next(
+        agent
+        for agent in graph.agents
+        if agent.metadata.get("framework") == "langgraph"
+    )
+    assert {"data.read", "data.write"} <= workflow.capabilities
+    assert workflow.metadata["model_driven_workflow"] is False
+    assert not any(finding.agent == workflow.name for finding in findings)
+    assert graph.adg is not None
+    assert not any(
+        node.kind == "agent" and node.name == workflow.name
+        for node in graph.adg.nodes
+    )
