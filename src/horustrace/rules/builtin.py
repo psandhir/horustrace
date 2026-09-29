@@ -459,8 +459,46 @@ def evaluate(graph: Graph) -> list[Finding]:
         discovered_capabilities = set(
             server.metadata.get("discovered_tool_capabilities") or []
         )
-        privileged_mcp_capabilities = discovered_capabilities & PRIVILEGED_CAPABILITIES
         server_authority = mcp_authority_by_object.get(id(server))
+        dynamic_destination_tools = [
+            item
+            for item in (server.metadata.get("discovered_tools") or [])
+            if isinstance(item, dict)
+            and item.get("dynamic_destination_authority") is True
+        ]
+        if server_authority is not None and dynamic_destination_tools:
+            tool_names = sorted(
+                str(item.get("name") or "<tool>")
+                for item in dynamic_destination_tools
+            )
+            parameters = sorted(
+                {
+                    str(parameter)
+                    for item in dynamic_destination_tools
+                    for parameter in (
+                        item.get("model_selected_url_parameters") or []
+                    )
+                }
+            )
+            findings.append(
+                Finding(
+                    "NET004",
+                    Severity.MEDIUM,
+                    "MCP tool exposes model-selected URL destination authority",
+                    f"MCP server '{server.name}' exposes model-callable tools whose URL parameters select remote destinations without a detected allowlist.",
+                    "Restrict URL-bearing MCP tools to approved schemes and destinations, or enforce a destination allowlist before the provider fetch/crawl operation.",
+                    layer=4,
+                    location=server.location,
+                    agent=server_authority.agent,
+                    evidence=[
+                        "tools=" + ",".join(tool_names),
+                        "url_parameters=" + ",".join(parameters),
+                        "destination_scope=dynamic",
+                    ],
+                    authority_relationship_id=server_authority.relationship_id,
+                )
+            )
+        privileged_mcp_capabilities = discovered_capabilities & PRIVILEGED_CAPABILITIES
         if (
             server_authority is not None
             and privileged_mcp_capabilities
