@@ -628,7 +628,7 @@ agent = Agent(
     agent = next(item for item in graph.agents if item.name == "Network Agent")
 
     by_name = {tool.name: tool for tool in agent.tools}
-    for name in {"ingest_repo", "crawl_page", "scrape_page"}:
+    for name in ("ingest_repo", "crawl_page", "scrape_page"):
         tool = by_name[name]
         assert "network.external" in tool.capabilities
         assert any(
