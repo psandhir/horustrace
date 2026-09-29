@@ -213,6 +213,155 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
     return capabilities
 
 
+def _expr_uses_names(node: ast.AST | None, names: set[str]) -> bool:
+    if node is None or not names:
+        return False
+    return any(
+        isinstance(child, ast.Name) and child.id in names
+        for child in ast.walk(node)
+    )
+
+
+def _function_http_url_semantics(
+    path: Path,
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> tuple[list[NetworkDestination], dict[str, Any]]:
+    """Find model-selected URL parameters passed to direct server-side HTTP clients."""
+    params = {
+        arg.arg
+        for arg in [
+            *node.args.posonlyargs,
+            *node.args.args,
+            *node.args.kwonlyargs,
+        ]
+    }
+    if not params:
+        return [], {}
+
+    tainted = set(params)
+    assignments = [
+        child
+        for child in ast.walk(node)
+        if isinstance(child, (ast.Assign, ast.AnnAssign))
+        and child.value is not None
+    ]
+    for _ in range(8):
+        changed = False
+        for assignment in assignments:
+            if not _expr_uses_names(assignment.value, tainted):
+                continue
+            for name in _target_names(assignment):
+                if name not in tainted:
+                    tainted.add(name)
+                    changed = True
+        if not changed:
+            break
+
+    http_clients: dict[str, bool] = {}
+
+    def client_constructor(call: ast.Call) -> tuple[bool, bool]:
+        called = (_dotted(call.func) or _call_name(call.func) or "").lower()
+        is_client = (
+            called in {
+                "httpx.client",
+                "httpx.asyncclient",
+                "requests.session",
+                "aiohttp.clientsession",
+            }
+            or called.endswith(".httpx.client")
+            or called.endswith(".httpx.asyncclient")
+        )
+        follow = _literal(_kw(call, "follow_redirects")) is True
+        return is_client, follow
+
+    for child in ast.walk(node):
+        if isinstance(child, (ast.With, ast.AsyncWith)):
+            for item in child.items:
+                if not isinstance(item.context_expr, ast.Call):
+                    continue
+                is_client, follow = client_constructor(item.context_expr)
+                if is_client and isinstance(item.optional_vars, ast.Name):
+                    http_clients[item.optional_vars.id] = follow
+        elif isinstance(child, (ast.Assign, ast.AnnAssign)) and isinstance(
+            child.value, ast.Call
+        ):
+            is_client, follow = client_constructor(child.value)
+            if is_client:
+                for name in _target_names(child):
+                    http_clients[name] = follow
+
+    destinations: list[NetworkDestination] = []
+    parameters: set[str] = set()
+    follows_redirects = False
+    seen_lines: set[int] = set()
+
+    for call in (child for child in ast.walk(node) if isinstance(child, ast.Call)):
+        called = (_dotted(call.func) or _call_name(call.func) or "").lower()
+        leaf = (_call_name(call.func) or "").lower()
+        receiver = (
+            _dotted(call.func.value)
+            if isinstance(call.func, ast.Attribute)
+            else None
+        )
+        receiver_root = (receiver or "").split(".", 1)[0]
+
+        direct_http = (
+            called.startswith(("requests.", "httpx.", "aiohttp."))
+            or "urllib.request" in called
+        )
+        client_http = (
+            receiver_root in http_clients
+            and leaf in {"get", "post", "put", "patch", "delete", "request", "head"}
+        )
+        if not (direct_http or client_http):
+            continue
+
+        target: ast.AST | None
+        if leaf == "request" and len(call.args) > 1:
+            target = call.args[1]
+        else:
+            target = call.args[0] if call.args else _kw(call, "url")
+        if target is None or not _expr_uses_names(target, tainted):
+            continue
+
+        selected = {
+            child.id
+            for child in ast.walk(target)
+            if isinstance(child, ast.Name) and child.id in params
+        }
+        parameters.update(selected)
+        follows_redirects = follows_redirects or http_clients.get(
+            receiver_root, False
+        )
+        line = getattr(call, "lineno", 1)
+        if line in seen_lines:
+            continue
+        seen_lines.add(line)
+        destinations.append(
+            NetworkDestination(
+                target="<dynamic-url>",
+                restricted=False,
+                location=_location(path, call),
+                metadata={
+                    "source": "model_selected_url_argument",
+                    "network_scope": "dynamic_destination",
+                    "server_side_fetch": True,
+                    "follow_redirects": http_clients.get(receiver_root, False),
+                },
+            )
+        )
+
+    if not destinations:
+        return [], {}
+    return destinations, {
+        "model_selected_url_fetch": True,
+        "model_selected_url_parameters": sorted(parameters),
+        "server_side_fetch": True,
+        "follow_redirects": follows_redirects,
+        "network_scope": "dynamic_destination",
+    }
+
+
 def _contains_conditional_approval(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     for child in ast.walk(node):
         if not isinstance(child, ast.Raise) or child.exc is None:
@@ -230,13 +379,22 @@ def _tool_from_function(
     approval: bool | None = None,
     source: str = "function",
 ) -> Tool:
+    capabilities = _function_capabilities(node)
+    dynamic_destinations, http_metadata = _function_http_url_semantics(path, node)
+    if dynamic_destinations:
+        capabilities.add("network.external")
     tool = Tool(
         name=node.name,
         kind="function",
-        capabilities=_function_capabilities(node),
+        capabilities=capabilities,
         approval=approval,
+        destinations=dynamic_destinations,
         location=_location(path, node),
-        metadata={"framework": "pydantic-ai", "source": source},
+        metadata={
+            "framework": "pydantic-ai",
+            "source": source,
+            **http_metadata,
+        },
     )
     if _contains_conditional_approval(node):
         tool.metadata["conditional_approval"] = True
