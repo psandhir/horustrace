@@ -600,13 +600,13 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
             and tool.metadata.get("filesystem_access")
         ]
         if indirect_tool_content and unconstrained_filesystem_tools:
-            target = sorted(
+            target = min(
                 unconstrained_filesystem_tools,
                 key=lambda item: (
                     "write" not in set(item.metadata.get("filesystem_access") or []),
                     item.name,
                 ),
-            )[0]
+            )
             access_modes = list(target.metadata.get("filesystem_access") or [])
             access_label = (
                 "filesystem write"
