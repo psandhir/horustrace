@@ -1,0 +1,434 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "batch-002",
+  "mode": "case-blind-source-review",
+  "reviewer": {
+    "model": "GPT-5.6 Sol",
+    "case_specific_horustrace_findings_seen_before_lock": false,
+    "general_horustrace_product_context_seen": true,
+    "note": "Selection was locked at commit 70f0c4a93fd85f2b1199079eb571a46493f42d2e before source review. This review uses pinned source only; no case-specific HorusTrace output for Batch 002 was inspected before this artifact."
+  },
+  "selection": {
+    "criteria": [
+      "not previously studied in Frozen-180",
+      "excluded Batch 001 cases",
+      "excluded the recent blind semantic cohort",
+      "one fresh eligible case from each available framework stratum",
+      "selection used cohort metadata only, not HorusTrace case output"
+    ],
+    "cases": [
+      "rw-003",
+      "rw-004",
+      "rw-041",
+      "rw-076",
+      "rw-116",
+      "rw-147"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "rw-003",
+      "repo": "angrysky56/ai_writers_workshop",
+      "sha": "c160a299706dd0cd1dc9ae114b97aba905e9261d",
+      "framework": "fastagent",
+      "source_files_reviewed": [
+        "mcp_server/components/fast_agent_integration.py",
+        "mcp_server/server.py",
+        "mcp_server/fastagent_integration/fastagent_tools.py",
+        "mcp_server/example_fastagent.config.yaml"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "FastAgent support is disabled when mcp_agent is unavailable.",
+        "No mcp_server/fastagent.config.yaml is checked in at the pinned SHA. FastAgentIntegration.ensure_narrative_servers() can synthesize one at runtime, but whether the already-created FastAgent instance reloads that generated configuration is framework/runtime dependent.",
+        "FastAgent-backed helper sessions additionally require a live Ollama or LM Studio backend."
+      ],
+      "agents": [
+        {
+          "name": "narrative_architect",
+          "kind": "fastagent",
+          "servers": [
+            "archetypal_patterns"
+          ]
+        },
+        {
+          "name": "character_developer",
+          "kind": "fastagent",
+          "servers": [
+            "character_engine"
+          ]
+        },
+        {
+          "name": "story_generator",
+          "kind": "fastagent",
+          "servers": [
+            "narrative_engine",
+            "archetypal_patterns",
+            "symbolic_system"
+          ]
+        },
+        {
+          "name": "narrative_assistant",
+          "kind": "fastagent",
+          "servers": [
+            "narrative_engine",
+            "character_engine",
+            "archetypal_patterns",
+            "symbolic_system"
+          ]
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The source declares per-agent MCP server lists and a runtime path that generates all four narrative server aliases as local stdio invocations of the same mcp_server/server.py implementation.",
+          "confidence": "high"
+        },
+        {
+          "fact": "That shared MCP implementation exposes a broad mixed read/write surface including project/pattern/character creation, story writes, agent-script creation, agent-script deletion, and nested FastAgent session operations.",
+          "confidence": "high"
+        },
+        {
+          "fact": "Because the checked-in runtime config is absent, the declared server relationships are configuration-dependent rather than proven live authority at the pinned source state.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-003-01",
+          "semantic_key": "broad_shared_mcp_implementation_behind_narrow_aliases",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "If the generated FastAgent MCP configuration is loaded, agents that appear to bind narrow narrative server aliases actually reach the same broad MCP implementation, including persistent project/script mutation tools, with no source-visible per-action approval boundary.",
+          "evidence": [
+            "mcp_server/components/fast_agent_integration.py: agent decorators use narrative_engine/character_engine/archetypal_patterns/symbolic_system server names",
+            "mcp_server/components/fast_agent_integration.py: ensure_narrative_servers maps each alias to python mcp_server/server.py --transport stdio",
+            "mcp_server/server.py: shared server exports create/write tools plus create_agent_script and other FastAgent tools",
+            "mcp_server/fastagent_integration/fastagent_tools.py: create_script persists JSON definitions and delete_script unlinks them"
+          ],
+          "reachability": "conditional_on_runtime_generated_config_being_loaded"
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-003-ap1",
+          "severity": "medium",
+          "confidence": "medium",
+          "chain": [
+            "FastAgent user/session input",
+            "narrative_assistant or story_generator",
+            "generated local MCP alias",
+            "shared AI Writers Workshop MCP",
+            "persistent project/script mutation"
+          ],
+          "reachability": "conditional_on_runtime_generated_config_being_loaded"
+        }
+      ],
+      "controls": [
+        "No public HTTP ingress was proven in the reviewed FastAgent integration.",
+        "The absence of a checked-in active fastagent.config.yaml prevents treating the declared MCP bindings as unconditionally live."
+      ]
+    },
+    {
+      "case_id": "rw-004",
+      "repo": "JoanMarinPages/agentGemini",
+      "sha": "0160690bb47cca17e70ceb8486209d7b1cacaf76",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "agentGemini/agent.py",
+        "agentGemini/tools/__init__.py",
+        "agentGemini/tools/conversion_tools.py"
+      ],
+      "runtime_viability": "blocked_by_source_imports",
+      "runtime_notes": [
+        "The cohort application file agent.py imports .tools.herramientas_produccion_agroasesoria, but the pinned top-level tools directory contains no such module.",
+        "The alternate agentGemini/agent.py imports customer_tools, catalog_tools and cart_tools through agentGemini/tools/__init__.py, but those modules are absent at the pinned SHA; only conversion_tools.py is present.",
+        "The repository therefore contains declared ADK authority, but the reviewed agent entrypoints are not source-proven importable/runnable as committed."
+      ],
+      "agents": [
+        {
+          "name": "FunnelAgent",
+          "kind": "google-adk",
+          "reachability": "blocked_by_missing_import"
+        },
+        {
+          "name": "AgroAsesorIA",
+          "kind": "google-adk",
+          "reachability": "blocked_by_missing_tool_modules"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The top-level FunnelAgent declares imported customer-profile, Firestore, external-search and product-selection tools, but their imported module is absent.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The alternate AgroAsesorIA agent declares customer/cart/checkout/service/discount tools. The surviving conversion_tools.py source performs persistent service/order/discount operations through FirestoreService and EmailService.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-004-01",
+          "semantic_key": "declared_state_change_without_approval_runtime_blocked",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "The repository declares model-callable commerce/profile state-changing tools without a separate human approval boundary, but the pinned source has missing imports/modules that block treating this authority as live runtime reachability.",
+          "evidence": [
+            "agent.py: FunnelAgent tools include update_user_profile_in_firestore_tool and add_to_products_a_repasar_in_firestore_tool",
+            "agentGemini/agent.py: AgroAsesorIA declares update profile, cart mutation, checkout, service scheduling and discount tools",
+            "agentGemini/tools/conversion_tools.py: process_checkout/schedule_service/generate_discount_code persist business state through FirestoreService",
+            "pinned repository layout: required imported tool modules are absent"
+          ],
+          "reachability": "initialization_blocked"
+        }
+      ],
+      "attack_paths": [],
+      "controls": [
+        "Runtime import blockers materially reduce current reachability and must be surfaced rather than silently upgraded to proven runtime authority.",
+        "No public ingress-to-agent path was source-proven in the reviewed entrypoints."
+      ]
+    },
+    {
+      "case_id": "rw-041",
+      "repo": "mozaloom/event-rag-agent",
+      "sha": "010f17bc2fc4f50419ebdd2bdb77cd505041fa44",
+      "framework": "langgraph",
+      "source_files_reviewed": [
+        "app.py",
+        "mylib/retriever.py",
+        "mylib/tools.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "The graph requires a Hugging Face token/model endpoint and imports a Hugging Face dataset at module initialization.",
+        "The example alfred.invoke interactions in app.py are inside a triple-quoted block; no live web/chat ingress is defined in the reviewed source."
+      ],
+      "agents": [
+        {
+          "name": "alfred",
+          "kind": "langgraph",
+          "evidence": "app.py: StateGraph -> assistant -> ToolNode(tools) -> assistant, compiled as alfred"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The model is bound to guest retrieval, DuckDuckGo search, dummy weather and Hugging Face model-stat tools.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The network-capable tools use provider-mediated DuckDuckGo/Hugging Face services; the model selects search terms/authors rather than arbitrary URL/host destinations.",
+          "confidence": "high"
+        },
+        {
+          "fact": "No state-changing, file-write, database-write or process-execution tool was found in the reviewed effective tool list.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [],
+      "attack_paths": [],
+      "controls": [
+        "This is a precision-control case: provider-mediated search/read authority should not be conflated with arbitrary model-selected network destination authority.",
+        "No active untrusted application ingress was found in the reviewed source."
+      ]
+    },
+    {
+      "case_id": "rw-076",
+      "repo": "sashi-does/gamma",
+      "sha": "01f9ed81dd9aa33634ede60ed2914b5e29162a52",
+      "framework": "mcp-custom",
+      "source_files_reviewed": [
+        "agent_ppt.py",
+        "servers/filesystem_mcp_server.py",
+        "servers/ppt_mcp_server.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "The application requires OPENROUTER_API_KEY and local Python dependencies.",
+        "Both local MCP servers are started and initialized, but the code does not expose the filesystem tool catalogue to the LLM for model selection."
+      ],
+      "agents": [
+        {
+          "name": "Auto-PPT planning loop",
+          "kind": "custom OpenAI + explicit MCP dispatch"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "CLI input controls presentation topic/content passed to the LLM.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The application explicitly calls only PPT MCP create_presentation, add_slide and save_presentation with a constant output filename output.pptx.",
+          "confidence": "high"
+        },
+        {
+          "fact": "A second connected filesystem MCP server exposes create/write/append/modify/delete file and recursive directory deletion tools, but agent_ppt.py only lists those tools and never dispatches model output to them.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-076-ap1",
+          "severity": "low",
+          "confidence": "high",
+          "chain": [
+            "CLI user request",
+            "OpenRouter LLM slide plan/content",
+            "code-controlled PPT MCP calls",
+            "fixed output.pptx write"
+          ]
+        }
+      ],
+      "controls": [
+        "Connected/discovered MCP capability is not equivalent to effective agent authority; the destructive filesystem MCP must remain structurally visible but unbound for this workflow.",
+        "The presentation write target is fixed by application code rather than model-selected."
+      ]
+    },
+    {
+      "case_id": "rw-116",
+      "repo": "KrishnaKumarSoni/barmuda",
+      "sha": "0387a8d11f54a9e07ae91b4d69acbe1f2ef5c98b",
+      "framework": "openai-agents",
+      "source_files_reviewed": [
+        "app.py",
+        "chat_engine.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "The application requires OpenAI and Firebase credentials.",
+        "The public survey flow validates that a form exists/is active and enforces a conversation/rate limit, but the reviewed chat start/message routes do not require a logged-in user identity."
+      ],
+      "agents": [
+        {
+          "name": "Barney",
+          "kind": "openai-agents"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The /api/chat/start route can create a survey session for an active form and returns the session_id without user authentication.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The /api/chat/message route accepts session_id plus user message, rate-limits it, then sends the message into FormChatAgent.process_message and Runner.run_sync.",
+          "confidence": "high"
+        },
+        {
+          "fact": "Barney is bound to save_user_response, advance_to_next_question and update_session_state; these tools call save_session, which persists session responses/history/metadata to Firestore.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The system prompt requires content sensitivity/validation before saving and update_session_state requires explicit confirmation before an end action, providing source-visible application controls.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-116-01",
+          "semantic_key": "public_ingress_to_model_directed_persistent_session_write",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "Public survey respondent input enters an OpenAI Agent that can persist model-directed response/session state to Firestore. The path has validation, rate limiting and an end-confirmation control, but no separate human approval boundary for ordinary persistent response writes.",
+          "evidence": [
+            "app.py: /api/chat/start creates/resumes sessions for active forms without user authentication",
+            "app.py: /api/chat/message -> get_chat_agent().process_message(session_id, message)",
+            "chat_engine.py: process_message embeds user_message then Runner.run_sync(self.agent, ...)",
+            "chat_engine.py: Barney tools include save_user_response/advance_to_next_question/update_session_state",
+            "chat_engine.py: save_user_response -> save_session -> Firestore chat_sessions document set"
+          ]
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-116-ap1",
+          "severity": "medium",
+          "confidence": "high",
+          "chain": [
+            "public active-form chat endpoint",
+            "untrusted survey message",
+            "Barney OpenAI Agent",
+            "save_user_response / session-state tools",
+            "Firestore persistent session/response write"
+          ]
+        }
+      ],
+      "controls": [
+        "Active-form validation and conversation/rate limiting constrain ingress.",
+        "The agent prompt requires content sensitivity and response validation before ordinary saves.",
+        "Ending a session requires a source-enforced pending confirmation flag."
+      ]
+    },
+    {
+      "case_id": "rw-147",
+      "repo": "hope-tatenda-mutema/Pedantic-AI-Deep-Research-Agent",
+      "sha": "0369d0675851071e9f2da850951144e2bb022b3f",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "agent.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "The agent requires an OpenAI provider configuration plus duckduckgo_search and requests dependencies."
+      ],
+      "agents": [
+        {
+          "name": "Deep Research Agent",
+          "kind": "pydantic-ai"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The agent is bound to query classification, ticker resolution, initial discovery and deep-dive search tools.",
+          "confidence": "high"
+        },
+        {
+          "fact": "DuckDuckGo search is provider-mediated, but deep_dive_search takes returned result URLs and fetch_page_content performs requests.get(url) without a destination allowlist.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The model controls the base query/research angle that influences which search-result URLs are fetched, but it does not receive a direct arbitrary-URL tool parameter.",
+          "confidence": "high"
+        },
+        {
+          "fact": "No state-changing, filesystem-write or process-execution tool was found.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-147-01",
+          "semantic_key": "model_influenced_search_result_network_destination",
+          "severity": "medium",
+          "confidence": "medium",
+          "claim": "Model-selected research queries can cause the application to fetch dynamic URLs returned by DuckDuckGo with requests.get and no source-visible destination allowlist. This is broader than a fixed provider API, but weaker than direct model-controlled arbitrary URL authority.",
+          "evidence": [
+            "agent.py: deep_dive_search(base_query, angle) constructs a model-influenced DuckDuckGo query",
+            "agent.py: top search result href values are passed to fetch_page_content",
+            "agent.py: fetch_page_content(url) -> requests.get(url, headers=..., timeout=5)"
+          ]
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-147-ap1",
+          "severity": "medium",
+          "confidence": "medium",
+          "chain": [
+            "user research query",
+            "Pydantic AI agent",
+            "model-selected research angle",
+            "DuckDuckGo result URL",
+            "requests.get(dynamic result destination)"
+          ]
+        }
+      ],
+      "controls": [
+        "The model does not directly choose an arbitrary URL argument; destination choice is mediated by DuckDuckGo search results.",
+        "The reviewed effective authority is read-only network research."
+      ]
+    }
+  ]
+}
