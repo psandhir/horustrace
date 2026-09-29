@@ -276,6 +276,47 @@ def _recognized_remote_auth(
     return None, None
 
 
+def _http_client_auth_state(
+    node: ast.AST | None,
+    assignments: dict[str, ast.AST],
+) -> tuple[bool | None, str | None]:
+    """Resolve explicit httpx client auth without assuming defaults.
+
+    A client is considered source-proven unauthenticated only when source
+    constructs httpx.Client/AsyncClient, supplies a statically visible headers
+    mapping with no recognized credential header, and does not configure
+    auth/cookies. Other client shapes remain unknown.
+    """
+    resolved = _resolved_assignment(node, assignments)
+    if not isinstance(resolved, ast.Call):
+        return None, None
+
+    called = _dotted(resolved.func) or _call_name(resolved.func) or ""
+    if called not in {"httpx.Client", "httpx.AsyncClient", "Client", "AsyncClient"}:
+        return None, None
+
+    if _kw(resolved, "auth") is not None:
+        return True, "http-client-auth"
+    if _kw(resolved, "cookies") is not None:
+        return None, None
+
+    headers_node = _resolved_assignment(_kw(resolved, "headers"), assignments)
+    headers = _literal(headers_node)
+    if not isinstance(headers, dict):
+        return None, None
+
+    header_names = {str(key).lower() for key in headers}
+    auth_headers = {
+        "authorization",
+        "proxy-authorization",
+        "x-api-key",
+        "x-goog-api-key",
+    }
+    if header_names & auth_headers:
+        return True, "http-header"
+    return False, "explicit-http-client-no-auth"
+
+
 def _remote_client_server(
     path: Path,
     call: ast.Call,
@@ -289,6 +330,11 @@ def _remote_client_server(
         _kw(call, "auth"),
         assignments,
     )
+    if authenticated is None:
+        authenticated, auth_mechanism = _http_client_auth_state(
+            _kw(call, "http_client"),
+            assignments,
+        )
     metadata: dict[str, Any] = {
         "framework": "mcp",
         "source": _call_name(call.func),
