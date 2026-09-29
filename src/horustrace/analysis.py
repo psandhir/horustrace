@@ -19,7 +19,7 @@ def _path_metadata(*, basis: str, flow_id: str | None = None) -> dict:
     limitations = [
         "Runtime authorization and control effectiveness are not verified.",
     ]
-    if basis == "static_dataflow":
+    if basis in {"static_dataflow", "source_proven_tool_dataflow"}:
         limitations.insert(
             0,
             "A supported static source-to-sink dependency was established; "
@@ -487,6 +487,47 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                         metadata={
                             **_path_metadata(basis="capability_cooccurrence"),
                             "target_kind": "mcp_server",
+                        },
+                    )
+                )
+
+        for tool in agent.tools:
+            if (
+                untrusted
+                and tool.metadata.get("file_read_external_transfer") is True
+                and tool.metadata.get("filesystem_path_constrained") is not True
+            ):
+                sinks = list(tool.metadata.get("file_read_external_sinks") or [])
+                parameters = list(
+                    tool.metadata.get("model_selected_path_parameters") or []
+                )
+                paths.append(
+                    AttackPath(
+                        path_id="PATH010",
+                        title="Potential untrusted-input local file read to external service",
+                        agent=agent.name,
+                        nodes=[
+                            untrusted[0].name,
+                            agent.name,
+                            tool.name,
+                            "model-selected local file",
+                            sinks[0] if sinks else "external service",
+                        ],
+                        severity=Severity.HIGH,
+                        rationale=(
+                            "Source analysis proves a model-selected file path reaches "
+                            "a local file-read sink and data derived from that read reaches "
+                            "an external service call without a detected path-containment boundary."
+                        ),
+                        location=tool.location or agent.location,
+                        metadata={
+                            **_path_metadata(
+                                basis="source_proven_tool_dataflow"
+                            ),
+                            "target_kind": "tool",
+                            "path_parameters": parameters,
+                            "external_sinks": sinks,
+                            "path_containment": "not_detected",
                         },
                     )
                 )
