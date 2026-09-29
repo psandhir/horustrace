@@ -600,8 +600,12 @@ root_agent = Agent(
         "safety_check",
         "resolve_escalation",
     }
+    transfer = next(
+        tool for tool in agent.tools if tool.name == "transfer_money"
+    )
+    assert "data.write" in transfer.capabilities
     assert any(
-        f.rule_id == "AGT022" and f.agent == "scope_safety_router"
+        f.rule_id == "ADK001" and f.agent == "scope_safety_router"
         for f in findings
     )
     assert any(
