@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "study": "real-world-agent-security-2026",
+  "case_id": "rw-103",
+  "dimension": "agent_entities",
+  "classification": "ground_truth_error",
+  "original_locked_truth_preserved": true,
+  "triggered_by_post_fix_disagreement": true,
+  "scanner_output_seen_before_adjudication": true,
+  "human_dual_review": false,
+  "adjudication_method": "post-fix pinned-source re-review",
+  "source_reference": {
+    "repo": "Nagharjun17/MCP-Ollama-Client",
+    "sha": "aa54c8d8f808123ba26922138126afa6675dce68",
+    "path": "client.py"
+  },
+  "original_locked_truth": {
+    "agent_roots": []
+  },
+  "post_hoc_correction": {
+    "add_agent_root": {
+      "kind": "custom_model_tool_loop",
+      "name": "MCPClient",
+      "aliases": [
+        "mcp_client"
+      ],
+      "path": "client.py",
+      "line": 23
+    }
+  },
+  "evidence": [
+    {
+      "line": 23,
+      "fact": "Defines MCPClient, the class coordinating the model and MCP sessions."
+    },
+    {
+      "line": 65,
+      "fact": "Obtains the MCP tool catalogue with session.list_tools()."
+    },
+    {
+      "line": 86,
+      "fact": "Invokes the OpenAI-compatible model with chat.completions.create(..., tools=self.tools)."
+    },
+    {
+      "line": 99,
+      "fact": "Handles model-selected msg.tool_calls."
+    },
+    {
+      "line": 82,
+      "fact": "Dispatches selected calls to session.call_tool(...)."
+    }
+  ],
+  "rationale": "Pinned source contains the complete model -> advertised MCP tools -> model-selected tool call -> concrete MCP dispatch loop. The locked automated source reference omitted this explicit agent entity. Suppressing the scanner detection would reduce semantic correctness merely to satisfy stale reference data, so the original truth is preserved and the correction is recorded separately."
+}
