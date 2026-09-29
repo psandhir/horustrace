@@ -415,3 +415,88 @@ def dangerous_b():
         server.name != "a" and server.name != "b"
         for server in agent.mcp_servers
     )
+
+
+def test_openai_responses_mcp_loop_with_item_type_discriminator_is_discovered(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+from openai import AsyncOpenAI
+
+class OpenAIMCPAgent:
+    def __init__(self):
+        self.client = AsyncOpenAI()
+        self.session = None
+        self.openai_tools = []
+
+    async def connect(self, script_path):
+        params = StdioServerParameters(command="python", args=[script_path])
+        await stdio_client(params)
+        tools_result = await self.session.list_tools()
+        for tool in tools_result.tools:
+            self.openai_tools.append(
+                {"type": "function", "name": tool.name, "parameters": tool.inputSchema}
+            )
+
+    async def run(self, prompt):
+        response = await self.client.responses.create(
+            model="gpt-5",
+            input=[{"role": "user", "content": prompt}],
+            tools=self.openai_tools,
+        )
+        for item in response.output:
+            if item.type == "function_call":
+                await self.session.call_tool(item.name, {})
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "model-tool-loop"
+    )
+    assert agent.name == "open_ai_m_c_p_agent"
+    assert set(agent.metadata["discovery_signals"]) == {
+        "model_call",
+        "model_selection",
+        "tool_catalogue",
+        "tool_dispatch",
+    }
+    assert [server.name for server in agent.mcp_servers] == ["<dynamic-stdio-mcp>"]
+    assert "model-tool-loop" in detect_python_frameworks(source)
+
+
+def test_item_type_function_call_without_source_proven_catalogue_is_not_agent(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "helper.py"
+    source.write_text(
+        """
+class AgentEventFormatter:
+    async def run(self, prompt):
+        response = await self.client.responses.create(
+            model="gpt-5",
+            input=prompt,
+        )
+        for item in response.output:
+            if item.type == "function_call":
+                await self.session.call_tool(item.name, {})
+        return response
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    assert "model-tool-loop" not in detect_python_frameworks(source)
+    assert not any(
+        item.metadata.get("framework") == "model-tool-loop"
+        for item in graph.agents
+    )
