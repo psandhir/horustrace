@@ -276,3 +276,67 @@ class MCPConnection:
     assert not any(finding.rule_id == "AGT031" for finding in findings)
     assert any(finding.rule_id == "AGT032" for finding in findings)
     assert any(finding.rule_id == "NET001" for finding in findings)
+
+def test_remote_mcp_explicit_http_client_without_auth_is_flagged(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import httpx
+from mcp.client.streamable_http import streamable_http_client
+
+async def connect(url):
+    headers = {
+        "Accept": "application/json, text/event-stream",
+        "User-Agent": "example/1.0",
+    }
+    async with httpx.AsyncClient(headers=headers) as http_client:
+        async with streamable_http_client(url, http_client=http_client) as streams:
+            return streams
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+
+    server = next(
+        server
+        for server in graph.unbound_mcp_servers
+        if server.transport == "streamable-http"
+    )
+    assert server.authenticated is False
+    assert server.metadata["auth_mechanism"] == "explicit-http-client-no-auth"
+    assert server.metadata["dynamic_mcp_endpoint"] is True
+    assert any(finding.rule_id == "AGT030" for finding in findings)
+    assert any(finding.rule_id == "NET001" for finding in findings)
+    assert not any(finding.rule_id == "AGT031" for finding in findings)
+
+
+def test_remote_mcp_http_client_auth_header_is_not_flagged(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import httpx
+from mcp.client.streamable_http import streamable_http_client
+
+async def connect(url):
+    headers = {"Authorization": "Bearer token"}
+    async with httpx.AsyncClient(headers=headers) as http_client:
+        async with streamable_http_client(url, http_client=http_client) as streams:
+            return streams
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+
+    server = next(
+        server
+        for server in graph.unbound_mcp_servers
+        if server.transport == "streamable-http"
+    )
+    assert server.authenticated is True
+    assert server.metadata["auth_mechanism"] == "http-header"
+    assert not any(finding.rule_id == "AGT030" for finding in findings)
+
