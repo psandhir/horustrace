@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "batch-002",
+  "gpt_review_lock_commit": "91539e908c0b246fe9198e36e49e1d9a20fd8dbd",
+  "scanner": {
+    "sha": "cc167bb4a5236ce6b25c66a8fdc24190670ea226",
+    "workflow_run": 36595899208,
+    "artifact_id": 11046496598,
+    "artifact_digest": "sha256:6ac32ffa6781ac0450d825d4eb1cd0c63568896e83caffe6d4ebe34ea527ec5f",
+    "note": "Post-#244 frozen-180 artifact. #243/#245 changes only LangChain SQLDatabase classification/provenance and do not alter the six Batch-002 cases."
+  },
+  "summary": {
+    "cases": 6,
+    "gpt_semantic_findings": 4,
+    "full_semantic_matches": 0,
+    "partial_semantic_matches": 2,
+    "gpt_findings_without_equivalent_horustrace_claim": 2,
+    "precision_control_cases": 2,
+    "precision_controls_passed": 2,
+    "gpt_source_chains": 4,
+    "horustrace_attack_paths": 0,
+    "note": "The rw-076 low-severity chain is an intended operational fixed-file write and is retained as a precision-control chain rather than a security finding."
+  },
+  "cases": [
+    {
+      "case_id": "rw-003",
+      "outcome": "gap_conditional",
+      "gpt_findings": [
+        "gpt-rw-003-01"
+      ],
+      "horustrace_rules": [],
+      "gpt_attack_paths": [
+        "gpt-rw-003-ap1"
+      ],
+      "horustrace_attack_paths": [],
+      "adjudication": "Source proves per-agent FastAgent MCP aliases plus runtime code that can generate a config mapping every alias to the same broad local MCP implementation. The active config is not checked in and runtime reload is uncertain, so this is a conditional authority gap rather than proven live authority.",
+      "gap_family": "runtime_generated_mcp_configuration_and_alias_binding",
+      "priority": "P2"
+    },
+    {
+      "case_id": "rw-004",
+      "outcome": "partial_runtime_qualification_gap",
+      "gpt_findings": [
+        "gpt-rw-004-01"
+      ],
+      "horustrace_rules": [
+        "ADK001",
+        "AGT040",
+        "CAP005",
+        "NET002"
+      ],
+      "gpt_attack_paths": [],
+      "horustrace_attack_paths": [],
+      "adjudication": "HorusTrace correctly detects the declared state-changing ADK surface, but reports runtime findings without qualifying that the pinned entrypoints are import-blocked by absent source modules. The authority semantics match; runtime viability does not.",
+      "gap_family": "runtime_viability_qualification",
+      "priority": "P1"
+    },
+    {
+      "case_id": "rw-041",
+      "outcome": "agreement_precision_control",
+      "gpt_findings": [],
+      "horustrace_rules": [],
+      "gpt_attack_paths": [],
+      "horustrace_attack_paths": [],
+      "adjudication": "Provider-mediated DuckDuckGo/Hugging Face read/search tools remain clean. HorusTrace does not over-promote them to arbitrary destination or state-changing authority.",
+      "gap_family": null,
+      "priority": null
+    },
+    {
+      "case_id": "rw-076",
+      "outcome": "agreement_precision_control",
+      "gpt_findings": [],
+      "horustrace_rules": [],
+      "gpt_attack_paths": [
+        "gpt-rw-076-ap1"
+      ],
+      "horustrace_attack_paths": [],
+      "adjudication": "HorusTrace keeps six discovered MCP servers and ten tools structurally visible while creating zero agent authority/findings. This matches source: the destructive filesystem MCP is connected/listed but never model-selected or dispatched; only code-controlled PPT calls write fixed output.pptx.",
+      "gap_family": null,
+      "priority": null
+    },
+    {
+      "case_id": "rw-116",
+      "outcome": "partial_attack_path_gap",
+      "gpt_findings": [
+        "gpt-rw-116-01"
+      ],
+      "horustrace_rules": [
+        "AGT022",
+        "AGT040",
+        "CAP005"
+      ],
+      "gpt_attack_paths": [
+        "gpt-rw-116-ap1"
+      ],
+      "horustrace_attack_paths": [],
+      "adjudication": "HorusTrace correctly reconstructs Barney's persistent write authority but fails to compose the public Flask request -> get_chat_agent wrapper -> FormChatAgent.process_message -> OpenAI Agent -> Firestore state-change path.",
+      "gap_family": "flask_request_and_wrapper_factory_ingress_binding",
+      "priority": "P0"
+    },
+    {
+      "case_id": "rw-147",
+      "outcome": "gap",
+      "gpt_findings": [
+        "gpt-rw-147-01"
+      ],
+      "horustrace_rules": [],
+      "gpt_attack_paths": [
+        "gpt-rw-147-ap1"
+      ],
+      "horustrace_attack_paths": [],
+      "adjudication": "The model does not directly choose a URL, but model-selected research terms determine DuckDuckGo results whose href values are then fetched by requests.get without a destination allowlist. HorusTrace currently misses this second-order dynamic destination provenance.",
+      "gap_family": "search_result_derived_dynamic_destination",
+      "priority": "P1"
+    }
+  ],
+  "next_build_order": [
+    "P0: Flask/global-request ingress plus wrapper-factory runtime binding for rw-116 shape",
+    "P1: runtime viability/import-blocker qualification for declared authority",
+    "P1: search-result-derived dynamic destination provenance",
+    "P2: runtime-generated FastAgent MCP config/alias binding where live loading can be source-proven"
+  ]
+}
