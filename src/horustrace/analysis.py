@@ -398,7 +398,7 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                         ],
                         severity=Severity.HIGH,
                         rationale=(
-                            "Source analysis proves untrusted CLI input reaches the "
+                            "Source analysis proves untrusted input reaches the "
                             "agent runtime invocation, and the effective authority model "
                             "binds a state-changing tool without a detected approval "
                             "requirement. Runtime model selection is not verified."
