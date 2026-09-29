@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "batch-004",
+  "gpt_review_lock_commit": "c6ac4d468f7a4048e1a1265fcf04caf84a5c4c39",
+  "scanner": {
+    "sha": "6cff0bbab343dcfd9de9c7ecb7763f0d50423c06",
+    "workflow_run": 36620578672,
+    "artifact_id": 11058625749,
+    "note": "Pinned post-#248 Frozen-180 artifact used only after Batch-004 GPT source review lock."
+  },
+  "summary": {
+    "cases": 5,
+    "gpt_semantic_findings": 2,
+    "full_semantic_matches": 0,
+    "partial_semantic_matches": 0,
+    "gpt_findings_without_equivalent_horustrace_claim": 2,
+    "precision_control_cases": 2,
+    "precision_controls_passed": 2,
+    "gpt_source_chains": 1,
+    "horustrace_attack_paths": 0,
+    "scanner_only_findings": 44,
+    "note": "Two clean recall misses plus a large LangGraph workflow/agent precision cluster."
+  },
+  "cases": [
+    {
+      "case_id": "rw-012",
+      "outcome": "agreement_precision_control",
+      "gpt_findings": [],
+      "horustrace_rules": [],
+      "gpt_attack_paths": [],
+      "horustrace_attack_paths": [],
+      "adjudication": "ADK model authority is limited to a scoped briefing tool with fixed HN destination. Separate scheduler delivery authority is application-only. HorusTrace emits no finding.",
+      "gap_family": null,
+      "priority": null
+    },
+    {
+      "case_id": "rw-042",
+      "outcome": "scanner_precision_gap",
+      "gpt_findings": [],
+      "horustrace_rules": [
+        "PATH001",
+        "AGT020",
+        "CAP004",
+        "AGT040",
+        "CAP005",
+        "NET002"
+      ],
+      "gpt_attack_paths": [],
+      "horustrace_attack_paths": [],
+      "adjudication": "HorusTrace emits 44 findings across the repository. Source adjudication confirms at least a major class error: deterministic LangGraph StateGraph workflows such as zad18/zad23 are promoted to agent principals and graph state is treated as untrusted ingress even when invoked with a fixed empty state. Top-level agent.py also constructs but does not invoke its compiled LLM/tool graph. Remaining scanner-only findings require per-task adjudication, but the generalized precision defect is already source-proven.",
+      "gap_family": "deterministic_langgraph_workflow_promoted_to_agent_and_untrusted_ingress",
+      "priority": "P0"
+    },
+    {
+      "case_id": "rw-104",
+      "outcome": "agreement_precision_control",
+      "gpt_findings": [],
+      "horustrace_rules": [],
+      "gpt_attack_paths": [],
+      "horustrace_attack_paths": [],
+      "adjudication": "User-facing MCP loop is source-proven but effective catalogue is read-only local job-dataset analysis. HorusTrace emits no findings.",
+      "gap_family": null,
+      "priority": null
+    },
+    {
+      "case_id": "rw-138",
+      "outcome": "missed_authority",
+      "gpt_findings": [
+        "gpt-rw-138-01"
+      ],
+      "horustrace_rules": [],
+      "gpt_attack_paths": [],
+      "horustrace_attack_paths": [],
+      "adjudication": "Source proves operator-configured remote MCP tools are dynamically imported; HostedMCPTool disables approval and client-side conversion exposes every listed tool. HorusTrace emits no equivalent remote dynamic-MCP authority claim. Fixed prompt means no untrusted end-to-end attack path is asserted.",
+      "gap_family": "dynamic_remote_mcp_catalogue_without_approval",
+      "priority": "P1"
+    },
+    {
+      "case_id": "rw-164",
+      "outcome": "missed_attack_path",
+      "gpt_findings": [
+        "gpt-rw-164-01"
+      ],
+      "horustrace_rules": [],
+      "gpt_attack_paths": [
+        "gpt-rw-164-ap1"
+      ],
+      "horustrace_attack_paths": [],
+      "adjudication": "Source proves Streamlit folder input controls an existing server directory, recursive supported-file ingestion, and subsequent PydanticAI RAG retrieval. No containment/authentication gate is visible. HorusTrace emits no finding/path.",
+      "gap_family": "user_selected_server_directory_to_rag_exfiltration",
+      "priority": "P0"
+    }
+  ],
+  "next_build_order": [
+    "P0 precision: distinguish deterministic LangGraph workflows from model/tool agents and do not seed fixed graph state as untrusted ingress",
+    "P0 recall: user-selected server directory to recursive file ingestion and RAG/model retrieval",
+    "P1 recall: remote dynamic MCP catalogue authority with approval disabled",
+    "Rerun repaired cases plus targeted negatives; do not run Frozen-180 until the batch repair tranche is complete"
+  ]
+}
