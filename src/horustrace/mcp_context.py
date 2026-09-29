@@ -280,6 +280,83 @@ def resolve_fast_agent_mcp_references(graph: Graph) -> None:
     graph.unresolved_mcp_references.extend(unresolved)
 
 
+def resolve_model_tool_loop_default_mcp_config(
+    graph: Graph,
+    root: Path,
+) -> None:
+    """Bind source-visible fallback MCP config to a proven custom model/tool loop.
+
+    This is intentionally narrower than repository co-presence. A binding is
+    created only when:
+    - the agent is a source-proven model-tool-loop with dynamic MCP catalogue/
+      dispatch semantics;
+    - the fallback declaration is in the same source module;
+    - the declaration is enabled by default and not gated by an enabled_env;
+    - no checked-in default mcp_config.json overrides the fallback.
+
+    The concrete stdio implementation is resolved in the normal
+    resolve_local_stdio_implementations pass.
+    """
+    root = root.resolve()
+    if (root / "mcp_config.json").exists():
+        return
+
+    candidates = [
+        server
+        for server in graph.unbound_mcp_servers
+        if server.metadata.get("source") == "python_default_mcp_config"
+        and server.metadata.get("default_configuration") is True
+        and server.metadata.get("default_enabled") is True
+        and not server.metadata.get("enabled_env")
+        and server.location is not None
+    ]
+    if not candidates:
+        return
+
+    used: set[int] = set()
+    for agent in graph.agents:
+        if (
+            agent.metadata.get("framework") != "model-tool-loop"
+            or agent.metadata.get("dynamic_mcp_servers") is not True
+            or agent.location is None
+        ):
+            continue
+
+        same_module = [
+            server
+            for server in candidates
+            if server.location is not None
+            and server.location.path.resolve() == agent.location.path.resolve()
+        ]
+        if not same_module:
+            continue
+
+        retained = [
+            server
+            for server in agent.mcp_servers
+            if server.name != "<dynamic-stdio-mcp>"
+        ]
+        for source in same_module:
+            resolved = deepcopy(source)
+            resolved.metadata = {
+                **resolved.metadata,
+                "repository_resolved": True,
+                "binding_origin": "model_tool_loop_default_config",
+                "effective_agent": agent.name,
+                "context_binding": "bound",
+            }
+            retained.append(resolved)
+            used.add(id(source))
+        agent.mcp_servers = retained
+
+    if used:
+        graph.unbound_mcp_servers = [
+            server
+            for server in graph.unbound_mcp_servers
+            if id(server) not in used
+        ]
+
+
 def _local_stdio_script_candidates(
     server: MCPServer,
     root: Path,
