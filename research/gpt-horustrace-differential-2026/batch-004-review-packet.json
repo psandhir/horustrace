@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "batch-004",
+  "phase": "selection_locked_before_source_review",
+  "selection_locked_before_source_review": true,
+  "horustrace_case_output_seen": false,
+  "selection_method": "For each non-exhausted framework stratum, choose the eligible case with lexicographically smallest final 12 hex characters of pinned SHA after excluding previously_studied cohort cases and every case used in semantic benchmark v1.1, blind semantic cohort, differential Batch 001, Batch 002, or Batch 003. FastAgent remains omitted because all three frozen FastAgent cases are already studied.",
+  "cases": [
+    {
+      "case_id": "rw-012",
+      "repo": "namanraina16/morning-wire",
+      "sha": "29529fbf066b30eb0d7c45d1a70b1eda5dfb53dd",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "rw-042",
+      "repo": "sysadmin-info/reloaded",
+      "sha": "0d15f1268024ee09d87c21fa7ef00e61e453cf0e",
+      "framework": "langgraph"
+    },
+    {
+      "case_id": "rw-104",
+      "repo": "ZygimantasB/AI-with-jupyter",
+      "sha": "ac8b74ff4aecf17e8026e8666fb917effd1355ed",
+      "framework": "mcp-custom"
+    },
+    {
+      "case_id": "rw-138",
+      "repo": "elastic/observability-examples",
+      "sha": "b69114e63fa0bfc483f56d4cb3af3512f58fb451",
+      "framework": "openai-agents"
+    },
+    {
+      "case_id": "rw-164",
+      "repo": "amscotti/local-LLM-with-RAG",
+      "sha": "832fb9a2970884e61a6ca2eabcfa103b78df4cfb",
+      "framework": "pydantic-ai"
+    }
+  ],
+  "explicit_exclusions": {
+    "semantic_benchmark_v1_1": [
+      "rw-022",
+      "rw-085",
+      "rw-129",
+      "rw-158",
+      "rw-058",
+      "rw-003",
+      "rw-096"
+    ],
+    "blind_semantic_cohort": [
+      "rw-002",
+      "rw-026",
+      "rw-038",
+      "rw-066",
+      "rw-071",
+      "rw-081",
+      "rw-110",
+      "rw-121",
+      "rw-140",
+      "rw-165",
+      "rw-180"
+    ],
+    "differential_batch_001": [
+      "rw-017",
+      "rw-065",
+      "rw-112",
+      "rw-139",
+      "rw-152"
+    ],
+    "differential_batch_002": [
+      "rw-003",
+      "rw-004",
+      "rw-041",
+      "rw-076",
+      "rw-116",
+      "rw-147"
+    ],
+    "differential_batch_003": [
+      "rw-007",
+      "rw-049",
+      "rw-084",
+      "rw-131",
+      "rw-150"
+    ]
+  }
+}
