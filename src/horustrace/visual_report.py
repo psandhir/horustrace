@@ -586,26 +586,23 @@ function contractItem(item){{
  '<div>Contract evidence</div><div>'+loc(item.contract_location)+'</div><div>Authority evidence</div><div>'+loc(item.relationship_location)+'</div></div></div>';
 }}
 function renderAgentOverview(a){{
- return '<div class="cards">'+metric("Tools",a.summary.tools)+metric("MCP servers",a.summary.mcp_servers)+metric("Authority paths",a.summary.authority_relationships)+
- metric("Resources",a.summary.resources)+metric("Write-capable",a.summary.write_capable_relationships)+metric("Findings",a.summary.findings)+'</div>'+
- '<div class="grid2"><div><h2>Effective scope</h2><div class="panel"><div class="kv"><div>Identities</div><div>'+esc(a.identities.join(", ")||"unresolved / none")+'</div>'+
- '<div>Resources</div><div>'+esc(a.resources.join(", ")||"unresolved / none")+'</div><div>Destinations</div><div>'+esc(a.destinations.join(", ")||"unresolved / none")+'</div></div></div></div>'+
- '<div><h2>Contract posture</h2><div class="panel"><div class="kv"><div>Status</div><div>'+badge(a.summary.contract_status)+'</div><div>Violations</div><div>'+number(a.summary.contract_violations)+'</div>'+
- '<div>Unresolved</div><div>'+number(a.summary.contract_unresolved)+'</div></div></div></div></div>'+
- '<h2>Finding severity</h2>'+severityCards(a.severity);
+ const state=agentAttention(a);
+ return '<div class="cards">'+metric("Tools",a.summary.tools)+metric("MCP servers",a.summary.mcp_servers)+metric("Authority paths",a.summary.authority_relationships)+metric("Resources",a.summary.resources)+metric("Write-capable",a.summary.write_capable_relationships)+metric("Findings",a.summary.findings)+'</div>'+
+ '<div class="grid2"><div>'+sectionHead("Effective scope","Resolved identity, resource and destination scope.")+'<div class="panel"><div class="kv"><div>Review signal</div><div>'+state+'</div><div>Identities</div><div>'+esc(a.identities.join(", ")||"unresolved / none")+'</div><div>Resources</div><div>'+esc(a.resources.join(", ")||"unresolved / none")+'</div><div>Destinations</div><div>'+esc(a.destinations.join(", ")||"unresolved / none")+'</div></div></div></div>'+
+ '<div>'+sectionHead("Contract posture","Declared contract versus reconstructed authority.")+'<div class="panel"><div class="kv"><div>Status</div><div>'+badge(a.summary.contract_status)+'</div><div>Violations</div><div>'+number(a.summary.contract_violations)+'</div><div>Unresolved</div><div>'+number(a.summary.contract_unresolved)+'</div><div>Attack paths</div><div>'+number(a.summary.attack_paths)+'</div></div></div></div></div>'+
+ sectionHead("Finding severity","Scanner findings attributed to this agent.")+severityCards(a.severity);
 }}
+
 function renderGraph(a){{
  const rels=a.effective_authority||[];
  if(!rels.length)return '<div class="empty">No effective-authority relationships were reconstructed for this agent.</div>';
- return '<div class="map-toolbar"><input id="map-search" placeholder="Find tool, MCP, identity, resource or destination">'+
- '<button class="map-btn" id="map-toggle-groups">Expand all</button><button class="map-btn" id="map-zoom-out">−</button>'+
- '<button class="map-btn" id="map-zoom-in">+</button><button class="map-btn" id="map-fit">Fit</button>'+
- '<button class="map-btn" id="map-fullscreen">Expand map</button></div>'+
- '<div class="legend"><span><i class="dot" style="background:#78a8ff"></i>Agent</span><span><i class="dot" style="background:#6f84aa"></i>Tool / MCP</span>'+
- '<span><i class="dot" style="background:#a895ff"></i>Identity</span><span><i class="dot" style="background:#63d69f"></i>Resource</span><span><i class="dot" style="background:#f1b36a"></i>Destination</span></div>'+
- '<div class="graph-wrap" id="agency-map-shell"><div class="graph-canvas"><svg class="graph" id="agency-svg" viewBox="0 0 1080 520" preserveAspectRatio="xMidYMid meet">'+
- '<g id="agency-stage"></g></svg></div><div class="panel inspector" id="graph-inspector"><h3>Path inspector</h3><p class="muted">Select a graph node to inspect its evidence.</p></div></div>';
+ return '<div class="map-toolbar"><input id="map-search" aria-label="Search agency map" placeholder="Find tool, MCP, identity, resource or destination">'+
+ '<button class="map-btn" id="map-toggle-groups">Expand all</button><button class="map-btn" id="map-zoom-out" aria-label="Zoom out">−</button><button class="map-btn" id="map-zoom-in" aria-label="Zoom in">+</button><button class="map-btn" id="map-fit">Fit</button><button class="map-btn" id="map-fullscreen" aria-pressed="false">Expand map</button></div>'+
+ '<div class="map-hint">Select a node to inspect evidence. Drag the canvas to pan; use the mouse wheel or controls to zoom.</div>'+
+ '<div class="legend"><span><i class="dot" style="background:#78a8ff"></i>Agent</span><span><i class="dot" style="background:#6f84aa"></i>Tool / MCP</span><span><i class="dot" style="background:#a895ff"></i>Identity</span><span><i class="dot" style="background:#63d69f"></i>Resource</span><span><i class="dot" style="background:#f1b36a"></i>Destination</span></div>'+
+ '<div class="graph-wrap" id="agency-map-shell"><div class="graph-canvas"><svg class="graph" id="agency-svg" viewBox="0 0 1080 520" preserveAspectRatio="xMidYMid meet" aria-label="Effective agency map"><g id="agency-stage"></g></svg></div><div class="panel inspector" id="graph-inspector"><div class="eyebrow">Evidence</div><h3>Path inspector</h3><p class="muted">Select a graph node to inspect the authority evidence behind it.</p></div></div>';
 }}
+
 function svgNode(x,y,w,label,sub,kind,key,unresolved=false){{
  const cls="node "+kind+(unresolved?" unresolved":"");
  return '<g class="'+cls+'" data-node="'+esc(key)+'" data-label="'+esc((label+" "+sub).toLowerCase())+'" transform="translate('+x+','+y+')"><rect width="'+w+'" height="54" rx="8"></rect>'+
@@ -658,28 +655,25 @@ function filterGraph(query){{
  svg.querySelectorAll(".edge").forEach(edge=>edge.classList.toggle("dim",Boolean(q)));
 }}
 function bindGraphControls(a){{
- const state=agencyState(a), svg=document.getElementById("agency-svg"), shell=document.getElementById("agency-map-shell");
- if(!svg||!shell||shell.dataset.bound==="1")return;
- shell.dataset.bound="1";
- const groupBtn=document.getElementById("map-toggle-groups");
- const updateGroupLabel=()=>groupBtn.textContent=state.collapsed?"Expand all":"Collapse groups";
- updateGroupLabel();
+ const state=agencyState(a),svg=document.getElementById("agency-svg"),shell=document.getElementById("agency-map-shell");
+ if(!svg||!shell||shell.dataset.bound==="1")return; shell.dataset.bound="1";
+ const groupBtn=document.getElementById("map-toggle-groups"),fullBtn=document.getElementById("map-fullscreen");
+ const updateGroupLabel=()=>groupBtn.textContent=state.collapsed?"Expand all":"Collapse groups"; updateGroupLabel();
  groupBtn.addEventListener("click",()=>{{state.collapsed=!state.collapsed;state.selected=null;drawGraph(a);updateGroupLabel();}});
  document.getElementById("map-zoom-in").addEventListener("click",()=>{{state.scale=Math.min(3,state.scale*1.2);applyGraphTransform(a);}});
  document.getElementById("map-zoom-out").addEventListener("click",()=>{{state.scale=Math.max(.35,state.scale/1.2);applyGraphTransform(a);}});
  document.getElementById("map-fit").addEventListener("click",()=>{{state.scale=1;state.tx=0;state.ty=0;applyGraphTransform(a);focusGraphNode(null);}});
- document.getElementById("map-fullscreen").addEventListener("click",event=>{{
-   const expanded=shell.classList.toggle("expanded"); document.body.classList.toggle("graph-modal-open",expanded);
-   event.currentTarget.textContent=expanded?"Exit full screen":"Expand map";
- }});
+ const setExpanded=(expanded)=>{{shell.classList.toggle("expanded",expanded);document.body.classList.toggle("graph-modal-open",expanded);fullBtn.textContent=expanded?"Exit full screen":"Expand map";fullBtn.setAttribute("aria-pressed",String(expanded));}};
+ fullBtn.addEventListener("click",()=>setExpanded(!shell.classList.contains("expanded")));
  document.getElementById("map-search").addEventListener("input",event=>filterGraph(event.target.value));
  svg.addEventListener("wheel",event=>{{event.preventDefault();state.scale=Math.max(.35,Math.min(3,state.scale*(event.deltaY<0?1.1:.9)));applyGraphTransform(a);}},{{passive:false}});
  let dragging=false,lastX=0,lastY=0;
  svg.addEventListener("pointerdown",event=>{{if(event.target.closest(".node"))return;dragging=true;lastX=event.clientX;lastY=event.clientY;svg.classList.add("panning");svg.setPointerCapture(event.pointerId);}});
  svg.addEventListener("pointermove",event=>{{if(!dragging)return;state.tx+=(event.clientX-lastX)/state.scale;state.ty+=(event.clientY-lastY)/state.scale;lastX=event.clientX;lastY=event.clientY;applyGraphTransform(a);}});
- const stop=()=>{{dragging=false;svg.classList.remove("panning");}};
- svg.addEventListener("pointerup",stop);svg.addEventListener("pointercancel",stop);
+ const stop=()=>{{dragging=false;svg.classList.remove("panning");}};svg.addEventListener("pointerup",stop);svg.addEventListener("pointercancel",stop);
+ document.addEventListener("keydown",event=>{{if(event.key==="Escape"&&shell.classList.contains("expanded"))setExpanded(false);}});
 }}
+
 function drawGraph(a){{
  const svg=document.getElementById("agency-svg"), stage=document.getElementById("agency-stage"); if(!svg||!stage)return;
  const state=agencyState(a), rels=a.effective_authority||[], nodes=[],edges=[],info={{}};
@@ -739,61 +733,54 @@ function renderAgentEvidence(a){{
  '<details><summary>Full evidence</summary><pre>'+esc(JSON.stringify({{evidence:r.evidence,dimensions:r.dimensions,approval:r.approval,semantics:r.semantics}},null,2))+'</pre></details></div>').join("");
 }}
 function openAgent(name){{
- const a=DATA.agents.find(x=>x.name===name); if(!a)return;
- const root=document.getElementById("agent-detail");
- root.innerHTML='<button class="back" id="back-agents">← Agents</button><div class="agent-head"><div><h1>'+esc(a.name)+'</h1><div class="muted">'+esc(a.framework)+' · '+loc(a.location)+'</div></div>'+badge(a.summary.contract_status)+'</div>'+
- '<div class="tabs"><button class="active" data-tab="overview">Overview</button><button data-tab="map">Agency map</button><button data-tab="paths">Attack paths</button><button data-tab="findings">Findings</button><button data-tab="contract">Contract</button><button data-tab="evidence">Evidence</button></div>'+
- '<div id="tab-overview" class="agent-tab active">'+renderAgentOverview(a)+'</div><div id="tab-map" class="agent-tab">'+renderGraph(a)+'</div>'+
- '<div id="tab-paths" class="agent-tab">'+renderAgentPaths(a)+'</div><div id="tab-findings" class="agent-tab">'+renderAgentFindings(a)+'</div><div id="tab-contract" class="agent-tab">'+renderAgentContract(a)+'</div>'+
- '<div id="tab-evidence" class="agent-tab">'+renderAgentEvidence(a)+'</div>';
+ const a=DATA.agents.find(x=>x.name===name); if(!a)return; const root=document.getElementById("agent-detail");
+ root.innerHTML='<button class="breadcrumb" id="back-agents">← Back to agents</button><div class="agent-head"><div><div class="eyebrow">Agent security profile</div><h1>'+esc(a.name)+'</h1><div class="muted">'+esc(a.framework)+' · '+loc(a.location)+'</div></div><div class="page-actions">'+agentAttention(a)+badge(a.summary.contract_status)+'</div></div>'+
+ '<div class="tabs" role="tablist"><button class="active" data-tab="overview">Overview</button><button data-tab="map">Agency map <span class="tab-count">'+number(a.summary.authority_relationships)+'</span></button><button data-tab="paths">Attack paths <span class="tab-count">'+number(a.summary.attack_paths)+'</span></button><button data-tab="findings">Findings <span class="tab-count">'+number(a.summary.findings)+'</span></button><button data-tab="contract">Contract <span class="tab-count">'+number(a.summary.contract_violations+a.summary.contract_unresolved)+'</span></button><button data-tab="evidence">Evidence</button></div>'+
+ '<div id="tab-overview" class="agent-tab active">'+renderAgentOverview(a)+'</div><div id="tab-map" class="agent-tab">'+renderGraph(a)+'</div><div id="tab-paths" class="agent-tab">'+renderAgentPaths(a)+'</div><div id="tab-findings" class="agent-tab">'+renderAgentFindings(a)+'</div><div id="tab-contract" class="agent-tab">'+renderAgentContract(a)+'</div><div id="tab-evidence" class="agent-tab">'+renderAgentEvidence(a)+'</div>';
  root.querySelector("#back-agents").addEventListener("click",()=>showView("agents"));
  root.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>{{
-   if(btn.dataset.tab!=="map"){{
-     const shell=root.querySelector("#agency-map-shell");
-     if(shell) shell.classList.remove("expanded");
-     document.body.classList.remove("graph-modal-open");
-     const full=root.querySelector("#map-fullscreen");
-     if(full) full.textContent="Expand map";
-   }}
-   root.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x===btn));
-   root.querySelectorAll(".agent-tab").forEach(x=>x.classList.toggle("active",x.id==="tab-"+btn.dataset.tab));
-   if(btn.dataset.tab==="map"){{drawGraph(a);bindGraphControls(a);}}
- }}));
- showView("agent-detail");
+   if(btn.dataset.tab!=="map"){{const shell=root.querySelector("#agency-map-shell");if(shell)shell.classList.remove("expanded");document.body.classList.remove("graph-modal-open");const full=root.querySelector("#map-fullscreen");if(full){{full.textContent="Expand map";full.setAttribute("aria-pressed","false");}}}}
+   root.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x===btn));root.querySelectorAll(".agent-tab").forEach(x=>x.classList.toggle("active",x.id==="tab-"+btn.dataset.tab));if(btn.dataset.tab==="map"){{drawGraph(a);bindGraphControls(a);}}
+ }})); showView("agent-detail");
 }}
+
 function renderFindings(severity="all"){{
- const root=document.getElementById("findings");
- const items=severity==="all"?DATA.findings:DATA.findings.filter(item=>item.severity===severity);
- const banner=severity==="all"?"":'<div class="filter-banner"><span>'+esc(drillLabel("findings",severity))+' · '+number(items.length)+' findings</span><button class="back" id="clear-finding-filter">Clear filter</button></div>';
- root.innerHTML='<h1>Findings</h1><p class="muted">'+number(items.length)+' active findings in this view.</p>'+banner+
- (items.length?items.map(findingCard).join(""):'<div class="empty">No findings matched this filter.</div>');
- if(severity!=="all")root.querySelector("#clear-finding-filter").addEventListener("click",()=>renderFindings("all"));
+ const root=document.getElementById("findings"),filters=["all","critical","high","medium","low"];
+ const chips=filters.map(value=>'<button class="filter-chip '+(severity===value?"active":"")+'" data-finding-filter="'+value+'">'+esc(value==="all"?"All":value[0].toUpperCase()+value.slice(1))+'</button>').join("");
+ root.innerHTML=pageHead("Risk review","Findings","Search and triage active scanner findings. Severity is scanner-assigned static evidence, not runtime exploitability.")+
+ '<div class="toolbar"><div class="toolbar-left"><div class="filter-chips">'+chips+'</div></div><div class="toolbar-right"><input id="finding-search" class="search" aria-label="Search findings" placeholder="Search rule, title, agent, message or file"></div></div><div class="muted small" id="finding-count"></div><div id="finding-list"></div>';
+ const list=root.querySelector("#finding-list"),count=root.querySelector("#finding-count"),search=root.querySelector("#finding-search");
+ const apply=()=>{{const q=search.value.trim().toLowerCase();const items=DATA.findings.filter(item=>(severity==="all"||item.severity===severity)&&(!q||JSON.stringify([item.rule_id,item.title,item.agent,item.message,item.location]).toLowerCase().includes(q))).sort((a,b)=>severityRank(b.severity)-severityRank(a.severity)||String(a.rule_id).localeCompare(String(b.rule_id)));count.textContent=number(items.length)+" active findings";list.innerHTML=items.length?items.map(findingCard).join(""):'<div class="empty">No findings matched this view.</div>';}};
+ root.querySelectorAll("[data-finding-filter]").forEach(btn=>btn.addEventListener("click",()=>renderFindings(btn.dataset.findingFilter)));search.addEventListener("input",apply);apply();
 }}
+
 function renderAttack(){{
- const items=DATA.agents.flatMap(a=>(a.path_views||[]));
- document.getElementById("attack").innerHTML='<h1>Attack paths</h1><p class="muted">Evidence-aware risk chains. Runtime exploitability is not verified.</p>'+
- (items.length?items.map(renderPathCard).join(""):'<div class="empty">No attack paths detected.</div>');
+ const items=DATA.agents.flatMap(a=>(a.path_views||[])),supported=items.filter(x=>x.evidence_strength==="supported_static_dataflow").length,potential=items.length-supported;
+ document.getElementById("attack").innerHTML=pageHead("Risk chains","Attack paths","Evidence-aware chains from source/capability context to sensitive actions or destinations.")+
+ '<div class="cards">'+metric("Attack paths",items.length)+metric("Supported data flow",supported,"ok","","Solid connectors")+metric("Potential capability paths",potential,"warn","","Dashed connectors; flow not proven")+'</div>'+
+ sectionHead("Reconstructed paths","Runtime exploitability is not verified.")+(items.length?items.sort((a,b)=>severityRank(b.severity)-severityRank(a.severity)).map(renderPathCard).join(""):'<div class="empty">No attack paths detected.</div>');
 }}
+
 function renderContracts(mode="all"){{
- let items=DATA.agents;
- if(mode==="declared")items=items.filter(a=>a.contract.declared);
- else if(mode==="violation")items=items.filter(a=>a.summary.contract_violations>0);
- else if(mode==="unresolved")items=items.filter(a=>a.summary.contract_unresolved>0);
- const rows=items.map(a=>'<tr class="clickable" data-agent="'+encodeURIComponent(a.name)+'"><td><strong>'+esc(a.name)+'</strong></td><td>'+badge(a.summary.contract_status)+'</td>'+
- '<td>'+number(a.summary.contract_violations)+'</td><td>'+number(a.summary.contract_unresolved)+'</td><td>'+number(a.contract.relationships.length)+'</td></tr>').join("");
- const banner=mode==="all"?"":'<div class="filter-banner"><span>'+esc(drillLabel("contracts",mode))+' · '+number(items.length)+' agents</span><button class="back" id="clear-contract-filter">Clear filter</button></div>';
- const root=document.getElementById("contracts"); root.innerHTML='<h1>Agent contracts</h1><p class="muted">Declared Authority Contract versus reconstructed effective authority.</p>'+banner+
- (rows?'<div class="panel"><table><thead><tr><th>Agent</th><th>Status</th><th>Violations</th><th>Unresolved</th><th>Relationships evaluated</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">No agents matched this contract filter.</div>');
- bindAgentRows(root);
- if(mode!=="all")root.querySelector("#clear-contract-filter").addEventListener("click",()=>renderContracts("all"));
+ let items=DATA.agents;if(mode==="declared")items=items.filter(a=>a.contract.declared);else if(mode==="violation")items=items.filter(a=>a.summary.contract_violations>0);else if(mode==="unresolved")items=items.filter(a=>a.summary.contract_unresolved>0);
+ items=[...items].sort((a,b)=>(b.summary.contract_violations-a.summary.contract_violations)||(b.summary.contract_unresolved-a.summary.contract_unresolved)||a.name.localeCompare(b.name));
+ const filters=[["all","All"],["declared","Declared"],["violation","Violations"],["unresolved","Unresolved"]],chips=filters.map(([value,label])=>'<button class="filter-chip '+(mode===value?"active":"")+'" data-contract-filter="'+value+'">'+esc(label)+'</button>').join("");
+ const rows=items.map(a=>'<tr class="clickable" role="button" tabindex="0" data-agent="'+encodeURIComponent(a.name)+'"><td><div class="row-title">'+esc(a.name)+'</div><div class="row-sub">'+esc(a.framework)+'</div></td><td>'+badge(a.summary.contract_status)+'</td><td>'+number(a.summary.contract_violations)+'</td><td>'+number(a.summary.contract_unresolved)+'</td><td>'+number(a.contract.relationships.length)+'</td><td class="row-chevron">›</td></tr>').join("");
+ const root=document.getElementById("contracts");root.innerHTML=pageHead("Policy assurance","Agent contracts","Declared Authority Contract constraints compared with reconstructed effective authority.")+
+ '<div class="cards">'+metric("Agents with contract",DATA.summary.agents_with_contract)+metric("Violations",DATA.summary.contract_violations,DATA.summary.contract_violations?"critical":"")+metric("Unresolved checks",DATA.summary.contract_unresolved,DATA.summary.contract_unresolved?"warn":"")+'</div>'+
+ '<div class="toolbar"><div class="filter-chips">'+chips+'</div><div class="muted small">'+number(items.length)+' agents in view</div></div>'+
+ (rows?'<div class="panel flush table-wrap"><table><thead><tr><th>Agent</th><th>Status</th><th>Violations</th><th>Unresolved</th><th>Relationships evaluated</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">No agents matched this contract filter.</div>');
+ bindAgentRows(root);root.querySelectorAll("[data-contract-filter]").forEach(btn=>btn.addEventListener("click",()=>renderContracts(btn.dataset.contractFilter)));
 }}
+
 function renderEvidence(){{
- const c=DATA.coverage, diags=c.diagnostics||[];
- document.getElementById("evidence").innerHTML='<h1>Scan evidence</h1><div class="cards">'+metric("Files considered",c.files_considered)+metric("Files scanned",c.files_scanned)+metric("Files skipped",c.files_skipped)+metric("Files failed",c.files_failed)+'</div>'+
- '<h2>Coverage</h2><div class="panel"><div class="kv"><div>Status</div><div>'+badge(c.incomplete?"unresolved":"compliant")+'</div><div>ASG digest</div><div><code>'+esc(DATA.security_graph.digest)+'</code></div>'+
- '<div>Suppressed findings</div><div>'+number(DATA.suppressed_findings.length)+'</div></div></div><h2>Diagnostics</h2>'+
- (diags.length?diags.map(d=>'<div class="finding" data-sev="medium"><strong>'+esc(d.diagnostic_id||d.code)+'</strong> '+esc(d.message)+'<div class="muted small">'+loc(d.location)+'</div></div>').join(""):'<div class="empty">No detected coverage diagnostics.</div>');
+ const c=DATA.coverage,diags=c.diagnostics||[],considered=Number(c.files_considered||0),scanned=Number(c.files_scanned||0),pct=considered?Math.max(0,Math.min(100,Math.round(scanned/considered*100))):0;
+ document.getElementById("evidence").innerHTML=pageHead("Trust & provenance","Scan evidence","Coverage, diagnostics and report provenance used to qualify the assessment.",badge(c.incomplete?"unresolved":"compliant"))+
+ '<div class="cards">'+metric("Files considered",c.files_considered)+metric("Files scanned",c.files_scanned)+metric("Files skipped",c.files_skipped)+metric("Files failed",c.files_failed,c.files_failed?"high":"")+'</div>'+
+ sectionHead("Coverage status","Use coverage gaps to qualify confidence in scanner conclusions.")+'<div class="panel"><div class="kv"><div>Status</div><div>'+badge(c.incomplete?"unresolved":"compliant")+'</div><div>Scan completion</div><div>'+number(pct)+'%<div class="coverage-track"><div class="coverage-fill" style="width:'+pct+'%"></div></div></div><div>ASG digest</div><div><code>'+esc(DATA.security_graph.digest)+'</code></div><div>Suppressed findings</div><div>'+number(DATA.suppressed_findings.length)+'</div><div>Report model</div><div><code>'+esc(DATA.model)+' / schema '+esc(DATA.schema_version)+'</code></div></div></div>'+
+ sectionHead("Diagnostics","Coverage or parsing conditions that may affect completeness.")+(diags.length?diags.map(d=>'<div class="finding" data-sev="medium"><div class="finding-title"><strong>'+esc(d.diagnostic_id||d.code)+'</strong><span class="badge medium">diagnostic</span></div><p>'+esc(d.message)+'</p><div class="muted small">'+loc(d.location)+'</div></div>').join(""):'<div class="empty">No detected coverage diagnostics.</div>');
 }}
+
 renderDashboard();renderAgents();renderFindings();renderAttack();renderContracts();renderEvidence();
 </script>
 </body>
