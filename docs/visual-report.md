@@ -24,13 +24,19 @@ horustrace report ./agent-app \
 
 ## What the report contains
 
-The landing dashboard summarizes discovered agents, tools, MCP servers, identities,
-reachable resources, effective-authority relationships, attack paths, active
-findings, Authority Contract violations, unresolved contract checks, and scan
-coverage.
+The landing dashboard is organized for security review rather than raw inventory.
+It surfaces an assessment signal, a priority review queue, finding severity,
+effective-authority posture, environment inventory, Authority Contract status, and
+scan coverage. Dashboard metrics remain drillable into the corresponding agent,
+finding, attack-path, or contract view.
+
+The top-level agent, finding, and contract views include reviewer-oriented filters;
+agent and finding views also provide search. Agent rows are ordered by static review priority so critical/high
+findings, contract violations, attack paths, unresolved checks, and write-capable
+authority rise above lower-signal inventory.
 
 The agent inventory is the primary drill-down surface. Every discovered agent has a
-security profile with five views:
+security profile with six views:
 
 - **Overview** — authority counts, identities, reachable resources and destinations,
   write-capable relationships, finding severity, and contract posture.
@@ -51,7 +57,9 @@ security profile with five views:
   approval/control state, and semantic evidence.
 
 The report also includes repository-level findings, attack paths, contract posture,
-and scan-coverage diagnostics.
+and scan-coverage diagnostics. Navigation, drill-down rows, and filters are keyboard
+accessible; full-screen agency maps can be dismissed with Escape; and reduced-motion
+preferences are respected.
 
 ## Security and trust model
 

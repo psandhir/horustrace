@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Upgrade the self-contained visual report into a production-oriented security-review console with a prioritised assessment dashboard, agent review queue, search/filter workflows for agents and findings, contract triage, richer evidence/coverage context, responsive layouts, keyboard-accessible drill-downs, and reduced-motion support without adding external assets, telemetry, or runtime security inference.
+
 ## 0.9.0 - 2026-09-26
 
 - Complete the Recall Foundation milestone against the unchanged frozen 180-repository cohort with **180/180 successful scans** and all preregistered v0.9 hard gates passing.
