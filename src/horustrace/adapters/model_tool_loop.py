@@ -99,6 +99,150 @@ def _dict_string_keys(node: ast.Dict) -> set[str]:
     return result
 
 
+def _dict_entries(node: ast.AST | None) -> dict[str, ast.AST]:
+    if not isinstance(node, ast.Dict):
+        return {}
+    result: dict[str, ast.AST] = {}
+    for key, value in zip(node.keys, node.values):
+        if isinstance(key, ast.Constant) and isinstance(key.value, str):
+            result[key.value] = value
+    return result
+
+
+def _literal_string(node: ast.AST | None) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    return None
+
+
+def _static_command(node: ast.AST | None) -> str | None:
+    literal = _literal_string(node)
+    if literal is not None:
+        return literal
+    if _dotted(node) == "sys.executable":
+        return "<python-executable>"
+    return None
+
+
+def _static_python_script(node: ast.AST | None) -> str | None:
+    if node is None:
+        return None
+    literal = _literal_string(node)
+    if literal is not None and literal.endswith(".py"):
+        return literal
+    for child in ast.walk(node):
+        value = _literal_string(child)
+        if value is not None and value.endswith(".py"):
+            return value
+    return None
+
+
+def _static_args(node: ast.AST | None) -> list[str]:
+    if not isinstance(node, (ast.List, ast.Tuple)):
+        return []
+    result: list[str] = []
+    for item in node.elts:
+        literal = _literal_string(item)
+        if literal is not None:
+            result.append(literal)
+            continue
+        script = _static_python_script(item)
+        if script is not None:
+            result.append(script)
+    return result
+
+
+def _source_proven_default_mcp_servers(
+    path: Path,
+    tree: ast.AST,
+    class_node: ast.ClassDef,
+) -> list[MCPServer]:
+    """Return statically named local MCP servers from a called fallback config.
+
+    This intentionally recognizes only repository-local stdio defaults with a
+    concrete Python script. It does not guess external config files or bind
+    arbitrary repository MCP declarations merely because they coexist.
+    """
+    called = {
+        _call_name(child.func)
+        for child in ast.walk(class_node)
+        if isinstance(child, ast.Call)
+    }
+    result: list[MCPServer] = []
+    for function in tree.body:
+        if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if function.name not in called:
+            continue
+        for child in ast.walk(function):
+            if not isinstance(child, ast.Return):
+                continue
+            root_entries = _dict_entries(child.value)
+            servers_node = root_entries.get("mcpServers") or root_entries.get("servers")
+            for server_name, server_node in _dict_entries(servers_node).items():
+                entries = _dict_entries(server_node)
+                if not entries:
+                    continue
+                enabled = entries.get("enabled")
+                if isinstance(enabled, ast.Constant) and enabled.value is False:
+                    continue
+                if "enabled_env" in entries:
+                    continue
+                command = _static_command(entries.get("command"))
+                args = _static_args(entries.get("args"))
+                transport = _literal_string(entries.get("transport")) or (
+                    "stdio" if command is not None else "unknown"
+                )
+                if transport != "stdio":
+                    continue
+                if not any(arg.endswith(".py") for arg in args):
+                    continue
+                result.append(
+                    MCPServer(
+                        name=server_name,
+                        transport="stdio",
+                        command=command,
+                        args=args,
+                        authenticated=None,
+                        location=_location(path, child),
+                        metadata={
+                            "framework": "model-tool-loop",
+                            "source": "inline_default_mcp_config",
+                            "binding_origin": "source_proven_default_mcp_config",
+                            "config_function": function.name,
+                            "default_configuration": True,
+                            "tool_catalogue_dynamic": True,
+                            "repository_resolved": False,
+                        },
+                    )
+                )
+    return result
+
+
+def _is_function_call_discriminator(node: ast.Compare) -> bool:
+    if len(node.ops) != 1 or len(node.comparators) != 1:
+        return False
+    left = node.left
+    right = node.comparators[0]
+
+    def _type_field(value: ast.AST) -> bool:
+        if isinstance(value, ast.Attribute):
+            return value.attr == "type"
+        if isinstance(value, ast.Subscript):
+            key = _subscript_key(value)
+            return key == "type"
+        return False
+
+    def _function_call_literal(value: ast.AST) -> bool:
+        return isinstance(value, ast.Constant) and value.value == "function_call"
+
+    return (
+        _type_field(left) and _function_call_literal(right)
+    ) or (
+        _type_field(right) and _function_call_literal(left)
+    )
+
+
 def _uses_known_framework(tree: ast.AST) -> bool:
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
@@ -184,6 +328,10 @@ def _class_signals(node: ast.ClassDef) -> dict[str, bool]:
             for keyword in child.keywords:
                 if keyword.arg == "tools" and call_is_model:
                     tool_catalogue = True
+
+        elif isinstance(child, ast.Compare):
+            if _is_function_call_discriminator(child):
+                model_selection = True
 
         elif isinstance(child, ast.Attribute):
             if child.attr in {"tool_calls", "function_call"}:
@@ -315,10 +463,17 @@ def _custom_class_agents(path: Path, tree: ast.AST) -> list[Agent]:
                 "source_class": node.name,
             },
         )
-        dynamic_mcp = _dynamic_stdio_mcp(path, node)
-        if dynamic_mcp is not None:
-            agent.mcp_servers.append(dynamic_mcp)
-            agent.metadata["dynamic_mcp_servers"] = True
+        default_servers = _source_proven_default_mcp_servers(path, tree, node)
+        if default_servers:
+            agent.mcp_servers.extend(default_servers)
+            agent.metadata["default_mcp_servers"] = [
+                server.name for server in default_servers
+            ]
+        else:
+            dynamic_mcp = _dynamic_stdio_mcp(path, node)
+            if dynamic_mcp is not None:
+                agent.mcp_servers.append(dynamic_mcp)
+                agent.metadata["dynamic_mcp_servers"] = True
         agents.append(agent)
     return agents
 

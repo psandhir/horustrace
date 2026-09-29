@@ -396,6 +396,33 @@ def resolve_local_stdio_implementations(graph: Graph, root: Path) -> None:
                 if resource not in server.resources:
                     server.resources.append(deepcopy(resource))
             used.add(id(implementation))
+            implementation_alias = str(
+                implementation.metadata.get("alias") or ""
+            )
+            if implementation_alias:
+                for tool in graph.unbound_tools:
+                    if (
+                        tool.location is None
+                        or tool.location.path.resolve()
+                        != implementation.location.path.resolve()
+                        or str(tool.metadata.get("server") or "")
+                        != implementation_alias
+                    ):
+                        continue
+                    tool.metadata["binding_state"] = "bound_via_mcp"
+                    tool.metadata["authority_binding_basis"] = "local_stdio_script"
+                    bound_servers = tool.metadata.setdefault(
+                        "bound_mcp_servers",
+                        [],
+                    )
+                    if server.name not in bound_servers:
+                        bound_servers.append(server.name)
+                    effective_agents = tool.metadata.setdefault(
+                        "effective_agents",
+                        [],
+                    )
+                    if agent.name not in effective_agents:
+                        effective_agents.append(agent.name)
 
     if used:
         graph.unbound_mcp_servers = [
