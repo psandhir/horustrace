@@ -491,6 +491,60 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                     )
                 )
 
+        for tool in agent.tools:
+            if (
+                runtime_bound_untrusted
+                and tool.metadata.get("model_selected_url_fetch") is True
+                and tool.approval is not True
+            ):
+                dynamic_destinations = [
+                    destination
+                    for destination in tool.destinations
+                    if destination.metadata.get("source")
+                    == "model_selected_url_argument"
+                    or destination.metadata.get("network_scope")
+                    == "dynamic_destination"
+                ]
+                if dynamic_destinations:
+                    ingress = runtime_bound_untrusted[0]
+                    parameters = list(
+                        tool.metadata.get("model_selected_url_parameters") or []
+                    )
+                    paths.append(
+                        AttackPath(
+                            path_id="PATH011",
+                            title="Potential untrusted-input path to server-side URL fetch",
+                            agent=agent.name,
+                            nodes=[
+                                ingress.name,
+                                agent.name,
+                                tool.name,
+                                "model-selected URL",
+                                dynamic_destinations[0].target,
+                            ],
+                            severity=Severity.HIGH,
+                            rationale=(
+                                "Source analysis proves untrusted input reaches the "
+                                "agent runtime, and the effective tool accepts a "
+                                "model-selected URL that is passed to a direct "
+                                "server-side HTTP client without a detected "
+                                "destination restriction."
+                            ),
+                            location=tool.location or agent.location,
+                            metadata={
+                                **_path_metadata(
+                                    basis="source_bound_ingress_authority"
+                                ),
+                                "ingress_basis": ingress.metadata.get("basis"),
+                                "target_kind": "tool",
+                                "url_parameters": parameters,
+                                "follow_redirects": tool.metadata.get(
+                                    "follow_redirects"
+                                ),
+                            },
+                        )
+                    )
+
         for tool in outbound:
             if sensitive and tool.approval is not True:
                 paths.append(
