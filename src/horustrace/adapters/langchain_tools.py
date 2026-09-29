@@ -174,6 +174,43 @@ def _dynamic_sql_authority(
                 )
             )
 
+        # LangChain SQLDatabase.run/run_no_throw forwards SQL text to the
+        # underlying database engine. Treat a function parameter that reaches
+        # this API as source-proven unconstrained SQL authority. run_no_throw
+        # is distinctive; for run(), require a database-like receiver token to
+        # avoid classifying arbitrary obj.run(value) methods as SQL.
+        if leaf in {"run", "run_no_throw"} and child.args:
+            receiver = (
+                _dotted(child.func.value)
+                if isinstance(child.func, ast.Attribute)
+                else None
+            )
+            receiver_tokens = {
+                token
+                for token in (receiver or "")
+                .lower()
+                .replace("-", "_")
+                .replace(".", "_")
+                .split("_")
+                if token
+            }
+            sql_database_method = leaf == "run_no_throw" or bool(
+                receiver_tokens & {"db", "database", "sqldatabase", "sql"}
+            )
+            if sql_database_method:
+                query = child.args[0]
+                model_controlled = (
+                    isinstance(query, ast.Name) and query.id in parameters
+                )
+                if model_controlled:
+                    database_context = True
+                    dynamic_sql = True
+                    # SQLDatabase executes arbitrary statements through its
+                    # engine transaction boundary; absent a source-visible
+                    # read-only restriction, writes/destructive statements are
+                    # part of the authority surface.
+                    commits = True
+
     return database_context and dynamic_sql, commits
 
 
