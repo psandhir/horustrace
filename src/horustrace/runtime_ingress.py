@@ -31,6 +31,7 @@ _RUNTIME_METHODS = {
     "ingest_file",
     "query",
     "consolidate",
+    "process_message",
 }
 _ROUTE_DECORATORS = {
     "get",
@@ -41,6 +42,7 @@ _ROUTE_DECORATORS = {
     "api_route",
     "websocket",
     "on_message",
+    "route",
 }
 
 
@@ -150,6 +152,7 @@ def _inside(container: ast.AST, child: ast.AST) -> bool:
 
 def _decorator_kind(
     function: ast.FunctionDef | ast.AsyncFunctionDef,
+    imports: dict[str, str],
 ) -> str | None:
     for decorator in function.decorator_list:
         target = decorator.func if isinstance(decorator, ast.Call) else decorator
@@ -161,9 +164,30 @@ def _decorator_kind(
             return "chainlit"
         if leaf == "websocket":
             return "fastapi_websocket"
+        if leaf == "route":
+            if any(
+                value == "flask.Flask"
+                or value == "flask.request"
+                or value.startswith("flask.")
+                for value in imports.values()
+            ):
+                return "flask"
+            return "web"
         return "web"
     return None
 
+
+def _global_ingress_names(
+    imports: dict[str, str],
+    framework: str,
+) -> set[str]:
+    if framework != "flask":
+        return set()
+    return {
+        alias
+        for alias, imported in imports.items()
+        if imported == "flask.request"
+    }
 
 def _registered_route_handlers(tree: ast.Module) -> set[str]:
     result: set[str] = set()
@@ -281,6 +305,10 @@ def _class_targets(
     factories: dict[str, Agent],
 ) -> dict[str, Agent]:
     targets: dict[str, Agent] = {}
+    agents_by_path: dict[Path, list[Agent]] = {}
+    for agent in graph.agents:
+        if agent.location is not None:
+            agents_by_path.setdefault(agent.location.path.resolve(), []).append(agent)
 
     for agent in graph.agents:
         if agent.location is None:
@@ -294,7 +322,8 @@ def _class_targets(
         module = parsed[0]
         targets[f"{module}.{source_class}" if module else source_class] = agent
 
-    for module, tree, imports in modules.values():
+    for path, (module, tree, imports) in modules.items():
+        path_agents = agents_by_path.get(path.resolve(), [])
         for class_node in (
             node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)
         ):
@@ -318,13 +347,26 @@ def _class_targets(
                     called = _dotted(value.func) or _call_name(value.func) or ""
                     resolved = _resolve_symbol(module, imports, called)
                     agent = _agent_for_key(resolved, factories)
+                    if agent is None:
+                        inline_matches = [
+                            candidate
+                            for candidate in path_agents
+                            if candidate.location is not None
+                            and candidate.location.line
+                            == (getattr(value, "lineno", 0) or 0)
+                        ]
+                        unique_inline = {
+                            id(candidate): candidate for candidate in inline_matches
+                        }
+                        if len(unique_inline) == 1:
+                            agent = next(iter(unique_inline.values()))
                     if agent is not None:
-                        targets_nodes = (
+                        target_nodes = (
                             node.targets
                             if isinstance(node, ast.Assign)
                             else [node.target]
                         )
-                        for target in targets_nodes:
+                        for target in target_nodes:
                             if (
                                 isinstance(target, ast.Attribute)
                                 and isinstance(target.value, ast.Name)
@@ -360,12 +402,76 @@ def _class_targets(
                     ):
                         runtime_bound_attributes.add(receiver.attr)
 
+                    called = _dotted(node.func) or ""
+                    resolved_called = _resolve_symbol(module, imports, called)
+                    if (
+                        node.func.attr in _RUNTIME_METHODS
+                        and resolved_called.startswith(
+                            ("agents.Runner.", "openai.agents.Runner.")
+                        )
+                        and node.args
+                    ):
+                        first = node.args[0]
+                        if (
+                            isinstance(first, ast.Attribute)
+                            and isinstance(first.value, ast.Name)
+                            and first.value.id == "self"
+                            and first.attr in agent_attributes
+                        ):
+                            runtime_bound_attributes.add(first.attr)
+
             unique = {id(agent): agent for agent in matched}
             if len(unique) == 1 and runtime_bound_attributes:
                 key = f"{module}.{class_node.name}" if module else class_node.name
                 targets[key] = next(iter(unique.values()))
     return targets
 
+
+def _wrapper_factory_targets(
+    modules: dict[Path, tuple[str, ast.Module, dict[str, str]]],
+    class_targets: dict[str, Agent],
+) -> dict[str, Agent]:
+    result: dict[str, Agent] = {}
+    for module, tree, imports in modules.values():
+        for function in ast.walk(tree):
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            returned_names = {
+                node.value.id
+                for node in ast.walk(function)
+                if isinstance(node, ast.Return) and isinstance(node.value, ast.Name)
+            }
+            if not returned_names:
+                continue
+
+            matched: list[Agent] = []
+            for node in ast.walk(function):
+                if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                    continue
+                value = node.value
+                if not isinstance(value, ast.Call):
+                    continue
+                target_nodes = (
+                    node.targets if isinstance(node, ast.Assign) else [node.target]
+                )
+                assigned_names = {
+                    name
+                    for target in target_nodes
+                    for name in _target_names(target)
+                }
+                if not (assigned_names & returned_names):
+                    continue
+                called = _dotted(value.func) or _call_name(value.func) or ""
+                resolved = _resolve_symbol(module, imports, called)
+                agent = _agent_for_key(resolved, class_targets)
+                if agent is not None:
+                    matched.append(agent)
+
+            unique = {id(agent): agent for agent in matched}
+            if len(unique) == 1:
+                key = f"{module}.{function.name}" if module else function.name
+                result[key] = next(iter(unique.values()))
+    return result
 
 def _compiled_alias_targets(
     graph: Graph,
@@ -566,6 +672,12 @@ def enrich_runtime_ingress_inputs(
 
     factories = _factory_targets(graph, modules)
     class_targets = _class_targets(graph, modules, factories)
+    wrapper_factories = _wrapper_factory_targets(modules, class_targets)
+    receiver_targets = {
+        **factories,
+        **class_targets,
+        **wrapper_factories,
+    }
     compiled_targets = _compiled_alias_targets(graph, modules)
 
     for path, (module, tree, imports) in modules.items():
@@ -573,22 +685,25 @@ def enrich_runtime_ingress_inputs(
         for function in ast.walk(tree):
             if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            framework = _decorator_kind(function)
+            framework = _decorator_kind(function, imports)
             if framework is None and function.name in registered:
                 framework = "aiohttp"
             if framework is None:
                 continue
 
-            params = {name for name, _ in _parameter_annotations(function)}
-            if not params:
+            initial_taint = {
+                name for name, _ in _parameter_annotations(function)
+            }
+            initial_taint.update(_global_ingress_names(imports, framework))
+            if not initial_taint:
                 continue
-            tainted = _propagate_taint(function, params)
+            tainted = _propagate_taint(function, initial_taint)
             receivers = _handler_receivers(
                 function,
                 tree,
                 module,
                 imports,
-                class_targets,
+                receiver_targets,
                 compiled_targets,
             )
             if not receivers:
