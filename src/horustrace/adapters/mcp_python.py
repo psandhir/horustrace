@@ -100,10 +100,33 @@ def _string(node: ast.AST | None) -> str | None:
     return value if isinstance(value, str) else None
 
 
+def _pathish_string(node: ast.AST | None) -> str | None:
+    value = _string(node)
+    if value is not None:
+        return value
+    if isinstance(node, ast.Call) and (_call_name(node.func) or "") == "str" and node.args:
+        return _pathish_string(node.args[0])
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        # Preserve a source-visible relative file name from expressions such as
+        # _repo_root() / "mcp_server.py". The repository resolver later proves
+        # whether that file actually exists under the scan root.
+        right = _pathish_string(node.right)
+        if right:
+            left = _pathish_string(node.left)
+            return f"{left}/{right}" if left else right
+    return None
+
+
 def _string_list(node: ast.AST | None) -> list[str]:
     value = _literal(node)
     if isinstance(value, (list, tuple)):
         return [str(item) for item in value]
+    if isinstance(node, (ast.List, ast.Tuple)):
+        return [
+            item
+            for element in node.elts
+            if (item := _pathish_string(element)) is not None
+        ]
     return []
 
 
@@ -454,6 +477,33 @@ def scan_python_file(path: Path) -> Graph:
     clients: set[str] = set()
     run_alias_lines: dict[str, list[int]] = {}
     custom_wrappers = _custom_mcp_wrapper_classes(tree)
+
+    # Some custom clients keep an in-source fallback MCP configuration
+    # instead of a checked-in mcp_config.json. Preserve those declarations only
+    # when the returned mapping has the explicit mcpServers shape.
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Return):
+            continue
+        outer = _dict_entries(node.value)
+        nested = outer.get("mcpServers") or outer.get("servers")
+        if not isinstance(nested, ast.Dict):
+            continue
+        for server_name, config_node in _dict_entries(nested).items():
+            server = _server_from_connection_dict(path, server_name, config_node)
+            if server is None:
+                continue
+            config_entries = _dict_entries(config_node)
+            enabled = _literal(config_entries.get("enabled"))
+            enabled_env = _string(config_entries.get("enabled_env"))
+            server.metadata.update(
+                {
+                    "source": "python_default_mcp_config",
+                    "default_configuration": True,
+                    "default_enabled": enabled is not False,
+                    "enabled_env": enabled_env,
+                }
+            )
+            servers.append(server)
 
     for node in ast.walk(tree):
         if not isinstance(node, (ast.Assign, ast.AnnAssign)):
