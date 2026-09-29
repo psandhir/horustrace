@@ -556,10 +556,23 @@ def _decorated_tool_capabilities(
 def _decorated_tool_network_destinations(
     path: Path,
     node: ast.FunctionDef | ast.AsyncFunctionDef,
+    imports: dict[str, str] | None = None,
+    external_clients: dict[str, str] | None = None,
 ) -> list[NetworkDestination]:
     destinations: list[NetworkDestination] = []
     seen: set[tuple[str, str]] = set()
     literal_urls: dict[str, set[str]] = {}
+    imports = imports or {}
+    external_clients = external_clients or {}
+    url_parameters = {
+        arg.arg
+        for arg in [
+            *node.args.posonlyargs,
+            *node.args.args,
+            *node.args.kwonlyargs,
+        ]
+        if "url" in arg.arg.lower() or arg.arg.lower() in {"uri", "endpoint"}
+    }
 
     for statement in node.body:
         if not isinstance(statement, (ast.Assign, ast.AnnAssign)):
@@ -601,20 +614,52 @@ def _decorated_tool_network_destinations(
     for child in ast.walk(node):
         if not isinstance(child, ast.Call):
             continue
-        called = (_dotted_name(child.func) or _call_name(child.func) or "").lower()
+        dotted_called = _dotted_name(child.func) or _call_name(child.func) or ""
+        called = dotted_called.lower()
+        call_leaf = (_call_name(child.func) or "").lower()
         is_network_call = (
             called.startswith(("requests.", "httpx.", "aiohttp."))
             or "urllib.request" in called
         )
-        if not is_network_call:
-            continue
+
+        # Some model-callable tools pass caller-selected URLs through
+        # third-party network clients instead of requests/httpx directly.
+        # Only treat this as destination authority when both the sink provenance
+        # and URL-parameter data flow are source-visible.
+        external_sink = False
+        if isinstance(child.func, ast.Name):
+            source_module = imports.get(child.func.id)
+            external_sink = bool(
+                source_module
+                and call_leaf in {"ingest", "ingest_async", "crawl", "scrape", "extract"}
+            )
+        elif isinstance(child.func, ast.Attribute):
+            receiver = _dotted_name(child.func.value) or _call_name(child.func.value)
+            receiver_root = (receiver or "").split(".", 1)[0]
+            external_sink = bool(
+                receiver_root in external_clients
+                and call_leaf in {"crawl", "scrape", "extract", "ingest", "ingest_async"}
+            )
 
         target_expr = _kw(child, "url")
+        if target_expr is None:
+            target_expr = _kw(child, "urls")
         if target_expr is None:
             if called.endswith(".request") and len(child.args) >= 2:
                 target_expr = child.args[1]
             elif child.args:
                 target_expr = child.args[0]
+
+        if not is_network_call and external_sink:
+            referenced = {
+                part.id
+                for part in ast.walk(target_expr)
+                if isinstance(part, ast.Name)
+            } if target_expr is not None else set()
+            if not (referenced & url_parameters):
+                continue
+        elif not is_network_call:
+            continue
 
         direct = _literal(target_expr)
         if isinstance(direct, str) and direct.startswith(("http://", "https://")):
@@ -635,12 +680,21 @@ def _decorated_tool_network_destinations(
                     for possible in sorted(literal_urls.get(part.id, ())):
                         add(possible, "literal_url", part)
 
-        add("<dynamic-url>", "dynamic_network_call", target_expr or child)
+        add(
+            "<dynamic-url>",
+            "model_selected_url_argument" if external_sink else "dynamic_network_call",
+            target_expr or child,
+        )
 
     return destinations
 
 
-def _decorated_function_tool(path: Path, node: ast.FunctionDef | ast.AsyncFunctionDef) -> Tool | None:
+def _decorated_function_tool(
+    path: Path,
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    imports: dict[str, str] | None = None,
+    external_clients: dict[str, str] | None = None,
+) -> Tool | None:
     for decorator in node.decorator_list:
         decorator_name: str | None = None
         needs_approval: bool | None = None
@@ -674,7 +728,16 @@ def _decorated_function_tool(path: Path, node: ast.FunctionDef | ast.AsyncFuncti
                     "approval_mandatory": True if inline_approval else None,
                 },
             )
-            tool.destinations.extend(_decorated_tool_network_destinations(path, node))
+            tool.destinations.extend(
+                _decorated_tool_network_destinations(
+                    path,
+                    node,
+                    imports,
+                    external_clients,
+                )
+            )
+            if tool.destinations:
+                tool.capabilities.add("network.external")
             return tool
     return None
 
@@ -810,6 +873,7 @@ def scan_python_file(path: Path) -> Graph:
     import_symbols: dict[str, str] = {}
     aliases: dict[str, str] = {}
     constants: dict[str, str] = {}
+    external_clients: dict[str, str] = {}
     for node in tree.body:
         if isinstance(node, ast.ImportFrom):
             module = node.module or ""
@@ -830,10 +894,21 @@ def scan_python_file(path: Path) -> Graph:
                 for target in targets:
                     if isinstance(target, ast.Name):
                         aliases[target.id] = value.id
+            if isinstance(value, ast.Call) and isinstance(value.func, ast.Name):
+                source_module = imports.get(value.func.id)
+                if source_module:
+                    for target in targets:
+                        if isinstance(target, ast.Name):
+                            external_clients[target.id] = source_module
 
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            tool = _decorated_function_tool(path, node)
+            tool = _decorated_function_tool(
+                path,
+                node,
+                imports,
+                external_clients,
+            )
             if tool:
                 tools[node.name] = tool
 

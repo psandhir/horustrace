@@ -592,3 +592,77 @@ manager = Agent(
     assert by_name["web_search"].metadata["binding_origin"] == "agent_as_tool"
     assert by_name["memory_search"].metadata["delegate_target"] == "memory_agents.agent"
     assert by_name["memory_search"].metadata["binding_origin"] == "agent_as_tool"
+
+def test_openai_function_tool_tracks_model_selected_url_through_external_client(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent, function_tool
+from gitingest import ingest_async
+from tavily import AsyncTavilyClient
+
+client = AsyncTavilyClient(api_key="x")
+
+@function_tool
+async def ingest_repo(url: str):
+    return await ingest_async(url)
+
+@function_tool
+async def crawl_page(url: str):
+    return await client.crawl(url=url)
+
+@function_tool
+async def scrape_page(url: str):
+    return await client.extract(urls=[url])
+
+agent = Agent(
+    name="Network Agent",
+    tools=[ingest_repo, crawl_page, scrape_page],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "Network Agent")
+
+    by_name = {tool.name: tool for tool in agent.tools}
+    for name in ("ingest_repo", "crawl_page", "scrape_page"):
+        tool = by_name[name]
+        assert "network.external" in tool.capabilities
+        assert any(
+            destination.target == "<dynamic-url>"
+            and destination.metadata.get("source") == "model_selected_url_argument"
+            for destination in tool.destinations
+        )
+
+    assert any(finding.rule_id == "NET001" for finding in findings)
+    assert not any(finding.rule_id == "NET002" for finding in findings)
+
+
+def test_openai_url_parameter_without_external_network_sink_stays_constrained(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent, function_tool
+
+def normalize(value: str) -> str:
+    return value.strip()
+
+@function_tool
+def format_url(url: str) -> str:
+    return normalize(url)
+
+agent = Agent(name="Formatter", tools=[format_url])
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    tool = next(item for item in graph.agents[0].tools if item.name == "format_url")
+
+    assert not tool.destinations
+    assert not any(finding.rule_id == "NET001" for finding in findings)
+
