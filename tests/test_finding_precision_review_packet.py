@@ -101,9 +101,11 @@ def test_phase_b_is_blocked_until_phase_a_allows_reveal() -> None:
         build_phase_b_packet(_phase_a(allowed=False), _findings())
 
 
-def test_phase_b_rejects_phase_a_disagreements() -> None:
-    with pytest.raises(PhaseBError, match="disagreements"):
-        build_phase_b_packet(_phase_a(disagreements=1), _findings())
+def test_phase_b_allows_locked_phase_a_disagreements_for_escalation() -> None:
+    public, hidden = build_phase_b_packet(_phase_a(disagreements=1), _findings())
+
+    assert public["case_count"] == 3
+    assert hidden["case_count"] == 3
 
 
 def test_public_packet_hides_scanner_metadata() -> None:
