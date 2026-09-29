@@ -1,91 +1,116 @@
 # Reviewer Guide — Attack Path and Finding Validation
 
-This packet is designed to keep reviewers independent from HorusTrace output.
+This study uses **two independent blinded LLM judges by default**, with targeted
+human escalation for disagreements, low-confidence/unresolved cases, and optional
+high-severity spot checks. The original frozen Phase-A source packet remains
+unchanged.
 
-## What reviewers receive
+## Integrity and blinding
 
-For each case:
+Each judge receives only:
 
 - a pinned public repository and exact commit SHA;
 - a bounded source scope;
 - a neutral factual/security question;
-- source-review hints that identify where to inspect;
-- an empty reviewer slot.
+- source-review hints where present; and
+- its own reviewer slot.
 
-Do **not** use HorusTrace output, generated findings, attack-path reports, issue discussions that reveal scanner results, or the study's later scoring artifacts while reviewing.
+Before a judge locks its review, do **not** expose:
 
-## Required review fields
+- HorusTrace findings or attack-path output;
+- scanner rule IDs, severity, confidence, fingerprint or title;
+- the Phase-B hidden map;
+- the other judge's answer;
+- issue/PR discussions that reveal scanner output; or
+- later scoring artifacts.
 
-Each reviewer must independently record:
+The canonical evaluator prompt is
+`LLM_REVIEW_PROMPT_V1.md`. Record its version as `llm-review-v1`.
 
-- `reviewer_id`;
-- `verdict`;
-- independently assigned `severity` where relevant;
-- exact source evidence;
-- concise rationale;
-- `independent_human: true`;
+## Prepare the frozen packet for LLM judges
+
+Do not modify or regenerate the locked source packet merely to switch reviewer type.
+Verify the original packet digest first, then create a working copy with versioned
+judge identities:
+
+```bash
+python scripts/prepare_llm_review_packet.py \
+  review-packet.yaml \
+  --output phase-a-llm-review-packet.yaml \
+  --judge-a-id openai-run-001 \
+  --judge-a-provider openai \
+  --judge-a-model <model-name> \
+  --judge-b-id second-run-001 \
+  --judge-b-provider <provider> \
+  --judge-b-model <model-name> \
+  --prompt-version llm-review-v1
+```
+
+Different model families/providers are preferred because they reduce shared-model
+blind spots, but the hard requirement is two distinct reviewer run IDs and independent
+blinded execution.
+
+Each LLM reviewer must fill **only its assigned slot** and set:
+
+- `reviewer_kind: llm`;
+- `independent_review: true`;
+- `independent_human: false`;
 - `horustrace_output_seen: false`;
-- `locked: true` when complete.
+- provider/model/prompt metadata;
+- verdict, severity, exact source evidence and concise rationale; and
+- `locked: true` only when complete.
 
-Reviewer 1 and Reviewer 2 must be different people.
+Legacy human review packets remain valid. Human reviewers still use
+`independent_human: true`.
 
-## Attack-path verdicts
+## Verdict semantics
 
-Use:
+For attack paths:
 
-- `valid` — the claimed relationship/security path is statically supported by the pinned source;
-- `invalid` — the claim is contradicted or unsupported despite sufficient bounded source evidence;
-- `unresolved` — static source is insufficient without runtime assumptions.
+- `valid` — the claimed relationship/security path is statically supported;
+- `invalid` — sufficient bounded source exists and the claim is unsupported or contradicted;
+- `unresolved` — static source cannot decide without runtime assumptions.
 
-For `invalid_near_miss` cases, repository co-presence is not evidence of authority. Require an actual binding, delegation, dispatch, or other source-proven reachability relationship.
-
-For `dynamic_unresolved` cases, do not infer runtime behavior from naming or likely framework semantics.
-
-## Phase-A finding verdicts
-
-The current finding cases are **source-blind recall-reference assertions**, not HorusTrace finding precision samples.
-
-Use:
+For Phase-A and Phase-B findings:
 
 - `supported`;
 - `unsupported`;
 - `unresolved`.
 
-Assign severity based on the security consequence visible in source, not on any external scanner label.
+Repository co-presence is never sufficient evidence of effective authority. Require an
+actual source-proven construction, binding, delegation, dispatch, runtime invocation,
+or equivalent relationship.
 
-## Lock procedure
+Severity must be assigned from the source-proven consequence, independently of any
+scanner severity.
 
-1. Reviewer A completes their copy independently.
-2. Reviewer B completes their copy independently.
-3. Neither reviewer sees the other's review before both are locked.
-4. Run `scripts/attack_path_finding_review.py` against the completed review directory.
-5. Disagreements remain disagreements; do not rewrite either original review.
-6. Only after the relevant review phase is locked may scanner scoring metadata be compared.
+## Phase A lock and escalation
 
-## Phase B
+After both LLM judges finish independently:
 
-Phase B is separate.
-
-After Phase A is locked, the study coordinator will sample actual HorusTrace findings by rule ID and reported severity. Those records will be transformed into neutral factual claims before reviewers see them. Reviewers must not be shown the originating rule ID, scanner severity, finding ID, confidence, or other HorusTrace metadata.
-
-Phase B provides finding precision and severity-agreement evidence; Phase A provides the source-derived recall reference.
-
-## Integrity check
-
-The frozen Phase-A packet is identified in `packet-lock.json`.
-
-Before review, verify the generated `review-packet.yaml` SHA-256 matches the locked digest. If it does not, stop and regenerate from the locked generator commit.
-
-
-## Phase-B tooling
-
-Do not run Phase B until the completed Phase-A packet has been validated and its summary contains:
-
-```json
-"scanner_reveal_allowed": true
+```bash
+python scripts/attack_path_finding_review.py \
+  phase-a-llm-review-packet.yaml \
+  --output phase-a-summary.json
 ```
 
-The coordinator may then build a rule/severity-stratified finding precision packet:
+The summary reports consensus rate and `escalation_cases`. Once both blinded reviews
+are locked, scanner reveal is permitted even if some cases disagree. Disagreements are
+**not silently reconciled**: they stay outside accuracy denominators and go to a
+targeted escalation queue.
+
+Recommended escalation order:
+
+1. third independent LLM/model;
+2. human review if the third judge does not resolve the case;
+3. preserve `unresolved` when source evidence genuinely cannot decide.
+
+Do not rewrite the original judge outputs to manufacture consensus.
+
+## Phase B — finding precision
+
+After Phase A is locked, build the deterministic rule/severity-stratified scanner
+finding sample:
 
 ```bash
 python scripts/build_finding_precision_review_packet.py \
@@ -95,17 +120,34 @@ python scripts/build_finding_precision_review_packet.py \
   --hidden-map phase-b-hidden-map.json
 ```
 
-**Never give `phase-b-hidden-map.json` to reviewers.** It contains the hidden HorusTrace rule ID, scanner severity, confidence, fingerprint and title used for later scoring.
+**Never give `phase-b-hidden-map.json` to either judge.**
 
-Reviewers receive only `phase-b-review-packet.yaml`, complete it independently, and validate the completed packet with:
+Prepare the public Phase-B packet for the same or another independent judge pair:
+
+```bash
+python scripts/prepare_llm_review_packet.py \
+  phase-b-review-packet.yaml \
+  --output phase-b-llm-review-packet.yaml \
+  --judge-a-id openai-phase-b-001 \
+  --judge-a-provider openai \
+  --judge-a-model <model-name> \
+  --judge-b-id second-phase-b-001 \
+  --judge-b-provider <provider> \
+  --judge-b-model <model-name> \
+  --prompt-version llm-review-v1
+```
+
+Then validate the completed packet:
 
 ```bash
 python scripts/attack_path_finding_review.py \
-  phase-b-review-packet.yaml \
+  phase-b-llm-review-packet.yaml \
   --output phase-b-summary.json
 ```
 
-After both phases are locked and scanner observation mappings have been produced, the coordinator can calculate the final metrics:
+## Final scoring
+
+After both phases are locked and scanner observation mappings exist:
 
 ```bash
 python scripts/score_attack_path_finding_validation.py \
@@ -117,4 +159,13 @@ python scripts/score_attack_path_finding_validation.py \
   --output validation-report.json
 ```
 
-The scorer reports attack-path precision/recall, finding recall, finding precision, exact severity agreement, one-level severity agreement, and scanner-over/under-severity taxonomy. Unresolved cases and reviewer disagreements are reported separately rather than forced into accuracy denominators.
+The scorer reports attack-path precision/recall, finding recall, finding precision,
+exact and within-one-level severity agreement, rule/OWASP precision, and
+scanner-over/under-severity taxonomy. Unresolved cases and judge disagreements are
+reported separately rather than forced into accuracy denominators.
+
+## Frozen Phase-A packet
+
+The original Phase-A packet is still identified by `packet-lock.json` and its
+published SHA-256. Switching to LLM adjudication changes the **review protocol**, not
+the source cases, selection process, or immutable frozen truth artifacts.
