@@ -769,12 +769,22 @@ def _assignment_targets(node: ast.AST) -> set[str]:
     else:
         return set()
 
-    result: set[str] = set()
-    for target in targets:
-        for child in ast.walk(target):
-            if isinstance(child, ast.Name):
-                result.add(child.id)
-    return result
+    def names(target: ast.AST) -> set[str]:
+        if isinstance(target, ast.Name):
+            return {target.id}
+        if isinstance(target, (ast.Tuple, ast.List)):
+            return {
+                name
+                for item in target.elts
+                for name in names(item)
+            }
+        return set()
+
+    return {
+        name
+        for target in targets
+        for name in names(target)
+    }
 
 
 def _function_file_transfer_semantics(
