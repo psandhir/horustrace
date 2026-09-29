@@ -76,6 +76,7 @@ metadata will become available through the CLI in WP02.
 - `PATH009` — potential untrusted-input path through a delegated agent to unconstrained egress.
 - `PATH010` — source-proven model-selected local file read whose data reaches an external service without a detected filesystem containment boundary.
 - `PATH011` — source-bound untrusted input reaches a model-selected URL that a direct server-side HTTP client fetches without a detected destination restriction.
+- `PATH012` — source-proven tool-returned local/repository content re-enters model context while the same agent has model-selected filesystem read/write authority without detected containment.
 
 ## Interpreting evidence
 
