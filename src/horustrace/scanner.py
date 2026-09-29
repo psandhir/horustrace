@@ -965,6 +965,12 @@ def _enrich_streamlit_agent_run_inputs(
         def expr_has_streamlit_input(
             node: ast.AST | None,
             names: set[str],
+            streamlit_chat_input_names: frozenset[str] = frozenset(
+                streamlit_chat_inputs
+            ),
+            streamlit_module_names: frozenset[str] = frozenset(
+                streamlit_modules
+            ),
         ) -> bool:
             if node is None:
                 return False
@@ -975,13 +981,13 @@ def _enrich_streamlit_agent_run_inputs(
                     continue
                 if (
                     isinstance(child.func, ast.Name)
-                    and child.func.id in streamlit_chat_inputs
+                    and child.func.id in streamlit_chat_input_names
                 ):
                     return True
                 if isinstance(child.func, ast.Attribute):
                     receiver = _ast_dotted_name(child.func.value)
                     if (
-                        receiver in streamlit_modules
+                        receiver in streamlit_module_names
                         and child.func.attr == "chat_input"
                     ):
                         return True
@@ -999,10 +1005,10 @@ def _enrich_streamlit_agent_run_inputs(
                     if isinstance(node, ast.Assign):
                         value = node.value
                         targets = list(node.targets)
-                    elif isinstance(node, ast.AnnAssign) and node.value is not None:
-                        value = node.value
-                        targets = [node.target]
-                    elif isinstance(node, ast.NamedExpr):
+                    elif (
+                        isinstance(node, ast.AnnAssign)
+                        and node.value is not None
+                    ) or isinstance(node, ast.NamedExpr):
                         value = node.value
                         targets = [node.target]
                     if value is not None and expr_has_streamlit_input(value, names):
