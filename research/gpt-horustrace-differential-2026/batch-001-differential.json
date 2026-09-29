@@ -1,0 +1,269 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "batch-001",
+  "gpt_review_commit": "fc1925a59091b212ed8e82f6a0ce44e04d1f24be",
+  "horustrace_scanner_sha": "9149f4cb27b509cacc150c1f533a8db9927e05df",
+  "method": {
+    "sequence": [
+      "select fresh Frozen-180 cases",
+      "review pinned source with GPT without case-specific HorusTrace findings",
+      "commit/freeze GPT source review",
+      "reveal HorusTrace result artifact",
+      "map semantic agreements and disagreements",
+      "source-adjudicate disagreements before scanner changes"
+    ],
+    "important_limit": "GPT is a differential oracle, not ground truth. Agreement is a confidence signal; disagreement is a source-review target.",
+    "raw_finding_counts_are_not_accuracy_metrics": true
+  },
+  "summary": {
+    "cases": 5,
+    "gpt_semantic_findings": 15,
+    "gpt_attack_paths": 11,
+    "horustrace_findings": 36,
+    "horustrace_attack_paths": 3,
+    "gpt_findings_full_semantic_match": 8,
+    "gpt_findings_partial_semantic_match": 1,
+    "gpt_findings_without_equivalent_horustrace_claim": 6,
+    "gpt_attack_paths_with_horustrace_equivalent": 3,
+    "gpt_attack_paths_without_horustrace_equivalent": 8,
+    "runtime_viability_qualification_gaps": 1,
+    "candidate_horustrace_overreach_or_policy_scope_cases": 3
+  },
+  "cross_case_findings": [
+    {
+      "category": "end_to_end_path_recall",
+      "assessment": "largest_gap",
+      "evidence": "GPT identified 11 source-supported end-to-end paths across five cases; HorusTrace emitted 3, all in rw-152.",
+      "next_step": "Prioritize source-proven ingress binding and path assembly across ADK, LangGraph, OpenAI Agents, and custom MCP loops."
+    },
+    {
+      "category": "effective_mcp_binding",
+      "assessment": "material_gap",
+      "evidence": "rw-112: HorusTrace detects run_python as an unbound process tool while source proves the default workspace MCP is connected, list_tools() is converted to OpenAI tools, and function calls dispatch through session.call_tool().",
+      "next_step": "Resolve source-proven local fallback/config MCP servers into effective authority before applying process/tool rules."
+    },
+    {
+      "category": "runtime_viability",
+      "assessment": "material_qualification_gap",
+      "evidence": "rw-152: source declares critical model-to-exec paths, but agent.py references undefined settings during presentation_agent construction. HorusTrace reports three runtime PATH001 findings without surfacing that the pinned app import appears blocked.",
+      "next_step": "Add a source viability/initialization status so declared static authority can be distinguished from proven runnable authority."
+    },
+    {
+      "category": "duplicate_rule_noise",
+      "assessment": "quality_gap",
+      "evidence": "Specific state/destructive findings are frequently duplicated by generic AGT040 on the same agent/tool (rw-017, rw-065, rw-139, rw-152).",
+      "next_step": "Suppress or group generic approval findings when a more specific rule already represents the identical authority/control gap."
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "rw-017",
+      "repo": "mxyhi/always-on-memory-agent",
+      "framework": "google-adk",
+      "horustrace": {
+        "finding_count": 9,
+        "rules": {"ADK001": 3, "AGT040": 4, "CAP005": 2},
+        "attack_paths": 0
+      },
+      "agreements": [
+        {
+          "gpt_finding": "gpt-rw-017-02",
+          "status": "full",
+          "horustrace_rules": ["ADK001", "AGT040"],
+          "note": "Both identify persistent agent writes without a separate tool-control/approval boundary."
+        },
+        {
+          "gpt_finding": "gpt-rw-017-03",
+          "status": "full",
+          "horustrace_rules": ["CAP005", "AGT040"],
+          "note": "Both identify delegated read/write authority through specialist agents."
+        }
+      ],
+      "gpt_only": [
+        {
+          "gpt_finding": "gpt-rw-017-01",
+          "gap": "ingress_binding",
+          "claim": "When MEMORY_API_KEYS is empty, legacy HTTP public mode allows unauthenticated /ingest to reach orchestrator -> ingest_agent -> store_memory.",
+          "horustrace_equivalent": false
+        }
+      ],
+      "attack_path_gap": {
+        "gpt_paths": 2,
+        "horustrace_paths": 0,
+        "missing_chains": [
+          "public HTTP /ingest -> memory_orchestrator -> ingest_agent -> store_memory -> SQLite",
+          "public HTTP /consolidate -> memory_orchestrator -> consolidate_agent -> store_consolidation -> SQLite"
+        ]
+      }
+    },
+    {
+      "case_id": "rw-065",
+      "repo": "KomachiZ/BICO",
+      "framework": "langgraph",
+      "horustrace": {
+        "finding_count": 9,
+        "rules": {"AGT022": 4, "AGT040": 4, "CAP005": 1},
+        "attack_paths": 0
+      },
+      "agreements": [
+        {
+          "gpt_finding": "gpt-rw-065-02",
+          "status": "full",
+          "horustrace_rules": ["AGT022", "AGT040", "CAP005"],
+          "note": "Both identify model-bound QuickSight state-changing authority without approval, although HorusTrace does not specifically surface build_compile -> create_analysis."
+        }
+      ],
+      "gpt_only": [
+        {
+          "gpt_finding": "gpt-rw-065-01",
+          "gap": "capability_classification",
+          "claim": "Model-selected SQL is passed to SQLDatabase.run_no_throw against PostgreSQL; HorusTrace does not surface arbitrary SQL execution as a privileged database execution capability.",
+          "horustrace_equivalent": false,
+          "qualification": "Actual mutation impact depends on runtime DB permissions/library behavior; the source nevertheless proves model-controlled SQL execution."
+        },
+        {
+          "gpt_finding": "gpt-rw-065-03",
+          "gap": "ingress_to_authority_path",
+          "claim": "Chainlit message/upload reaches the LangGraph model/tool loop and can influence database/QuickSight actions.",
+          "horustrace_equivalent": false
+        }
+      ],
+      "attack_path_gap": {
+        "gpt_paths": 2,
+        "horustrace_paths": 0
+      }
+    },
+    {
+      "case_id": "rw-112",
+      "repo": "ayushshah04/DashBoard_Agent",
+      "framework": "mcp-custom",
+      "horustrace": {
+        "finding_count": 5,
+        "rules": {"AGT020": 1, "AGT032": 2, "NET001": 2},
+        "attack_paths": 0,
+        "analysis_incomplete": true
+      },
+      "agreements": [
+        {
+          "gpt_finding": "gpt-rw-112-01",
+          "status": "partial",
+          "horustrace_rules": ["AGT020"],
+          "note": "HorusTrace recognizes run_python as process execution but labels it unbound. GPT source review proves default workspace MCP binding and model dispatch, plus unauthenticated WebSocket ingress."
+        }
+      ],
+      "gpt_only": [
+        {
+          "gpt_finding": "gpt-rw-112-02",
+          "gap": "model_selected_network_sink",
+          "claim": "workspace scan_company_website accepts a model-selected arbitrary http/https URL and follows redirects.",
+          "horustrace_equivalent": false
+        },
+        {
+          "gpt_finding": "gpt-rw-112-03",
+          "gap": "effective_mcp_authority",
+          "claim": "Enabled local MCP tools are dynamically listed and exposed to the model; dangerous workspace tools have no per-action approval gate.",
+          "horustrace_equivalent": false
+        },
+        {
+          "gpt_finding": "gpt-rw-112-04",
+          "gap": "caller_controlled_authority_configuration",
+          "claim": "Unauthenticated WebSocket payload controls config_path, changing which existing local MCP config is loaded.",
+          "horustrace_equivalent": false
+        }
+      ],
+      "horustrace_only_review": [
+        {
+          "rules": ["NET001", "AGT032"],
+          "count": 4,
+          "classification": "candidate_overreach_or_scope_difference",
+          "note": "HorusTrace reports generic dynamic remote MCP transports from server_config URL handling. The reviewed source does not show the WebSocket caller directly supplying a URL; it supplies config_path. Destination authority is therefore more indirect/constrained than the finding text 'caller-selected destination' suggests."
+        }
+      ],
+      "attack_path_gap": {
+        "gpt_paths": 3,
+        "horustrace_paths": 0,
+        "highest_impact_missing_chain": "unauthenticated WebSocket -> OpenAIMCPAgent -> bound workspace__run_python -> Python subprocess"
+      }
+    },
+    {
+      "case_id": "rw-139",
+      "repo": "IAmTomShaw/stock-tracker-agent",
+      "framework": "openai-agents",
+      "horustrace": {
+        "finding_count": 6,
+        "rules": {"AGT021": 1, "AGT022": 1, "AGT040": 2, "CAP005": 1, "NET002": 1},
+        "attack_paths": 0
+      },
+      "agreements": [
+        {
+          "gpt_finding": "gpt-rw-139-01",
+          "status": "full",
+          "horustrace_rules": ["AGT021", "AGT022", "AGT040"],
+          "note": "Both identify model-directed persistent tracker mutations without a separate approval step."
+        },
+        {
+          "gpt_finding": "gpt-rw-139-02",
+          "status": "full",
+          "horustrace_rules": ["CAP005"],
+          "note": "Both identify combined tracker read/write authority."
+        }
+      ],
+      "horustrace_only_review": [
+        {
+          "rule": "NET002",
+          "classification": "policy_scope_difference",
+          "note": "HorusTrace flags OpenAI WebSearchTool for lacking an explicit destination allowlist. GPT treated this as provider-constrained external search rather than a model-selected arbitrary destination. Rule semantics should distinguish fixed/provider-mediated network tools from tools that accept model-selected destinations."
+        }
+      ],
+      "attack_path_gap": {
+        "gpt_paths": 1,
+        "horustrace_paths": 0,
+        "missing_chain": "validated Twilio/CLI user input -> Message Handler Agent -> add/remove tracker tool -> tracker_list.json"
+      }
+    },
+    {
+      "case_id": "rw-152",
+      "repo": "kumarvipu1/agentic-ppt-slide",
+      "framework": "pydantic-ai",
+      "horustrace": {
+        "finding_count": 7,
+        "rules": {"PATH001": 3, "AGT022": 1, "AGT040": 1, "CAP005": 1, "NET002": 1},
+        "attack_paths": 3,
+        "analysis_incomplete": true
+      },
+      "agreements": [
+        {
+          "gpt_finding": "gpt-rw-152-01",
+          "status": "full",
+          "horustrace_rules": ["PATH001"],
+          "note": "Strong parity: three model/untrusted-input-to-Python compile/exec flows are identified."
+        },
+        {
+          "gpt_finding": "gpt-rw-152-02",
+          "status": "full",
+          "horustrace_rules": ["NET002"],
+          "note": "Both identify unrestricted outbound network authority on slide_agent."
+        },
+        {
+          "gpt_finding": "gpt-rw-152-03",
+          "status": "full",
+          "horustrace_rules": ["AGT022", "AGT040", "CAP005"],
+          "note": "Both identify model-controlled persistent file/write authority."
+        }
+      ],
+      "runtime_qualification_gap": {
+        "status": "material",
+        "claim": "agent.py references model_settings=settings while no definition/import of settings exists in the pinned source. This appears to block module import before the declared agents become runnable.",
+        "horustrace_behavior": "Reports PATH001 as runtime findings/attack paths and only marks analysis_incomplete=true; it does not expose the source-level viability blocker.",
+        "recommended_semantics": "Retain declared/static risk, but downgrade reachability from runnable/proven to conditional or initialization-blocked."
+      },
+      "attack_path_gap": {
+        "gpt_paths": 3,
+        "horustrace_paths": 3,
+        "semantic_parity": true,
+        "qualification_difference": "GPT marks all three conditional on fixing the current import blocker."
+      }
+    }
+  ]
+}
