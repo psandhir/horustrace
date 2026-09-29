@@ -884,14 +884,6 @@ def scan_python_file(path: Path) -> Graph:
         agent.metadata["model_driven_workflow"] = bool(
             workflow_roles & {"model_agent", "tool_node"}
         )
-        if not agent.metadata["model_driven_workflow"]:
-            # StateGraph is also widely used as a deterministic orchestration
-            # engine. Preserve explicit workflow topology, but do not promote a
-            # graph with only deterministic/control nodes into an agent principal.
-            # Agent-level capabilities and attack paths require source evidence of
-            # model selection or a ToolNode dispatch surface.
-            continue
-
         graph.agents.append(agent)
 
     for agent in factory_agents:
