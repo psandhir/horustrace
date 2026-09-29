@@ -1,0 +1,73 @@
+{
+  "case_id": "rw-026",
+  "repo_name": "devchilll/scope",
+  "sha": "8a6e5f0b3a48bf2724d53c77e11507bea4e2ac8e",
+  "source_review_status": "locked_before_horustrace_reveal",
+  "structural": {
+    "agents": {
+      "count": 1,
+      "evidence_state": "observed",
+      "note": "One Google ADK LlmAgent named scope_safety_router."
+    },
+    "tools": {
+      "count": 13,
+      "evidence_state": "observed",
+      "note": "Five banking tools and eight observability/safety tools are bound through ALL_TOOLS."
+    },
+    "mcp": {
+      "count": 0,
+      "evidence_state": "observed"
+    }
+  },
+  "authority": [
+    {
+      "state": "observed",
+      "fact": "The agent can read account balances, transactions, accounts and audit/escalation data, subject to in-tool IAM checks."
+    },
+    {
+      "state": "observed",
+      "fact": "transfer_money mutates balances and writes transaction records but enforces ownership and sufficient-balance checks."
+    },
+    {
+      "state": "observed",
+      "fact": "resolve_escalation_ticket mutates escalation state and performs a deterministic permission check."
+    },
+    {
+      "state": "observed",
+      "fact": "Agent-level before/after model callbacks are commented out; safety is exposed as model-invoked tools and enforced primarily by prompt instructions."
+    }
+  ],
+  "policy_expectations": [
+    {
+      "rule_id": "ADK001",
+      "state": "observed",
+      "reason": "The privileged ADK agent binds banking/state-changing tools while source-level tool-control callback/plugin/confirmation is not active; the callbacks are commented out."
+    },
+    {
+      "rule_id": "AGT022",
+      "state": "observed",
+      "reason": "transfer_money is a state-changing tool with no explicit human approval boundary, despite deterministic ownership checks and prompt-driven safety workflow."
+    },
+    {
+      "rule_id": "CAP005",
+      "state": "observed",
+      "reason": "The same agent combines sensitive banking data read authority with state-changing transfer/escalation authority."
+    },
+    {
+      "rule_id": "AGT040",
+      "state": "inferred",
+      "reason": "Privileged banking writes are exposed to the model; deterministic IAM constrains resource scope but does not constitute human approval. Whether HorusTrace treats the model-mediated safety tools as a sufficient guardrail requires policy-semantic comparison."
+    }
+  ],
+  "unresolved": [
+    "Whether model-invoked safety_check_layer1/layer2/decision tools satisfy HorusTrace's guardrail semantics for AGT040.",
+    "No direct application ingress file was reviewed, so attack-path assertions from untrusted input are not locked."
+  ],
+  "evidence": [
+    "scope/agent.py",
+    "scope/data/tools.py",
+    "scope/observability_tools.py",
+    "scope/callbacks.py",
+    "scope/prompt.py"
+  ]
+}
