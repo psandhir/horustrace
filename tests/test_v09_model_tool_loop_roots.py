@@ -415,3 +415,141 @@ def dangerous_b():
         server.name != "a" and server.name != "b"
         for server in agent.mcp_servers
     )
+
+
+
+def test_openai_responses_function_call_type_binds_default_local_mcp(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import sys
+from pathlib import Path
+
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+from openai import AsyncOpenAI
+
+
+def _repo_root():
+    return Path(__file__).resolve().parent
+
+
+def _load_config(config_path=None):
+    return {
+        "mcpServers": {
+            "workspace": {
+                "enabled": True,
+                "command": sys.executable,
+                "args": [str(_repo_root() / "workspace_server.py")],
+            }
+        }
+    }
+
+
+class OpenAIMCPAgent:
+    def __init__(self):
+        self.client = AsyncOpenAI()
+        self.config_path = None
+        self.session = None
+        self.openai_tools = []
+
+    async def connect(self):
+        config = _load_config(self.config_path)
+        for server_name, server_config in config.get("mcpServers", {}).items():
+            params = StdioServerParameters(
+                command=server_config["command"],
+                args=server_config.get("args", []),
+            )
+            await stdio_client(params)
+            session = ClientSession(read_stream, write_stream)
+            self.session = session
+            tools_result = await session.list_tools()
+            for tool in tools_result.tools:
+                self.openai_tools.append(
+                    {
+                        "type": "function",
+                        "name": tool.name,
+                        "parameters": tool.inputSchema,
+                    }
+                )
+
+    async def call_tool(self, name, arguments):
+        return await self.session.call_tool(name, arguments)
+
+    async def run(self, prompt):
+        response = await self.client.responses.create(
+            model="gpt-5",
+            input=prompt,
+            tools=self.openai_tools,
+        )
+        for item in response.output:
+            if item.type == "function_call":
+                await self.call_tool(item.name, {})
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "workspace_server.py").write_text(
+        """
+import subprocess
+import sys
+
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("workspace")
+
+@mcp.tool()
+def run_python(code: str) -> str:
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.stdout
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "model-tool-loop"
+    )
+    assert set(agent.metadata["discovery_signals"]) == {
+        "model_call",
+        "model_selection",
+        "tool_catalogue",
+        "tool_dispatch",
+    }
+    assert agent.metadata["default_mcp_servers"] == ["workspace"]
+
+    server = next(item for item in agent.mcp_servers if item.name == "workspace")
+    assert server.metadata["repository_resolved"] is True
+    assert server.metadata["binding_origin"] == "local_stdio_script"
+    assert server.metadata["implementation_name"] == "workspace"
+    assert any(
+        item["name"] == "run_python"
+        for item in server.metadata["discovered_tools"]
+    )
+    assert "process.execute" in server.metadata["discovered_tool_capabilities"]
+
+    authority = next(
+        item
+        for item in effective_authority_report(graph)["relationships"]
+        if item["agent"] == agent.name
+        and item["target"] == {"kind": "mcp_server", "name": "workspace"}
+    )
+    assert "process.execute" in authority["capabilities"]
+    assert not any(tool.name == "run_python" for tool in graph.unbound_tools)
+    assert any(
+        finding.rule_id == "AGT053" and finding.agent == agent.name
+        for finding in findings
+    )
+    assert not any(
+        finding.rule_id == "AGT020"
+        and "Unbound tool 'run_python'" in finding.message
+        for finding in findings
+    )
