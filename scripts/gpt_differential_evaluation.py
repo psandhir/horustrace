@@ -82,7 +82,7 @@ def build_packet(result: dict[str, Any], case_ids: list[str]) -> dict[str, Any]:
         "schema_version": 1,
         "study": DIFF_STUDY,
         "phase": "case_blind_source_review",
-        "scanner_sha_withheld_until_review_lock": scanner_sha,
+        "scanner_sha_for_later_join": scanner_sha,
         "horustrace_findings_in_packet": False,
         "cases": selected,
         "review_requirements": {
@@ -105,7 +105,10 @@ def build_packet(result: dict[str, Any], case_ids: list[str]) -> dict[str, Any]:
     }
 
 
-def _scanner_findings(result: dict[str, Any]) -> tuple[str, dict[str, dict[str, Any]]]:
+def _scanner_findings(
+    result: dict[str, Any],
+    case_ids: set[str],
+) -> tuple[str, dict[str, dict[str, Any]]]:
     if result.get("study") != SOURCE_STUDY:
         raise DifferentialError("scanner result belongs to a different study")
     scanner_sha = str(result.get("scanner_sha") or "")
@@ -114,6 +117,8 @@ def _scanner_findings(result: dict[str, Any]) -> tuple[str, dict[str, dict[str, 
         if not isinstance(case, dict):
             continue
         case_id = str(case.get("case_id") or "")
+        if case_id not in case_ids:
+            continue
         for index, finding in enumerate(case.get("findings", []) or []):
             if not isinstance(finding, dict):
                 continue
@@ -184,7 +189,21 @@ def score(
     if alignment.get("study") != DIFF_STUDY:
         raise DifferentialError("alignment belongs to a different study")
 
-    scanner_sha, scanner_findings = _scanner_findings(scanner)
+    review_cases = review.get("cases")
+    if not isinstance(review_cases, list) or not review_cases:
+        raise DifferentialError("GPT review contains no cases")
+    review_case_ids = {
+        str(case.get("case_id") or "")
+        for case in review_cases
+        if isinstance(case, dict) and case.get("case_id")
+    }
+    if len(review_case_ids) != len(review_cases):
+        raise DifferentialError("GPT review has missing or duplicate case_id values")
+
+    scanner_sha, scanner_findings = _scanner_findings(scanner, review_case_ids)
+    scanner_case_ids = {row["case_id"] for row in scanner_findings.values()}
+    if not scanner_case_ids.issubset(review_case_ids):
+        raise DifferentialError("scanner result escaped the reviewed case boundary")
     gpt_findings = _gpt_findings(review)
     expected_sha = str(alignment.get("scanner_sha") or "")
     if expected_sha != scanner_sha:
