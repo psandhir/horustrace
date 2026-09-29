@@ -448,7 +448,12 @@ def _handler_receivers(
         and node is not function
         and _inside(node, function)
     ]
-    scopes.sort(key=lambda node: (getattr(node, "end_lineno", 0) or 0) - (getattr(node, "lineno", 0) or 0))
+    scopes.sort(
+        key=lambda node: (
+            (getattr(node, "end_lineno", 0) or 0)
+            - (getattr(node, "lineno", 0) or 0)
+        )
+    )
     for scope in [*reversed(scopes), function]:
         for name, annotation in _parameter_annotations(scope):
             agent = _receiver_from_annotation(
