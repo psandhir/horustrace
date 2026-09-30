@@ -104,9 +104,11 @@ def _containment_detected(
         ):
             return True
         called = (_dotted(child.func) or "").lower()
-        if called in {"os.path.commonpath", "posixpath.commonpath", "ntpath.commonpath"}:
-            if any(_expr_uses(arg, tainted) for arg in child.args):
-                return True
+        if (
+            called in {"os.path.commonpath", "posixpath.commonpath", "ntpath.commonpath"}
+            and any(_expr_uses(arg, tainted) for arg in child.args)
+        ):
+            return True
     return False
 
 
