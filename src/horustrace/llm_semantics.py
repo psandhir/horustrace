@@ -664,7 +664,9 @@ def _copilot_resolver(
         _system_prompt()
         + "\n\n"
         + _user_prompt(candidate, source_slice)
-        + "\n\nReturn exactly one JSON object matching the requested schema. "
+        + "\n\nRESPONSE JSON SCHEMA:\n"
+        + json.dumps(_schema(), indent=2, sort_keys=True)
+        + "\n\nReturn exactly one JSON object matching this schema. "
         "Do not wrap it in markdown fences and do not use tools."
     )
     command = [
