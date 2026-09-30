@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "framework-holdout-adk-pydantic-unseen-10",
+  "status": "cohort_locked_before_scanner_reveal",
+  "selection": {
+    "frameworks": {
+      "google-adk": 5,
+      "pydantic-ai": 5
+    },
+    "criteria": [
+      "case is Tier-B in frozen real-world-agent-security-2026 cohort",
+      "case is absent from all prior GPT differential batches",
+      "case is absent from blind-semantic-cohort-2026",
+      "balanced framework split",
+      "diverse authority and control surfaces"
+    ],
+    "horustrace_results_used_for_selection": false
+  },
+  "cases": [
+    {
+      "case_id": "rw-028",
+      "repo": "AhmadK-it/research_assistant",
+      "sha": "923bf68dde7186f7ecff050cc3513550b5f68b0d",
+      "framework": "google-adk",
+      "application_path": "agent.py"
+    },
+    {
+      "case_id": "rw-030",
+      "repo": "Piyushhpatel/aquagaurd-google-cloud-rapid",
+      "sha": "98c843300428b3b01a38e33a014dfbabc984d4fd",
+      "framework": "google-adk",
+      "application_path": "agent.py"
+    },
+    {
+      "case_id": "rw-032",
+      "repo": "allen-stephen/memory-bank-samples",
+      "sha": "ac7fdb1ed89f96c4f4e4d96548c09260e9e387da",
+      "framework": "google-adk",
+      "application_path": "app/agent.py"
+    },
+    {
+      "case_id": "rw-033",
+      "repo": "moonpy-a11y/agent_payments",
+      "sha": "b08e4bec80ea2f8a3664d670bc6fc52b8a50d1ae",
+      "framework": "google-adk",
+      "application_path": "agent.py"
+    },
+    {
+      "case_id": "rw-040",
+      "repo": "dwij2812/streamassist-datastorespec-example",
+      "sha": "c7ae87d8c45a55c2c678690269ec49c92801d4b8",
+      "framework": "google-adk",
+      "application_path": "agent.py"
+    },
+    {
+      "case_id": "rw-149",
+      "repo": "LeonieFreisinger/pydanticai-base-agent",
+      "sha": "0cf88a4caf2b5da29ff7af8364d4db14ac9e50b4",
+      "framework": "pydantic-ai",
+      "application_path": "app.py"
+    },
+    {
+      "case_id": "rw-168",
+      "repo": "hypermemory-ai/openrouter_provider_validator",
+      "sha": "95eee5b0694ca7901526e6280f1a700760a7e7ba",
+      "framework": "pydantic-ai",
+      "application_path": "agent.py"
+    },
+    {
+      "case_id": "rw-170",
+      "repo": "Croups/smart-web-scraper",
+      "sha": "a157701a22ae1853a00156b2364830130958c82d",
+      "framework": "pydantic-ai",
+      "application_path": "scraping_agent.py"
+    },
+    {
+      "case_id": "rw-174",
+      "repo": "Unfold-Security/pydantic-collab",
+      "sha": "b35097cb7cb5f39cc3d098f51d819c1cfe3a0266",
+      "framework": "pydantic-ai",
+      "application_path": "examples/12_data_analysis_pipeline.py"
+    },
+    {
+      "case_id": "rw-176",
+      "repo": "djaboxx/template-ai-chat-stack",
+      "sha": "d8f54cc067f387b4f6f1cb685266adca4111aadc",
+      "framework": "pydantic-ai",
+      "application_path": "ai_service.py"
+    }
+  ]
+}
