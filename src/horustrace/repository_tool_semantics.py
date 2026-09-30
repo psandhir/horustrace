@@ -132,6 +132,15 @@ def _containment_detected(
             and _expr_names(child) & tainted
         ):
             return True
+        if (
+            leaf in {
+                "_validate_agent_scoped_path",
+                "validate_agent_scoped_path",
+                "_resolve_agent_scoped_path",
+            }
+            and any(_expr_names(argument) & tainted for argument in child.args)
+        ):
+            return True
     return False
 
 
