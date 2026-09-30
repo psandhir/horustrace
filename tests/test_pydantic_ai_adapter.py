@@ -627,3 +627,32 @@ def chat_page():
     )
     assert not any(item.path_id == "PATH011" for item in graph.attack_paths)
     assert not any(finding.rule_id == "PATH011" for finding in findings)
+
+
+def test_pydantic_ai_wrapper_attribute_agent_and_tool_are_discovered(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent, RunContext
+
+class ResearchAgent:
+    def __post_init__(self):
+        self.agent = Agent("openai:gpt-5.2")
+
+        @self.agent.tool
+        async def search_documents(ctx: RunContext, query: str) -> str:
+            return query
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "pydantic-ai"
+    )
+    assert agent.name == "self.agent"
+    assert [tool.name for tool in agent.tools] == ["search_documents"]
