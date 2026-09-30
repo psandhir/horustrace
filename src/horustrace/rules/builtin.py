@@ -47,6 +47,37 @@ def _destination_is_broad_or_dynamic(destination: NetworkDestination) -> bool:
     return not destination.restricted
 
 
+def _llm_synthetic_approval_gap_is_proven(tool: object) -> bool:
+    """Unknown LLM control state must not be treated as proven absence."""
+    metadata = getattr(tool, "metadata", {}) or {}
+    if metadata.get("semantic_projection_kind") != "synthetic":
+        return True
+    return metadata.get("semantic_approval_state") == "false"
+
+
+def _llm_synthetic_control_gap_is_proven(tool: object) -> bool:
+    metadata = getattr(tool, "metadata", {}) or {}
+    if metadata.get("semantic_projection_kind") != "synthetic":
+        return True
+    return (
+        metadata.get("semantic_approval_state") == "false"
+        and metadata.get("semantic_guardrails_state") == "false"
+    )
+
+
+def _llm_network_gap_is_actionable(tool: object) -> bool:
+    """Only let newly LLM-inferred network authority create egress gaps when
+    destination provenance is source-supported rather than unknown.
+    """
+    metadata = getattr(tool, "metadata", {}) or {}
+    added = set(metadata.get("semantic_added_capabilities") or [])
+    if "network.external" not in added:
+        return True
+    return metadata.get("semantic_network_destination_provenance") in {
+        "model_selected",
+    }
+
+
 def _identity_findings(identity: Identity, agent: str | None = None) -> list[Finding]:
     findings: list[Finding] = []
     declared_authority = identity.metadata.get("declared_authority")
@@ -240,6 +271,7 @@ def evaluate(graph: Graph) -> list[Finding]:
             if (
                 "process.execute" in tool.capabilities
                 and tool.approval is not True
+                and _llm_synthetic_approval_gap_is_proven(tool)
                 and tool.kind != "delegated_agent"
                 and tool.metadata.get("process_execution_constrained") is not True
             ):
@@ -247,6 +279,7 @@ def evaluate(graph: Graph) -> list[Finding]:
             if (
                 "destructive.write" in tool.capabilities
                 and tool.approval is not True
+                and _llm_synthetic_approval_gap_is_proven(tool)
                 and tool.metadata.get("agent_internal_artifact") is not True
             ):
                 findings.append(Finding("AGT021", Severity.HIGH, "Destructive action without human approval", f"Tool '{tool.name}' appears able to perform destructive writes without approval.", "Gate destructive operations with human approval and least-privilege authorization.", layer=1, location=tool.location, agent=agent.name, evidence=["capability=destructive.write", f"approval={tool.approval}"]))
@@ -263,6 +296,7 @@ def evaluate(graph: Graph) -> list[Finding]:
                 and tool.metadata.get("computer_control_mutating")
                 and not tool.guardrails
                 and tool.approval is not True
+                and _llm_synthetic_control_gap_is_proven(tool)
                 and not agent_tool_control
             ):
                 sink_location = tool.metadata.get("computer_control_sink_location")
@@ -892,7 +926,10 @@ def evaluate(graph: Graph) -> list[Finding]:
         sensitive = agent.sensitive_data_sources
         resources = agent.effective_resources
         destinations = agent.effective_destinations
-        outbound_caps = bool({"network.external", "external.write"} & agent.capabilities)
+        external_transfer_caps = bool(
+            {"network.external", "external.write"} & agent.capabilities
+        )
+        network_outbound_caps = "network.external" in agent.capabilities
 
         broad_resources = [r for r in resources if resource_is_broad(r.selector)]
         if broad_resources:
@@ -901,15 +938,22 @@ def evaluate(graph: Graph) -> list[Finding]:
         explicit_broad_destinations = [
             d for d in destinations if _destination_is_broad_or_dynamic(d)
         ]
-        outbound_tools = [
+        network_outbound_tools = [
             tool
             for tool in agent.tools
-            if {"network.external", "external.write"} & tool.capabilities
+            if "network.external" in tool.capabilities
         ]
-        unconstrained_outbound_tools = [
+        unconstrained_network_tools = [
             tool
-            for tool in outbound_tools
-            if tool.metadata.get("network_scope") != "fixed_managed_service"
+            for tool in network_outbound_tools
+            if tool.metadata.get("network_scope")
+            not in {
+                "fixed_managed_service",
+                "fixed_provider_network",
+                "operator_configured_destination",
+                "explicit_destination",
+            }
+            and _llm_network_gap_is_actionable(tool)
         ]
         if explicit_broad_destinations:
             search_derived_only = all(
@@ -949,12 +993,16 @@ def evaluate(graph: Graph) -> list[Finding]:
                 )
             )
         else:
+            network_tools_by_name = {
+                tool.name: tool for tool in agent.tools
+                if "network.external" in tool.capabilities
+            }
             outbound_authorities = [
                 item
                 for item in authority_relationships
                 if item.agent == agent.name
                 and item.agent_instance_key == _agent_instance_key(agent)
-                and {"network.external", "external.write"} & set(item.capabilities)
+                and "network.external" in set(item.capabilities)
             ]
             unresolved_destination_authorities = [
                 item
@@ -966,10 +1014,19 @@ def evaluate(graph: Graph) -> list[Finding]:
                     "fixed_provider_network",
                     "operator_configured_destination",
                 }
+                and (
+                    item.target_kind != "tool"
+                    or item.target_name not in network_tools_by_name
+                    or _llm_network_gap_is_actionable(
+                        network_tools_by_name[item.target_name]
+                    )
+                )
             ]
             authority_destination_gap = bool(unresolved_destination_authorities)
             legacy_destination_gap = (
-                outbound_caps and not destinations and unconstrained_outbound_tools
+                network_outbound_caps
+                and not destinations
+                and unconstrained_network_tools
             )
             if authority_destination_gap or (
                 not outbound_authorities and legacy_destination_gap
@@ -983,7 +1040,7 @@ def evaluate(graph: Graph) -> list[Finding]:
                     + ",".join(
                         sorted(
                             agent.capabilities
-                            & {"network.external", "external.write"}
+                            & {"network.external"}
                         )
                     )
                 ]
@@ -1017,14 +1074,22 @@ def evaluate(graph: Graph) -> list[Finding]:
                 if outside_dest:
                     findings.append(Finding("NET003", Severity.HIGH, "Network destination exceeds declared allowlist", f"Agent '{agent.name}' can reach destinations outside its declared network allowlist.", "Restrict tool/MCP egress to the approved destination set.", layer=4, location=agent.location, agent=agent.name, evidence=["outside=" + ",".join(outside_dest)]))
 
-        if sensitive and outbound_caps:
-            outbound_tools = [t for t in agent.tools if {"network.external", "external.write"} & t.capabilities]
+        if sensitive and external_transfer_caps:
+            outbound_tools = [
+                t
+                for t in agent.tools
+                if {"network.external", "external.write"} & t.capabilities
+            ]
             if outbound_tools and any(t.approval is not True for t in outbound_tools):
                 findings.append(Finding("AGT010", Severity.CRITICAL, "Potential sensitive-data exfiltration path", f"Agent '{agent.name}' combines sensitive-data access and outbound capability without an approval requirement detected on every outbound tool.", "Restrict outbound destinations, reduce data scope, or require human approval before sensitive information can leave the trust boundary.", layer=4, location=agent.location, agent=agent.name, evidence=["sensitive=" + ",".join(d.name for d in sensitive), "outbound=" + ",".join(t.name for t in outbound_tools)]))
 
         if sensitive and (
             explicit_broad_destinations
-            or (outbound_caps and not destinations and unconstrained_outbound_tools)
+            or (
+                network_outbound_caps
+                and not destinations
+                and unconstrained_network_tools
+            )
         ):
             findings.append(Finding("DATA003", Severity.CRITICAL, "Sensitive data has broad egress reachability", f"Agent '{agent.name}' combines sensitive data access with broadly constrained or unconstrained outbound capability.", "Restrict outbound destinations and require approval/DLP controls before sensitive data can leave the trust boundary.", layer=4, location=agent.location, agent=agent.name, evidence=["sensitive=" + ",".join(d.name for d in sensitive)]))
 
