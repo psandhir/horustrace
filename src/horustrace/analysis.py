@@ -411,6 +411,11 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
             if item.trust == "untrusted" or item.kind in UNTRUSTED_INPUT_KINDS
         ]
         sensitive = agent.sensitive_data_sources
+        external_transfer = [
+            tool
+            for tool in agent.tools
+            if {"network.external", "external.write"} & tool.capabilities
+        ]
         network_outbound = [
             tool
             for tool in agent.tools
@@ -1069,7 +1074,7 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 )
             )
 
-        for tool in outbound:
+        for tool in external_transfer:
             if sensitive and tool.approval is not True:
                 paths.append(
                     AttackPath(
