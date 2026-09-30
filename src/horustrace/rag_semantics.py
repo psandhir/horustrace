@@ -303,7 +303,6 @@ def enrich_streamlit_rag_directory_semantics(
         seen.add(key)
 
         tainted = set(tainted_params)
-        local_constrained = constrained or _containment_detected(function, tainted)
 
         assignments = [
             node
@@ -329,6 +328,7 @@ def enrich_streamlit_rag_directory_semantics(
             if not changed:
                 break
 
+        local_constrained = constrained or _containment_detected(function, tainted)
         sink = _recursive_sink(function, tainted)
         if sink is not None:
             return sink, local_constrained, module, function_name
