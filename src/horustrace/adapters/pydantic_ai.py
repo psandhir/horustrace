@@ -97,6 +97,15 @@ _NATIVE_TOOL_CAPABILITIES: dict[str, tuple[str, set[str]]] = {
     "AdvisorTool": ("delegated_agent", {"agent.delegate", "network.external"}),
 }
 
+# Pydantic AI can bind third-party LangChain tools through
+# pydantic_ai.ext.langchain.tool_from_langchain(). Preserve authority only for
+# concrete wrapped tool classes whose execution semantics are known.
+_LANGCHAIN_WRAPPED_TOOL_CAPABILITIES: dict[str, tuple[str, set[str]]] = {
+    "PythonREPLTool": ("langchain_python_repl", {"process.execute"}),
+    "PythonAstREPLTool": ("langchain_python_repl", {"process.execute"}),
+}
+
+
 
 _CONTROL_CAPABILITIES = {
     "Guardrails",
@@ -878,7 +887,37 @@ def _tool_from_reference(
         direct = _tool_from_tool_call(path, expr, functions, imports)
         if direct is not None:
             return direct
-        name = _call_name(expr.func) or "tool"
+
+        call_name = _call_name(expr.func) or ""
+        if call_name == "tool_from_langchain":
+            wrapped = expr.args[0] if expr.args else _kw(expr, "tool")
+            wrapped_name = (
+                _call_name(wrapped.func)
+                if isinstance(wrapped, ast.Call)
+                else _call_name(wrapped)
+            ) or ""
+            wrapped_semantics = _LANGCHAIN_WRAPPED_TOOL_CAPABILITIES.get(
+                wrapped_name
+            )
+            if wrapped_semantics is not None:
+                kind, capabilities = wrapped_semantics
+                return Tool(
+                    name=wrapped_name,
+                    kind=kind,
+                    capabilities=set(capabilities),
+                    location=_location(path, expr),
+                    metadata={
+                        "framework": "pydantic-ai",
+                        "source": "tool_from_langchain",
+                        "wrapped_framework": "langchain",
+                        "wrapped_tool": wrapped_name,
+                        "binding_adapter": (
+                            "pydantic_ai.ext.langchain.tool_from_langchain"
+                        ),
+                    },
+                )
+
+        name = call_name or "tool"
         return Tool(
             name=name,
             kind="function",
