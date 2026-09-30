@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "framework-holdout-adk-pydantic-10",
+  "methodology": {
+    "design": "blind_holdout",
+    "frameworks": {
+      "google-adk": 5,
+      "pydantic-ai": 5
+    },
+    "llm_prompt": "research/gpt-horustrace-differential-2026/GPT_SOURCE_REVIEW_PROMPT_V1.md",
+    "scanner_reveal_policy": "LLM/source review must be committed before HorusTrace scan",
+    "scanner_main_sha_at_cohort_lock": "55f0da3d5231eb3c63591a643f338942ad1983d2"
+  },
+  "cases": [
+    {
+      "case_id": "ho-001",
+      "framework": "google-adk",
+      "repo": "arjunprabhulal/adk-mcp-gemma3",
+      "sha": "e487feaffeb9b53d49733af985a88a1924781e5f",
+      "rationale": "ADK plus MCP integration"
+    },
+    {
+      "case_id": "ho-002",
+      "framework": "google-adk",
+      "repo": "kweinmeister/agentic-trading",
+      "sha": "9e4046b1144e44785ccaa7ce35a4491f86d79e80",
+      "rationale": "state-changing trading agent"
+    },
+    {
+      "case_id": "ho-003",
+      "framework": "google-adk",
+      "repo": "mongodb-developer/MongoDB-ADK-Agents",
+      "sha": "aafaefdb16230ed1c24ca6ae5605360befafaab2",
+      "rationale": "ADK with MongoDB/RAG and database authority"
+    },
+    {
+      "case_id": "ho-004",
+      "framework": "google-adk",
+      "repo": "langchain-ai/google-adk-realtime-deepagents-example",
+      "sha": "b94966176abdddea652589d9cf8a59c00be26c8a",
+      "rationale": "realtime ADK plus delegated/deep-agent composition"
+    },
+    {
+      "case_id": "ho-005",
+      "framework": "google-adk",
+      "repo": "box-community/google-adk-box-agent",
+      "sha": "c35dc3d306a7baa3629fd7c72c37e1791cda1e9e",
+      "rationale": "ADK agent with Box SaaS/file authority"
+    },
+    {
+      "case_id": "ho-006",
+      "framework": "pydantic-ai",
+      "repo": "coleam00/MongoDB-RAG-Agent",
+      "sha": "b048eeab220e43b2b8f8c97508e4d6d2c134a468",
+      "rationale": "Pydantic AI RAG plus MongoDB"
+    },
+    {
+      "case_id": "ho-007",
+      "framework": "pydantic-ai",
+      "repo": "coleam00/human-in-the-loop-rag-agent",
+      "sha": "b5f6158cacc0c52a1585429de3751a31f551d333",
+      "rationale": "Pydantic AI with explicit human approval boundary"
+    },
+    {
+      "case_id": "ho-008",
+      "framework": "pydantic-ai",
+      "repo": "slack-samples/bolt-python-starter-agent",
+      "sha": "01fc89f9059348af2d172f8ea1dc62bffd008611",
+      "rationale": "Slack ingress and agent tool authority"
+    },
+    {
+      "case_id": "ho-009",
+      "framework": "pydantic-ai",
+      "repo": "vstorm-co/pydantic-ai-backend",
+      "sha": "8ac7b678b633aa51c054a884ce27d31b130b8110",
+      "rationale": "larger Pydantic backend with toolsets/runtime integration"
+    },
+    {
+      "case_id": "ho-010",
+      "framework": "pydantic-ai",
+      "repo": "vstorm-co/subagents-pydantic-ai",
+      "sha": "bb8c400732ad515a1e2bfc554ee2dcf7500b2ef9",
+      "rationale": "Pydantic sub-agent delegation"
+    }
+  ]
+}
