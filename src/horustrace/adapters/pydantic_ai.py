@@ -423,9 +423,12 @@ def _function_search_result_url_semantics(
                     )
                 ):
                     provider_call = True
-            if isinstance(child, ast.Constant) and isinstance(child.value, str):
-                if child.value.lower() in {"url", "href", "link"}:
-                    result_url_field = True
+            if (
+                isinstance(child, ast.Constant)
+                and isinstance(child.value, str)
+                and child.value.lower() in {"url", "href", "link"}
+            ):
+                result_url_field = True
         if provider_call and result_url_field:
             provider_search_helpers.add(name)
 
