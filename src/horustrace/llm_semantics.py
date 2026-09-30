@@ -1282,10 +1282,18 @@ def _apply_payload(
         tool.metadata["semantic_ephemeral_state_write_suppressed"] = True
 
     approval = _tri_bool(payload.get("approval"))
-    if tool.approval is None and approval is not None:
+    # LLM enrichment may add missing semantic authority, but it must not lower
+    # deterministic risk by declaring controls on an already-normalized tool.
+    # Control claims are still retained in semantic metadata for review. For a
+    # synthetic tool, the LLM is the only source of tool-level control state.
+    if (
+        projection_kind == "synthetic"
+        and tool.approval is None
+        and approval is not None
+    ):
         tool.approval = approval
     guardrails = _tri_bool(payload.get("guardrails"))
-    if guardrails is True:
+    if projection_kind == "synthetic" and guardrails is True:
         tool.guardrails = True
 
     constraints = payload.get("constraints") or {}
