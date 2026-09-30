@@ -1069,3 +1069,72 @@ agent = Agent(
         and finding.agent == "agent"
         for finding in findings
     )
+
+
+def test_pydantic_ai_imported_native_controls_propagate_from_source(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "native_tools"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "tools.py").write_text(
+        """
+import asyncio
+
+ALLOWED_COMMANDS = {"ls", "grep", "git"}
+DANGEROUS_PATTERNS = [r"[|&;]"]
+
+async def codebase_shell(command: str, args: list[str]):
+    if command not in ALLOWED_COMMANDS:
+        return "not allowed"
+    for pattern in DANGEROUS_PATTERNS:
+        if pattern in command:
+            return "blocked"
+    process = await asyncio.create_subprocess_exec(command, *args)
+    return await process.wait()
+
+def _validate_agent_scoped_path(filename: str):
+    return ".shotgun/" + filename
+
+def write_file(filename: str, content: str):
+    path = _validate_agent_scoped_path(filename)
+    with open(path, "w") as handle:
+        handle.write(content)
+
+def append_file(filename: str, content: str):
+    return write_file(filename, content)
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+from native_tools.tools import append_file, codebase_shell, write_file
+
+agent = Agent(
+    "openai:gpt-5.2",
+    tools=[codebase_shell, write_file, append_file],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    shell = next(item for item in agent.tools if item.name == "codebase_shell")
+    write = next(item for item in agent.tools if item.name == "write_file")
+    append = next(item for item in agent.tools if item.name == "append_file")
+
+    assert shell.guardrails is True
+    assert shell.metadata["process_execution_constrained"] is True
+    for tool in (write, append):
+        assert tool.guardrails is True
+        assert tool.metadata["filesystem_path_constrained"] is True
+        assert tool.metadata["agent_internal_artifact"] is True
+        assert any(resource.selector == ".shotgun/**" for resource in tool.resources)
+
+    assert not any(
+        finding.rule_id in {"AGT020", "AGT021", "AGT022", "AGT040"}
+        and finding.agent == "agent"
+        for finding in findings
+    )
