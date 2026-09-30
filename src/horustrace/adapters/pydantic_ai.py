@@ -2046,6 +2046,38 @@ def scan_python_file(path: Path) -> Graph:
             )
             tool.metadata.update(derived_metadata)
 
+    # Agent.to_web() explicitly exposes the configured agent through
+    # Pydantic AI's generated web application. Preserve that public/user-facing
+    # ingress so externally wrapped tools can participate in end-to-end authority
+    # paths even when their implementation lives outside the repository.
+    for web_call in (
+        node for node in ast.walk(tree) if isinstance(node, ast.Call)
+    ):
+        if not isinstance(web_call.func, ast.Attribute):
+            continue
+        if web_call.func.attr != "to_web":
+            continue
+        owner = _dotted(web_call.func.value) or _call_name(web_call.func.value)
+        agent = agents.get(owner or "")
+        if agent is None:
+            continue
+        basis = "pydantic_ai_to_web_input"
+        if any(item.metadata.get("basis") == basis for item in agent.inputs):
+            continue
+        agent.inputs.append(
+            InputSource(
+                name="to_web:public-input",
+                trust="untrusted",
+                kind="web",
+                location=_location(path, web_call),
+                metadata={
+                    "basis": basis,
+                    "runtime_invocation_proven": True,
+                    "surface": "pydantic_ai.to_web",
+                },
+            )
+        )
+
     _annotate_cli_run_inputs(path, tree, agents)
     _annotate_public_wrapper_run_inputs(path, tree, agents)
 
