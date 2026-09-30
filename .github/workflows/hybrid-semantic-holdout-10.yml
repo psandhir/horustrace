@@ -1,11 +1,16 @@
 name: Hybrid Semantic Holdout 10
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - feature/llm-semantic-escalation
     paths:
       - ".github/workflows/hybrid-semantic-holdout-10.yml"
+      - "src/horustrace/llm_semantics.py"
+      - "src/horustrace/scanner.py"
+      - "src/horustrace/models.py"
+      - "src/horustrace/rules/**"
 
 permissions:
   contents: write
