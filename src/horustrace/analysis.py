@@ -4,7 +4,15 @@ from horustrace.heuristics import (
     HIGH_RISK_CAPABILITIES,
     UNTRUSTED_INPUT_KINDS,
 )
-from horustrace.models import AgentReachability, AttackPath, FlowPath, Graph, Severity
+from horustrace.models import (
+    AgentReachability,
+    AttackPath,
+    FlowExecutionContext,
+    FlowPath,
+    Graph,
+    Severity,
+    Tool,
+)
 
 _UNTRUSTED_FLOW_SOURCES = {
     "user_input",
@@ -49,17 +57,82 @@ def _flow_path_metadata(flow: FlowPath) -> dict:
     }
 
 
+def _bound_tool_for_flow(graph: Graph, flow: FlowPath) -> Tool | None:
+    if not flow.agent:
+        return None
+    binding = flow.metadata.get("agent_binding")
+    if not isinstance(binding, dict):
+        return None
+    tool_name = binding.get("tool")
+    function_key = binding.get("function")
+    instance_key = binding.get("agent_instance_key")
+    source_path = binding.get("agent_source_path")
+    source_line = binding.get("agent_source_line")
+
+    agents = [item for item in graph.agents if item.name == flow.agent]
+    if isinstance(source_path, str) and source_path:
+        agents = [
+            item
+            for item in agents
+            if item.location is not None
+            and item.location.path.as_posix().endswith(source_path)
+            and (
+                not isinstance(source_line, str)
+                or str(item.location.line) == source_line
+            )
+        ]
+    elif isinstance(instance_key, str) and instance_key:
+        agents = [
+            item
+            for item in agents
+            if str(item.metadata.get("instance_key") or "") == instance_key
+        ]
+    if len(agents) != 1:
+        return None
+    agent = agents[0]
+
+    if isinstance(function_key, str):
+        exact = [
+            tool
+            for tool in agent.tools
+            if tool.metadata.get("source_function_key") == function_key
+        ]
+        if len(exact) == 1:
+            return exact[0]
+
+    if isinstance(tool_name, str):
+        named = [tool for tool in agent.tools if tool.name == tool_name]
+        if len(named) == 1:
+            return named[0]
+    return None
+
 def _flow_backed_paths(graph: Graph) -> list[AttackPath]:
     paths: list[AttackPath] = []
     for flow in graph.flow_paths:
         if (
             not flow.agent
             or flow.agent_reachability is not AgentReachability.PROVEN_AGENT_REACHABLE
+            or flow.execution_context
+            in {
+                FlowExecutionContext.TEST,
+                FlowExecutionContext.EXAMPLE,
+                FlowExecutionContext.TUTORIAL,
+                FlowExecutionContext.NOTEBOOK,
+                FlowExecutionContext.TEMPLATE_GENERATED,
+            }
             or flow.basis != "static_dataflow"
             or flow.confidence.value != "supported"
         ):
             continue
         nodes = [step.label for step in flow.steps]
+        bound_tool = _bound_tool_for_flow(graph, flow)
+        if (
+            flow.source_kind in _UNTRUSTED_FLOW_SOURCES
+            and flow.sink_kind == "process_execute"
+            and bound_tool is not None
+            and bound_tool.metadata.get("process_execution_constrained") is True
+        ):
+            continue
         if flow.source_kind in _UNTRUSTED_FLOW_SOURCES and flow.sink_kind == "process_execute":
             paths.append(
                 AttackPath(
@@ -249,13 +322,23 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
             tool
             for tool in outbound
             if tool.metadata.get("network_scope")
-            not in {"fixed_managed_service", "explicit_destination"}
+            not in {
+                "fixed_managed_service",
+                "fixed_provider_network",
+                "operator_configured_destination",
+                "explicit_destination",
+            }
             and not (
                 tool.destinations
                 and all(destination.restricted for destination in tool.destinations)
             )
         ]
-        execution = [tool for tool in agent.tools if "process.execute" in tool.capabilities]
+        execution = [
+            tool
+            for tool in agent.tools
+            if "process.execute" in tool.capabilities
+            and tool.metadata.get("process_execution_constrained") is not True
+        ]
         execution_mcp = [
             server
             for server in agent.mcp_servers
@@ -263,7 +346,10 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
             in set(server.metadata.get("discovered_tool_capabilities") or [])
         ]
         destructive = [
-            tool for tool in agent.tools if "destructive.write" in tool.capabilities
+            tool
+            for tool in agent.tools
+            if "destructive.write" in tool.capabilities
+            and tool.metadata.get("agent_internal_artifact") is not True
         ]
         runtime_bound_untrusted = [
             item
@@ -276,6 +362,7 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
             for tool in agent.tools
             if "destructive.write" not in tool.capabilities
             and {"data.write", "external.write"} & tool.capabilities
+            and tool.metadata.get("agent_internal_artifact") is not True
         ]
         destructive_mcp = [
             server
@@ -533,43 +620,73 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 )
 
         for tool in agent.tools:
+            direct_url_fetch = tool.metadata.get("model_selected_url_fetch") is True
+            search_result_fetch = tool.metadata.get("search_result_url_fetch") is True
             if (
                 runtime_bound_untrusted
-                and tool.metadata.get("model_selected_url_fetch") is True
+                and (direct_url_fetch or search_result_fetch)
                 and tool.approval is not True
             ):
+                expected_scopes = (
+                    {"dynamic_destination"}
+                    if direct_url_fetch
+                    else {"search_result_derived_destination"}
+                )
                 dynamic_destinations = [
                     destination
                     for destination in tool.destinations
-                    if destination.metadata.get("source")
-                    == "model_selected_url_argument"
+                    if (
+                        direct_url_fetch
+                        and destination.metadata.get("source")
+                        == "model_selected_url_argument"
+                    )
                     or destination.metadata.get("network_scope")
-                    == "dynamic_destination"
+                    in expected_scopes
                 ]
                 if dynamic_destinations:
                     ingress = runtime_bound_untrusted[0]
                     parameters = list(
                         tool.metadata.get("model_selected_url_parameters") or []
                     )
+                    indirect = search_result_fetch and not direct_url_fetch
                     paths.append(
                         AttackPath(
                             path_id="PATH011",
-                            title="Potential untrusted-input path to server-side URL fetch",
+                            title=(
+                                "Potential untrusted-input path to search-derived server-side URL fetch"
+                                if indirect
+                                else "Potential untrusted-input path to server-side URL fetch"
+                            ),
                             agent=agent.name,
                             nodes=[
                                 ingress.name,
                                 agent.name,
                                 tool.name,
-                                "model-selected URL",
+                                (
+                                    "provider search-result URL"
+                                    if indirect
+                                    else "model-selected URL"
+                                ),
                                 dynamic_destinations[0].target,
                             ],
-                            severity=Severity.HIGH,
+                            severity=Severity.MEDIUM if indirect else Severity.HIGH,
                             rationale=(
-                                "Source analysis proves untrusted input reaches the "
-                                "agent runtime, and the effective tool accepts a "
-                                "model-selected URL that is passed to a direct "
-                                "server-side HTTP client without a detected "
-                                "destination restriction."
+                                (
+                                    "Source analysis proves untrusted input reaches the "
+                                    "agent runtime, model-selected search terms influence "
+                                    "provider results, and a returned URL is dereferenced "
+                                    "by a server-side HTTP helper without a detected "
+                                    "destination restriction. The model does not directly "
+                                    "select the final URL."
+                                )
+                                if indirect
+                                else (
+                                    "Source analysis proves untrusted input reaches the "
+                                    "agent runtime, and the effective tool accepts a "
+                                    "model-selected URL that is passed to a direct "
+                                    "server-side HTTP client without a detected "
+                                    "destination restriction."
+                                )
                             ),
                             location=tool.location or agent.location,
                             metadata={
@@ -582,6 +699,10 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                                 "follow_redirects": tool.metadata.get(
                                     "follow_redirects"
                                 ),
+                                "destination_provenance": tool.metadata.get(
+                                    "destination_provenance"
+                                ),
+                                "indirect_destination": indirect,
                             },
                         )
                     )
@@ -907,7 +1028,29 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 )
             )
 
-        privileged = sorted(agent.capabilities & HIGH_RISK_CAPABILITIES)
+        # PATH006 is a summary of *effective uncontrolled* high-risk
+        # capabilities, not the raw capability union. Reuse the control-aware
+        # classifications above so constrained shell execution and
+        # agent-internal artifact deletion do not reappear as a generic path.
+        effective_privileged: set[str] = set()
+        if execution or execution_mcp:
+            effective_privileged.add("process.execute")
+        if destructive or destructive_mcp:
+            effective_privileged.add("destructive.write")
+        for tool in agent.tools:
+            if tool.approval is True:
+                continue
+            effective_privileged.update(
+                tool.capabilities & {"secrets.read", "identity.admin"}
+            )
+        for server in agent.mcp_servers:
+            if server.approval is True or server.guardrails:
+                continue
+            effective_privileged.update(
+                set(server.metadata.get("discovered_tool_capabilities") or [])
+                & {"secrets.read", "identity.admin"}
+            )
+        privileged = sorted(effective_privileged)
         if len(privileged) >= 2 and untrusted:
             paths.append(
                 AttackPath(
@@ -924,6 +1067,42 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                     metadata=_path_metadata(basis="capability_cooccurrence"),
                 )
             )
+
+    agents_by_name = {agent.name: agent for agent in graph.agents}
+    auth_keys = (
+        "authentication_detected",
+        "authentication_mode",
+        "public_default",
+        "authentication_environment_variables",
+    )
+    for path in paths:
+        agent = agents_by_name.get(path.agent)
+        if agent is None:
+            continue
+        ingress = next(
+            (
+                item
+                for item in agent.inputs
+                if item.name == (path.nodes[0] if path.nodes else "")
+                and any(key in item.metadata for key in auth_keys)
+            ),
+            None,
+        )
+        if ingress is None:
+            ingress = next(
+                (
+                    item
+                    for item in agent.inputs
+                    if item.metadata.get("runtime_invocation_proven") is True
+                    and any(key in item.metadata for key in auth_keys)
+                ),
+                None,
+            )
+        if ingress is None:
+            continue
+        for key in auth_keys:
+            if key in ingress.metadata:
+                path.metadata.setdefault(key, ingress.metadata[key])
 
     seen: set[tuple[str, str, tuple[str, ...]]] = set()
     result: list[AttackPath] = []

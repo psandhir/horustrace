@@ -129,18 +129,43 @@ def _identity_findings(identity: Identity, agent: str | None = None) -> list[Fin
     return findings
 
 
+def _agent_instance_key(agent: object) -> str:
+    metadata = getattr(agent, "metadata", {}) or {}
+    configured = metadata.get("instance_key") if isinstance(metadata, dict) else None
+    if isinstance(configured, str) and configured:
+        return configured
+    location = getattr(agent, "location", None)
+    name = str(getattr(agent, "name", "agent"))
+    if location is not None:
+        return (
+            f"{name}:{location.path.resolve()}:"
+            f"{location.line}:{location.column}"
+        )
+    return name
+
+
 def evaluate(graph: Graph) -> list[Finding]:
     findings: list[Finding] = []
     authority_relationships = effective_authority_relationships(graph)
     authority_by_key = {
-        (item.agent, item.target_kind, item.target_name): item
+        (
+            item.agent,
+            item.agent_instance_key,
+            item.target_kind,
+            item.target_name,
+        ): item
         for item in authority_relationships
     }
     mcp_authority_by_object: dict[int, object] = {}
     for authority_agent in graph.agents:
         for authority_server in authority_agent.mcp_servers:
             relationship = authority_by_key.get(
-                (authority_agent.name, "mcp_server", authority_server.name)
+                (
+                    authority_agent.name,
+                    _agent_instance_key(authority_agent),
+                    "mcp_server",
+                    authority_server.name,
+                )
             )
             if relationship is not None:
                 mcp_authority_by_object[id(authority_server)] = relationship
@@ -153,7 +178,12 @@ def evaluate(graph: Graph) -> list[Finding]:
         )
         for tool in agent.tools:
             tool_authority = authority_by_key.get(
-                (agent.name, "tool", tool.name)
+                (
+                    agent.name,
+                    _agent_instance_key(agent),
+                    "tool",
+                    tool.name,
+                )
             )
             if (
                 tool_authority is not None
@@ -182,11 +212,21 @@ def evaluate(graph: Graph) -> list[Finding]:
                 "process.execute" in tool.capabilities
                 and tool.approval is not True
                 and tool.kind != "delegated_agent"
+                and tool.metadata.get("process_execution_constrained") is not True
             ):
                 findings.append(Finding("AGT020", Severity.HIGH, "Shell or process execution without approval", f"Tool '{tool.name}' can execute processes without an explicit approval requirement.", "Require approval for process execution and run the tool inside a constrained sandbox.", layer=1, location=tool.location, agent=agent.name, evidence=["capability=process.execute", f"approval={tool.approval}"]))
-            if "destructive.write" in tool.capabilities and tool.approval is not True:
+            if (
+                "destructive.write" in tool.capabilities
+                and tool.approval is not True
+                and tool.metadata.get("agent_internal_artifact") is not True
+            ):
                 findings.append(Finding("AGT021", Severity.HIGH, "Destructive action without human approval", f"Tool '{tool.name}' appears able to perform destructive writes without approval.", "Gate destructive operations with human approval and least-privilege authorization.", layer=1, location=tool.location, agent=agent.name, evidence=["capability=destructive.write", f"approval={tool.approval}"]))
-            if "data.write" in tool.capabilities and tool.approval is not True and tool.kind in {"apply_patch", "generic", "function", "langchain_tool", "custom_registry_tool", "langgraph_tool"}:
+            if (
+                "data.write" in tool.capabilities
+                and tool.approval is not True
+                and tool.kind in {"apply_patch", "generic", "function", "langchain_tool", "custom_registry_tool", "langgraph_tool"}
+                and tool.metadata.get("agent_internal_artifact") is not True
+            ):
                 findings.append(Finding("AGT022", Severity.MEDIUM, "State-changing tool without approval", f"Tool '{tool.name}' can modify state without explicit approval.", "Require approval for material state changes or constrain the tool to low-risk, reversible operations.", layer=1, location=tool.location, agent=agent.name, evidence=["capability=data.write", f"approval={tool.approval}"]))
             if (
                 "computer.control" in tool.capabilities
@@ -499,26 +539,44 @@ def evaluate(graph: Graph) -> list[Finding]:
                 for candidate in graph.agents
             )
         )
+        dynamic_mcp_catalogue = (
+            server.metadata.get("dynamic_remote_mcp_catalogue") is True
+            or server.metadata.get("dynamic_configured_mcp_catalogue") is True
+        )
         if (
             server_authority is not None
-            and server.metadata.get("dynamic_remote_mcp_catalogue") is True
-            and server.metadata.get("per_call_approval") is False
+            and dynamic_mcp_catalogue
+            and server.metadata.get("per_call_approval") is not True
             and not hosted_equivalent
         ):
+            catalogue_kind = (
+                "configuration_derived"
+                if server.metadata.get("dynamic_configured_mcp_catalogue") is True
+                else "dynamic_remote"
+            )
             findings.append(
                 Finding(
                     "AGT054",
                     Severity.MEDIUM,
-                    "Dynamic remote MCP catalogue has no per-call approval",
-                    f"Agent '{server_authority.agent}' converts the dynamic tool catalogue from remote MCP server '{server.name}' into callable tools without a per-call approval boundary.",
-                    "Restrict the remote MCP catalogue to an explicit allowlist and require per-call approval or an equivalent policy boundary for unreviewed remote tools.",
+                    "Dynamic MCP catalogue has no detected per-call approval",
+                    f"Agent '{server_authority.agent}' attaches MCP catalogue '{server.name}' without a source-visible per-call approval boundary.",
+                    "Restrict configuration-derived or remote MCP catalogues to explicit tool allowlists and require per-call approval or an equivalent policy boundary for unreviewed tools.",
                     layer=1,
                     location=server.location,
                     agent=server_authority.agent,
                     evidence=[
-                        "catalogue=dynamic_remote_mcp",
-                        "per_call_approval=false",
-                        "binding=list_tools_to_function_tool",
+                        f"catalogue={catalogue_kind}_mcp",
+                        "per_call_approval="
+                        + (
+                            "false"
+                            if server.metadata.get("per_call_approval") is False
+                            else "not_detected"
+                        ),
+                        "binding="
+                        + str(
+                            server.metadata.get("binding_origin")
+                            or "list_tools_to_function_tool"
+                        ),
                     ],
                     authority_relationship_id=server_authority.relationship_id,
                 )
@@ -630,21 +688,40 @@ def evaluate(graph: Graph) -> list[Finding]:
         if "process.execute" in caps and "network.external" in caps:
             findings.append(Finding("CAP004", Severity.HIGH, "Command execution combined with external network access", f"Agent '{agent.name}' can execute processes and reach external networks.", "Sandbox execution and restrict egress to an explicit destination allowlist.", layer=2, location=agent.location, agent=agent.name, evidence=["process.execute", "network.external"]))
         agent_authorities = [
-            item for item in authority_relationships if item.agent == agent.name
+            item
+            for item in authority_relationships
+            if item.agent == agent.name
+            and item.agent_instance_key == _agent_instance_key(agent)
         ]
         read_authorities = [
             item for item in agent_authorities if "data.read" in item.capabilities
         ]
+        internal_write_tools = {
+            tool.name
+            for tool in agent.tools
+            if tool.metadata.get("agent_internal_artifact") is True
+            or tool.metadata.get("agent_internal_state") is True
+        }
         write_authorities = [
             item
             for item in agent_authorities
             if {"data.write", "destructive.write"} & set(item.capabilities)
+            and not (
+                item.target_kind == "tool"
+                and item.target_name in internal_write_tools
+            )
         ]
         authority_confirms_read_write = bool(read_authorities and write_authorities)
-        legacy_read_write = (
-            "data.read" in caps
-            and ("data.write" in caps or "destructive.write" in caps)
+        effective_legacy_write = any(
+            {"data.write", "destructive.write"} & tool.capabilities
+            and tool.metadata.get("agent_internal_artifact") is not True
+            and tool.metadata.get("agent_internal_state") is not True
+            for tool in agent.tools
+        ) or any(
+            source.capability in {"data.write", "destructive.write"}
+            for source in agent.data_sources
         )
+        legacy_read_write = "data.read" in caps and effective_legacy_write
         if authority_confirms_read_write or legacy_read_write:
             linked = sorted(
                 {
@@ -715,7 +792,12 @@ def evaluate(graph: Graph) -> list[Finding]:
                 for tool in realtime_mutations
                 if (
                     relationship := authority_by_key.get(
-                        (agent.name, "tool", tool.name)
+                        (
+                            agent.name,
+                            _agent_instance_key(agent),
+                            "tool",
+                            tool.name,
+                        )
                     )
                 )
                 is not None
@@ -798,12 +880,48 @@ def evaluate(graph: Graph) -> list[Finding]:
             if tool.metadata.get("network_scope") != "fixed_managed_service"
         ]
         if explicit_broad_destinations:
-            findings.append(Finding("NET001", Severity.HIGH, "Outbound reachability lacks a detected restriction", f"Agent '{agent.name}' has broad destinations or no detected restriction for a possible outbound destination.", "Use egress allowlists/proxies and restrict outbound connectivity to required hosts.", layer=4, location=agent.location, agent=agent.name, evidence=["destinations=" + ",".join(d.target for d in explicit_broad_destinations)]))
+            search_derived_only = all(
+                destination.metadata.get("network_scope")
+                == "search_result_derived_destination"
+                for destination in explicit_broad_destinations
+            )
+            findings.append(
+                Finding(
+                    "NET001",
+                    Severity.MEDIUM if search_derived_only else Severity.HIGH,
+                    (
+                        "Search-result-derived outbound destination lacks a detected restriction"
+                        if search_derived_only
+                        else "Outbound reachability lacks a detected restriction"
+                    ),
+                    (
+                        f"Agent '{agent.name}' can dereference provider search-result URLs "
+                        "without a detected destination restriction; the model influences "
+                        "the search terms but does not directly choose the final URL."
+                        if search_derived_only
+                        else f"Agent '{agent.name}' has broad destinations or no detected restriction for a possible outbound destination."
+                    ),
+                    "Use egress allowlists/proxies and restrict outbound connectivity to required hosts.",
+                    layer=4,
+                    location=agent.location,
+                    agent=agent.name,
+                    evidence=[
+                        "destinations="
+                        + ",".join(d.target for d in explicit_broad_destinations),
+                        *(
+                            ["destination_provenance=provider_search_result"]
+                            if search_derived_only
+                            else []
+                        ),
+                    ],
+                )
+            )
         else:
             outbound_authorities = [
                 item
                 for item in authority_relationships
                 if item.agent == agent.name
+                and item.agent_instance_key == _agent_instance_key(agent)
                 and {"network.external", "external.write"} & set(item.capabilities)
             ]
             unresolved_destination_authorities = [
@@ -881,7 +999,14 @@ def evaluate(graph: Graph) -> list[Finding]:
         for tool in agent.tools:
             if tool.metadata.get("object_authorization_boundary_bypass") is not True:
                 continue
-            tool_authority = authority_by_key.get((agent.name, "tool", tool.name))
+            tool_authority = authority_by_key.get(
+                (
+                    agent.name,
+                    _agent_instance_key(agent),
+                    "tool",
+                    tool.name,
+                )
+            )
             findings.append(
                 Finding(
                     "DATA004",

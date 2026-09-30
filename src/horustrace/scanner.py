@@ -75,6 +75,7 @@ from horustrace.registry_config import (
 from horustrace.repository_tool_semantics import enrich_indirect_tool_content_semantics
 from horustrace.rules.builtin import evaluate
 from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
+from horustrace.runtime_viability import annotate_runtime_viability
 from horustrace.semantics import annotate_risk_semantics
 from horustrace.source_context import classify_source_context, path_parts_match
 from horustrace.source_provenance import annotate_tool_source_provenance
@@ -262,6 +263,24 @@ def _classify_flow_execution_context(
     project_script_entrypoints: set[tuple[str, str]],
 ) -> FlowExecutionContext:
     if flow.agent is not None:
+        binding = flow.metadata.get("agent_binding")
+        source_context = (
+            binding.get("agent_source_context")
+            if isinstance(binding, dict)
+            else None
+        )
+        bound_contexts = {
+            "test": FlowExecutionContext.TEST,
+            "example": FlowExecutionContext.EXAMPLE,
+            "tutorial": FlowExecutionContext.TUTORIAL,
+            "notebook": FlowExecutionContext.NOTEBOOK,
+            "template-generated": FlowExecutionContext.TEMPLATE_GENERATED,
+        }
+        if source_context in bound_contexts:
+            flow.metadata["execution_context_basis"] = (
+                "bound_agent_source_context"
+            )
+            return bound_contexts[source_context]
         return FlowExecutionContext.AGENT_TOOL
 
     paths = _flow_function_paths(flow, root)
@@ -2214,7 +2233,6 @@ def scan(
         python_paths=approved_python_paths,
     )
     _consolidate_agents(graph)
-    _propagate_adk_delegation(graph)
     resolve_imported_mcp_placeholders(
         graph,
         root if root.is_dir() else root.parent,
@@ -2258,6 +2276,10 @@ def scan(
         root if root.is_dir() else root.parent,
         approved_python_paths,
     )
+    # Delegation projection must run after imported tool provenance and source
+    # semantics are resolved. Otherwise parent agents inherit stale generic
+    # network/write capabilities and lose child destination/control constraints.
+    _propagate_adk_delegation(graph)
     enrich_public_realtime_mcp_authority(
         graph,
         root if root.is_dir() else root.parent,
@@ -2323,6 +2345,11 @@ def scan(
     _enrich_cli_agent_run_inputs(graph, analysis_root, approved_python_paths)
     _enrich_streamlit_agent_run_inputs(graph, analysis_root, approved_python_paths)
     _enrich_streamlit_pydantic_wrapper_inputs(
+        graph,
+        analysis_root,
+        approved_python_paths,
+    )
+    annotate_runtime_viability(
         graph,
         analysis_root,
         approved_python_paths,
@@ -2447,8 +2474,67 @@ def scan(
         for path in build_attack_paths(graph)
         if path.agent not in non_model_langgraph_agents
     ]
+    for attack_path in graph.attack_paths:
+        same_name_agents = [
+            agent for agent in graph.agents if agent.name == attack_path.agent
+        ]
+        candidates = [
+            agent
+            for agent in same_name_agents
+            if agent.metadata.get("runtime_viability") == "blocked_by_source_error"
+            and (
+                len(same_name_agents) == 1
+                or attack_path.location is None
+                or agent.location is None
+                or attack_path.location.path.resolve() == agent.location.path.resolve()
+            )
+        ]
+        if len(candidates) == 1:
+            attack_path.metadata["runtime_viability"] = "blocked_by_source_error"
+            attack_path.metadata["runtime_blockers"] = list(
+                candidates[0].metadata.get("runtime_blockers") or []
+            )
+            attack_path.metadata.setdefault(
+                "runtime_limitation",
+                "Declared static authority is source-proven, but live runtime reachability is blocked by the pinned source error.",
+            )
     graph.adg = build_adg(graph, analysis_root)
     findings = _filter_non_model_langgraph_findings(graph, evaluate(graph))
+    for finding in findings:
+        same_name_agents = [
+            agent for agent in graph.agents if agent.name == finding.agent
+        ]
+        candidates = [
+            agent
+            for agent in same_name_agents
+            if agent.metadata.get("runtime_viability") == "blocked_by_source_error"
+            and (
+                len(same_name_agents) == 1
+                or finding.location is None
+                or agent.location is None
+                or finding.location.path.resolve() == agent.location.path.resolve()
+            )
+        ]
+        if len(candidates) != 1:
+            continue
+        blockers = list(candidates[0].metadata.get("runtime_blockers") or [])
+        if "runtime_viability=blocked_by_source_error" not in finding.evidence:
+            finding.evidence.append("runtime_viability=blocked_by_source_error")
+        limitation = (
+            "Declared static authority is retained, but the pinned source has an "
+            "initialization/import blocker; live runtime reachability is not proven."
+        )
+        if limitation not in finding.limitations:
+            finding.limitations.append(limitation)
+        if blockers:
+            finding.evidence.append(
+                "runtime_blockers="
+                + ",".join(
+                    str(item.get("kind") or "source_error")
+                    for item in blockers
+                    if isinstance(item, dict)
+                )
+            )
     for finding in findings:
         finding.source_context = classify_source_context(
             finding.location.path if finding.location else None

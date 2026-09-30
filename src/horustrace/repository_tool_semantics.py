@@ -3,8 +3,9 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
-from horustrace.models import Graph, InputSource, Tool
+from horustrace.models import Graph, InputSource, NetworkDestination, ResourceScope, Tool
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,6 +133,15 @@ def _containment_detected(
             and _expr_names(child) & tainted
         ):
             return True
+        if (
+            leaf in {
+                "_validate_agent_scoped_path",
+                "validate_agent_scoped_path",
+                "_resolve_agent_scoped_path",
+            }
+            and any(_expr_names(argument) & tainted for argument in child.args)
+        ):
+            return True
     return False
 
 
@@ -242,6 +252,316 @@ def _resolved_import_module(
     return ".".join(base)
 
 
+def _fixed_url_origin(node: ast.AST | None) -> str | None:
+    """Return a fixed scheme/host when an expression only varies below the host."""
+    if node is None:
+        return None
+    prefix = ""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        prefix = node.value
+    elif isinstance(node, ast.JoinedStr):
+        for value in node.values:
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                prefix += value.value
+            else:
+                break
+    elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        return _fixed_url_origin(node.left)
+
+    if not prefix.startswith(("http://", "https://")):
+        return None
+    parsed = urlparse(prefix)
+    if not parsed.scheme or not parsed.hostname:
+        return None
+    port = f":{parsed.port}" if parsed.port else ""
+    return f"{parsed.scheme}://{parsed.hostname}{port}"
+
+
+def _source_network_semantics(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> tuple[list[NetworkDestination], dict[str, object]]:
+    """Infer fixed-provider HTTP scope only when caller parameters do not choose the URL."""
+    parameters = set(_parameter_names(function))
+    tainted = _tainted_aliases(function, parameters)
+    fixed_origins: dict[str, str] = {}
+
+    for child in ast.walk(function):
+        if not isinstance(child, (ast.Assign, ast.AnnAssign)) or child.value is None:
+            continue
+        origin = _fixed_url_origin(child.value)
+        if origin is None:
+            continue
+        targets = child.targets if isinstance(child, ast.Assign) else [child.target]
+        for target in targets:
+            for name in _target_names(target):
+                fixed_origins[name] = origin
+
+    if not fixed_origins:
+        return [], {}
+
+    observed_origins: set[str] = set()
+    caller_selected_http = False
+    for child in ast.walk(function):
+        if not isinstance(child, ast.Call):
+            continue
+        called = (_dotted_name(child.func) or "").lower()
+        leaf = _call_leaf(child) or ""
+        is_http = (
+            called in {
+                "requests.get",
+                "requests.post",
+                "requests.put",
+                "requests.patch",
+                "requests.delete",
+                "httpx.get",
+                "httpx.post",
+                "httpx.put",
+                "httpx.patch",
+                "httpx.delete",
+            }
+            or leaf in {"get", "post", "put", "patch", "delete", "request"}
+            and any(token in called for token in ("requests", "httpx", "aiohttp"))
+        )
+        if not is_http:
+            continue
+        target = child.args[0] if child.args else next(
+            (keyword.value for keyword in child.keywords if keyword.arg in {"url", "uri"}),
+            None,
+        )
+        if target is None:
+            continue
+        if isinstance(target, ast.Name) and target.id in fixed_origins:
+            observed_origins.add(fixed_origins[target.id])
+            continue
+        origin = _fixed_url_origin(target)
+        if origin:
+            observed_origins.add(origin)
+            continue
+        if _expr_names(target) & tainted:
+            caller_selected_http = True
+            break
+
+    if caller_selected_http or not observed_origins:
+        return [], {}
+
+    destinations = [
+        NetworkDestination(
+            target=origin,
+            restricted=True,
+            metadata={
+                "source": "source_function_fixed_origin",
+                "network_scope": "fixed_provider_network",
+                "dynamic_path": True,
+            },
+        )
+        for origin in sorted(observed_origins)
+    ]
+    return destinations, {
+        "network_scope": "fixed_provider_network",
+        "fixed_provider_origins": sorted(observed_origins),
+        "destination_constraint_basis": "source_function_fixed_origin",
+    }
+
+
+def _source_internal_state_semantics(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> dict[str, object]:
+    """Detect source-visible mutations confined to Pydantic RunContext.deps state."""
+    context_params: set[str] = set()
+    for argument in [
+        *function.args.posonlyargs,
+        *function.args.args,
+        *function.args.kwonlyargs,
+    ]:
+        annotation = argument.annotation
+        if annotation is None:
+            continue
+        rendered = ast.unparse(annotation)
+        if "RunContext" in rendered:
+            context_params.add(argument.arg)
+    if not context_params:
+        return {}
+
+    def expr_is_internal(node: ast.AST | None, aliases: set[str]) -> bool:
+        if node is None:
+            return False
+        dotted = _dotted_name(node)
+        if dotted and any(
+            dotted == f"{name}.deps" or dotted.startswith(f"{name}.deps.")
+            for name in context_params
+        ):
+            return True
+        names = _expr_names(node)
+        return bool(names & aliases)
+
+    aliases: set[str] = set()
+    changed = True
+    while changed:
+        changed = False
+        for child in ast.walk(function):
+            if isinstance(child, (ast.Assign, ast.AnnAssign)) and child.value is not None:
+                if not expr_is_internal(child.value, aliases):
+                    continue
+                targets = child.targets if isinstance(child, ast.Assign) else [child.target]
+                for target in targets:
+                    for name in _target_names(target):
+                        if name not in aliases:
+                            aliases.add(name)
+                            changed = True
+            elif isinstance(child, (ast.For, ast.AsyncFor)):
+                if not expr_is_internal(child.iter, aliases):
+                    continue
+                for name in _target_names(child.target):
+                    if name not in aliases:
+                        aliases.add(name)
+                        changed = True
+
+    internal_mutation = False
+    external_sink = False
+    mutating_collection_methods = {
+        "append",
+        "extend",
+        "insert",
+        "remove",
+        "pop",
+        "clear",
+        "update",
+        "add",
+        "discard",
+    }
+    external_call_leaves = {
+        "open",
+        "write_text",
+        "write_bytes",
+        "unlink",
+        "rename",
+        "replace",
+        "commit",
+        "execute",
+        "executemany",
+        "save",
+        "upsert",
+        "put",
+        "post",
+        "patch",
+        "delete",
+    }
+
+    for child in ast.walk(function):
+        targets: list[ast.AST] = []
+        if isinstance(child, ast.Assign):
+            targets = list(child.targets)
+        elif isinstance(child, (ast.AnnAssign, ast.AugAssign)):
+            targets = [child.target]
+        elif isinstance(child, ast.Delete):
+            targets = list(child.targets)
+
+        for target in targets:
+            if expr_is_internal(target, aliases):
+                internal_mutation = True
+
+        if not isinstance(child, ast.Call):
+            continue
+        called = (_dotted_name(child.func) or _call_leaf(child) or "").lower()
+        leaf = (_call_leaf(child) or "").lower()
+        receiver = child.func.value if isinstance(child.func, ast.Attribute) else None
+        receiver_internal = expr_is_internal(receiver, aliases)
+
+        if receiver_internal and leaf in mutating_collection_methods:
+            internal_mutation = True
+            continue
+
+        if (
+            called.startswith(("requests.", "httpx.", "aiohttp.", "subprocess."))
+            or "create_subprocess_" in called
+            or called in {"os.system", "os.popen", "exec", "eval"}
+            or leaf in external_call_leaves
+        ):
+            external_sink = True
+
+    if not internal_mutation or external_sink:
+        return {}
+    return {
+        "agent_internal_state": True,
+        "mutation_semantics": "agent_internal_state",
+        "internal_state_basis": "pydantic_run_context_deps",
+    }
+
+
+def _source_control_semantics(
+    ref: FunctionDefRef,
+    functions: dict[tuple[str, str], FunctionDefRef],
+) -> dict[str, object]:
+    """Resolve source-visible path/process controls through local helper calls."""
+    visited: set[tuple[str, str]] = set()
+
+    def inspect(current: FunctionDefRef) -> dict[str, object]:
+        key = (current.module, current.node.name)
+        if key in visited:
+            return {}
+        visited.add(key)
+        result: dict[str, object] = {}
+
+        names = {
+            child.id
+            for child in ast.walk(current.node)
+            if isinstance(child, ast.Name)
+        }
+        calls = [
+            child for child in ast.walk(current.node) if isinstance(child, ast.Call)
+        ]
+        if (
+            "ALLOWED_COMMANDS" in names
+            and "DANGEROUS_PATTERNS" in names
+            and any(
+                (_dotted_name(call.func) or "").endswith("create_subprocess_exec")
+                or (_dotted_name(call.func) or "").endswith("subprocess.run")
+                or (_dotted_name(call.func) or "").endswith("subprocess.Popen")
+                for call in calls
+            )
+        ):
+            result.update(
+                {
+                    "process_execution_constrained": True,
+                    "process_command_allowlist": True,
+                    "process_injection_filter": True,
+                    "process_control_basis": "source_command_allowlist_and_injection_filter",
+                }
+            )
+
+        if any(
+            _call_leaf(call)
+            in {
+                "_validate_agent_scoped_path",
+                "validate_agent_scoped_path",
+                "_resolve_agent_scoped_path",
+            }
+            for call in calls
+        ):
+            result.update(
+                {
+                    "filesystem_path_constrained": True,
+                    "filesystem_scope": ".shotgun/**",
+                    "agent_internal_artifact": True,
+                    "filesystem_control_basis": "agent_scoped_path_validation",
+                }
+            )
+
+        for call in calls:
+            leaf = _call_leaf(call)
+            if not leaf:
+                continue
+            helper = functions.get((current.module, leaf))
+            if helper is None:
+                continue
+            nested = inspect(helper)
+            for name, value in nested.items():
+                result.setdefault(name, value)
+        return result
+
+    return inspect(ref)
+
+
 def enrich_indirect_tool_content_semantics(
     graph: Graph,
     root: Path,
@@ -296,6 +616,55 @@ def enrich_indirect_tool_content_semantics(
                 if target is not None:
                     resolved[alias.asname or alias.name] = target
         return resolved
+
+    def enrich_source_semantics(tool: Tool) -> None:
+        ref = ref_for_tool(tool)
+        if ref is None:
+            return
+
+        destinations, network_metadata = _source_network_semantics(ref.node)
+        if destinations:
+            tool.capabilities.add("network.external")
+            for destination in destinations:
+                if not any(
+                    existing.target == destination.target
+                    and existing.metadata.get("network_scope")
+                    == destination.metadata.get("network_scope")
+                    for existing in tool.destinations
+                ):
+                    tool.destinations.append(destination)
+            tool.metadata.update(network_metadata)
+
+        internal_state = _source_internal_state_semantics(ref.node)
+        if internal_state:
+            tool.metadata.update(internal_state)
+            # Function-name heuristics such as create_*/remove_* describe
+            # in-memory agent control state here, not external mutation authority.
+            tool.capabilities.difference_update({"data.write", "destructive.write"})
+
+        controls = _source_control_semantics(ref, functions)
+        if controls:
+            tool.metadata.update(controls)
+            tool.guardrails = True
+
+        if (
+            controls.get("filesystem_path_constrained") is True
+            and not any(
+                resource.kind == "file" and resource.selector == ".shotgun/**"
+                for resource in tool.resources
+            )
+        ):
+            tool.resources.append(
+                ResourceScope(
+                    kind="file",
+                    selector=".shotgun/**",
+                    access=set(
+                        tool.capabilities
+                        & {"data.read", "data.write", "destructive.write"}
+                    ),
+                    location=tool.location,
+                )
+            )
 
     def inspect_tool(tool: Tool) -> FunctionSemantics | None:
         ref = ref_for_tool(tool)
@@ -378,12 +747,16 @@ def enrich_indirect_tool_content_semantics(
     for agent in graph.agents:
         content_sources: list[Tool] = []
         for tool in agent.tools:
+            enrich_source_semantics(tool)
             semantics = inspect_tool(tool)
             if semantics is None:
                 continue
             tool.metadata["model_selected_filesystem_path"] = True
             tool.metadata["filesystem_access"] = sorted(semantics.accesses)
-            tool.metadata["filesystem_path_constrained"] = semantics.constrained
+            tool.metadata["filesystem_path_constrained"] = (
+                tool.metadata.get("filesystem_path_constrained") is True
+                or semantics.constrained
+            )
             tool.metadata["model_selected_path_parameters"] = sorted(
                 semantics.path_parameters
             )

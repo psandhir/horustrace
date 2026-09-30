@@ -152,12 +152,20 @@ def _kw(call: ast.Call, name: str) -> ast.AST | None:
     return next((item.value for item in call.keywords if item.arg == name), None)
 
 
-def _target_names(node: ast.Assign | ast.AnnAssign) -> list[str]:
-    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+def _target_names(node: ast.Assign | ast.AnnAssign | ast.AST) -> list[str]:
+    if isinstance(node, ast.Assign):
+        targets = node.targets
+    elif isinstance(node, ast.AnnAssign):
+        targets = [node.target]
+    else:
+        targets = [node]
     names: list[str] = []
     for target in targets:
         if isinstance(target, ast.Name):
             names.append(target.id)
+        elif isinstance(target, (ast.Tuple, ast.List)):
+            for element in target.elts:
+                names.extend(_target_names(element))
         elif isinstance(target, ast.Attribute):
             dotted = _dotted(target)
             if dotted:
@@ -374,6 +382,185 @@ def _function_http_url_semantics(
     }
 
 
+def _function_search_result_url_semantics(
+    path: Path,
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+) -> tuple[list[NetworkDestination], dict[str, Any]]:
+    """Find model-influenced provider-search result URLs passed to HTTP fetch helpers.
+
+    This is deliberately weaker than direct model-selected URL authority.  The
+    model controls a search query/angle, a provider returns URLs, and repository
+    source then dereferences those URLs through a helper that performs direct HTTP.
+    """
+    params = {
+        arg.arg
+        for arg in [
+            *node.args.posonlyargs,
+            *node.args.args,
+            *node.args.kwonlyargs,
+        ]
+    }
+    if not params:
+        return [], {}
+
+    direct_fetch_helpers = {
+        name
+        for name, function in functions.items()
+        if _function_http_url_semantics(path, function)[0]
+    }
+    if not direct_fetch_helpers:
+        return [], {}
+
+    provider_search_helpers: set[str] = set()
+    for name, function in functions.items():
+        lower_name = name.lower()
+        provider_call = False
+        result_url_field = False
+        for child in ast.walk(function):
+            if isinstance(child, ast.Call):
+                called = (_dotted(child.func) or _call_name(child.func) or "").lower()
+                leaf = (_call_name(child.func) or "").lower()
+                if (
+                    "duckduckgo" in called
+                    or "ddgs" in called
+                    or "tavily" in called
+                    or (
+                        ("search" in lower_name or "search" in called)
+                        and leaf in {"search", "text", "results"}
+                    )
+                ):
+                    provider_call = True
+            if (
+                isinstance(child, ast.Constant)
+                and isinstance(child.value, str)
+                and child.value.lower() in {"url", "href", "link"}
+            ):
+                result_url_field = True
+        if provider_call and result_url_field:
+            provider_search_helpers.add(name)
+
+    if not provider_search_helpers:
+        return [], {}
+
+    tainted = set(params)
+    assignments = [
+        child
+        for child in ast.walk(node)
+        if isinstance(child, (ast.Assign, ast.AnnAssign))
+        and child.value is not None
+    ]
+    for _ in range(8):
+        changed = False
+        for assignment in assignments:
+            if not _expr_uses_names(assignment.value, tainted):
+                continue
+            for name in _target_names(assignment):
+                if name not in tainted:
+                    tainted.add(name)
+                    changed = True
+        if not changed:
+            break
+
+    search_collections: set[str] = set()
+    search_helper: str | None = None
+    for assignment in assignments:
+        value = assignment.value
+        if not isinstance(value, ast.Call):
+            continue
+        called = _call_name(value.func)
+        if called not in provider_search_helpers:
+            continue
+        if value.args and not any(_expr_uses_names(arg, tainted) for arg in value.args):
+            continue
+        if not value.args and not any(
+            _expr_uses_names(keyword.value, tainted)
+            for keyword in value.keywords
+        ):
+            continue
+        search_collections.update(_target_names(assignment))
+        search_helper = called
+
+    if not search_collections:
+        return [], {}
+
+    result_items: set[str] = set()
+    for child in ast.walk(node):
+        if not isinstance(child, ast.For):
+            continue
+        if not _expr_uses_names(child.iter, search_collections):
+            continue
+        result_items.update(_target_names(child.target))
+
+    if not result_items:
+        return [], {}
+
+    def _is_result_url_expr(expr: ast.AST | None) -> bool:
+        if expr is None:
+            return False
+        for child in ast.walk(expr):
+            if isinstance(child, ast.Subscript):
+                root = child.value
+                key = _literal(child.slice)
+                if (
+                    isinstance(root, ast.Name)
+                    and root.id in result_items
+                    and isinstance(key, str)
+                    and key.lower() in {"url", "href", "link"}
+                ):
+                    return True
+            if (
+                isinstance(child, ast.Call)
+                and isinstance(child.func, ast.Attribute)
+                and child.func.attr == "get"
+                and isinstance(child.func.value, ast.Name)
+                and child.func.value.id in result_items
+                and child.args
+            ):
+                key = _literal(child.args[0])
+                if isinstance(key, str) and key.lower() in {"url", "href", "link"}:
+                    return True
+        return False
+
+    fetch_helper: str | None = None
+    fetch_call: ast.Call | None = None
+    for child in ast.walk(node):
+        if not isinstance(child, ast.Call):
+            continue
+        called = _call_name(child.func)
+        if called not in direct_fetch_helpers:
+            continue
+        target = child.args[0] if child.args else _kw(child, "url")
+        if _is_result_url_expr(target):
+            fetch_helper = called
+            fetch_call = child
+            break
+
+    if fetch_call is None:
+        return [], {}
+
+    return [
+        NetworkDestination(
+            target="<search-result-url>",
+            restricted=False,
+            location=_location(path, fetch_call),
+            metadata={
+                "source": "search_result_url",
+                "network_scope": "search_result_derived_destination",
+                "server_side_fetch": True,
+                "indirect_destination": True,
+            },
+        )
+    ], {
+        "search_result_url_fetch": True,
+        "model_influenced_search_query": True,
+        "network_scope": "search_result_derived_destination",
+        "destination_provenance": "provider_search_result",
+        "search_helper": search_helper,
+        "fetch_helper": fetch_helper,
+    }
+
+
 def _contains_conditional_approval(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     for child in ast.walk(node):
         if not isinstance(child, ast.Raise) or child.exc is None:
@@ -410,6 +597,56 @@ def _tool_from_function(
     )
     if _contains_conditional_approval(node):
         tool.metadata["conditional_approval"] = True
+
+    calls = [child for child in ast.walk(node) if isinstance(child, ast.Call)]
+    scoped_path_control = any(
+        _call_name(child.func) == "_validate_agent_scoped_path"
+        for child in calls
+    )
+    if scoped_path_control:
+        access = capabilities & {"data.read", "data.write", "destructive.write"}
+        tool.resources.append(
+            ResourceScope(
+                kind="file",
+                selector=".shotgun/**",
+                access=set(access),
+                location=_location(path, node),
+            )
+        )
+        tool.guardrails = True
+        tool.metadata.update(
+            {
+                "filesystem_path_constrained": True,
+                "filesystem_scope": ".shotgun/**",
+                "agent_internal_artifact": True,
+                "control_basis": "agent_scoped_path_validation",
+            }
+        )
+
+    allowlist_check = any(
+        isinstance(child, ast.Compare)
+        and any(isinstance(op, (ast.In, ast.NotIn)) for op in child.ops)
+        and any(
+            isinstance(part, ast.Name) and part.id == "ALLOWED_COMMANDS"
+            for part in ast.walk(child)
+        )
+        for child in ast.walk(node)
+    )
+    injection_check = any(
+        isinstance(child, ast.Name) and child.id == "DANGEROUS_PATTERNS"
+        for child in ast.walk(node)
+    )
+    if "process.execute" in capabilities and allowlist_check and injection_check:
+        tool.guardrails = True
+        tool.metadata.update(
+            {
+                "process_execution_constrained": True,
+                "process_command_allowlist": True,
+                "process_injection_filter": True,
+                "control_basis": "command_allowlist_and_injection_filter",
+            }
+        )
+
     for child in ast.walk(node):
         if isinstance(child, ast.Constant) and isinstance(child.value, str):
             value = child.value
@@ -496,6 +733,83 @@ def _resolve_sequence(
     return None
 
 
+def _configuration_call_from_expr(
+    expr: ast.AST | None,
+    assignments: dict[str, ast.AST],
+    *,
+    visited: set[str] | None = None,
+) -> ast.Call | None:
+    """Resolve simple assignment/await/fallback chains to a configuration loader call."""
+    visited = visited or set()
+    if expr is None:
+        return None
+    if isinstance(expr, ast.Name):
+        if expr.id in visited or expr.id not in assignments:
+            return None
+        return _configuration_call_from_expr(
+            assignments[expr.id],
+            assignments,
+            visited=visited | {expr.id},
+        )
+    if isinstance(expr, ast.Await):
+        return _configuration_call_from_expr(expr.value, assignments, visited=visited)
+    if isinstance(expr, ast.Call):
+        return expr
+    if isinstance(expr, ast.BoolOp):
+        for value in expr.values:
+            resolved = _configuration_call_from_expr(value, assignments, visited=visited)
+            if resolved is not None:
+                return resolved
+        return None
+    if isinstance(expr, ast.IfExp):
+        return (
+            _configuration_call_from_expr(expr.body, assignments, visited=visited)
+            or _configuration_call_from_expr(expr.orelse, assignments, visited=visited)
+        )
+    return None
+
+
+def _configured_mcp_catalogue_from_expr(
+    path: Path,
+    expr: ast.AST | None,
+    assignments: dict[str, ast.AST],
+    *,
+    alias: str,
+) -> MCPServer | None:
+    """Represent a configuration-derived MCP catalogue without inventing its tools."""
+    call = _configuration_call_from_expr(expr, assignments)
+    if call is None:
+        return None
+    called = (_dotted(call.func) or _call_name(call.func) or "").lower()
+    leaf = (_call_name(call.func) or "").lower()
+    looks_like_mcp_loader = (
+        "mcp" in called
+        and any(token in called for token in ("server", "toolset", "tools"))
+        and (
+            leaf.startswith(("get_", "load_", "create_", "build_", "read_"))
+            or leaf in {"mcp_servers", "mcp_toolsets"}
+        )
+    )
+    if not looks_like_mcp_loader:
+        return None
+    return MCPServer(
+        name=alias,
+        transport="unknown",
+        approval=None,
+        location=_location(path, call),
+        metadata={
+            "framework": "pydantic-ai",
+            "source": "configuration_derived_mcp_catalogue",
+            "binding_origin": "pydantic_toolsets",
+            "dynamic_configured_mcp_catalogue": True,
+            "configuration_dependent": True,
+            "catalogue_source": _dotted(call.func) or _call_name(call.func),
+            "dynamic_mcp_endpoint_basis": "operator_configuration",
+            "per_call_approval": None,
+        },
+    )
+
+
 def _tool_from_reference(
     path: Path,
     expr: ast.AST,
@@ -578,9 +892,17 @@ def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer |
     canonical_name = (
         "MCPServerStdio"
         if isinstance(name, str) and name.endswith("MCPServerStdio")
+        else "MCPServerStreamableHTTP"
+        if isinstance(name, str) and name.endswith("MCPServerStreamableHTTP")
         else name
     )
-    if canonical_name not in {"MCPToolset", "MCP", "MCPServerTool", "MCPServerStdio"}:
+    if canonical_name not in {
+        "MCPToolset",
+        "MCP",
+        "MCPServerTool",
+        "MCPServerStdio",
+        "MCPServerStreamableHTTP",
+    }:
         return None
 
     metadata: dict[str, Any] = {
@@ -620,7 +942,13 @@ def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer |
 
     if isinstance(endpoint, str) and endpoint.startswith(("http://", "https://")):
         parsed = urlparse(endpoint)
-        transport = "sse" if parsed.path.rstrip("/").endswith("/sse") else "streamable-http"
+        transport = (
+            "streamable-http"
+            if canonical_name == "MCPServerStreamableHTTP"
+            else "sse"
+            if parsed.path.rstrip("/").endswith("/sse")
+            else "streamable-http"
+        )
         return MCPServer(
             name=alias,
             transport=transport,
@@ -646,6 +974,18 @@ def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer |
             args=[endpoint],
             location=_location(path, call),
             metadata=metadata,
+        )
+
+    if canonical_name == "MCPServerStreamableHTTP":
+        return MCPServer(
+            name=alias,
+            transport="streamable-http",
+            location=_location(path, call),
+            metadata={
+                **metadata,
+                "dynamic_mcp_endpoint": True,
+                "dynamic_mcp_endpoint_basis": "operator_configuration",
+            },
         )
 
     return MCPServer(
@@ -1100,6 +1440,141 @@ def _annotate_cli_run_inputs(
             )
 
 
+def _annotate_public_wrapper_run_inputs(
+    path: Path,
+    tree: ast.AST,
+    agents: dict[str, Agent],
+) -> None:
+    """Bind source-proven public wrapper parameters to Pydantic AI run calls.
+
+    This covers repository APIs such as run_agent(prompt) -> helper(query) ->
+    agent.run_sync(derived_prompt) without assuming arbitrary function parameters
+    are external ingress.
+    """
+    functions = {
+        node.name: node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    if not functions or not agents:
+        return
+
+    public_entry_names = {
+        "run_agent",
+        "chat",
+        "ask",
+        "query",
+        "respond",
+        "process_message",
+        "handle_message",
+    }
+
+    def _tainted(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+        names = {
+            arg.arg
+            for arg in [
+                *fn.args.posonlyargs,
+                *fn.args.args,
+                *fn.args.kwonlyargs,
+            ]
+        }
+        assignments = [
+            node
+            for node in ast.walk(fn)
+            if isinstance(node, (ast.Assign, ast.AnnAssign))
+            and node.value is not None
+        ]
+        for _ in range(8):
+            changed = False
+            for assignment in assignments:
+                if not _expr_uses_names(assignment.value, names):
+                    continue
+                for target in _target_names(assignment):
+                    if target not in names:
+                        names.add(target)
+                        changed = True
+            if not changed:
+                break
+        return names
+
+    tainted_by_function = {
+        name: _tainted(fn)
+        for name, fn in functions.items()
+    }
+    reaches: dict[str, set[str]] = {name: set() for name in functions}
+
+    for name, fn in functions.items():
+        tainted = tainted_by_function[name]
+        for call in (node for node in ast.walk(fn) if isinstance(node, ast.Call)):
+            if not isinstance(call.func, ast.Attribute):
+                continue
+            if call.func.attr not in _AGENT_RUN_METHODS:
+                continue
+            owner = _dotted(call.func.value) or _call_name(call.func.value)
+            if owner not in agents:
+                continue
+            prompt = call.args[0] if call.args else next(
+                (
+                    keyword.value
+                    for keyword in call.keywords
+                    if keyword.arg in {"user_prompt", "prompt", "input"}
+                ),
+                None,
+            )
+            if prompt is not None and _expr_uses_names(prompt, tainted):
+                reaches[name].add(owner)
+
+    for _ in range(8):
+        changed = False
+        for name, fn in functions.items():
+            tainted = tainted_by_function[name]
+            for call in (node for node in ast.walk(fn) if isinstance(node, ast.Call)):
+                called = _call_name(call.func)
+                if called not in reaches or not reaches[called]:
+                    continue
+                values = [*call.args, *(keyword.value for keyword in call.keywords)]
+                if not any(_expr_uses_names(value, tainted) for value in values):
+                    continue
+                before = len(reaches[name])
+                reaches[name].update(reaches[called])
+                changed = changed or len(reaches[name]) != before
+        if not changed:
+            break
+
+    for function_name in sorted(public_entry_names & set(functions)):
+        fn = functions[function_name]
+        params = [
+            arg.arg
+            for arg in [
+                *fn.args.posonlyargs,
+                *fn.args.args,
+                *fn.args.kwonlyargs,
+            ]
+        ]
+        if not params:
+            continue
+        for alias in sorted(reaches[function_name]):
+            agent = agents.get(alias)
+            if agent is None:
+                continue
+            basis = "pydantic_ai_public_wrapper_input_to_run"
+            if any(item.metadata.get("basis") == basis for item in agent.inputs):
+                continue
+            agent.inputs.append(
+                InputSource(
+                    name=f"{function_name}:{params[0]}",
+                    trust="untrusted",
+                    kind="application",
+                    location=_location(path, fn),
+                    metadata={
+                        "basis": basis,
+                        "runtime_invocation_proven": True,
+                        "wrapper_function": function_name,
+                    },
+                )
+            )
+
+
 def scan_python_file(path: Path) -> Graph:
     graph = Graph()
     try:
@@ -1279,11 +1754,25 @@ def scan_python_file(path: Path) -> Graph:
             elements = _resolve_sequence(toolsets_expr, sequences)
             if elements is None:
                 agent.metadata["dynamic_tools"] = True
+                configured_mcp = _configured_mcp_catalogue_from_expr(
+                    path,
+                    toolsets_expr,
+                    assignments,
+                    alias=f"{alias}:configured-mcp",
+                )
+                if configured_mcp is not None:
+                    agent.mcp_servers.append(configured_mcp)
+                    agent.metadata["configuration_dependent_mcp_toolsets"] = True
                 _diagnostic(
                     graph,
                     path,
                     toolsets_expr,
-                    "Pydantic AI toolsets collection could not be statically resolved.",
+                    (
+                        "Pydantic AI toolsets are configuration-derived; the MCP "
+                        "catalogue is bound but its concrete tools/transports are unresolved."
+                        if configured_mcp is not None
+                        else "Pydantic AI toolsets collection could not be statically resolved."
+                    ),
                 )
             else:
                 for element in elements:
@@ -1402,11 +1891,27 @@ def scan_python_file(path: Path) -> Graph:
             continue
         elements = _resolve_sequence(toolsets_expr, sequences)
         if elements is None:
+            agent = agents[owner]
+            configured_mcp = _configured_mcp_catalogue_from_expr(
+                path,
+                toolsets_expr,
+                assignments,
+                alias=f"{owner}:runtime-configured-mcp",
+            )
+            if configured_mcp is not None:
+                agent.mcp_servers.append(configured_mcp)
+                agent.metadata["runtime_toolsets"] = True
+                agent.metadata["configuration_dependent_mcp_toolsets"] = True
             _diagnostic(
                 graph,
                 path,
                 toolsets_expr,
-                "Runtime Pydantic AI toolsets could not be statically resolved.",
+                (
+                    "Runtime Pydantic AI toolsets are configuration-derived; the MCP "
+                    "catalogue is bound but its concrete tools/transports are unresolved."
+                    if configured_mcp is not None
+                    else "Runtime Pydantic AI toolsets could not be statically resolved."
+                ),
             )
             continue
         agent = agents[owner]
@@ -1428,7 +1933,28 @@ def scan_python_file(path: Path) -> Graph:
             if dynamic:
                 agent.metadata["dynamic_tools"] = True
 
+    for agent in graph.agents:
+        for tool in agent.tools:
+            function = functions.get(tool.name)
+            if function is None:
+                continue
+            derived_destinations, derived_metadata = _function_search_result_url_semantics(
+                path,
+                function,
+                functions,
+            )
+            if not derived_destinations:
+                continue
+            tool.capabilities.add("network.external")
+            tool.destinations.extend(
+                destination
+                for destination in derived_destinations
+                if destination not in tool.destinations
+            )
+            tool.metadata.update(derived_metadata)
+
     _annotate_cli_run_inputs(path, tree, agents)
+    _annotate_public_wrapper_run_inputs(path, tree, agents)
 
     bound_mcp_keys = {
         (

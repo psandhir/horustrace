@@ -189,6 +189,115 @@ def _global_ingress_names(
         if imported == "flask.request"
     }
 
+def _authentication_posture(
+    tree: ast.Module,
+    framework: str,
+) -> dict[str, object]:
+    """Extract conservative module-level ingress authentication semantics."""
+    if framework != "aiohttp":
+        return {}
+
+    auth_headers = {"authorization", "x-api-key", "x-auth-token", "api-key"}
+    auth_header_detected = False
+    environment_variables: set[str] = set()
+    public_default = False
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            called = (_dotted(node.func) or _call_name(node.func) or "").lower()
+            if called in {"os.getenv", "os.environ.get"} and node.args:
+                value = node.args[0]
+                if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                    key = value.value
+                    if any(marker in key.lower() for marker in ("api_key", "apikey", "token", "auth")):
+                        environment_variables.add(key)
+            if isinstance(node.func, ast.Attribute) and node.func.attr == "get":
+                receiver = (_dotted(node.func.value) or "").lower()
+                if "headers" in receiver and node.args:
+                    header = node.args[0]
+                    if (
+                        isinstance(header, ast.Constant)
+                        and isinstance(header.value, str)
+                        and header.value.lower() in auth_headers
+                    ):
+                        auth_header_detected = True
+
+    middleware_functions = [
+        function
+        for function in ast.walk(tree)
+        if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and any(
+            (_dotted(decorator.func if isinstance(decorator, ast.Call) else decorator) or "").lower().endswith(
+                ("web.middleware", ".middleware")
+            )
+            for decorator in function.decorator_list
+        )
+    ]
+    for middleware in middleware_functions:
+        for conditional in (
+            node for node in ast.walk(middleware) if isinstance(node, ast.If)
+        ):
+            test = conditional.test
+            optional_state = (
+                isinstance(test, ast.UnaryOp)
+                and isinstance(test.op, ast.Not)
+                and isinstance(test.operand, ast.Name)
+            ) or (
+                isinstance(test, ast.Compare)
+                and isinstance(test.left, ast.Name)
+                and any(isinstance(op, (ast.Eq, ast.Is)) for op in test.ops)
+                and any(
+                    isinstance(value, ast.Constant) and value.value in {None, "", False}
+                    for value in test.comparators
+                )
+            )
+            if not optional_state:
+                continue
+            calls_handler = any(
+                isinstance(child, ast.Call)
+                and _call_name(child.func) == "handler"
+                for statement in conditional.body
+                for child in ast.walk(statement)
+            )
+            assigns_request_identity = any(
+                isinstance(child, (ast.Assign, ast.AnnAssign))
+                and any(
+                    isinstance(target, ast.Subscript)
+                    and isinstance(target.value, ast.Name)
+                    and target.value.id == "request"
+                    for target in (
+                        child.targets if isinstance(child, ast.Assign) else [child.target]
+                    )
+                )
+                for statement in conditional.body
+                for child in ast.walk(statement)
+            )
+            if calls_handler and assigns_request_identity:
+                public_default = True
+                break
+
+    if public_default:
+        return {
+            "authentication_detected": auth_header_detected,
+            "authentication_mode": "optional_public_default",
+            "public_default": True,
+            "authentication_environment_variables": sorted(environment_variables),
+        }
+    if auth_header_detected:
+        return {
+            "authentication_detected": True,
+            "authentication_mode": "required",
+            "public_default": False,
+            "authentication_environment_variables": sorted(environment_variables),
+        }
+    return {
+        "authentication_detected": False,
+        "authentication_mode": "not_detected",
+        "public_default": False,
+        "authentication_environment_variables": sorted(environment_variables),
+    }
+
+
 def _registered_route_handlers(tree: ast.Module) -> set[str]:
     result: set[str] = set()
     for node in ast.walk(tree):
@@ -742,6 +851,7 @@ def enrich_runtime_ingress_inputs(
                             "runtime_invocation_proven": True,
                             "ingress_framework": framework,
                             "handler": function.name,
+                            **_authentication_posture(tree, framework),
                         },
                     )
                 )

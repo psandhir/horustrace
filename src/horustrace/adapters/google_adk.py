@@ -153,6 +153,38 @@ def _list_strings(node: ast.AST | None) -> list[str]:
     return []
 
 
+def _fixed_url_origin(node: ast.AST | None) -> str | None:
+    """Return a fixed scheme/host when only the URL path/query is dynamic."""
+    if node is None:
+        return None
+
+    prefix = ""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        prefix = node.value
+    elif isinstance(node, ast.JoinedStr):
+        for value in node.values:
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                prefix += value.value
+            else:
+                break
+    elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left = _fixed_url_origin(node.left)
+        if left:
+            return left
+        if isinstance(node.left, ast.Constant) and isinstance(node.left.value, str):
+            prefix = node.left.value
+
+    if not prefix.startswith(("http://", "https://")):
+        return None
+    from urllib.parse import urlparse
+
+    parsed = urlparse(prefix)
+    if not parsed.scheme or not parsed.hostname:
+        return None
+    port = f":{parsed.port}" if parsed.port else ""
+    return f"{parsed.scheme}://{parsed.hostname}{port}"
+
+
 def _uses_google_adk(tree: ast.AST) -> bool:
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("google.adk"):
@@ -189,6 +221,7 @@ def _infer_function_capabilities(
     destinations: list[NetworkDestination] = []
 
     literal_urls: dict[str, str] = {}
+    fixed_url_origins: dict[str, str] = {}
     for statement in ast.walk(node):
         if (
             isinstance(statement, ast.Assign)
@@ -199,6 +232,9 @@ def _infer_function_capabilities(
             for target_node in statement.targets:
                 if isinstance(target_node, ast.Name):
                     literal_urls[target_node.id] = statement.value.value
+                    origin = _fixed_url_origin(statement.value)
+                    if origin:
+                        fixed_url_origins[target_node.id] = origin
         elif (
             isinstance(statement, ast.AnnAssign)
             and isinstance(statement.target, ast.Name)
@@ -207,6 +243,19 @@ def _infer_function_capabilities(
             and statement.value.value.startswith(("http://", "https://"))
         ):
             literal_urls[statement.target.id] = statement.value.value
+            origin = _fixed_url_origin(statement.value)
+            if origin:
+                fixed_url_origins[statement.target.id] = origin
+        elif isinstance(statement, ast.Assign):
+            origin = _fixed_url_origin(statement.value)
+            if origin:
+                for target_node in statement.targets:
+                    if isinstance(target_node, ast.Name):
+                        fixed_url_origins[target_node.id] = origin
+        elif isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name):
+            origin = _fixed_url_origin(statement.value)
+            if origin:
+                fixed_url_origins[statement.target.id] = origin
 
     for child in ast.walk(node):
         if not isinstance(child, ast.Call):
@@ -288,6 +337,24 @@ def _infer_function_capabilities(
                     )
                 )
             else:
+                fixed_origin = None
+                if isinstance(target_expr, ast.Name):
+                    fixed_origin = fixed_url_origins.get(target_expr.id)
+                fixed_origin = fixed_origin or _fixed_url_origin(target_expr)
+                if fixed_origin:
+                    destinations.append(
+                        NetworkDestination(
+                            target=fixed_origin,
+                            restricted=True,
+                            metadata={
+                                "source": "fixed_url_origin",
+                                "network_scope": "fixed_provider_network",
+                                "dynamic_path": True,
+                            },
+                        )
+                    )
+                    continue
+
                 # Retain literal fallbacks as possible destinations, but also
                 # record that the actual call target can be dynamic.
                 possible_urls: list[str] = []
@@ -874,6 +941,15 @@ def scan_python_file(path: Path) -> Graph:
         return graph
 
     functions = {node.name: node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    imported_functions: dict[str, str] = {}
+    for node in tree.body:
+        if not isinstance(node, ast.ImportFrom) or not node.module:
+            continue
+        for imported in node.names:
+            if imported.name == "*":
+                continue
+            imported_functions[imported.asname or imported.name] = node.module
+
     calls: dict[str, ast.Call] = {}
     sequences: dict[str, list[ast.AST]] = {}
     tools: dict[str, Tool] = {}
@@ -1172,6 +1248,27 @@ def scan_python_file(path: Path) -> Graph:
             else:
                 identities[identity_name] = synthetic
             tool.identity = identity_name
+
+    for agent in graph.agents:
+        for tool in agent.tools:
+            import_module = imported_functions.get(tool.name)
+            if (
+                import_module
+                and tool.metadata.get("framework") == "google-adk"
+                and tool.metadata.get("source_function_key") is None
+            ):
+                tool.metadata["import_module"] = import_module
+                tool.metadata.setdefault("source_function", tool.name)
+
+    for tool in tools.values():
+        import_module = imported_functions.get(tool.name)
+        if (
+            import_module
+            and tool.metadata.get("framework") == "google-adk"
+            and tool.metadata.get("source_function_key") is None
+        ):
+            tool.metadata["import_module"] = import_module
+            tool.metadata.setdefault("source_function", tool.name)
 
     graph.identities.extend(identities.values())
     bound_tool_keys = {

@@ -17,7 +17,23 @@ from horustrace.models import Agent, Graph, Identity, MCPServer, ResourceScope, 
 EFFECTIVE_AUTHORITY_SCHEMA_VERSION = 1
 
 
-def _stable_relationship_id(agent: str, target_kind: str, target_name: str) -> str:
+def _agent_instance_key(agent: Agent) -> str:
+    configured = agent.metadata.get("instance_key")
+    if isinstance(configured, str) and configured:
+        return configured
+    if agent.location is not None:
+        return (
+            f"{agent.name}:{agent.location.path.resolve()}:"
+            f"{agent.location.line}:{agent.location.column}"
+        )
+    return agent.name
+
+
+def _stable_relationship_id(
+    agent: str,
+    target_kind: str,
+    target_name: str,
+) -> str:
     payload = f"{agent}\0{target_kind}\0{target_name}"
     digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:20]
     return f"authority-v1:{digest}"
@@ -105,6 +121,7 @@ def _resolution_status(unresolved: list[str], dimensions: dict[str, str]) -> str
 class EffectiveAuthorityRelationship:
     relationship_id: str
     agent: str
+    agent_instance_key: str
     target_kind: str
     target_name: str
     capabilities: tuple[str, ...]
@@ -211,6 +228,7 @@ def _tool_relationship(
     return EffectiveAuthorityRelationship(
         relationship_id=_stable_relationship_id(agent.name, "tool", tool.name),
         agent=agent.name,
+        agent_instance_key=_agent_instance_key(agent),
         target_kind="tool",
         target_name=tool.name,
         capabilities=tuple(sorted(tool.capabilities)),
@@ -411,8 +429,11 @@ def _mcp_relationship(
     )
 
     return EffectiveAuthorityRelationship(
-        relationship_id=_stable_relationship_id(agent.name, "mcp_server", server.name),
+        relationship_id=_stable_relationship_id(
+            agent.name, "mcp_server", server.name
+        ),
         agent=agent.name,
+        agent_instance_key=_agent_instance_key(agent),
         target_kind="mcp_server",
         target_name=server.name,
         capabilities=capabilities,
