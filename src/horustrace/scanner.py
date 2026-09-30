@@ -1785,6 +1785,239 @@ def _filter_non_model_langgraph_findings(graph: Graph, findings: list) -> list:
     ]
 
 
+
+def _enrich_streamlit_pydantic_wrapper_inputs(
+    graph: Graph,
+    root: Path,
+    python_paths: list[Path],
+) -> None:
+    """Attach Streamlit chat input through repository-local Pydantic wrapper objects."""
+    root_package = root.name if (root / "__init__.py").exists() else None
+
+    def module_aliases(path: Path) -> tuple[str, ...]:
+        module = _module_name_for_path(path, root)
+        aliases: list[str] = []
+        if module:
+            aliases.append(module)
+        if root_package:
+            package_module = root_package if not module else f"{root_package}.{module}"
+            if package_module not in aliases:
+                aliases.append(package_module)
+        return tuple(aliases)
+
+    def call_leaf(node: ast.AST | None) -> str | None:
+        if isinstance(node, ast.Name):
+            return node.id
+        if isinstance(node, ast.Attribute):
+            return node.attr
+        return None
+
+    module_paths: dict[str, Path] = {}
+    for path in python_paths:
+        for module in module_aliases(path):
+            module_paths[module] = path
+
+    tree_cache: dict[Path, ast.AST | None] = {}
+
+    def tree_for(path: Path) -> ast.AST | None:
+        if path not in tree_cache:
+            try:
+                tree_cache[path] = ast.parse(
+                    path.read_text(encoding="utf-8"),
+                    filename=str(path),
+                )
+            except (OSError, UnicodeDecodeError, SyntaxError):
+                tree_cache[path] = None
+        return tree_cache[path]
+
+    wrapper_factories: dict[tuple[str, str], list[tuple[Agent, set[str]]]] = {}
+
+    for agent in graph.agents:
+        if (
+            agent.metadata.get("framework") != "pydantic-ai"
+            or agent.location is None
+            or not agent.name.startswith("self.")
+        ):
+            continue
+        source_path = agent.location.path
+        tree = tree_for(source_path)
+        if tree is None:
+            continue
+        line = agent.location.line
+        classes = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ClassDef)
+            and (getattr(node, "lineno", 0) or 0)
+            <= line
+            <= (getattr(node, "end_lineno", 0) or 0)
+        ]
+        if not classes:
+            continue
+        owner_class = max(
+            classes,
+            key=lambda node: getattr(node, "lineno", 0) or 0,
+        )
+        agent_attr = agent.name.split(".", 1)[1]
+        wrapper_methods: set[str] = set()
+        for method in owner_class.body:
+            if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for call in (
+                node for node in ast.walk(method) if isinstance(node, ast.Call)
+            ):
+                if not isinstance(call.func, ast.Attribute):
+                    continue
+                if call.func.attr not in _PYDANTIC_RUNTIME_METHODS:
+                    continue
+                if _ast_dotted_name(call.func.value) == f"self.{agent_attr}":
+                    wrapper_methods.add(method.name)
+        if not wrapper_methods:
+            continue
+
+        for module in module_aliases(source_path):
+            for node in getattr(tree, "body", []):
+                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                returns_owner = any(
+                    isinstance(ret, ast.Return)
+                    and isinstance(ret.value, ast.Call)
+                    and call_leaf(ret.value.func) == owner_class.name
+                    for ret in ast.walk(node)
+                )
+                if returns_owner:
+                    wrapper_factories.setdefault(
+                        (module, node.name),
+                        [],
+                    ).append((agent, set(wrapper_methods)))
+
+    if not wrapper_factories:
+        return
+
+    def target_names(node: ast.AST) -> set[str]:
+        if isinstance(node, ast.Name):
+            return {node.id}
+        dotted = _ast_dotted_name(node)
+        return {dotted} if dotted else set()
+
+    for path in python_paths:
+        tree = tree_for(path)
+        if tree is None:
+            continue
+        current_module = _module_name_for_path(path, root)
+        streamlit_modules: set[str] = set()
+        imported_factories: dict[str, tuple[Agent, set[str]]] = {}
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "streamlit":
+                        streamlit_modules.add(alias.asname or alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                source_module = _resolved_import_module(current_module, path, node)
+                if not source_module:
+                    continue
+                for alias in node.names:
+                    candidates = wrapper_factories.get(
+                        (source_module, alias.name),
+                        [],
+                    )
+                    if len(candidates) == 1:
+                        imported_factories[alias.asname or alias.name] = candidates[0]
+
+        if not streamlit_modules or not imported_factories:
+            continue
+
+        wrapper_bindings: dict[str, tuple[Agent, set[str]]] = {}
+        tainted: set[str] = set()
+
+        for node in ast.walk(tree):
+            value: ast.AST | None = None
+            targets: list[ast.AST] = []
+            if isinstance(node, ast.NamedExpr):
+                value = node.value
+                targets = [node.target]
+            elif isinstance(node, ast.Assign):
+                value = node.value
+                targets = list(node.targets)
+            elif isinstance(node, ast.AnnAssign) and node.value is not None:
+                value = node.value
+                targets = [node.target]
+            if value is None:
+                continue
+
+            if isinstance(value, ast.Call):
+                called = call_leaf(value.func)
+                if called in imported_factories:
+                    for target in targets:
+                        for name in target_names(target):
+                            wrapper_bindings[name] = imported_factories[called]
+
+                if isinstance(value.func, ast.Attribute):
+                    receiver = _ast_dotted_name(value.func.value)
+                    if (
+                        receiver in streamlit_modules
+                        and value.func.attr == "chat_input"
+                    ):
+                        for target in targets:
+                            if isinstance(target, ast.Name):
+                                tainted.add(target.id)
+
+        if not wrapper_bindings or not tainted:
+            continue
+
+        for outer in (
+            node for node in ast.walk(tree) if isinstance(node, ast.Call)
+        ):
+            inner = outer.func if isinstance(outer.func, ast.Call) else None
+            if (
+                inner is None
+                or not isinstance(inner.func, ast.Attribute)
+                or not outer.args
+            ):
+                continue
+            owner = _ast_dotted_name(inner.func.value)
+            if owner not in wrapper_bindings:
+                continue
+            agent, wrapper_methods = wrapper_bindings[owner]
+            if inner.func.attr not in wrapper_methods:
+                continue
+            if not any(
+                isinstance(child, ast.Name) and child.id in tainted
+                for child in ast.walk(outer.args[0])
+            ):
+                continue
+
+            basis = "repository_pydantic_streamlit_wrapper_to_run"
+            input_name = f"{path.stem}:streamlit-wrapper-input"
+            if any(
+                item.name == input_name
+                and item.metadata.get("basis") == basis
+                for item in agent.inputs
+            ):
+                continue
+            agent.inputs.append(
+                InputSource(
+                    name=input_name,
+                    trust="untrusted",
+                    kind="web",
+                    location=SourceLocation(
+                        path,
+                        getattr(outer, "lineno", 1) or 1,
+                        (getattr(outer, "col_offset", 0) or 0) + 1,
+                    ),
+                    metadata={
+                        "basis": basis,
+                        "runtime_invocation_proven": True,
+                        "wrapper_method": inner.func.attr,
+                        "source_module": current_module,
+                        "ingress_framework": "streamlit",
+                    },
+                )
+            )
+
+
+
 def scan(
     path: Path,
     suppressions_path: Path | None = None,
@@ -2076,6 +2309,11 @@ def scan(
     enrich_runtime_ingress_inputs(graph, analysis_root, approved_python_paths)
     _enrich_cli_agent_run_inputs(graph, analysis_root, approved_python_paths)
     _enrich_streamlit_agent_run_inputs(graph, analysis_root, approved_python_paths)
+    _enrich_streamlit_pydantic_wrapper_inputs(
+        graph,
+        analysis_root,
+        approved_python_paths,
+    )
     graph.flow_paths = analyze_repository_flows(analysis_root, approved_python_paths, graph)
     _remap_flow_locations(graph, notebook_path_map)
     main_guard_entrypoints = _collect_main_guard_entrypoints(
