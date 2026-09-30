@@ -1,0 +1,259 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "framework-holdout-adk-pydantic-10",
+  "methodology": {
+    "prompt": "research/gpt-horustrace-differential-2026/GPT_SOURCE_REVIEW_PROMPT_V1.md",
+    "blind": true,
+    "scanner_reveal_seen": false,
+    "note": "Source review locked before any HorusTrace scan of this cohort. Findings are conservative and distinguish model-driven authority from deterministic/application-only flows."
+  },
+  "summary": {
+    "cases": 10,
+    "semantic_findings": 8,
+    "source_supported_attack_paths": 5,
+    "precision_controls": 4
+  },
+  "cases": [
+    {
+      "case_id": "ho-001",
+      "repo": "arjunprabhulal/adk-mcp-gemma3",
+      "framework": "google-adk",
+      "findings": [
+        {
+          "finding_id": "llm-ho-001-01",
+          "severity": "medium",
+          "title": "Bound stdio MCP catalogue executes without a source-visible per-call approval boundary",
+          "evidence": [
+            "search/agent.py:create_mcp_tool_executor -> MCPToolset.from_server(StdioServerParameters(command='mcp-youtube-search'))",
+            "search/agent.py:root LlmAgent binds search_youtube as a model-callable tool"
+          ],
+          "rationale": "The agent can invoke a tool catalogue supplied by the external mcp-youtube-search package. The concrete catalogue/sinks are outside the repository, so they must remain unresolved rather than invented; however the MCP authority is source-bound and no per-call approval or allowlist boundary is visible."
+        }
+      ],
+      "attack_paths": [],
+      "limitations": [
+        "Concrete MCP tools and their downstream sinks are not present in the repository."
+      ]
+    },
+    {
+      "case_id": "ho-002",
+      "repo": "kweinmeister/agentic-trading",
+      "framework": "google-adk",
+      "findings": [
+        {
+          "finding_id": "llm-ho-002-01",
+          "severity": "medium",
+          "title": "Task-controlled RiskGuard URL reaches a server-side A2A/HTTP destination",
+          "evidence": [
+            "alphabot/agent.py:_run_async_impl copies validated_input.riskguard_url into risk_params",
+            "alphabot/a2a_risk_tool.py:run_async selects risk_params['riskguard_url'] as risk_guard_target_url",
+            "alphabot/a2a_risk_tool.py:A2ACardResolver(base_url=risk_guard_target_url)"
+          ],
+          "rationale": "An externally supplied task payload can select the RiskGuard service URL that the deterministic AlphaBot workflow dereferences. This is dynamic server-side destination authority, but it is not model-selected LLM authority and should be qualified accordingly."
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "llm-path-ho-002-01",
+          "source": "validated AlphaBot task payload",
+          "chain": [
+            "riskguard_url",
+            "AlphaBotAgent",
+            "A2ARiskCheckTool",
+            "A2ACardResolver",
+            "dynamic RiskGuard destination"
+          ],
+          "qualification": "application/deterministic agent flow; not model-selected"
+        }
+      ],
+      "precision_control": "The repository proposes and risk-checks trades but source does not show a broker/exchange execution sink; do not report actual trade execution authority."
+    },
+    {
+      "case_id": "ho-003",
+      "repo": "mongodb-developer/MongoDB-ADK-Agents",
+      "framework": "google-adk",
+      "findings": [
+        {
+          "finding_id": "llm-ho-003-01",
+          "severity": "high",
+          "title": "Model-callable grocery tool performs persistent MongoDB cart writes without explicit approval",
+          "evidence": [
+            "mongodb-groceries-agent/agent.py:root_agent tools include add_to_cart",
+            "mongodb-groceries-agent/agent.py:add_to_cart -> cart_collection.update_one(..., upsert=True)"
+          ],
+          "rationale": "User requests can cause the ADK agent to invoke add_to_cart, which persistently mutates the carts collection. The prompt tells the model to search first, but no code-level human approval/guardrail is visible around the write."
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "llm-path-ho-003-01",
+          "source": "user conversation",
+          "chain": [
+            "root_agent",
+            "add_to_cart",
+            "MongoDB carts.update_one/upsert"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "ho-004",
+      "repo": "langchain-ai/google-adk-realtime-deepagents-example",
+      "framework": "google-adk",
+      "findings": [],
+      "attack_paths": [],
+      "precision_control": "The public WebSocket can invoke deep_research, but the model-callable research authority is read-only/fixed-provider Tavily search in source. Do not upgrade this to arbitrary egress or state-changing authority solely because ingress is public."
+    },
+    {
+      "case_id": "ho-005",
+      "repo": "box-community/google-adk-box-agent",
+      "framework": "google-adk",
+      "findings": [
+        {
+          "finding_id": "llm-ho-005-01",
+          "severity": "high",
+          "title": "Model-selected Box object identifiers can read and AI-process broadly accessible Box content",
+          "evidence": [
+            "box_agent/sub_agents/box_agent.py binds box_read_tool, folder listing, Box AI ask/extract tools",
+            "box_agent/tools/box_agent_tools.py:box_read_tool(file_id) -> box_file_text_extract(client,file_id)",
+            "box_agent/tools/box_agent_tools.py:box_list_folder_content_by_folder_id(folder_id,is_recursive)",
+            "box_agent/tools/box_agent_tools.py:box_ask_ai_tool/file extraction accept model-selected file_id"
+          ],
+          "rationale": "The LLM can select Box file/folder identifiers and retrieve or AI-process content available to the CCG client. No source-visible resource allowlist or user-specific object authorization boundary is applied by these wrappers."
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "llm-path-ho-005-01",
+          "source": "user conversation",
+          "chain": [
+            "BoxFlowAgent",
+            "box_generic_agent",
+            "model-selected file/folder id",
+            "Box content read/AI extraction"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "ho-006",
+      "repo": "coleam00/MongoDB-RAG-Agent",
+      "framework": "pydantic-ai",
+      "findings": [],
+      "attack_paths": [],
+      "precision_control": "The bound Pydantic tool performs read-only retrieval from the configured knowledge base. Source does not show file/process execution, persistent mutation, or model-selected arbitrary network destinations; do not infer them."
+    },
+    {
+      "case_id": "ho-007",
+      "repo": "coleam00/human-in-the-loop-rag-agent",
+      "framework": "pydantic-ai",
+      "findings": [],
+      "attack_paths": [],
+      "precision_control": "Retrieved source content is withheld from synthesis until approved_chunk_ids contains explicit user selections. The search tool returns summaries/state, and synthesize_with_sources refuses to expose source content when no chunks are approved. Preserve this approval boundary."
+    },
+    {
+      "case_id": "ho-008",
+      "repo": "slack-samples/bolt-python-starter-agent",
+      "framework": "pydantic-ai",
+      "findings": [
+        {
+          "finding_id": "llm-ho-008-01",
+          "severity": "medium",
+          "title": "Slack mention input can trigger a model-selected external reaction write without explicit approval",
+          "evidence": [
+            "pydantic-ai/listeners/events/app_mentioned.py passes cleaned Slack mention text into run_agent",
+            "pydantic-ai/agent/agent.py binds add_emoji_reaction",
+            "pydantic-ai/agent/tools/emoji_reaction.py -> deps.client.reactions_add(...)"
+          ],
+          "rationale": "Untrusted Slack mention content reaches the Pydantic agent, whose built-in tool can write a reaction to Slack. No per-call human approval is visible."
+        },
+        {
+          "finding_id": "llm-ho-008-02",
+          "severity": "high",
+          "title": "User-token-authenticated Slack MCP authority is dynamically attached without source-visible per-call approval",
+          "evidence": [
+            "pydantic-ai/agent/agent.py:run_agent conditionally constructs MCPToolset('https://mcp.slack.com/mcp', Authorization: Bearer deps.user_token)",
+            "SYSTEM_PROMPT explicitly describes Slack MCP search/read/send/schedule/create/update capabilities"
+          ],
+          "rationale": "When a user token is present, the runtime binds a remote Slack MCP catalogue to the agent. The endpoint is fixed and user-scoped, but the source-visible authority includes read and write actions and shows no per-call approval/allowlist boundary. Concrete remote tool definitions remain external."
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "llm-path-ho-008-01",
+          "source": "Slack app mention",
+          "chain": [
+            "handle_app_mentioned",
+            "run_agent",
+            "Pydantic agent",
+            "add_emoji_reaction",
+            "Slack reactions_add"
+          ]
+        }
+      ],
+      "limitations": [
+        "Remote Slack MCP tool definitions are not stored in the repository; do not invent individual MCP tool sinks beyond the source-declared capability set."
+      ]
+    },
+    {
+      "case_id": "ho-009",
+      "repo": "vstorm-co/pydantic-ai-backend",
+      "framework": "pydantic-ai",
+      "findings": [
+        {
+          "finding_id": "llm-ho-009-01",
+          "severity": "critical",
+          "title": "Interactive CLI input reaches shell execution with execution approval explicitly disabled",
+          "evidence": [
+            "examples/local_cli/cli_agent.py:create_console_toolset(include_execute=True, require_execute_approval=False)",
+            "examples/local_cli/cli_agent.py:run_interactive passes user_input to agent.run"
+          ],
+          "rationale": "The default CLI example exposes command execution to the model and explicitly disables execute approval. The local backend is enabled for execution unless --no-execute is supplied."
+        },
+        {
+          "finding_id": "llm-ho-009-02",
+          "severity": "high",
+          "title": "Interactive CLI input reaches filesystem mutation with write approval disabled and optional confinement",
+          "evidence": [
+            "examples/local_cli/cli_agent.py:create_console_toolset(require_write_approval=False)",
+            "examples/local_cli/cli_agent.py:allowed_directories=[working_dir] only when --restrict is set; default is None",
+            "SYSTEM_PROMPT directs the agent to create/edit files"
+          ],
+          "rationale": "The model has source-visible file-write/edit authority with approval disabled. Working-directory confinement is opt-in rather than the default."
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "llm-path-ho-009-01",
+          "source": "interactive CLI input",
+          "chain": [
+            "agent.run(user_input)",
+            "console toolset",
+            "execute",
+            "local process/shell"
+          ]
+        },
+        {
+          "path_id": "llm-path-ho-009-02",
+          "source": "interactive CLI input",
+          "chain": [
+            "agent.run(user_input)",
+            "console toolset",
+            "write/edit",
+            "model-selected filesystem path"
+          ]
+        }
+      ],
+      "precision_control": "The same repository also contains READONLY_RULESET examples where write/edit/execute tools are hidden; scanner findings must remain instance/configuration specific rather than collapsing all agents into the permissive example."
+    },
+    {
+      "case_id": "ho-010",
+      "repo": "vstorm-co/subagents-pydantic-ai",
+      "framework": "pydantic-ai",
+      "findings": [],
+      "attack_paths": [],
+      "precision_control": "The repository provides reusable dynamic-subagent/delegation infrastructure, including capability factories and model allowlists, but the Python source does not establish a concrete application/root agent with privileged capabilities. Do not convert library capability into deployed agent authority."
+    }
+  ]
+}
