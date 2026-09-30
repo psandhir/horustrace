@@ -374,6 +374,182 @@ def _function_http_url_semantics(
     }
 
 
+def _function_search_result_url_semantics(
+    path: Path,
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+) -> tuple[list[NetworkDestination], dict[str, Any]]:
+    """Find model-influenced provider-search result URLs passed to HTTP fetch helpers.
+
+    This is deliberately weaker than direct model-selected URL authority.  The
+    model controls a search query/angle, a provider returns URLs, and repository
+    source then dereferences those URLs through a helper that performs direct HTTP.
+    """
+    params = {
+        arg.arg
+        for arg in [
+            *node.args.posonlyargs,
+            *node.args.args,
+            *node.args.kwonlyargs,
+        ]
+    }
+    if not params:
+        return [], {}
+
+    direct_fetch_helpers = {
+        name
+        for name, function in functions.items()
+        if _function_http_url_semantics(path, function)[0]
+    }
+    if not direct_fetch_helpers:
+        return [], {}
+
+    provider_search_helpers: set[str] = set()
+    for name, function in functions.items():
+        lower_name = name.lower()
+        provider_call = False
+        result_url_field = False
+        for child in ast.walk(function):
+            if isinstance(child, ast.Call):
+                called = (_dotted(child.func) or _call_name(child.func) or "").lower()
+                leaf = (_call_name(child.func) or "").lower()
+                if (
+                    "duckduckgo" in called
+                    or "ddgs" in called
+                    or "tavily" in called
+                    or (
+                        ("search" in lower_name or "search" in called)
+                        and leaf in {"search", "text", "results"}
+                    )
+                ):
+                    provider_call = True
+            if isinstance(child, ast.Constant) and isinstance(child.value, str):
+                if child.value.lower() in {"url", "href", "link"}:
+                    result_url_field = True
+        if provider_call and result_url_field:
+            provider_search_helpers.add(name)
+
+    if not provider_search_helpers:
+        return [], {}
+
+    tainted = set(params)
+    assignments = [
+        child
+        for child in ast.walk(node)
+        if isinstance(child, (ast.Assign, ast.AnnAssign))
+        and child.value is not None
+    ]
+    for _ in range(8):
+        changed = False
+        for assignment in assignments:
+            if not _expr_uses_names(assignment.value, tainted):
+                continue
+            for name in _target_names(assignment):
+                if name not in tainted:
+                    tainted.add(name)
+                    changed = True
+        if not changed:
+            break
+
+    search_collections: set[str] = set()
+    search_helper: str | None = None
+    for assignment in assignments:
+        value = assignment.value
+        if not isinstance(value, ast.Call):
+            continue
+        called = _call_name(value.func)
+        if called not in provider_search_helpers:
+            continue
+        if value.args and not any(_expr_uses_names(arg, tainted) for arg in value.args):
+            continue
+        if not value.args and not any(
+            _expr_uses_names(keyword.value, tainted)
+            for keyword in value.keywords
+        ):
+            continue
+        search_collections.update(_target_names(assignment))
+        search_helper = called
+
+    if not search_collections:
+        return [], {}
+
+    result_items: set[str] = set()
+    for child in ast.walk(node):
+        if not isinstance(child, ast.For):
+            continue
+        if not _expr_uses_names(child.iter, search_collections):
+            continue
+        result_items.update(_target_names(child.target))
+
+    if not result_items:
+        return [], {}
+
+    def _is_result_url_expr(expr: ast.AST | None) -> bool:
+        if expr is None:
+            return False
+        for child in ast.walk(expr):
+            if isinstance(child, ast.Subscript):
+                root = child.value
+                key = _literal(child.slice)
+                if (
+                    isinstance(root, ast.Name)
+                    and root.id in result_items
+                    and isinstance(key, str)
+                    and key.lower() in {"url", "href", "link"}
+                ):
+                    return True
+            if (
+                isinstance(child, ast.Call)
+                and isinstance(child.func, ast.Attribute)
+                and child.func.attr == "get"
+                and isinstance(child.func.value, ast.Name)
+                and child.func.value.id in result_items
+                and child.args
+            ):
+                key = _literal(child.args[0])
+                if isinstance(key, str) and key.lower() in {"url", "href", "link"}:
+                    return True
+        return False
+
+    fetch_helper: str | None = None
+    fetch_call: ast.Call | None = None
+    for child in ast.walk(node):
+        if not isinstance(child, ast.Call):
+            continue
+        called = _call_name(child.func)
+        if called not in direct_fetch_helpers:
+            continue
+        target = child.args[0] if child.args else _kw(child, "url")
+        if _is_result_url_expr(target):
+            fetch_helper = called
+            fetch_call = child
+            break
+
+    if fetch_call is None:
+        return [], {}
+
+    return [
+        NetworkDestination(
+            target="<search-result-url>",
+            restricted=False,
+            location=_location(path, fetch_call),
+            metadata={
+                "source": "search_result_url",
+                "network_scope": "search_result_derived_destination",
+                "server_side_fetch": True,
+                "indirect_destination": True,
+            },
+        )
+    ], {
+        "search_result_url_fetch": True,
+        "model_influenced_search_query": True,
+        "network_scope": "search_result_derived_destination",
+        "destination_provenance": "provider_search_result",
+        "search_helper": search_helper,
+        "fetch_helper": fetch_helper,
+    }
+
+
 def _contains_conditional_approval(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     for child in ast.walk(node):
         if not isinstance(child, ast.Raise) or child.exc is None:
@@ -1560,6 +1736,26 @@ def scan_python_file(path: Path) -> Graph:
             agent.mcp_servers.extend(servers)
             if dynamic:
                 agent.metadata["dynamic_tools"] = True
+
+    for agent in graph.agents:
+        for tool in agent.tools:
+            function = functions.get(tool.name)
+            if function is None:
+                continue
+            derived_destinations, derived_metadata = _function_search_result_url_semantics(
+                path,
+                function,
+                functions,
+            )
+            if not derived_destinations:
+                continue
+            tool.capabilities.add("network.external")
+            tool.destinations.extend(
+                destination
+                for destination in derived_destinations
+                if destination not in tool.destinations
+            )
+            tool.metadata.update(derived_metadata)
 
     _annotate_cli_run_inputs(path, tree, agents)
 
