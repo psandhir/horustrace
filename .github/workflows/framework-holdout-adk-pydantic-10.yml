@@ -1,0 +1,187 @@
+name: ADK Pydantic Holdout 10
+
+on:
+  push:
+    branches:
+      - research/adk-pydantic-holdout-10
+    paths:
+      - ".github/workflows/framework-holdout-adk-pydantic-10.yml"
+      - "research/gpt-horustrace-differential-2026/framework-holdout-adk-pydantic-10-cohort.json"
+      - "research/gpt-horustrace-differential-2026/framework-holdout-adk-pydantic-10-review.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: framework-holdout-adk-pydantic-10
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout HorusTrace
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install HorusTrace
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Run targeted framework regressions
+        run: |
+          python -m pytest -q \
+            tests/test_google_adk.py \
+            tests/test_pydantic_ai_adapter.py \
+            tests/test_runtime_ingress_mapping.py \
+            tests/test_runtime_viability.py
+
+      - name: Run blind 10-case holdout scanner reveal
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import shutil
+          import subprocess
+          import tempfile
+          import time
+          from pathlib import Path
+
+          CASES = [
+              ("ho-001","arjunprabhulal/adk-mcp-gemma3","e487feaffeb9b53d49733af985a88a1924781e5f","google-adk"),
+              ("ho-002","kweinmeister/agentic-trading","9e4046b1144e44785ccaa7ce35a4491f86d79e80","google-adk"),
+              ("ho-003","mongodb-developer/MongoDB-ADK-Agents","aafaefdb16230ed1c24ca6ae5605360befafaab2","google-adk"),
+              ("ho-004","langchain-ai/google-adk-realtime-deepagents-example","b94966176abdddea652589d9cf8a59c00be26c8a","google-adk"),
+              ("ho-005","box-community/google-adk-box-agent","c35dc3d306a7baa3629fd7c72c37e1791cda1e9e","google-adk"),
+              ("ho-006","coleam00/MongoDB-RAG-Agent","b048eeab220e43b2b8f8c97508e4d6d2c134a468","pydantic-ai"),
+              ("ho-007","coleam00/human-in-the-loop-rag-agent","b5f6158cacc0c52a1585429de3751a31f551d333","pydantic-ai"),
+              ("ho-008","slack-samples/bolt-python-starter-agent","01fc89f9059348af2d172f8ea1dc62bffd008611","pydantic-ai"),
+              ("ho-009","vstorm-co/pydantic-ai-backend","8ac7b678b633aa51c054a884ce27d31b130b8110","pydantic-ai"),
+              ("ho-010","vstorm-co/subagents-pydantic-ai","bb8c400732ad515a1e2bfc554ee2dcf7500b2ef9","pydantic-ai"),
+          ]
+
+          def clone_case(root, case):
+              case_id, repo, sha, framework = case
+              target = root / case_id
+              target.mkdir()
+              for command in [
+                  ["git","init","-q",str(target)],
+                  ["git","-C",str(target),"remote","add","origin",f"https://github.com/{repo}.git"],
+                  ["git","-C",str(target),"fetch","--quiet","--depth=1","--filter=blob:none","origin",sha],
+                  ["git","-C",str(target),"checkout","--quiet","--detach","FETCH_HEAD"],
+              ]:
+                  cp = subprocess.run(command,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=240)
+                  if cp.returncode:
+                      raise RuntimeError((cp.stderr or cp.stdout)[-4000:])
+              return target
+
+          results=[]
+          with tempfile.TemporaryDirectory(prefix="horustrace-holdout-") as temp:
+              root=Path(temp)
+              for index,case in enumerate(CASES,1):
+                  case_id,repo_name,sha,framework=case
+                  started=time.monotonic()
+                  print(f"[{index:02d}/10] {case_id} {repo_name}",flush=True)
+                  row={"case_id":case_id,"repo":repo_name,"sha":sha,"framework":framework}
+                  try:
+                      target=clone_case(root,case)
+                      from horustrace.config import load_config
+                      from horustrace.scanner import scan
+                      graph,findings=scan(target,config=load_config(target))
+                      row.update({
+                          "scan":"ok",
+                          "agents":[
+                              {
+                                  "name":agent.name,
+                                  "location":agent.location.as_dict() if agent.location else None,
+                                  "runtime_viability":agent.metadata.get("runtime_viability"),
+                                  "runtime_blockers":agent.metadata.get("runtime_blockers") or [],
+                                  "inputs":[{"name":i.name,"trust":i.trust,"kind":i.kind,"metadata":i.metadata} for i in agent.inputs],
+                                  "mcp_servers":[{"name":s.name,"transport":s.transport,"url":s.url,"approval":s.approval,"metadata":s.metadata} for s in agent.mcp_servers],
+                                  "tools":[
+                                      {
+                                          "name":t.name,
+                                          "kind":t.kind,
+                                          "capabilities":sorted(t.capabilities),
+                                          "guardrails":t.guardrails,
+                                          "approval":t.approval,
+                                          "resources":[{"kind":r.kind,"selector":r.selector,"access":sorted(r.access)} for r in t.resources],
+                                          "destinations":[{"target":d.target,"restricted":d.restricted,"metadata":d.metadata} for d in t.destinations],
+                                          "metadata":t.metadata,
+                                      }
+                                      for t in agent.tools
+                                  ],
+                              }
+                              for agent in graph.agents
+                          ],
+                          "unbound_mcp_servers":[{"name":s.name,"transport":s.transport,"url":s.url,"metadata":s.metadata} for s in graph.unbound_mcp_servers],
+                          "findings":[f.as_dict() for f in findings],
+                          "attack_paths":[
+                              {
+                                  "path_id":p.path_id,
+                                  "title":p.title,
+                                  "agent":p.agent,
+                                  "nodes":p.nodes,
+                                  "severity":p.severity.label(),
+                                  "metadata":p.metadata,
+                              }
+                              for p in graph.attack_paths
+                          ],
+                          "flow_paths":[f.as_dict() for f in graph.flow_paths],
+                          "diagnostics":[d.as_dict() for d in graph.coverage.diagnostics],
+                      })
+                  except Exception as exc:
+                      row.update(scan="error",error=f"{type(exc).__name__}: {exc}")
+                  row["elapsed_seconds"]=round(time.monotonic()-started,2)
+                  results.append(row)
+                  shutil.rmtree(root/case_id,ignore_errors=True)
+
+          report={
+              "schema_version":1,
+              "study":"gpt-horustrace-differential-2026",
+              "batch_id":"framework-holdout-adk-pydantic-10",
+              "scanner_commit":os.environ.get("GITHUB_SHA"),
+              "results":results,
+              "summary":{
+                  "requested":10,
+                  "scanned":sum(r.get("scan")=="ok" for r in results),
+                  "errors":sum(r.get("scan")!="ok" for r in results),
+                  "findings":sum(len(r.get("findings") or []) for r in results),
+                  "attack_paths":sum(len(r.get("attack_paths") or []) for r in results),
+              },
+          }
+          base=Path("research/gpt-horustrace-differential-2026")
+          out=base/"framework-holdout-adk-pydantic-10-scanner.json"
+          out.write_text(json.dumps(report,indent=2,default=str)+"\n",encoding="utf-8")
+          lines=[
+              "# ADK + Pydantic AI unseen 10-repo holdout scanner reveal","",
+              f"- Scanner commit: {report['scanner_commit']}",
+              f"- Scanned: {report['summary']['scanned']}/10",
+              f"- Errors: {report['summary']['errors']}",
+              f"- Findings: {report['summary']['findings']}",
+              f"- Attack paths: {report['summary']['attack_paths']}","",
+              "| Case | Framework | Findings | Paths | MCP | Blocked agents |",
+              "|---|---|---:|---:|---:|---:|",
+          ]
+          for row in results:
+              agents=row.get("agents") or []
+              mcp=sum(len(a.get("mcp_servers") or []) for a in agents)
+              blocked=sum(a.get("runtime_viability")=="blocked_by_source_error" for a in agents)
+              lines.append(f"| {row['case_id']} | {row['framework']} | {len(row.get('findings') or [])} | {len(row.get('attack_paths') or [])} | {mcp} | {blocked} |")
+          (base/"framework-holdout-adk-pydantic-10-scanner.md").write_text("\n".join(lines)+"\n",encoding="utf-8")
+          PY
+
+      - name: Upload holdout reveal
+        uses: actions/upload-artifact@v4
+        with:
+          name: framework-holdout-adk-pydantic-10
+          path: |
+            research/gpt-horustrace-differential-2026/framework-holdout-adk-pydantic-10-scanner.json
+            research/gpt-horustrace-differential-2026/framework-holdout-adk-pydantic-10-scanner.md
+          if-no-files-found: error
