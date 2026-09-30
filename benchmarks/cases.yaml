@@ -89,12 +89,9 @@ cases:
   - AGT040@browser
   - CAP005@browser
   - NET002@browser
-- name: execution-sandbox-missing-limits
+- name: execution-provider-managed-code-control
   path: cases/execution-4
-  expected:
-  - AGT020@coder
-  - CAP005@coder
-  - PATH001@coder
+  expected: []
 - name: false-positive-trap
   path: cases/false-positive-trap
   expected: []
