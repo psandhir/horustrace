@@ -332,8 +332,8 @@ def _infer_function_capabilities(
                 destinations.append(
                     NetworkDestination(
                         target=target,
-                        restricted=True,
-                        metadata={"source": "literal_url", "network_scope": "fixed_provider_network"},
+                        restricted=False,
+                        metadata={"source": "literal_url", "network_scope": "fixed_literal_destination"},
                     )
                 )
             else:
