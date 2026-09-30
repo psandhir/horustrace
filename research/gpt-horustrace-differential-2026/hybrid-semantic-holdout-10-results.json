@@ -7,9 +7,9 @@
     "cohort": "05104912966ebfd08e500142aaac75e8b9f14626",
     "blind_review": "ee5a1b53e187e79a7c26147a10bd322e76d38b31"
   },
-  "scanner_commit": "b1ac29d9536a536ace88f8cee77051d0eb734207",
+  "scanner_commit": "d786faa7f83a9e0173359866aab00380cc401914",
   "semantic_provider": "copilot",
-  "semantic_model": "gpt-5.4",
+  "semantic_model": "auto",
   "budgets": {
     "max_candidates_per_repo": 3,
     "max_slice_chars": 8000,
@@ -24,13 +24,13 @@
     "selected_candidates": 16,
     "fresh_llm_calls": 16,
     "cache_hits": 0,
-    "applied": 0,
+    "applied": 16,
     "low_confidence": 0,
-    "semantic_errors": 16,
+    "semantic_errors": 0,
     "input_chars": 28278,
     "estimated_input_tokens_at_4_chars": 7070,
     "baseline_findings": 10,
-    "hybrid_findings": 10,
+    "hybrid_findings": 13,
     "baseline_attack_paths": 1,
     "hybrid_attack_paths": 1
   },
@@ -105,7 +105,7 @@
               "message": "A configured tool or MCP server could not be resolved.",
               "details": {},
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-001/search/agent.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-001/search/agent.py",
                 "line": 105,
                 "column": 1
               }
@@ -119,7 +119,7 @@
               "framework": "google-adk",
               "agent_type": "LlmAgent",
               "source_alias": "agent",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-001/search/agent.py:83:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-001/search/agent.py:83:agent",
               "instruction": "You are a helpful YouTube video search assistant.\nYour goal is to use the search_youtube tool and present the results clearly.\n\n1.  When asked to find videos, call the search_youtube tool.\n2.  The tool will return a JSON object. Find the list of videos in the 'results' field of this JSON.\n3.  For each video in the list, create a bullet point (*).\n4.  Format each bullet point like this: **Title** (Link) by Channel: Description. (Published Date, Views, Duration)\n    - Use the 'title', 'link', 'channel', 'description', 'published_date', 'views', and 'duration' fields from the JSON for each video.\n    - Make the title bold.\n    - Put the link in parentheses right after the title.\n5.  Your final response should ONLY be the formatted bullet list of videos. Do not include the raw JSON.\n6.  If the 'results' list in the JSON is empty, simply respond: \"I couldn't find any videos for that search.\"\n",
               "disallow_transfer_to_parent": null,
               "disallow_transfer_to_peers": null,
@@ -152,7 +152,7 @@
             "message": "A configured tool or MCP server could not be resolved.",
             "details": {},
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-001/search/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-001/search/agent.py",
               "line": 105,
               "column": 1
             }
@@ -225,7 +225,7 @@
               "input_chars": 0,
               "skipped_budget": 0,
               "provider": "copilot",
-              "model": "gpt-5.4",
+              "model": "auto",
               "prompt_version": "semantic-escalation-v1"
             }
           },
@@ -238,7 +238,7 @@
               "message": "A configured tool or MCP server could not be resolved.",
               "details": {},
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-001/search/agent.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-001/search/agent.py",
                 "line": 105,
                 "column": 1
               }
@@ -252,7 +252,7 @@
               "framework": "google-adk",
               "agent_type": "LlmAgent",
               "source_alias": "agent",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-001/search/agent.py:83:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-001/search/agent.py:83:agent",
               "instruction": "You are a helpful YouTube video search assistant.\nYour goal is to use the search_youtube tool and present the results clearly.\n\n1.  When asked to find videos, call the search_youtube tool.\n2.  The tool will return a JSON object. Find the list of videos in the 'results' field of this JSON.\n3.  For each video in the list, create a bullet point (*).\n4.  Format each bullet point like this: **Title** (Link) by Channel: Description. (Published Date, Views, Duration)\n    - Use the 'title', 'link', 'channel', 'description', 'published_date', 'views', and 'duration' fields from the JSON for each video.\n    - Make the title bold.\n    - Put the link in parentheses right after the title.\n5.  Your final response should ONLY be the formatted bullet list of videos. Do not include the raw JSON.\n6.  If the 'results' list in the JSON is empty, simply respond: \"I couldn't find any videos for that search.\"\n",
               "disallow_transfer_to_parent": null,
               "disallow_transfer_to_peers": null,
@@ -285,7 +285,7 @@
             "message": "A configured tool or MCP server could not be resolved.",
             "details": {},
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-001/search/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-001/search/agent.py",
               "line": 105,
               "column": 1
             }
@@ -318,10 +318,10 @@
         "input_chars": 0,
         "skipped_budget": 0,
         "provider": "copilot",
-        "model": "gpt-5.4",
+        "model": "auto",
         "prompt_version": "semantic-escalation-v1"
       },
-      "elapsed_seconds": 2.42
+      "elapsed_seconds": 2.39
     },
     {
       "case_id": "ho-002",
@@ -396,7 +396,7 @@
                 "evidence_files": 13
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-002/alphabot/a2a_risk_tool.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-002/alphabot/a2a_risk_tool.py",
                 "line": 1,
                 "column": 1
               }
@@ -420,7 +420,7 @@
               "evidence_files": 13
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-002/alphabot/a2a_risk_tool.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-002/alphabot/a2a_risk_tool.py",
               "line": 1,
               "column": 1
             }
@@ -493,7 +493,7 @@
               "input_chars": 0,
               "skipped_budget": 0,
               "provider": "copilot",
-              "model": "gpt-5.4",
+              "model": "auto",
               "prompt_version": "semantic-escalation-v1"
             }
           },
@@ -509,7 +509,7 @@
                 "evidence_files": 13
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-002/alphabot/a2a_risk_tool.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-002/alphabot/a2a_risk_tool.py",
                 "line": 1,
                 "column": 1
               }
@@ -533,7 +533,7 @@
               "evidence_files": 13
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-002/alphabot/a2a_risk_tool.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-002/alphabot/a2a_risk_tool.py",
               "line": 1,
               "column": 1
             }
@@ -566,10 +566,10 @@
         "input_chars": 0,
         "skipped_budget": 0,
         "provider": "copilot",
-        "model": "gpt-5.4",
+        "model": "auto",
         "prompt_version": "semantic-escalation-v1"
       },
-      "elapsed_seconds": 8.29
+      "elapsed_seconds": 9.08
     },
     {
       "case_id": "ho-003",
@@ -641,7 +641,7 @@
               "framework": "google-adk",
               "agent_type": "Agent",
               "source_alias": "root_agent",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py:140:root_agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py:140:root_agent",
               "instruction": " \nYou are the **Online Groceries Agent**, a friendly and helpful virtual assistant for our e-commerce grocery store. \nStart every conversation with a warm greeting, introduce yourself as the \"Online Groceries Agent,\" and ask how you can assist the user today. \nYour role is to guide customers through their shopping experience.\n\nWhat you can do:\n- Help users discover and explore products in the store.\n- Suggest alternatives when the exact item is not available.\n- Add products to the user\u2019s shopping cart.\n- Answer product-related questions in a clear and concise way.\n- Return the total in the user\u2019s shopping cart.\n\nAvailable tools:\n1. **find_similar_products**: Search for products with names semantically similar to the user\u2019s request.  \n2. **add_to_cart**: Add a product to the user\u2019s cart in MongoDB. Pass only the product name (as it appears in the inventory collection) and the user\u2019s username.  \n3. **calculate_cart_total**: Sum the total of all products in a user's cart and return it. Pass the user\u2019s username.\n\nCore guidelines:\n- **Always search first**: If a user asks for a product, call `find_similar_products` before attempting to add it to the cart.  \n- **Handle missing products**: If the requested product is not in the inventory, suggest similar items returned by the search.  \n- **Parallel tool use**: You may call multiple tools in parallel when appropriate (e.g., searching for several items at once).  \n- **Clarify only when necessary**: Ask for more details if the request is unclear and you cannot perform a search.  \n- Keep your tone positive, approachable, and customer-focused throughout the interaction.  \n\nAdditional important instructions:\n- **Do not assume availability**: Never add a product directly to the cart without confirming it exists in the inventory.  \n- **Respect exact names**: When using `add_to_cart`, pass the product name exactly as stored in the inventory collection.  \n- **Multi-item requests**: If the user asks for several items in one message, search for all items together and suggest results before adding to the cart.  \n- **Quantity requests**: If the user specifies a quantity, repeat it back to confirm and ensure it is respected when adding to the cart.  \n- **Cart confirmation**: After adding items, confirm with the user that they have been successfully added.  \n- **Fallback behavior**: If no results are found, apologize politely, and encourage the user to try a different product or category.  \n- **Stay focused**: Only handle product discovery, shopping, and cart management tasks. Politely decline requests unrelated to groceries.  \n- **Answering product questions**: If the question is about a product (e.g., \"Is this organic?\" or \"How much does it cost?\"), use the search results to answer. If the information is not available, respond transparently that you don\u2019t have that detail.  \n\nRemember: you are a professional yet friendly shopping assistant whose goal is to make the user\u2019s grocery shopping smooth, efficient, and enjoyable.\n    ",
               "model": "gemini-2.5-flash",
               "disallow_transfer_to_parent": null,
@@ -675,7 +675,7 @@
                   "source_function_key": "mongodb-groceries-agent.agent.find_similar_products",
                   "source_module": "mongodb-groceries-agent.agent",
                   "source_function": "find_similar_products",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
                   "source_line": 25
                 }
               },
@@ -696,7 +696,7 @@
                   "source_function_key": "mongodb-groceries-agent.agent.add_to_cart",
                   "source_module": "mongodb-groceries-agent.agent",
                   "source_function": "add_to_cart",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
                   "source_line": 76,
                   "mutation_semantics": "internal_write_unspecified"
                 }
@@ -716,7 +716,7 @@
                   "source_function_key": "mongodb-groceries-agent.agent.calculate_cart_total",
                   "source_module": "mongodb-groceries-agent.agent",
                   "source_function": "calculate_cart_total",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
                   "source_line": 116
                 }
               }
@@ -750,7 +750,7 @@
                 "fact": "agent_configuration_detected",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
                   "line": 140,
                   "column": 14
                 }
@@ -762,7 +762,7 @@
             "fingerprint": "arg-v1:040cf5ba85e5eb76bd8a906e",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
               "line": 140,
               "column": 14
             }
@@ -794,7 +794,7 @@
                 "fact": "capability=data.write",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
                   "line": 76,
                   "column": 1
                 }
@@ -804,7 +804,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
                   "line": 76,
                   "column": 1
                 }
@@ -814,7 +814,7 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
                   "line": 76,
                   "column": 1
                 }
@@ -826,7 +826,7 @@
             "fingerprint": "arg-v1:79242446ac0db67f4ff64109",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
               "line": 76,
               "column": 1
             }
@@ -895,32 +895,15 @@
               "unresolved_helpers_source_resolved": 0,
               "selected_candidates": 3,
               "escalated": 3,
-              "applied": 0,
+              "applied": 3,
               "low_confidence": 0,
-              "errors": 3,
+              "errors": 0,
               "cache_hits": 0,
               "input_chars": 4337,
               "skipped_budget": 0,
               "provider": "copilot",
-              "model": "gpt-5.4",
-              "prompt_version": "semantic-escalation-v1",
-              "error_messages": [
-                {
-                  "candidate_id": "ccf78a7e1cac45acbc48",
-                  "candidate": "calculate_cart_total",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                },
-                {
-                  "candidate_id": "dd15c151441186505068",
-                  "candidate": "find_similar_products",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                },
-                {
-                  "candidate_id": "57b5a9fb01516d969304",
-                  "candidate": "add_to_cart",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                }
-              ]
+              "model": "auto",
+              "prompt_version": "semantic-escalation-v1"
             }
           },
           "diagnostics": []
@@ -932,7 +915,7 @@
               "framework": "google-adk",
               "agent_type": "Agent",
               "source_alias": "root_agent",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py:140:root_agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py:140:root_agent",
               "instruction": " \nYou are the **Online Groceries Agent**, a friendly and helpful virtual assistant for our e-commerce grocery store. \nStart every conversation with a warm greeting, introduce yourself as the \"Online Groceries Agent,\" and ask how you can assist the user today. \nYour role is to guide customers through their shopping experience.\n\nWhat you can do:\n- Help users discover and explore products in the store.\n- Suggest alternatives when the exact item is not available.\n- Add products to the user\u2019s shopping cart.\n- Answer product-related questions in a clear and concise way.\n- Return the total in the user\u2019s shopping cart.\n\nAvailable tools:\n1. **find_similar_products**: Search for products with names semantically similar to the user\u2019s request.  \n2. **add_to_cart**: Add a product to the user\u2019s cart in MongoDB. Pass only the product name (as it appears in the inventory collection) and the user\u2019s username.  \n3. **calculate_cart_total**: Sum the total of all products in a user's cart and return it. Pass the user\u2019s username.\n\nCore guidelines:\n- **Always search first**: If a user asks for a product, call `find_similar_products` before attempting to add it to the cart.  \n- **Handle missing products**: If the requested product is not in the inventory, suggest similar items returned by the search.  \n- **Parallel tool use**: You may call multiple tools in parallel when appropriate (e.g., searching for several items at once).  \n- **Clarify only when necessary**: Ask for more details if the request is unclear and you cannot perform a search.  \n- Keep your tone positive, approachable, and customer-focused throughout the interaction.  \n\nAdditional important instructions:\n- **Do not assume availability**: Never add a product directly to the cart without confirming it exists in the inventory.  \n- **Respect exact names**: When using `add_to_cart`, pass the product name exactly as stored in the inventory collection.  \n- **Multi-item requests**: If the user asks for several items in one message, search for all items together and suggest results before adding to the cart.  \n- **Quantity requests**: If the user specifies a quantity, repeat it back to confirm and ensure it is respected when adding to the cart.  \n- **Cart confirmation**: After adding items, confirm with the user that they have been successfully added.  \n- **Fallback behavior**: If no results are found, apologize politely, and encourage the user to try a different product or category.  \n- **Stay focused**: Only handle product discovery, shopping, and cart management tasks. Politely decline requests unrelated to groceries.  \n- **Answering product questions**: If the question is about a product (e.g., \"Is this organic?\" or \"How much does it cost?\"), use the search results to answer. If the information is not available, respond transparently that you don\u2019t have that detail.  \n\nRemember: you are a professional yet friendly shopping assistant whose goal is to make the user\u2019s grocery shopping smooth, efficient, and enjoyable.\n    ",
               "model": "gemini-2.5-flash",
               "disallow_transfer_to_parent": null,
@@ -954,10 +937,26 @@
               {
                 "name": "find_similar_products",
                 "kind": "adk_function",
-                "capabilities": [],
+                "capabilities": [
+                  "data.read"
+                ],
                 "approval": null,
                 "guardrails": false,
-                "resources": [],
+                "resources": [
+                  {
+                    "kind": "database collection",
+                    "selector": "DATABASE_NAME.INVENTORY_COLLECTION_NAME",
+                    "access": [
+                      "data.read"
+                    ],
+                    "classification": "internal",
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "selector_provenance": "operator_configured",
+                      "semantic_confidence": 0.92
+                    }
+                  }
+                ],
                 "destinations": [],
                 "metadata": {
                   "framework": "google-adk",
@@ -966,19 +965,62 @@
                   "source_function_key": "mongodb-groceries-agent.agent.find_similar_products",
                   "source_module": "mongodb-groceries-agent.agent",
                   "source_function": "find_similar_products",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
-                  "source_line": 25
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "source_line": 25,
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.92,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "b967c79332f1fccc6efed16dac13ae03ac53916d935d45cebc8978ea3cc18042",
+                  "semantic_evidence": [
+                    "The function passes the query to generate_embeddings(query).",
+                    "The function aggregates a vector-search pipeline on database_client[DATABASE_NAME][INVENTORY_COLLECTION_NAME].",
+                    "The aggregation returns matching documents after excluding _id, sale_price, and gemini_embedding."
+                  ],
+                  "semantic_limitations": [
+                    "The source does not show database connection configuration, authentication, or resource classification."
+                  ]
                 }
               },
               {
                 "name": "add_to_cart",
                 "kind": "adk_function",
                 "capabilities": [
+                  "data.read",
                   "data.write"
                 ],
                 "approval": null,
                 "guardrails": false,
-                "resources": [],
+                "resources": [
+                  {
+                    "kind": "database_collection",
+                    "selector": "DATABASE_NAME/INVENTORY_COLLECTION_NAME",
+                    "access": [
+                      "data.read"
+                    ],
+                    "classification": "internal",
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "selector_provenance": "operator_configured",
+                      "semantic_confidence": 0.98
+                    }
+                  },
+                  {
+                    "kind": "database_collection",
+                    "selector": "DATABASE_NAME/CARTS_COLLECTION_NAME",
+                    "access": [
+                      "data.write"
+                    ],
+                    "classification": "internal",
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "selector_provenance": "operator_configured",
+                      "semantic_confidence": 0.98
+                    }
+                  }
+                ],
                 "destinations": [],
                 "metadata": {
                   "framework": "google-adk",
@@ -987,18 +1029,49 @@
                   "source_function_key": "mongodb-groceries-agent.agent.add_to_cart",
                   "source_module": "mongodb-groceries-agent.agent",
                   "source_function": "add_to_cart",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
                   "source_line": 76,
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.98,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "623395d4b42e5eba1321930c0c5f9764fe504cabc33b21b99f8bb3f29d9ce4a8",
+                  "semantic_evidence": [
+                    "Reads a product document from the inventory collection using the supplied product value.",
+                    "Writes the product document to the user's cart collection using the supplied username.",
+                    "Rejects a missing product or empty username before the cart write."
+                  ],
+                  "semantic_limitations": [
+                    "Database configuration, authentication, and approval behavior are not shown."
+                  ],
                   "mutation_semantics": "internal_write_unspecified"
                 }
               },
               {
                 "name": "calculate_cart_total",
                 "kind": "adk_function",
-                "capabilities": [],
+                "capabilities": [
+                  "data.read"
+                ],
                 "approval": null,
                 "guardrails": false,
-                "resources": [],
+                "resources": [
+                  {
+                    "kind": "database collection",
+                    "selector": "DATABASE_NAME.CARTS_COLLECTION_NAME",
+                    "access": [
+                      "data.read"
+                    ],
+                    "classification": "internal",
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "selector_provenance": "operator_configured",
+                      "semantic_confidence": 0.95
+                    }
+                  }
+                ],
                 "destinations": [],
                 "metadata": {
                   "framework": "google-adk",
@@ -1007,8 +1080,22 @@
                   "source_function_key": "mongodb-groceries-agent.agent.calculate_cart_total",
                   "source_module": "mongodb-groceries-agent.agent",
                   "source_function": "calculate_cart_total",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
-                  "source_line": 116
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "source_line": 116,
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.95,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "aed3df0f00f639d0e269ed30f7bec31c95a172909ddb868bdb7099cd70dc88b2",
+                  "semantic_evidence": [
+                    "Queries the configured carts collection with find_one using the supplied username.",
+                    "Reads the products field and sums each product's sale_price."
+                  ],
+                  "semantic_limitations": [
+                    "The database client and configuration values are not defined in this source slice."
+                  ]
                 }
               }
             ]
@@ -1041,7 +1128,7 @@
                 "fact": "agent_configuration_detected",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
                   "line": 140,
                   "column": 14
                 }
@@ -1053,7 +1140,7 @@
             "fingerprint": "arg-v1:040cf5ba85e5eb76bd8a906e",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
               "line": 140,
               "column": 14
             }
@@ -1068,7 +1155,7 @@
             "layer": 1,
             "agent": "grocery_shopping_agent",
             "evidence": [
-              "capabilities=data.write",
+              "capabilities=data.read,data.write",
               "authority_relationship=authority-v1:3d7df34aa0d2d34f5dd8",
               "approval_resolution=unknown"
             ],
@@ -1085,7 +1172,7 @@
                 "fact": "capability=data.write",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
                   "line": 76,
                   "column": 1
                 }
@@ -1095,7 +1182,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
                   "line": 76,
                   "column": 1
                 }
@@ -1105,7 +1192,27 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 76,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "grocery_shopping_agent.add_to_cart",
+                "fact": "semantic_capability=data.read",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 76,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "grocery_shopping_agent.add_to_cart",
+                "fact": "semantic_capability=data.write",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
                   "line": 76,
                   "column": 1
                 }
@@ -1114,12 +1221,188 @@
             "limitations": [
               "Runtime authorization and control effectiveness are not verified by this static scan."
             ],
-            "fingerprint": "arg-v1:79242446ac0db67f4ff64109",
+            "fingerprint": "arg-v1:dda48dad9e7f714dfbcb7dd5",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-003/mongodb-groceries-agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
               "line": 76,
               "column": 1
+            }
+          },
+          {
+            "rule_id": "CAP005",
+            "default_severity": "medium",
+            "severity": "medium",
+            "title": "Combined read and write authority",
+            "message": "Agent 'grocery_shopping_agent' can both read and modify data.",
+            "recommendation": "Apply resource-level least privilege; separate read-only analysis from mutation where practical.",
+            "layer": 2,
+            "agent": "grocery_shopping_agent",
+            "evidence": [
+              "data.read",
+              "data.write/destructive.write",
+              "authority_relationship=authority-v1:3d7df34aa0d2d34f5dd8",
+              "authority_relationship=authority-v1:a272044cf140e174bdb6",
+              "authority_relationship=authority-v1:ef12f322f3809f0940f1"
+            ],
+            "standards": {
+              "owasp_agentic": [
+                "ASI02"
+              ]
+            },
+            "assessment": "heuristic_risk",
+            "source_context": "runtime",
+            "provenance": [
+              {
+                "subject": "grocery_shopping_agent",
+                "fact": "agent_configuration_detected",
+                "origin": "observed",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 140,
+                  "column": 14
+                }
+              },
+              {
+                "subject": "find_similar_products",
+                "fact": "approval_configuration=None",
+                "origin": "observed",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 25,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "find_similar_products",
+                "fact": "guardrail_hook_detected=False",
+                "origin": "observed",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 25,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "grocery_shopping_agent.find_similar_products",
+                "fact": "semantic_capability=data.read",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 25,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "add_to_cart",
+                "fact": "capability=data.write",
+                "origin": "inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 76,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "add_to_cart",
+                "fact": "approval_configuration=None",
+                "origin": "observed",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 76,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "add_to_cart",
+                "fact": "guardrail_hook_detected=False",
+                "origin": "observed",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 76,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "grocery_shopping_agent.add_to_cart",
+                "fact": "semantic_capability=data.read",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 76,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "grocery_shopping_agent.add_to_cart",
+                "fact": "semantic_capability=data.write",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 76,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "calculate_cart_total",
+                "fact": "approval_configuration=None",
+                "origin": "observed",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 116,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "calculate_cart_total",
+                "fact": "guardrail_hook_detected=False",
+                "origin": "observed",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 116,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "grocery_shopping_agent.calculate_cart_total",
+                "fact": "semantic_capability=data.read",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 116,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "user-or-remote-input",
+                "fact": "input_trust=untrusted",
+                "origin": "inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 140,
+                  "column": 14
+                }
+              },
+              {
+                "subject": "user-or-remote-input",
+                "fact": "input_kind=user",
+                "origin": "inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+                  "line": 140,
+                  "column": 14
+                }
+              }
+            ],
+            "limitations": [
+              "Runtime authorization and control effectiveness are not verified by this static scan."
+            ],
+            "fingerprint": "arg-v1:e3e7a9efe0eed6cf86ea7cb7",
+            "confidence": null,
+            "location": {
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-003/mongodb-groceries-agent/agent.py",
+              "line": 140,
+              "column": 14
             }
           }
         ],
@@ -1138,7 +1421,7 @@
         "agents": 1,
         "tools": 3,
         "mcp": 0,
-        "findings": 2,
+        "findings": 3,
         "attack_paths": 0
       },
       "semantic_llm": {
@@ -1146,34 +1429,17 @@
         "unresolved_helpers_source_resolved": 0,
         "selected_candidates": 3,
         "escalated": 3,
-        "applied": 0,
+        "applied": 3,
         "low_confidence": 0,
-        "errors": 3,
+        "errors": 0,
         "cache_hits": 0,
         "input_chars": 4337,
         "skipped_budget": 0,
         "provider": "copilot",
-        "model": "gpt-5.4",
-        "prompt_version": "semantic-escalation-v1",
-        "error_messages": [
-          {
-            "candidate_id": "ccf78a7e1cac45acbc48",
-            "candidate": "calculate_cart_total",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          },
-          {
-            "candidate_id": "dd15c151441186505068",
-            "candidate": "find_similar_products",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          },
-          {
-            "candidate_id": "57b5a9fb01516d969304",
-            "candidate": "add_to_cart",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          }
-        ]
+        "model": "auto",
+        "prompt_version": "semantic-escalation-v1"
       },
-      "elapsed_seconds": 10.26
+      "elapsed_seconds": 30.09
     },
     {
       "case_id": "ho-004",
@@ -1245,7 +1511,7 @@
               "framework": "google-adk",
               "agent_type": "Agent",
               "source_alias": "root_agent",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-004/app/voice_agent.py:32:root_agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-004/app/voice_agent.py:32:root_agent",
               "disallow_transfer_to_parent": null,
               "disallow_transfer_to_peers": null,
               "mode": null,
@@ -1354,7 +1620,7 @@
               "input_chars": 0,
               "skipped_budget": 0,
               "provider": "copilot",
-              "model": "gpt-5.4",
+              "model": "auto",
               "prompt_version": "semantic-escalation-v1"
             }
           },
@@ -1367,7 +1633,7 @@
               "framework": "google-adk",
               "agent_type": "Agent",
               "source_alias": "root_agent",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-004/app/voice_agent.py:32:root_agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-004/app/voice_agent.py:32:root_agent",
               "disallow_transfer_to_parent": null,
               "disallow_transfer_to_peers": null,
               "mode": null,
@@ -1436,10 +1702,10 @@
         "input_chars": 0,
         "skipped_budget": 0,
         "provider": "copilot",
-        "model": "gpt-5.4",
+        "model": "auto",
         "prompt_version": "semantic-escalation-v1"
       },
-      "elapsed_seconds": 1.27
+      "elapsed_seconds": 1.67
     },
     {
       "case_id": "ho-005",
@@ -1511,7 +1777,7 @@
               "framework": "google-adk",
               "agent_type": "LlmAgent",
               "source_alias": "box_full_agent_llm",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/sub_agents/box_agent.py:17:box_full_agent_llm",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/sub_agents/box_agent.py:17:box_full_agent_llm",
               "model": "gemini-2.0-flash",
               "disallow_transfer_to_parent": null,
               "disallow_transfer_to_peers": null,
@@ -1538,7 +1804,7 @@
                   "source_function_key": "box_agent.tools.box_agent_tools.box_who_am_i_tool",
                   "source_module": "box_agent.tools.box_agent_tools",
                   "source_function": "box_who_am_i_tool",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/tools/box_agent_tools.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/tools/box_agent_tools.py",
                   "source_line": 17
                 }
               },
@@ -1558,7 +1824,7 @@
                   "source_function_key": "box_agent.tools.box_agent_tools.box_search_tool",
                   "source_module": "box_agent.tools.box_agent_tools",
                   "source_function": "box_search_tool",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/tools/box_agent_tools.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/tools/box_agent_tools.py",
                   "source_line": 30
                 }
               },
@@ -1578,7 +1844,7 @@
                   "source_function_key": "box_agent.tools.box_agent_tools.box_read_tool",
                   "source_module": "box_agent.tools.box_agent_tools",
                   "source_function": "box_read_tool",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/tools/box_agent_tools.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/tools/box_agent_tools.py",
                   "source_line": 75
                 }
               },
@@ -1598,7 +1864,7 @@
                   "source_function_key": "box_agent.tools.box_agent_tools.box_search_folder_by_name",
                   "source_module": "box_agent.tools.box_agent_tools",
                   "source_function": "box_search_folder_by_name",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/tools/box_agent_tools.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/tools/box_agent_tools.py",
                   "source_line": 105
                 }
               },
@@ -1618,7 +1884,7 @@
                   "source_function_key": "box_agent.tools.box_agent_tools.box_list_folder_content_by_folder_id",
                   "source_module": "box_agent.tools.box_agent_tools",
                   "source_function": "box_list_folder_content_by_folder_id",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/tools/box_agent_tools.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/tools/box_agent_tools.py",
                   "source_line": 136
                 }
               },
@@ -1638,7 +1904,7 @@
                   "source_function_key": "box_agent.tools.box_agent_tools.box_ask_ai_tool",
                   "source_module": "box_agent.tools.box_agent_tools",
                   "source_function": "box_ask_ai_tool",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/tools/box_agent_tools.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/tools/box_agent_tools.py",
                   "source_line": 89
                 }
               },
@@ -1658,7 +1924,7 @@
                   "source_function_key": "box_agent.tools.box_agent_tools.box_ai_extract_data",
                   "source_module": "box_agent.tools.box_agent_tools",
                   "source_function": "box_ai_extract_data",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/tools/box_agent_tools.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/tools/box_agent_tools.py",
                   "source_line": 120
                 }
               }
@@ -1730,32 +1996,15 @@
               "unresolved_helpers_source_resolved": 0,
               "selected_candidates": 3,
               "escalated": 3,
-              "applied": 0,
+              "applied": 3,
               "low_confidence": 0,
-              "errors": 3,
+              "errors": 0,
               "cache_hits": 0,
               "input_chars": 1845,
               "skipped_budget": 4,
               "provider": "copilot",
-              "model": "gpt-5.4",
-              "prompt_version": "semantic-escalation-v1",
-              "error_messages": [
-                {
-                  "candidate_id": "66e248cc91aa96fcaa74",
-                  "candidate": "box_ai_extract_data",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                },
-                {
-                  "candidate_id": "1ae796fc7a2dd50b1660",
-                  "candidate": "box_ask_ai_tool",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                },
-                {
-                  "candidate_id": "558b581c0154061e4a7f",
-                  "candidate": "box_list_folder_content_by_folder_id",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                }
-              ]
+              "model": "auto",
+              "prompt_version": "semantic-escalation-v1"
             }
           },
           "diagnostics": []
@@ -1767,7 +2016,7 @@
               "framework": "google-adk",
               "agent_type": "LlmAgent",
               "source_alias": "box_full_agent_llm",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/sub_agents/box_agent.py:17:box_full_agent_llm",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/sub_agents/box_agent.py:17:box_full_agent_llm",
               "model": "gemini-2.0-flash",
               "disallow_transfer_to_parent": null,
               "disallow_transfer_to_peers": null,
@@ -1794,7 +2043,7 @@
                   "source_function_key": "box_agent.tools.box_agent_tools.box_who_am_i_tool",
                   "source_module": "box_agent.tools.box_agent_tools",
                   "source_function": "box_who_am_i_tool",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/tools/box_agent_tools.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/tools/box_agent_tools.py",
                   "source_line": 17
                 }
               },
@@ -1814,7 +2063,7 @@
                   "source_function_key": "box_agent.tools.box_agent_tools.box_search_tool",
                   "source_module": "box_agent.tools.box_agent_tools",
                   "source_function": "box_search_tool",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/tools/box_agent_tools.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/tools/box_agent_tools.py",
                   "source_line": 30
                 }
               },
@@ -1834,7 +2083,7 @@
                   "source_function_key": "box_agent.tools.box_agent_tools.box_read_tool",
                   "source_module": "box_agent.tools.box_agent_tools",
                   "source_function": "box_read_tool",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/tools/box_agent_tools.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/tools/box_agent_tools.py",
                   "source_line": 75
                 }
               },
@@ -1854,7 +2103,7 @@
                   "source_function_key": "box_agent.tools.box_agent_tools.box_search_folder_by_name",
                   "source_module": "box_agent.tools.box_agent_tools",
                   "source_function": "box_search_folder_by_name",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/tools/box_agent_tools.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/tools/box_agent_tools.py",
                   "source_line": 105
                 }
               },
@@ -1866,7 +2115,21 @@
                 ],
                 "approval": null,
                 "guardrails": false,
-                "resources": [],
+                "resources": [
+                  {
+                    "kind": "Box folder content",
+                    "selector": "folder_id",
+                    "access": [
+                      "data.read"
+                    ],
+                    "classification": "external",
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "selector_provenance": "model_selected",
+                      "semantic_confidence": 0.9
+                    }
+                  }
+                ],
                 "destinations": [],
                 "metadata": {
                   "framework": "google-adk",
@@ -1874,8 +2137,22 @@
                   "source_function_key": "box_agent.tools.box_agent_tools.box_list_folder_content_by_folder_id",
                   "source_module": "box_agent.tools.box_agent_tools",
                   "source_function": "box_list_folder_content_by_folder_id",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/tools/box_agent_tools.py",
-                  "source_line": 136
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/tools/box_agent_tools.py",
+                  "source_line": 136,
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.9,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "16f5d610835a26d96fe0eefc202978620d0af886a8f83810e14df45dbbc5c310",
+                  "semantic_evidence": [
+                    "The function calls box_folder_list_content(client, folder_id, is_recursive) and returns each result as a dictionary.",
+                    "The docstring describes listing folder content in Box by folder ID."
+                  ],
+                  "semantic_limitations": [
+                    "The client configuration, authentication behavior, and folder-listing implementation are not shown."
+                  ]
                 }
               },
               {
@@ -1886,7 +2163,21 @@
                 ],
                 "approval": null,
                 "guardrails": false,
-                "resources": [],
+                "resources": [
+                  {
+                    "kind": "Box file",
+                    "selector": "file_id",
+                    "access": [
+                      "data.read"
+                    ],
+                    "classification": "internal",
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "selector_provenance": "model_selected",
+                      "semantic_confidence": 0.94
+                    }
+                  }
+                ],
                 "destinations": [],
                 "metadata": {
                   "framework": "google-adk",
@@ -1894,8 +2185,23 @@
                   "source_function_key": "box_agent.tools.box_agent_tools.box_ask_ai_tool",
                   "source_module": "box_agent.tools.box_agent_tools",
                   "source_function": "box_ask_ai_tool",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/tools/box_agent_tools.py",
-                  "source_line": 89
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/tools/box_agent_tools.py",
+                  "source_line": 89,
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.94,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "805a94f8a81498b025b32d15c14b4488be615abfc4264c4052a7981aef035caf",
+                  "semantic_evidence": [
+                    "The function accepts `file_id` and `prompt` as parameters.",
+                    "It calls `box_file_ai_ask(client, file_id, prompt=prompt)` and returns the response."
+                  ],
+                  "semantic_limitations": [
+                    "The source does not show how `get_ccg_client` is configured or what authentication it uses.",
+                    "The source does not show approval checks or guardrails."
+                  ]
                 }
               },
               {
@@ -1906,7 +2212,21 @@
                 ],
                 "approval": null,
                 "guardrails": false,
-                "resources": [],
+                "resources": [
+                  {
+                    "kind": "Box file",
+                    "selector": "file_id",
+                    "access": [
+                      "data.read"
+                    ],
+                    "classification": "internal",
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "selector_provenance": "model_selected",
+                      "semantic_confidence": 0.94
+                    }
+                  }
+                ],
                 "destinations": [],
                 "metadata": {
                   "framework": "google-adk",
@@ -1914,8 +2234,22 @@
                   "source_function_key": "box_agent.tools.box_agent_tools.box_ai_extract_data",
                   "source_module": "box_agent.tools.box_agent_tools",
                   "source_function": "box_ai_extract_data",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-005/box_agent/tools/box_agent_tools.py",
-                  "source_line": 120
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-005/box_agent/tools/box_agent_tools.py",
+                  "source_line": 120,
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.94,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "9b43d3171e892ab969b5512ee5ce2dce170c7d7b6b51d78f68655d6a8c6d8bd9",
+                  "semantic_evidence": [
+                    "The function accepts file_id and fields as parameters and passes both to box_file_ai_extract.",
+                    "The function obtains a client with get_ccg_client() and returns the extraction response."
+                  ],
+                  "semantic_limitations": [
+                    "The source slice does not show how the client authenticates or how box_file_ai_extract accesses the file."
+                  ]
                 }
               }
             ]
@@ -1946,34 +2280,17 @@
         "unresolved_helpers_source_resolved": 0,
         "selected_candidates": 3,
         "escalated": 3,
-        "applied": 0,
+        "applied": 3,
         "low_confidence": 0,
-        "errors": 3,
+        "errors": 0,
         "cache_hits": 0,
         "input_chars": 1845,
         "skipped_budget": 4,
         "provider": "copilot",
-        "model": "gpt-5.4",
-        "prompt_version": "semantic-escalation-v1",
-        "error_messages": [
-          {
-            "candidate_id": "66e248cc91aa96fcaa74",
-            "candidate": "box_ai_extract_data",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          },
-          {
-            "candidate_id": "1ae796fc7a2dd50b1660",
-            "candidate": "box_ask_ai_tool",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          },
-          {
-            "candidate_id": "558b581c0154061e4a7f",
-            "candidate": "box_list_folder_content_by_folder_id",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          }
-        ]
+        "model": "auto",
+        "prompt_version": "semantic-escalation-v1"
       },
-      "elapsed_seconds": 6.59
+      "elapsed_seconds": 23.22
     },
     {
       "case_id": "ho-006",
@@ -2045,7 +2362,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-006/examples/agent.py:24:rag_agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-006/examples/agent.py:24:rag_agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -2066,7 +2383,7 @@
                   "source_function_key": "examples.agent.search_knowledge_base",
                   "source_module": "examples.agent",
                   "source_function": "search_knowledge_base",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-006/examples/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-006/examples/agent.py",
                   "source_line": 32
                 }
               }
@@ -2078,7 +2395,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-006/src/agent.py:21:rag_agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-006/src/agent.py:21:rag_agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -2099,7 +2416,7 @@
                   "source_function_key": "src.agent.search_knowledge_base",
                   "source_module": "src.agent",
                   "source_function": "search_knowledge_base",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-006/src/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-006/src/agent.py",
                   "source_line": 29
                 }
               }
@@ -2171,27 +2488,15 @@
               "unresolved_helpers_source_resolved": 0,
               "selected_candidates": 2,
               "escalated": 2,
-              "applied": 0,
+              "applied": 2,
               "low_confidence": 0,
-              "errors": 2,
+              "errors": 0,
               "cache_hits": 0,
               "input_chars": 8569,
               "skipped_budget": 0,
               "provider": "copilot",
-              "model": "gpt-5.4",
-              "prompt_version": "semantic-escalation-v1",
-              "error_messages": [
-                {
-                  "candidate_id": "33f821a67afe2655a2cc",
-                  "candidate": "search_knowledge_base",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                },
-                {
-                  "candidate_id": "d0267efe85fb1119a395",
-                  "candidate": "search_knowledge_base",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                }
-              ]
+              "model": "auto",
+              "prompt_version": "semantic-escalation-v1"
             }
           },
           "diagnostics": []
@@ -2203,7 +2508,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-006/examples/agent.py:24:rag_agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-006/examples/agent.py:24:rag_agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -2216,7 +2521,21 @@
                 ],
                 "approval": null,
                 "guardrails": false,
-                "resources": [],
+                "resources": [
+                  {
+                    "kind": "knowledge_base",
+                    "selector": "knowledge base",
+                    "access": [
+                      "data.read"
+                    ],
+                    "classification": "internal",
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "selector_provenance": "fixed",
+                      "semantic_confidence": 0.93
+                    }
+                  }
+                ],
                 "destinations": [],
                 "metadata": {
                   "framework": "pydantic-ai",
@@ -2224,8 +2543,24 @@
                   "source_function_key": "examples.agent.search_knowledge_base",
                   "source_module": "examples.agent",
                   "source_function": "search_knowledge_base",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-006/examples/agent.py",
-                  "source_line": 32
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-006/examples/agent.py",
+                  "source_line": 32,
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.93,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "66be3f5a6eb02f9b9dd0d1694f24d62fd01da4856d4a9210e517e4e69578872d",
+                  "semantic_evidence": [
+                    "The function is named search_knowledge_base and returns retrieved knowledge-base information.",
+                    "The model-controlled query parameter is passed to semantic_search or hybrid_search.",
+                    "The function initializes and cleans up AgentDependencies around the search."
+                  ],
+                  "semantic_limitations": [
+                    "The source does not identify the knowledge base's backing store or classification.",
+                    "The source does not show MCP construction or binding."
+                  ]
                 }
               }
             ]
@@ -2236,7 +2571,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-006/src/agent.py:21:rag_agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-006/src/agent.py:21:rag_agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -2249,7 +2584,34 @@
                 ],
                 "approval": null,
                 "guardrails": false,
-                "resources": [],
+                "resources": [
+                  {
+                    "kind": "MongoDB collection",
+                    "selector": "mongodb_collection_chunks",
+                    "access": [
+                      "data.read"
+                    ],
+                    "classification": "internal",
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "selector_provenance": "operator_configured",
+                      "semantic_confidence": 0.95
+                    }
+                  },
+                  {
+                    "kind": "MongoDB collection",
+                    "selector": "mongodb_collection_documents",
+                    "access": [
+                      "data.read"
+                    ],
+                    "classification": "internal",
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "selector_provenance": "operator_configured",
+                      "semantic_confidence": 0.95
+                    }
+                  }
+                ],
                 "destinations": [],
                 "metadata": {
                   "framework": "pydantic-ai",
@@ -2257,8 +2619,25 @@
                   "source_function_key": "src.agent.search_knowledge_base",
                   "source_module": "src.agent",
                   "source_function": "search_knowledge_base",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-006/src/agent.py",
-                  "source_line": 29
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-006/src/agent.py",
+                  "source_line": 29,
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.95,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "86f137c9ec7ffd97a71a6aaea30035e40f33b1b4992b42d2da1dd296e2803f3c",
+                  "semantic_evidence": [
+                    "The function selects hybrid_search, semantic_search, or text_search based on the search_type parameter.",
+                    "The function passes query and match_count to the selected search helper.",
+                    "text_search performs a MongoDB aggregation against the configured mongodb_collection_chunks collection.",
+                    "The aggregation looks up documents from the configured mongodb_collection_documents collection."
+                  ],
+                  "semantic_limitations": [
+                    "The concrete MongoDB collection names and database configuration are not shown.",
+                    "The hybrid_search and semantic_search implementations are not included."
+                  ]
                 }
               }
             ]
@@ -2289,29 +2668,17 @@
         "unresolved_helpers_source_resolved": 0,
         "selected_candidates": 2,
         "escalated": 2,
-        "applied": 0,
+        "applied": 2,
         "low_confidence": 0,
-        "errors": 2,
+        "errors": 0,
         "cache_hits": 0,
         "input_chars": 8569,
         "skipped_budget": 0,
         "provider": "copilot",
-        "model": "gpt-5.4",
-        "prompt_version": "semantic-escalation-v1",
-        "error_messages": [
-          {
-            "candidate_id": "33f821a67afe2655a2cc",
-            "candidate": "search_knowledge_base",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          },
-          {
-            "candidate_id": "d0267efe85fb1119a395",
-            "candidate": "search_knowledge_base",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          }
-        ]
+        "model": "auto",
+        "prompt_version": "semantic-escalation-v1"
       },
-      "elapsed_seconds": 9.57
+      "elapsed_seconds": 21.54
     },
     {
       "case_id": "ho-007",
@@ -2383,7 +2750,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-007/agent/agent.py:43:rag_agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-007/agent/agent.py:43:rag_agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -2404,7 +2771,7 @@
                   "source_function_key": "agent.agent.search_knowledge_base",
                   "source_module": "agent.agent",
                   "source_function": "search_knowledge_base",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-007/agent/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-007/agent/agent.py",
                   "source_line": 51,
                   "agent_internal_state": true,
                   "mutation_semantics": "agent_internal_state",
@@ -2427,7 +2794,7 @@
                   "source_function_key": "agent.agent.get_state",
                   "source_module": "agent.agent",
                   "source_function": "get_state",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-007/agent/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-007/agent/agent.py",
                   "source_line": 220,
                   "agent_internal_state": true,
                   "mutation_semantics": "agent_internal_state",
@@ -2450,7 +2817,7 @@
                   "source_function_key": "agent.agent.get_knowledge_base_stats",
                   "source_module": "agent.agent",
                   "source_function": "get_knowledge_base_stats",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-007/agent/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-007/agent/agent.py",
                   "source_line": 296,
                   "agent_internal_state": true,
                   "mutation_semantics": "agent_internal_state",
@@ -2471,7 +2838,7 @@
                   "source_function_key": "agent.agent.synthesize_with_sources",
                   "source_module": "agent.agent",
                   "source_function": "synthesize_with_sources",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-007/agent/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-007/agent/agent.py",
                   "source_line": 344,
                   "agent_internal_state": true,
                   "mutation_semantics": "agent_internal_state",
@@ -2546,32 +2913,15 @@
               "unresolved_helpers_source_resolved": 0,
               "selected_candidates": 3,
               "escalated": 3,
-              "applied": 0,
+              "applied": 3,
               "low_confidence": 0,
-              "errors": 3,
+              "errors": 0,
               "cache_hits": 0,
               "input_chars": 8506,
               "skipped_budget": 1,
               "provider": "copilot",
-              "model": "gpt-5.4",
-              "prompt_version": "semantic-escalation-v1",
-              "error_messages": [
-                {
-                  "candidate_id": "652df36706a391c07166",
-                  "candidate": "synthesize_with_sources",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                },
-                {
-                  "candidate_id": "5a8ac4490fd80dc93fba",
-                  "candidate": "get_knowledge_base_stats",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                },
-                {
-                  "candidate_id": "48bb87d1188fc4e28142",
-                  "candidate": "get_state",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                }
-              ]
+              "model": "auto",
+              "prompt_version": "semantic-escalation-v1"
             }
           },
           "diagnostics": []
@@ -2583,7 +2933,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-007/agent/agent.py:43:rag_agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-007/agent/agent.py:43:rag_agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -2604,7 +2954,7 @@
                   "source_function_key": "agent.agent.search_knowledge_base",
                   "source_module": "agent.agent",
                   "source_function": "search_knowledge_base",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-007/agent/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-007/agent/agent.py",
                   "source_line": 51,
                   "agent_internal_state": true,
                   "mutation_semantics": "agent_internal_state",
@@ -2619,7 +2969,21 @@
                 ],
                 "approval": null,
                 "guardrails": false,
-                "resources": [],
+                "resources": [
+                  {
+                    "kind": "application state",
+                    "selector": "current UI/search state, retrieved chunks, and user selections",
+                    "access": [
+                      "data.read"
+                    ],
+                    "classification": "internal",
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "selector_provenance": "fixed",
+                      "semantic_confidence": 0.98
+                    }
+                  }
+                ],
                 "destinations": [],
                 "metadata": {
                   "framework": "pydantic-ai",
@@ -2627,11 +2991,24 @@
                   "source_function_key": "agent.agent.get_state",
                   "source_module": "agent.agent",
                   "source_function": "get_state",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-007/agent/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-007/agent/agent.py",
                   "source_line": 220,
                   "agent_internal_state": true,
                   "mutation_semantics": "agent_internal_state",
-                  "internal_state_basis": "pydantic_run_context_deps"
+                  "internal_state_basis": "pydantic_run_context_deps",
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.98,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "847e8bf63f1f2ab462a375f69ac14320dee296634f05256dd6a3107f47f42637",
+                  "semantic_evidence": [
+                    "Reads ctx.deps.state, including search status, query, search configuration, retrieved chunks, selections, and error message.",
+                    "Returns a text summary of those values in ToolReturn.",
+                    "No MCP construction or binding is visible in this function."
+                  ],
+                  "semantic_limitations": []
                 }
               },
               {
@@ -2642,7 +3019,21 @@
                 ],
                 "approval": null,
                 "guardrails": false,
-                "resources": [],
+                "resources": [
+                  {
+                    "kind": "database table",
+                    "selector": "chunks",
+                    "access": [
+                      "data.read"
+                    ],
+                    "classification": "internal",
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "selector_provenance": "fixed",
+                      "semantic_confidence": 0.94
+                    }
+                  }
+                ],
                 "destinations": [],
                 "metadata": {
                   "framework": "pydantic-ai",
@@ -2650,20 +3041,53 @@
                   "source_function_key": "agent.agent.get_knowledge_base_stats",
                   "source_module": "agent.agent",
                   "source_function": "get_knowledge_base_stats",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-007/agent/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-007/agent/agent.py",
                   "source_line": 296,
                   "agent_internal_state": true,
                   "mutation_semantics": "agent_internal_state",
-                  "internal_state_basis": "pydantic_run_context_deps"
+                  "internal_state_basis": "pydantic_run_context_deps",
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.94,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "78e6b77aae6d5af11700c91105adb503f79ff7ec41eae69d63635a16e4121d87",
+                  "semantic_evidence": [
+                    "get_chunk_count executes `SELECT COUNT(*) FROM chunks` using a database connection.",
+                    "get_knowledge_base_stats returns the chunk count and updates the knowledge-base status in state.",
+                    "AgentDependencies.initialize loads `database_url` from settings when creating the database pool."
+                  ],
+                  "semantic_limitations": [
+                    "The configured database destination, authentication method, and approval requirements are not shown."
+                  ]
                 }
               },
               {
                 "name": "synthesize_with_sources",
                 "kind": "function",
-                "capabilities": [],
+                "capabilities": [
+                  "data.read",
+                  "data.write"
+                ],
                 "approval": null,
-                "guardrails": false,
-                "resources": [],
+                "guardrails": true,
+                "resources": [
+                  {
+                    "kind": "application state",
+                    "selector": "retrieved_chunks filtered by approved_chunk_ids; synthesis state fields",
+                    "access": [
+                      "data.read",
+                      "data.write"
+                    ],
+                    "classification": "internal",
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "selector_provenance": "fixed",
+                      "semantic_confidence": 0.96
+                    }
+                  }
+                ],
                 "destinations": [],
                 "metadata": {
                   "framework": "pydantic-ai",
@@ -2671,18 +3095,109 @@
                   "source_function_key": "agent.agent.synthesize_with_sources",
                   "source_module": "agent.agent",
                   "source_function": "synthesize_with_sources",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-007/agent/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-007/agent/agent.py",
                   "source_line": 344,
                   "agent_internal_state": true,
-                  "mutation_semantics": "agent_internal_state",
-                  "internal_state_basis": "pydantic_run_context_deps"
+                  "mutation_semantics": "internal_write_unspecified",
+                  "internal_state_basis": "pydantic_run_context_deps",
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.96,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "798523b88dcf2e0e706868d3f3f16d5a99f09f79e9b74eacc0e8d83a4de98928",
+                  "semantic_evidence": [
+                    "Reads retrieved_chunks and filters them by approved_chunk_ids.",
+                    "When no chunks match, returns early without changing synthesis state.",
+                    "For matching chunks, updates is_synthesizing, awaiting_approval, and error_message.",
+                    "Returns the matched chunk content and a state snapshot."
+                  ],
+                  "semantic_limitations": [
+                    "The function does not independently verify that a user explicitly approved the selected chunks.",
+                    "The function returns source content; it does not itself synthesize an answer."
+                  ]
                 }
               }
             ]
           }
         ],
         "unbound_mcp_servers": [],
-        "findings": [],
+        "findings": [
+          {
+            "rule_id": "AGT022",
+            "default_severity": "medium",
+            "severity": "medium",
+            "title": "State-changing tool without approval",
+            "message": "Tool 'synthesize_with_sources' can modify state without explicit approval.",
+            "recommendation": "Require approval for material state changes or constrain the tool to low-risk, reversible operations.",
+            "layer": 1,
+            "agent": "rag_agent",
+            "evidence": [
+              "capability=data.write",
+              "approval=None"
+            ],
+            "standards": {
+              "owasp_agentic": [
+                "ASI02"
+              ]
+            },
+            "assessment": "static_configuration",
+            "source_context": "runtime",
+            "provenance": [
+              {
+                "subject": "synthesize_with_sources",
+                "fact": "approval_configuration=None",
+                "origin": "observed",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-007/agent/agent.py",
+                  "line": 344,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "synthesize_with_sources",
+                "fact": "guardrail_hook_detected=False",
+                "origin": "observed",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-007/agent/agent.py",
+                  "line": 344,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "rag_agent.synthesize_with_sources",
+                "fact": "semantic_capability=data.read",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-007/agent/agent.py",
+                  "line": 344,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "rag_agent.synthesize_with_sources",
+                "fact": "semantic_capability=data.write",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-007/agent/agent.py",
+                  "line": 344,
+                  "column": 1
+                }
+              }
+            ],
+            "limitations": [
+              "Runtime authorization and control effectiveness are not verified by this static scan."
+            ],
+            "fingerprint": "arg-v1:b07a851aaaf47104eb18d187",
+            "confidence": null,
+            "location": {
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-007/agent/agent.py",
+              "line": 344,
+              "column": 1
+            }
+          }
+        ],
         "attack_paths": [],
         "flow_paths": [],
         "diagnostics": []
@@ -2698,7 +3213,7 @@
         "agents": 1,
         "tools": 4,
         "mcp": 0,
-        "findings": 0,
+        "findings": 1,
         "attack_paths": 0
       },
       "semantic_llm": {
@@ -2706,34 +3221,17 @@
         "unresolved_helpers_source_resolved": 0,
         "selected_candidates": 3,
         "escalated": 3,
-        "applied": 0,
+        "applied": 3,
         "low_confidence": 0,
-        "errors": 3,
+        "errors": 0,
         "cache_hits": 0,
         "input_chars": 8506,
         "skipped_budget": 1,
         "provider": "copilot",
-        "model": "gpt-5.4",
-        "prompt_version": "semantic-escalation-v1",
-        "error_messages": [
-          {
-            "candidate_id": "652df36706a391c07166",
-            "candidate": "synthesize_with_sources",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          },
-          {
-            "candidate_id": "5a8ac4490fd80dc93fba",
-            "candidate": "get_knowledge_base_stats",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          },
-          {
-            "candidate_id": "48bb87d1188fc4e28142",
-            "candidate": "get_state",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          }
-        ]
+        "model": "auto",
+        "prompt_version": "semantic-escalation-v1"
       },
-      "elapsed_seconds": 7.98
+      "elapsed_seconds": 27.97
     },
     {
       "case_id": "ho-008",
@@ -2805,7 +3303,7 @@
               "message": "An agent tool references an imported or arbitrary helper whose semantics could not be resolved.",
               "details": {},
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
                 "line": 56,
                 "column": 9
               }
@@ -2818,7 +3316,7 @@
               "message": "An agent tool references an imported or arbitrary helper whose semantics could not be resolved.",
               "details": {},
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                 "line": 80,
                 "column": 9
               }
@@ -2830,7 +3328,7 @@
             "name": "Starter Agent",
             "metadata": {
               "framework": "openai-agents",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py:56",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py:56",
               "source_alias": "agent",
               "model": "gpt-4.1-mini",
               "runtime_clone_mcp": true,
@@ -2899,7 +3397,7 @@
                   "source_function_key": "openai-agents-sdk.agent.tools.emoji_reaction.add_emoji_reaction",
                   "source_module": "openai-agents-sdk.agent.tools.emoji_reaction",
                   "source_function": "add_emoji_reaction",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
                   "source_line": 11,
                   "import_aliases": [
                     "agent.tools.add_emoji_reaction"
@@ -2915,7 +3413,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py:80:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py:80:agent",
               "runtime_toolsets": true,
               "unresolved_helpers": [
                 "add_emoji_reaction"
@@ -2953,7 +3451,7 @@
                   "source_function_key": "openai-agents-sdk.agent.tools.emoji_reaction.add_emoji_reaction",
                   "source_module": "openai-agents-sdk.agent.tools.emoji_reaction",
                   "source_function": "add_emoji_reaction",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
                   "source_line": 11,
                   "import_aliases": [
                     "agent.tools.add_emoji_reaction"
@@ -2992,7 +3490,7 @@
                 "fact": "agent_configuration_detected",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 80,
                   "column": 9
                 }
@@ -3002,7 +3500,7 @@
                 "fact": "capability=data.write",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
                 }
@@ -3012,7 +3510,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
                 }
@@ -3022,7 +3520,7 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
                 }
@@ -3032,7 +3530,7 @@
                 "fact": "input_trust=untrusted",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 87,
                   "column": 1
                 }
@@ -3042,7 +3540,7 @@
                 "fact": "input_kind=application",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 87,
                   "column": 1
                 }
@@ -3056,7 +3554,7 @@
             "fingerprint": "arg-v1:614cce70c0724b4ceefd0a2e",
             "confidence": "potential",
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
               "line": 83,
               "column": 12
             }
@@ -3087,7 +3585,7 @@
                 "fact": "capability=data.write",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
                 }
@@ -3097,7 +3595,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
                 }
@@ -3107,7 +3605,7 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
                 }
@@ -3119,7 +3617,7 @@
             "fingerprint": "arg-v1:a38c981443e9fc9aa68e3da8",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
               "line": 83,
               "column": 12
             }
@@ -3152,7 +3650,7 @@
                 "fact": "transport=streamable-http",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
                   "line": 76,
                   "column": 18
                 }
@@ -3162,7 +3660,7 @@
                 "fact": "authentication_configuration=True",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
                   "line": 76,
                   "column": 18
                 }
@@ -3172,7 +3670,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
                   "line": 76,
                   "column": 18
                 }
@@ -3184,7 +3682,7 @@
             "fingerprint": "arg-v1:30cfcee34c3cdcfaab80a4f8",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
               "line": 76,
               "column": 18
             }
@@ -3216,7 +3714,7 @@
                 "fact": "capability=data.write",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
                   "line": 59,
                   "column": 12
                 }
@@ -3226,7 +3724,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
                   "line": 59,
                   "column": 12
                 }
@@ -3236,7 +3734,7 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
                   "line": 59,
                   "column": 12
                 }
@@ -3248,7 +3746,7 @@
             "fingerprint": "arg-v1:9f73aa65fe1328dd4bc2a058",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
               "line": 59,
               "column": 12
             }
@@ -3280,7 +3778,7 @@
                 "fact": "capability=data.write",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
                 }
@@ -3290,7 +3788,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
                 }
@@ -3300,7 +3798,7 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
                 }
@@ -3312,7 +3810,7 @@
             "fingerprint": "arg-v1:b10c787058b6e46e9abc8a0b",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
               "line": 83,
               "column": 12
             }
@@ -3355,7 +3853,7 @@
             "message": "An agent tool references an imported or arbitrary helper whose semantics could not be resolved.",
             "details": {},
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
               "line": 56,
               "column": 9
             }
@@ -3368,7 +3866,7 @@
             "message": "An agent tool references an imported or arbitrary helper whose semantics could not be resolved.",
             "details": {},
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
               "line": 80,
               "column": 9
             }
@@ -3434,27 +3932,15 @@
               "unresolved_helpers_source_resolved": 0,
               "selected_candidates": 2,
               "escalated": 2,
-              "applied": 0,
+              "applied": 2,
               "low_confidence": 0,
-              "errors": 2,
+              "errors": 0,
               "cache_hits": 0,
               "input_chars": 3510,
               "skipped_budget": 0,
               "provider": "copilot",
-              "model": "gpt-5.4",
-              "prompt_version": "semantic-escalation-v1",
-              "error_messages": [
-                {
-                  "candidate_id": "8fc6096dac500d1d5399",
-                  "candidate": "add_emoji_reaction",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                },
-                {
-                  "candidate_id": "56d2256949cd23772d62",
-                  "candidate": "add_emoji_reaction",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                }
-              ]
+              "model": "auto",
+              "prompt_version": "semantic-escalation-v1"
             }
           },
           "diagnostics": [
@@ -3466,7 +3952,7 @@
               "message": "An agent tool references an imported or arbitrary helper whose semantics could not be resolved.",
               "details": {},
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
                 "line": 56,
                 "column": 9
               }
@@ -3479,7 +3965,7 @@
               "message": "An agent tool references an imported or arbitrary helper whose semantics could not be resolved.",
               "details": {},
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                 "line": 80,
                 "column": 9
               }
@@ -3491,7 +3977,7 @@
             "name": "Starter Agent",
             "metadata": {
               "framework": "openai-agents",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py:56",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py:56",
               "source_alias": "agent",
               "model": "gpt-4.1-mini",
               "runtime_clone_mcp": true,
@@ -3547,12 +4033,38 @@
                 "name": "add_emoji_reaction",
                 "kind": "imported_tool_ref",
                 "capabilities": [
-                  "data.write"
+                  "data.write",
+                  "external.write"
                 ],
                 "approval": null,
                 "guardrails": false,
-                "resources": [],
-                "destinations": [],
+                "resources": [
+                  {
+                    "kind": "Slack message",
+                    "selector": "message identified by deps.channel_id and deps.message_ts",
+                    "access": [
+                      "data.write",
+                      "external.write"
+                    ],
+                    "classification": "external",
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "selector_provenance": "unknown",
+                      "semantic_confidence": 0.92
+                    }
+                  }
+                ],
+                "destinations": [
+                  {
+                    "target": "Slack message identified by deps.channel_id and deps.message_ts",
+                    "restricted": true,
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "destination_provenance": "unknown",
+                      "semantic_confidence": 0.92
+                    }
+                  }
+                ],
                 "metadata": {
                   "framework": "openai-agents",
                   "import_module": "agent.tools",
@@ -3560,12 +4072,28 @@
                   "source_function_key": "openai-agents-sdk.agent.tools.emoji_reaction.add_emoji_reaction",
                   "source_module": "openai-agents-sdk.agent.tools.emoji_reaction",
                   "source_function": "add_emoji_reaction",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
                   "source_line": 11,
                   "import_aliases": [
                     "agent.tools.add_emoji_reaction"
                   ],
-                  "mutation_semantics": "internal_write_unspecified"
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.92,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "e95940de951f00b55f2fec58ec8dc8955791b02611292e18f91c9039a1f32177",
+                  "semantic_evidence": [
+                    "Calls deps.client.reactions_add with deps.channel_id and deps.message_ts.",
+                    "The emoji_name parameter is passed as the reaction name.",
+                    "The docstring describes adding a reaction to the user's current message."
+                  ],
+                  "semantic_limitations": [
+                    "The source does not show how the Slack client or context values are configured.",
+                    "The source does not show whether approval or authentication is required."
+                  ],
+                  "mutation_semantics": "external_side_effect"
                 }
               }
             ]
@@ -3576,7 +4104,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py:80:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py:80:agent",
               "runtime_toolsets": true,
               "unresolved_helpers": [
                 "add_emoji_reaction"
@@ -3601,12 +4129,38 @@
                 "name": "add_emoji_reaction",
                 "kind": "function",
                 "capabilities": [
-                  "data.write"
+                  "data.write",
+                  "external.write"
                 ],
                 "approval": null,
                 "guardrails": false,
-                "resources": [],
-                "destinations": [],
+                "resources": [
+                  {
+                    "kind": "Slack message",
+                    "selector": "deps.channel_id and deps.message_ts",
+                    "access": [
+                      "data.write",
+                      "external.write"
+                    ],
+                    "classification": "external",
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "selector_provenance": "unknown",
+                      "semantic_confidence": 0.92
+                    }
+                  }
+                ],
+                "destinations": [
+                  {
+                    "target": "Slack channel identified by deps.channel_id",
+                    "restricted": false,
+                    "metadata": {
+                      "source": "llm_semantic_resolution",
+                      "destination_provenance": "unknown",
+                      "semantic_confidence": 0.92
+                    }
+                  }
+                ],
                 "metadata": {
                   "framework": "pydantic-ai",
                   "placeholder": true,
@@ -3614,12 +4168,28 @@
                   "source_function_key": "openai-agents-sdk.agent.tools.emoji_reaction.add_emoji_reaction",
                   "source_module": "openai-agents-sdk.agent.tools.emoji_reaction",
                   "source_function": "add_emoji_reaction",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
                   "source_line": 11,
                   "import_aliases": [
                     "agent.tools.add_emoji_reaction"
                   ],
-                  "mutation_semantics": "internal_write_unspecified"
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.92,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "e95940de951f00b55f2fec58ec8dc8955791b02611292e18f91c9039a1f32177",
+                  "semantic_evidence": [
+                    "Calls deps.client.reactions_add with deps.channel_id, deps.message_ts, and emoji_name.",
+                    "emoji_name is a function parameter and is used as the reaction name.",
+                    "The Slack API call may be skipped randomly; SlackApiError is caught and returned as an error message."
+                  ],
+                  "semantic_limitations": [
+                    "The source does not establish who configures channel_id or message_ts.",
+                    "No MCP construction or binding is shown."
+                  ],
+                  "mutation_semantics": "external_side_effect"
                 }
               }
             ]
@@ -3627,6 +4197,116 @@
         ],
         "unbound_mcp_servers": [],
         "findings": [
+          {
+            "rule_id": "NET001",
+            "default_severity": "high",
+            "severity": "high",
+            "title": "Outbound reachability lacks a detected restriction",
+            "message": "Agent 'agent' has broad destinations or no detected restriction for a possible outbound destination.",
+            "recommendation": "Use egress allowlists/proxies and restrict outbound connectivity to required hosts.",
+            "layer": 4,
+            "agent": "agent",
+            "evidence": [
+              "destinations=Slack channel identified by deps.channel_id"
+            ],
+            "standards": {
+              "owasp_agentic": []
+            },
+            "assessment": "heuristic_risk",
+            "source_context": "runtime",
+            "provenance": [
+              {
+                "subject": "agent",
+                "fact": "agent_configuration_detected",
+                "origin": "observed",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
+                  "line": 80,
+                  "column": 9
+                }
+              },
+              {
+                "subject": "add_emoji_reaction",
+                "fact": "capability=data.write",
+                "origin": "inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
+                  "line": 83,
+                  "column": 12
+                }
+              },
+              {
+                "subject": "add_emoji_reaction",
+                "fact": "approval_configuration=None",
+                "origin": "observed",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
+                  "line": 83,
+                  "column": 12
+                }
+              },
+              {
+                "subject": "add_emoji_reaction",
+                "fact": "guardrail_hook_detected=False",
+                "origin": "observed",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
+                  "line": 83,
+                  "column": 12
+                }
+              },
+              {
+                "subject": "agent.add_emoji_reaction",
+                "fact": "semantic_capability=data.write",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
+                  "line": 11,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "agent.add_emoji_reaction",
+                "fact": "semantic_capability=external.write",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
+                  "line": 11,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "run_agent:text",
+                "fact": "input_trust=untrusted",
+                "origin": "observed",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
+                  "line": 87,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "run_agent:text",
+                "fact": "input_kind=application",
+                "origin": "observed",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
+                  "line": 87,
+                  "column": 1
+                }
+              }
+            ],
+            "limitations": [
+              "Runtime authorization and control effectiveness are not verified by this static scan."
+            ],
+            "fingerprint": "arg-v1:96fe770278648031d812782e",
+            "confidence": null,
+            "location": {
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
+              "line": 80,
+              "column": 9
+            }
+          },
           {
             "rule_id": "PATH002",
             "default_severity": "high",
@@ -3653,7 +4333,7 @@
                 "fact": "agent_configuration_detected",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 80,
                   "column": 9
                 }
@@ -3663,7 +4343,7 @@
                 "fact": "capability=data.write",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
                 }
@@ -3673,7 +4353,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
                 }
@@ -3683,9 +4363,29 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
+                }
+              },
+              {
+                "subject": "agent.add_emoji_reaction",
+                "fact": "semantic_capability=data.write",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
+                  "line": 11,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "agent.add_emoji_reaction",
+                "fact": "semantic_capability=external.write",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
+                  "line": 11,
+                  "column": 1
                 }
               },
               {
@@ -3693,7 +4393,7 @@
                 "fact": "input_trust=untrusted",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 87,
                   "column": 1
                 }
@@ -3703,7 +4403,7 @@
                 "fact": "input_kind=application",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 87,
                   "column": 1
                 }
@@ -3717,7 +4417,7 @@
             "fingerprint": "arg-v1:614cce70c0724b4ceefd0a2e",
             "confidence": "potential",
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
               "line": 83,
               "column": 12
             }
@@ -3748,7 +4448,7 @@
                 "fact": "capability=data.write",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
                 }
@@ -3758,7 +4458,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
                 }
@@ -3768,9 +4468,29 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
+                }
+              },
+              {
+                "subject": "agent.add_emoji_reaction",
+                "fact": "semantic_capability=data.write",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
+                  "line": 11,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "agent.add_emoji_reaction",
+                "fact": "semantic_capability=external.write",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
+                  "line": 11,
+                  "column": 1
                 }
               }
             ],
@@ -3780,7 +4500,7 @@
             "fingerprint": "arg-v1:a38c981443e9fc9aa68e3da8",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
               "line": 83,
               "column": 12
             }
@@ -3813,7 +4533,7 @@
                 "fact": "transport=streamable-http",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
                   "line": 76,
                   "column": 18
                 }
@@ -3823,7 +4543,7 @@
                 "fact": "authentication_configuration=True",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
                   "line": 76,
                   "column": 18
                 }
@@ -3833,7 +4553,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
                   "line": 76,
                   "column": 18
                 }
@@ -3845,7 +4565,7 @@
             "fingerprint": "arg-v1:30cfcee34c3cdcfaab80a4f8",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
               "line": 76,
               "column": 18
             }
@@ -3860,7 +4580,7 @@
             "layer": 1,
             "agent": "Starter Agent",
             "evidence": [
-              "capabilities=data.write",
+              "capabilities=data.write,external.write",
               "authority_relationship=authority-v1:86bda3ac91a0609d557e",
               "approval_resolution=unknown"
             ],
@@ -3877,7 +4597,7 @@
                 "fact": "capability=data.write",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
                   "line": 59,
                   "column": 12
                 }
@@ -3887,7 +4607,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
                   "line": 59,
                   "column": 12
                 }
@@ -3897,19 +4617,39 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
                   "line": 59,
                   "column": 12
+                }
+              },
+              {
+                "subject": "Starter Agent.add_emoji_reaction",
+                "fact": "semantic_capability=data.write",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
+                  "line": 11,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "Starter Agent.add_emoji_reaction",
+                "fact": "semantic_capability=external.write",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
+                  "line": 11,
+                  "column": 1
                 }
               }
             ],
             "limitations": [
               "Runtime authorization and control effectiveness are not verified by this static scan."
             ],
-            "fingerprint": "arg-v1:9f73aa65fe1328dd4bc2a058",
+            "fingerprint": "arg-v1:03789fd713069410e65ab6b3",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
               "line": 59,
               "column": 12
             }
@@ -3924,7 +4664,7 @@
             "layer": 1,
             "agent": "agent",
             "evidence": [
-              "capabilities=data.write",
+              "capabilities=data.write,external.write",
               "authority_relationship=authority-v1:8de0bb0ca8a9502eba6d",
               "approval_resolution=unknown"
             ],
@@ -3941,7 +4681,7 @@
                 "fact": "capability=data.write",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
                 }
@@ -3951,7 +4691,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
                 }
@@ -3961,19 +4701,39 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
                   "line": 83,
                   "column": 12
+                }
+              },
+              {
+                "subject": "agent.add_emoji_reaction",
+                "fact": "semantic_capability=data.write",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
+                  "line": 11,
+                  "column": 1
+                }
+              },
+              {
+                "subject": "agent.add_emoji_reaction",
+                "fact": "semantic_capability=external.write",
+                "origin": "llm_inferred",
+                "location": {
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/tools/emoji_reaction.py",
+                  "line": 11,
+                  "column": 1
                 }
               }
             ],
             "limitations": [
               "Runtime authorization and control effectiveness are not verified by this static scan."
             ],
-            "fingerprint": "arg-v1:b10c787058b6e46e9abc8a0b",
+            "fingerprint": "arg-v1:7ff40310edb1ce78a757a57d",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
               "line": 83,
               "column": 12
             }
@@ -4016,7 +4776,7 @@
             "message": "An agent tool references an imported or arbitrary helper whose semantics could not be resolved.",
             "details": {},
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/openai-agents-sdk/agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/openai-agents-sdk/agent/agent.py",
               "line": 56,
               "column": 9
             }
@@ -4029,7 +4789,7 @@
             "message": "An agent tool references an imported or arbitrary helper whose semantics could not be resolved.",
             "details": {},
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-008/pydantic-ai/agent/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-008/pydantic-ai/agent/agent.py",
               "line": 80,
               "column": 9
             }
@@ -4047,7 +4807,7 @@
         "agents": 2,
         "tools": 2,
         "mcp": 1,
-        "findings": 5,
+        "findings": 6,
         "attack_paths": 1
       },
       "semantic_llm": {
@@ -4055,29 +4815,17 @@
         "unresolved_helpers_source_resolved": 0,
         "selected_candidates": 2,
         "escalated": 2,
-        "applied": 0,
+        "applied": 2,
         "low_confidence": 0,
-        "errors": 2,
+        "errors": 0,
         "cache_hits": 0,
         "input_chars": 3510,
         "skipped_budget": 0,
         "provider": "copilot",
-        "model": "gpt-5.4",
-        "prompt_version": "semantic-escalation-v1",
-        "error_messages": [
-          {
-            "candidate_id": "8fc6096dac500d1d5399",
-            "candidate": "add_emoji_reaction",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          },
-          {
-            "candidate_id": "56d2256949cd23772d62",
-            "candidate": "add_emoji_reaction",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          }
-        ]
+        "model": "auto",
+        "prompt_version": "semantic-escalation-v1"
       },
-      "elapsed_seconds": 7.16
+      "elapsed_seconds": 23.34
     },
     {
       "case_id": "ho-009",
@@ -4151,7 +4899,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/basic_capability.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/basic_capability.py",
                 "line": 20,
                 "column": 22
               }
@@ -4166,7 +4914,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/custom_permissions.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/custom_permissions.py",
                 "line": 29,
                 "column": 22
               }
@@ -4181,7 +4929,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/multi_agent_permissions.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/multi_agent_permissions.py",
                 "line": 25,
                 "column": 22
               }
@@ -4196,7 +4944,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/multi_agent_permissions.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/multi_agent_permissions.py",
                 "line": 32,
                 "column": 22
               }
@@ -4211,7 +4959,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/readonly_agent.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/readonly_agent.py",
                 "line": 23,
                 "column": 22
               }
@@ -4228,7 +4976,7 @@
                 "file_type": ".yml"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/mkdocs.yml",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/mkdocs.yml",
                 "line": 1,
                 "column": 1
               }
@@ -4243,7 +4991,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/tests/test_capability.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/tests/test_capability.py",
                 "line": 61,
                 "column": 62
               }
@@ -4258,7 +5006,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                 "line": 181,
                 "column": 42
               }
@@ -4273,7 +5021,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/tests/test_console_retry_budget.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/tests/test_console_retry_budget.py",
                 "line": 49,
                 "column": 13
               }
@@ -4287,7 +5035,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4.1",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/basic_capability.py:17:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/basic_capability.py:17:agent",
               "unmodeled_capabilities": [
                 "ConsoleCapability"
               ]
@@ -4302,7 +5050,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4.1",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/custom_permissions.py:26:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/custom_permissions.py:26:agent",
               "unmodeled_capabilities": [
                 "ConsoleCapability"
               ]
@@ -4317,7 +5065,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/local_cli/cli_agent.py:66:agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/local_cli/cli_agent.py:66:agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -4329,7 +5077,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4.1",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/multi_agent_permissions.py:22:writer",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/multi_agent_permissions.py:22:writer",
               "unmodeled_capabilities": [
                 "ConsoleCapability"
               ]
@@ -4344,7 +5092,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4.1",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/multi_agent_permissions.py:29:reader",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/multi_agent_permissions.py:29:reader",
               "unmodeled_capabilities": [
                 "ConsoleCapability"
               ]
@@ -4359,7 +5107,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4.1",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py:25:analytics_agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py:25:analytics_agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -4397,7 +5145,7 @@
                   "source_function_key": "examples.predictive_analytics.agent.query_data",
                   "source_module": "examples.predictive_analytics.agent",
                   "source_function": "query_data",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "source_line": 77,
                   "model_selected_filesystem_path": true,
                   "filesystem_access": [
@@ -4444,7 +5192,7 @@
                   "source_function_key": "examples.predictive_analytics.agent.predict",
                   "source_module": "examples.predictive_analytics.agent",
                   "source_function": "predict",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "source_line": 146,
                   "model_selected_filesystem_path": true,
                   "filesystem_access": [
@@ -4472,7 +5220,7 @@
                   "source_function_key": "examples.predictive_analytics.agent.generate_chart",
                   "source_module": "examples.predictive_analytics.agent",
                   "source_function": "generate_chart",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "source_line": 239
                 }
               }
@@ -4484,7 +5232,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4.1",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py:181:sub_agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py:181:sub_agent",
               "dynamic_tools": true
             },
             "inputs": [],
@@ -4497,7 +5245,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4.1",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/readonly_agent.py:20:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/readonly_agent.py:20:agent",
               "unmodeled_capabilities": [
                 "ConsoleCapability"
               ]
@@ -4512,7 +5260,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4o-mini",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/web_production/server.py:125:agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/web_production/server.py:125:agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -4524,7 +5272,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/tests/test_capability.py:61:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/tests/test_capability.py:61:agent",
               "unmodeled_capabilities": [
                 "cap"
               ]
@@ -4539,7 +5287,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/tests/test_console_retry_budget.py:49:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/tests/test_console_retry_budget.py:49:agent",
               "dynamic_tools": true
             },
             "inputs": [],
@@ -4578,7 +5326,7 @@
                 "fact": "capability=data.read",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -4588,7 +5336,7 @@
                 "fact": "capability=data.write",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -4598,7 +5346,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -4608,7 +5356,7 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -4620,7 +5368,7 @@
             "fingerprint": "arg-v1:2a06cebfadba233b15cf77ad",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
               "line": 146,
               "column": 1
             }
@@ -4655,7 +5403,7 @@
                 "fact": "capability=data.read",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -4665,7 +5413,7 @@
                 "fact": "capability=data.write",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -4675,7 +5423,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -4685,7 +5433,7 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -4697,7 +5445,7 @@
             "fingerprint": "arg-v1:4a6c72c532c2be31cd5457e4",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
               "line": 146,
               "column": 1
             }
@@ -4730,7 +5478,7 @@
                 "fact": "agent_configuration_detected",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 25,
                   "column": 46
                 }
@@ -4740,7 +5488,7 @@
                 "fact": "capability=data.read",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 77,
                   "column": 1
                 }
@@ -4750,7 +5498,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 77,
                   "column": 1
                 }
@@ -4760,7 +5508,7 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 77,
                   "column": 1
                 }
@@ -4770,7 +5518,7 @@
                 "fact": "capability=data.read",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -4780,7 +5528,7 @@
                 "fact": "capability=data.write",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -4790,7 +5538,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -4800,7 +5548,7 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -4810,7 +5558,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 239,
                   "column": 1
                 }
@@ -4820,7 +5568,7 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 239,
                   "column": 1
                 }
@@ -4832,7 +5580,7 @@
             "fingerprint": "arg-v1:f6e280f36b72b88095b2b78b",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
               "line": 25,
               "column": 46
             }
@@ -4851,7 +5599,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/basic_capability.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/basic_capability.py",
               "line": 20,
               "column": 22
             }
@@ -4866,7 +5614,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/custom_permissions.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/custom_permissions.py",
               "line": 29,
               "column": 22
             }
@@ -4881,7 +5629,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/multi_agent_permissions.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/multi_agent_permissions.py",
               "line": 25,
               "column": 22
             }
@@ -4896,7 +5644,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/multi_agent_permissions.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/multi_agent_permissions.py",
               "line": 32,
               "column": 22
             }
@@ -4911,7 +5659,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/readonly_agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/readonly_agent.py",
               "line": 23,
               "column": 22
             }
@@ -4928,7 +5676,7 @@
               "file_type": ".yml"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/mkdocs.yml",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/mkdocs.yml",
               "line": 1,
               "column": 1
             }
@@ -4943,7 +5691,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/tests/test_capability.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/tests/test_capability.py",
               "line": 61,
               "column": 62
             }
@@ -4958,7 +5706,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
               "line": 181,
               "column": 42
             }
@@ -4973,7 +5721,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/tests/test_console_retry_budget.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/tests/test_console_retry_budget.py",
               "line": 49,
               "column": 13
             }
@@ -5039,22 +5787,15 @@
               "unresolved_helpers_source_resolved": 0,
               "selected_candidates": 1,
               "escalated": 1,
-              "applied": 0,
+              "applied": 1,
               "low_confidence": 0,
-              "errors": 1,
+              "errors": 0,
               "cache_hits": 0,
               "input_chars": 1063,
               "skipped_budget": 0,
               "provider": "copilot",
-              "model": "gpt-5.4",
-              "prompt_version": "semantic-escalation-v1",
-              "error_messages": [
-                {
-                  "candidate_id": "21de7282bf66f16e23df",
-                  "candidate": "generate_chart",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                }
-              ]
+              "model": "auto",
+              "prompt_version": "semantic-escalation-v1"
             }
           },
           "diagnostics": [
@@ -5068,7 +5809,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/basic_capability.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/basic_capability.py",
                 "line": 20,
                 "column": 22
               }
@@ -5083,7 +5824,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/custom_permissions.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/custom_permissions.py",
                 "line": 29,
                 "column": 22
               }
@@ -5098,7 +5839,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/multi_agent_permissions.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/multi_agent_permissions.py",
                 "line": 25,
                 "column": 22
               }
@@ -5113,7 +5854,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/multi_agent_permissions.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/multi_agent_permissions.py",
                 "line": 32,
                 "column": 22
               }
@@ -5128,7 +5869,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/readonly_agent.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/readonly_agent.py",
                 "line": 23,
                 "column": 22
               }
@@ -5145,7 +5886,7 @@
                 "file_type": ".yml"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/mkdocs.yml",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/mkdocs.yml",
                 "line": 1,
                 "column": 1
               }
@@ -5160,7 +5901,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/tests/test_capability.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/tests/test_capability.py",
                 "line": 61,
                 "column": 62
               }
@@ -5175,7 +5916,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                 "line": 181,
                 "column": 42
               }
@@ -5190,7 +5931,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/tests/test_console_retry_budget.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/tests/test_console_retry_budget.py",
                 "line": 49,
                 "column": 13
               }
@@ -5204,7 +5945,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4.1",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/basic_capability.py:17:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/basic_capability.py:17:agent",
               "unmodeled_capabilities": [
                 "ConsoleCapability"
               ]
@@ -5219,7 +5960,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4.1",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/custom_permissions.py:26:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/custom_permissions.py:26:agent",
               "unmodeled_capabilities": [
                 "ConsoleCapability"
               ]
@@ -5234,7 +5975,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/local_cli/cli_agent.py:66:agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/local_cli/cli_agent.py:66:agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -5246,7 +5987,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4.1",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/multi_agent_permissions.py:22:writer",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/multi_agent_permissions.py:22:writer",
               "unmodeled_capabilities": [
                 "ConsoleCapability"
               ]
@@ -5261,7 +6002,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4.1",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/multi_agent_permissions.py:29:reader",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/multi_agent_permissions.py:29:reader",
               "unmodeled_capabilities": [
                 "ConsoleCapability"
               ]
@@ -5276,7 +6017,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4.1",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py:25:analytics_agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py:25:analytics_agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -5314,7 +6055,7 @@
                   "source_function_key": "examples.predictive_analytics.agent.query_data",
                   "source_module": "examples.predictive_analytics.agent",
                   "source_function": "query_data",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "source_line": 77,
                   "model_selected_filesystem_path": true,
                   "filesystem_access": [
@@ -5361,7 +6102,7 @@
                   "source_function_key": "examples.predictive_analytics.agent.predict",
                   "source_module": "examples.predictive_analytics.agent",
                   "source_function": "predict",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "source_line": 146,
                   "model_selected_filesystem_path": true,
                   "filesystem_access": [
@@ -5389,8 +6130,23 @@
                   "source_function_key": "examples.predictive_analytics.agent.generate_chart",
                   "source_module": "examples.predictive_analytics.agent",
                   "source_function": "generate_chart",
-                  "source_path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
-                  "source_line": 239
+                  "source_path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
+                  "source_line": 239,
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.99,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "8838e33af24494cc4464ee5d1daef780fcaa43c1beef5fa46cfd5b3809ec838a",
+                  "semantic_evidence": [
+                    "generate_chart parses the model-supplied series_json and builds a LineChartData object from it and the title and axis labels.",
+                    "The function returns the serialized chart prefixed with CHART_DATA_PREFIX."
+                  ],
+                  "semantic_limitations": [
+                    "The source does not show what consumes the returned chart data or whether it is persisted or sent elsewhere.",
+                    "No MCP construction or binding is visible in this function."
+                  ]
                 }
               }
             ]
@@ -5401,7 +6157,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4.1",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py:181:sub_agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py:181:sub_agent",
               "dynamic_tools": true
             },
             "inputs": [],
@@ -5414,7 +6170,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4.1",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/readonly_agent.py:20:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/readonly_agent.py:20:agent",
               "unmodeled_capabilities": [
                 "ConsoleCapability"
               ]
@@ -5429,7 +6185,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": "openai:gpt-4o-mini",
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/web_production/server.py:125:agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/web_production/server.py:125:agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -5441,7 +6197,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/tests/test_capability.py:61:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/tests/test_capability.py:61:agent",
               "unmodeled_capabilities": [
                 "cap"
               ]
@@ -5456,7 +6212,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/tests/test_console_retry_budget.py:49:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/tests/test_console_retry_budget.py:49:agent",
               "dynamic_tools": true
             },
             "inputs": [],
@@ -5495,7 +6251,7 @@
                 "fact": "capability=data.read",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -5505,7 +6261,7 @@
                 "fact": "capability=data.write",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -5515,7 +6271,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -5525,7 +6281,7 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -5537,7 +6293,7 @@
             "fingerprint": "arg-v1:2a06cebfadba233b15cf77ad",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
               "line": 146,
               "column": 1
             }
@@ -5572,7 +6328,7 @@
                 "fact": "capability=data.read",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -5582,7 +6338,7 @@
                 "fact": "capability=data.write",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -5592,7 +6348,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -5602,7 +6358,7 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -5614,7 +6370,7 @@
             "fingerprint": "arg-v1:4a6c72c532c2be31cd5457e4",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
               "line": 146,
               "column": 1
             }
@@ -5647,7 +6403,7 @@
                 "fact": "agent_configuration_detected",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 25,
                   "column": 46
                 }
@@ -5657,7 +6413,7 @@
                 "fact": "capability=data.read",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 77,
                   "column": 1
                 }
@@ -5667,7 +6423,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 77,
                   "column": 1
                 }
@@ -5677,7 +6433,7 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 77,
                   "column": 1
                 }
@@ -5687,7 +6443,7 @@
                 "fact": "capability=data.read",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -5697,7 +6453,7 @@
                 "fact": "capability=data.write",
                 "origin": "inferred",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -5707,7 +6463,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -5717,7 +6473,7 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 146,
                   "column": 1
                 }
@@ -5727,7 +6483,7 @@
                 "fact": "approval_configuration=None",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 239,
                   "column": 1
                 }
@@ -5737,7 +6493,7 @@
                 "fact": "guardrail_hook_detected=False",
                 "origin": "observed",
                 "location": {
-                  "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+                  "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
                   "line": 239,
                   "column": 1
                 }
@@ -5749,7 +6505,7 @@
             "fingerprint": "arg-v1:f6e280f36b72b88095b2b78b",
             "confidence": null,
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
               "line": 25,
               "column": 46
             }
@@ -5768,7 +6524,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/basic_capability.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/basic_capability.py",
               "line": 20,
               "column": 22
             }
@@ -5783,7 +6539,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/custom_permissions.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/custom_permissions.py",
               "line": 29,
               "column": 22
             }
@@ -5798,7 +6554,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/multi_agent_permissions.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/multi_agent_permissions.py",
               "line": 25,
               "column": 22
             }
@@ -5813,7 +6569,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/multi_agent_permissions.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/multi_agent_permissions.py",
               "line": 32,
               "column": 22
             }
@@ -5828,7 +6584,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/readonly_agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/readonly_agent.py",
               "line": 23,
               "column": 22
             }
@@ -5845,7 +6601,7 @@
               "file_type": ".yml"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/mkdocs.yml",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/mkdocs.yml",
               "line": 1,
               "column": 1
             }
@@ -5860,7 +6616,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/tests/test_capability.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/tests/test_capability.py",
               "line": 61,
               "column": 62
             }
@@ -5875,7 +6631,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/examples/predictive_analytics/agent.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/examples/predictive_analytics/agent.py",
               "line": 181,
               "column": 42
             }
@@ -5890,7 +6646,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-009/tests/test_console_retry_budget.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-009/tests/test_console_retry_budget.py",
               "line": 49,
               "column": 13
             }
@@ -5916,24 +6672,17 @@
         "unresolved_helpers_source_resolved": 0,
         "selected_candidates": 1,
         "escalated": 1,
-        "applied": 0,
+        "applied": 1,
         "low_confidence": 0,
-        "errors": 1,
+        "errors": 0,
         "cache_hits": 0,
         "input_chars": 1063,
         "skipped_budget": 0,
         "provider": "copilot",
-        "model": "gpt-5.4",
-        "prompt_version": "semantic-escalation-v1",
-        "error_messages": [
-          {
-            "candidate_id": "21de7282bf66f16e23df",
-            "candidate": "generate_chart",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          }
-        ]
+        "model": "auto",
+        "prompt_version": "semantic-escalation-v1"
       },
-      "elapsed_seconds": 35.66
+      "elapsed_seconds": 43.43
     },
     {
       "case_id": "ho-010",
@@ -6009,7 +6758,7 @@
                 "file_type": ".yml"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/mkdocs.yml",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/mkdocs.yml",
                 "line": 1,
                 "column": 1
               }
@@ -6022,7 +6771,7 @@
               "message": "Expanded agent keyword arguments are not resolved.",
               "details": {},
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/src/subagents_pydantic_ai/toolset.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/src/subagents_pydantic_ai/toolset.py",
                 "line": 259,
                 "column": 1
               }
@@ -6037,7 +6786,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/tests/test_capability.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/tests/test_capability.py",
                 "line": 227,
                 "column": 64
               }
@@ -6051,7 +6800,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/src/subagents_pydantic_ai/toolset.py:259:agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/src/subagents_pydantic_ai/toolset.py:259:agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -6063,7 +6812,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/tests/test_capability.py:227:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/tests/test_capability.py:227:agent",
               "unmodeled_capabilities": [
                 "cap"
               ]
@@ -6078,7 +6827,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/tests/test_retry.py:1041:agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/tests/test_retry.py:1041:agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -6129,7 +6878,7 @@
               "file_type": ".yml"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/mkdocs.yml",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/mkdocs.yml",
               "line": 1,
               "column": 1
             }
@@ -6142,7 +6891,7 @@
             "message": "Expanded agent keyword arguments are not resolved.",
             "details": {},
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/src/subagents_pydantic_ai/toolset.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/src/subagents_pydantic_ai/toolset.py",
               "line": 259,
               "column": 1
             }
@@ -6157,7 +6906,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/tests/test_capability.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/tests/test_capability.py",
               "line": 227,
               "column": 64
             }
@@ -6223,27 +6972,15 @@
               "unresolved_helpers_source_resolved": 0,
               "selected_candidates": 2,
               "escalated": 2,
-              "applied": 0,
+              "applied": 2,
               "low_confidence": 0,
-              "errors": 2,
+              "errors": 0,
               "cache_hits": 0,
               "input_chars": 448,
               "skipped_budget": 0,
               "provider": "copilot",
-              "model": "gpt-5.4",
-              "prompt_version": "semantic-escalation-v1",
-              "error_messages": [
-                {
-                  "candidate_id": "c22e7ce3c3fb4e07ef3c",
-                  "candidate": "dig",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                },
-                {
-                  "candidate_id": "29e8420d9007f5a71d0a",
-                  "candidate": "hold",
-                  "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-                }
-              ]
+              "model": "auto",
+              "prompt_version": "semantic-escalation-v1"
             }
           },
           "diagnostics": [
@@ -6259,7 +6996,7 @@
                 "file_type": ".yml"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/mkdocs.yml",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/mkdocs.yml",
                 "line": 1,
                 "column": 1
               }
@@ -6272,7 +7009,7 @@
               "message": "Expanded agent keyword arguments are not resolved.",
               "details": {},
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/src/subagents_pydantic_ai/toolset.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/src/subagents_pydantic_ai/toolset.py",
                 "line": 259,
                 "column": 1
               }
@@ -6287,7 +7024,7 @@
                 "framework": "pydantic-ai"
               },
               "location": {
-                "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/tests/test_capability.py",
+                "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/tests/test_capability.py",
                 "line": 227,
                 "column": 64
               }
@@ -6301,7 +7038,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/src/subagents_pydantic_ai/toolset.py:259:agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/src/subagents_pydantic_ai/toolset.py:259:agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -6313,7 +7050,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/tests/test_capability.py:227:agent",
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/tests/test_capability.py:227:agent",
               "unmodeled_capabilities": [
                 "cap"
               ]
@@ -6328,7 +7065,7 @@
               "framework": "pydantic-ai",
               "agent_type": "Agent",
               "model": null,
-              "instance_key": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/tests/test_retry.py:1041:agent"
+              "instance_key": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/tests/test_retry.py:1041:agent"
             },
             "inputs": [],
             "mcp_servers": [],
@@ -6343,7 +7080,18 @@
                 "destinations": [],
                 "metadata": {
                   "framework": "pydantic-ai",
-                  "source": "@agent.tool_plain"
+                  "source": "@agent.tool_plain",
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.99,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "af78477df032a9f603234ce08d3679db970b79c8f531f8ae5b973bbf7e8b3d46",
+                  "semantic_evidence": [
+                    "The dig function returns the literal string \"dug\"."
+                  ],
+                  "semantic_limitations": []
                 }
               },
               {
@@ -6356,7 +7104,20 @@
                 "destinations": [],
                 "metadata": {
                   "framework": "pydantic-ai",
-                  "source": "@agent.tool_plain"
+                  "source": "@agent.tool_plain",
+                  "semantic_origin": "llm_inferred",
+                  "semantic_resolution": "llm",
+                  "semantic_confidence": 0.98,
+                  "semantic_provider": "copilot",
+                  "semantic_model": "auto",
+                  "semantic_prompt_version": "semantic-escalation-v1",
+                  "semantic_slice_sha256": "340f0bef19ff6bc171234d57b1ed2bc05c485f38a76c449b2492ac0d0346bd9b",
+                  "semantic_evidence": [
+                    "The function sets an event, waits for another event, and returns the fixed string \"held\"."
+                  ],
+                  "semantic_limitations": [
+                    "No resource access, destination, approval behavior, or guardrail behavior is shown in this source slice."
+                  ]
                 }
               }
             ]
@@ -6379,7 +7140,7 @@
               "file_type": ".yml"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/mkdocs.yml",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/mkdocs.yml",
               "line": 1,
               "column": 1
             }
@@ -6392,7 +7153,7 @@
             "message": "Expanded agent keyword arguments are not resolved.",
             "details": {},
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/src/subagents_pydantic_ai/toolset.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/src/subagents_pydantic_ai/toolset.py",
               "line": 259,
               "column": 1
             }
@@ -6407,7 +7168,7 @@
               "framework": "pydantic-ai"
             },
             "location": {
-              "path": "/tmp/horustrace-hybrid-holdout-60ghig0a/ho-010/tests/test_capability.py",
+              "path": "/tmp/horustrace-hybrid-holdout-6k2tk9mr/ho-010/tests/test_capability.py",
               "line": 227,
               "column": 64
             }
@@ -6433,29 +7194,17 @@
         "unresolved_helpers_source_resolved": 0,
         "selected_candidates": 2,
         "escalated": 2,
-        "applied": 0,
+        "applied": 2,
         "low_confidence": 0,
-        "errors": 2,
+        "errors": 0,
         "cache_hits": 0,
         "input_chars": 448,
         "skipped_budget": 0,
         "provider": "copilot",
-        "model": "gpt-5.4",
-        "prompt_version": "semantic-escalation-v1",
-        "error_messages": [
-          {
-            "candidate_id": "c22e7ce3c3fb4e07ef3c",
-            "candidate": "dig",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          },
-          {
-            "candidate_id": "29e8420d9007f5a71d0a",
-            "candidate": "hold",
-            "error": "Copilot CLI exited with code 1: Error: Model \"gpt-5.4\" from --model flag is not available."
-          }
-        ]
+        "model": "auto",
+        "prompt_version": "semantic-escalation-v1"
       },
-      "elapsed_seconds": 18.14
+      "elapsed_seconds": 28.72
     }
   ]
 }
