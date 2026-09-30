@@ -557,12 +557,94 @@ def _authority_for_primary_agents(
     }
 
 
+def _primary_agent_names(primary_nodes: list[dict[str, Any]]) -> set[str]:
+    return {
+        norm(node.get("name"))
+        for node in primary_nodes
+        if node.get("kind") == "agent" and node.get("name")
+    }
+
+
+def _finding_key(item: dict[str, Any]) -> tuple[str, ...]:
+    fingerprint = item.get("fingerprint")
+    if fingerprint:
+        return ("fingerprint", str(fingerprint))
+    location_value = item.get("location")
+    location_key = (
+        json.dumps(location_value, sort_keys=True)
+        if isinstance(location_value, dict)
+        else ""
+    )
+    return (
+        "semantic",
+        str(item.get("rule_id") or ""),
+        norm(item.get("agent")),
+        str(item.get("title") or ""),
+        location_key,
+    )
+
+
+def _attack_path_key(item: dict[str, Any]) -> tuple[str, ...]:
+    nodes = item.get("nodes")
+    nodes_key = json.dumps(nodes, sort_keys=True) if isinstance(nodes, list) else ""
+    return (
+        str(item.get("path_id") or ""),
+        norm(item.get("agent")),
+        nodes_key,
+    )
+
+
+def _merge_primary_agent_findings(
+    primary: list[dict[str, Any]],
+    expanded: list[dict[str, Any]],
+    primary_nodes: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    result = [item for item in primary if isinstance(item, dict)]
+    seen = {_finding_key(item) for item in result}
+    primary_agents = _primary_agent_names(primary_nodes)
+    for item in expanded:
+        if not isinstance(item, dict):
+            continue
+        agent = norm(item.get("agent"))
+        if not agent or agent not in primary_agents:
+            continue
+        key = _finding_key(item)
+        if key in seen:
+            continue
+        result.append(item)
+        seen.add(key)
+    return result
+
+
+def _merge_primary_agent_attack_paths(
+    primary: list[dict[str, Any]],
+    expanded: list[dict[str, Any]],
+    primary_nodes: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    result = [item for item in primary if isinstance(item, dict)]
+    seen = {_attack_path_key(item) for item in result}
+    primary_agents = _primary_agent_names(primary_nodes)
+    for item in expanded:
+        if not isinstance(item, dict):
+            continue
+        agent = norm(item.get("agent"))
+        if not agent or agent not in primary_agents:
+            continue
+        key = _attack_path_key(item)
+        if key in seen:
+            continue
+        result.append(item)
+        seen.add(key)
+    return result
+
+
 def scan_one(
     case: dict[str, Any],
     truth: dict[str, Any],
     workspace: Path,
     scanner: str,
     tier_c: bool,
+    include_authority_semantics: bool = False,
 ) -> dict[str, Any]:
     scope, authority_scope, fetch_error = fetch_case(
         workspace,
@@ -587,6 +669,19 @@ def scan_one(
         if authority_scope == scope
         else [*base, "security-graph", str(authority_scope)]
     )
+    authority_scan_command = (
+        scan_command
+        if not include_authority_semantics or authority_scope == scope
+        else [
+            *base,
+            "scan",
+            str(authority_scope),
+            "--format",
+            "json",
+            "--fail-on",
+            "none",
+        ]
+    )
     if tier_c:
         # Repository-declared IaC is used only for the four preselected Tier C cases.
         repo_root = workspace / case["case_id"]
@@ -594,6 +689,8 @@ def scan_one(
         graph_command.extend(["--authority-source", str(repo_root)])
         if authority_graph_command is not graph_command:
             authority_graph_command.extend(["--authority-source", str(repo_root)])
+        if authority_scan_command is not scan_command:
+            authority_scan_command.extend(["--authority-source", str(repo_root)])
 
     try:
         scan_result = run(scan_command, timeout=SCAN_TIMEOUT)
@@ -602,6 +699,11 @@ def scan_one(
             graph_result
             if authority_graph_command is graph_command
             else run(authority_graph_command, timeout=SCAN_TIMEOUT)
+        )
+        authority_scan_result = (
+            scan_result
+            if authority_scan_command is scan_command
+            else run(authority_scan_command, timeout=SCAN_TIMEOUT)
         )
     except subprocess.TimeoutExpired as exc:
         return {
@@ -619,13 +721,19 @@ def scan_one(
         authority_graph_result,
         "authority_security_graph",
     )
+    authority_scan_doc, authority_scan_error = parse_json_output(
+        authority_scan_result,
+        "authority_scan",
+    )
     if (
         scan_error
         or graph_error
         or authority_graph_error
+        or authority_scan_error
         or scan_doc is None
         or graph_doc is None
         or authority_graph_doc is None
+        or authority_scan_doc is None
     ):
         return {
             "case_id": case["case_id"],
@@ -633,7 +741,12 @@ def scan_one(
             "framework": case["framework_stratum"],
             "previously_studied": case["previously_studied"],
             "status": "scanner_error",
-            "error": scan_error or graph_error or authority_graph_error,
+            "error": (
+                scan_error
+                or graph_error
+                or authority_graph_error
+                or authority_scan_error
+            ),
         }
 
     topology = graph_doc.get("topology") if isinstance(graph_doc.get("topology"), dict) else {}
@@ -702,14 +815,46 @@ def scan_one(
         auth["unadjudicated_predicted"] = 0 if authority_complete else auth["fp_if_complete"]
         comparisons["effective_authority"] = auth
 
-    attack_paths = graph_doc.get("attack_paths") if isinstance(graph_doc.get("attack_paths"), list) else []
+    primary_attack_paths = (
+        graph_doc.get("attack_paths")
+        if isinstance(graph_doc.get("attack_paths"), list)
+        else []
+    )
+    expanded_attack_paths = (
+        authority_graph_doc.get("attack_paths")
+        if include_authority_semantics
+        and authority_scope != scope
+        and isinstance(authority_graph_doc.get("attack_paths"), list)
+        else []
+    )
+    attack_paths = _merge_primary_agent_attack_paths(
+        primary_attack_paths,
+        expanded_attack_paths,
+        nodes,
+    )
     if truth.get("tier_b"):
         comparisons["attack_paths"] = attack_path_support(truth, attack_paths)
 
     if truth.get("tier_c"):
         comparisons["tier_c_identity"] = tier_c_identity_metrics(truth, nodes)
 
-    findings = scan_doc.get("findings") if isinstance(scan_doc.get("findings"), list) else []
+    primary_findings = (
+        scan_doc.get("findings")
+        if isinstance(scan_doc.get("findings"), list)
+        else []
+    )
+    expanded_findings = (
+        authority_scan_doc.get("findings")
+        if include_authority_semantics
+        and authority_scope != scope
+        and isinstance(authority_scan_doc.get("findings"), list)
+        else []
+    )
+    findings = _merge_primary_agent_findings(
+        primary_findings,
+        expanded_findings,
+        nodes,
+    )
     finding_counts = Counter(str(item.get("rule_id") or "unknown") for item in findings if isinstance(item, dict))
     severity_counts = Counter(str(item.get("severity") or "unknown") for item in findings if isinstance(item, dict))
     confidence_counts = Counter(str(item.get("confidence") or "unknown") for item in findings if isinstance(item, dict))
@@ -745,6 +890,14 @@ def scan_one(
     )
 
     coverage = scan_doc.get("coverage") if isinstance(scan_doc.get("coverage"), dict) else {}
+    authority_coverage = (
+        authority_scan_doc.get("coverage")
+        if isinstance(authority_scan_doc.get("coverage"), dict)
+        else {}
+    )
+    summary = dict(scan_doc.get("summary") or {})
+    summary["findings"] = len(findings)
+    summary["attack_paths"] = len(attack_paths)
     return {
         "case_id": case["case_id"],
         "repo": case["repo"],
@@ -755,8 +908,26 @@ def scan_one(
         "comparisons": comparisons,
         "findings": findings,
         "observed": {
-            "summary": scan_doc.get("summary") or {},
-            "analysis_incomplete": bool(coverage.get("incomplete")),
+            "summary": summary,
+            "analysis_incomplete": bool(
+                coverage.get("incomplete")
+                or (
+                    include_authority_semantics
+                    and authority_scope != scope
+                    and authority_coverage.get("incomplete")
+                )
+            ),
+            "semantic_scope": (
+                "expanded_repository_imports"
+                if include_authority_semantics and authority_scope != scope
+                else "primary_application"
+            ),
+            "expanded_semantic_findings": max(
+                0, len(findings) - len(primary_findings)
+            ),
+            "expanded_semantic_attack_paths": max(
+                0, len(attack_paths) - len(primary_attack_paths)
+            ),
             "findings": len(findings),
             "findings_by_rule": dict(sorted(finding_counts.items())),
             "findings_by_severity": dict(sorted(severity_counts.items())),
@@ -1105,6 +1276,7 @@ def main() -> int:
                     workspace,
                     args.scanner,
                     case["case_id"] in tier_c_ids,
+                    args.mode == "postfix",
                 )
                 for case in cases
             ]
