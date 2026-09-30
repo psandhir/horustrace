@@ -1,6 +1,6 @@
 name: Framework Litmus P0 P1 Post-Fix
 
-# rerun: relative re-exports + delegated fixed-destination semantics
+# rerun: control-aware PATH006 + relative re-exports + delegated fixed destinations
 
 on:
   push:
