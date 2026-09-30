@@ -993,3 +993,62 @@ agent = LlmAgent(
     )
     assert not any(finding.rule_id in {"NET001", "NET002"} for finding in findings)
     assert not any(path.path_id == "PATH009" for path in graph.attack_paths)
+
+def test_adk_delegation_projection_preserves_fixed_provider_destination(
+    tmp_path: Path,
+) -> None:
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    (tools / "__init__.py").write_text("", encoding="utf-8")
+    (tools / "github_tool.py").write_text(
+        """
+import requests
+
+def fetch_repo(repo_url: str):
+    owner, repo = repo_url.replace("https://github.com/", "").split("/")[:2]
+    api_url = f"https://api.github.com/repos/{owner}/{repo}/contents"
+    return requests.get(api_url, timeout=15).json()
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from google.adk.agents import LlmAgent
+from google.adk.tools import FunctionTool
+from tools.github_tool import fetch_repo
+
+reader = LlmAgent(
+    name="reader",
+    model="gemini-3.1-flash-lite",
+    tools=[FunctionTool(func=fetch_repo)],
+)
+
+root_agent = LlmAgent(
+    name="root_agent",
+    model="gemini-3.1-flash-lite",
+    sub_agents=[reader],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    root = next(item for item in graph.agents if item.name == "root_agent")
+    delegated = next(
+        item for item in root.tools if item.kind == "delegated_agent"
+    )
+    assert "network.external" in delegated.capabilities
+    assert any(
+        destination.target == "https://api.github.com"
+        and destination.restricted is True
+        for destination in delegated.destinations
+    )
+    assert not any(
+        finding.rule_id == "NET002" and finding.agent == "root_agent"
+        for finding in findings
+    )
+    assert not any(
+        path.path_id == "PATH009" and path.agent == "root_agent"
+        for path in graph.attack_paths
+    )
+
