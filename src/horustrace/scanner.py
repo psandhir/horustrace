@@ -65,6 +65,7 @@ from horustrace.models import (
 )
 from horustrace.path_safety import canonical_root, is_within_root
 from horustrace.provenance import annotate, attach_findings, context
+from horustrace.rag_semantics import enrich_streamlit_rag_directory_semantics
 from horustrace.registry_config import (
     enrich_config_registry_agents,
     is_registry_config_filename,
@@ -2310,6 +2311,11 @@ def scan(
     _enrich_cli_agent_run_inputs(graph, analysis_root, approved_python_paths)
     _enrich_streamlit_agent_run_inputs(graph, analysis_root, approved_python_paths)
     _enrich_streamlit_pydantic_wrapper_inputs(
+        graph,
+        analysis_root,
+        approved_python_paths,
+    )
+    enrich_streamlit_rag_directory_semantics(
         graph,
         analysis_root,
         approved_python_paths,
