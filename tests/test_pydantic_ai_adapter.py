@@ -1232,3 +1232,85 @@ def run_agent(prompt: str):
         for path in graph.attack_paths
     )
 
+def test_pydantic_ai_same_named_agents_keep_effective_authority_isolated(
+    tmp_path: Path,
+) -> None:
+    runtime = tmp_path / "runtime"
+    tests = tmp_path / "tests"
+    runtime.mkdir()
+    tests.mkdir()
+    (runtime / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+
+def read_record(record_id: str):
+    return record_id
+
+agent = Agent("openai:gpt-5.2", tools=[read_record])
+""",
+        encoding="utf-8",
+    )
+    (tests / "agent_fixture.py").write_text(
+        """
+from pydantic_ai import Agent
+
+def update_record(record_id: str):
+    return record_id
+
+agent = Agent("openai:gpt-5.2", tools=[update_record])
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agents = [item for item in graph.agents if item.name == "agent"]
+    assert len(agents) == 2
+    assert len({item.metadata.get("instance_key") for item in agents}) == 2
+    assert not any(
+        finding.rule_id == "CAP005" and finding.agent == "agent"
+        for finding in findings
+    )
+
+
+def test_pydantic_ai_run_context_plan_state_is_not_external_write_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent, RunContext
+
+class Deps:
+    current_plan = None
+
+async def create_plan(ctx: RunContext[Deps], goal: str):
+    ctx.deps.current_plan = {"goal": goal, "steps": []}
+    return "created"
+
+async def remove_step(ctx: RunContext[Deps], step_id: str):
+    plan = ctx.deps.current_plan
+    if plan is not None:
+        plan["steps"].clear()
+    return step_id
+
+agent = Agent("openai:gpt-5.2", tools=[create_plan, remove_step])
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    create = next(item for item in agent.tools if item.name == "create_plan")
+    remove = next(item for item in agent.tools if item.name == "remove_step")
+
+    for tool in (create, remove):
+        assert tool.metadata["agent_internal_state"] is True
+        assert tool.metadata["mutation_semantics"] == "agent_internal_state"
+        assert "data.write" not in tool.capabilities
+        assert "destructive.write" not in tool.capabilities
+
+    assert not any(
+        finding.rule_id in {"AGT021", "AGT022", "AGT040", "CAP005"}
+        and finding.agent == "agent"
+        for finding in findings
+    )
+
