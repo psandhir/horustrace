@@ -949,3 +949,114 @@ agent = Agent("openai:gpt-5.2", toolsets=[server])
     server = agent.mcp_servers[0]
     assert server.transport == "streamable-http"
     assert server.url == "https://mcp.example.test"
+
+
+def test_pydantic_ai_search_result_url_fetch_is_indirect_medium_risk(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import requests
+from pydantic_ai import Agent, RunContext
+
+class DDGS:
+    def text(self, query, max_results=5):
+        return []
+
+def search_web(query: str):
+    return [
+        {"url": result.get("href", "")}
+        for result in DDGS().text(query, max_results=5)
+    ]
+
+def fetch_page_content(url: str):
+    return requests.get(url, timeout=5).text
+
+agent = Agent("openai:gpt-5.2")
+
+@agent.tool
+def deep_dive_search(ctx: RunContext, base_query: str, angle: str):
+    search_query = f"{base_query} {angle}"
+    results = search_web(search_query)
+    detailed = []
+    for result in results[:3]:
+        detailed.append(fetch_page_content(result["url"]))
+    return detailed
+
+async def main():
+    query = input("> ")
+    return await agent.run(query)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tool = next(item for item in agent.tools if item.name == "deep_dive_search")
+    assert tool.metadata["search_result_url_fetch"] is True
+    assert tool.metadata["destination_provenance"] == "provider_search_result"
+    assert any(
+        destination.target == "<search-result-url>"
+        and destination.metadata.get("network_scope")
+        == "search_result_derived_destination"
+        for destination in tool.destinations
+    )
+    net = next(item for item in findings if item.rule_id == "NET001")
+    assert net.severity.label() == "medium"
+    path = next(item for item in graph.attack_paths if item.path_id == "PATH011")
+    assert path.severity.label() == "medium"
+    assert path.metadata["indirect_destination"] is True
+    assert path.metadata["destination_provenance"] == "provider_search_result"
+
+
+def test_pydantic_ai_native_tool_controls_constrain_shell_and_artifact_write(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import asyncio
+from pydantic_ai import Agent
+
+ALLOWED_COMMANDS = {"ls", "grep", "git"}
+DANGEROUS_PATTERNS = [r"[|&;]"]
+
+async def codebase_shell(command: str, args: list[str]):
+    if command not in ALLOWED_COMMANDS:
+        return "not allowed"
+    for pattern in DANGEROUS_PATTERNS:
+        if pattern in command:
+            return "blocked"
+    process = await asyncio.create_subprocess_exec(command, *args)
+    return await process.wait()
+
+def _validate_agent_scoped_path(filename: str):
+    return ".shotgun/" + filename
+
+def write_file(filename: str, content: str):
+    path = _validate_agent_scoped_path(filename)
+    with open(path, "w") as handle:
+        handle.write(content)
+
+agent = Agent(
+    "openai:gpt-5.2",
+    tools=[codebase_shell, write_file],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    shell = next(item for item in agent.tools if item.name == "codebase_shell")
+    write = next(item for item in agent.tools if item.name == "write_file")
+    assert shell.guardrails is True
+    assert shell.metadata["process_execution_constrained"] is True
+    assert write.guardrails is True
+    assert write.metadata["filesystem_path_constrained"] is True
+    assert write.metadata["agent_internal_artifact"] is True
+    assert any(resource.selector == ".shotgun/**" for resource in write.resources)
+    assert not any(
+        finding.rule_id in {"AGT020", "AGT022", "AGT040"}
+        and finding.agent == "agent"
+        for finding in findings
+    )
