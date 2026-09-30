@@ -40,6 +40,7 @@ from horustrace.limits import (
     validate_json_safety,
     validate_yaml_safety,
 )
+from horustrace.livekit_semantics import enrich_livekit_mcp_mutation_semantics
 from horustrace.mcp_authority import reconstruct_mcp_authority
 from horustrace.mcp_context import (
     reconstruct_mcp_context,
@@ -2253,6 +2254,11 @@ def scan(
         approved_python_paths,
     )
     enrich_indirect_tool_content_semantics(
+        graph,
+        root if root.is_dir() else root.parent,
+        approved_python_paths,
+    )
+    enrich_livekit_mcp_mutation_semantics(
         graph,
         root if root.is_dir() else root.parent,
         approved_python_paths,
