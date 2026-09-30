@@ -545,10 +545,15 @@ def _tool_from_call(
             metadata.update(_execution_constraints(call))
         elif executor_kind == "provider-managed":
             metadata.update({"execution_boundary": "provider-managed", "sandbox_constraints_applicable": False})
+        capabilities = (
+            {"provider.code.execute"}
+            if executor_kind == "provider-managed"
+            else {"process.execute", "data.read", "data.write"}
+        )
         return Tool(
             name=alias,
             kind="adk_code_executor",
-            capabilities={"process.execute", "data.read", "data.write"},
+            capabilities=capabilities,
             approval=None,
             guardrails=sandboxed,
             location=_location(path, call),
