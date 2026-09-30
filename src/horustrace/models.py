@@ -348,6 +348,26 @@ class Agent:
                         metadata={"source": "mcp"}, provenance=list(server.provenance),
                     )
                 )
+            elif (
+                server.metadata.get("dynamic_mcp_endpoint_basis")
+                == "operator_configuration"
+            ):
+                destinations.append(
+                    NetworkDestination(
+                        target="<operator-configured-mcp>",
+                        direction="outbound",
+                        restricted=True,
+                        location=server.location,
+                        metadata={
+                            "source": "operator_configuration",
+                            "network_scope": "operator_configured_destination",
+                            "configuration_source": server.metadata.get(
+                                "configuration_source"
+                            ),
+                        },
+                        provenance=list(server.provenance),
+                    )
+                )
         return destinations
 
 
