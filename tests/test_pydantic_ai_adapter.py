@@ -862,3 +862,37 @@ def test_pydantic_ai_contained_rag_directory_does_not_create_attack_path(
     )
     assert not any(item.path_id == "PATH013" for item in graph.attack_paths)
     assert not any(finding.rule_id == "PATH013" for finding in findings)
+
+
+def test_pydantic_ai_command_registry_wrapper_is_not_host_process_execution(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+
+agent = Agent("openai:gpt-5.2")
+
+@agent.tool
+async def run_command(ctx, command: str) -> str:
+    action = command.split()[0]
+    if not _is_ai_action_allowed(action):
+        return "blocked"
+    cmd = get_command(action)
+    allowed, error = check_command_permissions(cmd, ctx.deps.role)
+    if not allowed:
+        return error
+    return await cmd(ctx.deps.socket, command)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    tool = next(tool for tool in graph.agents[0].tools if tool.name == "run_command")
+
+    assert "process.execute" not in tool.capabilities
+    assert not any(
+        finding.rule_id in {"AGT020", "AGT040"}
+        and finding.agent == "agent"
+        for finding in findings
+    )
