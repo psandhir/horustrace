@@ -27,6 +27,7 @@ from horustrace.models import (
     ScanDiagnostic,
     SourceLocation,
 )
+from horustrace.source_context import classify_source_context
 
 
 @dataclass(frozen=True, slots=True)
@@ -628,33 +629,45 @@ def _agent_bindings_for_chain(
     remains conservative and refuses multi-agent ambiguity.
     """
     for function_key in chain:
-        matches: list[tuple[str, str]] = []
+        matches: list[tuple[object, str]] = []
         for agent in graph.agents:
             for tool in agent.tools:
                 source_key = tool.metadata.get("source_function_key")
                 if isinstance(source_key, str) and source_key == function_key:
-                    matches.append((agent.name, tool.name))
+                    matches.append((agent, tool.name))
 
         if matches:
             bindings: list[tuple[str | None, dict[str, str] | None]] = []
-            seen_agents: set[str] = set()
-            for agent_name, tool_name in matches:
-                if agent_name in seen_agents:
+            seen_instances: set[str] = set()
+            for agent, tool_name in matches:
+                instance_key = str(
+                    agent.metadata.get("instance_key")
+                    or (
+                        f"{agent.name}:"
+                        f"{agent.location.path.resolve() if agent.location else '<unknown>'}:"
+                        f"{agent.location.line if agent.location else 0}"
+                    )
+                )
+                if instance_key in seen_instances:
                     continue
-                seen_agents.add(agent_name)
+                seen_instances.add(instance_key)
                 bindings.append(
                     (
-                        agent_name,
+                        agent.name,
                         {
                             "basis": "source_function_key",
                             "function": function_key,
                             "tool": tool_name,
+                            "agent_instance_key": instance_key,
+                            "agent_source_context": classify_source_context(
+                                agent.location.path if agent.location else None
+                            ),
                         },
                     )
                 )
             return bindings
 
-    legacy: list[tuple[str, str, str]] = []
+    legacy: list[tuple[object, str, str, str]] = []
     for function_key in chain:
         info = functions.get(function_key)
         if not info:
@@ -671,22 +684,35 @@ def _agent_bindings_for_chain(
                     tool.location is not None
                     and tool.location.path.resolve() == info.path.resolve()
                 ):
-                    legacy.append((agent.name, tool.name, function_key))
+                    instance_key = str(
+                        agent.metadata.get("instance_key")
+                        or (
+                            f"{agent.name}:"
+                            f"{agent.location.path.resolve() if agent.location else '<unknown>'}:"
+                            f"{agent.location.line if agent.location else 0}"
+                        )
+                    )
+                    legacy.append((agent, tool.name, function_key, instance_key))
 
-    agents = list(dict.fromkeys(agent for agent, _, _ in legacy))
-    if len(agents) == 1:
-        chosen = next(item for item in legacy if item[0] == agents[0])
+    instance_keys = list(dict.fromkeys(item[3] for item in legacy))
+    if len(instance_keys) == 1:
+        chosen = next(item for item in legacy if item[3] == instance_keys[0])
+        agent = chosen[0]
         return [
             (
-                agents[0],
+                agent.name,
                 {
                     "basis": "same_file_tool_function",
                     "function": chosen[2],
                     "tool": chosen[1],
+                    "agent_instance_key": chosen[3],
+                    "agent_source_context": classify_source_context(
+                        agent.location.path if agent.location else None
+                    ),
                 },
             )
         ]
-    if len(agents) > 1:
+    if len(instance_keys) > 1:
         return [(None, {"basis": "ambiguous_same_file_tool_function"})]
     return [(None, None)]
 
@@ -751,7 +777,13 @@ def _agent_tool_parameter_sources(
     return tuple(sources)
 
 
-def _flow_id(root: Path, source: _Source, sink: _Sink, agent: str | None) -> str:
+def _flow_id(
+    root: Path,
+    source: _Source,
+    sink: _Sink,
+    agent: str | None,
+    agent_instance_key: str | None = None,
+) -> str:
     payload = "\0".join((
         source.kind,
         source.label,
@@ -762,6 +794,7 @@ def _flow_id(root: Path, source: _Source, sink: _Sink, agent: str | None) -> str
         _relative(sink.location.path, root),
         str(sink.location.line),
         agent or "",
+        agent_instance_key or "",
         *sink.call_chain,
     ))
     return "flow-v1:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
@@ -802,7 +835,18 @@ def analyze_repository_flows(root: Path, python_paths: list[Path], graph: Graph)
                 if not sources:
                     continue
                 for source in sources:
-                    flow_id = _flow_id(root, source, sink, agent)
+                    instance_key = (
+                        agent_binding.get("agent_instance_key")
+                        if isinstance(agent_binding, dict)
+                        else None
+                    )
+                    flow_id = _flow_id(
+                        root,
+                        source,
+                        sink,
+                        agent,
+                        str(instance_key) if instance_key else None,
+                    )
                     if flow_id in seen:
                         continue
                     seen.add(flow_id)
