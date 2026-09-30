@@ -32,6 +32,7 @@ def _empty_result(**overrides):
             "filesystem_scope": "unknown",
             "network_destination": "unknown",
             "runtime": "unknown",
+            "secret_access": "unknown",
         },
         "resources": [],
         "destinations": [],
@@ -555,6 +556,7 @@ def call_service(payload):
                 "filesystem_scope": "unknown",
                 "network_destination": "operator_configured",
                 "runtime": "conditional",
+                "secret_access": "none",
             },
             evidence=["ENDPOINT is selected by deployment configuration"],
         )
@@ -663,6 +665,7 @@ def opaque_exec(command):
                 "filesystem_scope": "unknown",
                 "network_destination": "unknown",
                 "runtime": "available",
+                "secret_access": "none",
             },
         )
 
@@ -715,6 +718,7 @@ def execute(command):
                 "filesystem_scope": "unknown",
                 "network_destination": "unknown",
                 "runtime": "available",
+                "secret_access": "none",
             },
         )
 
