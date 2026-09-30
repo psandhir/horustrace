@@ -816,7 +816,42 @@ def evaluate(graph: Graph) -> list[Finding]:
             if tool.metadata.get("network_scope") != "fixed_managed_service"
         ]
         if explicit_broad_destinations:
-            findings.append(Finding("NET001", Severity.HIGH, "Outbound reachability lacks a detected restriction", f"Agent '{agent.name}' has broad destinations or no detected restriction for a possible outbound destination.", "Use egress allowlists/proxies and restrict outbound connectivity to required hosts.", layer=4, location=agent.location, agent=agent.name, evidence=["destinations=" + ",".join(d.target for d in explicit_broad_destinations)]))
+            search_derived_only = all(
+                destination.metadata.get("network_scope")
+                == "search_result_derived_destination"
+                for destination in explicit_broad_destinations
+            )
+            findings.append(
+                Finding(
+                    "NET001",
+                    Severity.MEDIUM if search_derived_only else Severity.HIGH,
+                    (
+                        "Search-result-derived outbound destination lacks a detected restriction"
+                        if search_derived_only
+                        else "Outbound reachability lacks a detected restriction"
+                    ),
+                    (
+                        f"Agent '{agent.name}' can dereference provider search-result URLs "
+                        "without a detected destination restriction; the model influences "
+                        "the search terms but does not directly choose the final URL."
+                        if search_derived_only
+                        else f"Agent '{agent.name}' has broad destinations or no detected restriction for a possible outbound destination."
+                    ),
+                    "Use egress allowlists/proxies and restrict outbound connectivity to required hosts.",
+                    layer=4,
+                    location=agent.location,
+                    agent=agent.name,
+                    evidence=[
+                        "destinations="
+                        + ",".join(d.target for d in explicit_broad_destinations),
+                        *(
+                            ["destination_provenance=provider_search_result"]
+                            if search_derived_only
+                            else []
+                        ),
+                    ],
+                )
+            )
         else:
             outbound_authorities = [
                 item
