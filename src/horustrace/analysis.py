@@ -964,6 +964,42 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 )
             )
 
+    agents_by_name = {agent.name: agent for agent in graph.agents}
+    auth_keys = (
+        "authentication_detected",
+        "authentication_mode",
+        "public_default",
+        "authentication_environment_variables",
+    )
+    for path in paths:
+        agent = agents_by_name.get(path.agent)
+        if agent is None:
+            continue
+        ingress = next(
+            (
+                item
+                for item in agent.inputs
+                if item.name == (path.nodes[0] if path.nodes else "")
+                and any(key in item.metadata for key in auth_keys)
+            ),
+            None,
+        )
+        if ingress is None:
+            ingress = next(
+                (
+                    item
+                    for item in agent.inputs
+                    if item.metadata.get("runtime_invocation_proven") is True
+                    and any(key in item.metadata for key in auth_keys)
+                ),
+                None,
+            )
+        if ingress is None:
+            continue
+        for key in auth_keys:
+            if key in ingress.metadata:
+                path.metadata.setdefault(key, ingress.metadata[key])
+
     seen: set[tuple[str, str, tuple[str, ...]]] = set()
     result: list[AttackPath] = []
     for path in paths:
