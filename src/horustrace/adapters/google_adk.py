@@ -83,6 +83,8 @@ RETRIEVAL_TOOLS = {
     "DiscoveryEngineSearchTool", "VertexAiSearchTool", "VertexAiRagRetrieval",
     "EnterpriseWebSearchTool",
 }
+
+URL_CONTEXT_TOOLS = {"UrlContextTool", "url_context", "load_web_page"}
 BROAD_TOOLSETS = {
     "GoogleApiToolset", "GmailToolset", "CalendarToolset", "DocsToolset", "SheetsToolset", "SlidesToolset",
     "YoutubeToolset", "APIHubToolset", "ApplicationIntegrationToolset", "OpenAPIToolset", "BigQueryToolset",
@@ -92,6 +94,48 @@ BROAD_TOOLSETS = {
 
 def _location(path: Path, node: ast.AST) -> SourceLocation:
     return SourceLocation(path=path, line=getattr(node, "lineno", 1), column=getattr(node, "col_offset", 0) + 1)
+
+
+def _apply_retrieval_network_semantics(tool: Tool, tool_name: str) -> None:
+    """Distinguish the managed retrieval service from the content destination."""
+    if tool_name not in RETRIEVAL_TOOLS:
+        return
+    tool.metadata["untrusted_input"] = True
+    tool.metadata["network_provider"] = "google"
+
+    if tool_name in URL_CONTEXT_TOOLS:
+        # Google hosts the retrieval mechanism, but the model/tool argument can
+        # still select the content URL being dereferenced. Keep those two
+        # dimensions separate instead of treating the target as provider-fixed.
+        tool.metadata.update(
+            {
+                "network_scope": "dynamic_destination",
+                "provider_network_scope": "fixed_managed_service",
+                "model_selected_url_fetch": True,
+                "destination_provenance": "model_selected_url_argument",
+                "network_abstraction": "url_context",
+            }
+        )
+        if not any(
+            destination.target == "<model-selected-url>"
+            for destination in tool.destinations
+        ):
+            tool.destinations.append(
+                NetworkDestination(
+                    target="<model-selected-url>",
+                    restricted=False,
+                    location=tool.location,
+                    metadata={
+                        "source": "model_selected_url_argument",
+                        "network_scope": "dynamic_destination",
+                        "server_side_fetch": True,
+                        "provider_network_scope": "fixed_managed_service",
+                        "network_abstraction": "url_context",
+                    },
+                )
+            )
+    else:
+        tool.metadata["network_scope"] = "fixed_managed_service"
 
 
 def _call_name(node: ast.AST) -> str | None:
@@ -692,9 +736,6 @@ def _tool_from_call(
             metadata["client_secret_literal"] = bool(_string(_kw(call, "client_secret")))
         if name == "ComputerUseToolset":
             metadata["interactive_control"] = True
-        if name in RETRIEVAL_TOOLS:
-            metadata["network_scope"] = "fixed_managed_service"
-            metadata["network_provider"] = "google"
         if name in {"BigQueryToolset", "BigtableToolset", "DataAgentToolset"}:
             metadata["network_scope"] = "fixed_managed_service"
             metadata["network_provider"] = "google-cloud"
@@ -707,9 +748,9 @@ def _tool_from_call(
             location=_location(path, call),
             metadata=metadata,
         )
-        # Search/retrieval tools ingest external content.
-        if name in RETRIEVAL_TOOLS:
-            tool.metadata["untrusted_input"] = True
+        # Search/retrieval tools ingest external content. URL-context
+        # tools additionally expose model-selected content destinations.
+        _apply_retrieval_network_semantics(tool, name)
         # Resource scoping where ADK exposes a literal data source identifier.
         for key, kind in (("data_store_id", "vertex-search"), ("search_engine_id", "vertex-search"), ("project", "gcp-project"), ("dataset", "bigquery")):
             value = _string(_kw(call, key))
@@ -837,10 +878,7 @@ def _agent_from_call(
                     location=_location(path, element),
                     metadata={"framework": "google-adk", "adk_builtin": element.id},
                 )
-                if element.id in RETRIEVAL_TOOLS:
-                    tool.metadata["untrusted_input"] = True
-                    tool.metadata["network_scope"] = "fixed_managed_service"
-                    tool.metadata["network_provider"] = "google"
+                _apply_retrieval_network_semantics(tool, element.id)
                 agent.tools.append(tool)
             elif element.id in calls:
                 direct = _tool_from_call(path, calls[element.id], element.id, calls, functions)
@@ -863,10 +901,7 @@ def _agent_from_call(
             tool_name = _call_name(element) or "tool"
             caps = set(BUILTIN_TOOL_CAPABILITIES.get(tool_name, set())) or set(infer_capabilities(tool_name))
             tool = Tool(name=tool_name, kind="adk_builtin", capabilities=caps, location=_location(path, element), metadata={"framework": "google-adk", "adk_builtin": tool_name})
-            if tool_name in RETRIEVAL_TOOLS:
-                tool.metadata["untrusted_input"] = True
-                tool.metadata["network_scope"] = "fixed_managed_service"
-                tool.metadata["network_provider"] = "google"
+            _apply_retrieval_network_semantics(tool, tool_name)
             agent.tools.append(tool)
 
     code_node = _kw(call, "code_executor")
