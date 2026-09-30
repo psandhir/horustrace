@@ -31,7 +31,7 @@ from horustrace.models import (
     Tool,
 )
 
-PROMPT_VERSION = "semantic-escalation-v3"
+PROMPT_VERSION = "semantic-escalation-v4"
 _ALLOWED_CAPABILITIES = {
     "agent.delegate",
     "data.read",
@@ -710,12 +710,22 @@ def _schema() -> dict[str, Any]:
                         "type": "string",
                         "enum": ["available", "conditional", "blocked", "unknown"],
                     },
+                    "secret_access": {
+                        "type": "string",
+                        "enum": [
+                            "model_visible",
+                            "internal_auth_only",
+                            "none",
+                            "unknown",
+                        ],
+                    },
                 },
                 "required": [
                     "process_execution",
                     "filesystem_scope",
                     "network_destination",
                     "runtime",
+                    "secret_access",
                 ],
                 "additionalProperties": False,
             },
@@ -790,6 +800,10 @@ def _system_prompt() -> str:
         "For network_destination, use fixed for a literal endpoint, operator_configured for "
         "environment/configuration-selected endpoints, model_selected only when model/tool "
         "input selects the endpoint, and provider_derived for provider/search-result URLs. "
+        "Use secrets.read only when secret material is exposed to the model or returned through "
+        "a model-callable result. If a credential/token is read internally only to authenticate "
+        "a fixed provider request (for example an Authorization header), set secret_access="
+        "internal_auth_only and do not treat that as model secret-reading authority. "
         "Use data.write only "
         "for durable, shared, or externally observable data mutation; do not use it for "
         "local RunContext, session, agent, or in-memory bookkeeping. Destinations are "
@@ -1158,6 +1172,12 @@ def _validate_payload(payload: dict[str, Any]) -> None:
             "unknown",
         },
         "runtime": {"available", "conditional", "blocked", "unknown"},
+        "secret_access": {
+            "model_visible",
+            "internal_auth_only",
+            "none",
+            "unknown",
+        },
     }
     for key, allowed in allowed_constraints.items():
         if constraints.get(key) not in allowed:
@@ -1202,15 +1222,27 @@ def _looks_like_network_destination(target: str) -> bool:
 def _normalized_semantic_capabilities(
     candidate: _Candidate,
     payload: dict[str, Any],
-) -> tuple[set[str], bool]:
+) -> tuple[set[str], bool, bool]:
     capabilities = {
         str(item)
         for item in payload.get("capabilities", [])
         if item in _ALLOWED_CAPABILITIES
     }
     suppressed_ephemeral_write = False
+    suppressed_internal_credential_read = False
+    constraints = payload.get("constraints") or {}
+    if (
+        "secrets.read" in capabilities
+        and constraints.get("secret_access") in {"internal_auth_only", "none"}
+    ):
+        capabilities.discard("secrets.read")
+        suppressed_internal_credential_read = True
     if "data.write" not in capabilities:
-        return capabilities, suppressed_ephemeral_write
+        return (
+            capabilities,
+            suppressed_ephemeral_write,
+            suppressed_internal_credential_read,
+        )
     resources = [
         item for item in payload.get("resources", []) if isinstance(item, dict)
     ]
@@ -1236,7 +1268,11 @@ def _normalized_semantic_capabilities(
     ):
         capabilities.discard("data.write")
         suppressed_ephemeral_write = True
-    return capabilities, suppressed_ephemeral_write
+    return (
+        capabilities,
+        suppressed_ephemeral_write,
+        suppressed_internal_credential_read,
+    )
 
 
 def _apply_payload(
@@ -1272,14 +1308,17 @@ def _apply_payload(
         )
         candidate.agent.tools.append(tool)
 
-    capabilities, suppressed_ephemeral_write = _normalized_semantic_capabilities(
-        candidate,
-        payload,
-    )
+    (
+        capabilities,
+        suppressed_ephemeral_write,
+        suppressed_internal_credential_read,
+    ) = _normalized_semantic_capabilities(candidate, payload)
     tool.capabilities.update(capabilities)
     added_capabilities = capabilities - preexisting_capabilities
     if suppressed_ephemeral_write:
         tool.metadata["semantic_ephemeral_state_write_suppressed"] = True
+    if suppressed_internal_credential_read:
+        tool.metadata["semantic_internal_credential_read_suppressed"] = True
 
     approval = _tri_bool(payload.get("approval"))
     # LLM enrichment may add missing semantic authority, but it must not lower
@@ -1336,6 +1375,8 @@ def _apply_payload(
             for value in item.get("access", [])
             if value in _ALLOWED_CAPABILITIES
         }
+        if suppressed_internal_credential_read:
+            access.discard("secrets.read")
         if (
             suppressed_ephemeral_write
             and "data.write" in access
