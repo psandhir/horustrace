@@ -1138,3 +1138,97 @@ agent = Agent(
         and finding.agent == "agent"
         for finding in findings
     )
+
+def test_pydantic_ai_relative_reexported_native_controls_reach_bound_tools(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "app"
+    tools = package / "tools"
+    tools.mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (tools / "__init__.py").write_text(
+        """
+from .codebase import codebase_shell
+from .file_management import append_file, write_file
+""",
+        encoding="utf-8",
+    )
+    (tools / "codebase.py").write_text(
+        """
+import asyncio
+
+ALLOWED_COMMANDS = {"ls", "grep", "git"}
+DANGEROUS_PATTERNS = [r"[|&;]"]
+
+async def codebase_shell(command: str, args: list[str]):
+    if command not in ALLOWED_COMMANDS:
+        return "not allowed"
+    for pattern in DANGEROUS_PATTERNS:
+        if pattern in command:
+            return "blocked"
+    process = await asyncio.create_subprocess_exec(command, *args)
+    return await process.wait()
+""",
+        encoding="utf-8",
+    )
+    (tools / "file_management.py").write_text(
+        """
+def _validate_agent_scoped_path(filename: str):
+    return ".shotgun/" + filename
+
+def write_file(filename: str, content: str):
+    path = _validate_agent_scoped_path(filename)
+    with open(path, "w") as handle:
+        handle.write(content)
+
+def append_file(filename: str, content: str):
+    return write_file(filename, content)
+""",
+        encoding="utf-8",
+    )
+    (package / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+from .tools import append_file, codebase_shell, write_file
+
+agent = Agent(
+    "openai:gpt-5.2",
+    tools=[codebase_shell, write_file, append_file],
+)
+
+def run_agent(prompt: str):
+    return agent.run_sync(prompt)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.name == "agent" and any(tool.name == "codebase_shell" for tool in item.tools)
+    )
+    shell = next(item for item in agent.tools if item.name == "codebase_shell")
+    write = next(item for item in agent.tools if item.name == "write_file")
+    append = next(item for item in agent.tools if item.name == "append_file")
+
+    assert shell.metadata["source_function"].endswith("codebase_shell")
+    assert shell.metadata["process_execution_constrained"] is True
+    assert shell.guardrails is True
+    for tool in (write, append):
+        assert tool.metadata["filesystem_path_constrained"] is True
+        assert tool.metadata["agent_internal_artifact"] is True
+        assert tool.guardrails is True
+        assert any(resource.selector == ".shotgun/**" for resource in tool.resources)
+
+    assert not any(
+        finding.rule_id in {"AGT020", "AGT021", "AGT022", "AGT040"}
+        and finding.agent == agent.name
+        for finding in findings
+    )
+    assert not any(
+        path.path_id in {"PATH001", "PATH002", "PATH006"}
+        and path.agent == agent.name
+        for path in graph.attack_paths
+    )
+
