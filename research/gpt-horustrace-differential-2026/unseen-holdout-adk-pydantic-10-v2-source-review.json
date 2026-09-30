@@ -1,0 +1,729 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "unseen-holdout-adk-pydantic-10-v2",
+  "methodology": "Independent source review locked before any HorusTrace reveal. Repository source treated as untrusted data; code was read but not executed.",
+  "reviews": [
+    {
+      "case_id": "hold-adk-001",
+      "repo": "AbiramiSukumaran/adk-renovation-single-agent",
+      "sha": "f1b779be5d1d49093b46102a8440d26830efa07d",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "Requires GOOGLE_API_KEY, STORAGE_BUCKET, GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION and GOOGLE_GENAI_USE_VERTEXAI at import time."
+      ],
+      "agents": [
+        {
+          "name": "proposal_agent",
+          "kind": "Google ADK Agent",
+          "evidence": "agent.py: root_agent = Agent(... tools=[store_pdf])"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The model is explicitly bound to store_pdf.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py: root_agent tools=[store_pdf]"
+          ]
+        },
+        {
+          "fact": "store_pdf uploads a PDF to the operator-selected GCS bucket using the fixed object name proposal_document_for_user.pdf.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py: store_pdf -> storage.Client().bucket(STORAGE_BUCKET).blob(PROPOSAL_DOCUMENT_FILE_NAME).upload_from_file"
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-hold-adk-001-01",
+          "semantic_key": "agent_bound_fixed_object_gcs_write_without_approval",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "The ADK agent can write model-generated proposal content to a Google Cloud Storage object without a source-visible approval gate. The bucket is deployment-configured and the object name is fixed, so this is not arbitrary destination/path authority.",
+          "evidence": [
+            "agent.py: tools=[store_pdf]",
+            "agent.py: blob.upload_from_file(...)"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [],
+      "controls": [
+        "GCS object name is fixed in source.",
+        "Cloud bucket is selected by deployment environment rather than model input."
+      ],
+      "unknowns": [
+        "Runtime IAM permissions of storage.Client are not source-proven.",
+        "No source-level user ingress/runner is included, so an end-to-end untrusted-input path is not claimed."
+      ]
+    },
+    {
+      "case_id": "hold-adk-002",
+      "repo": "amiitt001/adk-hiring-agent",
+      "sha": "7232ba30820c0370634b97142b0bb72c32d9d065",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "tools_agents.py",
+        "launcher.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "Gemini/Google API key is required for useful model execution."
+      ],
+      "agents": [
+        {
+          "name": "ConversationalHiringOrchestrator",
+          "kind": "Google ADK LlmAgent",
+          "evidence": "agent.py: root_agent = LlmAgent"
+        },
+        {
+          "name": "RubricBuilder",
+          "kind": "Google ADK LlmAgent",
+          "evidence": "tools_agents.py: rubric_builder"
+        },
+        {
+          "name": "ResumeReviewer",
+          "kind": "Google ADK LlmAgent",
+          "evidence": "tools_agents.py: resume_reviewer"
+        },
+        {
+          "name": "GitHubReviewer",
+          "kind": "Google ADK LlmAgent",
+          "evidence": "tools_agents.py: github_reviewer"
+        },
+        {
+          "name": "VerdictSynthesizer",
+          "kind": "Google ADK LlmAgent",
+          "evidence": "tools_agents.py: verdict_synthesizer"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The root agent delegates to four specialist agents via AgentTool and binds github_validator via FunctionTool.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py: rubric_tool/resume_eval_tool/github_eval_tool/verdict_tool",
+            "agent.py: github_validate_tool = FunctionTool(func=github_validator)"
+          ]
+        },
+        {
+          "fact": "github_validator sends GET requests only to the fixed GitHub API host with a model/user-selected username path.",
+          "confidence": "high",
+          "evidence": [
+            "tools_agents.py: api_url = f'https://api.github.com/users/{username}'",
+            "tools_agents.py: requests.get(api_url, ...)"
+          ]
+        }
+      ],
+      "findings": [],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [],
+      "controls": [
+        "GitHub network destination is fixed to api.github.com.",
+        "Validator uses GET/read-only profile lookup.",
+        "Final verdict tool is instructed to run only after explicit user request, although this is prompt-level rather than a technical approval mechanism."
+      ],
+      "unknowns": [
+        "No material sensitive sink beyond fixed-provider profile lookup is source-proven."
+      ]
+    },
+    {
+      "case_id": "hold-adk-003",
+      "repo": "Quantum-Cipher/MCP-GCP-governance-protocol",
+      "sha": "ff3864266f752c572393584721d70059955b33c2",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "agent_liftoff_governor.py",
+        "server.py",
+        "core/policy_engine.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "The primary agent.py uses MCP_SERVER_URL or an invalid placeholder default; agent_liftoff_governor.py also contains a placeholder governance URL. agent.py stream_query does not itself call set_up before dereferencing self.app."
+      ],
+      "agents": [
+        {
+          "name": "Liftoff_Deployment_Governor",
+          "kind": "Google ADK LlmAgent",
+          "evidence": "agent.py: root_agent"
+        },
+        {
+          "name": "Liftoff_Deployment_Governor_google_search_agent",
+          "kind": "delegated ADK LlmAgent",
+          "evidence": "agent.py: AgentTool(...)"
+        },
+        {
+          "name": "Liftoff_Deployment_Governor_url_context_agent",
+          "kind": "delegated ADK LlmAgent",
+          "evidence": "agent.py: AgentTool(...)"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The root agent is bound to an MCP toolset whose Streamable HTTP URL is deployment-configurable.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py: MCP_URL = os.environ.get('MCP_SERVER_URL', ...)",
+            "agent.py: McpToolset(connection_params=StreamableHTTPConnectionParams(url=MCP_URL))"
+          ]
+        },
+        {
+          "fact": "The root can delegate to a URL-context agent that is instructed and tooled to retrieve content from supplied URLs.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py: Liftoff_Deployment_Governor_url_context_agent",
+            "agent.py: tools=[url_context]"
+          ]
+        },
+        {
+          "fact": "The repository-local MCP server exposes governance_evaluate and git_sync, but source does not prove the configured remote MCP URL points to this exact server.",
+          "confidence": "high",
+          "evidence": [
+            "server.py: @mcp.tool governance_evaluate",
+            "server.py: @mcp.tool git_sync"
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-hold-adk-003-01",
+          "semantic_key": "dynamic_remote_mcp_authority_without_catalogue_or_per_call_approval",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "The root ADK agent binds a remotely configured MCP toolset. The effective catalogue depends on the configured endpoint, and no source-visible per-call approval or catalogue allowlist constrains the remote tools.",
+          "evidence": [
+            "agent.py: McpToolset(StreamableHTTPConnectionParams(url=MCP_URL))"
+          ],
+          "reachability": "configuration_dependent"
+        },
+        {
+          "finding_id": "gpt-hold-adk-003-02",
+          "semantic_key": "delegated_model_selected_url_retrieval",
+          "severity": "high",
+          "confidence": "medium",
+          "claim": "The root agent can delegate to a URL-context specialist that retrieves content from provided URLs without a source-visible destination allowlist.",
+          "evidence": [
+            "agent.py: AgentTool(url_context_agent)",
+            "agent.py: url-context instruction/tools"
+          ],
+          "reachability": "conditional"
+        }
+      ],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [
+        {
+          "path_id": "gpt-hold-adk-003-ap1",
+          "severity": "high",
+          "confidence": "medium",
+          "chain": [
+            "stream_query(query)",
+            "Liftoff_Deployment_Governor",
+            "AgentTool:url_context_agent",
+            "UrlContextTool",
+            "provided URL retrieval"
+          ],
+          "reachability": "conditional"
+        }
+      ],
+      "controls": [
+        "Repository-local policy engine enforces action/environment/metadata predicates, but binding of the remote MCP URL to that local implementation is not source-proven."
+      ],
+      "unknowns": [
+        "Remote MCP catalogue and endpoint identity are configuration-dependent.",
+        "Whether deployment adds authentication in front of stream_query is not established.",
+        "agent.py setup lifecycle is ambiguous."
+      ]
+    },
+    {
+      "case_id": "hold-adk-004",
+      "repo": "Suvam-paul145/student-doubt-classifer-agent",
+      "sha": "d9463f6209e7a9c9e04310805e8222158ca89fc8",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "main.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "Model execution requires Google/Gemini credentials not validated in these files."
+      ],
+      "agents": [
+        {
+          "name": "student_doubt_classifier",
+          "kind": "Google ADK LlmAgent",
+          "evidence": "agent.py: root_agent"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "POST /classify accepts text/image/audio data and reaches runner.run_async for the ADK agent.",
+          "confidence": "high",
+          "evidence": [
+            "main.py: @app.post('/classify')",
+            "main.py: runner.run_async(... new_message=user_message)"
+          ]
+        },
+        {
+          "fact": "The only bound function tool normalizes and returns classification metadata; it has no external write, filesystem, process, or network sink.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py: FunctionTool(func=classify_doubt)",
+            "agent.py: classify_doubt"
+          ]
+        }
+      ],
+      "findings": [],
+      "application_findings_not_agent_authority": [
+        {
+          "claim": "The FastAPI /classify endpoint has no source-visible authentication and wildcard CORS, creating a potential public model-invocation/cost-abuse surface, but no sensitive agent tool sink is bound.",
+          "evidence": [
+            "main.py: @app.post('/classify')",
+            "main.py: allow_origins=['*']"
+          ]
+        }
+      ],
+      "attack_paths": [],
+      "controls": [
+        "Text question is capped at 2000 characters.",
+        "Base64 input is validation-decoded.",
+        "Model-callable tool is side-effect free."
+      ],
+      "unknowns": [
+        "Deployment-level authentication/rate limiting is not shown."
+      ]
+    },
+    {
+      "case_id": "hold-adk-005",
+      "repo": "amachwe/test_openapi_agent",
+      "sha": "053380f1b793d5d8e0b31a6fa47898b590bb6a22",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "account_api_spec.json"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "The OpenAPI operations declare bearerAuth, but source does not configure an auth credential for the toolset; successful remote mutation therefore depends on runtime/toolset credential configuration."
+      ],
+      "agents": [
+        {
+          "name": "api_interacting_agent",
+          "kind": "Google ADK LlmAgent",
+          "evidence": "agent.py: root_agent = LlmAgent(... tools=[toolset])"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The agent is directly bound to an OpenAPIToolset built from account_api_spec.json.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py: OpenAPIToolset(spec_dict=open_api_spec)",
+            "agent.py: tools=[toolset]"
+          ]
+        },
+        {
+          "fact": "The spec exposes account GET, POST and DELETE operations at fixed production/staging origins.",
+          "confidence": "high",
+          "evidence": [
+            "account_api_spec.json: servers",
+            "account_api_spec.json: /accounts/{accountId} get/post/delete"
+          ]
+        },
+        {
+          "fact": "DELETE is documented as permanently deleting an account; POST creates or updates account information.",
+          "confidence": "high",
+          "evidence": [
+            "account_api_spec.json: delete summary/description",
+            "account_api_spec.json: post summary/description"
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-hold-adk-005-01",
+          "semantic_key": "agent_bound_openapi_account_mutation_without_per_call_approval",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "The ADK agent is bound to an OpenAPI CRUD toolset that includes account create/update and permanent delete operations. No source-visible per-call approval gate is configured; successful execution remains bearer-credential dependent.",
+          "evidence": [
+            "agent.py: tools=[toolset]",
+            "account_api_spec.json: POST/DELETE account operations"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [],
+      "controls": [
+        "Network origins are fixed by the OpenAPI servers list.",
+        "OpenAPI spec declares bearerAuth on operations."
+      ],
+      "unknowns": [
+        "Actual bearer credential provisioning is not in source.",
+        "No source-level user ingress/runner is included."
+      ]
+    },
+    {
+      "case_id": "hold-pyd-001",
+      "repo": "mindeye33/speedagent",
+      "sha": "cc42c792ffac8e3c6ee7679dd3eff6f2f84d7c59",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "agent.py",
+        "pyproject.toml"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "Requires an OpenAI/provider credential for the configured model."
+      ],
+      "agents": [
+        {
+          "name": "agent",
+          "kind": "Pydantic AI Agent",
+          "evidence": "agent.py: agent = Agent(...)"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The agent is bound to LangChain PythonREPLTool via tool_from_langchain.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py: python_tool = tool_from_langchain(PythonREPLTool())",
+            "agent.py: tools=[python_tool]"
+          ]
+        },
+        {
+          "fact": "The agent is also bound to bash(command), which passes the model-selected string to subprocess.run with shell=True.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py: @agent.tool_plain bash",
+            "agent.py: subprocess.run(command, shell=True, ...)"
+          ]
+        },
+        {
+          "fact": "agent.to_web(...) creates a web-facing agent application object.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py: app = agent.to_web(...)"
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-hold-pyd-001-01",
+          "semantic_key": "web_agent_arbitrary_python_and_shell_execution",
+          "severity": "critical",
+          "confidence": "high",
+          "claim": "A web-facing Pydantic AI agent exposes both Python REPL execution and an unrestricted shell command tool; the shell directly uses shell=True with no allowlist, sandbox, or approval.",
+          "evidence": [
+            "agent.py: tools=[python_tool]",
+            "agent.py: @agent.tool_plain bash",
+            "agent.py: subprocess.run(... shell=True)",
+            "agent.py: agent.to_web(...)"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [
+        {
+          "path_id": "gpt-hold-pyd-001-ap1",
+          "severity": "critical",
+          "confidence": "high",
+          "chain": [
+            "web agent input",
+            "agent",
+            "bash(command)",
+            "subprocess.run(shell=True)"
+          ],
+          "reachability": "configuration_dependent"
+        },
+        {
+          "path_id": "gpt-hold-pyd-001-ap2",
+          "severity": "critical",
+          "confidence": "high",
+          "chain": [
+            "web agent input",
+            "agent",
+            "PythonREPLTool",
+            "Python code execution"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "controls": [
+        "Prompt asks the agent to save results in work_dir, but this is not an enforced filesystem boundary."
+      ],
+      "unknowns": [
+        "Authentication/access control around the generated web app is not shown."
+      ]
+    },
+    {
+      "case_id": "hold-pyd-002",
+      "repo": "newsbubbles/youtube-manager-mcp",
+      "sha": "b429601aa96fa4497084e43863a288c6353de59e",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "agent.py",
+        "mcp_server.py",
+        "youtube_client.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "Requires OPENROUTER_API_KEY plus YouTube OAuth client secrets/credentials; YouTube client methods authenticate before API calls."
+      ],
+      "agents": [
+        {
+          "name": "agent",
+          "kind": "Pydantic AI Agent",
+          "evidence": "agent.py: agent = Agent(... mcp_servers=mcp_servers)"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The agent binds a local stdio MCP server implemented by mcp_server.py.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py: MCPServerStdio('python', ['mcp_server.py'], env=env)",
+            "agent.py: Agent(... mcp_servers=mcp_servers)"
+          ]
+        },
+        {
+          "fact": "The MCP catalogue contains update_video_details and delete_video; delete_video calls YouTube videos().delete(...).execute().",
+          "confidence": "high",
+          "evidence": [
+            "mcp_server.py: @mcp.tool update_video_details",
+            "mcp_server.py: @mcp.tool delete_video",
+            "youtube_client.py: self.youtube.videos().delete(id=video_id).execute()"
+          ]
+        },
+        {
+          "fact": "CLI input is passed directly to agent.run while MCP servers are active.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py: user_input = input(...)",
+            "agent.py: async with agent.run_mcp_servers()",
+            "agent.py: await agent.run(user_input, ...)"
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-hold-pyd-002-01",
+          "semantic_key": "cli_agent_bound_youtube_mutation_and_delete_without_per_call_approval",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "The Pydantic AI agent can invoke bound MCP tools that mutate YouTube video metadata and permanently delete videos. No source-visible per-call human approval is enforced; actual execution is OAuth-credential dependent.",
+          "evidence": [
+            "agent.py: mcp_servers binding",
+            "mcp_server.py: update_video_details/delete_video",
+            "youtube_client.py: videos().update/videos().delete"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [
+        {
+          "path_id": "gpt-hold-pyd-002-ap1",
+          "severity": "high",
+          "confidence": "high",
+          "chain": [
+            "CLI user_input",
+            "Pydantic agent",
+            "stdio MCP",
+            "delete_video",
+            "YouTube videos.delete"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "controls": [
+        "YouTube OAuth authentication is required by the client.",
+        "MCP server is local stdio rather than arbitrary remote endpoint."
+      ],
+      "unknowns": [
+        "OAuth scopes/identity privileges are not fully adjudicated here.",
+        "No technical confirmation step is detected before update/delete."
+      ]
+    },
+    {
+      "case_id": "hold-pyd-003",
+      "repo": "gtsbahamas/text-moderation",
+      "sha": "decb6d85be0afe5bf08d222b519b33cf15e45064",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "agent.py"
+      ],
+      "runtime_viability": "blocked_by_source_error",
+      "runtime_notes": [
+        "agent.py imports agent_tools and agent_prompts, but neither module exists in the pinned repository tree."
+      ],
+      "agents": [
+        {
+          "name": "text_moderation_agent",
+          "kind": "Pydantic AI Agent declaration",
+          "evidence": "agent.py: text_moderation_agent = Agent(...)"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "analyze_text is declared as a bound tool, but its imported helper implementations are unavailable at the pinned commit.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py: @text_moderation_agent.tool analyze_text",
+            "agent.py: from agent_tools import ..."
+          ]
+        }
+      ],
+      "findings": [],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [],
+      "controls": [],
+      "unknowns": [
+        "The missing helper modules prevent source adjudication of the actual moderation sinks and prevent treating the declared agent as source-proven runnable."
+      ]
+    },
+    {
+      "case_id": "hold-pyd-004",
+      "repo": "ArhamMirza/AI-Budget-CSV-Manager",
+      "sha": "44dc9e7df8c007d813d88810ec6e347086527b66",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "agent.py",
+        "csv_manager.py",
+        "main.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "agent.py raises at import if GROQ_API_KEY is absent."
+      ],
+      "agents": [
+        {
+          "name": "budget_agent",
+          "kind": "Pydantic AI Agent",
+          "evidence": "agent.py: budget_agent = Agent(...)"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "CLI user input reaches budget_agent.run_sync.",
+          "confidence": "high",
+          "evidence": [
+            "main.py: user_input = input(...)",
+            "agent.py: budget_agent.run_sync(full_input, deps=context)"
+          ]
+        },
+        {
+          "fact": "The agent is bound to add_transaction, set_budget_limit and delete_transaction, which mutate the selected transaction and budget CSV files.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py: @budget_agent.tool add_transaction/set_budget_limit/delete_transaction",
+            "csv_manager.py: add_transaction/update_budget_limits/delete_transaction file writes"
+          ]
+        },
+        {
+          "fact": "The CSV resource path is selected by the application user before agent invocation, not by the model.",
+          "confidence": "high",
+          "evidence": [
+            "main.py: csv_path = input(...)",
+            "main.py: CSVBudgetManager(csv_path)"
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-hold-pyd-004-01",
+          "semantic_key": "cli_agent_local_budget_state_mutation_without_enforced_approval",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "The Pydantic AI budget agent can add transactions, change budget limits, and delete transactions in the preselected local CSV state. The prompt asks it to act only on explicit user request/approval, but no technical tool-approval mechanism enforces that policy.",
+          "evidence": [
+            "agent.py: bound mutation tools",
+            "csv_manager.py: append/rewrite CSV operations"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [
+        {
+          "path_id": "gpt-hold-pyd-004-ap1",
+          "severity": "medium",
+          "confidence": "high",
+          "chain": [
+            "CLI user_input",
+            "budget_agent",
+            "delete_transaction",
+            "CSVBudgetManager.delete_transaction",
+            "local CSV rewrite"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "controls": [
+        "Filesystem target is fixed in BudgetContext before model execution.",
+        "System prompt requires explicit user request/approval, but this is prompt-level guidance only."
+      ],
+      "unknowns": [
+        "No sandbox/path containment is applied to the initial CLI-selected CSV path, but that path is user-selected application configuration rather than model-selected authority."
+      ]
+    },
+    {
+      "case_id": "hold-pyd-005",
+      "repo": "rawheel/PydanticAi-MultiModal",
+      "sha": "65e7450fab5c0df06ed7f6216b99e2becd8e92b9",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "app.py",
+        "config.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "Settings requires OPENAI_API_KEY at import time."
+      ],
+      "agents": [
+        {
+          "name": "ImageSummarizer._agent",
+          "kind": "Pydantic AI Agent",
+          "evidence": "app.py: self._agent = Agent(...)"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "No model-callable tools or MCP servers are bound.",
+          "confidence": "high",
+          "evidence": [
+            "app.py: Agent(...) has no tools/toolsets/mcp_servers"
+          ]
+        },
+        {
+          "fact": "The executable example supplies a fixed GitHub raw image URL to the model input; summarize can also accept caller-supplied image URLs as application input.",
+          "confidence": "high",
+          "evidence": [
+            "app.py: image_urls fixed example",
+            "app.py: ImageURL(url=url) -> agent.run_sync"
+          ]
+        }
+      ],
+      "findings": [],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [],
+      "controls": [
+        "No tool authority is exposed."
+      ],
+      "unknowns": [
+        "Provider-side fetching behavior for image_url is outside repository implementation; no agent tool sink is claimed."
+      ]
+    }
+  ]
+}

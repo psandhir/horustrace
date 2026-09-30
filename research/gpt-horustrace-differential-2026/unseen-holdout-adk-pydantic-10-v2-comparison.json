@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "unseen-holdout-adk-pydantic-10-v2",
+  "source_review_lock_sha": "5c6ac0f74bfb584d5f627e0b35063fd60a0860d9",
+  "scanner_run_id": 36736972394,
+  "scanner_artifact_id": 11107378157,
+  "scanner_summary": {
+    "scanned": 10,
+    "errors": 0,
+    "findings": 23,
+    "attack_paths": 2
+  },
+  "locked_semantics": {
+    "total": 7,
+    "full": 3,
+    "partial": 3,
+    "missed": 1,
+    "full_rate": 0.4286,
+    "covered_or_partial_rate": 0.8571
+  },
+  "locked_paths": {
+    "total": 5,
+    "full": 1,
+    "partial": 1,
+    "missed": 3,
+    "full_rate": 0.2,
+    "covered_or_partial_rate": 0.4
+  },
+  "cases": [
+    {
+      "case_id": "hold-adk-001",
+      "semantic": "partial",
+      "paths": {
+        "total": 0
+      },
+      "gaps": [
+        "GCS sink/resource provenance"
+      ]
+    },
+    {
+      "case_id": "hold-adk-002",
+      "semantic": "agreement_negative_control",
+      "paths": {
+        "total": 0
+      },
+      "gaps": []
+    },
+    {
+      "case_id": "hold-adk-003",
+      "semantic": "mixed",
+      "semantic_findings": {
+        "full": 1,
+        "missed": 1
+      },
+      "paths": {
+        "missed": 1
+      },
+      "gaps": [
+        "UrlContextTool target URL provenance",
+        "operator-configured MCP endpoint misclassified as caller-selected"
+      ],
+      "precision": [
+        "dynamic MCP NET001 overstates caller selection"
+      ]
+    },
+    {
+      "case_id": "hold-adk-004",
+      "semantic": "agreement_negative_control",
+      "paths": {
+        "total": 0
+      },
+      "gaps": []
+    },
+    {
+      "case_id": "hold-adk-005",
+      "semantic": "partial",
+      "paths": {
+        "total": 0
+      },
+      "gaps": [
+        "OpenAPI operation-level DELETE semantics",
+        "fixed server origins",
+        "bearer auth"
+      ],
+      "precision": [
+        "NET002 conflicts with fixed OpenAPI servers"
+      ]
+    },
+    {
+      "case_id": "hold-pyd-001",
+      "semantic": "partial",
+      "paths": {
+        "full": 1,
+        "missed": 1
+      },
+      "gaps": [
+        "tool_from_langchain(PythonREPLTool) execution semantics"
+      ]
+    },
+    {
+      "case_id": "hold-pyd-002",
+      "semantic": "full",
+      "paths": {
+        "partial": 1
+      },
+      "gaps": [
+        "exact MCP tool edge absent from composed path"
+      ]
+    },
+    {
+      "case_id": "hold-pyd-003",
+      "semantic": "agreement_blocked",
+      "paths": {
+        "total": 0
+      },
+      "gaps": [],
+      "adjudication": "Pinned source has syntax error near line 112; scanner parse-error diagnostic is correct."
+    },
+    {
+      "case_id": "hold-pyd-004",
+      "semantic": "full",
+      "paths": {
+        "missed": 1
+      },
+      "gaps": [
+        "cross-file CLI wrapper ingress"
+      ],
+      "dual_miss": [
+        "analyze_budget fixed-pattern plt.savefig artifact write"
+      ]
+    },
+    {
+      "case_id": "hold-pyd-005",
+      "semantic": "agreement_negative_control",
+      "paths": {
+        "total": 0
+      },
+      "gaps": []
+    }
+  ],
+  "build_queue": [
+    "P0 wrapped Pydantic/LangChain execution authority",
+    "P0 ADK UrlContextTool target URL provenance through delegation",
+    "P1 ADK/OpenAPI operation, destination and auth semantics",
+    "P1 cross-file Pydantic CLI/public ingress mapping",
+    "P1 cloud object sink/resource semantics",
+    "P2 source-backed side-effect inference beyond tool-name heuristics"
+  ]
+}

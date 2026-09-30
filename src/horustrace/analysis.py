@@ -275,6 +275,64 @@ def _delegated_paths(graph: Graph) -> list[AttackPath]:
                         )
                     )
 
+                model_selected_url_fetch = (
+                    tool.metadata.get("model_selected_url_fetch") is True
+                    and tool.approval is not True
+                )
+                if model_selected_url_fetch:
+                    dynamic_destinations = [
+                        destination
+                        for destination in tool.destinations
+                        if destination.metadata.get("network_scope")
+                        == "dynamic_destination"
+                        or destination.metadata.get("source")
+                        == "model_selected_url_argument"
+                    ]
+                    if dynamic_destinations:
+                        paths.append(
+                            AttackPath(
+                                path_id="PATH011",
+                                title=(
+                                    "Potential untrusted-input path through delegated "
+                                    "agent to server-side URL fetch"
+                                ),
+                                agent=agent.name,
+                                nodes=[
+                                    untrusted[0].name,
+                                    agent.name,
+                                    f"delegate:{delegated.name}",
+                                    tool.name,
+                                    "model-selected URL",
+                                    dynamic_destinations[0].target,
+                                ],
+                                severity=Severity.HIGH,
+                                rationale=(
+                                    "The normalized model shows untrusted input reaching "
+                                    "an agent that can delegate to a URL-context tool whose "
+                                    "content target is model-selected and has no detected "
+                                    "destination restriction."
+                                ),
+                                location=tool.location or delegated.location or agent.location,
+                                metadata={
+                                    **_path_metadata(
+                                        basis="source_bound_delegated_authority"
+                                    ),
+                                    "delegate_target": delegated.name,
+                                    "delegate_tool": delegate_tool.name,
+                                    "destination_provenance": tool.metadata.get(
+                                        "destination_provenance"
+                                    ),
+                                    "provider_network_scope": tool.metadata.get(
+                                        "provider_network_scope"
+                                    ),
+                                    "network_abstraction": tool.metadata.get(
+                                        "network_abstraction"
+                                    ),
+                                    "indirect_destination": False,
+                                },
+                            )
+                        )
+
                 outbound = {
                     "network.external",
                     "external.write",
@@ -290,6 +348,7 @@ def _delegated_paths(graph: Graph) -> list[AttackPath]:
                     outbound
                     and not destination_constrained
                     and tool.approval is not True
+                    and not model_selected_url_fetch
                 ):
                     paths.append(
                         AttackPath(
@@ -1008,6 +1067,48 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                         metadata=_path_metadata(basis="capability_cooccurrence"),
                     )
                 )
+
+        wrapped_execution = [
+            tool
+            for tool in execution
+            if tool.metadata.get("source") == "tool_from_langchain"
+            and tool.metadata.get("wrapped_tool")
+        ]
+        for tool in wrapped_execution:
+            if not untrusted:
+                break
+            paths.append(
+                AttackPath(
+                    path_id="PATH001",
+                    title="Potential untrusted-input path to wrapped code execution",
+                    agent=agent.name,
+                    nodes=[
+                        untrusted[0].name,
+                        agent.name,
+                        tool.name,
+                        "wrapped code execution",
+                    ],
+                    severity=Severity.CRITICAL,
+                    rationale=(
+                        "Source proves a user-facing Pydantic AI runtime binds a "
+                        "third-party tool whose wrapped class provides code/process "
+                        "execution without a detected approval boundary."
+                    ),
+                    location=tool.location or agent.location,
+                    metadata={
+                        **_path_metadata(
+                            basis="source_bound_ingress_authority"
+                        ),
+                        "wrapped_framework": tool.metadata.get(
+                            "wrapped_framework"
+                        ),
+                        "wrapped_tool": tool.metadata.get("wrapped_tool"),
+                        "binding_adapter": tool.metadata.get(
+                            "binding_adapter"
+                        ),
+                    },
+                )
+            )
 
         if untrusted and sensitive and execution:
             paths.append(

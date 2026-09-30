@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "unseen-holdout-adk-pydantic-10-v2",
+  "phase": "cohort_locked_before_scanner_reveal",
+  "selection": {
+    "locked_at": "2026-09-30",
+    "method": "GitHub code search on canonical framework imports; require executable .py source with framework agent instantiation; exclude every repository in the frozen 180 and earlier differential cases; preserve search order; prefer distinct owners where possible; select 5 Google ADK + 5 Pydantic AI. No HorusTrace output used for selection.",
+    "queries": {
+      "google-adk": "from google.adk.agents import Agent",
+      "pydantic-ai": "from pydantic_ai import Agent"
+    }
+  },
+  "cases": [
+    {
+      "case_id": "hold-adk-001",
+      "repo": "AbiramiSukumaran/adk-renovation-single-agent",
+      "sha": "f1b779be5d1d49093b46102a8440d26830efa07d",
+      "application_path": "agent.py",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "hold-adk-002",
+      "repo": "amiitt001/adk-hiring-agent",
+      "sha": "7232ba30820c0370634b97142b0bb72c32d9d065",
+      "application_path": "agent.py",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "hold-adk-003",
+      "repo": "Quantum-Cipher/MCP-GCP-governance-protocol",
+      "sha": "ff3864266f752c572393584721d70059955b33c2",
+      "application_path": "agent.py",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "hold-adk-004",
+      "repo": "Suvam-paul145/student-doubt-classifer-agent",
+      "sha": "d9463f6209e7a9c9e04310805e8222158ca89fc8",
+      "application_path": "agent.py",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "hold-adk-005",
+      "repo": "amachwe/test_openapi_agent",
+      "sha": "053380f1b793d5d8e0b31a6fa47898b590bb6a22",
+      "application_path": "agent.py",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "hold-pyd-001",
+      "repo": "mindeye33/speedagent",
+      "sha": "cc42c792ffac8e3c6ee7679dd3eff6f2f84d7c59",
+      "application_path": "agent.py",
+      "framework": "pydantic-ai"
+    },
+    {
+      "case_id": "hold-pyd-002",
+      "repo": "newsbubbles/youtube-manager-mcp",
+      "sha": "b429601aa96fa4497084e43863a288c6353de59e",
+      "application_path": "agent.py",
+      "framework": "pydantic-ai"
+    },
+    {
+      "case_id": "hold-pyd-003",
+      "repo": "gtsbahamas/text-moderation",
+      "sha": "decb6d85be0afe5bf08d222b519b33cf15e45064",
+      "application_path": "agent.py",
+      "framework": "pydantic-ai"
+    },
+    {
+      "case_id": "hold-pyd-004",
+      "repo": "ArhamMirza/AI-Budget-CSV-Manager",
+      "sha": "44dc9e7df8c007d813d88810ec6e347086527b66",
+      "application_path": "agent.py",
+      "framework": "pydantic-ai"
+    },
+    {
+      "case_id": "hold-pyd-005",
+      "repo": "rawheel/PydanticAi-MultiModal",
+      "sha": "65e7450fab5c0df06ed7f6216b99e2becd8e92b9",
+      "application_path": "app.py",
+      "framework": "pydantic-ai"
+    }
+  ]
+}
