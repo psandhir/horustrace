@@ -218,6 +218,11 @@ def _candidate_score(tool: Tool) -> int:
         score += 30
     if "network.external" in tool.capabilities and not tool.destinations:
         score += 30
+    if (
+        "process.execute" in tool.capabilities
+        and "process_execution_constrained" not in tool.metadata
+    ):
+        score += 30
     if tool.metadata.get("external_helper_semantics_unresolved") is True:
         score += 50
     if tool.metadata.get("dynamic_tool_filter") is True:
