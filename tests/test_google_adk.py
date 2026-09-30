@@ -1113,6 +1113,7 @@ root_agent = LlmAgent(
 
 
 def test_adk_delegation_preserves_operator_configured_network_scope() -> None:
+    from horustrace.analysis import build_attack_paths
     from horustrace.models import Agent, Graph, InputSource, Tool
     from horustrace.rules.builtin import evaluate
     from horustrace.scanner import _propagate_adk_delegation
@@ -1151,5 +1152,5 @@ def test_adk_delegation_preserves_operator_configured_network_scope() -> None:
     )
     assert not any(
         path.path_id == "PATH009" and path.agent == "parent"
-        for path in graph.attack_paths
+        for path in build_attack_paths(graph)
     )
