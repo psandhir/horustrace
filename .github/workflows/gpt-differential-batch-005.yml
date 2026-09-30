@@ -1,0 +1,119 @@
+name: GPT Differential Batch 005 Targeted Scan
+
+on:
+  push:
+    branches:
+      - research/gpt-differential-batch-005
+    paths:
+      - ".github/workflows/gpt-differential-batch-005.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gpt-differential-batch-005-targeted
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: Scan locked Batch 005 cases
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SCANNER_SHA: 95885cc341b2900a2ad8eac22db131c700e6701e
+      SOURCE_ROOT: research/real-world-agent-security-2026
+      OUT_ROOT: research/gpt-horustrace-differential-2026
+    steps:
+      - name: Check out locked review branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+
+      - name: Verify blind review lock exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$OUT_ROOT/batch-005-review-packet.json"
+          test -f "$OUT_ROOT/batch-005-gpt-source-review.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("research/gpt-horustrace-differential-2026")
+          review = json.loads((root / "batch-005-gpt-source-review.json").read_text())
+          assert review["reviewer"]["case_specific_horustrace_findings_seen_before_lock"] is False
+          assert len(review["cases"]) == 5
+          print("blind source-review lock verified")
+          PY
+
+      - name: Install repaired main scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=/tmp/horustrace-batch5-src
+          VENV=/tmp/horustrace-batch5-venv
+          git init -q "$SRC"
+          git -C "$SRC" remote add origin https://github.com/psandhir/horustrace.git
+          git -C "$SRC" fetch --quiet --depth=1 origin "$SCANNER_SHA"
+          git -C "$SRC" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "$SRC" rev-parse HEAD)" = "$SCANNER_SHA"
+          python -m venv "$VENV"
+          "$VENV/bin/pip" install --disable-pip-version-check "$SRC"
+          "$VENV/bin/horustrace" --version
+
+      - name: Build five-case frozen cohort view
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, shutil
+          from pathlib import Path
+
+          source = Path("research/real-world-agent-security-2026")
+          target = Path("/tmp/horustrace-batch-005")
+          target.mkdir(parents=True, exist_ok=True)
+          cohort = json.loads((source / "cohort.json").read_text())
+          wanted = {"rw-029", "rw-074", "rw-115", "rw-142", "rw-178"}
+          selected = [case for case in cohort["cases"] if case["case_id"] in wanted]
+          assert {case["case_id"] for case in selected} == wanted
+          subset = dict(cohort)
+          subset["cases"] = selected
+          subset["tier_c_case_ids"] = [
+              case_id for case_id in cohort.get("tier_c_case_ids", [])
+              if case_id in wanted
+          ]
+          (target / "cohort.json").write_text(json.dumps(subset, indent=2) + "\n")
+          for case in selected:
+              rel = Path(case["ground_truth"])
+              (target / rel).parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(source / rel, target / rel)
+          print("locked targeted cohort:", ", ".join(case["case_id"] for case in selected))
+          PY
+
+      - name: Scan Batch 005 only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_security_execute.py \
+            --root /tmp/horustrace-batch-005 \
+            --mode postfix \
+            --scanner /tmp/horustrace-batch5-venv/bin/horustrace \
+            --scanner-sha "$SCANNER_SHA" \
+            --workers 5 \
+            --output-json "$OUT_ROOT/batch-005-scanner-result.json" \
+            --output-markdown "$OUT_ROOT/batch-005-scanner-result.md"
+          cat "$OUT_ROOT/batch-005-scanner-result.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit scanner reveal
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "horustrace-study-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add "$OUT_ROOT/batch-005-scanner-result.json" "$OUT_ROOT/batch-005-scanner-result.md"
+          git commit -m "research: reveal Batch 005 HorusTrace output"
+          git push origin HEAD:research/gpt-differential-batch-005
