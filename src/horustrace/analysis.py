@@ -538,43 +538,73 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 )
 
         for tool in agent.tools:
+            direct_url_fetch = tool.metadata.get("model_selected_url_fetch") is True
+            search_result_fetch = tool.metadata.get("search_result_url_fetch") is True
             if (
                 runtime_bound_untrusted
-                and tool.metadata.get("model_selected_url_fetch") is True
+                and (direct_url_fetch or search_result_fetch)
                 and tool.approval is not True
             ):
+                expected_scopes = (
+                    {"dynamic_destination"}
+                    if direct_url_fetch
+                    else {"search_result_derived_destination"}
+                )
                 dynamic_destinations = [
                     destination
                     for destination in tool.destinations
-                    if destination.metadata.get("source")
-                    == "model_selected_url_argument"
+                    if (
+                        direct_url_fetch
+                        and destination.metadata.get("source")
+                        == "model_selected_url_argument"
+                    )
                     or destination.metadata.get("network_scope")
-                    == "dynamic_destination"
+                    in expected_scopes
                 ]
                 if dynamic_destinations:
                     ingress = runtime_bound_untrusted[0]
                     parameters = list(
                         tool.metadata.get("model_selected_url_parameters") or []
                     )
+                    indirect = search_result_fetch and not direct_url_fetch
                     paths.append(
                         AttackPath(
                             path_id="PATH011",
-                            title="Potential untrusted-input path to server-side URL fetch",
+                            title=(
+                                "Potential untrusted-input path to search-derived server-side URL fetch"
+                                if indirect
+                                else "Potential untrusted-input path to server-side URL fetch"
+                            ),
                             agent=agent.name,
                             nodes=[
                                 ingress.name,
                                 agent.name,
                                 tool.name,
-                                "model-selected URL",
+                                (
+                                    "provider search-result URL"
+                                    if indirect
+                                    else "model-selected URL"
+                                ),
                                 dynamic_destinations[0].target,
                             ],
-                            severity=Severity.HIGH,
+                            severity=Severity.MEDIUM if indirect else Severity.HIGH,
                             rationale=(
-                                "Source analysis proves untrusted input reaches the "
-                                "agent runtime, and the effective tool accepts a "
-                                "model-selected URL that is passed to a direct "
-                                "server-side HTTP client without a detected "
-                                "destination restriction."
+                                (
+                                    "Source analysis proves untrusted input reaches the "
+                                    "agent runtime, model-selected search terms influence "
+                                    "provider results, and a returned URL is dereferenced "
+                                    "by a server-side HTTP helper without a detected "
+                                    "destination restriction. The model does not directly "
+                                    "select the final URL."
+                                )
+                                if indirect
+                                else (
+                                    "Source analysis proves untrusted input reaches the "
+                                    "agent runtime, and the effective tool accepts a "
+                                    "model-selected URL that is passed to a direct "
+                                    "server-side HTTP client without a detected "
+                                    "destination restriction."
+                                )
                             ),
                             location=tool.location or agent.location,
                             metadata={
@@ -587,6 +617,10 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                                 "follow_redirects": tool.metadata.get(
                                     "follow_redirects"
                                 ),
+                                "destination_provenance": tool.metadata.get(
+                                    "destination_provenance"
+                                ),
+                                "indirect_destination": indirect,
                             },
                         )
                     )
