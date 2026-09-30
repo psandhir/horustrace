@@ -1009,6 +1009,48 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                     )
                 )
 
+        wrapped_execution = [
+            tool
+            for tool in execution
+            if tool.metadata.get("source") == "tool_from_langchain"
+            and tool.metadata.get("wrapped_tool")
+        ]
+        for tool in wrapped_execution:
+            if not untrusted:
+                break
+            paths.append(
+                AttackPath(
+                    path_id="PATH001",
+                    title="Potential untrusted-input path to wrapped code execution",
+                    agent=agent.name,
+                    nodes=[
+                        untrusted[0].name,
+                        agent.name,
+                        tool.name,
+                        "wrapped code execution",
+                    ],
+                    severity=Severity.CRITICAL,
+                    rationale=(
+                        "Source proves a user-facing Pydantic AI runtime binds a "
+                        "third-party tool whose wrapped class provides code/process "
+                        "execution without a detected approval boundary."
+                    ),
+                    location=tool.location or agent.location,
+                    metadata={
+                        **_path_metadata(
+                            basis="source_bound_ingress_authority"
+                        ),
+                        "wrapped_framework": tool.metadata.get(
+                            "wrapped_framework"
+                        ),
+                        "wrapped_tool": tool.metadata.get("wrapped_tool"),
+                        "binding_adapter": tool.metadata.get(
+                            "binding_adapter"
+                        ),
+                    },
+                )
+            )
+
         if untrusted and sensitive and execution:
             paths.append(
                 AttackPath(
