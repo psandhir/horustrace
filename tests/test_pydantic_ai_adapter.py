@@ -1488,3 +1488,56 @@ agent.tool(remove_step)
         and finding.agent == "agent"
         for finding in findings
     )
+
+def test_pydantic_ai_langchain_python_repl_preserves_execution_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+from pydantic_ai.ext.langchain import tool_from_langchain
+from langchain_experimental.tools.python.tool import PythonREPLTool
+
+python_tool = tool_from_langchain(PythonREPLTool())
+
+agent = Agent(
+    "openai-responses:gpt-5.2",
+    tools=[python_tool],
+)
+
+app = agent.to_web()
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    repl = next(
+        item
+        for item in agent.tools
+        if item.metadata.get("wrapped_tool") == "PythonREPLTool"
+    )
+
+    assert repl.kind == "langchain_python_repl"
+    assert "process.execute" in repl.capabilities
+    assert repl.metadata["source"] == "tool_from_langchain"
+    assert repl.metadata["wrapped_framework"] == "langchain"
+    assert any(
+        item.metadata.get("basis") == "pydantic_ai_to_web_input"
+        and item.trust == "untrusted"
+        for item in agent.inputs
+    )
+    assert any(
+        finding.rule_id == "AGT020"
+        and finding.agent == "agent"
+        for finding in findings
+    )
+    path = next(
+        item
+        for item in graph.attack_paths
+        if item.path_id == "PATH001"
+        and item.metadata.get("wrapped_tool") == "PythonREPLTool"
+    )
+    assert path.metadata["basis"] == "source_bound_ingress_authority"
+    assert path.nodes[-1] == "wrapped code execution"
+
