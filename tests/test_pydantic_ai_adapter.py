@@ -1100,7 +1100,7 @@ agent = Agent(
         encoding="utf-8",
     )
 
-    graph, _ = scan(tmp_path)
+    graph, findings = scan(tmp_path)
     agent = next(item for item in graph.agents if item.name == "agent")
     tool = next(item for item in agent.tools if item.name == "save_output")
 
