@@ -9,7 +9,9 @@
     "review_packet_blob_sha": "6ca88ef13a1dc2e9a47f55a354d14e75488980f0",
     "gpt_source_review_blob_sha": "2bf86b770ff0dcd7394247e068dd9d68be0c5d7c",
     "scanner_result_blob_sha": "7c328c1a0c99d016330af319d698bb468e925879",
-    "scanner_summary_blob_sha": "328832b4e9a93cb30580b698868bc5e44a5ed974"
+    "scanner_summary_blob_sha": "328832b4e9a93cb30580b698868bc5e44a5ed974",
+    "post_repair_scanner_result_blob_sha": "a9ab53d638aed988dd005007378fcfc92e7c5339",
+    "post_repair_scanner_summary_blob_sha": "d903e628ca2aed17e103bb2673cbce037da5be58"
   },
   "baseline_scanner": {
     "sha": "95885cc341b2900a2ad8eac22db131c700e6701e",
