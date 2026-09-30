@@ -1314,3 +1314,68 @@ agent = Agent("openai:gpt-5.2", tools=[create_plan, remove_step])
         for finding in findings
     )
 
+def test_pydantic_ai_src_layout_absolute_reexport_preserves_internal_state_semantics(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "src" / "demo"
+    tools = package / "tools"
+    tools.mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (tools / "__init__.py").write_text(
+        "from demo.tools.plan_tools import create_plan, remove_step\n",
+        encoding="utf-8",
+    )
+    (tools / "plan_tools.py").write_text(
+        """
+from pydantic_ai import RunContext
+
+class Deps:
+    current_plan = None
+
+async def create_plan(ctx: RunContext[Deps], goal: str):
+    ctx.deps.current_plan = {"goal": goal, "steps": []}
+    return "created"
+
+async def remove_step(ctx: RunContext[Deps], step_id: str):
+    plan = ctx.deps.current_plan
+    if plan is not None:
+        plan["steps"].clear()
+    return step_id
+""",
+        encoding="utf-8",
+    )
+    (package / "router.py").write_text(
+        """
+from pydantic_ai import Agent
+from demo.tools import create_plan, remove_step
+
+agent = Agent("openai:gpt-5.2")
+agent.tool(create_plan)
+agent.tool(remove_step)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.name == "agent" and any(tool.name == "create_plan" for tool in item.tools)
+    )
+    create = next(item for item in agent.tools if item.name == "create_plan")
+    remove = next(item for item in agent.tools if item.name == "remove_step")
+
+    for tool in (create, remove):
+        assert tool.metadata["source_function_key"].endswith(
+            f"plan_tools.{tool.name}"
+        )
+        assert tool.metadata["agent_internal_state"] is True
+        assert "data.write" not in tool.capabilities
+        assert "destructive.write" not in tool.capabilities
+
+    assert not any(
+        finding.rule_id in {"AGT021", "AGT022", "AGT040", "CAP005"}
+        and finding.agent == "agent"
+        for finding in findings
+    )
+
