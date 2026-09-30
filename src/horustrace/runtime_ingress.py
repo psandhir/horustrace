@@ -215,9 +215,12 @@ def _authentication_posture(
                 receiver = (_dotted(node.func.value) or "").lower()
                 if "headers" in receiver and node.args:
                     header = node.args[0]
-                    if isinstance(header, ast.Constant) and isinstance(header.value, str):
-                        if header.value.lower() in auth_headers:
-                            auth_header_detected = True
+                    if (
+                        isinstance(header, ast.Constant)
+                        and isinstance(header.value, str)
+                        and header.value.lower() in auth_headers
+                    ):
+                        auth_header_detected = True
 
     middleware_functions = [
         function
