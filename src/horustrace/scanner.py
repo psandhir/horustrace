@@ -67,6 +67,7 @@ from horustrace.object_authorization import enrich_model_tool_object_authorizati
 from horustrace.path_safety import canonical_root, is_within_root
 from horustrace.provenance import annotate, attach_findings, context
 from horustrace.rag_semantics import enrich_streamlit_rag_directory_semantics
+from horustrace.realtime_session_semantics import enrich_public_realtime_mcp_authority
 from horustrace.registry_config import (
     enrich_config_registry_agents,
     is_registry_config_filename,
@@ -2253,6 +2254,11 @@ def scan(
         approved_python_paths,
     )
     enrich_indirect_tool_content_semantics(
+        graph,
+        root if root.is_dir() else root.parent,
+        approved_python_paths,
+    )
+    enrich_public_realtime_mcp_authority(
         graph,
         root if root.is_dir() else root.parent,
         approved_python_paths,

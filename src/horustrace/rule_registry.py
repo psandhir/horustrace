@@ -82,6 +82,7 @@ RULE_REGISTRY: dict[str, RuleMetadata] = {
         _rule("IDN002", 3, Severity.CRITICAL, "identity", "static_configuration", "Wildcard identity permission", "Wildcard permissions grant actions beyond a narrowly reviewed set.", "Enumerate the exact API actions required by the agent and remove wildcard permissions."),
         _rule("IDN003", 3, Severity.HIGH, "identity", "static_configuration", "Broad OAuth scope", "Broad OAuth scopes can authorize access outside the agent's required data boundary.", "Use narrow OAuth scopes and resource-level authorization appropriate to the tool action."),
         _rule("IDN004", 3, Severity.HIGH, "identity", "static_configuration", "Unsafe credential source", "Static or plaintext credentials are exposed to source and filesystem compromise.", "Use workload identity or a managed secret store; do not embed long-lived credentials in source or configuration."),
+        _rule("IDN005", 3, Severity.HIGH, "identity", "policy_violation", "Unauthenticated realtime session reaches state-changing agent authority", "A public endpoint can mint a publish-capable realtime session credential that feeds an agent with state-changing MCP-backed tools without a detected authentication boundary.", "Authenticate and authorize session issuance, bind the participant identity to permitted resources, and require explicit approval for high-impact state changes."),
         _rule("AGT010", 4, Severity.CRITICAL, "data", "heuristic_risk", "Potential sensitive-data exfiltration path", "Sensitive data and outbound capability can form an exfiltration path when approval is not detected on every outbound tool.", "Restrict outbound destinations, reduce data scope, or require human approval before sensitive information leaves the trust boundary."),
         _rule("DATA001", 4, Severity.HIGH, "data", "heuristic_risk", "Broad resource scope", "Broad resource selectors can expose data beyond the intended workload boundary.", "Constrain files, data stores, buckets, or records to the smallest required resource scope."),
         _rule("DATA002", 4, Severity.HIGH, "data", "policy_violation", "Resource access exceeds declared allowlist", "The agent can reach resources outside its declared allowlist.", "Narrow tool and resource configuration to the declared resource boundary."),
@@ -105,6 +106,7 @@ RULE_REGISTRY: dict[str, RuleMetadata] = {
         _rule("PATH012", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential indirect tool-content path to unconstrained filesystem access", "Source-proven local or repository content can re-enter the model context while the same effective agent can select filesystem paths that reach read/write sinks without detected containment.", "Treat tool-returned repository content as untrusted model input and enforce resolved-path containment for every model-selected filesystem read/write tool."),
         _rule("PATH013", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential user-selected server directory exposure through RAG", "A user-selected server-side directory can be recursively ingested into a RAG corpus and retrieved through the same effective agent without a detected filesystem containment boundary.", "Constrain document roots to an approved base directory, enforce resolved-path containment before indexing, authenticate the application surface, and limit retrieval scope to intended documents."),
         _rule("PATH014", 5, Severity.MEDIUM, "attack_path", "potential_risk", "Potential model-driven cross-owner object mutation", "Source-bound user input reaches an agent with a model-callable object mutation that omits the owner-scoping check enforced by the repository's normal application path.", "Carry the authenticated principal into the tool boundary and enforce owner/tenant scoping before every model-driven object mutation."),
+        _rule("PATH015", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential unauthenticated realtime path to MCP-backed state mutation", "A public realtime-session credential can admit participant input to an agent that exposes MCP-backed state-changing tools without a detected authentication or per-action approval boundary.", "Authenticate session issuance, bind the realtime participant to authorized resource scope, and require approval or equivalent controls before state-changing MCP actions."),
     )
 }
 
@@ -157,6 +159,7 @@ _OWASP_MAPPINGS = {
     "IDN002": ("ASI03",),
     "IDN003": ("ASI03",),
     "IDN004": ("ASI03",),
+    "IDN005": ("ASI01", "ASI02", "ASI03"),
     "PATH001": ("ASI01", "ASI05"),
     "PATH002": ("ASI01", "ASI02"),
     "PATH004": ("ASI01", "ASI05"),
@@ -170,6 +173,7 @@ _OWASP_MAPPINGS = {
     "PATH012": ("ASI01", "ASI02", "ASI06"),
     "PATH013": ("ASI02",),
     "PATH014": ("ASI01", "ASI02", "ASI03"),
+    "PATH015": ("ASI01", "ASI02", "ASI03"),
     "NET004": ("ASI02",),
 }
 
