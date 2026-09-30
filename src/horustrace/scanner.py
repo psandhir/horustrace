@@ -2453,24 +2453,24 @@ def scan(
         for path in build_attack_paths(graph)
         if path.agent not in non_model_langgraph_agents
     ]
-    for path in graph.attack_paths:
+    for attack_path in graph.attack_paths:
         candidates = [
             agent
             for agent in graph.agents
-            if agent.name == path.agent
+            if agent.name == attack_path.agent
             and agent.metadata.get("runtime_viability") == "blocked_by_source_error"
             and (
-                path.location is None
+                attack_path.location is None
                 or agent.location is None
-                or path.location.path.resolve() == agent.location.path.resolve()
+                or attack_path.location.path.resolve() == agent.location.path.resolve()
             )
         ]
         if len(candidates) == 1:
-            path.metadata["runtime_viability"] = "blocked_by_source_error"
-            path.metadata["runtime_blockers"] = list(
+            attack_path.metadata["runtime_viability"] = "blocked_by_source_error"
+            attack_path.metadata["runtime_blockers"] = list(
                 candidates[0].metadata.get("runtime_blockers") or []
             )
-            path.metadata.setdefault(
+            attack_path.metadata.setdefault(
                 "runtime_limitation",
                 "Declared static authority is source-proven, but live runtime reachability is blocked by the pinned source error.",
             )
