@@ -2454,13 +2454,16 @@ def scan(
         if path.agent not in non_model_langgraph_agents
     ]
     for attack_path in graph.attack_paths:
+        same_name_agents = [
+            agent for agent in graph.agents if agent.name == attack_path.agent
+        ]
         candidates = [
             agent
-            for agent in graph.agents
-            if agent.name == attack_path.agent
-            and agent.metadata.get("runtime_viability") == "blocked_by_source_error"
+            for agent in same_name_agents
+            if agent.metadata.get("runtime_viability") == "blocked_by_source_error"
             and (
-                attack_path.location is None
+                len(same_name_agents) == 1
+                or attack_path.location is None
                 or agent.location is None
                 or attack_path.location.path.resolve() == agent.location.path.resolve()
             )
@@ -2477,13 +2480,16 @@ def scan(
     graph.adg = build_adg(graph, analysis_root)
     findings = _filter_non_model_langgraph_findings(graph, evaluate(graph))
     for finding in findings:
+        same_name_agents = [
+            agent for agent in graph.agents if agent.name == finding.agent
+        ]
         candidates = [
             agent
-            for agent in graph.agents
-            if agent.name == finding.agent
-            and agent.metadata.get("runtime_viability") == "blocked_by_source_error"
+            for agent in same_name_agents
+            if agent.metadata.get("runtime_viability") == "blocked_by_source_error"
             and (
-                finding.location is None
+                len(same_name_agents) == 1
+                or finding.location is None
                 or agent.location is None
                 or finding.location.path.resolve() == agent.location.path.resolve()
             )
