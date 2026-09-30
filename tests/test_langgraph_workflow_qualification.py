@@ -91,7 +91,7 @@ workflow.add_node("transform", transform)
     assert workflow.metadata["model_driven_workflow"] is False
     assert not any(finding.agent == workflow.name for finding in findings)
     assert graph.adg is not None
-    assert not any(
+    assert any(
         node.kind == "agent" and node.name == workflow.name
         for node in graph.adg.nodes
     )
