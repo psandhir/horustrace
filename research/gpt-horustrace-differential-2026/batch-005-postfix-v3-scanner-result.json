@@ -1,0 +1,2068 @@
+{
+  "attack_paths": {
+    "known_path_recall": null,
+    "known_path_recall_reason": "automated source reference does not establish an exhaustive valid-path catalogue",
+    "reported_tier_b": 4,
+    "runtime_exploitability": "not_verified",
+    "source_adjudicable": 0,
+    "source_supported": 0,
+    "structural_support_precision": null
+  },
+  "baseline_scanner_sha": "418db4e29798a7d25df686dd7bccfd9fefa225bd",
+  "cases": [
+    {
+      "case_id": "rw-029",
+      "comparisons": {
+        "agent_entities": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": true,
+          "precision_tp": 5,
+          "predicted": 5,
+          "tp": 5,
+          "truth": 5,
+          "unadjudicated_predicted": 0
+        },
+        "delegation_edges": {
+          "fn": 0,
+          "fp": 2,
+          "precision_eligible": true,
+          "precision_tp": 2,
+          "predicted": 4,
+          "tp": 2,
+          "truth": 2,
+          "unadjudicated_predicted": 0
+        },
+        "mcp_servers": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": true,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "tools": {
+          "fn": 0,
+          "fp": 7,
+          "precision_eligible": true,
+          "precision_tp": 4,
+          "predicted": 11,
+          "tp": 4,
+          "truth": 4,
+          "unadjudicated_predicted": 0
+        }
+      },
+      "findings": [],
+      "framework": "google-adk",
+      "observed": {
+        "analysis_incomplete": true,
+        "attack_paths": 0,
+        "authority_resolution": {
+          "partially_resolved": 7
+        },
+        "expanded_semantic_attack_paths": 0,
+        "expanded_semantic_findings": 0,
+        "findings": 0,
+        "findings_by_confidence": {},
+        "findings_by_owasp_agentic": {},
+        "findings_by_rule": {},
+        "findings_by_severity": {},
+        "findings_by_source_context": {},
+        "fully_resolved_on_dynamic_reference": 0,
+        "runtime_findings_by_owasp_agentic": {},
+        "semantic_scope": "primary_application",
+        "summary": {
+          "adg_edges": 16,
+          "adg_nodes": 21,
+          "agents": 5,
+          "attack_paths": 0,
+          "authority_contract_relationships": 0,
+          "authority_contract_unresolved": 0,
+          "authority_contract_violations": 0,
+          "excluded_findings": 0,
+          "excluded_findings_by_source_context": {},
+          "findings": 0,
+          "findings_by_layer": {
+            "1": 0,
+            "2": 0,
+            "3": 0,
+            "4": 0,
+            "5": 0
+          },
+          "findings_by_source_context": {},
+          "findings_by_source_context_before_filter": {},
+          "flow_agent_attribution_gaps": 0,
+          "flow_agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "flow_execution_contexts": {
+            "agent_tool": 0,
+            "application_support": 0,
+            "cli": 0,
+            "example": 0,
+            "notebook": 0,
+            "runtime": 0,
+            "template-generated": 0,
+            "test": 0,
+            "tutorial": 0,
+            "unknown": 0
+          },
+          "flow_paths": 0,
+          "identities": 0,
+          "mcp_servers": 0,
+          "suppressed_findings": 0,
+          "tools": 11
+        }
+      },
+      "previously_studied": false,
+      "repo": "git791/GreenAI-Agent",
+      "sha": "94fdaf7fd9dd4269ac85fef9e850237da0360908",
+      "status": "success"
+    },
+    {
+      "case_id": "rw-074",
+      "comparisons": {
+        "agent_entities": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 3,
+          "tp": 3,
+          "truth": 3,
+          "unadjudicated_predicted": 0
+        },
+        "delegation_edges": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "mcp_servers": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "tools": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 2,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 2
+        }
+      },
+      "findings": [
+        {
+          "agent": "graph_builder",
+          "assessment": "potential_risk",
+          "confidence": "potential",
+          "default_severity": "high",
+          "evidence": [
+            "messages:create_message -> graph_builder -> update_chat_title -> data.write"
+          ],
+          "fingerprint": "arg-v1:2163d5966e6dd43abc17a491",
+          "layer": 5,
+          "limitations": [
+            "The scanner does not establish executable data flow between these nodes.",
+            "Runtime authorization and control effectiveness are not verified.",
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 1,
+            "line": 31,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/tools/update_chat_title.py"
+          },
+          "message": "Source analysis proves untrusted input reaches the agent runtime invocation, and the effective authority model binds a state-changing tool without a detected approval requirement. Runtime model selection is not verified.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 33,
+                "line": 258,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "graph_builder"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 17,
+                "line": 259,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "chat"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 17,
+                "line": 259,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "chat"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 17,
+                "line": 260,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "tool_call"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 17,
+                "line": 260,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "tool_call"
+            }
+          ],
+          "recommendation": "Break the attack path by reducing privilege/reachability, validating untrusted input, sandboxing execution, or enforcing approval at the privileged action boundary.",
+          "rule_id": "PATH002",
+          "severity": "high",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI01",
+              "ASI02"
+            ]
+          },
+          "title": "Potential untrusted-input path to state-changing action"
+        },
+        {
+          "agent": "graph_builder",
+          "assessment": "static_configuration",
+          "confidence": null,
+          "default_severity": "medium",
+          "evidence": [
+            "capability=data.write",
+            "approval=None"
+          ],
+          "fingerprint": "arg-v1:8c56706ee92298a7dfa81c7f",
+          "layer": 1,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 1,
+            "line": 31,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/tools/update_chat_title.py"
+          },
+          "message": "Tool 'update_chat_title' can modify state without explicit approval.",
+          "provenance": [],
+          "recommendation": "Require approval for material state changes or constrain the tool to low-risk, reversible operations.",
+          "rule_id": "AGT022",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI02"
+            ]
+          },
+          "title": "State-changing tool without approval"
+        },
+        {
+          "agent": "graph_builder",
+          "assessment": "static_configuration",
+          "confidence": null,
+          "default_severity": "medium",
+          "evidence": [
+            "capabilities=data.read,data.write",
+            "authority_relationship=authority-v1:a2fac2a05291c792d832",
+            "approval_resolution=unknown"
+          ],
+          "fingerprint": "arg-v1:cbcbc7e3dad23a9ad38b4f13",
+          "layer": 1,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 1,
+            "line": 31,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/tools/update_chat_title.py"
+          },
+          "message": "Privileged tool 'update_chat_title' has no detected guardrail or approval configuration.",
+          "provenance": [],
+          "recommendation": "Add tool input/output guardrails and/or explicit approval appropriate to the action.",
+          "rule_id": "AGT040",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI02"
+            ]
+          },
+          "title": "Privileged tool lacks explicit guardrail or approval"
+        },
+        {
+          "agent": "graph_builder",
+          "assessment": "static_configuration",
+          "confidence": null,
+          "default_severity": "medium",
+          "evidence": [
+            "data.read",
+            "data.write/destructive.write",
+            "authority_relationship=authority-v1:a2fac2a05291c792d832"
+          ],
+          "fingerprint": "arg-v1:c42c7671d17310c445d5e45b",
+          "layer": 2,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 33,
+            "line": 258,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+          },
+          "message": "Agent 'graph_builder' can both read and modify data.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 33,
+                "line": 258,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "graph_builder"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 17,
+                "line": 259,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "chat"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 17,
+                "line": 259,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "chat"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 17,
+                "line": 260,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "tool_call"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 17,
+                "line": 260,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "tool_call"
+            }
+          ],
+          "recommendation": "Apply resource-level least privilege; separate read-only analysis from mutation where practical.",
+          "rule_id": "CAP005",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI02"
+            ]
+          },
+          "title": "Combined read and write authority"
+        },
+        {
+          "agent": "graph_builder",
+          "assessment": "static_configuration",
+          "confidence": null,
+          "default_severity": "medium",
+          "evidence": [
+            "object_model=Chat",
+            "object_id_parameter=chat_id",
+            "ownership_field=owner_id",
+            "repository_owner_check_detected=true"
+          ],
+          "fingerprint": "arg-v1:188d0042c6009d7118f8f6b9",
+          "layer": 4,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 1,
+            "line": 31,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/tools/update_chat_title.py"
+          },
+          "message": "Tool 'update_chat_title' can select and mutate Chat by model-controlled identifier without the owner check enforced by the repository's normal application path.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 33,
+                "line": 258,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "graph_builder"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 17,
+                "line": 259,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "chat"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 17,
+                "line": 259,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "chat"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 17,
+                "line": 260,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "tool_call"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 17,
+                "line": 260,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "tool_call"
+            }
+          ],
+          "recommendation": "Carry the authenticated principal into the tool boundary and scope object lookup/mutation to the authorized owner or tenant.",
+          "rule_id": "DATA004",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": []
+          },
+          "title": "Model-callable object mutation bypasses owner scope"
+        },
+        {
+          "agent": "graph_builder",
+          "assessment": "potential_risk",
+          "confidence": "potential",
+          "default_severity": "medium",
+          "evidence": [
+            "messages:create_message -> graph_builder -> update_chat_title -> model-selected chat_id -> unscoped Chat mutation"
+          ],
+          "fingerprint": "arg-v1:dc8130831dc1d53556c86c44",
+          "layer": 5,
+          "limitations": [
+            "The scanner does not establish executable data flow between these nodes.",
+            "Runtime authorization and control effectiveness are not verified.",
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 1,
+            "line": 31,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/tools/update_chat_title.py"
+          },
+          "message": "Source analysis proves user-controlled application input reaches the agent runtime, while a bound model-callable tool can select and commit a mutation to an owner-scoped object without carrying the repository's normal owner check into the tool boundary.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 33,
+                "line": 258,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "graph_builder"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 17,
+                "line": 259,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "chat"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 17,
+                "line": 259,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "chat"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 17,
+                "line": 260,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "tool_call"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 17,
+                "line": 260,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-074/agent/main.py"
+              },
+              "origin": "observed",
+              "subject": "tool_call"
+            }
+          ],
+          "recommendation": "Break the attack path by reducing privilege/reachability, validating untrusted input, sandboxing execution, or enforcing approval at the privileged action boundary.",
+          "rule_id": "PATH014",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI01",
+              "ASI02",
+              "ASI03"
+            ]
+          },
+          "title": "Potential model-driven cross-owner object mutation"
+        }
+      ],
+      "framework": "langgraph",
+      "observed": {
+        "analysis_incomplete": false,
+        "attack_paths": 2,
+        "authority_resolution": {
+          "partially_resolved": 1
+        },
+        "expanded_semantic_attack_paths": 2,
+        "expanded_semantic_findings": 6,
+        "findings": 6,
+        "findings_by_confidence": {
+          "potential": 2,
+          "unknown": 4
+        },
+        "findings_by_owasp_agentic": {
+          "ASI01": 2,
+          "ASI02": 5,
+          "ASI03": 1
+        },
+        "findings_by_rule": {
+          "AGT022": 1,
+          "AGT040": 1,
+          "CAP005": 1,
+          "DATA004": 1,
+          "PATH002": 1,
+          "PATH014": 1
+        },
+        "findings_by_severity": {
+          "high": 1,
+          "medium": 5
+        },
+        "findings_by_source_context": {
+          "runtime": 6
+        },
+        "fully_resolved_on_dynamic_reference": 0,
+        "runtime_findings_by_owasp_agentic": {
+          "ASI01": 2,
+          "ASI02": 5,
+          "ASI03": 1
+        },
+        "semantic_scope": "expanded_repository_imports",
+        "summary": {
+          "adg_edges": 8,
+          "adg_nodes": 6,
+          "agents": 1,
+          "attack_paths": 2,
+          "authority_contract_relationships": 0,
+          "authority_contract_unresolved": 0,
+          "authority_contract_violations": 0,
+          "excluded_findings": 0,
+          "excluded_findings_by_source_context": {},
+          "findings": 6,
+          "findings_by_layer": {
+            "1": 0,
+            "2": 0,
+            "3": 0,
+            "4": 0,
+            "5": 0
+          },
+          "findings_by_source_context": {},
+          "findings_by_source_context_before_filter": {},
+          "flow_agent_attribution_gaps": 0,
+          "flow_agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "flow_execution_contexts": {
+            "agent_tool": 0,
+            "application_support": 0,
+            "cli": 0,
+            "example": 0,
+            "notebook": 0,
+            "runtime": 0,
+            "template-generated": 0,
+            "test": 0,
+            "tutorial": 0,
+            "unknown": 0
+          },
+          "flow_paths": 0,
+          "identities": 0,
+          "mcp_servers": 0,
+          "suppressed_findings": 0,
+          "tools": 2
+        }
+      },
+      "previously_studied": false,
+      "repo": "MKRNaqeebi/GenAlima",
+      "sha": "e237b03c69a80ec69197a3d0532719b66439e7fa",
+      "status": "success"
+    },
+    {
+      "case_id": "rw-115",
+      "comparisons": {
+        "agent_entities": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 2,
+          "tp": 2,
+          "truth": 2,
+          "unadjudicated_predicted": 0
+        },
+        "attack_paths": {
+          "adjudicable": 0,
+          "reported": 4,
+          "source_supported": 0,
+          "unsupported_within_reference": 0
+        },
+        "delegation_edges": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "effective_authority": {
+          "extra_pairs": [
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "createaccount"
+            },
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "createaccount"
+            },
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "getaccountbalance"
+            },
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "getaccountbalance"
+            },
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "getaccountinfo"
+            },
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "getaccountinfo"
+            },
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "getexchangerate"
+            },
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "getexchangerate"
+            },
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "getrecenttransactions"
+            },
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "getrecenttransactions"
+            },
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "lookupcustomer"
+            },
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "lookupcustomer"
+            },
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "savecustomersentiment"
+            },
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "savecustomersentiment"
+            },
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "transferfunds"
+            },
+            {
+              "agent": "agent",
+              "target_kind": "tool",
+              "target_name": "transferfunds"
+            }
+          ],
+          "fn": 0,
+          "fp": 0,
+          "fp_if_complete": 16,
+          "matched_pairs": [],
+          "missing_pairs": [],
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 16,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 16
+        },
+        "mcp_servers": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 2,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 2
+        },
+        "tools": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 16,
+          "tp": 16,
+          "truth": 16,
+          "unadjudicated_predicted": 0
+        }
+      },
+      "findings": [
+        {
+          "agent": "agent",
+          "assessment": "static_configuration",
+          "confidence": null,
+          "default_severity": "high",
+          "evidence": [
+            "session_capability=room_join+publish",
+            "mutating_tools=create_account,save_customer_sentiment,transfer_funds",
+            "state_backends=local_sqlite,transactional_state"
+          ],
+          "fingerprint": "arg-v1:1f85714537e6582ee889f518",
+          "layer": 3,
+          "limitations": [
+            "Observed state mutation is repository-local SQLite/demo state; no production banking backend is asserted.",
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 1,
+            "line": 145,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/backend/main.py"
+          },
+          "message": "Agent 'agent' can receive input through a publish-capable realtime session credential minted without a detected authentication boundary and exposes MCP-backed state-changing tools.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 17,
+                "line": 540,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/agent.py"
+              },
+              "origin": "observed",
+              "subject": "agent"
+            }
+          ],
+          "recommendation": "Authenticate and authorize session issuance, bind the participant identity to permitted resources, and require explicit approval for high-impact state changes.",
+          "rule_id": "IDN005",
+          "severity": "high",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI01",
+              "ASI02",
+              "ASI03"
+            ]
+          },
+          "title": "Unauthenticated realtime session reaches state-changing agent authority"
+        },
+        {
+          "agent": "agent",
+          "assessment": "potential_risk",
+          "confidence": "potential",
+          "default_severity": "high",
+          "evidence": [
+            "main:create_token:participant -> agent -> transfer_funds -> data.write"
+          ],
+          "fingerprint": "arg-v1:259fed65c2ba539c5d948810",
+          "layer": 5,
+          "limitations": [
+            "The scanner does not establish executable data flow between these nodes.",
+            "Runtime authorization and control effectiveness are not verified.",
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 1,
+            "line": 384,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/agent.py"
+          },
+          "message": "Source analysis proves untrusted input reaches the agent runtime invocation, and the effective authority model binds a state-changing tool without a detected approval requirement. Runtime model selection is not verified.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 17,
+                "line": 540,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/agent.py"
+              },
+              "origin": "observed",
+              "subject": "agent"
+            }
+          ],
+          "recommendation": "Break the attack path by reducing privilege/reachability, validating untrusted input, sandboxing execution, or enforcing approval at the privileged action boundary.",
+          "rule_id": "PATH002",
+          "severity": "high",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI01",
+              "ASI02"
+            ]
+          },
+          "title": "Potential untrusted-input path to state-changing action"
+        },
+        {
+          "agent": "agent",
+          "assessment": "potential_risk",
+          "confidence": "potential",
+          "default_severity": "high",
+          "evidence": [
+            "main:create_token:participant -> agent -> create_account -> data.write"
+          ],
+          "fingerprint": "arg-v1:7dc1307e7096c375cd47f094",
+          "layer": 5,
+          "limitations": [
+            "The scanner does not establish executable data flow between these nodes.",
+            "Runtime authorization and control effectiveness are not verified.",
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 1,
+            "line": 411,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/agent.py"
+          },
+          "message": "Source analysis proves untrusted input reaches the agent runtime invocation, and the effective authority model binds a state-changing tool without a detected approval requirement. Runtime model selection is not verified.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 17,
+                "line": 540,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/agent.py"
+              },
+              "origin": "observed",
+              "subject": "agent"
+            }
+          ],
+          "recommendation": "Break the attack path by reducing privilege/reachability, validating untrusted input, sandboxing execution, or enforcing approval at the privileged action boundary.",
+          "rule_id": "PATH002",
+          "severity": "high",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI01",
+              "ASI02"
+            ]
+          },
+          "title": "Potential untrusted-input path to state-changing action"
+        },
+        {
+          "agent": "agent",
+          "assessment": "potential_risk",
+          "confidence": "potential",
+          "default_severity": "high",
+          "evidence": [
+            "main:create_token:participant -> agent -> save_customer_sentiment -> data.write"
+          ],
+          "fingerprint": "arg-v1:60c33beb81fc7bb22bdbe392",
+          "layer": 5,
+          "limitations": [
+            "The scanner does not establish executable data flow between these nodes.",
+            "Runtime authorization and control effectiveness are not verified.",
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 1,
+            "line": 288,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/agent.py"
+          },
+          "message": "Source analysis proves untrusted input reaches the agent runtime invocation, and the effective authority model binds a state-changing tool without a detected approval requirement. Runtime model selection is not verified.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 17,
+                "line": 540,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/agent.py"
+              },
+              "origin": "observed",
+              "subject": "agent"
+            }
+          ],
+          "recommendation": "Break the attack path by reducing privilege/reachability, validating untrusted input, sandboxing execution, or enforcing approval at the privileged action boundary.",
+          "rule_id": "PATH002",
+          "severity": "high",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI01",
+              "ASI02"
+            ]
+          },
+          "title": "Potential untrusted-input path to state-changing action"
+        },
+        {
+          "agent": "agent",
+          "assessment": "potential_risk",
+          "confidence": "potential",
+          "default_severity": "high",
+          "evidence": [
+            "public session credential endpoint -> main:create_token:participant -> agent -> create_account -> MCP tool dispatch -> local SQLite state mutation"
+          ],
+          "fingerprint": "arg-v1:ad4e45c63c782412a3c11d04",
+          "layer": 5,
+          "limitations": [
+            "The scanner does not establish executable data flow between these nodes.",
+            "Runtime authorization and control effectiveness are not verified.",
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 1,
+            "line": 145,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/backend/main.py"
+          },
+          "message": "Source analysis proves a web endpoint can mint a publish-capable realtime session credential without a detected authentication dependency; participant input from that session reaches the model agent, whose bound tool dispatches through MCP to a source-proven state-changing repository backend without per-action approval.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 17,
+                "line": 540,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/agent.py"
+              },
+              "origin": "observed",
+              "subject": "agent"
+            }
+          ],
+          "recommendation": "Break the attack path by reducing privilege/reachability, validating untrusted input, sandboxing execution, or enforcing approval at the privileged action boundary.",
+          "rule_id": "PATH015",
+          "severity": "high",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI01",
+              "ASI02",
+              "ASI03"
+            ]
+          },
+          "title": "Potential unauthenticated realtime path to MCP-backed state mutation"
+        },
+        {
+          "agent": "agent",
+          "assessment": "static_configuration",
+          "confidence": null,
+          "default_severity": "medium",
+          "evidence": [
+            "capabilities=data.read,data.write",
+            "authority_relationship=authority-v1:5a7f16cf474abf1a2344",
+            "approval_resolution=unknown"
+          ],
+          "fingerprint": "arg-v1:304a41d93e94303a299dd697",
+          "layer": 1,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 1,
+            "line": 384,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/agent.py"
+          },
+          "message": "Privileged tool 'transfer_funds' has no detected guardrail or approval configuration.",
+          "provenance": [],
+          "recommendation": "Add tool input/output guardrails and/or explicit approval appropriate to the action.",
+          "rule_id": "AGT040",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI02"
+            ]
+          },
+          "title": "Privileged tool lacks explicit guardrail or approval"
+        },
+        {
+          "agent": "agent",
+          "assessment": "static_configuration",
+          "confidence": null,
+          "default_severity": "medium",
+          "evidence": [
+            "capabilities=data.read,data.write",
+            "authority_relationship=authority-v1:4df1596bd1565ace911f",
+            "approval_resolution=unknown"
+          ],
+          "fingerprint": "arg-v1:aab178822ebc8f9f05c1022e",
+          "layer": 1,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 1,
+            "line": 411,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/agent.py"
+          },
+          "message": "Privileged tool 'create_account' has no detected guardrail or approval configuration.",
+          "provenance": [],
+          "recommendation": "Add tool input/output guardrails and/or explicit approval appropriate to the action.",
+          "rule_id": "AGT040",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI02"
+            ]
+          },
+          "title": "Privileged tool lacks explicit guardrail or approval"
+        },
+        {
+          "agent": "agent",
+          "assessment": "static_configuration",
+          "confidence": null,
+          "default_severity": "medium",
+          "evidence": [
+            "capabilities=data.read,data.write",
+            "authority_relationship=authority-v1:784a788e2abd2f5556ed",
+            "approval_resolution=unknown"
+          ],
+          "fingerprint": "arg-v1:6eaf5e80775964e71e034578",
+          "layer": 1,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 1,
+            "line": 288,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/agent.py"
+          },
+          "message": "Privileged tool 'save_customer_sentiment' has no detected guardrail or approval configuration.",
+          "provenance": [],
+          "recommendation": "Add tool input/output guardrails and/or explicit approval appropriate to the action.",
+          "rule_id": "AGT040",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI02"
+            ]
+          },
+          "title": "Privileged tool lacks explicit guardrail or approval"
+        },
+        {
+          "agent": "agent",
+          "assessment": "static_configuration",
+          "confidence": null,
+          "default_severity": "medium",
+          "evidence": [
+            "data.read",
+            "data.write/destructive.write",
+            "authority_relationship=authority-v1:2633b0c9f9c5615e9f4b",
+            "authority_relationship=authority-v1:4df1596bd1565ace911f",
+            "authority_relationship=authority-v1:50758085d9a7a9c92260",
+            "authority_relationship=authority-v1:5a7f16cf474abf1a2344",
+            "authority_relationship=authority-v1:77b147ddafade2e32dde",
+            "authority_relationship=authority-v1:784a788e2abd2f5556ed",
+            "authority_relationship=authority-v1:a1d0c4f17269210d5a1d",
+            "authority_relationship=authority-v1:b35c3d8732cb176a0506"
+          ],
+          "fingerprint": "arg-v1:11d52e5c9156e71d1bdc268f",
+          "layer": 2,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 17,
+            "line": 532,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/agent.py"
+          },
+          "message": "Agent 'agent' can both read and modify data.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 17,
+                "line": 540,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/agent.py"
+              },
+              "origin": "observed",
+              "subject": "agent"
+            }
+          ],
+          "recommendation": "Apply resource-level least privilege; separate read-only analysis from mutation where practical.",
+          "rule_id": "CAP005",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI02"
+            ]
+          },
+          "title": "Combined read and write authority"
+        },
+        {
+          "agent": "agent",
+          "assessment": "static_configuration",
+          "confidence": null,
+          "default_severity": "medium",
+          "evidence": [
+            "data.read",
+            "data.write/destructive.write",
+            "authority_relationship=authority-v1:2633b0c9f9c5615e9f4b",
+            "authority_relationship=authority-v1:4df1596bd1565ace911f",
+            "authority_relationship=authority-v1:50758085d9a7a9c92260",
+            "authority_relationship=authority-v1:5a7f16cf474abf1a2344",
+            "authority_relationship=authority-v1:77b147ddafade2e32dde",
+            "authority_relationship=authority-v1:784a788e2abd2f5556ed",
+            "authority_relationship=authority-v1:a1d0c4f17269210d5a1d",
+            "authority_relationship=authority-v1:b35c3d8732cb176a0506"
+          ],
+          "fingerprint": "arg-v1:11d52e5c9156e71d1bdc268f",
+          "layer": 2,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 17,
+            "line": 540,
+            "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/agent.py"
+          },
+          "message": "Agent 'agent' can both read and modify data.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 17,
+                "line": 540,
+                "path": "/tmp/horustrace-real-world-baseline-q0dxdm__/rw-115/agent.py"
+              },
+              "origin": "observed",
+              "subject": "agent"
+            }
+          ],
+          "recommendation": "Apply resource-level least privilege; separate read-only analysis from mutation where practical.",
+          "rule_id": "CAP005",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI02"
+            ]
+          },
+          "title": "Combined read and write authority"
+        }
+      ],
+      "framework": "mcp-custom",
+      "observed": {
+        "analysis_incomplete": true,
+        "attack_paths": 4,
+        "authority_resolution": {
+          "partially_resolved": 16
+        },
+        "expanded_semantic_attack_paths": 0,
+        "expanded_semantic_findings": 0,
+        "findings": 10,
+        "findings_by_confidence": {
+          "potential": 4,
+          "unknown": 6
+        },
+        "findings_by_owasp_agentic": {
+          "ASI01": 5,
+          "ASI02": 10,
+          "ASI03": 2
+        },
+        "findings_by_rule": {
+          "AGT040": 3,
+          "CAP005": 2,
+          "IDN005": 1,
+          "PATH002": 3,
+          "PATH015": 1
+        },
+        "findings_by_severity": {
+          "high": 5,
+          "medium": 5
+        },
+        "findings_by_source_context": {
+          "runtime": 10
+        },
+        "fully_resolved_on_dynamic_reference": 0,
+        "runtime_findings_by_owasp_agentic": {
+          "ASI01": 5,
+          "ASI02": 10,
+          "ASI03": 2
+        },
+        "semantic_scope": "primary_application",
+        "summary": {
+          "adg_edges": 18,
+          "adg_nodes": 21,
+          "agents": 2,
+          "attack_paths": 4,
+          "authority_contract_relationships": 0,
+          "authority_contract_unresolved": 0,
+          "authority_contract_violations": 0,
+          "excluded_findings": 0,
+          "excluded_findings_by_source_context": {},
+          "findings": 10,
+          "findings_by_layer": {
+            "1": 3,
+            "2": 2,
+            "3": 1,
+            "4": 0,
+            "5": 4
+          },
+          "findings_by_source_context": {
+            "runtime": 10
+          },
+          "findings_by_source_context_before_filter": {
+            "runtime": 10
+          },
+          "flow_agent_attribution_gaps": 0,
+          "flow_agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "flow_execution_contexts": {
+            "agent_tool": 0,
+            "application_support": 0,
+            "cli": 0,
+            "example": 0,
+            "notebook": 0,
+            "runtime": 0,
+            "template-generated": 0,
+            "test": 0,
+            "tutorial": 0,
+            "unknown": 0
+          },
+          "flow_paths": 0,
+          "identities": 0,
+          "mcp_servers": 2,
+          "suppressed_findings": 0,
+          "tools": 24
+        }
+      },
+      "previously_studied": false,
+      "repo": "Meer-Promethean/Voice_Agent",
+      "sha": "f7e94334c253eb058ace3ff23655290b17b7a8ac",
+      "status": "success"
+    },
+    {
+      "case_id": "rw-142",
+      "comparisons": {
+        "agent_entities": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 2,
+          "tp": 2,
+          "truth": 2,
+          "unadjudicated_predicted": 0
+        },
+        "delegation_edges": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "mcp_servers": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "tools": {
+          "fn": 3,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 2,
+          "tp": 2,
+          "truth": 5,
+          "unadjudicated_predicted": 0
+        }
+      },
+      "findings": [],
+      "framework": "openai-agents",
+      "observed": {
+        "analysis_incomplete": true,
+        "attack_paths": 0,
+        "authority_resolution": {
+          "partially_resolved": 2
+        },
+        "expanded_semantic_attack_paths": 0,
+        "expanded_semantic_findings": 0,
+        "findings": 0,
+        "findings_by_confidence": {},
+        "findings_by_owasp_agentic": {},
+        "findings_by_rule": {},
+        "findings_by_severity": {},
+        "findings_by_source_context": {},
+        "fully_resolved_on_dynamic_reference": 0,
+        "runtime_findings_by_owasp_agentic": {},
+        "semantic_scope": "primary_application",
+        "summary": {
+          "adg_edges": 3,
+          "adg_nodes": 5,
+          "agents": 2,
+          "attack_paths": 0,
+          "authority_contract_relationships": 0,
+          "authority_contract_unresolved": 0,
+          "authority_contract_violations": 0,
+          "excluded_findings": 0,
+          "excluded_findings_by_source_context": {},
+          "findings": 0,
+          "findings_by_layer": {
+            "1": 0,
+            "2": 0,
+            "3": 0,
+            "4": 0,
+            "5": 0
+          },
+          "findings_by_source_context": {},
+          "findings_by_source_context_before_filter": {},
+          "flow_agent_attribution_gaps": 0,
+          "flow_agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "flow_execution_contexts": {
+            "agent_tool": 0,
+            "application_support": 0,
+            "cli": 0,
+            "example": 0,
+            "notebook": 0,
+            "runtime": 0,
+            "template-generated": 0,
+            "test": 0,
+            "tutorial": 0,
+            "unknown": 0
+          },
+          "flow_paths": 0,
+          "identities": 0,
+          "mcp_servers": 0,
+          "suppressed_findings": 0,
+          "tools": 2
+        }
+      },
+      "previously_studied": false,
+      "repo": "totalhack/zillion",
+      "sha": "d508864b13a942942895936559f538c7f7d246c6",
+      "status": "success"
+    },
+    {
+      "case_id": "rw-178",
+      "comparisons": {
+        "agent_entities": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": true,
+          "precision_tp": 1,
+          "predicted": 1,
+          "tp": 1,
+          "truth": 1,
+          "unadjudicated_predicted": 0
+        },
+        "delegation_edges": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": true,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "mcp_servers": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": true,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "tools": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": true,
+          "precision_tp": 5,
+          "predicted": 5,
+          "tp": 5,
+          "truth": 5,
+          "unadjudicated_predicted": 0
+        }
+      },
+      "findings": [],
+      "framework": "pydantic-ai",
+      "observed": {
+        "analysis_incomplete": false,
+        "attack_paths": 0,
+        "authority_resolution": {
+          "partially_resolved": 5
+        },
+        "expanded_semantic_attack_paths": 0,
+        "expanded_semantic_findings": 0,
+        "findings": 0,
+        "findings_by_confidence": {},
+        "findings_by_owasp_agentic": {},
+        "findings_by_rule": {},
+        "findings_by_severity": {},
+        "findings_by_source_context": {},
+        "fully_resolved_on_dynamic_reference": 0,
+        "runtime_findings_by_owasp_agentic": {},
+        "semantic_scope": "primary_application",
+        "summary": {
+          "adg_edges": 6,
+          "adg_nodes": 7,
+          "agents": 1,
+          "attack_paths": 0,
+          "authority_contract_relationships": 0,
+          "authority_contract_unresolved": 0,
+          "authority_contract_violations": 0,
+          "excluded_findings": 0,
+          "excluded_findings_by_source_context": {},
+          "findings": 0,
+          "findings_by_layer": {
+            "1": 0,
+            "2": 0,
+            "3": 0,
+            "4": 0,
+            "5": 0
+          },
+          "findings_by_source_context": {},
+          "findings_by_source_context_before_filter": {},
+          "flow_agent_attribution_gaps": 0,
+          "flow_agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "flow_execution_contexts": {
+            "agent_tool": 0,
+            "application_support": 0,
+            "cli": 0,
+            "example": 0,
+            "notebook": 0,
+            "runtime": 0,
+            "template-generated": 0,
+            "test": 0,
+            "tutorial": 0,
+            "unknown": 0
+          },
+          "flow_paths": 0,
+          "identities": 0,
+          "mcp_servers": 0,
+          "suppressed_findings": 0,
+          "tools": 5
+        }
+      },
+      "previously_studied": false,
+      "repo": "MhankBarBar/zero-ichi",
+      "sha": "e4c4ae87ce7b81009b4dd4bc6e671a512e8d2bd6",
+      "status": "success"
+    }
+  ],
+  "cohort_cases": 5,
+  "execution_failures": [],
+  "execution_mode": "postfix",
+  "findings": {
+    "assertion_precision": null,
+    "assertion_recall": null,
+    "by_confidence": {
+      "potential": 6,
+      "unknown": 10
+    },
+    "by_owasp_agentic": {
+      "ASI01": 7,
+      "ASI02": 15,
+      "ASI03": 3
+    },
+    "by_rule": {
+      "AGT022": 1,
+      "AGT040": 4,
+      "CAP005": 3,
+      "DATA004": 1,
+      "IDN005": 1,
+      "PATH002": 4,
+      "PATH014": 1,
+      "PATH015": 1
+    },
+    "by_severity": {
+      "high": 6,
+      "medium": 10
+    },
+    "by_source_context": {
+      "runtime": 16
+    },
+    "reason": "source reference is not exhaustive enough to independently adjudicate all rule semantics",
+    "runtime_by_owasp_agentic": {
+      "ASI01": 7,
+      "ASI02": 15,
+      "ASI03": 3
+    },
+    "total": 16
+  },
+  "generalization": {
+    "previously_studied_cases": 0,
+    "previously_unseen_cases": 5,
+    "studied_agent_entities": {
+      "fn": 0,
+      "fp": 0,
+      "precision": null,
+      "precision_complete_cases": 0,
+      "precision_tp": 0,
+      "predicted": 0,
+      "recall": null,
+      "tp": 0,
+      "truth": 0,
+      "unadjudicated_predicted": 0
+    },
+    "studied_effective_authority": {
+      "fn": 0,
+      "fp": 0,
+      "precision": null,
+      "precision_complete_cases": 0,
+      "precision_tp": 0,
+      "predicted": 0,
+      "recall": null,
+      "tp": 0,
+      "truth": 0,
+      "unadjudicated_predicted": 0
+    },
+    "unseen_agent_entities": {
+      "fn": 0,
+      "fp": 0,
+      "precision": 1.0,
+      "precision_complete_cases": 2,
+      "precision_tp": 6,
+      "predicted": 13,
+      "recall": 1.0,
+      "tp": 13,
+      "truth": 13,
+      "unadjudicated_predicted": 0
+    },
+    "unseen_effective_authority": {
+      "fn": 0,
+      "fp": 0,
+      "precision": null,
+      "precision_complete_cases": 0,
+      "precision_tp": 0,
+      "predicted": 16,
+      "recall": null,
+      "tp": 0,
+      "truth": 0,
+      "unadjudicated_predicted": 16
+    }
+  },
+  "metrics": {
+    "agent_entities": {
+      "fn": 0,
+      "fp": 0,
+      "precision": 1.0,
+      "precision_complete_cases": 2,
+      "precision_tp": 6,
+      "predicted": 13,
+      "recall": 1.0,
+      "tp": 13,
+      "truth": 13,
+      "unadjudicated_predicted": 0
+    },
+    "delegation_edges": {
+      "fn": 0,
+      "fp": 2,
+      "precision": 0.5,
+      "precision_complete_cases": 2,
+      "precision_tp": 2,
+      "predicted": 4,
+      "recall": 1.0,
+      "tp": 2,
+      "truth": 2,
+      "unadjudicated_predicted": 0
+    },
+    "effective_authority": {
+      "fn": 0,
+      "fp": 0,
+      "precision": null,
+      "precision_complete_cases": 0,
+      "precision_tp": 0,
+      "predicted": 16,
+      "recall": null,
+      "tp": 0,
+      "truth": 0,
+      "unadjudicated_predicted": 16
+    },
+    "mcp_servers": {
+      "fn": 0,
+      "fp": 0,
+      "precision": null,
+      "precision_complete_cases": 2,
+      "precision_tp": 0,
+      "predicted": 2,
+      "recall": null,
+      "tp": 0,
+      "truth": 0,
+      "unadjudicated_predicted": 2
+    },
+    "tools": {
+      "fn": 3,
+      "fp": 7,
+      "precision": 0.5625,
+      "precision_complete_cases": 2,
+      "precision_tp": 9,
+      "predicted": 36,
+      "recall": 0.9,
+      "tp": 27,
+      "truth": 30,
+      "unadjudicated_predicted": 2
+    }
+  },
+  "per_framework": {
+    "google-adk": {
+      "agent_entities": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "precision_complete_cases": 1,
+        "precision_tp": 5,
+        "predicted": 5,
+        "recall": 1.0,
+        "tp": 5,
+        "truth": 5,
+        "unadjudicated_predicted": 0
+      },
+      "attack_paths": 0,
+      "cases": 1,
+      "effective_authority": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "findings": 0,
+      "mcp_servers": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 1,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "successful": 1,
+      "tools": {
+        "fn": 0,
+        "fp": 7,
+        "precision": 0.3636,
+        "precision_complete_cases": 1,
+        "precision_tp": 4,
+        "predicted": 11,
+        "recall": 1.0,
+        "tp": 4,
+        "truth": 4,
+        "unadjudicated_predicted": 0
+      }
+    },
+    "langgraph": {
+      "agent_entities": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 3,
+        "recall": 1.0,
+        "tp": 3,
+        "truth": 3,
+        "unadjudicated_predicted": 0
+      },
+      "attack_paths": 2,
+      "cases": 1,
+      "effective_authority": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "findings": 6,
+      "mcp_servers": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "successful": 1,
+      "tools": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 2,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 2
+      }
+    },
+    "mcp-custom": {
+      "agent_entities": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 2,
+        "recall": 1.0,
+        "tp": 2,
+        "truth": 2,
+        "unadjudicated_predicted": 0
+      },
+      "attack_paths": 4,
+      "cases": 1,
+      "effective_authority": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 16,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 16
+      },
+      "findings": 10,
+      "mcp_servers": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 2,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 2
+      },
+      "successful": 1,
+      "tools": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 16,
+        "recall": 1.0,
+        "tp": 16,
+        "truth": 16,
+        "unadjudicated_predicted": 0
+      }
+    },
+    "openai-agents": {
+      "agent_entities": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 2,
+        "recall": 1.0,
+        "tp": 2,
+        "truth": 2,
+        "unadjudicated_predicted": 0
+      },
+      "attack_paths": 0,
+      "cases": 1,
+      "effective_authority": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "findings": 0,
+      "mcp_servers": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "successful": 1,
+      "tools": {
+        "fn": 3,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 2,
+        "recall": 0.4,
+        "tp": 2,
+        "truth": 5,
+        "unadjudicated_predicted": 0
+      }
+    },
+    "pydantic-ai": {
+      "agent_entities": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "precision_complete_cases": 1,
+        "precision_tp": 1,
+        "predicted": 1,
+        "recall": 1.0,
+        "tp": 1,
+        "truth": 1,
+        "unadjudicated_predicted": 0
+      },
+      "attack_paths": 0,
+      "cases": 1,
+      "effective_authority": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "findings": 0,
+      "mcp_servers": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 1,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "successful": 1,
+      "tools": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "precision_complete_cases": 1,
+        "precision_tp": 5,
+        "predicted": 5,
+        "recall": 1.0,
+        "tp": 5,
+        "truth": 5,
+        "unadjudicated_predicted": 0
+      }
+    }
+  },
+  "reference_method": {
+    "automated_dual_pass": true,
+    "human_dual_review": false,
+    "limitations": [
+      "automated source reference is not a substitute for independent human dual adjudication",
+      "precision is reported only where reference completeness is explicitly established",
+      "dynamic/runtime constructs remain unresolved"
+    ],
+    "locked_at": "2026-09-26",
+    "method_version": "source-reference-v1",
+    "summary": {
+      "agent_complete_cases": 72,
+      "assertions": 2091,
+      "cases": 180,
+      "explicit_agent_entities": 692,
+      "explicit_delegation_edges": 85,
+      "explicit_mcp_servers": 22,
+      "explicit_tools": 1115,
+      "fetch_failures": 0
+    }
+  },
+  "scanner_sha": "3134564b73da9f6e45b5297a95dcc196e17ea87d",
+  "schema_version": 1,
+  "study": "real-world-agent-security-2026",
+  "summary": {
+    "analysis_incomplete_cases": 3,
+    "attack_paths": 6,
+    "failed_cases": 0,
+    "findings": 16,
+    "successful_cases": 5
+  },
+  "thresholds": {
+    "agent_root_precision": {
+      "meets_threshold": true,
+      "threshold": 0.95,
+      "value": 1.0
+    },
+    "agent_root_recall": {
+      "meets_threshold": true,
+      "threshold": 0.9,
+      "value": 1.0
+    },
+    "attack_path_structural_support_precision": {
+      "meets_threshold": false,
+      "note": "proxy over source-adjudicable reported paths; not runtime exploitability",
+      "threshold": 0.8,
+      "value": null
+    },
+    "authority_edge_precision": {
+      "meets_threshold": false,
+      "threshold": 0.9,
+      "value": null
+    },
+    "authority_edge_recall": {
+      "meets_threshold": false,
+      "threshold": 0.8,
+      "value": null
+    }
+  },
+  "tier_c": {
+    "identity_precision": null,
+    "identity_recall": null,
+    "matched_reference_identities": 0,
+    "missed_reference_identities": 0,
+    "note": "reference includes repository-declared workload/deployer identities, not verified live runtime bindings",
+    "observed_identities": 0,
+    "preregistered_target": 25,
+    "reference_identities": 0,
+    "runtime_effectiveness": "not_verified",
+    "selected_cases": 0
+  },
+  "uncertainty": {
+    "authority_resolution": {
+      "partially_resolved": 31
+    },
+    "fully_resolved_relationships_on_dynamic_reference_cases": 0,
+    "reason": "automated source reference cannot prove that every scanner-resolved dimension is unsupported",
+    "unsupported_certainty_rate": null
+  }
+}
