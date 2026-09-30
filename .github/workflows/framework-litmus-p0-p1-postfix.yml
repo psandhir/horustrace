@@ -1,0 +1,217 @@
+name: Framework Litmus P0 P1 Post-Fix
+
+on:
+  push:
+    branches:
+      - fix/framework-litmus-p0-p1
+    paths:
+      - ".github/workflows/framework-litmus-p0-p1-postfix.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: framework-litmus-p0-p1-postfix
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout HorusTrace
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install HorusTrace
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Run exact 10-case post-fix litmus
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import shutil
+          import subprocess
+          import tempfile
+          import time
+          from pathlib import Path
+
+          CASES = [
+              ("rw-009","vivekcommit/Cloud_Architecture_Review","16ac50de750de9d4681a501f936184804a819754","google-adk"),
+              ("rw-017","mxyhi/always-on-memory-agent","5a92fd6fa34baa2920ac5ec6b1e1ac4def940311","google-adk"),
+              ("rw-004","JoanMarinPages/agentGemini","0160690bb47cca17e70ceb8486209d7b1cacaf76","google-adk"),
+              ("rw-007","joshnaim1/ocr-test","12a850dec83f04039862fb6ef03e0fc80c462bf3","google-adk"),
+              ("rw-012","namanraina16/morning-wire","29529fbf066b30eb0d7c45d1a70b1eda5dfb53dd","google-adk"),
+              ("rw-155","shotgun-sh/shotgun","4d344d5a46aafc815de441ff670d4131187f33e6","pydantic-ai"),
+              ("rw-152","kumarvipu1/agentic-ppt-slide","2614076f9fbb0cdde10e481918b5177c5c3399c8","pydantic-ai"),
+              ("rw-147","hope-tatenda-mutema/Pedantic-AI-Deep-Research-Agent","0369d0675851071e9f2da850951144e2bb022b3f","pydantic-ai"),
+              ("rw-150","Amar-Ag/project-ideation-tool","169a9d50841de7cf05bfd5240f9509e0eccd5167","pydantic-ai"),
+              ("rw-164","amscotti/local-LLM-with-RAG","832fb9a2970884e61a6ca2eabcfa103b78df4cfb","pydantic-ai"),
+          ]
+
+          def clone_case(root, case):
+              case_id, repo, sha, framework = case
+              target = root / case_id
+              target.mkdir()
+              commands = [
+                  ["git","init","-q",str(target)],
+                  ["git","-C",str(target),"remote","add","origin",f"https://github.com/{repo}.git"],
+                  ["git","-C",str(target),"fetch","--quiet","--depth=1","--filter=blob:none","origin",sha],
+                  ["git","-C",str(target),"checkout","--quiet","--detach","FETCH_HEAD"],
+              ]
+              for command in commands:
+                  cp = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=240)
+                  if cp.returncode:
+                      raise RuntimeError((cp.stderr or cp.stdout)[-4000:])
+              return target
+
+          results = []
+          with tempfile.TemporaryDirectory(prefix="horustrace-litmus-postfix-") as temp:
+              root = Path(temp)
+              for index, case in enumerate(CASES, 1):
+                  case_id, repo_name, sha, framework = case
+                  started = time.monotonic()
+                  print(f"[{index:02d}/10] {case_id} {repo_name}", flush=True)
+                  row = {"case_id":case_id,"repo":repo_name,"sha":sha,"framework":framework}
+                  try:
+                      target = clone_case(root, case)
+                      from horustrace.config import load_config
+                      from horustrace.scanner import scan
+                      graph, findings = scan(target, config=load_config(target))
+                      row.update({
+                          "scan":"ok",
+                          "agents":[
+                              {
+                                  "name": agent.name,
+                                  "runtime_viability": agent.metadata.get("runtime_viability"),
+                                  "runtime_blockers": agent.metadata.get("runtime_blockers") or [],
+                                  "inputs":[
+                                      {"name": item.name, "trust": item.trust, "metadata": item.metadata}
+                                      for item in agent.inputs
+                                  ],
+                                  "mcp_servers":[
+                                      {
+                                          "name": server.name,
+                                          "transport": server.transport,
+                                          "url": server.url,
+                                          "metadata": server.metadata,
+                                      }
+                                      for server in agent.mcp_servers
+                                  ],
+                                  "tools":[
+                                      {
+                                          "name": tool.name,
+                                          "capabilities": sorted(tool.capabilities),
+                                          "guardrails": tool.guardrails,
+                                          "approval": tool.approval,
+                                          "resources":[
+                                              {"kind": resource.kind, "selector": resource.selector, "access": sorted(resource.access)}
+                                              for resource in tool.resources
+                                          ],
+                                          "destinations":[
+                                              {
+                                                  "target": destination.target,
+                                                  "restricted": destination.restricted,
+                                                  "metadata": destination.metadata,
+                                              }
+                                              for destination in tool.destinations
+                                          ],
+                                          "metadata": {
+                                              key: value
+                                              for key, value in tool.metadata.items()
+                                              if key in {
+                                                  "network_scope",
+                                                  "search_result_url_fetch",
+                                                  "destination_provenance",
+                                                  "process_execution_constrained",
+                                                  "process_command_allowlist",
+                                                  "process_injection_filter",
+                                                  "filesystem_path_constrained",
+                                                  "filesystem_scope",
+                                                  "agent_internal_artifact",
+                                                  "control_basis",
+                                              }
+                                          },
+                                      }
+                                      for tool in agent.tools
+                                  ],
+                              }
+                              for agent in graph.agents
+                          ],
+                          "unbound_mcp_servers":[
+                              {"name": s.name, "transport": s.transport, "metadata": s.metadata}
+                              for s in graph.unbound_mcp_servers
+                          ],
+                          "findings":[finding.as_dict() for finding in findings],
+                          "attack_paths":[
+                              {
+                                  "path_id": attack_path.path_id,
+                                  "title": attack_path.title,
+                                  "agent": attack_path.agent,
+                                  "nodes": attack_path.nodes,
+                                  "severity": attack_path.severity.label(),
+                                  "metadata": attack_path.metadata,
+                              }
+                              for attack_path in graph.attack_paths
+                          ],
+                          "diagnostics":[item.as_dict() for item in graph.coverage.diagnostics],
+                      })
+                  except Exception as exc:
+                      row.update(scan="error", error=f"{type(exc).__name__}: {exc}")
+                  row["elapsed_seconds"]=round(time.monotonic()-started,2)
+                  results.append(row)
+                  shutil.rmtree(root / case_id, ignore_errors=True)
+
+          report={
+              "schema_version":1,
+              "study":"gpt-horustrace-differential-2026",
+              "batch_id":"framework-litmus-adk-pydantic-10-postfix",
+              "scanner_commit":os.environ.get("GITHUB_SHA"),
+              "results":results,
+              "summary":{
+                  "requested":10,
+                  "scanned":sum(r.get("scan")=="ok" for r in results),
+                  "errors":sum(r.get("scan")!="ok" for r in results),
+                  "findings":sum(len(r.get("findings") or []) for r in results),
+                  "attack_paths":sum(len(r.get("attack_paths") or []) for r in results),
+              },
+          }
+          out=Path("research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-postfix.json")
+          out.write_text(json.dumps(report,indent=2,default=str)+"\n",encoding="utf-8")
+
+          lines=[
+              "# ADK + Pydantic AI 10-case post-fix scanner reveal","",
+              f"- Scanned: {report['summary']['scanned']}/10",
+              f"- Findings: {report['summary']['findings']}",
+              f"- Attack paths: {report['summary']['attack_paths']}","",
+              "| Case | Framework | Findings | Paths | MCP | Runtime blockers |",
+              "|---|---|---:|---:|---:|---:|",
+          ]
+          for row in results:
+              agents=row.get("agents") or []
+              mcp=sum(len(a.get("mcp_servers") or []) for a in agents)
+              blocked=sum(a.get("runtime_viability")=="blocked_by_source_error" for a in agents)
+              lines.append(
+                  f"| {row['case_id']} | {row['framework']} | {len(row.get('findings') or [])} | "
+                  f"{len(row.get('attack_paths') or [])} | {mcp} | {blocked} |"
+              )
+          Path("research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-postfix.md").write_text("\n".join(lines)+"\n")
+          PY
+
+      - name: Commit post-fix reveal
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-postfix.json
+          git add research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-postfix.md
+          git commit -m "research: record post-fix ADK/Pydantic litmus" || exit 0
+          git push origin HEAD:fix/framework-litmus-p0-p1
