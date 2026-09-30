@@ -1,0 +1,6 @@
+{
+  "batch_id": "framework-holdout-adk-pydantic-10",
+  "cohort_lock_commit": "05104912966ebfd08e500142aaac75e8b9f14626",
+  "blind_review_lock_commit": "ee5a1b53e187e79a7c26147a10bd322e76d38b31",
+  "scanner_reveal_started_after_review_lock": true
+}
