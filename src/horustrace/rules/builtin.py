@@ -694,6 +694,85 @@ def evaluate(graph: Graph) -> list[Finding]:
                 seen_identity_keys.add(key)
                 findings.extend(_identity_findings(identity, agent.name))
 
+    for agent in graph.agents:
+        public_realtime_inputs = [
+            item
+            for item in agent.inputs
+            if item.metadata.get("basis")
+            == "source_proven_public_realtime_capability"
+            and item.metadata.get("authentication_detected") is False
+        ]
+        realtime_mutations = [
+            tool
+            for tool in agent.tools
+            if tool.metadata.get("mcp_backed") is True
+            and {"data.write", "destructive.write"} & tool.capabilities
+            and tool.approval is not True
+        ]
+        if public_realtime_inputs and realtime_mutations:
+            linked = [
+                relationship.relationship_id
+                for tool in realtime_mutations
+                if (
+                    relationship := authority_by_key.get(
+                        (agent.name, "tool", tool.name)
+                    )
+                )
+                is not None
+            ]
+            backends = sorted(
+                {
+                    backend
+                    for tool in realtime_mutations
+                    for backend in (
+                        tool.metadata.get("state_backends") or []
+                    )
+                }
+            )
+            findings.append(
+                Finding(
+                    "IDN005",
+                    Severity.HIGH,
+                    "Unauthenticated realtime session reaches state-changing agent authority",
+                    (
+                        f"Agent '{agent.name}' can receive input through a "
+                        "publish-capable realtime session credential minted "
+                        "without a detected authentication boundary and exposes "
+                        "MCP-backed state-changing tools."
+                    ),
+                    (
+                        "Authenticate and authorize session issuance, bind the "
+                        "participant identity to permitted resources, and require "
+                        "explicit approval for high-impact state changes."
+                    ),
+                    layer=3,
+                    location=public_realtime_inputs[0].location or agent.location,
+                    agent=agent.name,
+                    evidence=[
+                        "session_capability="
+                        + str(
+                            public_realtime_inputs[0].metadata.get(
+                                "session_capability"
+                            )
+                        ),
+                        "mutating_tools="
+                        + ",".join(sorted(tool.name for tool in realtime_mutations)),
+                        "state_backends=" + ",".join(backends),
+                    ],
+                    authority_relationship_id=(
+                        linked[0] if len(linked) == 1 else None
+                    ),
+                    limitations=(
+                        [
+                            "Observed state mutation is repository-local SQLite/demo state; "
+                            "no production banking backend is asserted."
+                        ]
+                        if "local_sqlite" in backends
+                        else []
+                    ),
+                )
+            )
+
     # Layer 4: data/resource/network reachability.
     for agent in graph.agents:
         sensitive = agent.sensitive_data_sources
