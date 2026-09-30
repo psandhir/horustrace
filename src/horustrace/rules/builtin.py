@@ -182,11 +182,21 @@ def evaluate(graph: Graph) -> list[Finding]:
                 "process.execute" in tool.capabilities
                 and tool.approval is not True
                 and tool.kind != "delegated_agent"
+                and tool.metadata.get("process_execution_constrained") is not True
             ):
                 findings.append(Finding("AGT020", Severity.HIGH, "Shell or process execution without approval", f"Tool '{tool.name}' can execute processes without an explicit approval requirement.", "Require approval for process execution and run the tool inside a constrained sandbox.", layer=1, location=tool.location, agent=agent.name, evidence=["capability=process.execute", f"approval={tool.approval}"]))
-            if "destructive.write" in tool.capabilities and tool.approval is not True:
+            if (
+                "destructive.write" in tool.capabilities
+                and tool.approval is not True
+                and tool.metadata.get("agent_internal_artifact") is not True
+            ):
                 findings.append(Finding("AGT021", Severity.HIGH, "Destructive action without human approval", f"Tool '{tool.name}' appears able to perform destructive writes without approval.", "Gate destructive operations with human approval and least-privilege authorization.", layer=1, location=tool.location, agent=agent.name, evidence=["capability=destructive.write", f"approval={tool.approval}"]))
-            if "data.write" in tool.capabilities and tool.approval is not True and tool.kind in {"apply_patch", "generic", "function", "langchain_tool", "custom_registry_tool", "langgraph_tool"}:
+            if (
+                "data.write" in tool.capabilities
+                and tool.approval is not True
+                and tool.kind in {"apply_patch", "generic", "function", "langchain_tool", "custom_registry_tool", "langgraph_tool"}
+                and tool.metadata.get("agent_internal_artifact") is not True
+            ):
                 findings.append(Finding("AGT022", Severity.MEDIUM, "State-changing tool without approval", f"Tool '{tool.name}' can modify state without explicit approval.", "Require approval for material state changes or constrain the tool to low-risk, reversible operations.", layer=1, location=tool.location, agent=agent.name, evidence=["capability=data.write", f"approval={tool.approval}"]))
             if (
                 "computer.control" in tool.capabilities
@@ -221,6 +231,28 @@ def evaluate(graph: Graph) -> list[Finding]:
                         ],
                     )
                 )
+            specific_boundary_covered = (
+                (
+                    "process.execute" in tool.capabilities
+                    and tool.metadata.get("process_execution_constrained") is not True
+                )
+                or (
+                    "destructive.write" in tool.capabilities
+                    and tool.metadata.get("agent_internal_artifact") is not True
+                )
+                or (
+                    "data.write" in tool.capabilities
+                    and tool.kind in {
+                        "apply_patch",
+                        "generic",
+                        "function",
+                        "langchain_tool",
+                        "custom_registry_tool",
+                        "langgraph_tool",
+                    }
+                    and tool.metadata.get("agent_internal_artifact") is not True
+                )
+            )
             authority_has_control = (
                 tool_authority is not None
                 and tool_authority.dimensions.get("approval") == "resolved"
@@ -237,6 +269,7 @@ def evaluate(graph: Graph) -> list[Finding]:
                 and not tool.guardrails
                 and tool.approval is not True
                 and not agent_tool_control
+                and not specific_boundary_covered
             ):
                 evidence = ["capabilities=" + ",".join(sorted(tool.capabilities))]
                 if tool_authority is not None:
