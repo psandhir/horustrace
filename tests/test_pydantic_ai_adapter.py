@@ -983,9 +983,12 @@ def deep_dive_search(ctx: RunContext, base_query: str, angle: str):
         detailed.append(fetch_page_content(result["url"]))
     return detailed
 
-async def main():
-    query = input("> ")
-    return await agent.run(query)
+def run_research_agent(query: str):
+    prompt = f"Research: {query}"
+    return agent.run_sync(prompt)
+
+def run_agent(prompt: str):
+    return run_research_agent(prompt)
 """,
         encoding="utf-8",
     )
@@ -1003,6 +1006,12 @@ async def main():
     )
     net = next(item for item in findings if item.rule_id == "NET001")
     assert net.severity.label() == "medium"
+    ingress = next(
+        item
+        for item in agent.inputs
+        if item.metadata.get("basis") == "pydantic_ai_public_wrapper_input_to_run"
+    )
+    assert ingress.metadata["runtime_invocation_proven"] is True
     path = next(item for item in graph.attack_paths if item.path_id == "PATH011")
     assert path.severity.label() == "medium"
     assert path.metadata["indirect_destination"] is True
