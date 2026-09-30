@@ -651,6 +651,67 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 )
             )
 
+        rag_directory_inputs = [
+            item
+            for item in untrusted
+            if item.metadata.get("basis")
+            == "source_proven_user_selected_rag_directory"
+            and item.metadata.get("recursive_ingestion") is True
+            and item.metadata.get("filesystem_path_constrained") is not True
+        ]
+        rag_retrieval_tools = [
+            tool
+            for tool in agent.tools
+            if tool.metadata.get("rag_retrieval") is True
+            and tool.metadata.get("rag_returns_indexed_content") is True
+            and tool.metadata.get("rag_recursive_ingestion") is True
+            and tool.metadata.get("filesystem_path_constrained") is not True
+        ]
+        if (
+            rag_directory_inputs
+            and rag_retrieval_tools
+            and runtime_bound_untrusted
+        ):
+            directory_input = rag_directory_inputs[0]
+            retrieval_tool = rag_retrieval_tools[0]
+            paths.append(
+                AttackPath(
+                    path_id="PATH013",
+                    title="Potential user-selected server directory exposure through RAG",
+                    agent=agent.name,
+                    nodes=[
+                        directory_input.name,
+                        "recursive server-side file ingestion",
+                        "RAG index",
+                        agent.name,
+                        retrieval_tool.name,
+                        "indexed file content in agent response",
+                    ],
+                    severity=Severity.HIGH,
+                    rationale=(
+                        "Source analysis proves a user-selected server-side directory "
+                        "reaches recursive document ingestion without a detected "
+                        "containment boundary, while source-bound chat input reaches "
+                        "the same effective agent and a bound retrieval tool can return "
+                        "the indexed document content."
+                    ),
+                    location=directory_input.location or retrieval_tool.location or agent.location,
+                    metadata={
+                        **_path_metadata(
+                            basis="source_proven_rag_directory_retrieval"
+                        ),
+                        "ingress_basis": runtime_bound_untrusted[0].metadata.get(
+                            "basis"
+                        ),
+                        "directory_basis": directory_input.metadata.get("basis"),
+                        "sink_module": directory_input.metadata.get("sink_module"),
+                        "sink_function": directory_input.metadata.get("sink_function"),
+                        "path_containment": "not_detected",
+                        "retrieval_tool": retrieval_tool.name,
+                    },
+                )
+            )
+
         for tool in outbound:
             if sensitive and tool.approval is not True:
                 paths.append(
