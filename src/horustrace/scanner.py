@@ -1745,6 +1745,46 @@ def _link_global_identities(graph: Graph) -> None:
                 agent.identities.append(by_name[name])
 
 
+_NON_MODEL_LANGGRAPH_AUTHORITY_RULES = {
+    "AGT020",
+    "AGT021",
+    "AGT022",
+    "AGT040",
+    "CAP001",
+    "CAP002",
+    "CAP003",
+    "CAP004",
+    "CAP005",
+    "CAP006",
+    "DATA001",
+    "NET001",
+    "NET002",
+}
+
+
+def _non_model_langgraph_agent_names(graph: Graph) -> set[str]:
+    return {
+        agent.name
+        for agent in graph.agents
+        if agent.metadata.get("framework") == "langgraph"
+        and agent.metadata.get("model_driven_workflow") is False
+    }
+
+
+def _filter_non_model_langgraph_findings(graph: Graph, findings: list) -> list:
+    excluded = _non_model_langgraph_agent_names(graph)
+    if not excluded:
+        return findings
+    return [
+        finding
+        for finding in findings
+        if not (
+            finding.agent in excluded
+            and finding.rule_id in _NON_MODEL_LANGGRAPH_AUTHORITY_RULES
+        )
+    ]
+
+
 def scan(
     path: Path,
     suppressions_path: Path | None = None,
@@ -2145,9 +2185,14 @@ def scan(
         graph.coverage.resolution["authority_source"] = authority_enrichment.as_dict()
 
     annotate_risk_semantics(graph)
-    graph.attack_paths = build_attack_paths(graph)
+    non_model_langgraph_agents = _non_model_langgraph_agent_names(graph)
+    graph.attack_paths = [
+        path
+        for path in build_attack_paths(graph)
+        if path.agent not in non_model_langgraph_agents
+    ]
     graph.adg = build_adg(graph, analysis_root)
-    findings = evaluate(graph)
+    findings = _filter_non_model_langgraph_findings(graph, evaluate(graph))
     for finding in findings:
         finding.source_context = classify_source_context(
             finding.location.path if finding.location else None

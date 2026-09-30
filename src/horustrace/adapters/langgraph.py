@@ -653,6 +653,7 @@ def scan_python_file(path: Path) -> Graph:
             },
         )
         unresolved_dynamic_edge = False
+        workflow_roles: set[str] = set()
 
         for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
             if not isinstance(call.func, ast.Attribute):
@@ -682,6 +683,7 @@ def scan_python_file(path: Path) -> Graph:
                     assignments=assignments,
                     factory_aliases=factory_agent_aliases,
                 )
+                workflow_roles.add(role)
                 workflow_instance_key = str(agent.metadata["instance_key"])
                 semantic_id = stable_entity_id(
                     framework="langgraph",
@@ -878,6 +880,10 @@ def scan_python_file(path: Path) -> Graph:
             protected.metadata["approval_scope"] = "execution_gate"
             protected.metadata["approval_mandatory"] = True
 
+        agent.metadata["workflow_roles"] = sorted(workflow_roles)
+        agent.metadata["model_driven_workflow"] = bool(
+            workflow_roles & {"model_agent", "tool_node"}
+        )
         graph.agents.append(agent)
 
     for agent in factory_agents:
