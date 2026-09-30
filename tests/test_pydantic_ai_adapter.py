@@ -1378,3 +1378,70 @@ agent.tool(remove_step)
         and finding.agent == "agent"
         for finding in findings
     )
+
+def test_pydantic_ai_model_selected_loader_url_and_file_path_are_first_class_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent, Tool
+from langchain_community.document_loaders import WebBaseLoader
+
+def web_scraper(urls: list[str]) -> str:
+    text = ""
+    for url in urls:
+        loader = WebBaseLoader(url)
+        docs = loader.load()
+        text += str(docs)
+    return text
+
+def generate_and_save_image(prompt: str, filename: str) -> str:
+    payload = prompt.encode()
+    with open(filename, "wb") as handle:
+        handle.write(payload)
+    return filename
+
+agent = Agent(
+    "openai:gpt-5.2",
+    tools=[
+        Tool(web_scraper, takes_ctx=False),
+        Tool(generate_and_save_image, takes_ctx=False),
+    ],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+
+    loader_path = next(
+        item
+        for item in graph.attack_paths
+        if item.path_id == "PATH011"
+        and item.agent == "agent"
+        and item.metadata.get("basis") == "static_dataflow"
+    )
+    assert loader_path.metadata["destination_provenance"] == "model_selected_loader_url"
+    assert any("WebBaseLoader" in node for node in loader_path.nodes)
+
+    image_tool = next(
+        item for item in agent.tools if item.name == "generate_and_save_image"
+    )
+    scope = next(
+        resource
+        for resource in image_tool.resources
+        if resource.kind == "file"
+        and resource.selector == "<model-selected-path>"
+    )
+    assert scope.access == {"data.write"}
+    assert scope.metadata["path_parameters"] == ["filename"]
+    assert scope.metadata["filesystem_path_constrained"] is False
+
+    data_finding = next(
+        item
+        for item in findings
+        if item.rule_id == "DATA001" and item.agent == "agent"
+    )
+    assert "resources=<model-selected-path>" in data_finding.evidence
+
