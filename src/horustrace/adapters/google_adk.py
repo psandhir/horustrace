@@ -941,6 +941,15 @@ def scan_python_file(path: Path) -> Graph:
         return graph
 
     functions = {node.name: node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    imported_functions: dict[str, str] = {}
+    for node in tree.body:
+        if not isinstance(node, ast.ImportFrom) or not node.module:
+            continue
+        for imported in node.names:
+            if imported.name == "*":
+                continue
+            imported_functions[imported.asname or imported.name] = node.module
+
     calls: dict[str, ast.Call] = {}
     sequences: dict[str, list[ast.AST]] = {}
     tools: dict[str, Tool] = {}
@@ -1239,6 +1248,27 @@ def scan_python_file(path: Path) -> Graph:
             else:
                 identities[identity_name] = synthetic
             tool.identity = identity_name
+
+    for agent in graph.agents:
+        for tool in agent.tools:
+            import_module = imported_functions.get(tool.name)
+            if (
+                import_module
+                and tool.metadata.get("framework") == "google-adk"
+                and tool.metadata.get("source_function_key") is None
+            ):
+                tool.metadata["import_module"] = import_module
+                tool.metadata.setdefault("source_function", tool.name)
+
+    for tool in tools.values():
+        import_module = imported_functions.get(tool.name)
+        if (
+            import_module
+            and tool.metadata.get("framework") == "google-adk"
+            and tool.metadata.get("source_function_key") is None
+        ):
+            tool.metadata["import_module"] = import_module
+            tool.metadata.setdefault("source_function", tool.name)
 
     graph.identities.extend(identities.values())
     bound_tool_keys = {
