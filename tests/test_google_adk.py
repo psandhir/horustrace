@@ -1076,7 +1076,7 @@ root_agent = LlmAgent(
         encoding="utf-8",
     )
 
-    graph, findings = scan(tmp_path)
+    graph, _ = scan(tmp_path)
     child = next(item for item in graph.agents if item.name == "url_reader")
     tool = next(item for item in child.tools if item.name == "url_context")
 
