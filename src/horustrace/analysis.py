@@ -4,7 +4,7 @@ from horustrace.heuristics import (
     HIGH_RISK_CAPABILITIES,
     UNTRUSTED_INPUT_KINDS,
 )
-from horustrace.models import AgentReachability, AttackPath, FlowPath, Graph, Severity, Tool
+from horustrace.models import AgentReachability, AttackPath, FlowExecutionContext, FlowPath, Graph, Severity, Tool
 
 _UNTRUSTED_FLOW_SOURCES = {
     "user_input",
@@ -57,17 +57,22 @@ def _bound_tool_for_flow(graph: Graph, flow: FlowPath) -> Tool | None:
         return None
     tool_name = binding.get("tool")
     function_key = binding.get("function")
-    agents = [item for item in graph.agents if item.name == flow.agent]
-    if not agents:
-        return None
+    instance_key = binding.get("agent_instance_key")
 
-    # Agent names are not globally unique in real Pydantic applications. Prefer
-    # the exact source-function binding across every same-name principal; only
-    # fall back to the tool name when that remains unique.
+    agents = [item for item in graph.agents if item.name == flow.agent]
+    if isinstance(instance_key, str) and instance_key:
+        agents = [
+            item
+            for item in agents
+            if str(item.metadata.get("instance_key") or "") == instance_key
+        ]
+    if len(agents) != 1:
+        return None
+    agent = agents[0]
+
     if isinstance(function_key, str):
         exact = [
             tool
-            for agent in agents
             for tool in agent.tools
             if tool.metadata.get("source_function_key") == function_key
         ]
@@ -75,16 +80,10 @@ def _bound_tool_for_flow(graph: Graph, flow: FlowPath) -> Tool | None:
             return exact[0]
 
     if isinstance(tool_name, str):
-        named = [
-            tool
-            for agent in agents
-            for tool in agent.tools
-            if tool.name == tool_name
-        ]
+        named = [tool for tool in agent.tools if tool.name == tool_name]
         if len(named) == 1:
             return named[0]
     return None
-
 
 def _flow_backed_paths(graph: Graph) -> list[AttackPath]:
     paths: list[AttackPath] = []
@@ -92,6 +91,14 @@ def _flow_backed_paths(graph: Graph) -> list[AttackPath]:
         if (
             not flow.agent
             or flow.agent_reachability is not AgentReachability.PROVEN_AGENT_REACHABLE
+            or flow.execution_context
+            in {
+                FlowExecutionContext.TEST,
+                FlowExecutionContext.EXAMPLE,
+                FlowExecutionContext.TUTORIAL,
+                FlowExecutionContext.NOTEBOOK,
+                FlowExecutionContext.TEMPLATE_GENERATED,
+            }
             or flow.basis != "static_dataflow"
             or flow.confidence.value != "supported"
         ):
