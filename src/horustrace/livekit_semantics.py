@@ -8,6 +8,17 @@ from pathlib import Path
 
 from horustrace.models import Graph, InputSource, SourceLocation, Tool
 
+_ROUTE_METHODS = {"get", "post", "put", "patch", "delete", "api_route"}
+_AUTH_TOKENS = (
+    "auth",
+    "current_user",
+    "require_user",
+    "verify_user",
+    "verify_token",
+    "principal",
+    "identity",
+)
+
 
 @dataclass(frozen=True)
 class ModuleInfo:
@@ -330,6 +341,40 @@ def _mutation_capabilities(
     return capabilities, concrete_write
 
 
+def _dependency_name(node: ast.AST | None) -> str:
+    if not isinstance(node, ast.Call) or _leaf(node.func) != "Depends":
+        return ""
+    target = node.args[0] if node.args else next(
+        (keyword.value for keyword in node.keywords if keyword.arg == "dependency"),
+        None,
+    )
+    return (_dotted(target) or _leaf(target) or "").lower()
+
+
+def _route_authentication_detected(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> bool:
+    principal_names = {
+        "current_user",
+        "authenticated_user",
+        "principal",
+        "identity",
+        "claims",
+    }
+    parameters = list(function.args.args) + list(function.args.kwonlyargs)
+    if any(parameter.arg.lower() in principal_names for parameter in parameters):
+        return True
+
+    defaults = list(function.args.defaults) + [
+        value for value in function.args.kw_defaults if value is not None
+    ]
+    for default in defaults:
+        dependency = _dependency_name(default)
+        if dependency and any(token in dependency for token in _AUTH_TOKENS):
+            return True
+    return False
+
+
 def _public_livekit_token_route(
     modules: dict[str, ModuleInfo],
 ) -> SourceLocation | None:
@@ -339,28 +384,23 @@ def _public_livekit_token_route(
             for node in ast.walk(info.tree)
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         ):
-            route = False
+            is_web_route = False
             for decorator in function.decorator_list:
-                call = decorator if isinstance(decorator, ast.Call) else None
-                if call is None or not isinstance(call.func, ast.Attribute):
-                    continue
-                if call.func.attr != "post" or not call.args:
-                    continue
-                path = _literal(call.args[0])
-                if path == "/api/token":
-                    route = True
-            if not route:
+                target = decorator.func if isinstance(decorator, ast.Call) else decorator
+                if (
+                    isinstance(target, ast.Attribute)
+                    and target.attr.lower() in _ROUTE_METHODS
+                ):
+                    is_web_route = True
+                    break
+            if not is_web_route or _route_authentication_detected(function):
                 continue
 
-            defaults = list(function.args.defaults) + list(function.args.kw_defaults)
-            authenticated = False
-            for default in defaults:
-                if not isinstance(default, ast.Call) or _leaf(default.func) != "Depends":
-                    continue
-                dependency = _leaf(default.args[0]) if default.args else None
-                if dependency and dependency not in {"get_settings", "settings"}:
-                    authenticated = True
-            if authenticated:
+            has_access_token = any(
+                isinstance(call, ast.Call) and _leaf(call.func) == "AccessToken"
+                for call in ast.walk(function)
+            )
+            if not has_access_token:
                 continue
 
             publish_capable = False
@@ -374,11 +414,15 @@ def _public_livekit_token_route(
                     for keyword in call.keywords
                     if keyword.arg
                 }
-                if values.get("room_join") is True and values.get("can_publish") is True:
+                if (
+                    values.get("room_join") is True
+                    and values.get("can_publish") is True
+                ):
                     publish_capable = True
             if publish_capable:
                 return _location(info.path, function)
     return None
+
 
 
 def _livekit_session_consumes_room(info: ModuleInfo) -> bool:
@@ -417,6 +461,10 @@ def enrich_livekit_mcp_mutation_semantics(
     public_token = _public_livekit_token_route(modules)
     mcp_tools = _mcp_tool_functions(modules)
     functions = _function_table(modules)
+    repository_uses_sqlite = any(
+        any(module == "sqlite3" for module, _ in info.imports.values())
+        for info in modules.values()
+    )
 
     by_path = {info.path.resolve(): info for info in modules.values()}
     for agent in graph.agents:
@@ -476,6 +524,10 @@ def enrich_livekit_mcp_mutation_semantics(
                         "mcp_mutation_proven": mutation_proven,
                     }
                 )
+                if mutation_proven:
+                    metadata["state_scope"] = "repository_local_state"
+                    if repository_uses_sqlite:
+                        metadata["state_backend"] = "local_sqlite"
             tool = next((item for item in agent.tools if item.name == name), None)
             if tool is None:
                 tool = Tool(
