@@ -317,13 +317,25 @@ def _mcp_relationship(
 ) -> EffectiveAuthorityRelationship:
     identity = _identity(graph, agent, server.identity)
     tool_scope, unresolved, tool_scope_status = _mcp_tool_scope(server)
+    operator_configured_remote = (
+        server.metadata.get("dynamic_mcp_endpoint_basis")
+        == "operator_configuration"
+    )
+    dynamic_remote = bool(
+        server.metadata.get("dynamic_mcp_endpoint")
+        and server.transport in {"http", "sse", "streamable-http", "streamable_http"}
+    )
     dimensions = {
         "target": "resolved",
         "capabilities": "resolved",
         "identity": "resolved" if identity is not None else "unknown",
         "approval": "resolved" if server.approval is not None or server.guardrails else "unknown",
         "resources": "resolved" if server.resources else "unknown",
-        "destinations": "resolved" if server.url or server.command else "unknown",
+        "destinations": (
+            "resolved"
+            if server.url or server.command or operator_configured_remote
+            else "unknown"
+        ),
         "tool_scope": tool_scope_status,
     }
     if identity is None:
@@ -332,7 +344,7 @@ def _mcp_relationship(
         unresolved.append("approval")
     if not server.resources:
         unresolved.append("resources")
-    if not server.url and not server.command:
+    if not server.url and not server.command and not operator_configured_remote:
         unresolved.append("destinations")
 
     identity_doc = None
@@ -361,6 +373,19 @@ def _mcp_relationship(
                 "location": _location(server.location),
             }
         )
+    elif operator_configured_remote:
+        destinations.append(
+            {
+                "target": "<operator-configured-mcp>",
+                "direction": "outbound",
+                "restricted": True,
+                "kind": "operator_configured_remote_endpoint",
+                "configuration_source": server.metadata.get(
+                    "configuration_source"
+                ),
+                "location": _location(server.location),
+            }
+        )
     elif server.command:
         destinations.append(
             {
@@ -375,7 +400,7 @@ def _mcp_relationship(
 
     base_capabilities = (
         {"mcp.remote", "network.external"}
-        if server.url
+        if server.url or dynamic_remote
         else {"mcp.local"}
     )
     capabilities = tuple(
@@ -406,6 +431,11 @@ def _mcp_relationship(
                 or "framework_agent_configuration"
             ),
             "transport": server.transport,
+            "network": server.metadata.get("network_scope"),
+            "dynamic_remote_mcp_catalogue": server.metadata.get(
+                "dynamic_remote_mcp_catalogue"
+            ),
+            "per_call_approval": server.metadata.get("per_call_approval"),
             "authentication_state": (
                 "authenticated"
                 if server.authenticated is True
