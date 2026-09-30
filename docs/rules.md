@@ -60,6 +60,7 @@ metadata will become available through the CLI in WP02.
 - `DATA001` — broad resource scope.
 - `DATA002` — resource access exceeds declared allowlist.
 - `DATA003` — sensitive data has broad/unconstrained egress reachability.
+- `DATA004` — model-callable mutation of an owner/tenant-scoped object omits the repository's normal ownership check.
 - `NET001` — broad destinations or a possible destination without a detected restriction.
 - `NET002` — outbound capability has no destination constraint.
 - `NET003` — destination exceeds declared network allowlist.
@@ -80,6 +81,7 @@ metadata will become available through the CLI in WP02.
 - `PATH011` — source-bound untrusted input reaches a model-selected URL that a direct server-side HTTP client fetches without a detected destination restriction.
 - `PATH012` — source-proven tool-returned local/repository content re-enters model context while the same agent has model-selected filesystem read/write authority without detected containment.
 - `PATH013` — source-proven user-selected server directory reaches recursive RAG ingestion and bound agent retrieval without a detected filesystem containment boundary.
+- `PATH014` — source-bound user input reaches a model-callable owner-scoped object mutation that omits the repository's normal owner/tenant authorization check.
 
 ## Interpreting evidence
 

@@ -712,6 +712,62 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 )
             )
 
+        authorization_bypass_tools = [
+            tool
+            for tool in agent.tools
+            if tool.metadata.get("object_authorization_boundary_bypass") is True
+        ]
+        if authorization_bypass_tools and runtime_bound_untrusted:
+            target = authorization_bypass_tools[0]
+            ingress = runtime_bound_untrusted[0]
+            model_name = str(
+                target.metadata.get("object_model") or "owner-scoped object"
+            )
+            identifier = str(
+                target.metadata.get("object_id_parameter") or "object_id"
+            )
+            paths.append(
+                AttackPath(
+                    path_id="PATH014",
+                    title="Potential model-driven cross-owner object mutation",
+                    agent=agent.name,
+                    nodes=[
+                        ingress.name,
+                        agent.name,
+                        target.name,
+                        f"model-selected {identifier}",
+                        f"unscoped {model_name} mutation",
+                    ],
+                    severity=Severity.MEDIUM,
+                    rationale=(
+                        "Source analysis proves user-controlled application input "
+                        "reaches the agent runtime, while a bound model-callable tool "
+                        "can select and commit a mutation to an owner-scoped object "
+                        "without carrying the repository's normal owner check into "
+                        "the tool boundary."
+                    ),
+                    location=target.location or ingress.location or agent.location,
+                    metadata={
+                        **_path_metadata(
+                            basis="source_proven_object_authorization_bypass"
+                        ),
+                        "ingress_basis": ingress.metadata.get("basis"),
+                        "object_model": target.metadata.get("object_model"),
+                        "object_id_parameter": target.metadata.get(
+                            "object_id_parameter"
+                        ),
+                        "ownership_field": target.metadata.get("ownership_field"),
+                        "authenticated_ingress": ingress.metadata.get(
+                            "authenticated"
+                        ),
+                        "limitation": (
+                            "Cross-owner impact requires a valid object identifier "
+                            "outside the caller's authorized scope."
+                        ),
+                    },
+                )
+            )
+
         for tool in outbound:
             if sensitive and tool.approval is not True:
                 paths.append(
