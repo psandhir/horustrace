@@ -1,7 +1,9 @@
+import ast
 from pathlib import Path
 
 from horustrace.analysis import build_attack_paths
-from horustrace.models import Agent, Graph, InputSource, MCPServer
+from horustrace.models import Agent, Graph, InputSource, MCPServer, Tool
+from horustrace.runtime_ingress import _authentication_posture
 from horustrace.scanner import scan
 
 
@@ -495,3 +497,62 @@ def health():
         item.metadata.get("basis") == "source_bound_runtime_ingress"
         for item in agent.inputs
     )
+
+
+def test_aiohttp_optional_public_auth_posture_is_preserved_on_paths() -> None:
+    tree = ast.parse(
+        """
+import os
+from aiohttp import web
+
+def get_api_key_map():
+    return os.getenv("MEMORY_API_KEYS", "")
+
+@web.middleware
+async def api_key_auth_middleware(request, handler):
+    api_key_map = get_api_key_map()
+    if not api_key_map:
+        request["user_id"] = "public"
+        return await handler(request)
+    api_key = request.headers.get("X-API-Key", "")
+    if not api_key:
+        raise web.HTTPUnauthorized()
+    return await handler(request)
+"""
+    )
+    posture = _authentication_posture(tree, "aiohttp")
+    assert posture["authentication_detected"] is True
+    assert posture["authentication_mode"] == "optional_public_default"
+    assert posture["public_default"] is True
+    assert posture["authentication_environment_variables"] == ["MEMORY_API_KEYS"]
+
+    graph = Graph(
+        agents=[
+            Agent(
+                name="memory",
+                inputs=[
+                    InputSource(
+                        name="handle_ingest:external-input",
+                        trust="untrusted",
+                        kind="web",
+                        metadata={
+                            "basis": "source_bound_runtime_ingress",
+                            "runtime_invocation_proven": True,
+                            **posture,
+                        },
+                    )
+                ],
+                tools=[
+                    Tool(
+                        name="store_memory",
+                        kind="function",
+                        capabilities={"data.write"},
+                    )
+                ],
+            )
+        ]
+    )
+    path = next(item for item in build_attack_paths(graph) if item.path_id == "PATH002")
+    assert path.metadata["authentication_mode"] == "optional_public_default"
+    assert path.metadata["public_default"] is True
+    assert path.metadata["authentication_environment_variables"] == ["MEMORY_API_KEYS"]
