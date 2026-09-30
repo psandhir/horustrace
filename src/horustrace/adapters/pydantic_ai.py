@@ -152,8 +152,13 @@ def _kw(call: ast.Call, name: str) -> ast.AST | None:
     return next((item.value for item in call.keywords if item.arg == name), None)
 
 
-def _target_names(node: ast.Assign | ast.AnnAssign) -> list[str]:
-    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+def _target_names(node: ast.Assign | ast.AnnAssign | ast.AST) -> list[str]:
+    if isinstance(node, ast.Assign):
+        targets = node.targets
+    elif isinstance(node, ast.AnnAssign):
+        targets = [node.target]
+    else:
+        targets = [node]
     names: list[str] = []
     for target in targets:
         if isinstance(target, ast.Name):
