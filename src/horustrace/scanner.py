@@ -263,6 +263,24 @@ def _classify_flow_execution_context(
     project_script_entrypoints: set[tuple[str, str]],
 ) -> FlowExecutionContext:
     if flow.agent is not None:
+        binding = flow.metadata.get("agent_binding")
+        source_context = (
+            binding.get("agent_source_context")
+            if isinstance(binding, dict)
+            else None
+        )
+        bound_contexts = {
+            "test": FlowExecutionContext.TEST,
+            "example": FlowExecutionContext.EXAMPLE,
+            "tutorial": FlowExecutionContext.TUTORIAL,
+            "notebook": FlowExecutionContext.NOTEBOOK,
+            "template-generated": FlowExecutionContext.TEMPLATE_GENERATED,
+        }
+        if source_context in bound_contexts:
+            flow.metadata["execution_context_basis"] = (
+                "bound_agent_source_context"
+            )
+            return bound_contexts[source_context]
         return FlowExecutionContext.AGENT_TOOL
 
     paths = _flow_function_paths(flow, root)
