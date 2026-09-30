@@ -1432,6 +1432,141 @@ def _annotate_cli_run_inputs(
             )
 
 
+def _annotate_public_wrapper_run_inputs(
+    path: Path,
+    tree: ast.AST,
+    agents: dict[str, Agent],
+) -> None:
+    """Bind source-proven public wrapper parameters to Pydantic AI run calls.
+
+    This covers repository APIs such as run_agent(prompt) -> helper(query) ->
+    agent.run_sync(derived_prompt) without assuming arbitrary function parameters
+    are external ingress.
+    """
+    functions = {
+        node.name: node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    if not functions or not agents:
+        return
+
+    public_entry_names = {
+        "run_agent",
+        "chat",
+        "ask",
+        "query",
+        "respond",
+        "process_message",
+        "handle_message",
+    }
+
+    def _tainted(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+        names = {
+            arg.arg
+            for arg in [
+                *fn.args.posonlyargs,
+                *fn.args.args,
+                *fn.args.kwonlyargs,
+            ]
+        }
+        assignments = [
+            node
+            for node in ast.walk(fn)
+            if isinstance(node, (ast.Assign, ast.AnnAssign))
+            and node.value is not None
+        ]
+        for _ in range(8):
+            changed = False
+            for assignment in assignments:
+                if not _expr_uses_names(assignment.value, names):
+                    continue
+                for target in _target_names(assignment):
+                    if target not in names:
+                        names.add(target)
+                        changed = True
+            if not changed:
+                break
+        return names
+
+    tainted_by_function = {
+        name: _tainted(fn)
+        for name, fn in functions.items()
+    }
+    reaches: dict[str, set[str]] = {name: set() for name in functions}
+
+    for name, fn in functions.items():
+        tainted = tainted_by_function[name]
+        for call in (node for node in ast.walk(fn) if isinstance(node, ast.Call)):
+            if not isinstance(call.func, ast.Attribute):
+                continue
+            if call.func.attr not in _AGENT_RUN_METHODS:
+                continue
+            owner = _dotted(call.func.value) or _call_name(call.func.value)
+            if owner not in agents:
+                continue
+            prompt = call.args[0] if call.args else next(
+                (
+                    keyword.value
+                    for keyword in call.keywords
+                    if keyword.arg in {"user_prompt", "prompt", "input"}
+                ),
+                None,
+            )
+            if prompt is not None and _expr_uses_names(prompt, tainted):
+                reaches[name].add(owner)
+
+    for _ in range(8):
+        changed = False
+        for name, fn in functions.items():
+            tainted = tainted_by_function[name]
+            for call in (node for node in ast.walk(fn) if isinstance(node, ast.Call)):
+                called = _call_name(call.func)
+                if called not in reaches or not reaches[called]:
+                    continue
+                values = [*call.args, *(keyword.value for keyword in call.keywords)]
+                if not any(_expr_uses_names(value, tainted) for value in values):
+                    continue
+                before = len(reaches[name])
+                reaches[name].update(reaches[called])
+                changed = changed or len(reaches[name]) != before
+        if not changed:
+            break
+
+    for function_name in sorted(public_entry_names & set(functions)):
+        fn = functions[function_name]
+        params = [
+            arg.arg
+            for arg in [
+                *fn.args.posonlyargs,
+                *fn.args.args,
+                *fn.args.kwonlyargs,
+            ]
+        ]
+        if not params:
+            continue
+        for alias in sorted(reaches[function_name]):
+            agent = agents.get(alias)
+            if agent is None:
+                continue
+            basis = "pydantic_ai_public_wrapper_input_to_run"
+            if any(item.metadata.get("basis") == basis for item in agent.inputs):
+                continue
+            agent.inputs.append(
+                InputSource(
+                    name=f"{function_name}:{params[0]}",
+                    trust="untrusted",
+                    kind="application",
+                    location=_location(path, fn),
+                    metadata={
+                        "basis": basis,
+                        "runtime_invocation_proven": True,
+                        "wrapper_function": function_name,
+                    },
+                )
+            )
+
+
 def scan_python_file(path: Path) -> Graph:
     graph = Graph()
     try:
@@ -1811,6 +1946,7 @@ def scan_python_file(path: Path) -> Graph:
             tool.metadata.update(derived_metadata)
 
     _annotate_cli_run_inputs(path, tree, agents)
+    _annotate_public_wrapper_run_inputs(path, tree, agents)
 
     bound_mcp_keys = {
         (
