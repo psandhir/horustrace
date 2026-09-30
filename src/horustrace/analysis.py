@@ -955,7 +955,29 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 )
             )
 
-        privileged = sorted(agent.capabilities & HIGH_RISK_CAPABILITIES)
+        # PATH006 is a summary of *effective uncontrolled* high-risk
+        # capabilities, not the raw capability union. Reuse the control-aware
+        # classifications above so constrained shell execution and
+        # agent-internal artifact deletion do not reappear as a generic path.
+        effective_privileged: set[str] = set()
+        if execution or execution_mcp:
+            effective_privileged.add("process.execute")
+        if destructive or destructive_mcp:
+            effective_privileged.add("destructive.write")
+        for tool in agent.tools:
+            if tool.approval is True:
+                continue
+            effective_privileged.update(
+                tool.capabilities & {"secrets.read", "identity.admin"}
+            )
+        for server in agent.mcp_servers:
+            if server.approval is True or server.guardrails:
+                continue
+            effective_privileged.update(
+                set(server.metadata.get("discovered_tool_capabilities") or [])
+                & {"secrets.read", "identity.admin"}
+            )
+        privileged = sorted(effective_privileged)
         if len(privileged) >= 2 and untrusted:
             paths.append(
                 AttackPath(
