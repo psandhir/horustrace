@@ -515,22 +515,24 @@ def enrich_indirect_tool_content_semantics(
             tool.metadata.update(controls)
             tool.guardrails = True
 
-        if controls.get("filesystem_path_constrained") is True:
-            if not any(
+        if (
+            controls.get("filesystem_path_constrained") is True
+            and not any(
                 resource.kind == "file" and resource.selector == ".shotgun/**"
                 for resource in tool.resources
-            ):
-                tool.resources.append(
-                    ResourceScope(
-                        kind="file",
-                        selector=".shotgun/**",
-                        access=set(
-                            tool.capabilities
-                            & {"data.read", "data.write", "destructive.write"}
-                        ),
-                        location=tool.location,
-                    )
+            )
+        ):
+            tool.resources.append(
+                ResourceScope(
+                    kind="file",
+                    selector=".shotgun/**",
+                    access=set(
+                        tool.capabilities
+                        & {"data.read", "data.write", "destructive.write"}
+                    ),
+                    location=tool.location,
                 )
+            )
 
     def inspect_tool(tool: Tool) -> FunctionSemantics | None:
         ref = ref_for_tool(tool)
