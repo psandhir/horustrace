@@ -53,6 +53,7 @@ metadata will become available through the CLI in WP02.
 - `IDN002` — wildcard identity permission.
 - `IDN003` — broad OAuth scope.
 - `IDN004` — unsafe/static credential source.
+- `IDN005` — unauthenticated publish-capable realtime session issuance reaches state-changing MCP-backed agent authority.
 
 ## Layer 4 — Data & network reachability
 
@@ -82,6 +83,7 @@ metadata will become available through the CLI in WP02.
 - `PATH012` — source-proven tool-returned local/repository content re-enters model context while the same agent has model-selected filesystem read/write authority without detected containment.
 - `PATH013` — source-proven user-selected server directory reaches recursive RAG ingestion and bound agent retrieval without a detected filesystem containment boundary.
 - `PATH014` — source-bound user input reaches a model-callable owner-scoped object mutation that omits the repository's normal owner/tenant authorization check.
+- `PATH015` — source-proven unauthenticated realtime session issuance reaches a model agent and MCP-backed state mutation without a detected authentication/per-action approval boundary.
 
 ## Interpreting evidence
 
