@@ -260,7 +260,12 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 and all(destination.restricted for destination in tool.destinations)
             )
         ]
-        execution = [tool for tool in agent.tools if "process.execute" in tool.capabilities]
+        execution = [
+            tool
+            for tool in agent.tools
+            if "process.execute" in tool.capabilities
+            and tool.metadata.get("process_execution_constrained") is not True
+        ]
         execution_mcp = [
             server
             for server in agent.mcp_servers
@@ -268,7 +273,10 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
             in set(server.metadata.get("discovered_tool_capabilities") or [])
         ]
         destructive = [
-            tool for tool in agent.tools if "destructive.write" in tool.capabilities
+            tool
+            for tool in agent.tools
+            if "destructive.write" in tool.capabilities
+            and tool.metadata.get("agent_internal_artifact") is not True
         ]
         runtime_bound_untrusted = [
             item
@@ -281,6 +289,7 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
             for tool in agent.tools
             if "destructive.write" not in tool.capabilities
             and {"data.write", "external.write"} & tool.capabilities
+            and tool.metadata.get("agent_internal_artifact") is not True
         ]
         destructive_mcp = [
             server
