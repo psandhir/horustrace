@@ -187,6 +187,11 @@ def is_pydantic_ai_file(path: Path) -> bool:
 
 def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
     capabilities = set(infer_capabilities(node.name))
+    # A wrapper named run_command/execute_* is not itself proof of host process
+    # execution. Pydantic tools frequently delegate to application command
+    # registries that enforce their own authorization. Require a concrete
+    # Python process/eval sink below before asserting process.execute.
+    capabilities.discard("process.execute")
     for child in ast.walk(node):
         if not isinstance(child, ast.Call):
             continue
