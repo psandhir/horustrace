@@ -1,0 +1,3251 @@
+{
+  "attack_paths": {
+    "known_path_recall": null,
+    "known_path_recall_reason": "automated source reference does not establish an exhaustive valid-path catalogue",
+    "reported_tier_b": 0,
+    "runtime_exploitability": "not_verified",
+    "source_adjudicable": 0,
+    "source_supported": 0,
+    "structural_support_precision": null
+  },
+  "baseline_scanner_sha": "418db4e29798a7d25df686dd7bccfd9fefa225bd",
+  "cases": [
+    {
+      "case_id": "rw-029",
+      "comparisons": {
+        "agent_entities": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": true,
+          "precision_tp": 5,
+          "predicted": 5,
+          "tp": 5,
+          "truth": 5,
+          "unadjudicated_predicted": 0
+        },
+        "delegation_edges": {
+          "fn": 0,
+          "fp": 2,
+          "precision_eligible": true,
+          "precision_tp": 2,
+          "predicted": 4,
+          "tp": 2,
+          "truth": 2,
+          "unadjudicated_predicted": 0
+        },
+        "mcp_servers": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": true,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "tools": {
+          "fn": 0,
+          "fp": 7,
+          "precision_eligible": true,
+          "precision_tp": 4,
+          "predicted": 11,
+          "tp": 4,
+          "truth": 4,
+          "unadjudicated_predicted": 0
+        }
+      },
+      "findings": [
+        {
+          "agent": "GreenEventOrchestrator",
+          "assessment": "potential_risk",
+          "confidence": "potential",
+          "default_severity": "critical",
+          "evidence": [
+            "user-or-remote-input -> GreenEventOrchestrator -> delegate:AuditorAgent -> process.execute"
+          ],
+          "fingerprint": "arg-v1:bb92d9b347d45548b4bad223",
+          "layer": 5,
+          "limitations": [
+            "The scanner does not establish executable data flow between these nodes.",
+            "Runtime authorization and control effectiveness are not verified.",
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 18,
+            "line": 93,
+            "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+          },
+          "message": "The normalized agent model combines untrusted input and process-execution capability without a detected approval requirement.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "capability=agent.delegate",
+              "location": {
+                "column": 13,
+                "line": 105,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 105,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 105,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "capability=agent.delegate",
+              "location": {
+                "column": 13,
+                "line": 106,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 106,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 106,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 107,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "confirm_venue_selection"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 107,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "confirm_venue_selection"
+            },
+            {
+              "fact": "capability=identity.admin",
+              "location": {
+                "column": 13,
+                "line": 108,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "check_company_policy"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 108,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "check_company_policy"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 108,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "check_company_policy"
+            },
+            {
+              "fact": "delegates_to=ScoutingTeam",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 21,
+                "line": 81,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "ScoutingTeam"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 23,
+                "line": 74,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "TransportAgent"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 16,
+                "line": 78,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "estimate_transport_emissions"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 16,
+                "line": 78,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "estimate_transport_emissions"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 19,
+                "line": 67,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "VenueScout"
+            },
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "delegates_to=AuditorAgent",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 21,
+                "line": 86,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AuditorAgent"
+            },
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=data.write",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=process.execute",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "guardrail_hook_detected=True",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "input_trust=untrusted",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "user-or-remote-input"
+            },
+            {
+              "fact": "input_kind=user",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "user-or-remote-input"
+            }
+          ],
+          "recommendation": "Break the attack path by reducing privilege/reachability, validating untrusted input, sandboxing execution, or enforcing approval at the privileged action boundary.",
+          "rule_id": "PATH001",
+          "severity": "critical",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI01",
+              "ASI05"
+            ]
+          },
+          "title": "Potential untrusted-input path to command execution"
+        },
+        {
+          "agent": "AuditorAgent",
+          "assessment": "static_configuration",
+          "confidence": null,
+          "default_severity": "high",
+          "evidence": [
+            "capability=process.execute",
+            "approval=None"
+          ],
+          "fingerprint": "arg-v1:e7f7a78f2b02dfde7dee6876",
+          "layer": 1,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 23,
+            "line": 90,
+            "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+          },
+          "message": "Tool 'BuiltInCodeExecutor' can execute processes without an explicit approval requirement.",
+          "provenance": [
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=data.write",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=process.execute",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "guardrail_hook_detected=True",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            }
+          ],
+          "recommendation": "Require approval for process execution and run the tool inside a constrained sandbox.",
+          "rule_id": "AGT020",
+          "severity": "high",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI05"
+            ]
+          },
+          "title": "Shell or process execution without approval"
+        },
+        {
+          "agent": "GreenEventOrchestrator",
+          "assessment": "potential_risk",
+          "confidence": "potential",
+          "default_severity": "high",
+          "evidence": [
+            "user-or-remote-input -> GreenEventOrchestrator -> identity.admin -> process.execute"
+          ],
+          "fingerprint": "arg-v1:070157c4a9b1c6e236799ac0",
+          "layer": 5,
+          "limitations": [
+            "The scanner does not establish executable data flow between these nodes.",
+            "Runtime authorization and control effectiveness are not verified.",
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 18,
+            "line": 93,
+            "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+          },
+          "message": "The same agent combines untrusted input with multiple high-risk capabilities.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "capability=agent.delegate",
+              "location": {
+                "column": 13,
+                "line": 105,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 105,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 105,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "capability=agent.delegate",
+              "location": {
+                "column": 13,
+                "line": 106,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 106,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 106,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 107,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "confirm_venue_selection"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 107,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "confirm_venue_selection"
+            },
+            {
+              "fact": "capability=identity.admin",
+              "location": {
+                "column": 13,
+                "line": 108,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "check_company_policy"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 108,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "check_company_policy"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 108,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "check_company_policy"
+            },
+            {
+              "fact": "delegates_to=ScoutingTeam",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 21,
+                "line": 81,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "ScoutingTeam"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 23,
+                "line": 74,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "TransportAgent"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 16,
+                "line": 78,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "estimate_transport_emissions"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 16,
+                "line": 78,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "estimate_transport_emissions"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 19,
+                "line": 67,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "VenueScout"
+            },
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "delegates_to=AuditorAgent",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 21,
+                "line": 86,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AuditorAgent"
+            },
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=data.write",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=process.execute",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "guardrail_hook_detected=True",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "input_trust=untrusted",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "user-or-remote-input"
+            },
+            {
+              "fact": "input_kind=user",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "user-or-remote-input"
+            }
+          ],
+          "recommendation": "Break the attack path by reducing privilege/reachability, validating untrusted input, sandboxing execution, or enforcing approval at the privileged action boundary.",
+          "rule_id": "PATH006",
+          "severity": "high",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI01",
+              "ASI02"
+            ]
+          },
+          "title": "Potential untrusted-input exposure to multiple high-risk capabilities"
+        },
+        {
+          "agent": "GreenEventOrchestrator",
+          "assessment": "potential_risk",
+          "confidence": "potential",
+          "default_severity": "high",
+          "evidence": [
+            "user-or-remote-input -> GreenEventOrchestrator -> delegate:AuditorAgent -> BuiltInCodeExecutor -> process.execute"
+          ],
+          "fingerprint": "arg-v1:709be921ff279973d0d2e892",
+          "layer": 5,
+          "limitations": [
+            "The scanner does not establish executable data flow between these nodes.",
+            "Runtime authorization and control effectiveness are not verified.",
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 23,
+            "line": 90,
+            "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+          },
+          "message": "The normalized model shows untrusted input reaching an agent that can delegate to another agent exposing a high-risk capability without detected approval.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "capability=agent.delegate",
+              "location": {
+                "column": 13,
+                "line": 105,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 105,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 105,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "capability=agent.delegate",
+              "location": {
+                "column": 13,
+                "line": 106,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 106,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 106,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 107,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "confirm_venue_selection"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 107,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "confirm_venue_selection"
+            },
+            {
+              "fact": "capability=identity.admin",
+              "location": {
+                "column": 13,
+                "line": 108,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "check_company_policy"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 108,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "check_company_policy"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 108,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "check_company_policy"
+            },
+            {
+              "fact": "delegates_to=ScoutingTeam",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 21,
+                "line": 81,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "ScoutingTeam"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 23,
+                "line": 74,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "TransportAgent"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 16,
+                "line": 78,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "estimate_transport_emissions"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 16,
+                "line": 78,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "estimate_transport_emissions"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 19,
+                "line": 67,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "VenueScout"
+            },
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "delegates_to=AuditorAgent",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 21,
+                "line": 86,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AuditorAgent"
+            },
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=data.write",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=process.execute",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "guardrail_hook_detected=True",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "input_trust=untrusted",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "user-or-remote-input"
+            },
+            {
+              "fact": "input_kind=user",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "user-or-remote-input"
+            }
+          ],
+          "recommendation": "Break the attack path by reducing privilege/reachability, validating untrusted input, sandboxing execution, or enforcing approval at the privileged action boundary.",
+          "rule_id": "PATH008",
+          "severity": "high",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI01",
+              "ASI02",
+              "ASI07"
+            ]
+          },
+          "title": "Potential untrusted-input path through delegated agent to privileged action"
+        },
+        {
+          "agent": "GreenEventOrchestrator",
+          "assessment": "heuristic_risk",
+          "confidence": null,
+          "default_severity": "medium",
+          "evidence": [
+            "privileged_tools=check_company_policy,delegate:AuditorAgent"
+          ],
+          "fingerprint": "arg-v1:9490ebe9a1023dd856153c7c",
+          "layer": 1,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 18,
+            "line": 93,
+            "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+          },
+          "message": "ADK agent 'GreenEventOrchestrator' exposes privileged capabilities without a before-tool control callback, action-control plugin, or per-tool confirmation.",
+          "provenance": [
+            {
+              "fact": "delegates_to=ScoutingTeam",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 21,
+                "line": 81,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "ScoutingTeam"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 23,
+                "line": 74,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "TransportAgent"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 16,
+                "line": 78,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "estimate_transport_emissions"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 16,
+                "line": 78,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "estimate_transport_emissions"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 19,
+                "line": 67,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "VenueScout"
+            },
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "delegates_to=AuditorAgent",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 21,
+                "line": 86,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AuditorAgent"
+            },
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=data.write",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=process.execute",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "guardrail_hook_detected=True",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            }
+          ],
+          "recommendation": "Add a before_tool_callback/action-control plugin and require confirmation for high-impact tools.",
+          "rule_id": "ADK001",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI02"
+            ]
+          },
+          "title": "Privileged ADK agent has no detected tool-control callback/plugin"
+        },
+        {
+          "agent": "GreenEventOrchestrator",
+          "assessment": "heuristic_risk",
+          "confidence": null,
+          "default_severity": "medium",
+          "evidence": [
+            "capabilities=identity.admin",
+            "authority_relationship=authority-v1:d10242fceb0d8e034747",
+            "approval_resolution=unknown"
+          ],
+          "fingerprint": "arg-v1:1ed7c8140fa724f9a9fe3980",
+          "layer": 1,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 13,
+            "line": 108,
+            "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+          },
+          "message": "Privileged tool 'check_company_policy' has no detected guardrail or approval configuration.",
+          "provenance": [
+            {
+              "fact": "capability=identity.admin",
+              "location": {
+                "column": 13,
+                "line": 108,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "check_company_policy"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 108,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "check_company_policy"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 108,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "check_company_policy"
+            }
+          ],
+          "recommendation": "Add tool input/output guardrails and/or explicit approval appropriate to the action.",
+          "rule_id": "AGT040",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI02"
+            ]
+          },
+          "title": "Privileged tool lacks explicit guardrail or approval"
+        },
+        {
+          "agent": "GreenEventOrchestrator",
+          "assessment": "heuristic_risk",
+          "confidence": null,
+          "default_severity": "medium",
+          "evidence": [
+            "capabilities=agent.delegate,data.read,data.write,process.execute"
+          ],
+          "fingerprint": "arg-v1:d97337c1ee87d1736498ca75",
+          "layer": 1,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 18,
+            "line": 93,
+            "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+          },
+          "message": "Privileged tool 'delegate:AuditorAgent' has no detected guardrail or approval configuration.",
+          "provenance": [
+            {
+              "fact": "delegates_to=ScoutingTeam",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 21,
+                "line": 81,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "ScoutingTeam"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 23,
+                "line": 74,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "TransportAgent"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 16,
+                "line": 78,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "estimate_transport_emissions"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 16,
+                "line": 78,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "estimate_transport_emissions"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 19,
+                "line": 67,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "VenueScout"
+            },
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "delegates_to=AuditorAgent",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 21,
+                "line": 86,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AuditorAgent"
+            },
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=data.write",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=process.execute",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "guardrail_hook_detected=True",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            }
+          ],
+          "recommendation": "Add tool input/output guardrails and/or explicit approval appropriate to the action.",
+          "rule_id": "AGT040",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI02"
+            ]
+          },
+          "title": "Privileged tool lacks explicit guardrail or approval"
+        },
+        {
+          "agent": "AuditorAgent",
+          "assessment": "static_configuration",
+          "confidence": null,
+          "default_severity": "medium",
+          "evidence": [
+            "data.read",
+            "data.write/destructive.write",
+            "authority_relationship=authority-v1:1385e5f380e40fc5ff96"
+          ],
+          "fingerprint": "arg-v1:af92c175ea0bc51ffbbdea29",
+          "layer": 2,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 21,
+            "line": 86,
+            "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+          },
+          "message": "Agent 'AuditorAgent' can both read and modify data.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 21,
+                "line": 86,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AuditorAgent"
+            },
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=data.write",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=process.execute",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "guardrail_hook_detected=True",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            }
+          ],
+          "recommendation": "Apply resource-level least privilege; separate read-only analysis from mutation where practical.",
+          "rule_id": "CAP005",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI02"
+            ]
+          },
+          "title": "Combined read and write authority"
+        },
+        {
+          "agent": "GreenEventOrchestrator",
+          "assessment": "heuristic_risk",
+          "confidence": null,
+          "default_severity": "medium",
+          "evidence": [
+            "data.read",
+            "data.write/destructive.write"
+          ],
+          "fingerprint": "arg-v1:50c200a10598bae06bee2e71",
+          "layer": 2,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 18,
+            "line": 93,
+            "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+          },
+          "message": "Agent 'GreenEventOrchestrator' can both read and modify data.",
+          "provenance": [
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "capability=agent.delegate",
+              "location": {
+                "column": 13,
+                "line": 105,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 105,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 105,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "capability=agent.delegate",
+              "location": {
+                "column": 13,
+                "line": 106,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 106,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 106,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AgentTool"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 107,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "confirm_venue_selection"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 107,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "confirm_venue_selection"
+            },
+            {
+              "fact": "capability=identity.admin",
+              "location": {
+                "column": 13,
+                "line": 108,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "check_company_policy"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 13,
+                "line": 108,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "check_company_policy"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 13,
+                "line": 108,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "check_company_policy"
+            },
+            {
+              "fact": "delegates_to=ScoutingTeam",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 21,
+                "line": 81,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "ScoutingTeam"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 23,
+                "line": 74,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "TransportAgent"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 16,
+                "line": 78,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "estimate_transport_emissions"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 16,
+                "line": 78,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "estimate_transport_emissions"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 19,
+                "line": 67,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "VenueScout"
+            },
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 16,
+                "line": 71,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "search_green_venues"
+            },
+            {
+              "fact": "delegates_to=AuditorAgent",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "GreenEventOrchestrator"
+            },
+            {
+              "fact": "agent_configuration_detected",
+              "location": {
+                "column": 21,
+                "line": 86,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "AuditorAgent"
+            },
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=data.write",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "capability=process.execute",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "guardrail_hook_detected=True",
+              "location": {
+                "column": 23,
+                "line": 90,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "observed",
+              "subject": "BuiltInCodeExecutor"
+            },
+            {
+              "fact": "input_trust=untrusted",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "user-or-remote-input"
+            },
+            {
+              "fact": "input_kind=user",
+              "location": {
+                "column": 18,
+                "line": 93,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-029/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "user-or-remote-input"
+            }
+          ],
+          "recommendation": "Apply resource-level least privilege; separate read-only analysis from mutation where practical.",
+          "rule_id": "CAP005",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI02"
+            ]
+          },
+          "title": "Combined read and write authority"
+        }
+      ],
+      "framework": "google-adk",
+      "observed": {
+        "analysis_incomplete": true,
+        "attack_paths": 3,
+        "authority_resolution": {
+          "partially_resolved": 7
+        },
+        "findings": 9,
+        "findings_by_confidence": {
+          "potential": 3,
+          "unknown": 6
+        },
+        "findings_by_owasp_agentic": {
+          "ASI01": 3,
+          "ASI02": 7,
+          "ASI05": 2,
+          "ASI07": 1
+        },
+        "findings_by_rule": {
+          "ADK001": 1,
+          "AGT020": 1,
+          "AGT040": 2,
+          "CAP005": 2,
+          "PATH001": 1,
+          "PATH006": 1,
+          "PATH008": 1
+        },
+        "findings_by_severity": {
+          "critical": 1,
+          "high": 3,
+          "medium": 5
+        },
+        "findings_by_source_context": {
+          "runtime": 9
+        },
+        "fully_resolved_on_dynamic_reference": 0,
+        "runtime_findings_by_owasp_agentic": {
+          "ASI01": 3,
+          "ASI02": 7,
+          "ASI05": 2,
+          "ASI07": 1
+        },
+        "summary": {
+          "adg_edges": 16,
+          "adg_nodes": 21,
+          "agents": 5,
+          "attack_paths": 3,
+          "authority_contract_relationships": 0,
+          "authority_contract_unresolved": 0,
+          "authority_contract_violations": 0,
+          "excluded_findings": 0,
+          "excluded_findings_by_source_context": {},
+          "findings": 9,
+          "findings_by_layer": {
+            "1": 4,
+            "2": 2,
+            "3": 0,
+            "4": 0,
+            "5": 3
+          },
+          "findings_by_source_context": {
+            "runtime": 9
+          },
+          "findings_by_source_context_before_filter": {
+            "runtime": 9
+          },
+          "flow_agent_attribution_gaps": 0,
+          "flow_agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "flow_execution_contexts": {
+            "agent_tool": 0,
+            "application_support": 0,
+            "cli": 0,
+            "example": 0,
+            "notebook": 0,
+            "runtime": 0,
+            "template-generated": 0,
+            "test": 0,
+            "tutorial": 0,
+            "unknown": 0
+          },
+          "flow_paths": 0,
+          "identities": 0,
+          "mcp_servers": 0,
+          "suppressed_findings": 0,
+          "tools": 11
+        }
+      },
+      "previously_studied": false,
+      "repo": "git791/GreenAI-Agent",
+      "sha": "94fdaf7fd9dd4269ac85fef9e850237da0360908",
+      "status": "success"
+    },
+    {
+      "case_id": "rw-074",
+      "comparisons": {
+        "agent_entities": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 3,
+          "tp": 3,
+          "truth": 3,
+          "unadjudicated_predicted": 0
+        },
+        "delegation_edges": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "mcp_servers": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "tools": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 2,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 2
+        }
+      },
+      "findings": [],
+      "framework": "langgraph",
+      "observed": {
+        "analysis_incomplete": false,
+        "attack_paths": 0,
+        "authority_resolution": {},
+        "findings": 0,
+        "findings_by_confidence": {},
+        "findings_by_owasp_agentic": {},
+        "findings_by_rule": {},
+        "findings_by_severity": {},
+        "findings_by_source_context": {},
+        "fully_resolved_on_dynamic_reference": 0,
+        "runtime_findings_by_owasp_agentic": {},
+        "summary": {
+          "adg_edges": 8,
+          "adg_nodes": 6,
+          "agents": 1,
+          "attack_paths": 0,
+          "authority_contract_relationships": 0,
+          "authority_contract_unresolved": 0,
+          "authority_contract_violations": 0,
+          "excluded_findings": 0,
+          "excluded_findings_by_source_context": {},
+          "findings": 0,
+          "findings_by_layer": {
+            "1": 0,
+            "2": 0,
+            "3": 0,
+            "4": 0,
+            "5": 0
+          },
+          "findings_by_source_context": {},
+          "findings_by_source_context_before_filter": {},
+          "flow_agent_attribution_gaps": 0,
+          "flow_agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "flow_execution_contexts": {
+            "agent_tool": 0,
+            "application_support": 0,
+            "cli": 0,
+            "example": 0,
+            "notebook": 0,
+            "runtime": 0,
+            "template-generated": 0,
+            "test": 0,
+            "tutorial": 0,
+            "unknown": 0
+          },
+          "flow_paths": 0,
+          "identities": 0,
+          "mcp_servers": 0,
+          "suppressed_findings": 0,
+          "tools": 2
+        }
+      },
+      "previously_studied": false,
+      "repo": "MKRNaqeebi/GenAlima",
+      "sha": "e237b03c69a80ec69197a3d0532719b66439e7fa",
+      "status": "success"
+    },
+    {
+      "case_id": "rw-115",
+      "comparisons": {
+        "agent_entities": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 2,
+          "tp": 2,
+          "truth": 2,
+          "unadjudicated_predicted": 0
+        },
+        "attack_paths": {
+          "adjudicable": 0,
+          "reported": 0,
+          "source_supported": 0,
+          "unsupported_within_reference": 0
+        },
+        "delegation_edges": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "effective_authority": {
+          "extra_pairs": [],
+          "fn": 0,
+          "fp": 0,
+          "fp_if_complete": 0,
+          "matched_pairs": [],
+          "missing_pairs": [],
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "mcp_servers": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 2,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 2
+        },
+        "tools": {
+          "fn": 8,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 8,
+          "tp": 8,
+          "truth": 16,
+          "unadjudicated_predicted": 0
+        }
+      },
+      "findings": [],
+      "framework": "mcp-custom",
+      "observed": {
+        "analysis_incomplete": true,
+        "attack_paths": 0,
+        "authority_resolution": {},
+        "findings": 0,
+        "findings_by_confidence": {},
+        "findings_by_owasp_agentic": {},
+        "findings_by_rule": {},
+        "findings_by_severity": {},
+        "findings_by_source_context": {},
+        "fully_resolved_on_dynamic_reference": 0,
+        "runtime_findings_by_owasp_agentic": {},
+        "summary": {
+          "adg_edges": 0,
+          "adg_nodes": 12,
+          "agents": 2,
+          "attack_paths": 0,
+          "authority_contract_relationships": 0,
+          "authority_contract_unresolved": 0,
+          "authority_contract_violations": 0,
+          "excluded_findings": 0,
+          "excluded_findings_by_source_context": {},
+          "findings": 0,
+          "findings_by_layer": {
+            "1": 0,
+            "2": 0,
+            "3": 0,
+            "4": 0,
+            "5": 0
+          },
+          "findings_by_source_context": {},
+          "findings_by_source_context_before_filter": {},
+          "flow_agent_attribution_gaps": 0,
+          "flow_agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "flow_execution_contexts": {
+            "agent_tool": 0,
+            "application_support": 0,
+            "cli": 0,
+            "example": 0,
+            "notebook": 0,
+            "runtime": 0,
+            "template-generated": 0,
+            "test": 0,
+            "tutorial": 0,
+            "unknown": 0
+          },
+          "flow_paths": 0,
+          "identities": 0,
+          "mcp_servers": 2,
+          "suppressed_findings": 0,
+          "tools": 8
+        }
+      },
+      "previously_studied": false,
+      "repo": "Meer-Promethean/Voice_Agent",
+      "sha": "f7e94334c253eb058ace3ff23655290b17b7a8ac",
+      "status": "success"
+    },
+    {
+      "case_id": "rw-142",
+      "comparisons": {
+        "agent_entities": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 2,
+          "tp": 2,
+          "truth": 2,
+          "unadjudicated_predicted": 0
+        },
+        "delegation_edges": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "mcp_servers": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "tools": {
+          "fn": 3,
+          "fp": 0,
+          "precision_eligible": false,
+          "precision_tp": 0,
+          "predicted": 2,
+          "tp": 2,
+          "truth": 5,
+          "unadjudicated_predicted": 0
+        }
+      },
+      "findings": [],
+      "framework": "openai-agents",
+      "observed": {
+        "analysis_incomplete": true,
+        "attack_paths": 0,
+        "authority_resolution": {
+          "partially_resolved": 2
+        },
+        "findings": 0,
+        "findings_by_confidence": {},
+        "findings_by_owasp_agentic": {},
+        "findings_by_rule": {},
+        "findings_by_severity": {},
+        "findings_by_source_context": {},
+        "fully_resolved_on_dynamic_reference": 0,
+        "runtime_findings_by_owasp_agentic": {},
+        "summary": {
+          "adg_edges": 3,
+          "adg_nodes": 5,
+          "agents": 2,
+          "attack_paths": 0,
+          "authority_contract_relationships": 0,
+          "authority_contract_unresolved": 0,
+          "authority_contract_violations": 0,
+          "excluded_findings": 0,
+          "excluded_findings_by_source_context": {},
+          "findings": 0,
+          "findings_by_layer": {
+            "1": 0,
+            "2": 0,
+            "3": 0,
+            "4": 0,
+            "5": 0
+          },
+          "findings_by_source_context": {},
+          "findings_by_source_context_before_filter": {},
+          "flow_agent_attribution_gaps": 0,
+          "flow_agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "flow_execution_contexts": {
+            "agent_tool": 0,
+            "application_support": 0,
+            "cli": 0,
+            "example": 0,
+            "notebook": 0,
+            "runtime": 0,
+            "template-generated": 0,
+            "test": 0,
+            "tutorial": 0,
+            "unknown": 0
+          },
+          "flow_paths": 0,
+          "identities": 0,
+          "mcp_servers": 0,
+          "suppressed_findings": 0,
+          "tools": 2
+        }
+      },
+      "previously_studied": false,
+      "repo": "totalhack/zillion",
+      "sha": "d508864b13a942942895936559f538c7f7d246c6",
+      "status": "success"
+    },
+    {
+      "case_id": "rw-178",
+      "comparisons": {
+        "agent_entities": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": true,
+          "precision_tp": 1,
+          "predicted": 1,
+          "tp": 1,
+          "truth": 1,
+          "unadjudicated_predicted": 0
+        },
+        "delegation_edges": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": true,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "mcp_servers": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": true,
+          "precision_tp": 0,
+          "predicted": 0,
+          "tp": 0,
+          "truth": 0,
+          "unadjudicated_predicted": 0
+        },
+        "tools": {
+          "fn": 0,
+          "fp": 0,
+          "precision_eligible": true,
+          "precision_tp": 5,
+          "predicted": 5,
+          "tp": 5,
+          "truth": 5,
+          "unadjudicated_predicted": 0
+        }
+      },
+      "findings": [
+        {
+          "agent": "agent",
+          "assessment": "heuristic_risk",
+          "confidence": null,
+          "default_severity": "high",
+          "evidence": [
+            "capability=process.execute",
+            "approval=None"
+          ],
+          "fingerprint": "arg-v1:ac00d10c9635b53449bc7aac",
+          "layer": 1,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 5,
+            "line": 132,
+            "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-178/src/ai/agent.py"
+          },
+          "message": "Tool 'run_command' can execute processes without an explicit approval requirement.",
+          "provenance": [
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 5,
+                "line": 132,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-178/src/ai/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "run_command"
+            },
+            {
+              "fact": "capability=process.execute",
+              "location": {
+                "column": 5,
+                "line": 132,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-178/src/ai/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "run_command"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 5,
+                "line": 132,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-178/src/ai/agent.py"
+              },
+              "origin": "observed",
+              "subject": "run_command"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 5,
+                "line": 132,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-178/src/ai/agent.py"
+              },
+              "origin": "observed",
+              "subject": "run_command"
+            }
+          ],
+          "recommendation": "Require approval for process execution and run the tool inside a constrained sandbox.",
+          "rule_id": "AGT020",
+          "severity": "high",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI05"
+            ]
+          },
+          "title": "Shell or process execution without approval"
+        },
+        {
+          "agent": "agent",
+          "assessment": "heuristic_risk",
+          "confidence": null,
+          "default_severity": "medium",
+          "evidence": [
+            "capabilities=data.read,process.execute",
+            "authority_relationship=authority-v1:b99e063981ccf052e09c",
+            "approval_resolution=unknown"
+          ],
+          "fingerprint": "arg-v1:445bbd5e66c8e0a27a8f2d1e",
+          "layer": 1,
+          "limitations": [
+            "Runtime authorization and control effectiveness are not verified by this static scan."
+          ],
+          "location": {
+            "column": 5,
+            "line": 132,
+            "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-178/src/ai/agent.py"
+          },
+          "message": "Privileged tool 'run_command' has no detected guardrail or approval configuration.",
+          "provenance": [
+            {
+              "fact": "capability=data.read",
+              "location": {
+                "column": 5,
+                "line": 132,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-178/src/ai/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "run_command"
+            },
+            {
+              "fact": "capability=process.execute",
+              "location": {
+                "column": 5,
+                "line": 132,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-178/src/ai/agent.py"
+              },
+              "origin": "inferred",
+              "subject": "run_command"
+            },
+            {
+              "fact": "approval_configuration=None",
+              "location": {
+                "column": 5,
+                "line": 132,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-178/src/ai/agent.py"
+              },
+              "origin": "observed",
+              "subject": "run_command"
+            },
+            {
+              "fact": "guardrail_hook_detected=False",
+              "location": {
+                "column": 5,
+                "line": 132,
+                "path": "/tmp/horustrace-real-world-baseline-xk4f6g91/rw-178/src/ai/agent.py"
+              },
+              "origin": "observed",
+              "subject": "run_command"
+            }
+          ],
+          "recommendation": "Add tool input/output guardrails and/or explicit approval appropriate to the action.",
+          "rule_id": "AGT040",
+          "severity": "medium",
+          "source_context": "runtime",
+          "standards": {
+            "owasp_agentic": [
+              "ASI02"
+            ]
+          },
+          "title": "Privileged tool lacks explicit guardrail or approval"
+        }
+      ],
+      "framework": "pydantic-ai",
+      "observed": {
+        "analysis_incomplete": false,
+        "attack_paths": 0,
+        "authority_resolution": {
+          "partially_resolved": 5
+        },
+        "findings": 2,
+        "findings_by_confidence": {
+          "unknown": 2
+        },
+        "findings_by_owasp_agentic": {
+          "ASI02": 1,
+          "ASI05": 1
+        },
+        "findings_by_rule": {
+          "AGT020": 1,
+          "AGT040": 1
+        },
+        "findings_by_severity": {
+          "high": 1,
+          "medium": 1
+        },
+        "findings_by_source_context": {
+          "runtime": 2
+        },
+        "fully_resolved_on_dynamic_reference": 0,
+        "runtime_findings_by_owasp_agentic": {
+          "ASI02": 1,
+          "ASI05": 1
+        },
+        "summary": {
+          "adg_edges": 6,
+          "adg_nodes": 7,
+          "agents": 1,
+          "attack_paths": 0,
+          "authority_contract_relationships": 0,
+          "authority_contract_unresolved": 0,
+          "authority_contract_violations": 0,
+          "excluded_findings": 0,
+          "excluded_findings_by_source_context": {},
+          "findings": 2,
+          "findings_by_layer": {
+            "1": 2,
+            "2": 0,
+            "3": 0,
+            "4": 0,
+            "5": 0
+          },
+          "findings_by_source_context": {
+            "runtime": 2
+          },
+          "findings_by_source_context_before_filter": {
+            "runtime": 2
+          },
+          "flow_agent_attribution_gaps": 0,
+          "flow_agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "flow_execution_contexts": {
+            "agent_tool": 0,
+            "application_support": 0,
+            "cli": 0,
+            "example": 0,
+            "notebook": 0,
+            "runtime": 0,
+            "template-generated": 0,
+            "test": 0,
+            "tutorial": 0,
+            "unknown": 0
+          },
+          "flow_paths": 0,
+          "identities": 0,
+          "mcp_servers": 0,
+          "suppressed_findings": 0,
+          "tools": 5
+        }
+      },
+      "previously_studied": false,
+      "repo": "MhankBarBar/zero-ichi",
+      "sha": "e4c4ae87ce7b81009b4dd4bc6e671a512e8d2bd6",
+      "status": "success"
+    }
+  ],
+  "cohort_cases": 5,
+  "execution_failures": [],
+  "execution_mode": "postfix",
+  "findings": {
+    "assertion_precision": null,
+    "assertion_recall": null,
+    "by_confidence": {
+      "potential": 3,
+      "unknown": 8
+    },
+    "by_owasp_agentic": {
+      "ASI01": 3,
+      "ASI02": 8,
+      "ASI05": 3,
+      "ASI07": 1
+    },
+    "by_rule": {
+      "ADK001": 1,
+      "AGT020": 2,
+      "AGT040": 3,
+      "CAP005": 2,
+      "PATH001": 1,
+      "PATH006": 1,
+      "PATH008": 1
+    },
+    "by_severity": {
+      "critical": 1,
+      "high": 4,
+      "medium": 6
+    },
+    "by_source_context": {
+      "runtime": 11
+    },
+    "reason": "source reference is not exhaustive enough to independently adjudicate all rule semantics",
+    "runtime_by_owasp_agentic": {
+      "ASI01": 3,
+      "ASI02": 8,
+      "ASI05": 3,
+      "ASI07": 1
+    },
+    "total": 11
+  },
+  "generalization": {
+    "previously_studied_cases": 0,
+    "previously_unseen_cases": 5,
+    "studied_agent_entities": {
+      "fn": 0,
+      "fp": 0,
+      "precision": null,
+      "precision_complete_cases": 0,
+      "precision_tp": 0,
+      "predicted": 0,
+      "recall": null,
+      "tp": 0,
+      "truth": 0,
+      "unadjudicated_predicted": 0
+    },
+    "studied_effective_authority": {
+      "fn": 0,
+      "fp": 0,
+      "precision": null,
+      "precision_complete_cases": 0,
+      "precision_tp": 0,
+      "predicted": 0,
+      "recall": null,
+      "tp": 0,
+      "truth": 0,
+      "unadjudicated_predicted": 0
+    },
+    "unseen_agent_entities": {
+      "fn": 0,
+      "fp": 0,
+      "precision": 1.0,
+      "precision_complete_cases": 2,
+      "precision_tp": 6,
+      "predicted": 13,
+      "recall": 1.0,
+      "tp": 13,
+      "truth": 13,
+      "unadjudicated_predicted": 0
+    },
+    "unseen_effective_authority": {
+      "fn": 0,
+      "fp": 0,
+      "precision": null,
+      "precision_complete_cases": 0,
+      "precision_tp": 0,
+      "predicted": 0,
+      "recall": null,
+      "tp": 0,
+      "truth": 0,
+      "unadjudicated_predicted": 0
+    }
+  },
+  "metrics": {
+    "agent_entities": {
+      "fn": 0,
+      "fp": 0,
+      "precision": 1.0,
+      "precision_complete_cases": 2,
+      "precision_tp": 6,
+      "predicted": 13,
+      "recall": 1.0,
+      "tp": 13,
+      "truth": 13,
+      "unadjudicated_predicted": 0
+    },
+    "delegation_edges": {
+      "fn": 0,
+      "fp": 2,
+      "precision": 0.5,
+      "precision_complete_cases": 2,
+      "precision_tp": 2,
+      "predicted": 4,
+      "recall": 1.0,
+      "tp": 2,
+      "truth": 2,
+      "unadjudicated_predicted": 0
+    },
+    "effective_authority": {
+      "fn": 0,
+      "fp": 0,
+      "precision": null,
+      "precision_complete_cases": 0,
+      "precision_tp": 0,
+      "predicted": 0,
+      "recall": null,
+      "tp": 0,
+      "truth": 0,
+      "unadjudicated_predicted": 0
+    },
+    "mcp_servers": {
+      "fn": 0,
+      "fp": 0,
+      "precision": null,
+      "precision_complete_cases": 2,
+      "precision_tp": 0,
+      "predicted": 2,
+      "recall": null,
+      "tp": 0,
+      "truth": 0,
+      "unadjudicated_predicted": 2
+    },
+    "tools": {
+      "fn": 11,
+      "fp": 7,
+      "precision": 0.5625,
+      "precision_complete_cases": 2,
+      "precision_tp": 9,
+      "predicted": 28,
+      "recall": 0.6333,
+      "tp": 19,
+      "truth": 30,
+      "unadjudicated_predicted": 2
+    }
+  },
+  "per_framework": {
+    "google-adk": {
+      "agent_entities": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "precision_complete_cases": 1,
+        "precision_tp": 5,
+        "predicted": 5,
+        "recall": 1.0,
+        "tp": 5,
+        "truth": 5,
+        "unadjudicated_predicted": 0
+      },
+      "attack_paths": 3,
+      "cases": 1,
+      "effective_authority": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "findings": 9,
+      "mcp_servers": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 1,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "successful": 1,
+      "tools": {
+        "fn": 0,
+        "fp": 7,
+        "precision": 0.3636,
+        "precision_complete_cases": 1,
+        "precision_tp": 4,
+        "predicted": 11,
+        "recall": 1.0,
+        "tp": 4,
+        "truth": 4,
+        "unadjudicated_predicted": 0
+      }
+    },
+    "langgraph": {
+      "agent_entities": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 3,
+        "recall": 1.0,
+        "tp": 3,
+        "truth": 3,
+        "unadjudicated_predicted": 0
+      },
+      "attack_paths": 0,
+      "cases": 1,
+      "effective_authority": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "findings": 0,
+      "mcp_servers": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "successful": 1,
+      "tools": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 2,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 2
+      }
+    },
+    "mcp-custom": {
+      "agent_entities": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 2,
+        "recall": 1.0,
+        "tp": 2,
+        "truth": 2,
+        "unadjudicated_predicted": 0
+      },
+      "attack_paths": 0,
+      "cases": 1,
+      "effective_authority": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "findings": 0,
+      "mcp_servers": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 2,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 2
+      },
+      "successful": 1,
+      "tools": {
+        "fn": 8,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 8,
+        "recall": 0.5,
+        "tp": 8,
+        "truth": 16,
+        "unadjudicated_predicted": 0
+      }
+    },
+    "openai-agents": {
+      "agent_entities": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 2,
+        "recall": 1.0,
+        "tp": 2,
+        "truth": 2,
+        "unadjudicated_predicted": 0
+      },
+      "attack_paths": 0,
+      "cases": 1,
+      "effective_authority": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "findings": 0,
+      "mcp_servers": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "successful": 1,
+      "tools": {
+        "fn": 3,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 2,
+        "recall": 0.4,
+        "tp": 2,
+        "truth": 5,
+        "unadjudicated_predicted": 0
+      }
+    },
+    "pydantic-ai": {
+      "agent_entities": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "precision_complete_cases": 1,
+        "precision_tp": 1,
+        "predicted": 1,
+        "recall": 1.0,
+        "tp": 1,
+        "truth": 1,
+        "unadjudicated_predicted": 0
+      },
+      "attack_paths": 0,
+      "cases": 1,
+      "effective_authority": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 0,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "findings": 2,
+      "mcp_servers": {
+        "fn": 0,
+        "fp": 0,
+        "precision": null,
+        "precision_complete_cases": 1,
+        "precision_tp": 0,
+        "predicted": 0,
+        "recall": null,
+        "tp": 0,
+        "truth": 0,
+        "unadjudicated_predicted": 0
+      },
+      "successful": 1,
+      "tools": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "precision_complete_cases": 1,
+        "precision_tp": 5,
+        "predicted": 5,
+        "recall": 1.0,
+        "tp": 5,
+        "truth": 5,
+        "unadjudicated_predicted": 0
+      }
+    }
+  },
+  "reference_method": {
+    "automated_dual_pass": true,
+    "human_dual_review": false,
+    "limitations": [
+      "automated source reference is not a substitute for independent human dual adjudication",
+      "precision is reported only where reference completeness is explicitly established",
+      "dynamic/runtime constructs remain unresolved"
+    ],
+    "locked_at": "2026-09-26",
+    "method_version": "source-reference-v1",
+    "summary": {
+      "agent_complete_cases": 72,
+      "assertions": 2091,
+      "cases": 180,
+      "explicit_agent_entities": 692,
+      "explicit_delegation_edges": 85,
+      "explicit_mcp_servers": 22,
+      "explicit_tools": 1115,
+      "fetch_failures": 0
+    }
+  },
+  "scanner_sha": "95885cc341b2900a2ad8eac22db131c700e6701e",
+  "schema_version": 1,
+  "study": "real-world-agent-security-2026",
+  "summary": {
+    "analysis_incomplete_cases": 3,
+    "attack_paths": 3,
+    "failed_cases": 0,
+    "findings": 11,
+    "successful_cases": 5
+  },
+  "thresholds": {
+    "agent_root_precision": {
+      "meets_threshold": true,
+      "threshold": 0.95,
+      "value": 1.0
+    },
+    "agent_root_recall": {
+      "meets_threshold": true,
+      "threshold": 0.9,
+      "value": 1.0
+    },
+    "attack_path_structural_support_precision": {
+      "meets_threshold": false,
+      "note": "proxy over source-adjudicable reported paths; not runtime exploitability",
+      "threshold": 0.8,
+      "value": null
+    },
+    "authority_edge_precision": {
+      "meets_threshold": false,
+      "threshold": 0.9,
+      "value": null
+    },
+    "authority_edge_recall": {
+      "meets_threshold": false,
+      "threshold": 0.8,
+      "value": null
+    }
+  },
+  "tier_c": {
+    "identity_precision": null,
+    "identity_recall": null,
+    "matched_reference_identities": 0,
+    "missed_reference_identities": 0,
+    "note": "reference includes repository-declared workload/deployer identities, not verified live runtime bindings",
+    "observed_identities": 0,
+    "preregistered_target": 25,
+    "reference_identities": 0,
+    "runtime_effectiveness": "not_verified",
+    "selected_cases": 0
+  },
+  "uncertainty": {
+    "authority_resolution": {
+      "partially_resolved": 14
+    },
+    "fully_resolved_relationships_on_dynamic_reference_cases": 0,
+    "reason": "automated source reference cannot prove that every scanner-resolved dimension is unsupported",
+    "unsupported_certainty_rate": null
+  }
+}
