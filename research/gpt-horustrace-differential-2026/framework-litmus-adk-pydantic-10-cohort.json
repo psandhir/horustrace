@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "framework-litmus-adk-pydantic-10",
+  "scanner_base_sha": "36c48f88da2106c367e3a96e2f94432e8ef595ca",
+  "llm_prompt": "research/gpt-horustrace-differential-2026/GPT_SOURCE_REVIEW_PROMPT_V1.md",
+  "selection": {
+    "cases": [
+      {
+        "case_id": "rw-009",
+        "repo": "vivekcommit/Cloud_Architecture_Review",
+        "sha": "16ac50de750de9d4681a501f936184804a819754",
+        "framework": "google-adk"
+      },
+      {
+        "case_id": "rw-017",
+        "repo": "mxyhi/always-on-memory-agent",
+        "sha": "5a92fd6fa34baa2920ac5ec6b1e1ac4def940311",
+        "framework": "google-adk"
+      },
+      {
+        "case_id": "rw-004",
+        "repo": "JoanMarinPages/agentGemini",
+        "sha": "0160690bb47cca17e70ceb8486209d7b1cacaf76",
+        "framework": "google-adk"
+      },
+      {
+        "case_id": "rw-007",
+        "repo": "joshnaim1/ocr-test",
+        "sha": "12a850dec83f04039862fb6ef03e0fc80c462bf3",
+        "framework": "google-adk"
+      },
+      {
+        "case_id": "rw-012",
+        "repo": "namanraina16/morning-wire",
+        "sha": "29529fbf066b30eb0d7c45d1a70b1eda5dfb53dd",
+        "framework": "google-adk"
+      },
+      {
+        "case_id": "rw-155",
+        "repo": "shotgun-sh/shotgun",
+        "sha": "4d344d5a46aafc815de441ff670d4131187f33e6",
+        "framework": "pydantic-ai"
+      },
+      {
+        "case_id": "rw-152",
+        "repo": "kumarvipu1/agentic-ppt-slide",
+        "sha": "2614076f9fbb0cdde10e481918b5177c5c3399c8",
+        "framework": "pydantic-ai"
+      },
+      {
+        "case_id": "rw-147",
+        "repo": "hope-tatenda-mutema/Pedantic-AI-Deep-Research-Agent",
+        "sha": "0369d0675851071e9f2da850951144e2bb022b3f",
+        "framework": "pydantic-ai"
+      },
+      {
+        "case_id": "rw-150",
+        "repo": "Amar-Ag/project-ideation-tool",
+        "sha": "169a9d50841de7cf05bfd5240f9509e0eccd5167",
+        "framework": "pydantic-ai"
+      },
+      {
+        "case_id": "rw-164",
+        "repo": "amscotti/local-LLM-with-RAG",
+        "sha": "832fb9a2970884e61a6ca2eabcfa103b78df4cfb",
+        "framework": "pydantic-ai"
+      }
+    ],
+    "framework_counts": {
+      "google-adk": 5,
+      "pydantic-ai": 5
+    },
+    "note": "Balanced 5+5 framework litmus. Eight cases reuse earlier locked source-only reviews; two are fresh source-only reviews. Target repositories remain pinned to the Frozen-180 SHAs."
+  }
+}
