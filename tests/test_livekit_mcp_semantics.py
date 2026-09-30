@@ -11,6 +11,13 @@ def _write_livekit_fixture(
 ) -> None:
     (tmp_path / "db.py").write_text(
         """
+import sqlite3
+
+DB_PATH = "bank.db"
+
+def get_connection():
+    return sqlite3.connect(DB_PATH)
+
 def db_transfer_funds(from_account: str, to_account: str, amount: float):
     conn = get_connection()
     cursor = conn.cursor()
