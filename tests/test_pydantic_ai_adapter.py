@@ -896,3 +896,55 @@ async def run_command(ctx, command: str) -> str:
         and finding.agent == "agent"
         for finding in findings
     )
+
+
+def test_pydantic_ai_configuration_derived_mcp_toolsets_preserve_bound_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+
+async def get_user_mcp_servers():
+    return []
+
+async def create_agent():
+    user_mcp_servers = await get_user_mcp_servers()
+    mcp_servers = user_mcp_servers or None
+    return Agent("openai:gpt-5.2", toolsets=mcp_servers)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    assert len(agent.mcp_servers) == 1
+    server = agent.mcp_servers[0]
+    assert server.transport == "unknown"
+    assert server.metadata["dynamic_configured_mcp_catalogue"] is True
+    assert server.metadata["configuration_dependent"] is True
+    assert server.metadata["catalogue_source"] == "get_user_mcp_servers"
+    assert agent.metadata["configuration_dependent_mcp_toolsets"] is True
+    assert any(
+        finding.rule_id == "AGT054" and finding.agent == "agent"
+        for finding in findings
+    )
+
+
+def test_pydantic_ai_streamable_http_constructor_is_normalized(tmp_path: Path) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+from pydantic_ai.mcp import MCPServerStreamableHTTP
+
+server = MCPServerStreamableHTTP("https://mcp.example.test")
+agent = Agent("openai:gpt-5.2", toolsets=[server])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    server = agent.mcp_servers[0]
+    assert server.transport == "streamable-http"
+    assert server.url == "https://mcp.example.test"
