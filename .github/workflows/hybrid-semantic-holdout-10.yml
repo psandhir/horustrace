@@ -11,6 +11,7 @@ on:
       - "src/horustrace/scanner.py"
       - "src/horustrace/models.py"
       - "src/horustrace/rules/**"
+      - "tests/test_llm_semantics.py"
 
 permissions:
   contents: write
