@@ -60,6 +60,7 @@ metadata will become available through the CLI in WP02.
 - `DATA001` — broad resource scope.
 - `DATA002` — resource access exceeds declared allowlist.
 - `DATA003` — sensitive data has broad/unconstrained egress reachability.
+- `DATA004` — model-callable mutation of an owner/tenant-scoped object omits the repository's normal ownership check.
 - `NET001` — broad destinations or a possible destination without a detected restriction.
 - `NET002` — outbound capability has no destination constraint.
 - `NET003` — destination exceeds declared network allowlist.
