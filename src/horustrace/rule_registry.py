@@ -86,6 +86,7 @@ RULE_REGISTRY: dict[str, RuleMetadata] = {
         _rule("DATA001", 4, Severity.HIGH, "data", "heuristic_risk", "Broad resource scope", "Broad resource selectors can expose data beyond the intended workload boundary.", "Constrain files, data stores, buckets, or records to the smallest required resource scope."),
         _rule("DATA002", 4, Severity.HIGH, "data", "policy_violation", "Resource access exceeds declared allowlist", "The agent can reach resources outside its declared allowlist.", "Narrow tool and resource configuration to the declared resource boundary."),
         _rule("DATA003", 4, Severity.CRITICAL, "data", "heuristic_risk", "Sensitive data has broad egress reachability", "Sensitive data combined with broad or unconstrained outbound capability creates potential exposure.", "Restrict outbound destinations and require approval or DLP controls before sensitive data leaves the trust boundary."),
+        _rule("DATA004", 4, Severity.MEDIUM, "authorization", "policy_violation", "Model-callable object mutation bypasses owner scope", "A model-callable tool can select and mutate an owner-scoped object by identifier without the owner check enforced by the repository's normal application path.", "Carry the authenticated principal into the tool boundary and scope object lookup/mutation to the authorized owner or tenant."),
         _rule("NET001", 4, Severity.HIGH, "network", "heuristic_risk", "Outbound reachability lacks a detected restriction", "Broad or unrestrained destinations can allow data to leave the intended trust boundary.", "Use egress allowlists or proxies and restrict outbound connectivity to required hosts."),
         _rule("NET002", 4, Severity.MEDIUM, "network", "heuristic_risk", "Outbound capability has no destination constraint", "An outbound-capable agent without a declared destination constraint has unknown egress scope.", "Declare and enforce permitted destinations for outbound tools."),
         _rule("NET003", 4, Severity.HIGH, "network", "policy_violation", "Network destination exceeds declared allowlist", "The agent can reach a destination outside its declared network allowlist.", "Restrict tool and MCP egress to the approved destination set."),
@@ -103,6 +104,7 @@ RULE_REGISTRY: dict[str, RuleMetadata] = {
         _rule("PATH011", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential untrusted-input path to server-side URL fetch", "Source-bound untrusted input reaches an agent with a model-selected URL parameter that is passed to a direct server-side HTTP client without a detected destination restriction.", "Restrict server-side fetch tools to approved schemes and destinations, block private/link-local address ranges as appropriate, validate redirects, and require explicit controls for sensitive fetches."),
         _rule("PATH012", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential indirect tool-content path to unconstrained filesystem access", "Source-proven local or repository content can re-enter the model context while the same effective agent can select filesystem paths that reach read/write sinks without detected containment.", "Treat tool-returned repository content as untrusted model input and enforce resolved-path containment for every model-selected filesystem read/write tool."),
         _rule("PATH013", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential user-selected server directory exposure through RAG", "A user-selected server-side directory can be recursively ingested into a RAG corpus and retrieved through the same effective agent without a detected filesystem containment boundary.", "Constrain document roots to an approved base directory, enforce resolved-path containment before indexing, authenticate the application surface, and limit retrieval scope to intended documents."),
+        _rule("PATH014", 5, Severity.MEDIUM, "attack_path", "potential_risk", "Potential model-driven cross-owner object mutation", "Source-bound user input reaches an agent with a model-callable object mutation that omits the owner-scoping check enforced by the repository's normal application path.", "Carry the authenticated principal into the tool boundary and enforce owner/tenant scoping before every model-driven object mutation."),
     )
 }
 
@@ -167,6 +169,7 @@ _OWASP_MAPPINGS = {
     "PATH011": ("ASI01", "ASI02"),
     "PATH012": ("ASI01", "ASI02", "ASI06"),
     "PATH013": ("ASI02",),
+    "PATH014": ("ASI01", "ASI02", "ASI03"),
     "NET004": ("ASI02",),
 }
 
