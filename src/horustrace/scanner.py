@@ -75,6 +75,7 @@ from horustrace.registry_config import (
 from horustrace.repository_tool_semantics import enrich_indirect_tool_content_semantics
 from horustrace.rules.builtin import evaluate
 from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
+from horustrace.runtime_viability import annotate_runtime_viability
 from horustrace.semantics import annotate_risk_semantics
 from horustrace.source_context import classify_source_context, path_parts_match
 from horustrace.source_provenance import annotate_tool_source_provenance
@@ -2327,6 +2328,11 @@ def scan(
         analysis_root,
         approved_python_paths,
     )
+    annotate_runtime_viability(
+        graph,
+        analysis_root,
+        approved_python_paths,
+    )
     enrich_streamlit_rag_directory_semantics(
         graph,
         analysis_root,
@@ -2447,8 +2453,61 @@ def scan(
         for path in build_attack_paths(graph)
         if path.agent not in non_model_langgraph_agents
     ]
+    for path in graph.attack_paths:
+        candidates = [
+            agent
+            for agent in graph.agents
+            if agent.name == path.agent
+            and agent.metadata.get("runtime_viability") == "blocked_by_source_error"
+            and (
+                path.location is None
+                or agent.location is None
+                or path.location.path.resolve() == agent.location.path.resolve()
+            )
+        ]
+        if len(candidates) == 1:
+            path.metadata["runtime_viability"] = "blocked_by_source_error"
+            path.metadata["runtime_blockers"] = list(
+                candidates[0].metadata.get("runtime_blockers") or []
+            )
+            path.metadata.setdefault(
+                "runtime_limitation",
+                "Declared static authority is source-proven, but live runtime reachability is blocked by the pinned source error.",
+            )
     graph.adg = build_adg(graph, analysis_root)
     findings = _filter_non_model_langgraph_findings(graph, evaluate(graph))
+    for finding in findings:
+        candidates = [
+            agent
+            for agent in graph.agents
+            if agent.name == finding.agent
+            and agent.metadata.get("runtime_viability") == "blocked_by_source_error"
+            and (
+                finding.location is None
+                or agent.location is None
+                or finding.location.path.resolve() == agent.location.path.resolve()
+            )
+        ]
+        if len(candidates) != 1:
+            continue
+        blockers = list(candidates[0].metadata.get("runtime_blockers") or [])
+        if "runtime_viability=blocked_by_source_error" not in finding.evidence:
+            finding.evidence.append("runtime_viability=blocked_by_source_error")
+        limitation = (
+            "Declared static authority is retained, but the pinned source has an "
+            "initialization/import blocker; live runtime reachability is not proven."
+        )
+        if limitation not in finding.limitations:
+            finding.limitations.append(limitation)
+        if blockers:
+            finding.evidence.append(
+                "runtime_blockers="
+                + ",".join(
+                    str(item.get("kind") or "source_error")
+                    for item in blockers
+                    if isinstance(item, dict)
+                )
+            )
     for finding in findings:
         finding.source_context = classify_source_context(
             finding.location.path if finding.location else None
