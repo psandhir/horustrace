@@ -656,3 +656,60 @@ class ResearchAgent:
     )
     assert agent.name == "self.agent"
     assert [tool.name for tool in agent.tools] == ["search_documents"]
+
+
+def test_pydantic_ai_streamlit_input_reaches_wrapped_agent_run(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "src"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+
+class ResearchAgent:
+    def __post_init__(self):
+        self.agent = Agent("openai:gpt-5.2")
+
+    def get_streaming_chat_handler(self):
+        def chat_stream(question: str):
+            return self.agent.run_stream_sync(question)
+        return chat_stream
+
+def create_research_agent():
+    return ResearchAgent()
+""",
+        encoding="utf-8",
+    )
+    (package / "app.py").write_text(
+        """
+import streamlit as st
+from src.agent import create_research_agent
+
+st.session_state.agent = create_research_agent()
+
+if prompt := st.chat_input("Question"):
+    stream = st.session_state.agent.get_streaming_chat_handler()(prompt)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "pydantic-ai"
+    )
+    ingress = next(
+        item
+        for item in agent.inputs
+        if item.metadata.get("basis")
+        == "repository_pydantic_streamlit_wrapper_to_run"
+    )
+
+    assert agent.name == "self.agent"
+    assert ingress.trust == "untrusted"
+    assert ingress.kind == "web"
+    assert ingress.metadata["runtime_invocation_proven"] is True
+    assert ingress.metadata["wrapper_method"] == "get_streaming_chat_handler"
