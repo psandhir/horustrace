@@ -269,6 +269,20 @@ def _function_http_url_semantics(
         return [], {}
 
     tainted = set(params)
+    taint_origins: dict[str, set[str]] = {
+        parameter: {parameter}
+        for parameter in params
+    }
+
+    def _origins(expr: ast.AST | None) -> set[str]:
+        if expr is None:
+            return set()
+        result: set[str] = set()
+        for child in ast.walk(expr):
+            if isinstance(child, ast.Name):
+                result.update(taint_origins.get(child.id, set()))
+        return result
+
     assignments = [
         child
         for child in ast.walk(node)
@@ -283,17 +297,25 @@ def _function_http_url_semantics(
     for _ in range(8):
         changed = False
         for assignment in assignments:
-            if not _expr_uses_names(assignment.value, tainted):
+            origins = _origins(assignment.value)
+            if not origins:
                 continue
             for name in _target_names(assignment):
-                if name not in tainted:
+                previous = set(taint_origins.get(name, set()))
+                combined = previous | origins
+                if combined != previous:
+                    taint_origins[name] = combined
                     tainted.add(name)
                     changed = True
         for loop in loops:
-            if not _expr_uses_names(loop.iter, tainted):
+            origins = _origins(loop.iter)
+            if not origins:
                 continue
             for name in _target_names(loop.target):
-                if name not in tainted:
+                previous = set(taint_origins.get(name, set()))
+                combined = previous | origins
+                if combined != previous:
+                    taint_origins[name] = combined
                     tainted.add(name)
                     changed = True
         if not changed:
@@ -375,11 +397,10 @@ def _function_http_url_semantics(
         if target is None or not _expr_uses_names(target, tainted):
             continue
 
-        selected = {
-            child.id
-            for child in ast.walk(target)
-            if isinstance(child, ast.Name) and child.id in params
-        }
+        selected: set[str] = set()
+        for child in ast.walk(target):
+            if isinstance(child, ast.Name):
+                selected.update(taint_origins.get(child.id, set()))
         parameters.update(selected)
         follows_redirects = follows_redirects or http_clients.get(
             receiver_root, False
