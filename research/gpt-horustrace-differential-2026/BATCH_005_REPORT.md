@@ -10,6 +10,8 @@ The locked artifacts are carried into this publication by their original Git blo
 - GPT source review: `2bf86b770ff0dcd7394247e068dd9d68be0c5d7c`
 - scanner result: `7c328c1a0c99d016330af319d698bb468e925879`
 - scanner Markdown summary: `328832b4e9a93cb30580b698868bc5e44a5ed974`
+- corrected post-repair scanner result: `a9ab53d638aed988dd005007378fcfc92e7c5339`
+- corrected post-repair Markdown summary: `d903e628ca2aed17e103bb2673cbce037da5be58`
 
 The source review explicitly records that case-specific HorusTrace findings were not inspected before the GPT review was locked.
 
