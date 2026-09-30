@@ -129,18 +129,43 @@ def _identity_findings(identity: Identity, agent: str | None = None) -> list[Fin
     return findings
 
 
+def _agent_instance_key(agent: object) -> str:
+    metadata = getattr(agent, "metadata", {}) or {}
+    configured = metadata.get("instance_key") if isinstance(metadata, dict) else None
+    if isinstance(configured, str) and configured:
+        return configured
+    location = getattr(agent, "location", None)
+    name = str(getattr(agent, "name", "agent"))
+    if location is not None:
+        return (
+            f"{name}:{location.path.resolve()}:"
+            f"{location.line}:{location.column}"
+        )
+    return name
+
+
 def evaluate(graph: Graph) -> list[Finding]:
     findings: list[Finding] = []
     authority_relationships = effective_authority_relationships(graph)
     authority_by_key = {
-        (item.agent, item.target_kind, item.target_name): item
+        (
+            item.agent,
+            item.agent_instance_key,
+            item.target_kind,
+            item.target_name,
+        ): item
         for item in authority_relationships
     }
     mcp_authority_by_object: dict[int, object] = {}
     for authority_agent in graph.agents:
         for authority_server in authority_agent.mcp_servers:
             relationship = authority_by_key.get(
-                (authority_agent.name, "mcp_server", authority_server.name)
+                (
+                    authority_agent.name,
+                    _agent_instance_key(authority_agent),
+                    "mcp_server",
+                    authority_server.name,
+                )
             )
             if relationship is not None:
                 mcp_authority_by_object[id(authority_server)] = relationship
@@ -153,7 +178,12 @@ def evaluate(graph: Graph) -> list[Finding]:
         )
         for tool in agent.tools:
             tool_authority = authority_by_key.get(
-                (agent.name, "tool", tool.name)
+                (
+                    agent.name,
+                    _agent_instance_key(agent),
+                    "tool",
+                    tool.name,
+                )
             )
             if (
                 tool_authority is not None
@@ -658,7 +688,10 @@ def evaluate(graph: Graph) -> list[Finding]:
         if "process.execute" in caps and "network.external" in caps:
             findings.append(Finding("CAP004", Severity.HIGH, "Command execution combined with external network access", f"Agent '{agent.name}' can execute processes and reach external networks.", "Sandbox execution and restrict egress to an explicit destination allowlist.", layer=2, location=agent.location, agent=agent.name, evidence=["process.execute", "network.external"]))
         agent_authorities = [
-            item for item in authority_relationships if item.agent == agent.name
+            item
+            for item in authority_relationships
+            if item.agent == agent.name
+            and item.agent_instance_key == _agent_instance_key(agent)
         ]
         read_authorities = [
             item for item in agent_authorities if "data.read" in item.capabilities
@@ -743,7 +776,12 @@ def evaluate(graph: Graph) -> list[Finding]:
                 for tool in realtime_mutations
                 if (
                     relationship := authority_by_key.get(
-                        (agent.name, "tool", tool.name)
+                        (
+                            agent.name,
+                            _agent_instance_key(agent),
+                            "tool",
+                            tool.name,
+                        )
                     )
                 )
                 is not None
@@ -867,6 +905,7 @@ def evaluate(graph: Graph) -> list[Finding]:
                 item
                 for item in authority_relationships
                 if item.agent == agent.name
+                and item.agent_instance_key == _agent_instance_key(agent)
                 and {"network.external", "external.write"} & set(item.capabilities)
             ]
             unresolved_destination_authorities = [
@@ -944,7 +983,14 @@ def evaluate(graph: Graph) -> list[Finding]:
         for tool in agent.tools:
             if tool.metadata.get("object_authorization_boundary_bypass") is not True:
                 continue
-            tool_authority = authority_by_key.get((agent.name, "tool", tool.name))
+            tool_authority = authority_by_key.get(
+                (
+                    agent.name,
+                    _agent_instance_key(agent),
+                    "tool",
+                    tool.name,
+                )
+            )
             findings.append(
                 Finding(
                     "DATA004",
