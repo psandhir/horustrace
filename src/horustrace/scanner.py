@@ -31,7 +31,6 @@ from horustrace.coverage import add_diagnostic, diagnose_dynamic_constructs, dia
 from horustrace.entrypoint_provenance import annotate_flow_entrypoints
 from horustrace.flow import analyze_repository_flows
 from horustrace.heuristics import PRIVILEGED_CAPABILITIES
-from horustrace.livekit_semantics import enrich_livekit_mcp_mutation_semantics
 from horustrace.limits import (
     MAX_FILE_SIZE_BYTES,
     MAX_FILES_VISITED,
@@ -41,6 +40,7 @@ from horustrace.limits import (
     validate_json_safety,
     validate_yaml_safety,
 )
+from horustrace.livekit_semantics import enrich_livekit_mcp_mutation_semantics
 from horustrace.mcp_authority import reconstruct_mcp_authority
 from horustrace.mcp_context import (
     reconstruct_mcp_context,
