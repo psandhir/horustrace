@@ -696,16 +696,32 @@ def evaluate(graph: Graph) -> list[Finding]:
         read_authorities = [
             item for item in agent_authorities if "data.read" in item.capabilities
         ]
+        internal_write_tools = {
+            tool.name
+            for tool in agent.tools
+            if tool.metadata.get("agent_internal_artifact") is True
+            or tool.metadata.get("agent_internal_state") is True
+        }
         write_authorities = [
             item
             for item in agent_authorities
             if {"data.write", "destructive.write"} & set(item.capabilities)
+            and not (
+                item.target_kind == "tool"
+                and item.target_name in internal_write_tools
+            )
         ]
         authority_confirms_read_write = bool(read_authorities and write_authorities)
-        legacy_read_write = (
-            "data.read" in caps
-            and ("data.write" in caps or "destructive.write" in caps)
+        effective_legacy_write = any(
+            {"data.write", "destructive.write"} & tool.capabilities
+            and tool.metadata.get("agent_internal_artifact") is not True
+            and tool.metadata.get("agent_internal_state") is not True
+            for tool in agent.tools
+        ) or any(
+            source.capability in {"data.write", "destructive.write"}
+            for source in agent.data_sources
         )
+        legacy_read_write = "data.read" in caps and effective_legacy_write
         if authority_confirms_read_write or legacy_read_write:
             linked = sorted(
                 {
