@@ -1,0 +1,103 @@
+name: GPT Differential Batch 005 Post-Fix Scan V2
+
+on:
+  push:
+    branches:
+      - research/gpt-differential-batch-005-postfix-v2-v2
+    paths:
+      - ".github/workflows/gpt-differential-batch-005-postfix-v2-v2.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gpt-differential-batch-005-postfix-v2
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: Scan repaired Batch 005 cases
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SCANNER_SHA: 3134564b73da9f6e45b5297a95dcc196e17ea87d
+      SOURCE_ROOT: research/real-world-agent-security-2026
+      OUT_ROOT: research/gpt-horustrace-differential-2026
+    steps:
+      - name: Check out post-fix branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+
+      - name: Install exact repaired scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=/tmp/horustrace-batch5-postfix-src
+          VENV=/tmp/horustrace-batch5-postfix-venv
+          git init -q "$SRC"
+          git -C "$SRC" remote add origin https://github.com/psandhir/horustrace.git
+          git -C "$SRC" fetch --quiet --depth=1 origin "$SCANNER_SHA"
+          git -C "$SRC" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "$SRC" rev-parse HEAD)" = "$SCANNER_SHA"
+          python -m venv "$VENV"
+          "$VENV/bin/pip" install --disable-pip-version-check "$SRC"
+          "$VENV/bin/horustrace" --version
+
+      - name: Build locked five-case cohort
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, shutil
+          from pathlib import Path
+
+          source = Path("research/real-world-agent-security-2026")
+          target = Path("/tmp/horustrace-batch-005-postfix")
+          target.mkdir(parents=True, exist_ok=True)
+          cohort = json.loads((source / "cohort.json").read_text())
+          wanted = {"rw-029", "rw-074", "rw-115", "rw-142", "rw-178"}
+          selected = [case for case in cohort["cases"] if case["case_id"] in wanted]
+          assert {case["case_id"] for case in selected} == wanted
+          subset = dict(cohort)
+          subset["cases"] = selected
+          subset["tier_c_case_ids"] = [
+              case_id for case_id in cohort.get("tier_c_case_ids", [])
+              if case_id in wanted
+          ]
+          (target / "cohort.json").write_text(json.dumps(subset, indent=2) + "\n")
+          for case in selected:
+              rel = Path(case["ground_truth"])
+              (target / rel).parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(source / rel, target / rel)
+          print("post-fix cohort:", ", ".join(case["case_id"] for case in selected))
+          PY
+
+      - name: Scan repaired Batch 005
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_security_execute.py \
+            --root /tmp/horustrace-batch-005-postfix \
+            --mode postfix \
+            --scanner /tmp/horustrace-batch5-postfix-venv/bin/horustrace \
+            --scanner-sha "$SCANNER_SHA" \
+            --workers 5 \
+            --output-json "$OUT_ROOT/batch-005-postfix-v2-scanner-result.json" \
+            --output-markdown "$OUT_ROOT/batch-005-postfix-v2-scanner-result.md"
+          cat "$OUT_ROOT/batch-005-postfix-v2-scanner-result.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit post-fix scanner result
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "horustrace-study-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add "$OUT_ROOT/batch-005-postfix-v2-scanner-result.json" "$OUT_ROOT/batch-005-postfix-v2-scanner-result.md"
+          git commit -m "research: record Batch 005 post-fix scan"
+          git push origin HEAD:research/gpt-differential-batch-005-postfix-v2-v2
