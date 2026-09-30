@@ -12,9 +12,10 @@ import hashlib
 import json
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from urllib import error, parse, request
 
 from horustrace.heuristics import HIGH_RISK_CAPABILITIES
