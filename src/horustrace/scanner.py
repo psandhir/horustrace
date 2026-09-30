@@ -2215,7 +2215,6 @@ def scan(
         python_paths=approved_python_paths,
     )
     _consolidate_agents(graph)
-    _propagate_adk_delegation(graph)
     resolve_imported_mcp_placeholders(
         graph,
         root if root.is_dir() else root.parent,
@@ -2259,6 +2258,10 @@ def scan(
         root if root.is_dir() else root.parent,
         approved_python_paths,
     )
+    # Delegation projection must run after imported tool provenance and source
+    # semantics are resolved. Otherwise parent agents inherit stale generic
+    # network/write capabilities and lose child destination/control constraints.
+    _propagate_adk_delegation(graph)
     enrich_public_realtime_mcp_authority(
         graph,
         root if root.is_dir() else root.parent,
