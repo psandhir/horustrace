@@ -853,3 +853,58 @@ root_agent = Agent(
     assert any(f.rule_id == "DATA001" for f in findings)
     assert not any(f.rule_id == "PATH010" for f in findings)
     assert not any(item.path_id == "PATH010" for item in graph.attack_paths)
+
+
+def test_adk_provider_managed_code_executor_is_not_host_process_authority(
+    tmp_path: Path,
+) -> None:
+    write(tmp_path, '''
+from google.adk import Agent
+from google.adk.code_executors import BuiltInCodeExecutor
+
+root_agent = Agent(
+    name="auditor",
+    model="gemini-flash-latest",
+    code_executor=BuiltInCodeExecutor(),
+)
+''')
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "auditor")
+    executor = next(item for item in agent.tools if item.kind == "adk_code_executor")
+
+    assert executor.metadata["execution_boundary"] == "provider-managed"
+    assert executor.capabilities == {"provider.code.execute"}
+    assert "process.execute" not in agent.capabilities
+    assert not any(
+        finding.rule_id in {"AGT020", "CAP005", "PATH001", "PATH006", "PATH008"}
+        for finding in findings
+    )
+
+
+def test_adk_policy_read_name_does_not_imply_identity_admin(
+    tmp_path: Path,
+) -> None:
+    write(tmp_path, '''
+from google.adk import Agent
+from google.adk.tools import FunctionTool
+
+def check_company_policy(topic: str) -> str:
+    return "Travel policy: economy class."
+
+policy = FunctionTool(check_company_policy)
+root_agent = Agent(
+    name="policy_helper",
+    model="gemini-flash-latest",
+    tools=[policy],
+)
+''')
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "policy_helper")
+    tool = next(item for item in agent.tools if item.name == "check_company_policy")
+
+    assert "identity.admin" not in tool.capabilities
+    assert not any(
+        finding.rule_id in {"AGT040", "ADK001"}
+        and finding.agent == "policy_helper"
+        for finding in findings
+    )
