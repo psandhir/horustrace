@@ -763,6 +763,40 @@ def enrich_indirect_tool_content_semantics(
             tool.metadata["filesystem_semantics_basis"] = (
                 "source_function_and_local_helper"
             )
+
+            if (
+                semantics.path_parameters
+                and semantics.constrained is False
+                and not any(
+                    resource.kind == "file"
+                    and resource.metadata.get("model_selected_path") is True
+                    for resource in tool.resources
+                )
+            ):
+                access: set[str] = set()
+                if "read" in semantics.accesses:
+                    access.add("data.read")
+                if "write" in semantics.accesses:
+                    write_capabilities = tool.capabilities & {
+                        "data.write",
+                        "destructive.write",
+                    }
+                    access.update(write_capabilities or {"data.write"})
+                tool.resources.append(
+                    ResourceScope(
+                        kind="file",
+                        selector="<model-selected-path>",
+                        access=access,
+                        location=tool.location,
+                        metadata={
+                            "model_selected_path": True,
+                            "path_parameters": sorted(semantics.path_parameters),
+                            "path_containment": "not_detected",
+                            "basis": "source_function_and_local_helper",
+                        },
+                    )
+                )
+
             if semantics.returns_file_content and "read" in semantics.accesses:
                 tool.metadata["returns_local_file_content"] = True
                 content_sources.append(tool)
