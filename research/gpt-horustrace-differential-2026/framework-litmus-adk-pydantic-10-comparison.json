@@ -1,0 +1,308 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "framework-litmus-adk-pydantic-10",
+  "methodology": {
+    "llm_prompt": "research/gpt-horustrace-differential-2026/GPT_SOURCE_REVIEW_PROMPT_V1.md",
+    "llm_review": "research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-review.json",
+    "scanner_reveal": "research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-scanner.json",
+    "scanner_code_base_sha": "36c48f88da2106c367e3a96e2f94432e8ef595ca",
+    "note": "GPT is a differential oracle, not ground truth. Eight source reviews were reused unchanged from earlier locked blind batches; rw-009 and rw-155 were locked before this targeted current-main scanner reveal."
+  },
+  "summary": {
+    "cases": 10,
+    "framework_counts": {
+      "google-adk": 5,
+      "pydantic-ai": 5
+    },
+    "gpt_semantic_findings": 12,
+    "full_semantic_matches": 6,
+    "partial_semantic_matches": 4,
+    "missed_semantic_findings": 2,
+    "full_coverage_rate": 0.5,
+    "covered_or_partial_rate": 0.8333,
+    "gpt_source_supported_paths": 9,
+    "path_full_matches": 5,
+    "path_partial_matches": 2,
+    "path_misses": 2,
+    "path_full_coverage_rate": 0.5556,
+    "path_covered_or_partial_rate": 0.7778,
+    "horustrace_reported_attack_paths": 9,
+    "unsupported_horustrace_paths": 1,
+    "horustrace_findings": 62,
+    "note": "Raw HorusTrace finding count is not a precision/recall metric because several rules can represent one semantic condition."
+  },
+  "frameworks": {
+    "google-adk": {
+      "cases": 5,
+      "gpt_semantic_findings": 5,
+      "covered": 3,
+      "partial": 2,
+      "missed": 0,
+      "full_coverage_rate": 0.6,
+      "covered_or_partial_rate": 1,
+      "precision_controls": 2,
+      "precision_controls_passed": 1,
+      "source_paths": 3,
+      "path_full": 1,
+      "path_partial": 2,
+      "path_missed": 0,
+      "key_result": "Strong semantic recall on explicit ADK authority; destination-scope precision and auth/runtime qualification remain the main weaknesses."
+    },
+    "pydantic-ai": {
+      "cases": 5,
+      "gpt_semantic_findings": 7,
+      "covered": 3,
+      "partial": 2,
+      "missed": 2,
+      "full_coverage_rate": 0.4286,
+      "covered_or_partial_rate": 0.7143,
+      "source_paths": 6,
+      "path_full": 4,
+      "path_partial": 0,
+      "path_missed": 2,
+      "key_result": "Strong on direct code execution, direct SSRF and RAG file exposure; misses dynamically configured MCP toolsets and second-order search-result destination provenance."
+    }
+  },
+  "cases": [
+    {
+      "case_id": "rw-009",
+      "framework": "google-adk",
+      "outcome": "scanner_precision_gap",
+      "gpt_findings": [],
+      "gpt_attack_paths": [],
+      "horustrace_rules": [
+        "NET002",
+        "PATH009"
+      ],
+      "horustrace_attack_paths": 1,
+      "adjudication": "Source proves the model can select the GitHub owner/repository path, but fetch_iac_files always sends requests to api.github.com and performs read-only repository retrieval. HorusTrace preserves the standalone MCP servers as unbound, which is correct, but loses the fixed-provider destination predicate and upgrades the GitHub read helper to unrestricted external egress. Both NET002 findings and PATH009 therefore overstate destination authority.",
+      "gap_family": "fixed_provider_destination_lost_through_helper_and_delegation",
+      "priority": "P0"
+    },
+    {
+      "case_id": "rw-017",
+      "framework": "google-adk",
+      "outcome": "mostly_covered_auth_predicate_gap",
+      "alignments": [
+        {
+          "finding_id": "gpt-rw-017-01",
+          "coverage": "partial",
+          "matched_rules": [
+            "PATH002"
+          ],
+          "rationale": "Current scanner now composes ingress -> orchestrator -> specialist -> persistent write, closing the earlier path-composition miss, but it does not preserve the specific public-default condition MEMORY_API_KEYS empty / unauthenticated endpoint."
+        },
+        {
+          "finding_id": "gpt-rw-017-02",
+          "coverage": "covered",
+          "matched_rules": [
+            "ADK001",
+            "AGT040"
+          ],
+          "rationale": "Persistent data-write authority without an explicit approval/control boundary is represented."
+        },
+        {
+          "finding_id": "gpt-rw-017-03",
+          "coverage": "covered",
+          "matched_rules": [
+            "CAP005",
+            "AGT040"
+          ],
+          "rationale": "Delegated read/write authority is represented."
+        }
+      ],
+      "gpt_attack_paths": 2,
+      "horustrace_attack_paths": 2,
+      "path_alignment": "partial",
+      "gap_family": "authentication_predicate_not_preserved_in_ingress_path",
+      "priority": "P1"
+    },
+    {
+      "case_id": "rw-004",
+      "framework": "google-adk",
+      "outcome": "partial_runtime_qualification_gap",
+      "alignments": [
+        {
+          "finding_id": "gpt-rw-004-01",
+          "coverage": "partial",
+          "matched_rules": [
+            "ADK001",
+            "AGT040",
+            "CAP005"
+          ],
+          "rationale": "Declared state-changing ADK authority is detected, but the finding layer does not qualify the pinned source import/module blockers that prevent treating the declared authority as source-proven runnable."
+        }
+      ],
+      "gpt_attack_paths": 0,
+      "horustrace_attack_paths": 0,
+      "gap_family": "runtime_viability_qualification",
+      "priority": "P1"
+    },
+    {
+      "case_id": "rw-007",
+      "framework": "google-adk",
+      "outcome": "covered",
+      "alignments": [
+        {
+          "finding_id": "gpt-rw-007-01",
+          "coverage": "covered",
+          "matched_rules": [
+            "PATH010",
+            "DATA001"
+          ],
+          "rationale": "PATH010 reconstructs the model-selected local-file read through the ADK tool into Google Document AI; DATA001 separately identifies the broad file resource scope."
+        }
+      ],
+      "gpt_attack_paths": 1,
+      "horustrace_attack_paths": 1,
+      "path_alignment": "covered",
+      "gap_family": null,
+      "priority": null
+    },
+    {
+      "case_id": "rw-012",
+      "framework": "google-adk",
+      "outcome": "agreement_precision_control",
+      "gpt_findings": [],
+      "gpt_attack_paths": [],
+      "horustrace_rules": [],
+      "horustrace_attack_paths": 0,
+      "adjudication": "The model-callable briefing authority remains scoped and the network destination is fixed; scheduler/delivery authority is application-only. HorusTrace correctly stays quiet.",
+      "gap_family": null,
+      "priority": null
+    },
+    {
+      "case_id": "rw-155",
+      "framework": "pydantic-ai",
+      "outcome": "missed_mcp_authority_plus_precision_noise",
+      "alignments": [
+        {
+          "finding_id": "gpt-rw-155-01",
+          "coverage": "missed",
+          "matched_rules": [],
+          "rationale": "Source explicitly builds MCPServerStdio/MCPServerStreamableHTTP from local configuration and passes the resulting servers as Pydantic AI toolsets to Router and specialist agents. HorusTrace reports zero MCP servers/references for the repository and no equivalent dynamic-MCP authority claim."
+        }
+      ],
+      "gpt_attack_paths": 0,
+      "horustrace_attack_paths": 0,
+      "scanner_observations": [
+        "HorusTrace emits 23 findings: 20 runtime-source and 3 test-source. Test findings are correctly source-context tagged rather than silently counted as runtime.",
+        "Native codebase_shell really does call subprocess with model-selected allowlisted command/args, so process execution is not invented; however the command allowlist/injection controls are not reflected in the severity claim.",
+        "Several generic data-write/destructive findings represent .shotgun-scoped artifact or internal plan-state mutation and lose the source-visible confinement/control semantics.",
+        "All findings use the generic principal name 'agent', and AGT040/CAP005 duplicate more specific capabilities, producing substantial semantic noise."
+      ],
+      "gap_family": "pydantic_dynamic_configured_mcp_toolsets_not_discovered",
+      "priority": "P0"
+    },
+    {
+      "case_id": "rw-152",
+      "framework": "pydantic-ai",
+      "outcome": "mixed_strong_code_exec_partial_network_and_file_scope",
+      "alignments": [
+        {
+          "finding_id": "gpt-rw-152-01",
+          "coverage": "covered",
+          "matched_rules": [
+            "PATH001"
+          ],
+          "rationale": "Three concrete compile/exec flows are reconstructed at critical severity. Runtime initialization remains separately unqualified."
+        },
+        {
+          "finding_id": "gpt-rw-152-02",
+          "coverage": "partial",
+          "matched_rules": [
+            "NET002"
+          ],
+          "rationale": "Outbound authority is recognized, but the specific model-selected URL -> WebBaseLoader flow is not reconstructed and severity is reduced to medium."
+        },
+        {
+          "finding_id": "gpt-rw-152-03",
+          "coverage": "partial",
+          "matched_rules": [
+            "AGT022",
+            "AGT040",
+            "CAP005"
+          ],
+          "rationale": "Model-callable write authority is detected, but the model-controlled filename/path scope is not represented precisely."
+        }
+      ],
+      "gpt_attack_paths": 3,
+      "horustrace_attack_paths": 3,
+      "path_adjudication": {
+        "full": 2,
+        "partial": 0,
+        "missed": 1,
+        "note": "The three HorusTrace paths are concrete code-execution variants; they semantically cover the two GPT code-execution chains, while the GPT model-selected URL chain remains absent."
+      },
+      "gap_family": "pydantic_destination_and_resource_scope_plus_runtime_viability",
+      "priority": "P1"
+    },
+    {
+      "case_id": "rw-147",
+      "framework": "pydantic-ai",
+      "outcome": "missed_second_order_network_destination",
+      "alignments": [
+        {
+          "finding_id": "gpt-rw-147-01",
+          "coverage": "missed",
+          "matched_rules": [],
+          "rationale": "Model-selected research terms influence DuckDuckGo results whose href values are passed to requests.get without an allowlist. The model does not directly supply the URL, but this second-order destination provenance is still broader than a fixed provider endpoint. HorusTrace emits no network finding."
+        }
+      ],
+      "gpt_attack_paths": 1,
+      "horustrace_attack_paths": 0,
+      "gap_family": "search_result_derived_dynamic_destination",
+      "priority": "P1"
+    },
+    {
+      "case_id": "rw-150",
+      "framework": "pydantic-ai",
+      "outcome": "covered",
+      "alignments": [
+        {
+          "finding_id": "gpt-rw-150-01",
+          "coverage": "covered",
+          "matched_rules": [
+            "NET001",
+            "PATH011"
+          ],
+          "rationale": "HorusTrace reconstructs authenticated/user-influenced URL input through the Pydantic agent to the dynamic httpx destination."
+        }
+      ],
+      "gpt_attack_paths": 1,
+      "horustrace_attack_paths": 1,
+      "path_alignment": "covered",
+      "gap_family": null,
+      "priority": null
+    },
+    {
+      "case_id": "rw-164",
+      "framework": "pydantic-ai",
+      "outcome": "covered",
+      "alignments": [
+        {
+          "finding_id": "gpt-rw-164-01",
+          "coverage": "covered",
+          "matched_rules": [
+            "PATH013"
+          ],
+          "rationale": "HorusTrace reconstructs the user-selected server directory -> recursive ingestion -> RAG -> model retrieval/content exposure chain."
+        }
+      ],
+      "gpt_attack_paths": 1,
+      "horustrace_attack_paths": 1,
+      "path_alignment": "covered",
+      "gap_family": null,
+      "priority": null
+    }
+  ],
+  "next_build_order": [
+    "P0 Pydantic AI: detect dynamically constructed MCPServerStdio/MCPServerStreamableHTTP values passed through toolsets, preserving configuration-dependent catalogue/approval state.",
+    "P0 ADK/network precision: propagate fixed-provider destination evidence through FunctionTool helpers and delegation so api.github.com reads do not become unrestricted egress or PATH009.",
+    "P1 network dataflow: support second-order search-result-derived destination provenance without conflating it with direct arbitrary-URL authority.",
+    "P1 runtime viability: preserve import/initialization blockers as a separate qualification on declared authority and paths.",
+    "P1 Pydantic precision: preserve native tool resource scope/internal-state semantics and reduce generic AGT040/CAP005 duplication/generic 'agent' attribution.",
+    "P1 ingress semantics: carry concrete authentication/public-mode predicates into composed attack paths."
+  ]
+}
