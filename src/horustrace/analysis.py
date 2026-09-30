@@ -712,6 +712,82 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 )
             )
 
+        public_realtime_inputs = [
+            item
+            for item in runtime_bound_untrusted
+            if item.metadata.get("basis")
+            == "source_proven_public_realtime_capability"
+            and item.metadata.get("authentication_detected") is False
+        ]
+        realtime_mutation_tools = [
+            tool
+            for tool in agent.tools
+            if tool.metadata.get("mcp_backed") is True
+            and {"data.write", "destructive.write"} & tool.capabilities
+            and tool.approval is not True
+        ]
+        if public_realtime_inputs and realtime_mutation_tools:
+            ingress = public_realtime_inputs[0]
+            target = sorted(
+                realtime_mutation_tools,
+                key=lambda tool: (
+                    "destructive.write" not in tool.capabilities,
+                    tool.name not in {"transfer_funds", "create_account"},
+                    tool.name,
+                ),
+            )[0]
+            backends = list(target.metadata.get("state_backends") or [])
+            paths.append(
+                AttackPath(
+                    path_id="PATH015",
+                    title="Potential unauthenticated realtime path to MCP-backed state mutation",
+                    agent=agent.name,
+                    nodes=[
+                        "public session credential endpoint",
+                        ingress.name,
+                        agent.name,
+                        target.name,
+                        "MCP tool dispatch",
+                        (
+                            "local SQLite state mutation"
+                            if "local_sqlite" in backends
+                            else "state mutation"
+                        ),
+                    ],
+                    severity=Severity.HIGH,
+                    rationale=(
+                        "Source analysis proves a web endpoint can mint a "
+                        "publish-capable realtime session credential without a "
+                        "detected authentication dependency; participant input "
+                        "from that session reaches the model agent, whose bound "
+                        "tool dispatches through MCP to a source-proven "
+                        "state-changing repository backend without per-action approval."
+                    ),
+                    location=ingress.location or target.location or agent.location,
+                    metadata={
+                        **_path_metadata(
+                            basis="source_proven_public_realtime_mcp_state_change"
+                        ),
+                        "ingress_basis": ingress.metadata.get("basis"),
+                        "session_transport": ingress.metadata.get(
+                            "session_transport"
+                        ),
+                        "session_capability": ingress.metadata.get(
+                            "session_capability"
+                        ),
+                        "mcp_tool_name": target.metadata.get("mcp_tool_name"),
+                        "state_backends": backends,
+                        "state_scope": target.metadata.get("state_scope"),
+                        "limitation": (
+                            "The traced target is repository-local SQLite/demo state; "
+                            "production banking impact is not asserted."
+                            if "local_sqlite" in backends
+                            else None
+                        ),
+                    },
+                )
+            )
+
         for tool in outbound:
             if sensitive and tool.approval is not True:
                 paths.append(
