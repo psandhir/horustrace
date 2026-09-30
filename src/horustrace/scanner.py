@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import copy
 import json
 import tempfile
 import tomllib
@@ -1746,30 +1745,44 @@ def _link_global_identities(graph: Graph) -> None:
                 agent.identities.append(by_name[name])
 
 
-def _security_principal_view(graph: Graph) -> Graph:
-    """Return a lossless copy filtered to source-proven effective agent principals.
+_NON_MODEL_LANGGRAPH_AUTHORITY_RULES = {
+    "AGT020",
+    "AGT021",
+    "AGT022",
+    "AGT040",
+    "CAP001",
+    "CAP002",
+    "CAP003",
+    "CAP004",
+    "CAP005",
+    "CAP006",
+    "DATA001",
+    "NET001",
+    "NET002",
+}
 
-    LangGraph StateGraph is also used for deterministic orchestration. The adapter
-    retains those workflow containers for topology and reporting, but a graph whose
-    nodes contain no model invocation or ToolNode dispatch surface is not itself an
-    agent security principal.
-    """
-    view = copy.deepcopy(graph)
-    excluded = {
+
+def _non_model_langgraph_agent_names(graph: Graph) -> set[str]:
+    return {
         agent.name
-        for agent in view.agents
+        for agent in graph.agents
         if agent.metadata.get("framework") == "langgraph"
         and agent.metadata.get("model_driven_workflow") is False
     }
+
+
+def _filter_non_model_langgraph_findings(graph: Graph, findings: list) -> list:
+    excluded = _non_model_langgraph_agent_names(graph)
     if not excluded:
-        return view
-    view.agents = [agent for agent in view.agents if agent.name not in excluded]
-    view.flow_paths = [
-        flow
-        for flow in view.flow_paths
-        if flow.agent is None or flow.agent not in excluded
+        return findings
+    return [
+        finding
+        for finding in findings
+        if not (
+            finding.agent in excluded
+            and finding.rule_id in _NON_MODEL_LANGGRAPH_AUTHORITY_RULES
+        )
     ]
-    return view
 
 
 def scan(
@@ -2171,13 +2184,15 @@ def scan(
     if authority_enrichment is not None:
         graph.coverage.resolution["authority_source"] = authority_enrichment.as_dict()
 
-    security_graph = _security_principal_view(graph)
-    annotate_risk_semantics(security_graph)
-    security_graph.attack_paths = build_attack_paths(security_graph)
-    security_graph.adg = build_adg(security_graph, analysis_root)
-    graph.attack_paths = security_graph.attack_paths
-    graph.adg = security_graph.adg
-    findings = evaluate(security_graph)
+    annotate_risk_semantics(graph)
+    non_model_langgraph_agents = _non_model_langgraph_agent_names(graph)
+    graph.attack_paths = [
+        path
+        for path in build_attack_paths(graph)
+        if path.agent not in non_model_langgraph_agents
+    ]
+    graph.adg = build_adg(graph, analysis_root)
+    findings = _filter_non_model_langgraph_findings(graph, evaluate(graph))
     for finding in findings:
         finding.source_context = classify_source_context(
             finding.location.path if finding.location else None
