@@ -48,6 +48,7 @@ from horustrace.mcp_context import (
     resolve_local_stdio_implementations,
 )
 from horustrace.mcp_resolution import unresolved_mcp_summary
+from horustrace.object_authorization import enrich_model_tool_object_authorization
 from horustrace.models import (
     Agent,
     AgentReachability,
@@ -2252,6 +2253,11 @@ def scan(
         approved_python_paths,
     )
     enrich_indirect_tool_content_semantics(
+        graph,
+        root if root.is_dir() else root.parent,
+        approved_python_paths,
+    )
+    enrich_model_tool_object_authorization(
         graph,
         root if root.is_dir() else root.parent,
         approved_python_paths,
