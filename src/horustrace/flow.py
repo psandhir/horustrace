@@ -620,6 +620,7 @@ def _agent_bindings_for_chain(
     graph: Graph,
     functions: dict[str, _Function],
     chain: tuple[str, ...],
+    root: Path | None = None,
 ) -> list[tuple[str | None, dict[str, str] | None]]:
     """Return defensible agent bindings for a source call chain.
 
@@ -628,6 +629,30 @@ def _agent_bindings_for_chain(
     same function, so emit one binding per agent. Legacy same-file/name matching
     remains conservative and refuses multi-agent ambiguity.
     """
+    same_name_counts: dict[str, int] = {}
+    for item in graph.agents:
+        same_name_counts[item.name] = same_name_counts.get(item.name, 0) + 1
+
+    def instance_key(agent: object) -> str:
+        location = getattr(agent, "location", None)
+        name = str(getattr(agent, "name", "agent"))
+        if location is None:
+            return name
+        path = location.path
+        rendered_path = _relative(path, root) if root is not None else path.name
+        return f"{name}:{rendered_path}:{location.line}:{location.column}"
+
+    def source_context(agent: object) -> str:
+        location = getattr(agent, "location", None)
+        if location is None:
+            return "unknown"
+        path = location.path
+        contextual_path = (
+            Path(_relative(path, root))
+            if root is not None
+            else Path(path.name)
+        )
+        return classify_source_context(contextual_path)
     for function_key in chain:
         matches: list[tuple[object, str]] = []
         for agent in graph.agents:
@@ -640,31 +665,19 @@ def _agent_bindings_for_chain(
             bindings: list[tuple[str | None, dict[str, str] | None]] = []
             seen_instances: set[str] = set()
             for agent, tool_name in matches:
-                instance_key = str(
-                    agent.metadata.get("instance_key")
-                    or (
-                        f"{agent.name}:"
-                        f"{agent.location.path.resolve() if agent.location else '<unknown>'}:"
-                        f"{agent.location.line if agent.location else 0}"
-                    )
-                )
-                if instance_key in seen_instances:
+                stable_instance = instance_key(agent)
+                if stable_instance in seen_instances:
                     continue
-                seen_instances.add(instance_key)
-                bindings.append(
-                    (
-                        agent.name,
-                        {
-                            "basis": "source_function_key",
-                            "function": function_key,
-                            "tool": tool_name,
-                            "agent_instance_key": instance_key,
-                            "agent_source_context": classify_source_context(
-                                agent.location.path if agent.location else None
-                            ),
-                        },
-                    )
-                )
+                seen_instances.add(stable_instance)
+                binding = {
+                    "basis": "source_function_key",
+                    "function": function_key,
+                    "tool": tool_name,
+                    "agent_source_context": source_context(agent),
+                }
+                if same_name_counts.get(agent.name, 0) > 1:
+                    binding["agent_instance_key"] = stable_instance
+                bindings.append((agent.name, binding))
             return bindings
 
     legacy: list[tuple[object, str, str, str]] = []
@@ -684,34 +697,23 @@ def _agent_bindings_for_chain(
                     tool.location is not None
                     and tool.location.path.resolve() == info.path.resolve()
                 ):
-                    instance_key = str(
-                        agent.metadata.get("instance_key")
-                        or (
-                            f"{agent.name}:"
-                            f"{agent.location.path.resolve() if agent.location else '<unknown>'}:"
-                            f"{agent.location.line if agent.location else 0}"
-                        )
+                    legacy.append(
+                        (agent, tool.name, function_key, instance_key(agent))
                     )
-                    legacy.append((agent, tool.name, function_key, instance_key))
 
     instance_keys = list(dict.fromkeys(item[3] for item in legacy))
     if len(instance_keys) == 1:
         chosen = next(item for item in legacy if item[3] == instance_keys[0])
         agent = chosen[0]
-        return [
-            (
-                agent.name,
-                {
-                    "basis": "same_file_tool_function",
-                    "function": chosen[2],
-                    "tool": chosen[1],
-                    "agent_instance_key": chosen[3],
-                    "agent_source_context": classify_source_context(
-                        agent.location.path if agent.location else None
-                    ),
-                },
-            )
-        ]
+        binding = {
+            "basis": "same_file_tool_function",
+            "function": chosen[2],
+            "tool": chosen[1],
+            "agent_source_context": source_context(agent),
+        }
+        if same_name_counts.get(agent.name, 0) > 1:
+            binding["agent_instance_key"] = chosen[3]
+        return [(agent.name, binding)]
     if len(instance_keys) > 1:
         return [(None, {"basis": "ambiguous_same_file_tool_function"})]
     return [(None, None)]
@@ -822,6 +824,7 @@ def analyze_repository_flows(root: Path, python_paths: list[Path], graph: Graph)
                 graph,
                 functions,
                 sink.call_chain,
+                root,
             ):
                 parameter_sources = ()
                 if agent is not None:
