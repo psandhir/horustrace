@@ -1,0 +1,765 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "framework-holdout-adk-pydantic-unseen-10",
+  "methodology": {
+    "prompt": "research/gpt-horustrace-differential-2026/GPT_SOURCE_REVIEW_PROMPT_V1.md",
+    "scanner_reveal_seen": false,
+    "note": "Source-only review locked before any HorusTrace scan/reveal for this holdout. Findings are semantic claims, not HorusTrace rule predictions."
+  },
+  "cases": [
+    {
+      "case_id": "rw-028",
+      "repo": "AhmadK-it/research_assistant",
+      "sha": "923bf68dde7186f7ecff050cc3513550b5f68b0d",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "agents/search_agent.py",
+        "tools/hitl_handler.py",
+        "mcp_server/search_server.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "Local stdio MCP search server is constructed directly and bound to the search specialist.",
+        "AUTO_APPROVE_GAPS can bypass HITL; a recalled pending confirmation with empty user_decision defaults to approval."
+      ],
+      "agents": [
+        {
+          "name": "research_coordinator",
+          "kind": "ADK LlmAgent orchestrator",
+          "evidence": "agent.py:_root_agent"
+        },
+        {
+          "name": "search_specialist",
+          "kind": "ADK search specialist",
+          "evidence": "agents/search_agent.py:create_search_agent"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The search specialist has effective DuckDuckGo web-search authority through a directly supplied McpToolset.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py:search_tool",
+            "agents/search_agent.py:create_search_agent",
+            "mcp_server/search_server.py:mcp tool registration"
+          ]
+        },
+        {
+          "fact": "The coordinator delegates to specialist agents and exposes adaptive gap research as a model-callable tool.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py:_root_agent tools",
+            "tools/hitl_handler.py:conduct_adaptive_gap_search"
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-028-01",
+          "semantic_key": "hitl_pending_state_can_default_to_approval",
+          "severity": "low",
+          "confidence": "high",
+          "claim": "The adaptive gap-search HITL control can be bypassed by configuration and can treat a re-call with no explicit user decision as approval after a confirmation was requested.",
+          "evidence": [
+            "tools/hitl_handler.py:AUTO_APPROVE_GAPS",
+            "tools/hitl_handler.py:already_requested branch; empty decision assumes APPROVAL"
+          ],
+          "reachability": "conditional"
+        }
+      ],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [],
+      "controls": [
+        "Normal first invocation requests user confirmation before adaptive gap research.",
+        "Unknown non-empty decisions are rejected.",
+        "Search is via a local stdio MCP server rather than an arbitrary remote MCP endpoint."
+      ],
+      "unknowns": [
+        "The security impact of extra gap searches is limited compared with state-changing tools; the finding concerns control correctness rather than a destructive sink."
+      ]
+    },
+    {
+      "case_id": "rw-030",
+      "repo": "Piyushhpatel/aquagaurd-google-cloud-rapid",
+      "sha": "98c843300428b3b01a38e33a014dfbabc984d4fd",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "agent_tools.py",
+        "tools.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "BigQuery requires Google ADC/OAuth and a project.",
+        "Fivetran requires API credentials and an installed/configured MCP server; Fivetran binding defaults enabled unless explicitly disabled."
+      ],
+      "agents": [
+        {
+          "name": "AquaGuard",
+          "kind": "ADK LlmAgent",
+          "evidence": "agent.py:root_agent"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "BigQuery authority is intentionally read-only and routed to Google's fixed managed MCP endpoint.",
+          "confidence": "high",
+          "evidence": [
+            "agent_tools.py:bigquery_execute_sql_readonly",
+            "tools.py:BIGQUERY_MCP_URL",
+            "tools.py:get_bigquery_mcp_toolset"
+          ]
+        },
+        {
+          "fact": "The agent has a filtered Fivetran operational tool surface including sync_connection when Fivetran MCP is enabled.",
+          "confidence": "high",
+          "evidence": [
+            "agent_tools.py:get_agent_tools",
+            "tools.py:FIVETRAN_OPERATIONAL_TOOLS",
+            "tools.py:get_fivetran_mcp_toolset"
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-030-01",
+          "semantic_key": "fivetran_sync_instruction_only_confirmation",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "The model-callable fivetran_sync_connection tool triggers a data-pipeline sync, while confirmation is only stated in its docstring; no source-enforced approval gate is present and FIVETRAN_ALLOW_WRITES defaults to true.",
+          "evidence": [
+            "agent_tools.py:fivetran_sync_connection",
+            "agent_tools.py:get_agent_tools",
+            "tools.py:_resolve_fivetran_stdio_params FIVETRAN_ALLOW_WRITES default true"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-030-ap1",
+          "severity": "high",
+          "confidence": "high",
+          "chain": [
+            "AquaGuard model",
+            "fivetran_sync_connection",
+            "filtered Fivetran MCP sync_connection",
+            "external pipeline state change"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "controls": [
+        "BigQuery wrapper selects execute_sql_readonly and injects project scope.",
+        "Fivetran MCP uses an explicit operational tool allowlist.",
+        "Fivetran can be disabled with ENABLE_FIVETRAN_MCP."
+      ],
+      "unknowns": [
+        "Concrete Fivetran account/resource scope depends on runtime credentials and server configuration."
+      ]
+    },
+    {
+      "case_id": "rw-032",
+      "repo": "allen-stephen/memory-bank-samples",
+      "sha": "ac7fdb1ed89f96c4f4e4d96548c09260e9e387da",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "app/agent.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "Requires Google credentials/project and an Agent Engine/Memory Bank capable runtime for the documented persistent behavior."
+      ],
+      "agents": [
+        {
+          "name": "root_agent",
+          "kind": "ADK Agent",
+          "evidence": "app/agent.py:80 root_agent"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "PreloadMemoryTool injects prior memories into the agent context.",
+          "confidence": "high",
+          "evidence": [
+            "app/agent.py:91-101"
+          ]
+        },
+        {
+          "fact": "After every agent turn, the callback calls add_session_to_memory().",
+          "confidence": "high",
+          "evidence": [
+            "app/agent.py:74-76",
+            "app/agent.py:103-104"
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-032-01",
+          "semantic_key": "automatic_persistent_memory_write_after_agent_turn",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "Session events are automatically submitted to persistent Memory Bank after each agent turn without a per-turn user approval boundary.",
+          "evidence": [
+            "app/agent.py:generate_memories_callback",
+            "app/agent.py:after_agent_callback"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-032-ap1",
+          "severity": "medium",
+          "confidence": "medium",
+          "chain": [
+            "agent conversation/session events",
+            "root_agent",
+            "after_agent_callback",
+            "add_session_to_memory",
+            "Vertex AI Memory Bank"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "controls": [
+        "Memory retrieval is via a managed ADK Memory Bank tool rather than arbitrary filesystem access."
+      ],
+      "unknowns": [
+        "Repository source does not establish the deployed Memory Bank retention/access policy or runtime IAM."
+      ]
+    },
+    {
+      "case_id": "rw-033",
+      "repo": "moonpy-a11y/agent_payments",
+      "sha": "b08e4bec80ea2f8a3664d670bc6fc52b8a50d1ae",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "tools.py",
+        "ucp.py"
+      ],
+      "runtime_viability": "runnable",
+      "runtime_notes": [
+        "Merchant services are expected at two fixed localhost URLs for the demo."
+      ],
+      "agents": [
+        {
+          "name": "cineagent",
+          "kind": "ADK Agent",
+          "evidence": "agent.py:13-40"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "complete_purchase is explicitly wrapped with require_confirmation=True.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py:40"
+          ]
+        },
+        {
+          "fact": "Merchant MCP destinations are resolved from merchants previously discovered from the fixed localhost merchant list; arbitrary unseen merchant_url values fail lookup.",
+          "confidence": "high",
+          "evidence": [
+            "tools.py:_merchant_urls",
+            "ucp.py:discover",
+            "ucp.py:mcp_call"
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-033-01",
+          "semantic_key": "checkout_creation_without_confirmation",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "The agent can create a checkout session through create_checkout without an explicit confirmation gate, although the final purchase action is separately confirmation-protected.",
+          "evidence": [
+            "agent.py:35-40",
+            "tools.py:create_checkout"
+          ],
+          "reachability": "proven"
+        }
+      ],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-033-ap1",
+          "severity": "medium",
+          "confidence": "high",
+          "chain": [
+            "cineagent",
+            "create_checkout",
+            "merchant MCP create_checkout",
+            "checkout state creation"
+          ],
+          "reachability": "proven"
+        }
+      ],
+      "controls": [
+        "Final complete_purchase is explicitly require_confirmation=True.",
+        "Effective merchant destinations are constrained to successfully discovered fixed demo merchants.",
+        "The demo AP2 payment mandate is a mock hash; comments distinguish it from production biometric/device authorization."
+      ],
+      "unknowns": [
+        "Whether creating an abandoned checkout has meaningful external cost or reservation side effects depends on merchant implementation."
+      ]
+    },
+    {
+      "case_id": "rw-040",
+      "repo": "dwij2812/streamassist-datastorespec-example",
+      "sha": "c7ae87d8c45a55c2c678690269ec49c92801d4b8",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "Requires configured project/datastore IDs and either Gemini Enterprise token state or local ADC."
+      ],
+      "agents": [
+        {
+          "name": "StreamAssistOrchestratorAgent",
+          "kind": "ADK LlmAgent",
+          "evidence": "agent.py:173-180"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "Model query is sent through a bound FunctionTool to a fixed global Discovery Engine streamAssist endpoint.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py:78 invoke_agent_streamassist",
+            "agent.py:98-99 fixed URL",
+            "agent.py:143-145 requests.post",
+            "agent.py:166-180 binding"
+          ]
+        },
+        {
+          "fact": "The request is authenticated either with Gemini Enterprise state token or ADC.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py:34-75 get_access_token"
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-040-01",
+          "semantic_key": "broad_adc_cloud_platform_scope_for_agent_tool",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "Local fallback credentials request the broad cloud-platform OAuth scope for the model-callable enterprise datastore query tool, rather than a narrower Discovery Engine/search-specific scope.",
+          "evidence": [
+            "agent.py:64-68",
+            "agent.py:108-145",
+            "agent.py:166-180"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [],
+      "controls": [
+        "Destination host is fixed to Discovery Engine; the model/query cannot select an arbitrary network host.",
+        "The tool is query/search oriented; no source-visible state-changing API call is established."
+      ],
+      "unknowns": [
+        "Actual IAM permissions attached to the ADC or Enterprise token are not proven by this application source."
+      ]
+    },
+    {
+      "case_id": "rw-149",
+      "repo": "LeonieFreisinger/pydanticai-base-agent",
+      "sha": "0cf88a4caf2b5da29ff7af8364d4db14ac9e50b4",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "app.py",
+        "agent/agent.py",
+        "agent/tools.py",
+        "agent/deps.py"
+      ],
+      "runtime_viability": "runnable",
+      "runtime_notes": [
+        "Default DEMO_LEVEL is 4, exposing read-only query execution against the fixed showcase SQLite database."
+      ],
+      "agents": [
+        {
+          "name": "SQLQueryAgent",
+          "kind": "Pydantic AI wrapper/base agent",
+          "evidence": "agent/agent.py:SQLQueryAgent"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "Chainlit user messages reach SQLQueryAgent.stream.",
+          "confidence": "high",
+          "evidence": [
+            "app.py:on_message"
+          ]
+        },
+        {
+          "fact": "At levels 3-4 the model can execute SQL against the fixed SQLite dependency.",
+          "confidence": "high",
+          "evidence": [
+            "agent/agent.py:get_demo_level default 4",
+            "agent/tools.py:get_tools_for_level",
+            "agent/tools.py:execute_query"
+          ]
+        },
+        {
+          "fact": "execute_query enforces SELECT-only operation and rejects common write/destructive SQL keywords before executing.",
+          "confidence": "high",
+          "evidence": [
+            "agent/tools.py:211-229",
+            "agent/tools.py:235"
+          ]
+        }
+      ],
+      "findings": [],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [],
+      "controls": [
+        "Feature gating removes tools entirely at DEMO_LEVEL 1 and limits level 2 to schema exploration.",
+        "Query execution is SELECT-only with explicit rejection of INSERT/UPDATE/DELETE/DROP/ALTER/CREATE/TRUNCATE.",
+        "The database path is application-fixed to showcase.db."
+      ],
+      "unknowns": [
+        "The SELECT validator is lexical rather than a SQL parser, but no concrete write bypass is established from the reviewed source."
+      ]
+    },
+    {
+      "case_id": "rw-168",
+      "repo": "hypermemory-ai/openrouter_provider_validator",
+      "sha": "95eee5b0694ca7901526e6280f1a700760a7e7ba",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "agent.py",
+        "mcp_server.py",
+        "client.py",
+        "filesystem_test_helper.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "Requires OPENROUTER_API_KEY. The Pydantic agent starts ./mcp_server.py via MCPServerStdio."
+      ],
+      "agents": [
+        {
+          "name": "ProviderTester.agent",
+          "kind": "Pydantic AI Agent",
+          "evidence": "agent.py:initialize_agent"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The agent binds the local filesystem MCP server directly.",
+          "confidence": "high",
+          "evidence": [
+            "agent.py:initialize_agent MCPServerStdio",
+            "agent.py:Agent(... mcp_servers=self.mcp_servers ...)"
+          ]
+        },
+        {
+          "fact": "The MCP server exposes read/write/append/list/create/search and other filesystem operations.",
+          "confidence": "high",
+          "evidence": [
+            "mcp_server.py:@mcp.tool read_file/write_file/append_to_file/list_folder_contents/create_folders/search_files"
+          ]
+        },
+        {
+          "fact": "Relative paths are rebased to test_files_dir, but absolute paths are accepted unchanged and passed to raw filesystem operations.",
+          "confidence": "high",
+          "evidence": [
+            "filesystem_test_helper.py:151-208",
+            "client.py:FileSystemClient.read_file/write_file/append_to_file"
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-168-01",
+          "semantic_key": "bound_mcp_filesystem_allows_absolute_paths",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "The model-bound filesystem MCP accepts absolute file paths that bypass the intended test-files rebasing and reach raw host filesystem reads/writes without an approval or containment check.",
+          "evidence": [
+            "agent.py:initialize_agent",
+            "mcp_server.py:read_file/write_file/append_to_file",
+            "filesystem_test_helper.py:absolute-path branches",
+            "client.py:raw open/path operations"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-168-ap1",
+          "severity": "high",
+          "confidence": "high",
+          "chain": [
+            "ProviderTester agent",
+            "bound stdio MCP filesystem tool",
+            "absolute path argument",
+            "host filesystem read/write"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "controls": [
+        "Relative paths are normally rebased to a test-files directory."
+      ],
+      "unknowns": [
+        "OS-level sandboxing/container isolation is not established by repository source."
+      ]
+    },
+    {
+      "case_id": "rw-170",
+      "repo": "Croups/smart-web-scraper",
+      "sha": "a157701a22ae1853a00156b2364830130958c82d",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "scraping_agent.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "Requires OpenAI model credentials and a Massive Unblocker token."
+      ],
+      "agents": [
+        {
+          "name": "_agent",
+          "kind": "Pydantic AI Agent",
+          "evidence": "scraping_agent.py:61"
+        },
+        {
+          "name": "_agent_custom",
+          "kind": "Pydantic AI Agent",
+          "evidence": "scraping_agent.py:62"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "Both agents bind _scrape_tool.",
+          "confidence": "high",
+          "evidence": [
+            "scraping_agent.py:85-86"
+          ]
+        },
+        {
+          "fact": "The bound tool calls a fixed Massive Unblocker endpoint and supplies ctx.deps.target_url as the provider-side browser target.",
+          "confidence": "high",
+          "evidence": [
+            "scraping_agent.py:67-74"
+          ]
+        },
+        {
+          "fact": "run_scrape accepts the target URL from its caller, stores it in deps, and invokes the selected agent.",
+          "confidence": "high",
+          "evidence": [
+            "scraping_agent.py:89-125"
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-170-01",
+          "semantic_key": "caller_selected_url_through_fixed_browser_provider",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "A caller-selected target URL is carried through agent dependencies into a bound tool that asks a fixed external browser/unblocker service to fetch that target. The model does not directly select the target URL.",
+          "evidence": [
+            "scraping_agent.py:run_scrape",
+            "scraping_agent.py:_scrape_tool"
+          ],
+          "reachability": "conditional"
+        }
+      ],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-170-ap1",
+          "severity": "medium",
+          "confidence": "medium",
+          "chain": [
+            "run_scrape caller URL",
+            "agent deps target_url",
+            "bound _scrape_tool",
+            "fixed Massive browser API",
+            "caller-selected target URL"
+          ],
+          "reachability": "conditional"
+        }
+      ],
+      "controls": [
+        "External API host is fixed to unblocker.joinmassive.com; this is not direct model-selected arbitrary egress."
+      ],
+      "unknowns": [
+        "The reviewed module does not prove whether run_scrape is exposed to untrusted remote callers."
+      ]
+    },
+    {
+      "case_id": "rw-174",
+      "repo": "Unfold-Security/pydantic-collab",
+      "sha": "b35097cb7cb5f39cc3d098f51d819c1cfe3a0266",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "examples/12_data_analysis_pipeline.py",
+        "examples/example_tools.py"
+      ],
+      "runtime_viability": "runnable",
+      "runtime_notes": [
+        "The example main() uses a fixed workflow query and fixed /tmp output filenames, but registered tool schemas remain broader than the prompt instructions."
+      ],
+      "agents": [
+        {
+          "name": "ProjectManager",
+          "kind": "Pydantic Collab agent",
+          "evidence": "examples/12_data_analysis_pipeline.py:pm_collab"
+        },
+        {
+          "name": "Visualizer",
+          "kind": "Pydantic Collab agent",
+          "evidence": "examples/12_data_analysis_pipeline.py:viz_collab"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "Multiple agents hand off through an explicit Collab swarm.",
+          "confidence": "high",
+          "evidence": [
+            "examples/12_data_analysis_pipeline.py:agent_handoffs",
+            "examples/12_data_analysis_pipeline.py:swarm"
+          ]
+        },
+        {
+          "fact": "Visualizer is actually registered with run_python_script_tool despite a prompt instruction saying not to call it.",
+          "confidence": "high",
+          "evidence": [
+            "examples/12_data_analysis_pipeline.py:viz_collab.agent.tool(run_python_script_tool)",
+            "examples/12_data_analysis_pipeline.py:Visualizer prompt"
+          ]
+        },
+        {
+          "fact": "File read/write tools accept arbitrary filepath arguments without source-visible containment.",
+          "confidence": "high",
+          "evidence": [
+            "examples/example_tools.py:read/write tools"
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-174-01",
+          "semantic_key": "model_callable_script_execution_instruction_only_denial",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "The Visualizer has effective model-callable process-execution authority through run_python_script_tool; the instruction telling it not to call the tool is not an enforced control, and the tool executes a caller/model-selected filepath with subprocess.run.",
+          "evidence": [
+            "examples/12_data_analysis_pipeline.py:Visualizer registration",
+            "examples/example_tools.py:run_python_script_tool"
+          ],
+          "reachability": "proven"
+        },
+        {
+          "finding_id": "gpt-rw-174-02",
+          "semantic_key": "unconstrained_model_callable_filesystem_paths",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "Several bound tools expose unconstrained filepath parameters for host filesystem reads and writes without path containment or approval enforcement.",
+          "evidence": [
+            "examples/12_data_analysis_pipeline.py:tool registrations",
+            "examples/example_tools.py:read_json_tool/write_json_tool/read_text_tool/write_text_tool"
+          ],
+          "reachability": "proven"
+        }
+      ],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-174-ap1",
+          "severity": "high",
+          "confidence": "high",
+          "chain": [
+            "Visualizer model",
+            "run_python_script_tool",
+            "model-selected filepath",
+            "subprocess.run uv run"
+          ],
+          "reachability": "proven"
+        }
+      ],
+      "controls": [
+        "The example prompt uses fixed /tmp workflow paths and explicitly instructs Visualizer not to execute the generated script.",
+        "Those prompt instructions do not remove the bound tool authority."
+      ],
+      "unknowns": [
+        "The example main() uses a fixed initial query, so no external untrusted-ingress path is established."
+      ]
+    },
+    {
+      "case_id": "rw-176",
+      "repo": "djaboxx/template-ai-chat-stack",
+      "sha": "d8f54cc067f387b4f6f1cb685266adca4111aadc",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "ai_service.py",
+        "backend/app/services/github_service.py",
+        "backend/app/services/ai_service.py"
+      ],
+      "runtime_viability": "blocked_by_source_error",
+      "runtime_notes": [
+        "The root ai_service.py imports .github_service, but the pinned repository has no root/package github_service.py; the actual GitHub service is nested under backend/app/services, whose ai_service.py is a separate placeholder implementation."
+      ],
+      "agents": [
+        {
+          "name": "AIAgentService.agent",
+          "kind": "declared Pydantic AI Agent",
+          "evidence": "ai_service.py:configure"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "If the root module were importable, it would bind issue creation, branch creation, file push, PR creation, and read tools to the model.",
+          "confidence": "high",
+          "evidence": [
+            "ai_service.py:34-74"
+          ]
+        },
+        {
+          "fact": "The nested GitHubService implementation delegates those mutation operations to github_model.",
+          "confidence": "high",
+          "evidence": [
+            "backend/app/services/github_service.py:create_issue/create_branch/push_file/push_files/create_pull_request"
+          ]
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-176-01",
+          "semantic_key": "declared_github_mutation_authority_blocked_by_import_error",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "Source declares broad model-callable GitHub mutation authority, but the reviewed root agent module is not source-proven runnable because its relative github_service import cannot be resolved at the pinned commit.",
+          "evidence": [
+            "ai_service.py:7-8",
+            "ai_service.py:34-74",
+            "repository tree lacks root github_service.py"
+          ],
+          "reachability": "unresolved"
+        }
+      ],
+      "application_findings_not_agent_authority": [],
+      "attack_paths": [],
+      "controls": [],
+      "unknowns": [
+        "A different packaging/layout step outside the pinned repository could theoretically satisfy the missing import, but repository source does not prove it."
+      ]
+    }
+  ]
+}
