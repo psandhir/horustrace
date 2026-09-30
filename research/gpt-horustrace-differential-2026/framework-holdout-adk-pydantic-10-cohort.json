@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "framework-holdout-adk-pydantic-10",
+  "selection": "Previously unused Tier-B/high-signal cases from frozen 180; excludes original 10-case litmus and all prior GPT differential batches.",
+  "scanner_output_seen_before_review": false,
+  "cases": [
+    {
+      "case_id": "rw-005",
+      "repo": "Ojas-Patil26/VeriQ",
+      "sha": "067cb330ab943279b4b8ea13c91c9042bdd9f421",
+      "application_path": "agent.py",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "rw-028",
+      "repo": "AhmadK-it/research_assistant",
+      "sha": "923bf68dde7186f7ecff050cc3513550b5f68b0d",
+      "application_path": "agent.py",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "rw-032",
+      "repo": "allen-stephen/memory-bank-samples",
+      "sha": "ac7fdb1ed89f96c4f4e4d96548c09260e9e387da",
+      "application_path": "app/agent.py",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "rw-033",
+      "repo": "moonpy-a11y/agent_payments",
+      "sha": "b08e4bec80ea2f8a3664d670bc6fc52b8a50d1ae",
+      "application_path": "agent.py",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "rw-036",
+      "repo": "Dannyzen/montagegenerator",
+      "sha": "bad2d0c26723ecd80e6ee1c471536f647c44d7ac",
+      "application_path": "agents/definitions.py",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "rw-149",
+      "repo": "LeonieFreisinger/pydanticai-base-agent",
+      "sha": "0cf88a4caf2b5da29ff7af8364d4db14ac9e50b4",
+      "application_path": "app.py",
+      "framework": "pydantic-ai"
+    },
+    {
+      "case_id": "rw-161",
+      "repo": "mars-mx/portfolio",
+      "sha": "6e6871b85fb0d4d051c2043bd0daa4911676e4d3",
+      "application_path": "backend/app/agent/assistant.py",
+      "framework": "pydantic-ai"
+    },
+    {
+      "case_id": "rw-168",
+      "repo": "hypermemory-ai/openrouter_provider_validator",
+      "sha": "95eee5b0694ca7901526e6280f1a700760a7e7ba",
+      "application_path": "agent.py",
+      "framework": "pydantic-ai"
+    },
+    {
+      "case_id": "rw-170",
+      "repo": "Croups/smart-web-scraper",
+      "sha": "a157701a22ae1853a00156b2364830130958c82d",
+      "application_path": "scraping_agent.py",
+      "framework": "pydantic-ai"
+    },
+    {
+      "case_id": "rw-174",
+      "repo": "Unfold-Security/pydantic-collab",
+      "sha": "b35097cb7cb5f39cc3d098f51d819c1cfe3a0266",
+      "application_path": "examples/12_data_analysis_pipeline.py",
+      "framework": "pydantic-ai"
+    }
+  ]
+}
