@@ -4,7 +4,15 @@ from horustrace.heuristics import (
     HIGH_RISK_CAPABILITIES,
     UNTRUSTED_INPUT_KINDS,
 )
-from horustrace.models import AgentReachability, AttackPath, FlowExecutionContext, FlowPath, Graph, Severity, Tool
+from horustrace.models import (
+    AgentReachability,
+    AttackPath,
+    FlowExecutionContext,
+    FlowPath,
+    Graph,
+    Severity,
+    Tool,
+)
 
 _UNTRUSTED_FLOW_SOURCES = {
     "user_input",
