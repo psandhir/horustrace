@@ -96,11 +96,31 @@ At the same time, the two precision failures show the inverse requirement: autho
 
 That is a useful convergence: the scanner is becoming less keyword-driven and more dependent on **source-proven effective authority and boundary crossings**.
 
+## Targeted post-repair validation
+
+After the repair tranche, the same five pinned repositories were rescanned with scanner SHA `3134564b73da9f6e45b5297a95dcc196e17ea87d`.
+
+The first targeted rerun exposed a **study-harness measurement blind spot**, not a scanner miss: the executor used the expanded sparse repository scan for effective-authority relationships but still took findings/attack paths only from the primary application subtree. Direct scanning of pinned GenAlima already produced `DATA004` and `PATH014`; the harness could not see those cross-module findings because the owner model and API authorization code live outside `agent/`.
+
+PR #269 corrected postfix validation only: baseline behavior remains frozen, while postfix mode may merge expanded-repository findings/paths **only for agents present in the primary application graph**, with deduplication and explicit semantic-scope telemetry.
+
+Corrected targeted workflow run `36696082586` then produced:
+
+| Case | Corrected post-fix result |
+| --- | --- |
+| rw-029 | **0 findings / 0 paths** — precision repair holds |
+| rw-074 | **`DATA004` + `PATH014` recovered**; 6 expanded findings / 2 expanded paths total, all bound to primary `graph_builder` |
+| rw-115 | **`IDN005` + `PATH015` recovered**; 10 findings / 4 paths total |
+| rw-142 | **0 findings / 0 paths** — agreement control remains clean |
+| rw-178 | **0 findings / 0 paths** — precision repair holds |
+
+Across all five cases the corrected run completed **5/5 successfully with 0 execution failures**. Raw totals were 16 findings and 6 paths, but those totals are not treated as precision/recall truth; the semantic acceptance check is the recovery/removal behavior above.
+
 ## Validation status
 
-All four repair PRs include targeted positive/negative regression coverage and passed their respective PR validation gates. PR #267, the final repair in the tranche, passed both CI and CodeQL before merge.
+All four scanner repair PRs include targeted positive/negative regression coverage and passed their respective PR validation gates. The real pinned-repository rerun additionally confirms that both Batch-005 recall gaps are now surfaced and both precision clusters are removed without disturbing the clean control.
 
-This publication **does not claim a new Frozen-180 post-repair metric**. The broad corpus workflow is intentionally manual-only during the rapid semantic-fix loop. The locked baseline remains the pre-repair comparison; the repairs are recorded separately and transparently.
+This publication **does not claim a new Frozen-180 post-repair metric**. The broad corpus workflow remains intentionally manual-only during the rapid semantic-fix loop. The locked pre-repair reveal is preserved unchanged, and the targeted post-repair result is published separately.
 
 ## Next step
 
