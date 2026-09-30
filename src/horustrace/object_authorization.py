@@ -7,6 +7,8 @@ authorization mismatch: a model-callable tool accepts an object identifier,
 loads an owner-scoped model, commits a mutation, and omits the owner check that
 the repository's normal web/API path applies to the same model.
 """
+# ruff: noqa: I001
+
 from __future__ import annotations
 
 import ast
