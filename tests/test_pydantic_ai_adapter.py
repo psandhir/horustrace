@@ -713,3 +713,152 @@ if prompt := st.chat_input("Question"):
     assert ingress.kind == "web"
     assert ingress.metadata["runtime_invocation_proven"] is True
     assert ingress.metadata["wrapper_method"] == "get_streaming_chat_handler"
+
+
+def _write_streamlit_rag_wrapper_fixture(
+    tmp_path: Path,
+    *,
+    contained: bool,
+) -> None:
+    package = tmp_path / "src"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "document_loader.py").write_text(
+        """
+from pathlib import Path
+
+def load_documents(path: str):
+    root = Path(path)
+    return [item.read_text() for item in root.rglob("*.txt")]
+""",
+        encoding="utf-8",
+    )
+    containment = (
+        """
+    from pathlib import Path
+    resolved = Path(documents_path).resolve()
+    resolved.relative_to(Path("Research").resolve())
+    documents_path = str(resolved)
+"""
+        if contained
+        else ""
+    )
+    (package / "agent.py").write_text(
+        f"""
+from pydantic_ai import Agent, RunContext
+from src.document_loader import load_documents
+
+class Store:
+    def search(self, query):
+        return self
+
+    def to_list(self):
+        return [{{"text": "example"}}]
+
+class ResearchAgent:
+    def __init__(self):
+        self.vector_store = Store()
+        self.agent = Agent("openai:gpt-5.2")
+
+        @self.agent.tool
+        async def search_documents(ctx: RunContext, query: str) -> str:
+            rows = ctx.deps.vector_store.search(query).to_list()
+            return rows[0]["text"]
+
+    def get_streaming_chat_handler(self):
+        def chat_stream(question: str):
+            return self.agent.run_stream_sync(question)
+        return chat_stream
+
+def _create_vector_store(documents_path: str):
+    load_documents(documents_path)
+    return Store()
+
+def create_research_agent(documents_path: str):
+{containment}
+    _create_vector_store(documents_path)
+    return ResearchAgent()
+""",
+        encoding="utf-8",
+    )
+    (package / "app.py").write_text(
+        """
+import os
+import streamlit as st
+from src.agent import create_research_agent
+
+folder_path = st.text_input("Documents folder:", "Research")
+valid_folder = folder_path and os.path.isdir(folder_path)
+
+if valid_folder:
+    st.session_state.agent = create_research_agent(
+        documents_path=folder_path,
+    )
+
+if prompt := st.chat_input("Question"):
+    stream = st.session_state.agent.get_streaming_chat_handler()(prompt)
+""",
+        encoding="utf-8",
+    )
+
+
+def test_pydantic_ai_streamlit_user_selected_rag_directory_is_attack_path(
+    tmp_path: Path,
+) -> None:
+    _write_streamlit_rag_wrapper_fixture(tmp_path, contained=False)
+
+    graph, findings = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "pydantic-ai"
+    )
+    tool = next(item for item in agent.tools if item.name == "search_documents")
+
+    assert agent.name == "self.agent"
+    assert tool.metadata["rag_retrieval"] is True
+    assert tool.metadata["rag_returns_indexed_content"] is True
+    assert tool.metadata["filesystem_path_constrained"] is False
+    assert any(
+        item.metadata.get("basis")
+        == "source_proven_user_selected_rag_directory"
+        and item.metadata.get("filesystem_path_constrained") is False
+        for item in agent.inputs
+    )
+    path = next(
+        item
+        for item in graph.attack_paths
+        if item.path_id == "PATH013"
+    )
+    assert path.agent == "self.agent"
+    assert path.metadata["basis"] == "source_proven_rag_directory_retrieval"
+    assert path.metadata["path_containment"] == "not_detected"
+    assert path.metadata["retrieval_tool"] == "search_documents"
+    assert any(
+        finding.rule_id == "PATH013" and finding.agent == "self.agent"
+        for finding in findings
+    )
+
+
+def test_pydantic_ai_contained_rag_directory_does_not_create_attack_path(
+    tmp_path: Path,
+) -> None:
+    _write_streamlit_rag_wrapper_fixture(tmp_path, contained=True)
+
+    graph, findings = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "pydantic-ai"
+    )
+    tool = next(item for item in agent.tools if item.name == "search_documents")
+
+    assert tool.metadata["filesystem_path_constrained"] is True
+    assert any(
+        item.metadata.get("basis")
+        == "source_proven_user_selected_rag_directory"
+        and item.metadata.get("filesystem_path_constrained") is True
+        for item in agent.inputs
+    )
+    assert not any(item.path_id == "PATH013" for item in graph.attack_paths)
+    assert not any(finding.rule_id == "PATH013" for finding in findings)
