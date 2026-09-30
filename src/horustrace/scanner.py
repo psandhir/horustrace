@@ -48,7 +48,6 @@ from horustrace.mcp_context import (
     resolve_local_stdio_implementations,
 )
 from horustrace.mcp_resolution import unresolved_mcp_summary
-from horustrace.object_authorization import enrich_model_tool_object_authorization
 from horustrace.models import (
     Agent,
     AgentReachability,
@@ -64,6 +63,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
+from horustrace.object_authorization import enrich_model_tool_object_authorization
 from horustrace.path_safety import canonical_root, is_within_root
 from horustrace.provenance import annotate, attach_findings, context
 from horustrace.rag_semantics import enrich_streamlit_rag_directory_semantics
