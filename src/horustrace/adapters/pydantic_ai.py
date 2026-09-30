@@ -586,6 +586,56 @@ def _tool_from_function(
     )
     if _contains_conditional_approval(node):
         tool.metadata["conditional_approval"] = True
+
+    calls = [child for child in ast.walk(node) if isinstance(child, ast.Call)]
+    scoped_path_control = any(
+        _call_name(child.func) == "_validate_agent_scoped_path"
+        for child in calls
+    )
+    if scoped_path_control:
+        access = capabilities & {"data.read", "data.write", "destructive.write"}
+        tool.resources.append(
+            ResourceScope(
+                kind="file",
+                selector=".shotgun/**",
+                access=set(access),
+                location=_location(path, node),
+            )
+        )
+        tool.guardrails = True
+        tool.metadata.update(
+            {
+                "filesystem_path_constrained": True,
+                "filesystem_scope": ".shotgun/**",
+                "agent_internal_artifact": True,
+                "control_basis": "agent_scoped_path_validation",
+            }
+        )
+
+    allowlist_check = any(
+        isinstance(child, ast.Compare)
+        and any(isinstance(op, (ast.In, ast.NotIn)) for op in child.ops)
+        and any(
+            isinstance(part, ast.Name) and part.id == "ALLOWED_COMMANDS"
+            for part in ast.walk(child)
+        )
+        for child in ast.walk(node)
+    )
+    injection_check = any(
+        isinstance(child, ast.Name) and child.id == "DANGEROUS_PATTERNS"
+        for child in ast.walk(node)
+    )
+    if "process.execute" in capabilities and allowlist_check and injection_check:
+        tool.guardrails = True
+        tool.metadata.update(
+            {
+                "process_execution_constrained": True,
+                "process_command_allowlist": True,
+                "process_injection_filter": True,
+                "control_basis": "command_allowlist_and_injection_filter",
+            }
+        )
+
     for child in ast.walk(node):
         if isinstance(child, ast.Constant) and isinstance(child.value, str):
             value = child.value
