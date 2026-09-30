@@ -107,7 +107,25 @@ def _collect_imports(
                     target_module=target_module,
                     target_name=alias.name,
                 )
-    return bindings, modules
+
+    normalized: dict[tuple[str, str], ImportRef] = {}
+    for key, binding in bindings.items():
+        target_module = binding.target_module
+        if target_module not in modules:
+            suffix_matches = [
+                module
+                for module in modules
+                if module.endswith(f".{target_module}")
+            ]
+            if len(suffix_matches) == 1:
+                target_module = suffix_matches[0]
+        normalized[key] = ImportRef(
+            module=binding.module,
+            name=binding.name,
+            target_module=target_module,
+            target_name=binding.target_name,
+        )
+    return normalized, modules
 
 
 def _resolve_function_binding(
