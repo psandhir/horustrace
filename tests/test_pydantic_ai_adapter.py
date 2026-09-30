@@ -944,7 +944,7 @@ agent = Agent("openai:gpt-5.2", toolsets=[server])
         encoding="utf-8",
     )
 
-    graph, findings = scan(tmp_path)
+    graph, _ = scan(tmp_path)
     agent = next(item for item in graph.agents if item.name == "agent")
     server = agent.mcp_servers[0]
     assert server.transport == "streamable-http"
