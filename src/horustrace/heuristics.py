@@ -98,7 +98,18 @@ def destination_is_broad(target: str) -> bool:
 
 def resource_is_broad(selector: str) -> bool:
     normalized = selector.strip()
-    return normalized in {"*", "/", "~", ".", "..", "${HOME}", "/**", "**", "/*"}
+    return normalized in {
+        "*",
+        "/",
+        "~",
+        ".",
+        "..",
+        "${HOME}",
+        "/**",
+        "**",
+        "/*",
+        "<model-selected-path>",
+    }
 
 
 def matches_any(value: str, patterns: list[str]) -> bool:
