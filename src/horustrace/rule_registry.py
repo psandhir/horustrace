@@ -101,6 +101,7 @@ RULE_REGISTRY: dict[str, RuleMetadata] = {
         _rule("PATH010", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential untrusted-input local file read to external service", "A model-selected local file path can be read and the resulting data can reach an external service without a detected filesystem containment boundary.", "Constrain model-selected paths to an explicit workspace or allowlist and prevent local file contents from reaching external services unless that transfer is explicitly intended and controlled."),
         _rule("PATH011", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential untrusted-input path to server-side URL fetch", "Source-bound untrusted input reaches an agent with a model-selected URL parameter that is passed to a direct server-side HTTP client without a detected destination restriction.", "Restrict server-side fetch tools to approved schemes and destinations, block private/link-local address ranges as appropriate, validate redirects, and require explicit controls for sensitive fetches."),
         _rule("PATH012", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential indirect tool-content path to unconstrained filesystem access", "Source-proven local or repository content can re-enter the model context while the same effective agent can select filesystem paths that reach read/write sinks without detected containment.", "Treat tool-returned repository content as untrusted model input and enforce resolved-path containment for every model-selected filesystem read/write tool."),
+        _rule("PATH013", 5, Severity.HIGH, "attack_path", "potential_risk", "Potential user-selected server directory exposure through RAG", "A user-selected server-side directory can be recursively ingested into a RAG corpus and retrieved through the same effective agent without a detected filesystem containment boundary.", "Constrain document roots to an approved base directory, enforce resolved-path containment before indexing, authenticate the application surface, and limit retrieval scope to intended documents."),
     )
 }
 
@@ -163,6 +164,7 @@ _OWASP_MAPPINGS = {
     "PATH010": ("ASI01", "ASI02"),
     "PATH011": ("ASI01", "ASI02"),
     "PATH012": ("ASI01", "ASI02", "ASI06"),
+    "PATH013": ("ASI02",),
     "NET004": ("ASI02",),
 }
 
