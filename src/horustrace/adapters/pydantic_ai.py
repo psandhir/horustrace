@@ -496,6 +496,83 @@ def _resolve_sequence(
     return None
 
 
+def _configuration_call_from_expr(
+    expr: ast.AST | None,
+    assignments: dict[str, ast.AST],
+    *,
+    visited: set[str] | None = None,
+) -> ast.Call | None:
+    """Resolve simple assignment/await/fallback chains to a configuration loader call."""
+    visited = visited or set()
+    if expr is None:
+        return None
+    if isinstance(expr, ast.Name):
+        if expr.id in visited or expr.id not in assignments:
+            return None
+        return _configuration_call_from_expr(
+            assignments[expr.id],
+            assignments,
+            visited=visited | {expr.id},
+        )
+    if isinstance(expr, ast.Await):
+        return _configuration_call_from_expr(expr.value, assignments, visited=visited)
+    if isinstance(expr, ast.Call):
+        return expr
+    if isinstance(expr, ast.BoolOp):
+        for value in expr.values:
+            resolved = _configuration_call_from_expr(value, assignments, visited=visited)
+            if resolved is not None:
+                return resolved
+        return None
+    if isinstance(expr, ast.IfExp):
+        return (
+            _configuration_call_from_expr(expr.body, assignments, visited=visited)
+            or _configuration_call_from_expr(expr.orelse, assignments, visited=visited)
+        )
+    return None
+
+
+def _configured_mcp_catalogue_from_expr(
+    path: Path,
+    expr: ast.AST | None,
+    assignments: dict[str, ast.AST],
+    *,
+    alias: str,
+) -> MCPServer | None:
+    """Represent a configuration-derived MCP catalogue without inventing its tools."""
+    call = _configuration_call_from_expr(expr, assignments)
+    if call is None:
+        return None
+    called = (_dotted(call.func) or _call_name(call.func) or "").lower()
+    leaf = (_call_name(call.func) or "").lower()
+    looks_like_mcp_loader = (
+        "mcp" in called
+        and any(token in called for token in ("server", "toolset", "tools"))
+        and (
+            leaf.startswith(("get_", "load_", "create_", "build_", "read_"))
+            or leaf in {"mcp_servers", "mcp_toolsets"}
+        )
+    )
+    if not looks_like_mcp_loader:
+        return None
+    return MCPServer(
+        name=alias,
+        transport="unknown",
+        approval=None,
+        location=_location(path, call),
+        metadata={
+            "framework": "pydantic-ai",
+            "source": "configuration_derived_mcp_catalogue",
+            "binding_origin": "pydantic_toolsets",
+            "dynamic_configured_mcp_catalogue": True,
+            "configuration_dependent": True,
+            "catalogue_source": _dotted(call.func) or _call_name(call.func),
+            "dynamic_mcp_endpoint_basis": "operator_configuration",
+            "per_call_approval": None,
+        },
+    )
+
+
 def _tool_from_reference(
     path: Path,
     expr: ast.AST,
@@ -578,9 +655,17 @@ def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer |
     canonical_name = (
         "MCPServerStdio"
         if isinstance(name, str) and name.endswith("MCPServerStdio")
+        else "MCPServerStreamableHTTP"
+        if isinstance(name, str) and name.endswith("MCPServerStreamableHTTP")
         else name
     )
-    if canonical_name not in {"MCPToolset", "MCP", "MCPServerTool", "MCPServerStdio"}:
+    if canonical_name not in {
+        "MCPToolset",
+        "MCP",
+        "MCPServerTool",
+        "MCPServerStdio",
+        "MCPServerStreamableHTTP",
+    }:
         return None
 
     metadata: dict[str, Any] = {
@@ -620,7 +705,13 @@ def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer |
 
     if isinstance(endpoint, str) and endpoint.startswith(("http://", "https://")):
         parsed = urlparse(endpoint)
-        transport = "sse" if parsed.path.rstrip("/").endswith("/sse") else "streamable-http"
+        transport = (
+            "streamable-http"
+            if canonical_name == "MCPServerStreamableHTTP"
+            else "sse"
+            if parsed.path.rstrip("/").endswith("/sse")
+            else "streamable-http"
+        )
         return MCPServer(
             name=alias,
             transport=transport,
@@ -646,6 +737,18 @@ def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer |
             args=[endpoint],
             location=_location(path, call),
             metadata=metadata,
+        )
+
+    if canonical_name == "MCPServerStreamableHTTP":
+        return MCPServer(
+            name=alias,
+            transport="streamable-http",
+            location=_location(path, call),
+            metadata={
+                **metadata,
+                "dynamic_mcp_endpoint": True,
+                "dynamic_mcp_endpoint_basis": "operator_configuration",
+            },
         )
 
     return MCPServer(
@@ -1279,11 +1382,25 @@ def scan_python_file(path: Path) -> Graph:
             elements = _resolve_sequence(toolsets_expr, sequences)
             if elements is None:
                 agent.metadata["dynamic_tools"] = True
+                configured_mcp = _configured_mcp_catalogue_from_expr(
+                    path,
+                    toolsets_expr,
+                    assignments,
+                    alias=f"{alias}:configured-mcp",
+                )
+                if configured_mcp is not None:
+                    agent.mcp_servers.append(configured_mcp)
+                    agent.metadata["configuration_dependent_mcp_toolsets"] = True
                 _diagnostic(
                     graph,
                     path,
                     toolsets_expr,
-                    "Pydantic AI toolsets collection could not be statically resolved.",
+                    (
+                        "Pydantic AI toolsets are configuration-derived; the MCP "
+                        "catalogue is bound but its concrete tools/transports are unresolved."
+                        if configured_mcp is not None
+                        else "Pydantic AI toolsets collection could not be statically resolved."
+                    ),
                 )
             else:
                 for element in elements:
@@ -1402,11 +1519,27 @@ def scan_python_file(path: Path) -> Graph:
             continue
         elements = _resolve_sequence(toolsets_expr, sequences)
         if elements is None:
+            agent = agents[owner]
+            configured_mcp = _configured_mcp_catalogue_from_expr(
+                path,
+                toolsets_expr,
+                assignments,
+                alias=f"{owner}:runtime-configured-mcp",
+            )
+            if configured_mcp is not None:
+                agent.mcp_servers.append(configured_mcp)
+                agent.metadata["runtime_toolsets"] = True
+                agent.metadata["configuration_dependent_mcp_toolsets"] = True
             _diagnostic(
                 graph,
                 path,
                 toolsets_expr,
-                "Runtime Pydantic AI toolsets could not be statically resolved.",
+                (
+                    "Runtime Pydantic AI toolsets are configuration-derived; the MCP "
+                    "catalogue is bound but its concrete tools/transports are unresolved."
+                    if configured_mcp is not None
+                    else "Runtime Pydantic AI toolsets could not be statically resolved."
+                ),
             )
             continue
         agent = agents[owner]
