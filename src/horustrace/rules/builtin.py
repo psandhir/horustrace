@@ -144,6 +144,35 @@ def _agent_instance_key(agent: object) -> str:
     return name
 
 
+def _tool_resource_evidence(tool: object) -> list[str]:
+    resources = getattr(tool, "resources", []) or []
+    dynamic_files = [
+        resource
+        for resource in resources
+        if getattr(resource, "kind", None) == "file"
+        and getattr(resource, "metadata", {}).get("model_selected_path") is True
+    ]
+    if not dynamic_files:
+        return []
+
+    evidence = [
+        "resource_scope="
+        + ",".join(sorted({resource.selector for resource in dynamic_files}))
+    ]
+    parameters = sorted(
+        {
+            parameter
+            for resource in dynamic_files
+            for parameter in resource.metadata.get("path_parameters", [])
+            if isinstance(parameter, str)
+        }
+    )
+    if parameters:
+        evidence.append("path_parameters=" + ",".join(parameters))
+    evidence.append("path_containment=not_detected")
+    return evidence
+
+
 def evaluate(graph: Graph) -> list[Finding]:
     findings: list[Finding] = []
     authority_relationships = effective_authority_relationships(graph)
@@ -227,7 +256,7 @@ def evaluate(graph: Graph) -> list[Finding]:
                 and tool.kind in {"apply_patch", "generic", "function", "langchain_tool", "custom_registry_tool", "langgraph_tool"}
                 and tool.metadata.get("agent_internal_artifact") is not True
             ):
-                findings.append(Finding("AGT022", Severity.MEDIUM, "State-changing tool without approval", f"Tool '{tool.name}' can modify state without explicit approval.", "Require approval for material state changes or constrain the tool to low-risk, reversible operations.", layer=1, location=tool.location, agent=agent.name, evidence=["capability=data.write", f"approval={tool.approval}"]))
+                findings.append(Finding("AGT022", Severity.MEDIUM, "State-changing tool without approval", f"Tool '{tool.name}' can modify state without explicit approval.", "Require approval for material state changes or constrain the tool to low-risk, reversible operations.", layer=1, location=tool.location, agent=agent.name, evidence=["capability=data.write", f"approval={tool.approval}", *_tool_resource_evidence(tool)]))
             if (
                 "computer.control" in tool.capabilities
                 and tool.metadata.get("computer_control_custom")
@@ -278,7 +307,10 @@ def evaluate(graph: Graph) -> list[Finding]:
                 and tool.approval is not True
                 and not agent_tool_control
             ):
-                evidence = ["capabilities=" + ",".join(sorted(tool.capabilities))]
+                evidence = [
+                    "capabilities=" + ",".join(sorted(tool.capabilities)),
+                    *_tool_resource_evidence(tool),
+                ]
                 if tool_authority is not None:
                     evidence.extend(
                         [

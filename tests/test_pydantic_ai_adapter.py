@@ -1018,6 +1018,116 @@ def run_agent(prompt: str):
     assert path.metadata["destination_provenance"] == "provider_search_result"
 
 
+def test_pydantic_ai_web_loader_model_selected_url_is_source_backed_path(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from langchain_community.document_loaders import WebBaseLoader
+from pydantic_ai import Agent, Tool
+
+def web_scraper(urls: list[str]) -> str:
+    text = ""
+    for url in urls:
+        loader = WebBaseLoader(url)
+        docs = loader.load()
+        text += str(docs)
+    return text
+
+agent = Agent(
+    "openai:gpt-5.2",
+    tools=[Tool(web_scraper, takes_ctx=False)],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tool = next(item for item in agent.tools if item.name == "web_scraper")
+
+    assert tool.metadata["model_selected_url_fetch"] is True
+    assert tool.metadata["model_selected_url_parameters"] == ["urls"]
+    assert any(
+        destination.target == "<dynamic-url>"
+        and destination.metadata.get("network_abstraction") == "url_loader"
+        for destination in tool.destinations
+    )
+
+    flow = next(
+        item
+        for item in graph.flow_paths
+        if item.agent == "agent"
+        and item.source_kind == "agent_tool_input"
+        and item.sink_kind == "server_side_url_fetch"
+    )
+    assert flow.confidence.value == "supported"
+    assert flow.source_label == "web_scraper.urls"
+    assert flow.sink_label == "WebBaseLoader"
+
+    path = next(
+        item
+        for item in graph.attack_paths
+        if item.path_id == "PATH011"
+        and item.agent == "agent"
+        and item.metadata.get("basis") == "static_dataflow"
+    )
+    assert path.metadata["network_abstraction"] == "url_loader"
+    assert path.metadata["destination_provenance"] == "model_selected_url_argument"
+    assert any(
+        finding.rule_id == "PATH011" and finding.agent == "agent"
+        for finding in findings
+    )
+
+
+def test_pydantic_ai_model_selected_write_path_is_resource_scope(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent, Tool
+
+def save_output(filename: str, content: bytes) -> str:
+    with open(filename, "wb") as handle:
+        handle.write(content)
+    return filename
+
+agent = Agent(
+    "openai:gpt-5.2",
+    tools=[Tool(save_output, takes_ctx=False)],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tool = next(item for item in agent.tools if item.name == "save_output")
+
+    assert tool.metadata["model_selected_filesystem_path"] is True
+    assert tool.metadata["filesystem_path_constrained"] is False
+    assert tool.metadata["model_selected_path_parameters"] == ["filename"]
+    resource = next(
+        item
+        for item in tool.resources
+        if item.selector == "<model-selected-path>"
+    )
+    assert resource.kind == "file"
+    assert resource.access == {"data.write"}
+    assert resource.metadata["model_selected_path"] is True
+    assert resource.metadata["path_parameters"] == ["filename"]
+    assert resource.metadata["path_containment"] == "not_detected"
+
+    finding = next(
+        item
+        for item in findings
+        if item.rule_id == "AGT022" and item.agent == "agent"
+    )
+    assert "resource_scope=<model-selected-path>" in finding.evidence
+    assert "path_parameters=filename" in finding.evidence
+    assert "path_containment=not_detected" in finding.evidence
+
+
 def test_pydantic_ai_native_tool_controls_constrain_shell_and_artifact_write(
     tmp_path: Path,
 ) -> None:

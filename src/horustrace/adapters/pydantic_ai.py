@@ -36,6 +36,15 @@ _AGENT_RUN_METHODS = {
     "iter",
 }
 
+# Known abstractions that dereference caller-supplied URLs server-side. Keep
+# this allowlisted rather than treating arbitrary constructors as network sinks.
+_URL_LOADER_CONSTRUCTORS = {
+    "webbaseloader",
+    "asynchtmlloader",
+    "unstructuredurlloader",
+    "seleniumurlloader",
+}
+
 _CAPABILITY_TOOLS: dict[str, tuple[str, set[str]]] = {
     "FileSystem": ("filesystem", {"data.read", "data.write"}),
     "Shell": (
@@ -260,19 +269,53 @@ def _function_http_url_semantics(
         return [], {}
 
     tainted = set(params)
+    taint_origins: dict[str, set[str]] = {
+        parameter: {parameter}
+        for parameter in params
+    }
+
+    def _origins(expr: ast.AST | None) -> set[str]:
+        if expr is None:
+            return set()
+        result: set[str] = set()
+        for child in ast.walk(expr):
+            if isinstance(child, ast.Name):
+                result.update(taint_origins.get(child.id, set()))
+        return result
+
     assignments = [
         child
         for child in ast.walk(node)
         if isinstance(child, (ast.Assign, ast.AnnAssign))
         and child.value is not None
     ]
+    loops = [
+        child
+        for child in ast.walk(node)
+        if isinstance(child, (ast.For, ast.AsyncFor))
+    ]
     for _ in range(8):
         changed = False
         for assignment in assignments:
-            if not _expr_uses_names(assignment.value, tainted):
+            origins = _origins(assignment.value)
+            if not origins:
                 continue
             for name in _target_names(assignment):
-                if name not in tainted:
+                previous = set(taint_origins.get(name, set()))
+                combined = previous | origins
+                if combined != previous:
+                    taint_origins[name] = combined
+                    tainted.add(name)
+                    changed = True
+        for loop in loops:
+            origins = _origins(loop.iter)
+            if not origins:
+                continue
+            for name in _target_names(loop.target):
+                previous = set(taint_origins.get(name, set()))
+                combined = previous | origins
+                if combined != previous:
+                    taint_origins[name] = combined
                     tainted.add(name)
                     changed = True
         if not changed:
@@ -333,22 +376,31 @@ def _function_http_url_semantics(
             receiver_root in http_clients
             and leaf in {"get", "post", "put", "patch", "delete", "request", "head"}
         )
-        if not (direct_http or client_http):
+        url_loader = leaf in _URL_LOADER_CONSTRUCTORS
+        if not (direct_http or client_http or url_loader):
             continue
 
         target: ast.AST | None
-        if leaf == "request" and len(call.args) > 1:
+        if url_loader:
+            target = call.args[0] if call.args else next(
+                (
+                    keyword.value
+                    for keyword in call.keywords
+                    if keyword.arg in {"url", "urls", "web_path", "web_paths"}
+                ),
+                None,
+            )
+        elif leaf == "request" and len(call.args) > 1:
             target = call.args[1]
         else:
             target = call.args[0] if call.args else _kw(call, "url")
         if target is None or not _expr_uses_names(target, tainted):
             continue
 
-        selected = {
-            child.id
-            for child in ast.walk(target)
-            if isinstance(child, ast.Name) and child.id in params
-        }
+        selected: set[str] = set()
+        for child in ast.walk(target):
+            if isinstance(child, ast.Name):
+                selected.update(taint_origins.get(child.id, set()))
         parameters.update(selected)
         follows_redirects = follows_redirects or http_clients.get(
             receiver_root, False
@@ -366,6 +418,8 @@ def _function_http_url_semantics(
                     "source": "model_selected_url_argument",
                     "network_scope": "dynamic_destination",
                     "server_side_fetch": True,
+                    "network_sink": called,
+                    "network_abstraction": "url_loader" if url_loader else "http_client",
                     "follow_redirects": http_clients.get(receiver_root, False),
                 },
             )

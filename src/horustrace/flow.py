@@ -118,6 +118,12 @@ _SECRET_ENV_MARKERS = {
 _AGENT_TOOL_CONTEXT_PARAMS = {
     "self", "cls", "ctx", "context", "run_context", "tool_context",
 }
+_URL_FETCH_CONSTRUCTORS = {
+    "webbaseloader",
+    "asynchtmlloader",
+    "unstructuredurlloader",
+    "seleniumurlloader",
+}
 
 
 def _location(path: Path, node: ast.AST) -> SourceLocation:
@@ -246,6 +252,8 @@ def _sink_kind(called: str) -> tuple[str, str] | None:
         or leaf in {"run_command", "execute_bash", "shell_command"}
     ):
         return "process_execute", called
+    if leaf in _URL_FETCH_CONSTRUCTORS:
+        return "server_side_url_fetch", called
     if (
         lower.startswith((
             "requests.post", "requests.put", "requests.patch", "requests.delete",
