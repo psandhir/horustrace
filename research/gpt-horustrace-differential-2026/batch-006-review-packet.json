@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "batch-006",
+  "phase": "selection_locked_before_source_review",
+  "selection_locked_before_source_review": true,
+  "horustrace_case_output_seen": false,
+  "selection_method": "For each non-exhausted framework stratum, choose the eligible case with lexicographically smallest final 12 hex characters of pinned SHA after excluding previously_studied cohort cases and every case used in semantic benchmark v1.1, blind semantic cohort, differential Batch 001, Batch 002, Batch 003, Batch 004, or Batch 005. FastAgent remains omitted because all frozen FastAgent cases are already studied.",
+  "cases": [
+    {
+      "case_id": "rw-021",
+      "repo": "proflead/how-to-build-ai-agent",
+      "sha": "6dba7692cf4fa2c41944c6b327af2be78b1ab793",
+      "framework": "google-adk",
+      "application_path": "agent.py"
+    },
+    {
+      "case_id": "rw-047",
+      "repo": "wafu7969/langgraph-workflow-demo",
+      "sha": "2e48b3da1f0dc181c5eb8e66e28f1d85cdd7c9a2",
+      "framework": "langgraph",
+      "application_path": "src/graph.py"
+    },
+    {
+      "case_id": "rw-083",
+      "repo": "RGGH/refactored-octo-parakeet",
+      "sha": "1aec28cb33fbff0e8d0fa7799c0c2bba6ac90a6a",
+      "framework": "mcp-custom",
+      "application_path": "main.py"
+    },
+    {
+      "case_id": "rw-130",
+      "repo": "als141/a2a-openai-multiagent",
+      "sha": "8d4061bf210aecacd68a7ef6e68051d1aa724050",
+      "framework": "openai-agents",
+      "application_path": "advanced_experiment_system.py"
+    },
+    {
+      "case_id": "rw-163",
+      "repo": "rachedblili/MCP-Transition",
+      "sha": "7c1941f6b592787622b91a321d031c1cd77a688d",
+      "framework": "pydantic-ai",
+      "application_path": "improved_agent.py"
+    }
+  ],
+  "explicit_exclusions": {
+    "semantic_benchmark_v1_1": ["rw-022", "rw-085", "rw-129", "rw-158", "rw-058", "rw-003", "rw-096"],
+    "blind_semantic_cohort": ["rw-002", "rw-026", "rw-038", "rw-066", "rw-071", "rw-081", "rw-110", "rw-121", "rw-140", "rw-165", "rw-180"],
+    "differential_batch_001": ["rw-017", "rw-065", "rw-112", "rw-139", "rw-152"],
+    "differential_batch_002": ["rw-003", "rw-004", "rw-041", "rw-076", "rw-116", "rw-147"],
+    "differential_batch_003": ["rw-007", "rw-049", "rw-084", "rw-131", "rw-150"],
+    "differential_batch_004": ["rw-012", "rw-042", "rw-104", "rw-138", "rw-164"],
+    "differential_batch_005": ["rw-029", "rw-074", "rw-115", "rw-142", "rw-178"]
+  }
+}
