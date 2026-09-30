@@ -1109,3 +1109,47 @@ root_agent = LlmAgent(
         for item in graph.attack_paths
     )
 
+
+
+
+def test_adk_delegation_preserves_operator_configured_network_scope() -> None:
+    from horustrace.models import Agent, Graph, InputSource, Tool
+    from horustrace.rules.builtin import evaluate
+    from horustrace.scanner import _propagate_adk_delegation
+
+    child = Agent(
+        name="child",
+        metadata={"framework": "google-adk"},
+        tools=[
+            Tool(
+                name="configured_remote_call",
+                kind="adk_function",
+                capabilities={"network.external", "data.read"},
+                metadata={"network_scope": "operator_configured_destination"},
+            )
+        ],
+    )
+    parent = Agent(
+        name="parent",
+        inputs=[InputSource(name="user", trust="untrusted")],
+        metadata={
+            "framework": "google-adk",
+            "delegates_to": ["child"],
+        },
+    )
+    graph = Graph(agents=[parent, child])
+
+    _propagate_adk_delegation(graph)
+
+    delegated = next(
+        tool for tool in parent.tools if tool.kind == "delegated_agent"
+    )
+    assert delegated.metadata["network_scope"] == "operator_configured_destination"
+    assert not any(
+        finding.rule_id == "NET002" and finding.agent == "parent"
+        for finding in evaluate(graph)
+    )
+    assert not any(
+        path.path_id == "PATH009" and path.agent == "parent"
+        for path in graph.attack_paths
+    )
