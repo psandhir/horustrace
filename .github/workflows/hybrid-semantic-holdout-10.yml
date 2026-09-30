@@ -22,7 +22,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ github.token }}
       SEMANTIC_PROVIDER: copilot
-      SEMANTIC_MODEL: gpt-5.4
+      SEMANTIC_MODEL: auto
     steps:
       - name: Checkout HorusTrace
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
