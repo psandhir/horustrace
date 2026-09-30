@@ -254,6 +254,18 @@ def _sink_kind(called: str) -> tuple[str, str] | None:
         or leaf in {"send_email", "send_message", "upload_file", "publish_message"}
     ):
         return "external_send", called
+    if leaf in {
+        "webbaseloader",
+        "asyncchromiumloader",
+        "seleniumurlloader",
+        "unstructuredurlloader",
+    }:
+        # These repository-side loader abstractions accept URL input and
+        # subsequently dereference it server-side (typically via .load()).
+        # Treat the URL constructor argument as the network-destination sink so
+        # agent-tool parameter flow can be preserved without claiming that an
+        # arbitrary unresolved constructor performs I/O.
+        return "server_side_url_fetch", called
     memory_marked = "memory" in lower or "checkpoint" in lower
     if memory_marked and leaf in {"save", "store", "add", "put", "update", "write", "append", "set"}:
         return "memory_write", called
