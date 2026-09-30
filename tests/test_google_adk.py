@@ -908,3 +908,39 @@ root_agent = Agent(
         and finding.agent == "policy_helper"
         for finding in findings
     )
+
+
+def test_adk_function_tool_dynamic_path_keeps_fixed_provider_destination(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import requests
+from google.adk.agents import LlmAgent
+from google.adk.tools import FunctionTool
+
+def fetch_repo(repo_url: str):
+    owner, repo = repo_url.replace("https://github.com/", "").split("/")[:2]
+    api_url = f"https://api.github.com/repos/{owner}/{repo}/contents"
+    return requests.get(api_url).json()
+
+agent = LlmAgent(
+    name="reader",
+    model="gemini-3.1-flash-lite",
+    tools=[FunctionTool(func=fetch_repo)],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "reader")
+    tool = next(item for item in agent.tools if item.name == "fetch_repo")
+    assert any(
+        destination.target == "https://api.github.com"
+        and destination.restricted is True
+        and destination.metadata.get("network_scope") == "fixed_provider_network"
+        for destination in tool.destinations
+    )
+    assert not any(finding.rule_id in {"NET001", "NET002"} for finding in findings)
+    assert not any(path.path_id == "PATH009" for path in graph.attack_paths)
