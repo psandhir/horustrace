@@ -3,9 +3,9 @@ name: GPT Differential Batch 005 Post-Fix Scan V2
 on:
   push:
     branches:
-      - research/gpt-differential-batch-005-postfix-v2-v2
+      - research/gpt-differential-batch-005-postfix-v2
     paths:
-      - ".github/workflows/gpt-differential-batch-005-postfix-v2-v2.yml"
+      - ".github/workflows/gpt-differential-batch-005-postfix-v2.yml"
 
 permissions:
   contents: write
@@ -100,4 +100,4 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add "$OUT_ROOT/batch-005-postfix-v2-scanner-result.json" "$OUT_ROOT/batch-005-postfix-v2-scanner-result.md"
           git commit -m "research: record Batch 005 post-fix scan"
-          git push origin HEAD:research/gpt-differential-batch-005-postfix-v2-v2
+          git push origin HEAD:research/gpt-differential-batch-005-postfix-v2
