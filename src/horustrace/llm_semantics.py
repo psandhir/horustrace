@@ -11,6 +11,8 @@ import ast
 import hashlib
 import json
 import os
+import shutil
+import subprocess
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -63,7 +65,7 @@ class LLMSemanticConfig:
     fail_open: bool = True
 
     def validate(self) -> None:
-        if self.provider.lower() not in {"openai", "google", "gemini"}:
+        if self.provider.lower() not in {"openai", "google", "gemini", "copilot"}:
             raise LLMSemanticError(
                 f"unsupported semantic LLM provider {self.provider!r}"
             )
@@ -627,6 +629,81 @@ def _gemini_text(response: dict[str, Any]) -> tuple[str, str | None]:
     raise LLMSemanticError("Gemini response missing text")
 
 
+def _strip_json_fence(value: str) -> str:
+    text = value.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        text = "\n".join(lines).strip()
+    return text
+
+
+def _copilot_resolver(
+    candidate: _Candidate,
+    source_slice: str,
+    config: LLMSemanticConfig,
+) -> dict[str, Any]:
+    cli = shutil.which("copilot")
+    if cli is None:
+        raise LLMSemanticError(
+            "Copilot CLI is required for provider 'copilot'; install @github/copilot"
+        )
+    if not (
+        os.environ.get("GITHUB_TOKEN", "").strip()
+        or os.environ.get("COPILOT_GITHUB_TOKEN", "").strip()
+        or os.environ.get("GH_TOKEN", "").strip()
+    ):
+        raise LLMSemanticError(
+            "GITHUB_TOKEN, COPILOT_GITHUB_TOKEN, or GH_TOKEN is required for Copilot"
+        )
+
+    prompt = (
+        _system_prompt()
+        + "\n\n"
+        + _user_prompt(candidate, source_slice)
+        + "\n\nReturn exactly one JSON object matching the requested schema. "
+        "Do not wrap it in markdown fences and do not use tools."
+    )
+    command = [
+        cli,
+        "-p",
+        prompt,
+        "-s",
+        "--no-ask-user",
+        "--no-custom-instructions",
+        "--no-remote",
+        "--model",
+        config.model,
+    ]
+    try:
+        completed = subprocess.run(
+            command,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=180,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise LLMSemanticError(f"Copilot CLI request failed: {exc}") from exc
+    if completed.returncode != 0:
+        message = completed.stderr.strip() or completed.stdout.strip()
+        raise LLMSemanticError(
+            f"Copilot CLI exited with code {completed.returncode}: {message[:1000]}"
+        )
+    raw = _strip_json_fence(completed.stdout)
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise LLMSemanticError("Copilot CLI returned invalid JSON") from exc
+    if not isinstance(payload, dict):
+        raise LLMSemanticError("Copilot CLI returned non-object JSON")
+    return payload
+
+
 def _api_resolver(
     candidate: _Candidate,
     source_slice: str,
@@ -634,6 +711,8 @@ def _api_resolver(
 ) -> dict[str, Any]:
     provider = config.provider.lower()
     schema = _schema()
+    if provider == "copilot":
+        return _copilot_resolver(candidate, source_slice, config)
     if provider == "openai":
         api_key = os.environ.get("OPENAI_API_KEY", "").strip()
         if not api_key:
