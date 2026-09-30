@@ -88,19 +88,24 @@ def _target_names(node: ast.AST) -> set[str]:
     return set()
 
 
-def _tainted_aliases(
+def _taint_origins(
     function: ast.FunctionDef | ast.AsyncFunctionDef,
     tainted_parameters: set[str],
-) -> set[str]:
-    tainted = set(tainted_parameters)
+) -> dict[str, set[str]]:
+    origins: dict[str, set[str]] = {
+        parameter: {parameter}
+        for parameter in tainted_parameters
+    }
     changed = True
     while changed:
         changed = False
         for child in ast.walk(function):
             if not isinstance(child, (ast.Assign, ast.AnnAssign)):
                 continue
-            value = child.value
-            if not (_expr_names(value) & tainted):
+            value_origins: set[str] = set()
+            for name in _expr_names(child.value):
+                value_origins.update(origins.get(name, set()))
+            if not value_origins:
                 continue
             targets = (
                 child.targets
@@ -109,10 +114,19 @@ def _tainted_aliases(
             )
             for target in targets:
                 for name in _target_names(target):
-                    if name not in tainted:
-                        tainted.add(name)
+                    previous = set(origins.get(name, set()))
+                    combined = previous | value_origins
+                    if combined != previous:
+                        origins[name] = combined
                         changed = True
-    return tainted
+    return origins
+
+
+def _tainted_aliases(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    tainted_parameters: set[str],
+) -> set[str]:
+    return set(_taint_origins(function, tainted_parameters))
 
 
 def _containment_detected(
@@ -149,7 +163,15 @@ def _function_semantics(
     function: ast.FunctionDef | ast.AsyncFunctionDef,
     tainted_parameters: set[str],
 ) -> FunctionSemantics:
-    tainted = _tainted_aliases(function, tainted_parameters)
+    taint_origins = _taint_origins(function, tainted_parameters)
+    tainted = set(taint_origins)
+
+    def path_origins(node: ast.AST | None) -> set[str]:
+        result: set[str] = set()
+        for name in _expr_names(node):
+            result.update(taint_origins.get(name, set()))
+        return result
+
     accesses: set[str] = set()
     path_parameters: set[str] = set()
     read_calls: list[ast.Call] = []
@@ -164,15 +186,31 @@ def _function_semantics(
 
         if leaf in {"read_text", "read_bytes", "rglob", "glob", "iterdir"} and receiver_tainted:
             accesses.add("read")
-            path_parameters.update(tainted_parameters)
+            path_parameters.update(path_origins(receiver))
             if leaf in {"read_text", "read_bytes"}:
                 read_calls.append(child)
 
         if leaf in {"write_text", "write_bytes", "unlink", "rename", "replace"} and receiver_tainted:
             accesses.add("write")
-            path_parameters.update(tainted_parameters)
+            path_parameters.update(path_origins(receiver))
 
-        if leaf == "open" and (receiver_tainted or arg_tainted):
+        if leaf == "open":
+            path_expr: ast.AST | None = receiver if receiver_tainted else None
+            if path_expr is None and child.args:
+                path_expr = child.args[0]
+            if path_expr is None:
+                path_expr = next(
+                    (
+                        keyword.value
+                        for keyword in child.keywords
+                        if keyword.arg in {"file", "path"}
+                    ),
+                    None,
+                )
+            selected_path_parameters = path_origins(path_expr)
+            if not selected_path_parameters:
+                continue
+
             mode = None
             if len(child.args) > 1 and isinstance(child.args[1], ast.Constant):
                 mode = child.args[1].value
@@ -184,7 +222,7 @@ def _function_semantics(
             else:
                 accesses.add("read")
                 read_calls.append(child)
-            path_parameters.update(tainted_parameters)
+            path_parameters.update(selected_path_parameters)
 
     returns_file_content = False
     for child in ast.walk(function):
