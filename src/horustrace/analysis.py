@@ -4,7 +4,7 @@ from horustrace.heuristics import (
     HIGH_RISK_CAPABILITIES,
     UNTRUSTED_INPUT_KINDS,
 )
-from horustrace.models import AgentReachability, AttackPath, FlowPath, Graph, Severity
+from horustrace.models import AgentReachability, AttackPath, FlowPath, Graph, Severity, Tool
 
 _UNTRUSTED_FLOW_SOURCES = {
     "user_input",
@@ -49,6 +49,29 @@ def _flow_path_metadata(flow: FlowPath) -> dict:
     }
 
 
+def _bound_tool_for_flow(graph: Graph, flow: FlowPath) -> Tool | None:
+    if not flow.agent:
+        return None
+    binding = flow.metadata.get("agent_binding")
+    if not isinstance(binding, dict):
+        return None
+    tool_name = binding.get("tool")
+    function_key = binding.get("function")
+    agent = next((item for item in graph.agents if item.name == flow.agent), None)
+    if agent is None:
+        return None
+    candidates = [
+        tool
+        for tool in agent.tools
+        if (isinstance(tool_name, str) and tool.name == tool_name)
+        or (
+            isinstance(function_key, str)
+            and tool.metadata.get("source_function_key") == function_key
+        )
+    ]
+    return candidates[0] if len(candidates) == 1 else None
+
+
 def _flow_backed_paths(graph: Graph) -> list[AttackPath]:
     paths: list[AttackPath] = []
     for flow in graph.flow_paths:
@@ -60,6 +83,14 @@ def _flow_backed_paths(graph: Graph) -> list[AttackPath]:
         ):
             continue
         nodes = [step.label for step in flow.steps]
+        bound_tool = _bound_tool_for_flow(graph, flow)
+        if (
+            flow.source_kind in _UNTRUSTED_FLOW_SOURCES
+            and flow.sink_kind == "process_execute"
+            and bound_tool is not None
+            and bound_tool.metadata.get("process_execution_constrained") is True
+        ):
+            continue
         if flow.source_kind in _UNTRUSTED_FLOW_SOURCES and flow.sink_kind == "process_execute":
             paths.append(
                 AttackPath(
