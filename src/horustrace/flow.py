@@ -677,6 +677,13 @@ def _agent_bindings_for_chain(
                 }
                 if same_name_counts.get(agent.name, 0) > 1:
                     binding["agent_instance_key"] = stable_instance
+                    if agent.location is not None:
+                        binding["agent_source_path"] = (
+                            _relative(agent.location.path, root)
+                            if root is not None
+                            else agent.location.path.name
+                        )
+                        binding["agent_source_line"] = str(agent.location.line)
                 bindings.append((agent.name, binding))
             return bindings
 
@@ -713,6 +720,13 @@ def _agent_bindings_for_chain(
         }
         if same_name_counts.get(agent.name, 0) > 1:
             binding["agent_instance_key"] = chosen[3]
+            if agent.location is not None:
+                binding["agent_source_path"] = (
+                    _relative(agent.location.path, root)
+                    if root is not None
+                    else agent.location.path.name
+                )
+                binding["agent_source_line"] = str(agent.location.line)
         return [(agent.name, binding)]
     if len(instance_keys) > 1:
         return [(None, {"basis": "ambiguous_same_file_tool_function"})]
