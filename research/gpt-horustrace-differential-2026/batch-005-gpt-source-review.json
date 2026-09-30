@@ -1,0 +1,214 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "batch-005",
+  "mode": "case-blind-source-review",
+  "reviewer": {
+    "model": "GPT-5.6 Sol",
+    "case_specific_horustrace_findings_seen_before_lock": false,
+    "general_horustrace_product_context_seen": true,
+    "note": "Reviewed pinned application/runtime source before opening case-specific HorusTrace output. Findings require a source-proven ingress, effective model/tool authority, and a concrete security-relevant effect; operator-only configuration and hypothetical weakened configurations are not promoted to default findings."
+  },
+  "cases": [
+    {
+      "case_id": "rw-029",
+      "repo": "git791/GreenAI-Agent",
+      "sha": "94fdaf7fd9dd4269ac85fef9e850237da0360908",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "app.py",
+        "README.md"
+      ],
+      "runtime_viability": "viable_demo",
+      "runtime_notes": "Streamlit chat input reaches a Google ADK Runner. Venue and transport data are deterministic local mocks. The apparent booking boundary is implemented as ADK tool confirmation and pauses for explicit UI approval; confirmation itself does not call an external booking API.",
+      "authority_facts": [
+        "Streamlit st.chat_input supplies user-controlled text to the ADK runner.",
+        "GreenEventOrchestrator can invoke subagents, deterministic FunctionTools, and a BuiltInCodeExecutor-backed auditor.",
+        "confirm_venue_selection requests tool confirmation before returning confirmed/rejected state.",
+        "No source-proven external venue booking or equivalent privileged mutation is present."
+      ],
+      "findings": [],
+      "attack_paths": [],
+      "controls": [
+        "Human confirmation is enforced in confirm_venue_selection before the selection can be marked confirmed.",
+        "README and source identify venue/transport integrations as mock deterministic data rather than production external APIs.",
+        "No repo-local host execution path from BuiltInCodeExecutor was established from the reviewed source."
+      ]
+    },
+    {
+      "case_id": "rw-074",
+      "repo": "MKRNaqeebi/GenAlima",
+      "sha": "e237b03c69a80ec69197a3d0532719b66439e7fa",
+      "framework": "langgraph",
+      "source_files_reviewed": [
+        "agent/main.py",
+        "agent/tools/__init__.py",
+        "agent/tools/update_chat_title.py",
+        "agent/prompts/system.md",
+        "agent/prompts/__init__.py",
+        "app/api/routes/messages.py",
+        "app/api/routes/chats.py",
+        "app/models.py"
+      ],
+      "runtime_viability": "viable_authenticated_web_app",
+      "runtime_notes": "Authenticated message creation verifies ownership of the active chat, injects the current message_id/chat_id into the agent context, then invokes a LangGraph ChatOpenAI tool loop. The only bound tool updates chat titles.",
+      "authority_facts": [
+        "The messages API enforces current-user ownership for the active Chat before invoking LangGraphAgent.",
+        "The agent binds update_chat_title_tool and executes model-selected tool arguments.",
+        "UpdateChatTitleTool opens its own DB Session, performs session.get(Chat, chat_id), changes chat.title, and commits.",
+        "The tool does not receive current_user and performs no owner_id comparison before committing.",
+        "Chat IDs are UUIDs, so cross-object abuse additionally requires another chat UUID to be supplied or learned."
+      ],
+      "findings": [
+        {
+          "semantic_key": "model_callable_chat_title_update_lacks_object_ownership_check",
+          "title": "Model-callable chat-title mutation bypasses the API ownership boundary",
+          "severity": "medium",
+          "confidence": "high",
+          "rationale": "The HTTP chat/message routes consistently scope mutations to current_user, but the model-callable update_chat_title tool accepts an arbitrary chat_id and updates that Chat directly without owner scoping. A user who can cause the model to submit another valid chat UUID can cross the normal object-ownership boundary and modify that chat's title.",
+          "evidence": [
+            "app/api/routes/messages.py:create_message checks chat.owner_id against current_user.id before agent invocation",
+            "agent/tools/update_chat_title.py:UpdateChatTitleTool._run uses session.get(Chat, chat_id), assigns chat.title, and commits without owner validation",
+            "app/models.py:Chat has owner_id, establishing the ownership boundary omitted by the tool"
+          ]
+        }
+      ],
+      "attack_paths": [
+        {
+          "semantic_key": "authenticated_message_to_cross_object_chat_title_mutation",
+          "confidence": "medium",
+          "path": [
+            "authenticated user message",
+            "LangGraph model/tool selection",
+            "update_chat_title(chat_id supplied to model/tool)",
+            "unscoped Chat lookup",
+            "database title mutation"
+          ],
+          "limitation": "Exploitation requires a valid chat UUID outside the caller's ownership; UUID discovery is not proven by this path."
+        }
+      ],
+      "controls": [
+        "Normal chat and message REST endpoints enforce owner_id checks.",
+        "The active chat_id is supplied in system context, which encourages normal same-chat use but is not an authorization control."
+      ]
+    },
+    {
+      "case_id": "rw-115",
+      "repo": "Meer-Promethean/Voice_Agent",
+      "sha": "f7e94334c253eb058ace3ff23655290b17b7a8ac",
+      "framework": "mcp-custom",
+      "source_files_reviewed": [
+        "agent.py",
+        "backend/main.py",
+        "mcp_server/server.py",
+        "mcp_server/db.py",
+        "README.md"
+      ],
+      "runtime_viability": "viable_full_stack_demo",
+      "runtime_notes": "FastAPI issues LiveKit participant tokens, a LiveKit worker sends room audio to an OpenAI voice model, model-callable wrappers invoke a local stdio MCP server, and the MCP server mutates a local demo SQLite banking database.",
+      "authority_facts": [
+        "POST /api/token has no authentication dependency and can mint room-join tokens with publish privileges.",
+        "LiveKit participant audio reaches AgentSession with transfer_funds and create_account in the model tool list.",
+        "Both function tools directly call corresponding local MCP tools without a human-approval gate.",
+        "db_transfer_funds debits/credits account balances and writes transaction records before conn.commit().",
+        "db_create_account inserts account and optional initial transaction records before conn.commit().",
+        "The transfer path validates account existence/status/balance but does not authenticate the speaking participant as the source-account owner.",
+        "The persistence target is the repository's local demo SQLite database, not a proven production banking backend."
+      ],
+      "findings": [
+        {
+          "semantic_key": "unauthenticated_voice_agent_can_mutate_banking_state_without_approval",
+          "title": "Unauthenticated voice participant can reach model-driven banking mutations without an approval boundary",
+          "severity": "high",
+          "confidence": "high",
+          "rationale": "The backend mints publish-capable LiveKit room tokens without authenticating the caller. The voice model is directly equipped with transfer_funds and create_account tools, which traverse stdio MCP to committed SQLite mutations. No participant-to-account authorization or per-action human approval is enforced in this path.",
+          "evidence": [
+            "backend/main.py:create_token issues a LiveKit token without an authentication/authorization dependency",
+            "agent.py:entrypoint starts AgentSession on room input with transfer_funds/create_account in tools",
+            "agent.py:transfer_funds and create_account call _call_mcp_tool directly",
+            "mcp_server/server.py exposes transfer_funds/create_account via FastMCP",
+            "mcp_server/db.py commits account balance/transaction and account-creation mutations"
+          ],
+          "scope_note": "Impact is confined to the demo/local SQLite banking state shown by the pinned source; no production Bank Alfalah integration is established."
+        }
+      ],
+      "attack_paths": [
+        {
+          "semantic_key": "public_livekit_token_to_banking_sqlite_mutation",
+          "confidence": "high",
+          "path": [
+            "unauthenticated POST /api/token caller",
+            "publish-capable LiveKit participant",
+            "voice model",
+            "transfer_funds/create_account function tool",
+            "local stdio MCP server",
+            "SQLite banking-state mutation"
+          ]
+        }
+      ],
+      "controls": [
+        "Database transfer logic checks positive amount, account status, account existence, and balance.",
+        "The model instruction asks for account-number confirmation before sharing sensitive details, but this is prompt guidance and is not an authorization or transaction-approval control.",
+        "MCP server command/path configuration is operator-controlled and is not a model-selected command-execution finding."
+      ]
+    },
+    {
+      "case_id": "rw-142",
+      "repo": "totalhack/zillion",
+      "sha": "d508864b13a942942895936559f538c7f7d246c6",
+      "framework": "openai-agents",
+      "source_files_reviewed": [
+        "zillion/agent.py"
+      ],
+      "runtime_viability": "viable_library_workflow",
+      "runtime_notes": "Natural-language analytics questions are planned by an OpenAI Agents planner. The planner's tools expose warehouse overview, field search, and report-spec validation; validated report specs are then executed by the host library.",
+      "authority_facts": [
+        "The planning agent does not receive arbitrary SQL or a generic execution tool.",
+        "Report specs are restricted to a fixed key set and resolved through warehouse metric/dimension APIs.",
+        "Agent-accessible field metadata can disable fields/groups/patterns and validation rejects disabled fields.",
+        "Warehouse.execute is invoked only after report-spec validation.",
+        "requires_confirmation is an ambiguity/UX gate; the reviewed path is analytics/report execution rather than a source-proven privileged mutation."
+      ],
+      "findings": [],
+      "attack_paths": [],
+      "controls": [
+        "Fixed report-spec schema and field resolution constrain model-generated analytics plans.",
+        "Agent field enable/disable metadata is enforced during planning and validation.",
+        "No arbitrary SQL, filesystem, shell, credential, or state-changing tool was established from the reviewed file."
+      ]
+    },
+    {
+      "case_id": "rw-178",
+      "repo": "MhankBarBar/zero-ichi",
+      "sha": "e4c4ae87ce7b81009b4dd4bc6e671a512e8d2bd6",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "src/ai/agent.py",
+        "src/core/runtime_config.py",
+        "src/core/permissions.py",
+        "config.json.example",
+        "docs/getting-started/configuration.md"
+      ],
+      "runtime_viability": "viable_but_agentic_ai_disabled_by_default",
+      "runtime_notes": "The Pydantic AI agent can delegate to WhatsApp bot commands and feature toggles when enabled. Default configuration disables agentic AI and, when enabled without weakening defaults, restricts AI handling to the configured owner.",
+      "authority_facts": [
+        "agentic_ai.enabled defaults false.",
+        "agentic_ai.owner_only defaults true and should_respond rejects non-owner senders when that flag is active.",
+        "run_command applies AI allow/block policy, then check_command_permissions before executing the selected command.",
+        "Intrinsic owner-only commands cannot be lowered below owner by permission overrides.",
+        "Default blocked_actions include eval, aeval, addcommand, and delcommand.",
+        "toggle_feature is directly model-callable without command permission checks, but under pinned defaults model ingress remains owner-only."
+      ],
+      "findings": [],
+      "attack_paths": [],
+      "controls": [
+        "Agentic AI is disabled by default.",
+        "Owner-only agent ingress is enabled by default.",
+        "Delegated commands pass role, chat-type, bot-admin, and enabled-command checks.",
+        "High-risk dynamic evaluation/command-definition actions are blocked by default AI policy.",
+        "Configurations that deliberately disable owner_only or broaden AI action policy change effective authority, but are not promoted to a default-source finding here."
+      ]
+    }
+  ]
+}
