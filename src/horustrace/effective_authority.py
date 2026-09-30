@@ -30,11 +30,11 @@ def _agent_instance_key(agent: Agent) -> str:
 
 
 def _stable_relationship_id(
-    agent_instance_key: str,
+    agent: str,
     target_kind: str,
     target_name: str,
 ) -> str:
-    payload = f"{agent_instance_key}\0{target_kind}\0{target_name}"
+    payload = f"{agent}\0{target_kind}\0{target_name}"
     digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:20]
     return f"authority-v1:{digest}"
 
@@ -144,7 +144,6 @@ class EffectiveAuthorityRelationship:
         return {
             "relationship_id": self.relationship_id,
             "agent": self.agent,
-            "agent_instance_key": self.agent_instance_key,
             "target": {
                 "kind": self.target_kind,
                 "name": self.target_name,
@@ -227,9 +226,7 @@ def _tool_relationship(
     )
 
     return EffectiveAuthorityRelationship(
-        relationship_id=_stable_relationship_id(
-            _agent_instance_key(agent), "tool", tool.name
-        ),
+        relationship_id=_stable_relationship_id(agent.name, "tool", tool.name),
         agent=agent.name,
         agent_instance_key=_agent_instance_key(agent),
         target_kind="tool",
@@ -433,7 +430,7 @@ def _mcp_relationship(
 
     return EffectiveAuthorityRelationship(
         relationship_id=_stable_relationship_id(
-            _agent_instance_key(agent), "mcp_server", server.name
+            agent.name, "mcp_server", server.name
         ),
         agent=agent.name,
         agent_instance_key=_agent_instance_key(agent),
@@ -506,7 +503,6 @@ def effective_authority_relationships(
         result,
         key=lambda item: (
             item.agent,
-            item.agent_instance_key,
             item.target_kind,
             item.target_name,
             item.relationship_id,
