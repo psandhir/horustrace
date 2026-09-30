@@ -213,6 +213,11 @@ def _tool_ref(
             module_candidates = [sibling_module]
             if import_module in modules:
                 module_candidates.append(import_module)
+            module_candidates.extend(
+                module
+                for module in sorted(modules)
+                if module.endswith(f".{import_module}")
+            )
             for candidate_module in dict.fromkeys(module_candidates):
                 if not candidate_module or candidate_module not in modules:
                     continue
