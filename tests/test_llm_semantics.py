@@ -728,3 +728,50 @@ def execute(command):
 
     assert tool.metadata["process_execution_constrained"] is True
     assert not any(finding.rule_id == "AGT020" for finding in evaluate(graph))
+
+
+
+def test_llm_control_claims_do_not_override_existing_static_tool_state(
+    tmp_path: Path,
+):
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+def mutate(value):
+    return datastore.write(value)
+""",
+        encoding="utf-8",
+    )
+    tool = Tool(
+        name="mutate",
+        kind="function",
+        capabilities={"data.write"},
+        approval=None,
+        guardrails=False,
+        location=SourceLocation(source, 2, 1),
+        metadata={
+            "source_path": str(source),
+            "source_function": "mutate",
+        },
+    )
+    graph = Graph(agents=[Agent(name="agent", tools=[tool])])
+
+    def resolver(candidate, source_slice, config):
+        return _empty_result(
+            capabilities=["data.write"],
+            approval="true",
+            guardrails="true",
+        )
+
+    enrich_llm_semantics(
+        graph,
+        tmp_path,
+        [source],
+        _config(max_candidates=1),
+        resolver=resolver,
+    )
+
+    assert tool.approval is None
+    assert tool.guardrails is False
+    assert tool.metadata["semantic_approval_state"] == "true"
+    assert tool.metadata["semantic_guardrails_state"] == "true"
