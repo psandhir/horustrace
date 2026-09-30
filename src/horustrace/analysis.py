@@ -1161,7 +1161,13 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 )
             )
 
-        if untrusted and secret_tools and unconstrained_outbound:
+        secret_egress = [
+            tool
+            for tool in external_transfer
+            if "external.write" in tool.capabilities
+            or tool in unconstrained_outbound
+        ]
+        if untrusted and secret_tools and secret_egress:
             paths.append(
                 AttackPath(
                     path_id="PATH005",
@@ -1171,12 +1177,12 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                         untrusted[0].name,
                         agent.name,
                         secret_tools[0].name,
-                        unconstrained_outbound[0].name,
+                        secret_egress[0].name,
                     ],
                     severity=Severity.HIGH,
                     rationale=(
                         "The normalized agent model combines untrusted input, secret-reading "
-                        "capability and unconstrained outbound capability."
+                        "capability and external-write or unconstrained network authority."
                     ),
                     location=agent.location,
                     metadata=_path_metadata(basis="capability_cooccurrence"),
