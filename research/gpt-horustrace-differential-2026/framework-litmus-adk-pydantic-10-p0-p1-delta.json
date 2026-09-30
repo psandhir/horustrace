@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "framework-litmus-adk-pydantic-10-p0-p1-delta",
+  "baseline_scanner_sha": "36c48f88da2106c367e3a96e2f94432e8ef595ca",
+  "fixed_scanner_sha": "58042934515a6aeafaa0c745c95c8e1d60db1a44",
+  "merged_main_sha": "f42a05025e5c1a13fab8bc1cd4bd73dc0131b5b7",
+  "common_tree_sha": "c41bf160a2dd700eb230923856ce55bb2c150118",
+  "replay": {
+    "workflow_run_id": 36722966258,
+    "run_attempt": 2,
+    "artifact_id": 11103457455,
+    "conclusion": "success",
+    "scanned": 10,
+    "scan_errors": 0,
+    "findings": 39,
+    "attack_paths": 9
+  },
+  "baseline": {
+    "findings": 62,
+    "attack_paths": 9,
+    "semantic": {
+      "full": 6,
+      "partial": 4,
+      "missed": 2,
+      "total": 12
+    },
+    "paths": {
+      "full": 5,
+      "partial": 2,
+      "missed": 2,
+      "total": 9
+    },
+    "known_unsupported_horustrace_paths": 1
+  },
+  "after": {
+    "findings": 39,
+    "attack_paths": 9,
+    "semantic": {
+      "full": 10,
+      "partial": 2,
+      "missed": 0,
+      "total": 12
+    },
+    "paths": {
+      "full": 8,
+      "partial": 0,
+      "missed": 1,
+      "total": 9
+    },
+    "known_unsupported_horustrace_paths": 0
+  },
+  "cases": [
+    {
+      "case_id": "rw-009",
+      "before": {
+        "findings": 3,
+        "paths": 1
+      },
+      "after": {
+        "findings": 0,
+        "paths": 0
+      },
+      "delta": "false fixed-provider egress claim removed"
+    },
+    {
+      "case_id": "rw-017",
+      "before": {
+        "findings": 11,
+        "paths": 2
+      },
+      "after": {
+        "findings": 11,
+        "paths": 2
+      },
+      "delta": "authentication public-default predicate retained in both paths"
+    },
+    {
+      "case_id": "rw-004",
+      "before": {
+        "findings": 13,
+        "paths": 0
+      },
+      "after": {
+        "findings": 13,
+        "paths": 0
+      },
+      "delta": "runtime/source blocker qualification added"
+    },
+    {
+      "case_id": "rw-007",
+      "before": {
+        "findings": 2,
+        "paths": 1
+      },
+      "after": {
+        "findings": 2,
+        "paths": 1
+      },
+      "delta": "unchanged correct detection"
+    },
+    {
+      "case_id": "rw-012",
+      "before": {
+        "findings": 0,
+        "paths": 0
+      },
+      "after": {
+        "findings": 0,
+        "paths": 0
+      },
+      "delta": "negative precision control remains clean"
+    },
+    {
+      "case_id": "rw-155",
+      "before": {
+        "findings": 23,
+        "paths": 0,
+        "mcp": 0
+      },
+      "after": {
+        "findings": 1,
+        "paths": 0,
+        "mcp": 1
+      },
+      "delta": "dynamic configured MCP detected; precision noise removed"
+    },
+    {
+      "case_id": "rw-152",
+      "before": {
+        "findings": 7,
+        "paths": 3
+      },
+      "after": {
+        "findings": 7,
+        "paths": 3
+      },
+      "delta": "runtime blocker qualification added; URL path and filename scope remain partial"
+    },
+    {
+      "case_id": "rw-147",
+      "before": {
+        "findings": 0,
+        "paths": 0
+      },
+      "after": {
+        "findings": 2,
+        "paths": 1
+      },
+      "delta": "search-result-derived destination detected"
+    },
+    {
+      "case_id": "rw-150",
+      "before": {
+        "findings": 2,
+        "paths": 1
+      },
+      "after": {
+        "findings": 2,
+        "paths": 1
+      },
+      "delta": "unchanged correct detection"
+    },
+    {
+      "case_id": "rw-164",
+      "before": {
+        "findings": 1,
+        "paths": 1
+      },
+      "after": {
+        "findings": 1,
+        "paths": 1
+      },
+      "delta": "unchanged correct detection"
+    }
+  ],
+  "remaining_gaps": [
+    "rw-152 model-selected URL -> WebBaseLoader source-to-destination path",
+    "rw-152 model-controlled output filename/path resource scope"
+  ]
+}
