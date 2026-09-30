@@ -1,0 +1,210 @@
+name: Unseen ADK Pydantic Holdout 10 v2
+
+on:
+  push:
+    branches:
+      - research/unseen-holdout-adk-pydantic-10-v2
+    paths:
+      - ".github/workflows/unseen-holdout-adk-pydantic-10-v2.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unseen-adk-pydantic-holdout-10-v2
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout HorusTrace
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install HorusTrace
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Run targeted framework regressions
+        run: |
+          python -m pytest -q \
+            tests/test_google_adk.py \
+            tests/test_pydantic_ai_adapter.py \
+            tests/test_runtime_ingress_mapping.py \
+            tests/test_runtime_viability.py
+
+      - name: Scan exact unseen 10-case holdout
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import shutil
+          import subprocess
+          import tempfile
+          import time
+          from pathlib import Path
+
+          CASES = [
+              ("hold-adk-001","AbiramiSukumaran/adk-renovation-single-agent","f1b779be5d1d49093b46102a8440d26830efa07d","google-adk"),
+              ("hold-adk-002","amiitt001/adk-hiring-agent","7232ba30820c0370634b97142b0bb72c32d9d065","google-adk"),
+              ("hold-adk-003","Quantum-Cipher/MCP-GCP-governance-protocol","ff3864266f752c572393584721d70059955b33c2","google-adk"),
+              ("hold-adk-004","Suvam-paul145/student-doubt-classifer-agent","d9463f6209e7a9c9e04310805e8222158ca89fc8","google-adk"),
+              ("hold-adk-005","amachwe/test_openapi_agent","053380f1b793d5d8e0b31a6fa47898b590bb6a22","google-adk"),
+              ("hold-pyd-001","mindeye33/speedagent","cc42c792ffac8e3c6ee7679dd3eff6f2f84d7c59","pydantic-ai"),
+              ("hold-pyd-002","newsbubbles/youtube-manager-mcp","b429601aa96fa4497084e43863a288c6353de59e","pydantic-ai"),
+              ("hold-pyd-003","gtsbahamas/text-moderation","decb6d85be0afe5bf08d222b519b33cf15e45064","pydantic-ai"),
+              ("hold-pyd-004","ArhamMirza/AI-Budget-CSV-Manager","44dc9e7df8c007d813d88810ec6e347086527b66","pydantic-ai"),
+              ("hold-pyd-005","rawheel/PydanticAi-MultiModal","65e7450fab5c0df06ed7f6216b99e2becd8e92b9","pydantic-ai"),
+          ]
+
+          def clone_case(root, case):
+              case_id, repo, sha, framework = case
+              target = root / case_id
+              target.mkdir()
+              commands = [
+                  ["git","init","-q",str(target)],
+                  ["git","-C",str(target),"remote","add","origin",f"https://github.com/{repo}.git"],
+                  ["git","-C",str(target),"fetch","--quiet","--depth=1","--filter=blob:none","origin",sha],
+                  ["git","-C",str(target),"checkout","--quiet","--detach","FETCH_HEAD"],
+              ]
+              for command in commands:
+                  cp = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=240)
+                  if cp.returncode:
+                      raise RuntimeError((cp.stderr or cp.stdout)[-4000:])
+              return target
+
+          results = []
+          with tempfile.TemporaryDirectory(prefix="horustrace-unseen-holdout-") as temp:
+              root = Path(temp)
+              for index, case in enumerate(CASES, 1):
+                  case_id, repo_name, sha, framework = case
+                  started = time.monotonic()
+                  print(f"[{index:02d}/10] {case_id} {repo_name}", flush=True)
+                  row = {"case_id":case_id,"repo":repo_name,"sha":sha,"framework":framework}
+                  try:
+                      target = clone_case(root, case)
+                      from horustrace.config import load_config
+                      from horustrace.scanner import scan
+                      graph, findings = scan(target, config=load_config(target))
+                      row.update({
+                          "scan":"ok",
+                          "agents":[
+                              {
+                                  "name": agent.name,
+                                  "runtime_viability": agent.metadata.get("runtime_viability"),
+                                  "runtime_blockers": agent.metadata.get("runtime_blockers") or [],
+                                  "inputs":[
+                                      {"name": item.name, "trust": item.trust, "kind": item.kind, "metadata": item.metadata}
+                                      for item in agent.inputs
+                                  ],
+                                  "mcp_servers":[
+                                      {
+                                          "name": server.name,
+                                          "transport": server.transport,
+                                          "url": server.url,
+                                          "approval": server.approval,
+                                          "metadata": server.metadata,
+                                      }
+                                      for server in agent.mcp_servers
+                                  ],
+                                  "tools":[
+                                      {
+                                          "name": tool.name,
+                                          "kind": tool.kind,
+                                          "capabilities": sorted(tool.capabilities),
+                                          "guardrails": tool.guardrails,
+                                          "approval": tool.approval,
+                                          "resources":[
+                                              {"kind": resource.kind, "selector": resource.selector, "access": sorted(resource.access)}
+                                              for resource in tool.resources
+                                          ],
+                                          "destinations":[
+                                              {"target": d.target, "restricted": d.restricted, "metadata": d.metadata}
+                                              for d in tool.destinations
+                                          ],
+                                          "metadata": tool.metadata,
+                                      }
+                                      for tool in agent.tools
+                                  ],
+                              }
+                              for agent in graph.agents
+                          ],
+                          "unbound_mcp_servers":[
+                              {"name": s.name, "transport": s.transport, "url": s.url, "metadata": s.metadata}
+                              for s in graph.unbound_mcp_servers
+                          ],
+                          "findings":[finding.as_dict() for finding in findings],
+                          "attack_paths":[
+                              {
+                                  "path_id": p.path_id,
+                                  "title": p.title,
+                                  "agent": p.agent,
+                                  "nodes": p.nodes,
+                                  "severity": p.severity.label(),
+                                  "metadata": p.metadata,
+                              }
+                              for p in graph.attack_paths
+                          ],
+                          "diagnostics":[item.as_dict() for item in graph.coverage.diagnostics],
+                      })
+                  except Exception as exc:
+                      row.update(scan="error", error=f"{type(exc).__name__}: {exc}")
+                  row["elapsed_seconds"] = round(time.monotonic() - started, 2)
+                  results.append(row)
+                  shutil.rmtree(root / case_id, ignore_errors=True)
+
+          report = {
+              "schema_version":1,
+              "study":"gpt-horustrace-differential-2026",
+              "batch_id":"unseen-holdout-adk-pydantic-10-v2",
+              "scanner_commit":os.environ.get("GITHUB_SHA"),
+              "results":results,
+              "summary":{
+                  "requested":10,
+                  "scanned":sum(r.get("scan")=="ok" for r in results),
+                  "errors":sum(r.get("scan")!="ok" for r in results),
+                  "findings":sum(len(r.get("findings") or []) for r in results),
+                  "attack_paths":sum(len(r.get("attack_paths") or []) for r in results),
+              },
+          }
+          out = Path("research/gpt-horustrace-differential-2026/unseen-holdout-adk-pydantic-10-v2-scanner.json")
+          out.write_text(json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8")
+
+          lines = [
+              "# Unseen ADK + Pydantic AI holdout scanner reveal","",
+              f"- Scanner commit: {report['scanner_commit']}",
+              f"- Scanned: {report['summary']['scanned']}/10",
+              f"- Scan errors: {report['summary']['errors']}",
+              f"- Findings: {report['summary']['findings']}",
+              f"- Attack paths: {report['summary']['attack_paths']}","",
+              "| Case | Framework | Findings | Paths | Bound MCP | Runtime-blocked agents |",
+              "|---|---|---:|---:|---:|---:|",
+          ]
+          for row in results:
+              agents = row.get("agents") or []
+              mcp = sum(len(a.get("mcp_servers") or []) for a in agents)
+              blocked = sum(a.get("runtime_viability") == "blocked_by_source_error" for a in agents)
+              lines.append(
+                  f"| {row['case_id']} | {row['framework']} | {len(row.get('findings') or [])} | "
+                  f"{len(row.get('attack_paths') or [])} | {mcp} | {blocked} |"
+              )
+          Path("research/gpt-horustrace-differential-2026/unseen-holdout-adk-pydantic-10-v2-scanner.md").write_text("\n".join(lines) + "\n")
+          PY
+
+      - name: Upload holdout reveal
+        uses: actions/upload-artifact@v4
+        with:
+          name: unseen-holdout-adk-pydantic-10-v2
+          path: |
+            research/gpt-horustrace-differential-2026/unseen-holdout-adk-pydantic-10-v2-scanner.json
+            research/gpt-horustrace-differential-2026/unseen-holdout-adk-pydantic-10-v2-scanner.md
+          if-no-files-found: error
