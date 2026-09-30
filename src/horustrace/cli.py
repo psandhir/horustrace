@@ -40,6 +40,7 @@ from horustrace.effective_authority import (
 )
 from horustrace.git_snapshot import GitSnapshotError
 from horustrace.limits import ScanLimitError
+from horustrace.llm_semantics import LLMSemanticConfig
 from horustrace.mcp_effective import effective_mcp_authority_report
 from horustrace.models import Severity
 from horustrace.owasp import build_owasp_agentic_summary, render_owasp_agentic_console
@@ -94,6 +95,48 @@ def _parser() -> argparse.ArgumentParser:
     )
     scan_parser.add_argument("--suppressions", type=Path,
                              help="Explicit suppression YAML file.")
+    scan_parser.add_argument(
+        "--semantic-llm-provider",
+        choices=["openai", "google", "gemini", "copilot"],
+        help="Opt in to bounded LLM semantic escalation for unresolved source-backed gaps.",
+    )
+    scan_parser.add_argument(
+        "--semantic-llm-model",
+        help="Model used by --semantic-llm-provider.",
+    )
+    scan_parser.add_argument(
+        "--semantic-llm-max-candidates",
+        type=int,
+        default=6,
+        metavar="N",
+        help="Maximum semantic gaps escalated to the LLM (default: 6).",
+    )
+    scan_parser.add_argument(
+        "--semantic-llm-max-slice-chars",
+        type=int,
+        default=12000,
+        metavar="N",
+        help="Maximum source characters per semantic slice (default: 12000).",
+    )
+    scan_parser.add_argument(
+        "--semantic-llm-max-total-chars",
+        type=int,
+        default=48000,
+        metavar="N",
+        help="Maximum source characters sent across the scan (default: 48000).",
+    )
+    scan_parser.add_argument(
+        "--semantic-llm-min-confidence",
+        type=float,
+        default=0.75,
+        metavar="P",
+        help="Minimum confidence required to project inferred semantics (default: 0.75).",
+    )
+    scan_parser.add_argument(
+        "--semantic-llm-cache",
+        type=Path,
+        help="Optional JSON cache for structured semantic results keyed by source slice hash.",
+    )
     scan_parser.add_argument(
         "--exclude-source-context",
         "--exclude-source-role",
@@ -791,11 +834,35 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Wrote {len(findings)} expiring suppressions to {args.output}")
             return 0
         config = load_config(target if target.is_dir() else target.parent, args.config)
+        llm_semantic_config = None
+        if args.semantic_llm_provider or args.semantic_llm_model:
+            if not args.semantic_llm_provider or not args.semantic_llm_model:
+                print(
+                    "horustrace: --semantic-llm-provider and --semantic-llm-model "
+                    "must be provided together",
+                    file=sys.stderr,
+                )
+                return 1
+            try:
+                llm_semantic_config = LLMSemanticConfig(
+                    provider=args.semantic_llm_provider,
+                    model=args.semantic_llm_model,
+                    max_candidates=args.semantic_llm_max_candidates,
+                    max_slice_chars=args.semantic_llm_max_slice_chars,
+                    max_total_chars=args.semantic_llm_max_total_chars,
+                    min_confidence=args.semantic_llm_min_confidence,
+                    cache_path=args.semantic_llm_cache,
+                )
+                llm_semantic_config.validate()
+            except ValueError as exc:
+                print(f"horustrace: {exc}", file=sys.stderr)
+                return 1
         graph, findings = scan(
             target,
             suppressions_path=args.suppressions,
             config=config,
             authority_source=args.authority_source,
+            llm_semantic_config=llm_semantic_config,
         )
         disabled_rules = graph.configuration_audit.get("disabled_rules", [])
         authority_resolution = authority_resolution_summary(graph)
