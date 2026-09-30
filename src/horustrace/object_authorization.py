@@ -431,6 +431,30 @@ def _committed_mutation(
     return mutated and committed
 
 
+def _trusted_principal_reference(node: ast.AST) -> bool:
+    principal_roots = {
+        "current_user",
+        "authenticated_user",
+        "principal",
+        "ctx",
+        "context",
+        "request_user",
+    }
+    if isinstance(node, ast.Name):
+        return node.id in principal_roots
+    if isinstance(node, ast.Attribute):
+        dotted = _dotted(node) or ""
+        root = dotted.split(".", 1)[0]
+        return root in principal_roots and node.attr in {
+            "id",
+            "user_id",
+            "owner_id",
+            "tenant_id",
+            "organization_id",
+        }
+    return False
+
+
 def _has_owner_check(
     function: ast.FunctionDef | ast.AsyncFunctionDef,
     object_name: str,
@@ -439,14 +463,21 @@ def _has_owner_check(
     for node in ast.walk(function):
         if not isinstance(node, ast.Compare):
             continue
-        for child in ast.walk(node):
-            if (
-                isinstance(child, ast.Attribute)
-                and child.attr == owner_field
-                and isinstance(child.value, ast.Name)
-                and child.value.id == object_name
-            ):
-                return True
+        expressions = [node.left, *node.comparators]
+        owner_seen = any(
+            isinstance(child, ast.Attribute)
+            and child.attr == owner_field
+            and isinstance(child.value, ast.Name)
+            and child.value.id == object_name
+            for expression in expressions
+            for child in ast.walk(expression)
+        )
+        if owner_seen and any(
+            _trusted_principal_reference(child)
+            for expression in expressions
+            for child in ast.walk(expression)
+        ):
+            return True
     return False
 
 
