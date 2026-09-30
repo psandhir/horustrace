@@ -1,6 +1,6 @@
 name: Framework Litmus P0 P1 Post-Fix
 
-# rerun: flow-bound controls + control-aware PATH006 + relative re-exports
+# Targeted regression gate for the ADK + Pydantic differential litmus.
 
 on:
   push:
@@ -8,9 +8,14 @@ on:
       - fix/framework-litmus-p0-p1
     paths:
       - ".github/workflows/framework-litmus-p0-p1-postfix.yml"
+      - "src/**"
+      - "tests/test_google_adk.py"
+      - "tests/test_pydantic_ai_adapter.py"
+      - "tests/test_runtime_ingress_mapping.py"
+      - "tests/test_runtime_viability.py"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: framework-litmus-p0-p1-postfix
@@ -217,11 +222,11 @@ jobs:
           Path("research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-postfix.md").write_text("\n".join(lines)+"\n")
           PY
 
-      - name: Commit post-fix reveal
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-postfix.json
-          git add research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-postfix.md
-          git commit -m "research: record post-fix ADK/Pydantic litmus" || exit 0
-          git push origin HEAD:fix/framework-litmus-p0-p1
+      - name: Upload post-fix reveal
+        uses: actions/upload-artifact@v4
+        with:
+          name: framework-litmus-adk-pydantic-10-postfix
+          path: |
+            research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-postfix.json
+            research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-postfix.md
+          if-no-files-found: error
