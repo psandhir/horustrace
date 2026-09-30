@@ -182,7 +182,6 @@ def _function_semantics(
         leaf = _call_leaf(child) or ""
         receiver = child.func.value if isinstance(child.func, ast.Attribute) else None
         receiver_tainted = bool(_expr_names(receiver) & tainted)
-        arg_tainted = any(_expr_names(argument) & tainted for argument in child.args)
 
         if leaf in {"read_text", "read_bytes", "rglob", "glob", "iterdir"} and receiver_tainted:
             accesses.add("read")
