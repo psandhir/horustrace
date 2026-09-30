@@ -325,3 +325,12 @@ agent = Agent("test:model", tools=[opaque_capability])
     assert stats["selected_candidates"] == 1
     assert stats["applied"] == 1
     assert stats["input_chars"] > 0
+
+
+def test_copilot_provider_is_valid_and_json_fences_are_tolerated():
+    from horustrace.llm_semantics import _strip_json_fence
+
+    _config(provider="copilot").validate()
+    assert _strip_json_fence("\`\`\`json\\n{\\\"confidence\\\": 0.9}\\n\`\`\`") == (
+        '{\\"confidence\\": 0.9}'
+    )
