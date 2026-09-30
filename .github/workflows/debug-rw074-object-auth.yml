@@ -1,0 +1,82 @@
+name: Debug rw074 object authorization
+
+on:
+  push:
+    branches:
+      - debug/rw074-object-auth
+    paths:
+      - ".github/workflows/debug-rw074-object-auth.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+      - name: Check out pinned GenAlima
+        shell: bash
+        run: |
+          git clone -q https://github.com/MKRNaqeebi/GenAlima.git /tmp/genalima
+          git -C /tmp/genalima checkout -q e237b03c69a80ec69197a3d0532719b66439e7fa
+      - name: Inspect object authorization resolver
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          from horustrace.scanner import scan
+          import horustrace.object_authorization as oa
+
+          root = Path("/tmp/genalima")
+          paths = list(root.rglob("*.py"))
+          modules = {}
+          by_path = {}
+          for path in paths:
+              try:
+                  tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+              except Exception:
+                  continue
+              module = oa._module_name(path, root)
+              info = oa.ModuleInfo(module, path, tree, oa._imports(module, path, tree))
+              modules[module] = info
+              by_path[path.resolve()] = info
+
+          functions = oa._function_table(modules)
+          tool_defs = oa._tool_defs(modules)
+          owner_models = oa._model_owner_fields(modules)
+          owner_checks = oa._repository_owner_checks(modules, owner_models)
+
+          print("MODULE agent.main", "agent.main" in modules)
+          print("MODULE agent.tools", "agent.tools" in modules)
+          print("MODULE agent.tools.update_chat_title", "agent.tools.update_chat_title" in modules)
+          print("TOOL_DEFS", sorted(tool_defs))
+          print("CHAT_OWNER_FIELDS", owner_models.get("Chat"))
+          print("CHAT_OWNER_CHECKS", sorted(item for item in owner_checks if item[0] == "Chat"))
+
+          info = modules["agent.main"]
+          classes = [n for n in ast.walk(info.tree) if isinstance(n, ast.ClassDef) and n.name == "LangGraphAgent"]
+          cls = classes[0]
+          bound = oa._bound_tool_defs_for_class(
+              modules, functions, tool_defs, info.module, cls
+          )
+          print("BOUND", [(x.module, x.alias, x.runtime_name, x.class_name) for x in bound])
+          for item in bound:
+              print("AUTH", item.runtime_name, oa._authorization_metadata(item, owner_models, owner_checks))
+              print("CAPS", item.runtime_name, oa._tool_capabilities(item))
+
+          graph, findings = scan(root)
+          print("AGENTS", [(a.name, a.metadata.get("framework"), str(a.location.path) if a.location else None, a.location.line if a.location else None) for a in graph.agents])
+          for agent in graph.agents:
+              print("AGENT", agent.name, agent.metadata)
+              print("TOOLS", [(t.name, sorted(t.capabilities), t.metadata) for t in agent.tools])
+              print("INPUTS", [(i.name, i.metadata) for i in agent.inputs])
+          print("FINDINGS", [(f.rule_id, f.agent, f.title) for f in findings])
+          print("PATHS", [(p.path_id, p.agent, p.title, p.metadata) for p in graph.attack_paths])
+          PY
