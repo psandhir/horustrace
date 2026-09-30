@@ -251,3 +251,91 @@ def test_authority_enrichment_keeps_only_primary_scope_agents() -> None:
     filtered = module._authority_for_primary_agents(authority, primary_nodes)
 
     assert [item["agent"] for item in filtered["relationships"]] == ["primary"]
+
+
+
+def test_postfix_semantic_merge_keeps_primary_agents_only() -> None:
+    module = _module()
+    primary_nodes = [
+        {"kind": "agent", "name": "graph_builder"},
+        {"kind": "tool", "name": "chat"},
+    ]
+    primary = [
+        {
+            "rule_id": "AGT040",
+            "agent": "graph_builder",
+            "title": "Existing primary finding",
+            "fingerprint": "same",
+        }
+    ]
+    expanded = [
+        {
+            "rule_id": "AGT040",
+            "agent": "graph_builder",
+            "title": "Existing primary finding",
+            "fingerprint": "same",
+        },
+        {
+            "rule_id": "DATA004",
+            "agent": "graph_builder",
+            "title": "Cross-module owner boundary",
+            "fingerprint": "owner-boundary",
+        },
+        {
+            "rule_id": "AGT020",
+            "agent": "dependency_agent",
+            "title": "Unrelated repository agent",
+            "fingerprint": "unrelated",
+        },
+        {
+            "rule_id": "AGT050",
+            "agent": None,
+            "title": "Unscoped expanded finding",
+            "fingerprint": "unscoped",
+        },
+    ]
+
+    merged = module._merge_primary_agent_findings(
+        primary,
+        expanded,
+        primary_nodes,
+    )
+
+    assert [item["rule_id"] for item in merged] == ["AGT040", "DATA004"]
+
+
+def test_postfix_attack_path_merge_keeps_primary_agents_and_deduplicates() -> None:
+    module = _module()
+    primary_nodes = [{"kind": "agent", "name": "graph_builder"}]
+    primary = [
+        {
+            "path_id": "PATH002",
+            "agent": "graph_builder",
+            "nodes": ["input", "graph_builder", "write"],
+        }
+    ]
+    expanded = [
+        {
+            "path_id": "PATH002",
+            "agent": "graph_builder",
+            "nodes": ["input", "graph_builder", "write"],
+        },
+        {
+            "path_id": "PATH014",
+            "agent": "graph_builder",
+            "nodes": ["input", "graph_builder", "owner-scoped object"],
+        },
+        {
+            "path_id": "PATH001",
+            "agent": "dependency_agent",
+            "nodes": ["input", "dependency_agent", "process"],
+        },
+    ]
+
+    merged = module._merge_primary_agent_attack_paths(
+        primary,
+        expanded,
+        primary_nodes,
+    )
+
+    assert [item["path_id"] for item in merged] == ["PATH002", "PATH014"]
