@@ -66,9 +66,22 @@ def _bound_tool_for_flow(graph: Graph, flow: FlowPath) -> Tool | None:
     tool_name = binding.get("tool")
     function_key = binding.get("function")
     instance_key = binding.get("agent_instance_key")
+    source_path = binding.get("agent_source_path")
+    source_line = binding.get("agent_source_line")
 
     agents = [item for item in graph.agents if item.name == flow.agent]
-    if isinstance(instance_key, str) and instance_key:
+    if isinstance(source_path, str) and source_path:
+        agents = [
+            item
+            for item in agents
+            if item.location is not None
+            and item.location.path.as_posix().endswith(source_path)
+            and (
+                not isinstance(source_line, str)
+                or str(item.location.line) == source_line
+            )
+        ]
+    elif isinstance(instance_key, str) and instance_key:
         agents = [
             item
             for item in agents
