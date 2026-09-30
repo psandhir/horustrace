@@ -784,3 +784,172 @@ agent = Agent(name="contained_reader", tools=[read_file])
     assert tool.metadata["filesystem_path_constrained"] is True
     assert not any(path.path_id == "PATH012" for path in graph.attack_paths)
     assert not any(finding.rule_id == "PATH012" for finding in findings)
+
+
+def test_openai_dynamic_hosted_mcp_catalogue_binds_to_parameterized_agent(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+import os
+from agents import Agent, HostedMCPTool, Runner, Tool
+from openai.types.responses.tool_param import Mcp
+
+async def run_agent(tools: list[Tool]):
+    agent = Agent(name="flight-search-agent", tools=tools)
+    return await Runner.run(
+        starting_agent=agent,
+        input="Search for flights from New York to Los Angeles",
+    )
+
+async def main():
+    mcp_url = os.getenv("MCP_URL", "https://mcp.example.com")
+    tools = [
+        HostedMCPTool(
+            tool_config=Mcp(
+                type="mcp",
+                server_url=mcp_url,
+                server_label="flights",
+                require_approval="never",
+            )
+        )
+    ]
+    return await run_agent(tools)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "flight-search-agent")
+
+    assert agent.metadata["dynamic_tools"] is True
+    assert agent.metadata["dynamic_tools_source_bound"] is True
+    tool = next(item for item in agent.tools if item.kind == "hosted_mcp")
+    assert tool.name == "flights"
+    assert tool.approval is False
+    assert tool.metadata["dynamic_remote_mcp_catalogue"] is True
+    assert tool.metadata["dynamic_mcp_endpoint_basis"] == "operator_configuration"
+    assert tool.metadata["configuration_source"] == "env:MCP_URL"
+    assert any(
+        destination.target == "<operator-configured-mcp>"
+        and destination.restricted is True
+        for destination in tool.destinations
+    )
+    assert any(
+        finding.rule_id == "AGT054"
+        and finding.agent == "flight-search-agent"
+        for finding in findings
+    )
+    assert not any(
+        finding.rule_id == "NET001"
+        and finding.agent == "flight-search-agent"
+        for finding in findings
+    )
+    assert not any(
+        finding.rule_id.startswith("PATH")
+        and finding.agent == "flight-search-agent"
+        for finding in findings
+    )
+
+
+def test_openai_client_side_dynamic_mcp_catalogue_binds_to_parameterized_agent(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+import os
+from agents import Agent, Runner, Tool
+from agents.mcp import MCPServerStreamableHttp, MCPUtil
+
+async def run_agent(tools: list[Tool]):
+    agent = Agent(name="flight-search-agent", tools=tools)
+    return await Runner.run(
+        starting_agent=agent,
+        input="Search for flights from New York to Los Angeles",
+    )
+
+async def main():
+    mcp_url = os.getenv("MCP_URL", "https://mcp.example.com")
+    async with MCPServerStreamableHttp(
+        {"url": mcp_url, "headers": {}, "timeout": 30.0}
+    ) as server:
+        tools = await server.list_tools()
+        util = MCPUtil()
+        tools = [util.to_function_tool(tool, server, False) for tool in tools]
+        return await run_agent(tools)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "flight-search-agent")
+
+    assert agent.metadata["dynamic_tools_source_bound"] is True
+    server = next(item for item in agent.mcp_servers if item.name == "server")
+    assert server.transport == "streamable-http"
+    assert server.metadata["dynamic_mcp_endpoint"] is True
+    assert server.metadata["dynamic_mcp_endpoint_basis"] == "operator_configuration"
+    assert server.metadata["configuration_source"] == "env:MCP_URL"
+    assert server.metadata["dynamic_remote_mcp_catalogue"] is True
+    assert server.metadata["per_call_approval"] is False
+    assert server.metadata["dynamic_catalogue_binding"] == "list_tools_to_function_tool"
+    assert any(
+        finding.rule_id == "AGT054"
+        and finding.agent == "flight-search-agent"
+        for finding in findings
+    )
+    assert not any(
+        finding.rule_id == "NET001"
+        and finding.agent == "flight-search-agent"
+        for finding in findings
+    )
+    assert not any(
+        finding.rule_id.startswith("PATH")
+        and finding.agent == "flight-search-agent"
+        for finding in findings
+    )
+
+
+def test_openai_dynamic_hosted_mcp_with_per_call_approval_does_not_flag_agt054(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+import os
+from agents import Agent, HostedMCPTool, Tool
+from openai.types.responses.tool_param import Mcp
+
+async def run_agent(tools: list[Tool]):
+    return Agent(name="approved-agent", tools=tools)
+
+async def main():
+    mcp_url = os.getenv("MCP_URL", "https://mcp.example.com")
+    tools = [
+        HostedMCPTool(
+            tool_config=Mcp(
+                type="mcp",
+                server_url=mcp_url,
+                server_label="approved",
+                require_approval="always",
+            )
+        )
+    ]
+    return await run_agent(tools)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "approved-agent")
+    tool = next(item for item in agent.tools if item.kind == "hosted_mcp")
+
+    assert tool.approval is True
+    assert tool.metadata["dynamic_remote_mcp_catalogue"] is True
+    assert not any(
+        finding.rule_id == "AGT054"
+        and finding.agent == "approved-agent"
+        for finding in findings
+    )

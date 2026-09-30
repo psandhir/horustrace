@@ -168,7 +168,15 @@ _HOSTED_TOOL_CAPABILITIES: dict[str, tuple[str, set[str]]] = {
 }
 
 
-def _tool_from_call(path: Path, node: ast.Call, alias: str | None = None) -> Tool | None:
+def _tool_from_call(
+    path: Path,
+    node: ast.Call,
+    alias: str | None = None,
+    constants: dict[str, str] | None = None,
+    configuration_sources: dict[str, str] | None = None,
+) -> Tool | None:
+    constants = constants or {}
+    configuration_sources = configuration_sources or {}
     name = _call_name(node.func)
     if not name:
         return None
@@ -245,9 +253,60 @@ def _tool_from_call(path: Path, node: ast.Call, alias: str | None = None) -> Too
         )
 
     if name == "HostedMCPTool":
-        config = _literal(_kw(node, "tool_config")) or {}
-        server_label = str(config.get("server_label") or alias or "hosted-mcp")
-        approval = _approval_value(config.get("require_approval"))
+        config_node = _kw(node, "tool_config")
+        config = _literal(config_node)
+        config = config if isinstance(config, dict) else {}
+        config_nodes: dict[str, ast.AST] = {}
+        if isinstance(config_node, ast.Call) and _call_name(config_node.func) in {
+            "Mcp",
+            "MCP",
+        }:
+            config_nodes = {
+                keyword.arg: keyword.value
+                for keyword in config_node.keywords
+                if keyword.arg
+            }
+
+        def config_value(key: str) -> Any:
+            if key in config:
+                return config[key]
+            value_node = config_nodes.get(key)
+            static = _static_string(value_node, constants)
+            return static if static is not None else _literal(value_node)
+
+        server_label = str(
+            config_value("server_label") or alias or "hosted-mcp"
+        )
+        approval = _approval_value(config_value("require_approval"))
+        server_url = config_value("server_url")
+        server_url_node = config_nodes.get("server_url")
+        server_url_source = (
+            configuration_sources.get(server_url_node.id)
+            if isinstance(server_url_node, ast.Name)
+            else None
+        )
+        allowed_tools = config_value("allowed_tools")
+        dynamic_catalogue = not (
+            isinstance(allowed_tools, list) and bool(allowed_tools)
+        )
+        metadata = {
+            "server_url": server_url,
+            "connector_id": config_value("connector_id"),
+            "allowed_tools": allowed_tools,
+            "dynamic_remote_mcp_catalogue": dynamic_catalogue,
+            "per_call_approval": approval,
+        }
+        if server_url_node is not None and server_url is None:
+            metadata["dynamic_mcp_endpoint"] = True
+            metadata["dynamic_mcp_endpoint_basis"] = (
+                "operator_configuration"
+                if server_url_source
+                else "dynamic_expression"
+            )
+            if server_url_source:
+                metadata["configuration_source"] = server_url_source
+                metadata["network_scope"] = "operator_configured_destination"
+
         tool = Tool(
             name=server_label,
             kind="hosted_mcp",
@@ -255,18 +314,31 @@ def _tool_from_call(path: Path, node: ast.Call, alias: str | None = None) -> Too
             approval=approval,
             guardrails=_kw(node, "on_approval_request") is not None,
             location=_location(path, node),
-            metadata={
-                "server_url": config.get("server_url"),
-                "connector_id": config.get("connector_id"),
-                "allowed_tools": config.get("allowed_tools"),
-            },
+            metadata=metadata,
         )
-        if config.get("server_url"):
+        if server_url:
             tool.destinations.append(
                 NetworkDestination(
-                    target=str(config["server_url"]),
+                    target=str(server_url),
                     restricted=True,
                     location=tool.location,
+                    metadata={
+                        "source": "literal_url",
+                        "network_scope": "fixed_literal_destination",
+                    },
+                )
+            )
+        elif server_url_source:
+            tool.destinations.append(
+                NetworkDestination(
+                    target="<operator-configured-mcp>",
+                    restricted=True,
+                    location=tool.location,
+                    metadata={
+                        "source": "operator_configuration",
+                        "network_scope": "operator_configured_destination",
+                        "configuration_source": server_url_source,
+                    },
                 )
             )
         return tool
@@ -347,13 +419,21 @@ def _mcp_from_call(
     node: ast.Call,
     alias: str,
     constants: dict[str, str] | None = None,
+    configuration_sources: dict[str, str] | None = None,
 ) -> MCPServer | None:
     call_name = _call_name(node.func)
     if call_name not in MCP_TYPES:
         return None
 
     constants = constants or {}
+    configuration_sources = configuration_sources or {}
     params_node = _kw(node, "params")
+    if (
+        params_node is None
+        and node.args
+        and isinstance(node.args[0], ast.Dict)
+    ):
+        params_node = node.args[0]
     params = _literal(params_node) or {}
     entries = _dict_nodes(params_node)
     direct_url_node = _kw(node, "url") or (node.args[0] if node.args else None)
@@ -391,6 +471,12 @@ def _mcp_from_call(
         else None
     )
     approval = _approval_value(_literal(_kw(node, "require_approval")))
+    dynamic_url_node = entries.get("url") or direct_url_node
+    dynamic_url_source = (
+        configuration_sources.get(dynamic_url_node.id)
+        if isinstance(dynamic_url_node, ast.Name)
+        else None
+    )
     guardrails = bool(_literal(_kw(node, "tool_input_guardrails"))) or bool(
         _literal(_kw(node, "tool_output_guardrails"))
     )
@@ -441,9 +527,20 @@ def _mcp_from_call(
             "auth_headers": sorted(header_keys),
             "credential_source": _auth_credential_source(headers_node),
             "dynamic_mcp_endpoint": bool(
-                params_node is not None
-                and entries.get("url") is not None
-                and url is None
+                dynamic_url_node is not None and url is None
+            ),
+            "dynamic_mcp_endpoint_basis": (
+                "operator_configuration"
+                if url is None and dynamic_url_source
+                else "dynamic_expression"
+                if dynamic_url_node is not None and url is None
+                else None
+            ),
+            "configuration_source": dynamic_url_source,
+            "network_scope": (
+                "operator_configured_destination"
+                if url is None and dynamic_url_source
+                else None
             ),
             "dynamic_tool_filter": dynamic_tool_filter,
         },
@@ -873,6 +970,7 @@ def scan_python_file(path: Path) -> Graph:
     import_symbols: dict[str, str] = {}
     aliases: dict[str, str] = {}
     constants: dict[str, str] = {}
+    configuration_sources: dict[str, str] = {}
     external_clients: dict[str, str] = {}
     for node in tree.body:
         if isinstance(node, ast.ImportFrom):
@@ -881,6 +979,20 @@ def scan_python_file(path: Path) -> Graph:
                 local_name = alias.asname or alias.name
                 imports[local_name] = module
                 import_symbols[local_name] = alias.name
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = node.value
+        if value is None:
+            continue
+        source = _credential_reference(value)
+        if not source or not source.startswith("env:"):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        for target in targets:
+            if isinstance(target, ast.Name):
+                configuration_sources[target.id] = source
+
     for node in tree.body:
         if isinstance(node, (ast.Assign, ast.AnnAssign)):
             value = node.value
@@ -923,10 +1035,10 @@ def scan_python_file(path: Path) -> Graph:
                 continue
             if not isinstance(value, ast.Call):
                 continue
-            tool = _tool_from_call(path, value, alias)
+            tool = _tool_from_call(path, value, alias, constants, configuration_sources)
             if tool:
                 tools[alias] = tool
-            server = _mcp_from_call(path, value, alias, constants)
+            server = _mcp_from_call(path, value, alias, constants, configuration_sources)
             if server:
                 mcp_servers[alias] = server
 
@@ -935,7 +1047,7 @@ def scan_python_file(path: Path) -> Graph:
                 if not isinstance(item.context_expr, ast.Call) or not isinstance(item.optional_vars, ast.Name):
                     continue
                 alias = item.optional_vars.id
-                server = _mcp_from_call(path, item.context_expr, alias, constants)
+                server = _mcp_from_call(path, item.context_expr, alias, constants, configuration_sources)
                 if server:
                     mcp_servers[alias] = server
 
@@ -996,6 +1108,10 @@ def scan_python_file(path: Path) -> Graph:
         parameter_names = _enclosing_function_parameter_names(functions, node)
         if isinstance(tools_expr, ast.Name) and tools_expr.id in parameter_names:
             agent.metadata["dynamic_tools"] = True
+            owner_function = _enclosing_function(functions, node)
+            if owner_function is not None:
+                agent.metadata["dynamic_tools_function"] = owner_function.name
+                agent.metadata["dynamic_tools_parameter"] = tools_expr.id
             tool_elements: list[ast.AST] = []
         else:
             tool_elements = _resolve_sequence(tools_expr, sequences)
@@ -1018,7 +1134,12 @@ def scan_python_file(path: Path) -> Graph:
                     )
                 )
             elif isinstance(element, ast.Call):
-                direct_tool = _tool_from_call(path, element)
+                direct_tool = _tool_from_call(
+                    path,
+                    element,
+                    constants=constants,
+                    configuration_sources=configuration_sources,
+                )
                 if direct_tool:
                     agent.tools.append(direct_tool)
 
@@ -1094,6 +1215,189 @@ def scan_python_file(path: Path) -> Graph:
             )
 
         graph.agents.append(agent)
+
+    def parameter_names_in_order(
+        function: ast.FunctionDef | ast.AsyncFunctionDef,
+    ) -> list[str]:
+        return [
+            arg.arg
+            for arg in [
+                *function.args.posonlyargs,
+                *function.args.args,
+                *function.args.kwonlyargs,
+            ]
+        ]
+
+    def call_argument_for_parameter(
+        call: ast.Call,
+        function: ast.FunctionDef | ast.AsyncFunctionDef,
+        parameter: str,
+    ) -> ast.AST | None:
+        for keyword in call.keywords:
+            if keyword.arg == parameter:
+                return keyword.value
+        ordered = parameter_names_in_order(function)
+        if parameter not in ordered:
+            return None
+        index = ordered.index(parameter)
+        return call.args[index] if index < len(call.args) else None
+
+    def assignment_value_before(
+        function: ast.FunctionDef | ast.AsyncFunctionDef,
+        name: str,
+        before_line: int,
+    ) -> ast.AST | None:
+        candidates: list[tuple[int, ast.AST]] = []
+        for assignment in ast.walk(function):
+            if not isinstance(assignment, (ast.Assign, ast.AnnAssign)):
+                continue
+            if _enclosing_function(functions, assignment) is not function:
+                continue
+            line = getattr(assignment, "lineno", 0)
+            if line >= before_line:
+                continue
+            targets = (
+                assignment.targets
+                if isinstance(assignment, ast.Assign)
+                else [assignment.target]
+            )
+            if not any(
+                isinstance(target, ast.Name) and target.id == name
+                for target in targets
+            ):
+                continue
+            if assignment.value is not None:
+                candidates.append((line, assignment.value))
+        if not candidates:
+            return None
+        return max(candidates, key=lambda item: item[0])[1]
+
+    def unwrap_await(value: ast.AST | None) -> ast.AST | None:
+        return value.value if isinstance(value, ast.Await) else value
+
+    functions_by_name = {function.name: function for function in functions}
+    dynamic_agents = [
+        agent
+        for agent in graph.agents
+        if agent.metadata.get("dynamic_tools") is True
+        and agent.metadata.get("dynamic_tools_function")
+        and agent.metadata.get("dynamic_tools_parameter")
+    ]
+    for agent in dynamic_agents:
+        function_name = str(agent.metadata["dynamic_tools_function"])
+        parameter = str(agent.metadata["dynamic_tools_parameter"])
+        target_function = functions_by_name.get(function_name)
+        if target_function is None:
+            continue
+
+        for call in (
+            child for child in ast.walk(tree)
+            if isinstance(child, ast.Call)
+            and _call_name(child.func) == function_name
+        ):
+            caller = _enclosing_function(functions, call)
+            if caller is target_function:
+                continue
+            argument = call_argument_for_parameter(
+                call,
+                target_function,
+                parameter,
+            )
+            if argument is None:
+                continue
+
+            value = argument
+            if isinstance(argument, ast.Name) and caller is not None:
+                value = assignment_value_before(
+                    caller,
+                    argument.id,
+                    getattr(call, "lineno", 0),
+                )
+            if value is None:
+                continue
+
+            elements = (
+                list(value.elts)
+                if isinstance(value, (ast.List, ast.Tuple, ast.Set))
+                else []
+            )
+            for element in elements:
+                if not isinstance(element, ast.Call):
+                    continue
+                bound_tool = _tool_from_call(
+                    path,
+                    element,
+                    constants=constants,
+                    configuration_sources=configuration_sources,
+                )
+                if (
+                    bound_tool is None
+                    or bound_tool.kind != "hosted_mcp"
+                    or bound_tool.metadata.get("dynamic_remote_mcp_catalogue")
+                    is not True
+                ):
+                    continue
+                bound_tool.metadata["binding_origin"] = (
+                    "source_bound_dynamic_tools_parameter"
+                )
+                if not any(
+                    existing.name == bound_tool.name
+                    and existing.kind == bound_tool.kind
+                    for existing in agent.tools
+                ):
+                    agent.tools.append(bound_tool)
+                agent.metadata["dynamic_tools_source_bound"] = True
+
+            if not isinstance(value, ast.ListComp):
+                continue
+            conversion = value.elt
+            if (
+                not isinstance(conversion, ast.Call)
+                or not isinstance(conversion.func, ast.Attribute)
+                or conversion.func.attr != "to_function_tool"
+                or len(conversion.args) < 2
+            ):
+                continue
+            server_name = _call_name(conversion.args[1])
+            if not server_name or server_name not in mcp_servers:
+                continue
+            source_names = {
+                generator.iter.id
+                for generator in value.generators
+                if isinstance(generator.iter, ast.Name)
+            }
+            if len(source_names) != 1 or caller is None:
+                continue
+            source_name = next(iter(source_names))
+            catalogue_value = assignment_value_before(
+                caller,
+                source_name,
+                getattr(value, "lineno", getattr(call, "lineno", 0)),
+            )
+            catalogue_call = unwrap_await(catalogue_value)
+            if (
+                not isinstance(catalogue_call, ast.Call)
+                or not isinstance(catalogue_call.func, ast.Attribute)
+                or catalogue_call.func.attr != "list_tools"
+                or _call_name(catalogue_call.func.value) != server_name
+            ):
+                continue
+
+            server = mcp_servers[server_name]
+            server.metadata["dynamic_remote_mcp_catalogue"] = True
+            server.metadata["per_call_approval"] = False
+            server.metadata["dynamic_catalogue_binding"] = (
+                "list_tools_to_function_tool"
+            )
+            server.metadata["binding_origin"] = (
+                "source_bound_dynamic_tools_parameter"
+            )
+            if all(
+                existing.name != server.name
+                for existing in agent.mcp_servers
+            ):
+                agent.mcp_servers.append(server)
+            agent.metadata["dynamic_tools_source_bound"] = True
 
     agents_by_alias = {
         str(agent.metadata.get("source_alias")): agent
