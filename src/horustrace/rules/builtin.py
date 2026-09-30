@@ -231,28 +231,6 @@ def evaluate(graph: Graph) -> list[Finding]:
                         ],
                     )
                 )
-            specific_boundary_covered = (
-                (
-                    "process.execute" in tool.capabilities
-                    and tool.metadata.get("process_execution_constrained") is not True
-                )
-                or (
-                    "destructive.write" in tool.capabilities
-                    and tool.metadata.get("agent_internal_artifact") is not True
-                )
-                or (
-                    "data.write" in tool.capabilities
-                    and tool.kind in {
-                        "apply_patch",
-                        "generic",
-                        "function",
-                        "langchain_tool",
-                        "custom_registry_tool",
-                        "langgraph_tool",
-                    }
-                    and tool.metadata.get("agent_internal_artifact") is not True
-                )
-            )
             authority_has_control = (
                 tool_authority is not None
                 and tool_authority.dimensions.get("approval") == "resolved"
@@ -269,7 +247,6 @@ def evaluate(graph: Graph) -> list[Finding]:
                 and not tool.guardrails
                 and tool.approval is not True
                 and not agent_tool_control
-                and not specific_boundary_covered
             ):
                 evidence = ["capabilities=" + ",".join(sorted(tool.capabilities))]
                 if tool_authority is not None:
