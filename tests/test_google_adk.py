@@ -1052,3 +1052,60 @@ root_agent = LlmAgent(
         for path in graph.attack_paths
     )
 
+def test_adk_url_context_keeps_model_selected_target_through_agent_tool_delegation(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from google.adk.agents import LlmAgent
+from google.adk.tools import AgentTool, url_context
+
+url_reader = LlmAgent(
+    name="url_reader",
+    model="gemini-3-flash-preview",
+    instruction="Retrieve content from URLs supplied by the caller.",
+    tools=[url_context],
+)
+
+root_agent = LlmAgent(
+    name="root_agent",
+    model="gemini-3-flash-preview",
+    tools=[AgentTool(agent=url_reader)],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    child = next(item for item in graph.agents if item.name == "url_reader")
+    tool = next(item for item in child.tools if item.name == "url_context")
+
+    assert tool.metadata["provider_network_scope"] == "fixed_managed_service"
+    assert tool.metadata["network_scope"] == "dynamic_destination"
+    assert tool.metadata["model_selected_url_fetch"] is True
+    assert tool.metadata["destination_provenance"] == "model_selected_url_argument"
+    assert any(
+        destination.target == "<model-selected-url>"
+        and destination.restricted is False
+        and destination.metadata.get("network_scope") == "dynamic_destination"
+        for destination in tool.destinations
+    )
+
+    path = next(
+        item
+        for item in graph.attack_paths
+        if item.path_id == "PATH011"
+        and item.agent == "root_agent"
+        and item.metadata.get("network_abstraction") == "url_context"
+    )
+    assert path.metadata["basis"] == "source_bound_delegated_authority"
+    assert path.metadata["provider_network_scope"] == "fixed_managed_service"
+    assert "delegate:url_reader" in path.nodes
+    assert "<model-selected-url>" in path.nodes
+    assert not any(
+        item.path_id == "PATH009"
+        and item.agent == "root_agent"
+        and "url_context" in item.nodes
+        for item in graph.attack_paths
+    )
+

@@ -1,0 +1,242 @@
+{
+  "schema_version": 2,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "framework-litmus-adk-pydantic-10-controlled-delta",
+  "methodology": {
+    "cohort_locked": true,
+    "llm_review_locked": true,
+    "note": "Same ten pinned repositories and same source-only LLM review across all scanner stages; GPT is a differential oracle, not ground truth."
+  },
+  "scanner_stages": {
+    "baseline": {
+      "sha": "36c48f88da2106c367e3a96e2f94432e8ef595ca",
+      "findings": 62,
+      "attack_paths": 9,
+      "semantic": {
+        "full": 6,
+        "partial": 4,
+        "missed": 2,
+        "total": 12
+      },
+      "paths": {
+        "full": 5,
+        "partial": 2,
+        "missed": 2,
+        "total": 9
+      },
+      "known_unsupported_horustrace_paths": 1
+    },
+    "after_pr_271": {
+      "sha": "58042934515a6aeafaa0c745c95c8e1d60db1a44",
+      "merged_main_sha": "f42a05025e5c1a13fab8bc1cd4bd73dc0131b5b7",
+      "findings": 39,
+      "attack_paths": 9,
+      "semantic": {
+        "full": 10,
+        "partial": 2,
+        "missed": 0,
+        "total": 12
+      },
+      "paths": {
+        "full": 8,
+        "partial": 0,
+        "missed": 1,
+        "total": 9
+      },
+      "known_unsupported_horustrace_paths": 0
+    },
+    "after_pr_275": {
+      "sha": "2ed6a5d304a42661ceabdff91d7987edd6f532cd",
+      "merged_main_sha": "55f0da3d5231eb3c63591a643f338942ad1983d2",
+      "git_tree": "d76763799916d084d23c0ca762d3853fbf435888",
+      "workflow_run_id": 36731150082,
+      "artifact_id": 11104227996,
+      "scanned": 10,
+      "scan_errors": 0,
+      "findings": 40,
+      "attack_paths": 10,
+      "semantic": {
+        "full": 12,
+        "partial": 0,
+        "missed": 0,
+        "total": 12
+      },
+      "paths": {
+        "full": 9,
+        "partial": 0,
+        "missed": 0,
+        "total": 9
+      },
+      "known_unsupported_horustrace_paths": 0
+    }
+  },
+  "cases": [
+    {
+      "case_id": "rw-009",
+      "framework": "google-adk",
+      "baseline": {
+        "findings": 3,
+        "paths": 1
+      },
+      "final": {
+        "findings": 0,
+        "paths": 0
+      },
+      "delta": "false unrestricted GitHub egress eliminated; fixed provider scope preserved"
+    },
+    {
+      "case_id": "rw-017",
+      "framework": "google-adk",
+      "baseline": {
+        "findings": 11,
+        "paths": 2
+      },
+      "final": {
+        "findings": 11,
+        "paths": 2
+      },
+      "delta": "public-default authentication predicate preserved in persistent-write paths"
+    },
+    {
+      "case_id": "rw-004",
+      "framework": "google-adk",
+      "baseline": {
+        "findings": 13,
+        "paths": 0
+      },
+      "final": {
+        "findings": 13,
+        "paths": 0
+      },
+      "delta": "runtime/source blockers qualify declared authority"
+    },
+    {
+      "case_id": "rw-007",
+      "framework": "google-adk",
+      "baseline": {
+        "findings": 2,
+        "paths": 1
+      },
+      "final": {
+        "findings": 2,
+        "paths": 1
+      },
+      "delta": "unchanged correct detection"
+    },
+    {
+      "case_id": "rw-012",
+      "framework": "google-adk",
+      "baseline": {
+        "findings": 0,
+        "paths": 0
+      },
+      "final": {
+        "findings": 0,
+        "paths": 0
+      },
+      "delta": "negative precision control remains clean"
+    },
+    {
+      "case_id": "rw-155",
+      "framework": "pydantic-ai",
+      "baseline": {
+        "findings": 23,
+        "paths": 0,
+        "mcp": 0
+      },
+      "final": {
+        "findings": 1,
+        "paths": 0,
+        "mcp": 1
+      },
+      "delta": "dynamic configured MCP detected; native shell/file/internal-plan noise removed"
+    },
+    {
+      "case_id": "rw-152",
+      "framework": "pydantic-ai",
+      "baseline": {
+        "findings": 7,
+        "paths": 3
+      },
+      "final": {
+        "findings": 8,
+        "paths": 4
+      },
+      "delta": "WebBaseLoader PATH011 and exact model-selected filename resource scope added"
+    },
+    {
+      "case_id": "rw-147",
+      "framework": "pydantic-ai",
+      "baseline": {
+        "findings": 0,
+        "paths": 0
+      },
+      "final": {
+        "findings": 2,
+        "paths": 1
+      },
+      "delta": "search-result-derived destination detected"
+    },
+    {
+      "case_id": "rw-150",
+      "framework": "pydantic-ai",
+      "baseline": {
+        "findings": 2,
+        "paths": 1
+      },
+      "final": {
+        "findings": 2,
+        "paths": 1
+      },
+      "delta": "unchanged correct detection"
+    },
+    {
+      "case_id": "rw-164",
+      "framework": "pydantic-ai",
+      "baseline": {
+        "findings": 1,
+        "paths": 1
+      },
+      "final": {
+        "findings": 1,
+        "paths": 1
+      },
+      "delta": "unchanged correct detection"
+    }
+  ],
+  "rw_152_closure": {
+    "url_path": {
+      "rule_id": "PATH011",
+      "nodes": [
+        "web_scraper.urls",
+        "agent_tools.web_scraper",
+        "WebBaseLoader"
+      ],
+      "basis": "static_dataflow",
+      "source_kind": "agent_tool_input",
+      "sink_kind": "server_side_url_fetch",
+      "destination_provenance": "model_selected_url_argument",
+      "network_abstraction": "url_loader"
+    },
+    "file_scope": {
+      "tool": "generate_and_save_image",
+      "selector": "<model-selected-path>",
+      "access": [
+        "data.write"
+      ],
+      "path_parameters": [
+        "filename"
+      ],
+      "path_containment": "not_detected",
+      "surfaced_in_findings": [
+        "AGT022",
+        "AGT040"
+      ]
+    }
+  },
+  "conclusion": {
+    "semantic_alignment": "12/12 full",
+    "path_alignment": "9/9 full",
+    "next_step": "Freeze this ten-repository set as a regression suite and evaluate a fresh unseen ADK/Pydantic holdout cohort before further tuning."
+  }
+}
