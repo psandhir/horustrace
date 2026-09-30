@@ -286,7 +286,17 @@ def evaluate(graph: Graph) -> list[Finding]:
             if (
                 "data.write" in tool.capabilities
                 and tool.approval is not True
-                and tool.kind in {"apply_patch", "generic", "function", "langchain_tool", "custom_registry_tool", "langgraph_tool"}
+                and _llm_synthetic_approval_gap_is_proven(tool)
+                and tool.kind in {
+                    "apply_patch",
+                    "generic",
+                    "function",
+                    "langchain_tool",
+                    "custom_registry_tool",
+                    "langgraph_tool",
+                    "llm_resolved_helper",
+                    "llm_resolved_runtime_context",
+                }
                 and tool.metadata.get("agent_internal_artifact") is not True
             ):
                 findings.append(Finding("AGT022", Severity.MEDIUM, "State-changing tool without approval", f"Tool '{tool.name}' can modify state without explicit approval.", "Require approval for material state changes or constrain the tool to low-risk, reversible operations.", layer=1, location=tool.location, agent=agent.name, evidence=["capability=data.write", f"approval={tool.approval}", *_tool_resource_evidence(tool)]))
