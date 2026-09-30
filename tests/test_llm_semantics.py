@@ -779,3 +779,108 @@ def mutate(value):
     assert tool.guardrails is False
     assert tool.metadata["semantic_approval_state"] == "true"
     assert tool.metadata["semantic_guardrails_state"] == "true"
+
+
+
+def test_internal_auth_credential_is_not_model_secret_authority(tmp_path: Path):
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+import os
+
+def github_profile(username):
+    token = os.environ.get("GITHUB_TOKEN")
+    return requests.get(
+        f"https://api.github.com/users/{username}",
+        headers={"Authorization": f"Bearer {token}"},
+    ).json()
+""",
+        encoding="utf-8",
+    )
+    tool = Tool(
+        name="github_profile",
+        kind="function",
+        location=SourceLocation(source, 4, 1),
+        metadata={
+            "source_path": str(source),
+            "source_function": "github_profile",
+        },
+    )
+    graph = Graph(agents=[Agent(name="agent", tools=[tool])])
+
+    def resolver(candidate, source_slice, config):
+        return _empty_result(
+            capabilities=["data.read", "network.external", "secrets.read"],
+            constraints={
+                "process_execution": "unknown",
+                "filesystem_scope": "unknown",
+                "network_destination": "fixed",
+                "runtime": "available",
+                "secret_access": "internal_auth_only",
+            },
+            destinations=[
+                {
+                    "target": "https://api.github.com",
+                    "restricted": True,
+                    "provenance": "fixed",
+                }
+            ],
+        )
+
+    enrich_llm_semantics(
+        graph,
+        tmp_path,
+        [source],
+        _config(max_candidates=1),
+        resolver=resolver,
+    )
+
+    assert "data.read" in tool.capabilities
+    assert "network.external" in tool.capabilities
+    assert "secrets.read" not in tool.capabilities
+    assert tool.metadata["semantic_internal_credential_read_suppressed"] is True
+
+
+def test_synthetic_data_write_with_explicit_no_approval_emits_state_change_finding(
+    tmp_path: Path,
+):
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+def attach_runtime_tools():
+    return create_toolset(require_write_approval=False)
+""",
+        encoding="utf-8",
+    )
+    agent = Agent(
+        name="agent",
+        metadata={
+            "framework": "pydantic-ai",
+            "unresolved_helpers": ["attach_runtime_tools"],
+        },
+    )
+    graph = Graph(agents=[agent])
+
+    def resolver(candidate, source_slice, config):
+        return _empty_result(
+            capabilities=["data.write"],
+            approval="false",
+            guardrails="false",
+            constraints={
+                "process_execution": "unknown",
+                "filesystem_scope": "unknown",
+                "network_destination": "unknown",
+                "runtime": "available",
+                "secret_access": "none",
+            },
+        )
+
+    enrich_llm_semantics(
+        graph,
+        tmp_path,
+        [source],
+        _config(max_candidates=1),
+        resolver=resolver,
+    )
+
+    assert any(finding.rule_id == "AGT022" for finding in evaluate(graph))
