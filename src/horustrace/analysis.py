@@ -165,6 +165,31 @@ def _flow_backed_paths(graph: Graph) -> list[AttackPath]:
                     metadata=_flow_path_metadata(flow),
                 )
             )
+        elif (
+            flow.source_kind in _UNTRUSTED_FLOW_SOURCES
+            and flow.sink_kind == "server_side_url_fetch"
+        ):
+            paths.append(
+                AttackPath(
+                    path_id="PATH011",
+                    title="Potential untrusted-input path to server-side URL fetch",
+                    agent=flow.agent,
+                    nodes=nodes,
+                    severity=Severity.HIGH,
+                    rationale=(
+                        "A supported static data-flow path connects a model-controlled "
+                        "tool argument to a server-side URL-loading abstraction without "
+                        "a detected destination restriction."
+                    ),
+                    location=flow.steps[-1].location if flow.steps else None,
+                    metadata={
+                        **_flow_path_metadata(flow),
+                        "destination_provenance": "model_selected_url_argument",
+                        "indirect_destination": False,
+                        "network_abstraction": "url_loader",
+                    },
+                )
+            )
         elif flow.source_kind == "secret_value" and flow.sink_kind == "external_send":
             paths.append(
                 AttackPath(
