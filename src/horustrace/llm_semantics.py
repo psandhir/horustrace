@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Any
 from urllib import error, parse, request
 
-from horustrace.heuristics import HIGH_RISK_CAPABILITIES
 from horustrace.models import (
     Agent,
     EvidenceFact,
@@ -32,7 +31,7 @@ from horustrace.models import (
     Tool,
 )
 
-PROMPT_VERSION = "semantic-escalation-v2"
+PROMPT_VERSION = "semantic-escalation-v3"
 _ALLOWED_CAPABILITIES = {
     "agent.delegate",
     "data.read",
@@ -208,10 +207,12 @@ def _candidate_score(tool: Tool) -> int:
     score = 0
     if not tool.capabilities:
         score += 90
-    if tool.capabilities & HIGH_RISK_CAPABILITIES:
-        score += 40
+    # Escalate semantic gaps, not merely high-risk capabilities that are already
+    # fully described by deterministic analysis. This keeps the LLM additive
+    # and reduces cost/noise on frozen regression cohorts.
     if (
-        tool.capabilities & {"data.read", "data.write", "destructive.write"}
+        tool.capabilities
+        & {"data.read", "data.write", "destructive.write", "external.write"}
         and not tool.resources
     ):
         score += 30
@@ -520,6 +521,51 @@ def _node_source(ref: _FunctionRef) -> str:
     return "\n".join(lines[start:end]).strip()
 
 
+def _module_binding_segments(
+    ref: _FunctionRef,
+    *,
+    max_items: int = 6,
+    max_chars_per_item: int = 1200,
+) -> list[tuple[str, str]]:
+    """Return source-visible module bindings referenced by the candidate.
+
+    Function-only slices can hide decisive provenance such as
+    ``ENDPOINT = os.environ.get(...)`` or a fixed object key. Include only
+    bindings actually loaded by the candidate so the extra context remains
+    bounded and source-backed.
+    """
+    try:
+        tree = ast.parse(ref.source)
+    except SyntaxError:
+        return []
+    used = {
+        node.id
+        for node in ast.walk(ref.node)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+    }
+    result: list[tuple[str, str]] = []
+    for node in tree.body:
+        names: list[str] = []
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    names.append(target.id)
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            names.append(node.target.id)
+        else:
+            continue
+        matched = [name for name in names if name in used]
+        if not matched:
+            continue
+        segment = ast.get_source_segment(ref.source, node)
+        if not isinstance(segment, str) or not segment.strip():
+            continue
+        result.append((", ".join(matched), segment.strip()[:max_chars_per_item]))
+        if len(result) >= max_items:
+            break
+    return result
+
+
 def _source_slice(
     candidate: _Candidate,
     by_name: dict[str, list[_FunctionRef]],
@@ -532,6 +578,8 @@ def _source_slice(
         f"FUNCTION: {candidate.ref.node.name}",
         primary,
     ]
+    for names, segment in _module_binding_segments(candidate.ref):
+        parts.extend(["", f"MODULE BINDING: {names}", segment])
     used_names = {candidate.ref.node.name}
     helpers: list[_FunctionRef] = []
     for child in ast.walk(candidate.ref.node):
@@ -632,6 +680,40 @@ def _schema() -> dict[str, Any]:
                     "additionalProperties": False,
                 },
             },
+            "constraints": {
+                "type": "object",
+                "properties": {
+                    "process_execution": {
+                        "type": "string",
+                        "enum": ["constrained", "unconstrained", "unknown"],
+                    },
+                    "filesystem_scope": {
+                        "type": "string",
+                        "enum": ["constrained", "unconstrained", "unknown"],
+                    },
+                    "network_destination": {
+                        "type": "string",
+                        "enum": [
+                            "fixed",
+                            "operator_configured",
+                            "model_selected",
+                            "provider_derived",
+                            "unknown",
+                        ],
+                    },
+                    "runtime": {
+                        "type": "string",
+                        "enum": ["available", "conditional", "blocked", "unknown"],
+                    },
+                },
+                "required": [
+                    "process_execution",
+                    "filesystem_scope",
+                    "network_destination",
+                    "runtime",
+                ],
+                "additionalProperties": False,
+            },
             "mcp": {
                 "type": "object",
                 "properties": {
@@ -680,6 +762,7 @@ def _schema() -> dict[str, Any]:
             "guardrails",
             "resources",
             "destinations",
+            "constraints",
             "mcp",
             "confidence",
             "evidence",
@@ -696,7 +779,13 @@ def _system_prompt() -> str:
         "source slice. Never invent framework behavior, remote tool catalogues, "
         "credentials, destinations, or resources that are not source-supported. "
         "A function parameter controlled by a model may be described as model_selected; "
-        "configuration/environment values are operator_configured. Use data.write only "
+        "configuration/environment values are operator_configured. Preserve source-visible "
+        "constraints: unknown does not mean absent. Mark process execution constrained when "
+        "a sandbox, backend guard, allowlist, or equivalent execution boundary is visible. "
+        "For network_destination, use fixed for a literal endpoint, operator_configured for "
+        "environment/configuration-selected endpoints, model_selected only when model/tool "
+        "input selects the endpoint, and provider_derived for provider/search-result URLs. "
+        "Use data.write only "
         "for durable, shared, or externally observable data mutation; do not use it for "
         "local RunContext, session, agent, or in-memory bookkeeping. Destinations are "
         "network egress endpoints such as URLs, hosts, domains, or sockets; SaaS object "
@@ -746,7 +835,8 @@ def _user_prompt(candidate: _Candidate, source_slice: str) -> str:
         "Compile the source slice into additive semantic facts. Prefer an empty field "
         "over an unsupported inference. For MCP wrappers, set mcp.present=true only "
         "when construction/binding is visible in source; do not infer the remote "
-        "catalogue.\n\nSTATIC CONTEXT:\n"
+        "catalogue. Populate constraints conservatively; use unknown when the supplied "
+        "source does not establish the state.\n\nSTATIC CONTEXT:\n"
         + json.dumps(context, indent=2, sort_keys=True)
         + "\n\nSOURCE SLICE:\n"
         + source_slice
@@ -1049,6 +1139,26 @@ def _validate_payload(payload: dict[str, Any]) -> None:
             raise LLMSemanticError(f"semantic response has invalid {key}")
     if not isinstance(payload.get("mcp"), dict):
         raise LLMSemanticError("semantic response has invalid mcp object")
+    constraints = payload.get("constraints")
+    if not isinstance(constraints, dict):
+        raise LLMSemanticError("semantic response has invalid constraints object")
+    allowed_constraints = {
+        "process_execution": {"constrained", "unconstrained", "unknown"},
+        "filesystem_scope": {"constrained", "unconstrained", "unknown"},
+        "network_destination": {
+            "fixed",
+            "operator_configured",
+            "model_selected",
+            "provider_derived",
+            "unknown",
+        },
+        "runtime": {"available", "conditional", "blocked", "unknown"},
+    }
+    for key, allowed in allowed_constraints.items():
+        if constraints.get(key) not in allowed:
+            raise LLMSemanticError(
+                f"semantic response has invalid constraint {key}"
+            )
 
 
 def _ephemeral_state_kind(kind: str) -> bool:
@@ -1136,6 +1246,8 @@ def _apply_payload(
 
     location = _semantic_location(candidate)
     tool = candidate.tool
+    projection_kind = "enrichment" if tool is not None else "synthetic"
+    preexisting_capabilities = set(tool.capabilities) if tool is not None else set()
     if tool is None:
         tool_kind = (
             "llm_resolved_runtime_context"
@@ -1160,6 +1272,7 @@ def _apply_payload(
         payload,
     )
     tool.capabilities.update(capabilities)
+    added_capabilities = capabilities - preexisting_capabilities
     if suppressed_ephemeral_write:
         tool.metadata["semantic_ephemeral_state_write_suppressed"] = True
 
@@ -1169,6 +1282,34 @@ def _apply_payload(
     guardrails = _tri_bool(payload.get("guardrails"))
     if guardrails is True:
         tool.guardrails = True
+
+    constraints = payload.get("constraints") or {}
+    process_constraint = constraints.get("process_execution")
+    if "process_execution_constrained" not in tool.metadata:
+        if process_constraint == "constrained":
+            tool.metadata["process_execution_constrained"] = True
+        elif process_constraint == "unconstrained":
+            tool.metadata["process_execution_constrained"] = False
+
+    filesystem_constraint = constraints.get("filesystem_scope")
+    if "filesystem_path_constrained" not in tool.metadata:
+        if filesystem_constraint == "constrained":
+            tool.metadata["filesystem_path_constrained"] = True
+        elif filesystem_constraint == "unconstrained":
+            tool.metadata["filesystem_path_constrained"] = False
+
+    network_constraint = constraints.get("network_destination")
+    current_network_scope = str(tool.metadata.get("network_scope") or "")
+    if current_network_scope in {"", "unknown", "inherited"}:
+        network_scope_by_constraint = {
+            "fixed": "fixed_managed_service",
+            "operator_configured": "operator_configured_destination",
+            "model_selected": "dynamic_destination",
+            "provider_derived": "search_result_derived_destination",
+        }
+        inferred_scope = network_scope_by_constraint.get(str(network_constraint))
+        if inferred_scope:
+            tool.metadata["network_scope"] = inferred_scope
 
     for item in payload.get("resources", []):
         if not isinstance(item, dict):
@@ -1220,7 +1361,12 @@ def _apply_payload(
         target = str(item.get("target") or "").strip()
         if not target or not _looks_like_network_destination(target):
             continue
+        provenance = str(item.get("provenance") or "unknown")
         restricted = bool(item.get("restricted"))
+        # Fixed and operator-configured endpoints are constrained with respect
+        # to model-selected destination authority.
+        if provenance in {"fixed", "operator_configured"}:
+            restricted = True
         if any(
             current.target == target and current.restricted == restricted
             for current in tool.destinations
@@ -1233,7 +1379,7 @@ def _apply_payload(
                 location=location,
                 metadata={
                     "source": "llm_semantic_resolution",
-                    "destination_provenance": item.get("provenance"),
+                    "destination_provenance": provenance,
                     "semantic_confidence": confidence,
                 },
             )
@@ -1298,6 +1444,13 @@ def _apply_payload(
         {
             "semantic_origin": "llm_inferred",
             "semantic_resolution": "llm",
+            "semantic_projection_kind": projection_kind,
+            "semantic_added_capabilities": sorted(added_capabilities),
+            "semantic_preexisting_capabilities": sorted(preexisting_capabilities),
+            "semantic_approval_state": payload.get("approval"),
+            "semantic_guardrails_state": payload.get("guardrails"),
+            "semantic_constraints": constraints,
+            "semantic_network_destination_provenance": network_constraint,
             "semantic_confidence": confidence,
             "semantic_provider": config.provider.lower(),
             "semantic_model": config.model,
