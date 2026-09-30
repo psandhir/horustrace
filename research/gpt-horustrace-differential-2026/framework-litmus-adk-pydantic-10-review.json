@@ -1,0 +1,781 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "framework-litmus-adk-pydantic-10",
+  "mode": "case-blind-source-review",
+  "reviewer": {
+    "model": "GPT-5.6 Sol",
+    "case_specific_current_horustrace_findings_seen_before_lock": false,
+    "general_horustrace_product_context_seen": true,
+    "reused_locked_reviews": true,
+    "note": "Eight cases are copied unchanged from previously committed case-blind GPT reviews. rw-009 and rw-155 were reviewed from pinned source before the current-main targeted scanner run was triggered. GPT_SOURCE_REVIEW_PROMPT_V1.md defines the semantic review contract."
+  },
+  "cases": [
+    {
+      "case_id": "rw-009",
+      "repo": "vivekcommit/Cloud_Architecture_Review",
+      "sha": "16ac50de750de9d4681a501f936184804a819754",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "agents/iac_ingestion_agent.py",
+        "agents/security_audit_agent.py",
+        "agents/deep_audit_agent.py",
+        "agents/cost_pattern_agent.py",
+        "tools/github_tool.py",
+        "tools/vector_store_tool.py",
+        "tools/pricing_tool.py",
+        "tools/mcp_server.py",
+        "hooks/guardrails.py",
+        "api/main.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "The ADK root in agent.py is source-defined but requires Google ADK/model configuration.",
+        "api/main.py imports agents.orchestrator.OrchestratorAgent, but no matching agents/orchestrator.py exists in the pinned tree, so the REST wrapper is not source-proven runnable as written.",
+        "The composite GuardrailPipeline exists in hooks/guardrails.py, but agent.py does not source-prove registration of that pipeline around the root Runner."
+      ],
+      "authority_facts": [
+        {
+          "fact": "The root ADK LlmAgent delegates to iac_ingestion_agent, a QA LoopAgent, deep_audit_agent and report_synthesizer_agent.",
+          "confidence": "high"
+        },
+        {
+          "fact": "iac_ingestion_agent binds get_repo_metadata and fetch_iac_files. The caller-selected owner/repository changes GitHub API paths, but the network destination remains api.github.com and the operations are repository reads.",
+          "confidence": "high"
+        },
+        {
+          "fact": "fetch_iac_files recursively retrieves only configured IaC extensions and caps results at max_files (default 30).",
+          "confidence": "high"
+        },
+        {
+          "fact": "security_audit_agent binds local WAF lookup/enrichment and sanitised_google_search; the search wrapper redacts common secret/PII patterns before provider search.",
+          "confidence": "high"
+        },
+        {
+          "fact": "tools/mcp_server.py exposes a standalone MCP registry, but the reviewed ADK agent definitions do not bind MCPToolset/McpToolset to that server; MCP server existence is therefore not treated as effective root-agent authority.",
+          "confidence": "high"
+        },
+        {
+          "fact": "No source-proven model-callable mutation primitive, arbitrary process execution primitive, or model-selected arbitrary network destination was found in the reviewed ADK tool graph.",
+          "confidence": "medium"
+        }
+      ],
+      "findings": [],
+      "attack_paths": [],
+      "controls": [
+        "GitHub retrieval uses a fixed api.github.com host and restricts retrieved file extensions/count.",
+        "Pricing and local WAF corpus helpers are read-only.",
+        "sanitised_google_search redacts common sensitive-value patterns before external search.",
+        "The standalone MCP server is not promoted to agent authority without a source-proven binding."
+      ],
+      "unknowns": [
+        "Whether the GuardrailPipeline is registered by code outside the reviewed pinned source.",
+        "The Microsoft WAF enrichment endpoint is operator-configured by MICROSOFT_WAF_MCP_URL; it is not model-selected."
+      ]
+    },
+    {
+      "case_id": "rw-017",
+      "repo": "mxyhi/always-on-memory-agent",
+      "sha": "5a92fd6fa34baa2920ac5ec6b1e1ac4def940311",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "server.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "agents": [
+        {
+          "name": "memory_orchestrator",
+          "kind": "google-adk"
+        },
+        {
+          "name": "ingest_agent",
+          "kind": "google-adk"
+        },
+        {
+          "name": "consolidate_agent",
+          "kind": "google-adk"
+        },
+        {
+          "name": "query_agent",
+          "kind": "google-adk"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "memory_orchestrator delegates to three specialist agents; ingest_agent writes persistent memory, consolidate_agent reads/writes consolidation state, and query_agent reads memory/history.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The legacy agent.py HTTP service defaults to public user mode when MEMORY_API_KEYS is empty, allowing unauthenticated ingest/query/consolidate requests.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The newer server.py surface requires authenticated JWT or API-key users for memory endpoints.",
+          "confidence": "high"
+        },
+        {
+          "fact": "delete_memory and clear_all_memories are direct application endpoints/functions and are not bound as ADK agent tools in build_agents().",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-017-01",
+          "semantic_key": "public_default_ingress_to_persistent_agent_write",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "In the legacy agent.py service, absence of MEMORY_API_KEYS intentionally enables public mode; unauthenticated /ingest content reaches the orchestrator/ingest agent and store_memory persistent SQLite write.",
+          "evidence": [
+            "agent.py: api_key_auth_middleware assigns DEFAULT_PUBLIC_USER_ID when no API keys are configured",
+            "agent.py: /ingest -> MemoryAgent.ingest -> run -> orchestrator/sub-agent flow",
+            "agent.py: ingest_agent tools=[store_memory]"
+          ]
+        },
+        {
+          "finding_id": "gpt-rw-017-02",
+          "semantic_key": "agent_persistent_state_change_without_approval",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "Ingest and consolidation agents have persistent SQLite write authority with no separate human approval boundary.",
+          "evidence": [
+            "agent.py: ingest_agent -> store_memory",
+            "agent.py: consolidate_agent -> store_consolidation"
+          ]
+        },
+        {
+          "finding_id": "gpt-rw-017-03",
+          "semantic_key": "delegated_read_write_authority",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "The orchestrator can delegate into specialist agents spanning persistent memory read and write capabilities.",
+          "evidence": [
+            "agent.py: memory_orchestrator sub_agents=[ingest_agent, consolidate_agent, query_agent]"
+          ]
+        }
+      ],
+      "application_findings_not_agent_authority": [
+        {
+          "semantic_key": "public_default_direct_destructive_api",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "The legacy public-mode API also exposes /delete and /clear, but these call delete_memory/clear_all_memories directly and are not agent-reachable tools."
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-017-ap1",
+          "severity": "high",
+          "confidence": "high",
+          "chain": [
+            "unauthenticated HTTP /ingest when MEMORY_API_KEYS is empty",
+            "memory_orchestrator",
+            "ingest_agent",
+            "store_memory",
+            "per-user SQLite persistent write"
+          ]
+        },
+        {
+          "path_id": "gpt-rw-017-ap2",
+          "severity": "medium",
+          "confidence": "high",
+          "chain": [
+            "unauthenticated HTTP /consolidate in public mode",
+            "memory_orchestrator",
+            "consolidate_agent",
+            "store_consolidation",
+            "persistent consolidation state"
+          ]
+        }
+      ],
+      "controls": [
+        "Per-user paths and contextvars isolate data by resolved user_id.",
+        "server.py implements JWT/API-key authentication for the newer API surface.",
+        "Agent tool bindings do not include delete_memory or clear_all_memories."
+      ]
+    },
+    {
+      "case_id": "rw-004",
+      "repo": "JoanMarinPages/agentGemini",
+      "sha": "0160690bb47cca17e70ceb8486209d7b1cacaf76",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "agentGemini/agent.py",
+        "agentGemini/tools/__init__.py",
+        "agentGemini/tools/conversion_tools.py"
+      ],
+      "runtime_viability": "blocked_by_source_imports",
+      "runtime_notes": [
+        "The cohort application file agent.py imports .tools.herramientas_produccion_agroasesoria, but the pinned top-level tools directory contains no such module.",
+        "The alternate agentGemini/agent.py imports customer_tools, catalog_tools and cart_tools through agentGemini/tools/__init__.py, but those modules are absent at the pinned SHA; only conversion_tools.py is present.",
+        "The repository therefore contains declared ADK authority, but the reviewed agent entrypoints are not source-proven importable/runnable as committed."
+      ],
+      "agents": [
+        {
+          "name": "FunnelAgent",
+          "kind": "google-adk",
+          "reachability": "blocked_by_missing_import"
+        },
+        {
+          "name": "AgroAsesorIA",
+          "kind": "google-adk",
+          "reachability": "blocked_by_missing_tool_modules"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The top-level FunnelAgent declares imported customer-profile, Firestore, external-search and product-selection tools, but their imported module is absent.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The alternate AgroAsesorIA agent declares customer/cart/checkout/service/discount tools. The surviving conversion_tools.py source performs persistent service/order/discount operations through FirestoreService and EmailService.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-004-01",
+          "semantic_key": "declared_state_change_without_approval_runtime_blocked",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "The repository declares model-callable commerce/profile state-changing tools without a separate human approval boundary, but the pinned source has missing imports/modules that block treating this authority as live runtime reachability.",
+          "evidence": [
+            "agent.py: FunnelAgent tools include update_user_profile_in_firestore_tool and add_to_products_a_repasar_in_firestore_tool",
+            "agentGemini/agent.py: AgroAsesorIA declares update profile, cart mutation, checkout, service scheduling and discount tools",
+            "agentGemini/tools/conversion_tools.py: process_checkout/schedule_service/generate_discount_code persist business state through FirestoreService",
+            "pinned repository layout: required imported tool modules are absent"
+          ],
+          "reachability": "initialization_blocked"
+        }
+      ],
+      "attack_paths": [],
+      "controls": [
+        "Runtime import blockers materially reduce current reachability and must be surfaced rather than silently upgraded to proven runtime authority.",
+        "No public ingress-to-agent path was source-proven in the reviewed entrypoints."
+      ]
+    },
+    {
+      "case_id": "rw-007",
+      "repo": "joshnaim1/ocr-test",
+      "sha": "12a850dec83f04039862fb6ef03e0fc80c462bf3",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "tools/document_ocr.py",
+        "README.md"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "README documents interactive deployment through `adk web --port 4200`.",
+        "Document AI execution requires GCP project/location/processor credentials and an enabled processor."
+      ],
+      "authority_facts": [
+        {
+          "fact": "The ADK agent binds `process_document_with_ocr` and `search_document` directly as model-callable tools.",
+          "confidence": "high"
+        },
+        {
+          "fact": "`process_document_with_ocr(document_path)` accepts an absolute path unchanged, or joins any relative path to the project root, then opens the resulting path with `open(..., 'rb')` without a containment/allowlist check.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The bytes read from the selected file are placed into a Google Document AI RawDocument and sent to `process_document`; therefore a model-selected readable local path can cause file content to cross an external service boundary.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The agent prompt says documents are in `data/sample/` and asks the assistant to confirm paths, but that restriction is not enforced in tool code.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-007-01",
+          "semantic_key": "model_selected_local_file_read_to_external_document_ai",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "Interactive agent input can induce a model tool call with a path outside the intended sample directory; the tool reads that local file and submits its bytes to Google Document AI. Source contains no path-containment or file allowlist enforcement.",
+          "evidence": [
+            "agent.py: root_agent tools include process_document_with_ocr and search_document",
+            "tools/document_ocr.py: absolute paths are accepted unchanged and relative paths are joined to project root",
+            "tools/document_ocr.py: open(document_path, 'rb') reads the selected file",
+            "tools/document_ocr.py: RawDocument(content=document_content) is sent through process_document",
+            "README.md: interactive deployment documented via adk web"
+          ],
+          "reachability": "configuration_dependent_but_source_proven_after_interactive_agent_run"
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-007-ap1",
+          "severity": "high",
+          "confidence": "high",
+          "chain": [
+            "interactive ADK user input",
+            "document_processing_agent",
+            "model-selected document_path",
+            "local file read outside intended sample directory",
+            "Google Document AI external processing"
+          ]
+        }
+      ],
+      "controls": [
+        "Prompt text recommends `data/sample/` paths and asks the model to confirm the document path.",
+        "The file must exist and Document AI credentials/runtime dependencies must be configured."
+      ]
+    },
+    {
+      "case_id": "rw-012",
+      "repo": "namanraina16/morning-wire",
+      "sha": "29529fbf066b30eb0d7c45d1a70b1eda5dfb53dd",
+      "framework": "google-adk",
+      "source_files_reviewed": [
+        "agent.py",
+        "scout.py",
+        "scheduler_api.py",
+        "README.md"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "ADK root agent is source-defined and requires Gemini runtime configuration.",
+        "The scheduler API is a separate application surface and is not the ADK model/tool loop."
+      ],
+      "authority_facts": [
+        {
+          "fact": "The ADK LlmAgent binds only preview_agent_builder_brief(top_n), which calls run_ambient_scout.",
+          "confidence": "high"
+        },
+        {
+          "fact": "Live network fetching in scout.py targets a fixed Hacker News URL; the model does not select a destination.",
+          "confidence": "high"
+        },
+        {
+          "fact": "scheduler_api.py exposes HTTP endpoints that can set dry_run=false and invoke configured delivery, but that authority is application-only and is not bound as an ADK agent tool.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [],
+      "attack_paths": [],
+      "controls": [
+        "The agent prompt explicitly says not to claim delivery or scheduling.",
+        "The only model-callable argument is bounded briefing size; network destination is fixed.",
+        "Application scheduler/delivery authority is kept separate from model authority."
+      ]
+    },
+    {
+      "case_id": "rw-155",
+      "repo": "shotgun-sh/shotgun",
+      "sha": "4d344d5a46aafc815de441ff670d4131187f33e6",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "src/shotgun/agents/router/router.py",
+        "src/shotgun/agents/router/tools/delegation_tools.py",
+        "src/shotgun/agents/research.py",
+        "src/shotgun/agents/specify.py",
+        "src/shotgun/agents/plan.py",
+        "src/shotgun/agents/tasks.py",
+        "src/shotgun/agents/export.py",
+        "src/shotgun/agents/common.py",
+        "src/shotgun/agents/tools/mcp_servers.py",
+        "src/shotgun/agents/tools/codebase/codebase_shell.py",
+        "src/shotgun/agents/tools/file_management.py",
+        "src/shotgun/cli/run.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "Agent construction requires configured model/provider state.",
+        "User MCP authority exists only when local MCP configuration contains server entries.",
+        "Native codebase-shell and file-management capabilities have explicit source-visible restrictions."
+      ],
+      "authority_facts": [
+        {
+          "fact": "The user-facing Router is a Pydantic AI Agent; user prompts can delegate to Research, Specify, Plan, Tasks and Export sub-agents.",
+          "confidence": "high"
+        },
+        {
+          "fact": "Router and sub-agent factories load user-configured MCP servers and pass the resulting MCPServer objects directly as Pydantic AI toolsets.",
+          "confidence": "high"
+        },
+        {
+          "fact": "Configured MCP entries can be stdio commands or Streamable HTTP URLs; the reviewed binding layer does not apply a per-tool allowlist or per-call approval wrapper to the imported MCP catalogue.",
+          "confidence": "high"
+        },
+        {
+          "fact": "In Planning mode, delegation tools are hidden until a plan exists and pending approval is cleared; CLI execution explicitly switches the router to Drafting mode, documented in source as auto-execute without confirmation.",
+          "confidence": "high"
+        },
+        {
+          "fact": "Native codebase_shell is restricted to a command allowlist and rejects shell metacharacter/injection patterns before subprocess execution.",
+          "confidence": "high"
+        },
+        {
+          "fact": "Native write_file/append/delete operations use agent-scoped path validation under the .shotgun workspace rather than unrestricted filesystem paths.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-155-01",
+          "semantic_key": "operator_configured_mcp_catalogue_without_per_call_approval",
+          "severity": "medium",
+          "confidence": "high",
+          "claim": "Locally configured stdio or HTTP MCP servers are attached wholesale as toolsets to the Router and specialist Pydantic AI agents without a source-visible per-tool allowlist or per-call approval layer. In CLI Drafting mode the Router auto-executes without plan confirmation. This establishes broad operator-configured MCP authority, although the concrete MCP tool capabilities remain configuration-dependent rather than source-proven sensitive sinks.",
+          "evidence": [
+            "src/shotgun/agents/tools/mcp_servers.py:_create_mcp_server creates MCPServerStdio or MCPServerStreamableHTTP from user configuration",
+            "src/shotgun/agents/router/router.py:create_router_agent passes user_mcp_servers as toolsets",
+            "src/shotgun/agents/common.py:create_base_agent passes mcp_servers as Agent(toolsets=...)",
+            "src/shotgun/agents/research.py:create_research_agent merges user MCP servers into the agent toolsets",
+            "src/shotgun/agents/specify.py/create_specify_agent loads user MCP servers",
+            "src/shotgun/agents/plan.py/create_plan_agent loads user MCP servers",
+            "src/shotgun/cli/run.py sets RouterMode.DRAFTING with comment 'auto-execute without confirmation'"
+          ],
+          "reachability": "configuration_dependent"
+        }
+      ],
+      "attack_paths": [],
+      "controls": [
+        "Planning mode gates delegation on plan approval.",
+        "The native codebase shell has an explicit read-oriented command allowlist and injection-pattern rejection.",
+        "Native artifact writes are path-confined to agent-scoped .shotgun locations.",
+        "The source does not prove that locally configured MCP servers expose sensitive tools; concrete sink severity is therefore unresolved."
+      ],
+      "unknowns": [
+        "The concrete tool catalogues and permissions of operator-configured MCP servers.",
+        "Whether a deployment exposes CLI/TUI prompts to untrusted users."
+      ]
+    },
+    {
+      "case_id": "rw-152",
+      "repo": "kumarvipu1/agentic-ppt-slide",
+      "sha": "2614076f9fbb0cdde10e481918b5177c5c3399c8",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "agent.py",
+        "agent_tools.py",
+        "app.py"
+      ],
+      "runtime_viability": "blocked_by_source_error",
+      "runtime_notes": [
+        "agent.py constructs presentation_agent with model_settings=settings, but no source definition/import for settings was found; importing agent.py should raise NameError before the application can run.",
+        "agent_tools.get_column_list references pd.read_csv but pandas is not imported in agent_tools.py."
+      ],
+      "agents": [
+        {
+          "name": "planner_agent",
+          "kind": "pydantic-ai"
+        },
+        {
+          "name": "slide_agent",
+          "kind": "pydantic-ai"
+        },
+        {
+          "name": "presentation_agent",
+          "kind": "pydantic-ai"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "If the source-level import blocker is corrected, slide_agent is declared with unsandboxed Python execution, graph execution, arbitrary URL scraping, image generation/file write, and CSV helper tools.",
+          "confidence": "high"
+        },
+        {
+          "fact": "If the blocker is corrected, presentation_agent is declared with generate_powerpoint_slides, which execs model-provided Python in process globals.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-152-01",
+          "semantic_key": "declared_unsandboxed_model_code_execution",
+          "severity": "critical",
+          "confidence": "high",
+          "claim": "The declared slide/presentation tool surface contains multiple primitives that compile and exec model-supplied Python with globals(), without sandboxing or approval.",
+          "evidence": [
+            "agent.py: slide_agent binds python_execution_tool and graph_generator",
+            "agent.py: presentation_agent binds generate_powerpoint_slides",
+            "agent_tools.py: each execution helper uses compile(..., 'exec') then exec(..., globals(), globals())"
+          ],
+          "reachability": "conditional_on_fixing_current_agent.py_import_error"
+        },
+        {
+          "finding_id": "gpt-rw-152-02",
+          "semantic_key": "declared_model_selected_network_destination",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "The declared slide agent can pass model-selected URLs to WebBaseLoader without a destination allowlist.",
+          "evidence": [
+            "agent.py: slide_agent binds web_scraper",
+            "agent_tools.py: web_scraper(urls) -> WebBaseLoader(url).load()"
+          ],
+          "reachability": "conditional_on_fixing_current_agent.py_import_error"
+        },
+        {
+          "finding_id": "gpt-rw-152-03",
+          "semantic_key": "declared_model_controlled_file_write",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "Declared tools allow model-controlled filenames and executable code to create local image/PowerPoint/graph outputs without path confinement.",
+          "evidence": [
+            "agent_tools.py: generate_and_save_image opens model-provided filename",
+            "agent_tools.py: generate_powerpoint_slides execs model code and accepts filename",
+            "agent_tools.py: graph_generator execs model code"
+          ],
+          "reachability": "conditional_on_fixing_current_agent.py_import_error"
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-152-ap1",
+          "severity": "critical",
+          "confidence": "high",
+          "chain": [
+            "Streamlit user query",
+            "slide_agent",
+            "python_execution_tool / graph_generator",
+            "unsandboxed Python exec"
+          ],
+          "reachability": "conditional_on_fixing_current_agent.py_import_error"
+        },
+        {
+          "path_id": "gpt-rw-152-ap2",
+          "severity": "high",
+          "confidence": "high",
+          "chain": [
+            "Streamlit user query",
+            "slide_agent",
+            "web_scraper(model URL)",
+            "arbitrary HTTP(S) destination"
+          ],
+          "reachability": "conditional_on_fixing_current_agent.py_import_error"
+        },
+        {
+          "path_id": "gpt-rw-152-ap3",
+          "severity": "critical",
+          "confidence": "high",
+          "chain": [
+            "presentation content",
+            "presentation_agent",
+            "generate_powerpoint_slides(model Python)",
+            "unsandboxed Python exec"
+          ],
+          "reachability": "conditional_on_fixing_current_agent.py_import_error"
+        }
+      ],
+      "controls": [
+        "The current pinned source appears non-runnable due to an undefined settings variable; declared authority must not be reported as proven live runtime authority without acknowledging this."
+      ]
+    },
+    {
+      "case_id": "rw-147",
+      "repo": "hope-tatenda-mutema/Pedantic-AI-Deep-Research-Agent",
+      "sha": "0369d0675851071e9f2da850951144e2bb022b3f",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "agent.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "The agent requires an OpenAI provider configuration plus duckduckgo_search and requests dependencies."
+      ],
+      "agents": [
+        {
+          "name": "Deep Research Agent",
+          "kind": "pydantic-ai"
+        }
+      ],
+      "authority_facts": [
+        {
+          "fact": "The agent is bound to query classification, ticker resolution, initial discovery and deep-dive search tools.",
+          "confidence": "high"
+        },
+        {
+          "fact": "DuckDuckGo search is provider-mediated, but deep_dive_search takes returned result URLs and fetch_page_content performs requests.get(url) without a destination allowlist.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The model controls the base query/research angle that influences which search-result URLs are fetched, but it does not receive a direct arbitrary-URL tool parameter.",
+          "confidence": "high"
+        },
+        {
+          "fact": "No state-changing, filesystem-write or process-execution tool was found.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-147-01",
+          "semantic_key": "model_influenced_search_result_network_destination",
+          "severity": "medium",
+          "confidence": "medium",
+          "claim": "Model-selected research queries can cause the application to fetch dynamic URLs returned by DuckDuckGo with requests.get and no source-visible destination allowlist. This is broader than a fixed provider API, but weaker than direct model-controlled arbitrary URL authority.",
+          "evidence": [
+            "agent.py: deep_dive_search(base_query, angle) constructs a model-influenced DuckDuckGo query",
+            "agent.py: top search result href values are passed to fetch_page_content",
+            "agent.py: fetch_page_content(url) -> requests.get(url, headers=..., timeout=5)"
+          ]
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-147-ap1",
+          "severity": "medium",
+          "confidence": "medium",
+          "chain": [
+            "user research query",
+            "Pydantic AI agent",
+            "model-selected research angle",
+            "DuckDuckGo result URL",
+            "requests.get(dynamic result destination)"
+          ]
+        }
+      ],
+      "controls": [
+        "The model does not directly choose an arbitrary URL argument; destination choice is mediated by DuckDuckGo search results.",
+        "The reviewed effective authority is read-only network research."
+      ]
+    },
+    {
+      "case_id": "rw-150",
+      "repo": "Amar-Ag/project-ideation-tool",
+      "sha": "169a9d50841de7cf05bfd5240f9509e0eccd5167",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "src/agent.py",
+        "src/app.py",
+        "src/tavily_research.py",
+        "src/database.py"
+      ],
+      "runtime_viability": "configuration_dependent",
+      "runtime_notes": [
+        "The Streamlit app requires Supabase authentication and Groq/Tavily configuration for the relevant flows.",
+        "Authenticated chat input is source-proven to reach agent.run_sync."
+      ],
+      "authority_facts": [
+        {
+          "fact": "Authenticated Streamlit user input is passed to the PydanticAI agent through agent.run_sync.",
+          "confidence": "high"
+        },
+        {
+          "fact": "The agent exposes fetch_curriculum(url), whose documented intended use is explicitly a URL supplied by the user.",
+          "confidence": "high"
+        },
+        {
+          "fact": "fetch_curriculum calls httpx.AsyncClient(follow_redirects=True).get(url) with no source-visible host, scheme, private-address or redirect-destination allowlist.",
+          "confidence": "high"
+        },
+        {
+          "fact": "research_domain is provider-mediated Tavily search and is distinct from the direct arbitrary URL fetch authority of fetch_curriculum.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-150-01",
+          "semantic_key": "authenticated_user_url_to_server_side_http_fetch",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "An authenticated user can supply a curriculum URL that the agent may pass to a server-side httpx client with redirects enabled and no destination restriction. This is source-proven broad server-side URL-fetch authority and can include destinations outside the intended public curriculum sites.",
+          "evidence": [
+            "src/app.py: st.chat_input -> get_bot_response(user_input) -> agent.run_sync(user_input, ...)",
+            "src/agent.py: @agent.tool fetch_curriculum(ctx, url)",
+            "src/agent.py: AsyncClient(follow_redirects=True).get(url)",
+            "src/agent.py: no host/private-IP/redirect allowlist is enforced"
+          ],
+          "reachability": "authenticated_user_to_model_selected_server_side_fetch"
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-150-ap1",
+          "severity": "high",
+          "confidence": "high",
+          "chain": [
+            "authenticated Streamlit chat input",
+            "PydanticAI agent",
+            "fetch_curriculum(url)",
+            "httpx server-side request with redirects",
+            "model/user-influenced network destination"
+          ]
+        }
+      ],
+      "controls": [
+        "Authentication is required before the main chat page.",
+        "System/tool instructions tell the model to call fetch_curriculum only for a URL explicitly supplied by the user; this limits autonomous invention but does not restrict the destination itself."
+      ]
+    },
+    {
+      "case_id": "rw-164",
+      "repo": "amscotti/local-LLM-with-RAG",
+      "sha": "832fb9a2970884e61a6ca2eabcfa103b78df4cfb",
+      "framework": "pydantic-ai",
+      "source_files_reviewed": [
+        "interfaces/streamlit_app.py",
+        "core/agent.py",
+        "core/document_loader.py"
+      ],
+      "runtime_viability": "source_runnable_with_local_ollama_models",
+      "runtime_notes": [
+        "Streamlit UI has no source-visible authentication gate.",
+        "Selected folder must exist on the server and file types must be supported by the document loader."
+      ],
+      "authority_facts": [
+        {
+          "fact": "The Streamlit sidebar accepts an arbitrary Documents folder string and validates only os.path.isdir(folder_path).",
+          "confidence": "high"
+        },
+        {
+          "fact": "That user-selected path is passed to create_research_agent(... documents_path=folder_path, reload=True/first load).",
+          "confidence": "high"
+        },
+        {
+          "fact": "load_documents() recursively enumerates supported files under Path(path).rglob(...) and loads their content into LanceDB without a base-directory containment policy.",
+          "confidence": "high"
+        },
+        {
+          "fact": "User chat input reaches the Pydantic AI agent, whose search_documents tool returns retrieved document text and source metadata to the model, allowing indexed server-side file content to be surfaced in responses.",
+          "confidence": "high"
+        }
+      ],
+      "findings": [
+        {
+          "finding_id": "gpt-rw-164-01",
+          "semantic_key": "unauthenticated_user_selected_server_directory_to_rag_exfiltration",
+          "severity": "high",
+          "confidence": "high",
+          "claim": "A Streamlit user can select any existing server-side directory, causing supported files below that directory to be recursively ingested into the RAG store; the same user can then query the Pydantic AI agent to retrieve indexed content. No source-visible authentication or filesystem containment restricts the folder to the intended Research directory.",
+          "evidence": [
+            "interfaces/streamlit_app.py: folder_path = st.text_input('Documents folder:', DEFAULT_FOLDER)",
+            "interfaces/streamlit_app.py: validation is only os.path.isdir(folder_path)",
+            "interfaces/streamlit_app.py: create_research_agent(... documents_path=folder_path, reload=need_reload)",
+            "core/document_loader.py: root = Path(path); root.rglob(f'*{ext}') recursively loads supported files",
+            "core/agent.py: search_documents returns retrieved text to the model",
+            "interfaces/streamlit_app.py: st.chat_input reaches the agent streaming handler"
+          ],
+          "reachability": "source_proven_web_user_to_server_filesystem_ingestion_to_model_retrieval"
+        }
+      ],
+      "attack_paths": [
+        {
+          "path_id": "gpt-rw-164-ap1",
+          "severity": "high",
+          "confidence": "high",
+          "chain": [
+            "unauthenticated Streamlit user",
+            "user-selected existing server directory",
+            "recursive supported-file ingestion",
+            "LanceDB vector store",
+            "model search_documents tool",
+            "file content returned in chat response"
+          ]
+        }
+      ],
+      "controls": [
+        "Only supported document extensions are ingested.",
+        "Selected path must be an existing directory.",
+        "UI defaults to Research but does not enforce that base directory.",
+        "Tool-call limit bounds search loops but does not constrain filesystem ingestion scope."
+      ]
+    }
+  ]
+}
