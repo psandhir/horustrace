@@ -1222,7 +1222,7 @@ def run_agent(prompt: str):
         assert any(resource.selector == ".shotgun/**" for resource in tool.resources)
 
     assert not any(
-        finding.rule_id in {"AGT020", "AGT021", "AGT022", "AGT040"}
+        finding.rule_id in {"AGT020", "AGT021", "AGT022", "AGT040", "CAP005"}
         and finding.agent == agent.name
         for finding in findings
     )
