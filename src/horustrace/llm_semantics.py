@@ -30,7 +30,6 @@ from horustrace.models import (
     Tool,
 )
 
-
 PROMPT_VERSION = "semantic-escalation-v1"
 _ALLOWED_CAPABILITIES = {
     "agent.delegate",
@@ -713,15 +712,7 @@ def _cache_key(
     source_slice: str,
     config: LLMSemanticConfig,
 ) -> str:
-    payload = "\0".join(
-        [
-            PROMPT_VERSION,
-            config.provider.lower(),
-            config.model,
-            candidate.candidate_id,
-            source_slice,
-        ]
-    )
+    payload = f"{PROMPT_VERSION}\x00{config.provider.lower()}\x00{config.model}\x00{candidate.candidate_id}\x00{source_slice}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
