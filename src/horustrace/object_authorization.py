@@ -394,12 +394,19 @@ def _loaded_object(
             continue
         model = _leaf(call.args[0])
         identifier = call.args[1]
-        if not model or not isinstance(identifier, ast.Name) or identifier.id not in params:
+        if not model:
             continue
+        parameter_derived = any(
+            isinstance(child, ast.Name) and child.id in params
+            for child in ast.walk(identifier)
+        )
+        if not parameter_derived:
+            continue
+        identifier_name = _dotted(identifier) or _leaf(identifier) or "object_id"
         targets = node.targets if isinstance(node, ast.Assign) else [node.target]
         obj = next((target.id for target in targets if isinstance(target, ast.Name)), None)
         if obj:
-            return obj, model, identifier.id
+            return obj, model, identifier_name
     return None
 
 
