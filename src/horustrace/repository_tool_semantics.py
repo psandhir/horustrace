@@ -363,6 +363,136 @@ def _source_network_semantics(
     }
 
 
+def _source_internal_state_semantics(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> dict[str, object]:
+    """Detect source-visible mutations confined to Pydantic RunContext.deps state."""
+    context_params: set[str] = set()
+    for argument in [
+        *function.args.posonlyargs,
+        *function.args.args,
+        *function.args.kwonlyargs,
+    ]:
+        annotation = argument.annotation
+        if annotation is None:
+            continue
+        try:
+            rendered = ast.unparse(annotation)
+        except Exception:
+            rendered = ""
+        if "RunContext" in rendered:
+            context_params.add(argument.arg)
+    if not context_params:
+        return {}
+
+    def expr_is_internal(node: ast.AST | None, aliases: set[str]) -> bool:
+        if node is None:
+            return False
+        dotted = _dotted_name(node)
+        if dotted and any(
+            dotted == f"{name}.deps" or dotted.startswith(f"{name}.deps.")
+            for name in context_params
+        ):
+            return True
+        names = _expr_names(node)
+        return bool(names & aliases)
+
+    aliases: set[str] = set()
+    changed = True
+    while changed:
+        changed = False
+        for child in ast.walk(function):
+            if isinstance(child, (ast.Assign, ast.AnnAssign)) and child.value is not None:
+                if not expr_is_internal(child.value, aliases):
+                    continue
+                targets = child.targets if isinstance(child, ast.Assign) else [child.target]
+                for target in targets:
+                    for name in _target_names(target):
+                        if name not in aliases:
+                            aliases.add(name)
+                            changed = True
+            elif isinstance(child, (ast.For, ast.AsyncFor)):
+                if not expr_is_internal(child.iter, aliases):
+                    continue
+                for name in _target_names(child.target):
+                    if name not in aliases:
+                        aliases.add(name)
+                        changed = True
+
+    internal_mutation = False
+    external_sink = False
+    mutating_collection_methods = {
+        "append",
+        "extend",
+        "insert",
+        "remove",
+        "pop",
+        "clear",
+        "update",
+        "add",
+        "discard",
+    }
+    external_call_leaves = {
+        "open",
+        "write_text",
+        "write_bytes",
+        "unlink",
+        "rename",
+        "replace",
+        "commit",
+        "execute",
+        "executemany",
+        "save",
+        "upsert",
+        "put",
+        "post",
+        "patch",
+        "delete",
+    }
+
+    for child in ast.walk(function):
+        targets: list[ast.AST] = []
+        if isinstance(child, ast.Assign):
+            targets = list(child.targets)
+        elif isinstance(child, ast.AnnAssign):
+            targets = [child.target]
+        elif isinstance(child, ast.AugAssign):
+            targets = [child.target]
+        elif isinstance(child, ast.Delete):
+            targets = list(child.targets)
+
+        for target in targets:
+            if expr_is_internal(target, aliases):
+                internal_mutation = True
+
+        if not isinstance(child, ast.Call):
+            continue
+        called = (_dotted_name(child.func) or _call_leaf(child) or "").lower()
+        leaf = (_call_leaf(child) or "").lower()
+        receiver = child.func.value if isinstance(child.func, ast.Attribute) else None
+        receiver_internal = expr_is_internal(receiver, aliases)
+
+        if receiver_internal and leaf in mutating_collection_methods:
+            internal_mutation = True
+            continue
+
+        if (
+            called.startswith(("requests.", "httpx.", "aiohttp.", "subprocess."))
+            or "create_subprocess_" in called
+            or called in {"os.system", "os.popen", "exec", "eval"}
+            or leaf in external_call_leaves
+        ):
+            external_sink = True
+
+    if not internal_mutation or external_sink:
+        return {}
+    return {
+        "agent_internal_state": True,
+        "mutation_semantics": "agent_internal_state",
+        "internal_state_basis": "pydantic_run_context_deps",
+    }
+
+
 def _source_control_semantics(
     ref: FunctionDefRef,
     functions: dict[tuple[str, str], FunctionDefRef],
@@ -509,6 +639,13 @@ def enrich_indirect_tool_content_semantics(
                 ):
                     tool.destinations.append(destination)
             tool.metadata.update(network_metadata)
+
+        internal_state = _source_internal_state_semantics(ref.node)
+        if internal_state:
+            tool.metadata.update(internal_state)
+            # Function-name heuristics such as create_*/remove_* describe
+            # in-memory agent control state here, not external mutation authority.
+            tool.capabilities.difference_update({"data.write", "destructive.write"})
 
         controls = _source_control_semantics(ref, functions)
         if controls:
