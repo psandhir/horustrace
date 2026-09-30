@@ -249,7 +249,12 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
             tool
             for tool in outbound
             if tool.metadata.get("network_scope")
-            not in {"fixed_managed_service", "explicit_destination"}
+            not in {
+                "fixed_managed_service",
+                "fixed_provider_network",
+                "operator_configured_destination",
+                "explicit_destination",
+            }
             and not (
                 tool.destinations
                 and all(destination.restricted for destination in tool.destinations)
