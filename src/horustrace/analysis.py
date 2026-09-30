@@ -57,19 +57,33 @@ def _bound_tool_for_flow(graph: Graph, flow: FlowPath) -> Tool | None:
         return None
     tool_name = binding.get("tool")
     function_key = binding.get("function")
-    agent = next((item for item in graph.agents if item.name == flow.agent), None)
-    if agent is None:
+    agents = [item for item in graph.agents if item.name == flow.agent]
+    if not agents:
         return None
-    candidates = [
-        tool
-        for tool in agent.tools
-        if (isinstance(tool_name, str) and tool.name == tool_name)
-        or (
-            isinstance(function_key, str)
-            and tool.metadata.get("source_function_key") == function_key
-        )
-    ]
-    return candidates[0] if len(candidates) == 1 else None
+
+    # Agent names are not globally unique in real Pydantic applications. Prefer
+    # the exact source-function binding across every same-name principal; only
+    # fall back to the tool name when that remains unique.
+    if isinstance(function_key, str):
+        exact = [
+            tool
+            for agent in agents
+            for tool in agent.tools
+            if tool.metadata.get("source_function_key") == function_key
+        ]
+        if len(exact) == 1:
+            return exact[0]
+
+    if isinstance(tool_name, str):
+        named = [
+            tool
+            for agent in agents
+            for tool in agent.tools
+            if tool.name == tool_name
+        ]
+        if len(named) == 1:
+            return named[0]
+    return None
 
 
 def _flow_backed_paths(graph: Graph) -> list[AttackPath]:
