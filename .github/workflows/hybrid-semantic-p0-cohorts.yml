@@ -7,6 +7,10 @@ on:
       - fix/hybrid-semantic-p0-safety
     paths:
       - ".github/workflows/hybrid-semantic-p0-cohorts.yml"
+      - "src/horustrace/llm_semantics.py"
+      - "src/horustrace/rules/builtin.py"
+      - "src/horustrace/analysis.py"
+      - "tests/test_llm_semantics.py"
 
 permissions:
   contents: read
