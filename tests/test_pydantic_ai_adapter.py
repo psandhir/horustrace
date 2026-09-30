@@ -944,7 +944,7 @@ agent = Agent("openai:gpt-5.2", toolsets=[server])
         encoding="utf-8",
     )
 
-    graph, _ = scan(tmp_path)
+    graph, findings = scan(tmp_path)
     agent = next(item for item in graph.agents if item.name == "agent")
     server = agent.mcp_servers[0]
     assert server.transport == "streamable-http"
@@ -1117,6 +1117,15 @@ agent = Agent(
     assert resource.metadata["model_selected_path"] is True
     assert resource.metadata["path_parameters"] == ["filename"]
     assert resource.metadata["path_containment"] == "not_detected"
+
+    finding = next(
+        item
+        for item in findings
+        if item.rule_id == "AGT022" and item.agent == "agent"
+    )
+    assert "resource_scope=<model-selected-path>" in finding.evidence
+    assert "path_parameters=filename" in finding.evidence
+    assert "path_containment=not_detected" in finding.evidence
 
 
 def test_pydantic_ai_native_tool_controls_constrain_shell_and_artifact_write(
