@@ -115,6 +115,34 @@ def _tainted_aliases(
     return tainted
 
 
+def _parameter_origins(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    parameters: set[str],
+) -> dict[str, set[str]]:
+    """Track which original function parameters influence local aliases."""
+    origins: dict[str, set[str]] = {name: {name} for name in parameters}
+    changed = True
+    while changed:
+        changed = False
+        for child in ast.walk(function):
+            if not isinstance(child, (ast.Assign, ast.AnnAssign)):
+                continue
+            value_origins: set[str] = set()
+            for name in _expr_names(child.value):
+                value_origins.update(origins.get(name, set()))
+            if not value_origins:
+                continue
+            targets = child.targets if isinstance(child, ast.Assign) else [child.target]
+            for target in targets:
+                for name in _target_names(target):
+                    existing = origins.setdefault(name, set())
+                    before = len(existing)
+                    existing.update(value_origins)
+                    if len(existing) != before:
+                        changed = True
+    return origins
+
+
 def _containment_detected(
     function: ast.FunctionDef | ast.AsyncFunctionDef,
     tainted: set[str],
@@ -150,6 +178,14 @@ def _function_semantics(
     tainted_parameters: set[str],
 ) -> FunctionSemantics:
     tainted = _tainted_aliases(function, tainted_parameters)
+    origins = _parameter_origins(function, tainted_parameters)
+
+    def parameter_origins(node: ast.AST | None) -> set[str]:
+        result: set[str] = set()
+        for name in _expr_names(node):
+            result.update(origins.get(name, set()))
+        return result
+
     accesses: set[str] = set()
     path_parameters: set[str] = set()
     read_calls: list[ast.Call] = []
@@ -160,22 +196,47 @@ def _function_semantics(
         leaf = _call_leaf(child) or ""
         receiver = child.func.value if isinstance(child.func, ast.Attribute) else None
         receiver_tainted = bool(_expr_names(receiver) & tainted)
-        arg_tainted = any(_expr_names(argument) & tainted for argument in child.args)
 
         if leaf in {"read_text", "read_bytes", "rglob", "glob", "iterdir"} and receiver_tainted:
             accesses.add("read")
-            path_parameters.update(tainted_parameters)
+            path_parameters.update(parameter_origins(receiver))
             if leaf in {"read_text", "read_bytes"}:
                 read_calls.append(child)
 
-        if leaf in {"write_text", "write_bytes", "unlink", "rename", "replace"} and receiver_tainted:
+        if leaf in {"write_text", "write_bytes", "unlink"} and receiver_tainted:
             accesses.add("write")
-            path_parameters.update(tainted_parameters)
+            path_parameters.update(parameter_origins(receiver))
 
-        if leaf == "open" and (receiver_tainted or arg_tainted):
+        if leaf in {"rename", "replace"}:
+            destination = child.args[0] if child.args else None
+            if receiver_tainted or bool(_expr_names(destination) & tainted):
+                accesses.add("write")
+                path_parameters.update(parameter_origins(receiver))
+                path_parameters.update(parameter_origins(destination))
+
+        if leaf == "open":
+            path_expr = (
+                receiver
+                if receiver is not None
+                else child.args[0]
+                if child.args
+                else next(
+                    (
+                        keyword.value
+                        for keyword in child.keywords
+                        if keyword.arg in {"file", "path"}
+                    ),
+                    None,
+                )
+            )
+            if not (_expr_names(path_expr) & tainted):
+                continue
             mode = None
-            if len(child.args) > 1 and isinstance(child.args[1], ast.Constant):
-                mode = child.args[1].value
+            mode_index = 0 if receiver is not None else 1
+            if len(child.args) > mode_index and isinstance(
+                child.args[mode_index], ast.Constant
+            ):
+                mode = child.args[mode_index].value
             for keyword in child.keywords:
                 if keyword.arg == "mode" and isinstance(keyword.value, ast.Constant):
                     mode = keyword.value.value
@@ -184,7 +245,7 @@ def _function_semantics(
             else:
                 accesses.add("read")
                 read_calls.append(child)
-            path_parameters.update(tainted_parameters)
+            path_parameters.update(parameter_origins(path_expr))
 
     returns_file_content = False
     for child in ast.walk(function):
