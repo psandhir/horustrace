@@ -334,3 +334,176 @@ def test_copilot_provider_is_valid_and_json_fences_are_tolerated():
     assert _strip_json_fence('```json\n{"confidence": 0.9}\n```') == (
         '{"confidence": 0.9}'
     )
+
+
+def test_constructor_bound_helper_is_escalated_without_inventing_agent(tmp_path: Path):
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+def search_youtube(query):
+    def invoke():
+        return MCPToolset.from_server(
+            StdioServerParameters(command="mcp-youtube-search")
+        )
+    return invoke
+
+agent = Agent(tools=[search_youtube])
+""",
+        encoding="utf-8",
+    )
+    agent = Agent(
+        name="youtube_assistant",
+        location=SourceLocation(source, 9, 1),
+        metadata={"framework": "google-adk", "source_alias": "agent"},
+    )
+    graph = Graph(agents=[agent])
+
+    def resolver(candidate, source_slice, config):
+        assert candidate.kind == "bound_unresolved_helper"
+        assert candidate.name == "search_youtube"
+        assert "mcp-youtube-search" in source_slice
+        return _empty_result(
+            capabilities=["mcp.remote"],
+            mcp={
+                "present": True,
+                "name": "youtube-search",
+                "transport": "stdio",
+                "url": "",
+                "command": "mcp-youtube-search",
+                "authenticated": "unknown",
+                "approval": "unknown",
+                "allowed_tools": [],
+            },
+        )
+
+    stats = enrich_llm_semantics(
+        graph,
+        tmp_path,
+        [source],
+        _config(max_candidates=1),
+        resolver=resolver,
+    )
+
+    assert stats["bound_helpers_source_resolved"] == 1
+    assert stats["applied"] == 1
+    assert [tool.name for tool in agent.tools] == ["search_youtube"]
+    assert len(agent.mcp_servers) == 1
+    assert agent.mcp_servers[0].command == "mcp-youtube-search"
+
+
+def test_agent_runtime_context_projects_attached_toolset_semantics(tmp_path: Path):
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+def create_cli_agent():
+    toolset = create_console_toolset(
+        include_execute=True,
+        require_execute_approval=False,
+    )
+    agent = Agent()
+    return agent.with_toolset(toolset)
+""",
+        encoding="utf-8",
+    )
+    agent = Agent(
+        name="agent",
+        location=SourceLocation(source, 7, 5),
+        metadata={
+            "framework": "pydantic-ai",
+            "instance_key": f"{source}:7:agent",
+        },
+    )
+    graph = Graph(agents=[agent])
+
+    def resolver(candidate, source_slice, config):
+        assert candidate.kind == "agent_runtime_context"
+        assert "create_console_toolset" in source_slice
+        return _empty_result(
+            capabilities=["process.execute", "data.write"],
+            approval="false",
+            resources=[
+                {
+                    "kind": "filesystem",
+                    "selector": "<model-selected-path>",
+                    "access": ["data.write"],
+                    "classification": "internal",
+                    "selector_provenance": "model_selected",
+                }
+            ],
+        )
+
+    stats = enrich_llm_semantics(
+        graph,
+        tmp_path,
+        [source],
+        _config(max_candidates=1),
+        resolver=resolver,
+    )
+
+    assert stats["runtime_contexts_source_resolved"] == 1
+    assert stats["applied"] == 1
+    assert len(agent.tools) == 1
+    tool = agent.tools[0]
+    assert tool.kind == "llm_resolved_runtime_context"
+    assert {"process.execute", "data.write"} <= tool.capabilities
+    assert tool.approval is False
+
+
+def test_semantic_projection_rejects_ephemeral_write_and_logical_destination(
+    tmp_path: Path,
+):
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+def update_state(ctx):
+    ctx.deps.state.ready = True
+    return ctx.deps.state
+""",
+        encoding="utf-8",
+    )
+    tool = Tool(
+        name="update_state",
+        kind="function",
+        location=SourceLocation(source, 2, 1),
+        metadata={
+            "source_path": str(source),
+            "source_function": "update_state",
+            "agent_internal_state": True,
+        },
+    )
+    graph = Graph(agents=[Agent(name="agent", tools=[tool])])
+
+    def resolver(candidate, source_slice, config):
+        return _empty_result(
+            capabilities=["data.read", "data.write"],
+            resources=[
+                {
+                    "kind": "application state",
+                    "selector": "ctx.deps.state",
+                    "access": ["data.read", "data.write"],
+                    "classification": "internal",
+                    "selector_provenance": "fixed",
+                }
+            ],
+            destinations=[
+                {
+                    "target": "Slack channel identified by deps.channel_id",
+                    "restricted": False,
+                    "provenance": "model_selected",
+                }
+            ],
+        )
+
+    enrich_llm_semantics(
+        graph,
+        tmp_path,
+        [source],
+        _config(max_candidates=1),
+        resolver=resolver,
+    )
+
+    assert "data.read" in tool.capabilities
+    assert "data.write" not in tool.capabilities
+    assert tool.destinations == []
+    assert tool.metadata["semantic_ephemeral_state_write_suppressed"] is True
+    assert tool.resources[0].access == {"data.read"}
