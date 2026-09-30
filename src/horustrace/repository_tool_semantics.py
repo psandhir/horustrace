@@ -330,15 +330,16 @@ def _source_network_semantics(
         )
         if target is None:
             continue
+        if isinstance(target, ast.Name) and target.id in fixed_origins:
+            observed_origins.add(fixed_origins[target.id])
+            continue
+        origin = _fixed_url_origin(target)
+        if origin:
+            observed_origins.add(origin)
+            continue
         if _expr_names(target) & tainted:
             caller_selected_http = True
             break
-        if isinstance(target, ast.Name) and target.id in fixed_origins:
-            observed_origins.add(fixed_origins[target.id])
-        else:
-            origin = _fixed_url_origin(target)
-            if origin:
-                observed_origins.add(origin)
 
     if caller_selected_http or not observed_origins:
         return [], {}
