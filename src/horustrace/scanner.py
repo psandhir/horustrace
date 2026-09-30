@@ -31,6 +31,7 @@ from horustrace.coverage import add_diagnostic, diagnose_dynamic_constructs, dia
 from horustrace.entrypoint_provenance import annotate_flow_entrypoints
 from horustrace.flow import analyze_repository_flows
 from horustrace.heuristics import PRIVILEGED_CAPABILITIES
+from horustrace.livekit_semantics import enrich_livekit_mcp_mutation_semantics
 from horustrace.limits import (
     MAX_FILE_SIZE_BYTES,
     MAX_FILES_VISITED,
@@ -2252,6 +2253,11 @@ def scan(
         approved_python_paths,
     )
     enrich_indirect_tool_content_semantics(
+        graph,
+        root if root.is_dir() else root.parent,
+        approved_python_paths,
+    )
+    enrich_livekit_mcp_mutation_semantics(
         graph,
         root if root.is_dir() else root.parent,
         approved_python_paths,
