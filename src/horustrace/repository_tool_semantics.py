@@ -376,10 +376,7 @@ def _source_internal_state_semantics(
         annotation = argument.annotation
         if annotation is None:
             continue
-        try:
-            rendered = ast.unparse(annotation)
-        except Exception:
-            rendered = ""
+        rendered = ast.unparse(annotation)
         if "RunContext" in rendered:
             context_params.add(argument.arg)
     if not context_params:
@@ -454,9 +451,7 @@ def _source_internal_state_semantics(
         targets: list[ast.AST] = []
         if isinstance(child, ast.Assign):
             targets = list(child.targets)
-        elif isinstance(child, ast.AnnAssign):
-            targets = [child.target]
-        elif isinstance(child, ast.AugAssign):
+        elif isinstance(child, (ast.AnnAssign, ast.AugAssign)):
             targets = [child.target]
         elif isinstance(child, ast.Delete):
             targets = list(child.targets)
