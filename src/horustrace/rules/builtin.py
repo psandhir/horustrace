@@ -499,26 +499,44 @@ def evaluate(graph: Graph) -> list[Finding]:
                 for candidate in graph.agents
             )
         )
+        dynamic_mcp_catalogue = (
+            server.metadata.get("dynamic_remote_mcp_catalogue") is True
+            or server.metadata.get("dynamic_configured_mcp_catalogue") is True
+        )
         if (
             server_authority is not None
-            and server.metadata.get("dynamic_remote_mcp_catalogue") is True
-            and server.metadata.get("per_call_approval") is False
+            and dynamic_mcp_catalogue
+            and server.metadata.get("per_call_approval") is not True
             and not hosted_equivalent
         ):
+            catalogue_kind = (
+                "configuration_derived"
+                if server.metadata.get("dynamic_configured_mcp_catalogue") is True
+                else "dynamic_remote"
+            )
             findings.append(
                 Finding(
                     "AGT054",
                     Severity.MEDIUM,
-                    "Dynamic remote MCP catalogue has no per-call approval",
-                    f"Agent '{server_authority.agent}' converts the dynamic tool catalogue from remote MCP server '{server.name}' into callable tools without a per-call approval boundary.",
-                    "Restrict the remote MCP catalogue to an explicit allowlist and require per-call approval or an equivalent policy boundary for unreviewed remote tools.",
+                    "Dynamic MCP catalogue has no detected per-call approval",
+                    f"Agent '{server_authority.agent}' attaches MCP catalogue '{server.name}' without a source-visible per-call approval boundary.",
+                    "Restrict configuration-derived or remote MCP catalogues to explicit tool allowlists and require per-call approval or an equivalent policy boundary for unreviewed tools.",
                     layer=1,
                     location=server.location,
                     agent=server_authority.agent,
                     evidence=[
-                        "catalogue=dynamic_remote_mcp",
-                        "per_call_approval=false",
-                        "binding=list_tools_to_function_tool",
+                        f"catalogue={catalogue_kind}_mcp",
+                        "per_call_approval="
+                        + (
+                            "false"
+                            if server.metadata.get("per_call_approval") is False
+                            else "not_detected"
+                        ),
+                        "binding="
+                        + str(
+                            server.metadata.get("binding_origin")
+                            or "list_tools_to_function_tool"
+                        ),
                     ],
                     authority_relationship_id=server_authority.relationship_id,
                 )
