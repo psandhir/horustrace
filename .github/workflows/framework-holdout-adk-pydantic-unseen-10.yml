@@ -89,7 +89,7 @@ jobs:
                           "scan":"ok",
                           "agents":[{
                               "name":agent.name,
-                              "location":agent.location.as_dict() if agent.location else None,
+                              "location":({"path":agent.location.path.as_posix(),"line":agent.location.line,"column":agent.location.column} if agent.location else None),
                               "runtime_viability":agent.metadata.get("runtime_viability"),
                               "runtime_blockers":agent.metadata.get("runtime_blockers") or [],
                               "inputs":[{"name":i.name,"trust":i.trust,"kind":i.kind,"metadata":i.metadata} for i in agent.inputs],
