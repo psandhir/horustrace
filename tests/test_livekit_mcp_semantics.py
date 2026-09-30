@@ -3,7 +3,7 @@ from pathlib import Path
 from horustrace.scanner import scan
 
 
-def _write_livekit_fixture(tmp_path: Path, *, authenticated_token: bool) -> None:
+def _write_livekit_fixture(\n    tmp_path: Path,\n    *,\n    authenticated_token: bool,\n    can_publish: bool = True,\n) -> None:
     (tmp_path / "db.py").write_text(
         """
 def db_transfer_funds(from_account: str, to_account: str, amount: float):
@@ -84,14 +84,14 @@ def get_settings():
 def require_user():
     return object()
 
-@app.post("/api/token")
+@app.post("/session/credential")
 async def create_token(request, settings=Depends(get_settings){auth_parameter}):
     return (
         AccessToken()
         .with_grants(
             VideoGrants(
                 room_join=True,
-                can_publish=True,
+                can_publish={can_publish!r},
                 can_subscribe=True,
             )
         )
@@ -117,6 +117,8 @@ def test_public_livekit_audio_reaches_committed_mcp_mutation(tmp_path: Path) -> 
     assert tool.metadata["mcp_tool_name"] == "transfer_funds"
     assert tool.metadata["mcp_dispatch_proven"] is True
     assert tool.metadata["mcp_mutation_proven"] is True
+    assert tool.metadata["state_scope"] == "repository_local_state"
+    assert tool.metadata["state_backend"] == "local_sqlite"
     assert {"data.write", "destructive.write"} <= tool.capabilities
     assert any(
         item.metadata.get("basis") == "source_proven_public_livekit_audio"
@@ -159,6 +161,37 @@ def test_authenticated_livekit_token_does_not_create_public_ingress_path(
     assert any(
         finding.rule_id == "AGT021" and finding.agent == agent.name
         for finding in findings
+    )
+    assert not any(
+        item.path_id == "PATH002" and item.agent == agent.name
+        for item in graph.attack_paths
+    )
+
+
+def test_non_publishing_livekit_token_does_not_create_public_ingress_path(
+    tmp_path: Path,
+) -> None:
+    _write_livekit_fixture(
+        tmp_path,
+        authenticated_token=False,
+        can_publish=False,
+    )
+
+    graph, _ = scan(tmp_path)
+
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "model-tool-loop"
+    )
+    tool = next(item for item in agent.tools if item.name == "transfer_funds")
+
+    # Tool authority is still source-proven, but a non-publishing credential
+    # does not establish participant-to-model ingress.
+    assert {"data.write", "destructive.write"} <= tool.capabilities
+    assert not any(
+        item.metadata.get("basis") == "source_proven_public_livekit_audio"
+        for item in agent.inputs
     )
     assert not any(
         item.path_id == "PATH002" and item.agent == agent.name
