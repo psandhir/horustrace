@@ -154,7 +154,15 @@ def _kw(call: ast.Call, name: str) -> ast.AST | None:
 
 def _target_names(node: ast.Assign | ast.AnnAssign) -> list[str]:
     targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-    return [target.id for target in targets if isinstance(target, ast.Name)]
+    names: list[str] = []
+    for target in targets:
+        if isinstance(target, ast.Name):
+            names.append(target.id)
+        elif isinstance(target, ast.Attribute):
+            dotted = _dotted(target)
+            if dotted:
+                names.append(dotted)
+    return names
 
 
 def _uses_pydantic_ai(tree: ast.AST) -> bool:
