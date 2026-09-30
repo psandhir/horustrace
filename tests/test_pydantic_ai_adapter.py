@@ -911,7 +911,8 @@ async def get_user_mcp_servers():
 async def create_agent():
     user_mcp_servers = await get_user_mcp_servers()
     mcp_servers = user_mcp_servers or None
-    return Agent("openai:gpt-5.2", toolsets=mcp_servers)
+    agent = Agent("openai:gpt-5.2", toolsets=mcp_servers)
+    return agent
 """,
         encoding="utf-8",
     )
