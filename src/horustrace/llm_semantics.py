@@ -887,8 +887,7 @@ def _copilot_resolver(
         completed = subprocess.run(
             command,
             text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             timeout=180,
             check=False,
         )
