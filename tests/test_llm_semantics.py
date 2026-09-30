@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from horustrace.analysis import build_attack_paths
 from horustrace.llm_semantics import LLMSemanticConfig, enrich_llm_semantics
-from horustrace.models import Agent, Graph, SourceLocation, Tool
+from horustrace.models import Agent, Graph, InputSource, SourceLocation, Tool
+from horustrace.rules.builtin import evaluate
 from horustrace.scanner import scan
 
 
@@ -25,6 +27,12 @@ def _empty_result(**overrides):
         "capabilities": [],
         "approval": "unknown",
         "guardrails": "unknown",
+        "constraints": {
+            "process_execution": "unknown",
+            "filesystem_scope": "unknown",
+            "network_destination": "unknown",
+            "runtime": "unknown",
+        },
         "resources": [],
         "destinations": [],
         "mcp": {
@@ -507,3 +515,216 @@ def update_state(ctx):
     assert tool.destinations == []
     assert tool.metadata["semantic_ephemeral_state_write_suppressed"] is True
     assert tool.resources[0].access == {"data.read"}
+
+
+
+def test_source_slice_includes_referenced_module_binding_and_preserves_operator_destination(
+    tmp_path: Path,
+):
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+import os
+ENDPOINT = os.environ.get("SERVICE_URL", "").rstrip("/")
+
+def call_service(payload):
+    return requests.post(ENDPOINT, json=payload)
+""",
+        encoding="utf-8",
+    )
+    tool = Tool(
+        name="call_service",
+        kind="function",
+        capabilities={"network.external"},
+        location=SourceLocation(source, 5, 1),
+        metadata={
+            "source_path": str(source),
+            "source_function": "call_service",
+        },
+    )
+    agent = Agent(name="agent", tools=[tool])
+    graph = Graph(agents=[agent])
+
+    def resolver(candidate, source_slice, config):
+        assert "MODULE BINDING: ENDPOINT" in source_slice
+        assert 'os.environ.get("SERVICE_URL"' in source_slice
+        return _empty_result(
+            capabilities=["network.external"],
+            constraints={
+                "process_execution": "unknown",
+                "filesystem_scope": "unknown",
+                "network_destination": "operator_configured",
+                "runtime": "conditional",
+            },
+            evidence=["ENDPOINT is selected by deployment configuration"],
+        )
+
+    enrich_llm_semantics(
+        graph,
+        tmp_path,
+        [source],
+        _config(max_candidates=1),
+        resolver=resolver,
+    )
+
+    assert tool.metadata["network_scope"] == "operator_configured_destination"
+    assert not any(finding.rule_id == "NET002" for finding in evaluate(graph))
+
+
+def test_external_resource_write_does_not_imply_network_destination_gap():
+    tool = Tool(
+        name="write_object",
+        kind="function",
+        capabilities={"data.write", "external.write"},
+        resources=[],
+    )
+    graph = Graph(agents=[Agent(name="agent", tools=[tool])])
+
+    findings = evaluate(graph)
+
+    assert not any(finding.rule_id in {"NET001", "NET002"} for finding in findings)
+
+
+def test_synthetic_llm_execution_with_unknown_controls_does_not_create_risk_claims(
+    tmp_path: Path,
+):
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+def opaque_exec(command):
+    return runtime_backend(command)
+""",
+        encoding="utf-8",
+    )
+    agent = Agent(
+        name="agent",
+        inputs=[InputSource(name="user", trust="untrusted")],
+        metadata={
+            "framework": "pydantic-ai",
+            "unresolved_helpers": ["opaque_exec"],
+        },
+    )
+    graph = Graph(agents=[agent])
+
+    def resolver(candidate, source_slice, config):
+        return _empty_result(
+            capabilities=["process.execute"],
+            approval="unknown",
+            guardrails="unknown",
+        )
+
+    enrich_llm_semantics(
+        graph,
+        tmp_path,
+        [source],
+        _config(max_candidates=1),
+        resolver=resolver,
+    )
+
+    assert agent.tools[0].metadata["semantic_projection_kind"] == "synthetic"
+    assert not any(
+        finding.rule_id in {"AGT020", "AGT040"}
+        for finding in evaluate(graph)
+    )
+    assert not any(
+        path.path_id == "PATH001"
+        for path in build_attack_paths(graph)
+    )
+
+
+def test_synthetic_llm_execution_with_explicit_missing_controls_remains_actionable(
+    tmp_path: Path,
+):
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+def opaque_exec(command):
+    return runtime_backend(command)
+""",
+        encoding="utf-8",
+    )
+    agent = Agent(
+        name="agent",
+        inputs=[InputSource(name="user", trust="untrusted")],
+        metadata={
+            "framework": "pydantic-ai",
+            "unresolved_helpers": ["opaque_exec"],
+        },
+    )
+    graph = Graph(agents=[agent])
+
+    def resolver(candidate, source_slice, config):
+        return _empty_result(
+            capabilities=["process.execute"],
+            approval="false",
+            guardrails="false",
+            constraints={
+                "process_execution": "unconstrained",
+                "filesystem_scope": "unknown",
+                "network_destination": "unknown",
+                "runtime": "available",
+            },
+        )
+
+    enrich_llm_semantics(
+        graph,
+        tmp_path,
+        [source],
+        _config(max_candidates=1),
+        resolver=resolver,
+    )
+
+    rule_ids = {finding.rule_id for finding in evaluate(graph)}
+    path_ids = {path.path_id for path in build_attack_paths(graph)}
+    assert "AGT020" in rule_ids
+    assert "AGT040" in rule_ids
+    assert "PATH001" in path_ids
+
+
+def test_static_execution_constraint_wins_over_conflicting_llm_projection(
+    tmp_path: Path,
+):
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+def execute(command):
+    return sandbox.run(command)
+""",
+        encoding="utf-8",
+    )
+    tool = Tool(
+        name="execute",
+        kind="function",
+        capabilities={"process.execute"},
+        location=SourceLocation(source, 2, 1),
+        metadata={
+            "source_path": str(source),
+            "source_function": "execute",
+            "process_execution_constrained": True,
+        },
+    )
+    graph = Graph(agents=[Agent(name="agent", tools=[tool])])
+
+    def resolver(candidate, source_slice, config):
+        return _empty_result(
+            capabilities=["process.execute"],
+            approval="false",
+            guardrails="false",
+            constraints={
+                "process_execution": "unconstrained",
+                "filesystem_scope": "unknown",
+                "network_destination": "unknown",
+                "runtime": "available",
+            },
+        )
+
+    enrich_llm_semantics(
+        graph,
+        tmp_path,
+        [source],
+        _config(max_candidates=1),
+        resolver=resolver,
+    )
+
+    assert tool.metadata["process_execution_constrained"] is True
+    assert not any(finding.rule_id == "AGT020" for finding in evaluate(graph))
