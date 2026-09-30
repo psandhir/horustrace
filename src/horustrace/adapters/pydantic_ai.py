@@ -163,6 +163,9 @@ def _target_names(node: ast.Assign | ast.AnnAssign | ast.AST) -> list[str]:
     for target in targets:
         if isinstance(target, ast.Name):
             names.append(target.id)
+        elif isinstance(target, (ast.Tuple, ast.List)):
+            for element in target.elts:
+                names.extend(_target_names(element))
         elif isinstance(target, ast.Attribute):
             dotted = _dotted(target)
             if dotted:
