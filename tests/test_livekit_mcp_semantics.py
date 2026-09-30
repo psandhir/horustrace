@@ -3,7 +3,12 @@ from pathlib import Path
 from horustrace.scanner import scan
 
 
-def _write_livekit_fixture(\n    tmp_path: Path,\n    *,\n    authenticated_token: bool,\n    can_publish: bool = True,\n) -> None:
+def _write_livekit_fixture(
+    tmp_path: Path,
+    *,
+    authenticated_token: bool,
+    can_publish: bool = True,
+) -> None:
     (tmp_path / "db.py").write_text(
         """
 def db_transfer_funds(from_account: str, to_account: str, amount: float):
