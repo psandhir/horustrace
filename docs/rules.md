@@ -21,6 +21,7 @@ metadata will become available through the CLI in WP02.
 - `AGT051` — literal credential material embedded in MCP configuration.
 - `AGT052` — MCP configuration explicitly enables a broad/unrestricted tool surface.
 - `AGT053` — bound MCP server exposes privileged in-repo tools without approval/guardrail controls.
+- `AGT054` — source-bound dynamic remote MCP catalogue is callable without a per-call approval boundary.
 
 ### Google ADK
 
