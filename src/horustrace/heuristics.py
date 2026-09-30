@@ -12,7 +12,7 @@ CAPABILITY_PATTERNS: list[tuple[re.Pattern[str], set[str]]] = [
     (re.compile(r"\b(write|update|create|modify|edit|patch|apply|schedule|subscribe|enqueue|add|append|insert|save|store|upsert)\b", re.IGNORECASE), {"data.write"}),
     (re.compile(r"\b(read|search|lookup|get|retrieve|document|file|query|list|open|load|view|inspect)\b", re.IGNORECASE), {"data.read"}),
     (re.compile(r"\b(secret|credential|token|password|key|vault)\b", re.IGNORECASE), {"secrets.read"}),
-    (re.compile(r"\b(admin|iam|permission|role|policy|grant)\b", re.IGNORECASE), {"identity.admin"}),
+    (re.compile(r"\b(admin|iam|permission|role|grant)\b", re.IGNORECASE), {"identity.admin"}),
 ]
 
 
