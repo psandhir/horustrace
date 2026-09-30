@@ -1,0 +1,154 @@
+name: Framework Litmus ADK + Pydantic 10
+
+on:
+  push:
+    branches:
+      - research/framework-litmus-adk-pydantic-10
+    paths:
+      - ".github/workflows/framework-litmus-adk-pydantic-10.yml"
+      - "research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-cohort.json"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: framework-litmus-adk-pydantic-10
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout HorusTrace
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install current HorusTrace
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          horustrace --version
+
+      - name: Run targeted 10-case litmus
+        env:
+          SCANNER_CODE_BASE_SHA: "36c48f88da2106c367e3a96e2f94432e8ef595ca"
+        run: |
+          python - <<'PY'
+          import json, os, subprocess, sys, tempfile, time
+          from pathlib import Path
+
+          cohort_path = Path("research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-cohort.json")
+          cohort = json.loads(cohort_path.read_text())
+          cases = cohort["selection"]["cases"]
+          results = []
+
+          with tempfile.TemporaryDirectory(prefix="horustrace-framework-litmus-") as td:
+              root = Path(td)
+              for i, case in enumerate(cases, 1):
+                  started = time.monotonic()
+                  target = root / case["case_id"]
+                  target.mkdir()
+                  print(f"[{i:02d}/{len(cases)}] {case['case_id']} {case['repo']} @ {case['sha'][:12]}", flush=True)
+                  clone_cmds = [
+                      ["git","init","-q",str(target)],
+                      ["git","-C",str(target),"remote","add","origin",f"https://github.com/{case['repo']}.git"],
+                      ["git","-C",str(target),"fetch","--quiet","--depth=1","--filter=blob:none","origin",case["sha"]],
+                      ["git","-C",str(target),"checkout","--quiet","--detach","FETCH_HEAD"],
+                  ]
+                  clone_error = None
+                  for cmd in clone_cmds:
+                      cp = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=240)
+                      if cp.returncode:
+                          clone_error = (cp.stderr or cp.stdout)[-4000:]
+                          break
+                  row = {**case, "clone":"ok" if clone_error is None else "failed"}
+                  if clone_error is not None:
+                      row.update(scan="not_run", clone_error=clone_error, elapsed_seconds=round(time.monotonic()-started,2))
+                      results.append(row)
+                      continue
+                  try:
+                      cp = subprocess.run(
+                          [sys.executable,"scripts/frozen_corpus_rescan.py","--scan-target",str(target)],
+                          text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=420
+                      )
+                  except subprocess.TimeoutExpired:
+                      row.update(scan="timeout", elapsed_seconds=round(time.monotonic()-started,2))
+                      results.append(row)
+                      continue
+                  if cp.returncode:
+                      row.update(scan="error", scan_error=(cp.stderr or cp.stdout)[-5000:])
+                  else:
+                      try:
+                          row.update(json.loads(cp.stdout))
+                          row["scan"]="ok"
+                      except Exception as exc:
+                          row.update(scan="invalid_json", scan_error=f"{type(exc).__name__}: {exc}; stdout={cp.stdout[-3000:]}")
+                  row["elapsed_seconds"]=round(time.monotonic()-started,2)
+                  results.append(row)
+                  print(f"  scan={row.get('scan')} agents={row.get('agents','-')} findings={row.get('findings','-')} paths={row.get('attack_paths','-')}", flush=True)
+
+          out = {
+              "schema_version": 1,
+              "study": "gpt-horustrace-differential-2026",
+              "batch_id": "framework-litmus-adk-pydantic-10",
+              "scanner_code_base_sha": os.environ["SCANNER_CODE_BASE_SHA"],
+              "workflow_commit": os.environ.get("GITHUB_SHA"),
+              "cases": results,
+              "summary": {
+                  "requested": len(results),
+                  "scanned": sum(r.get("scan")=="ok" for r in results),
+                  "errors": sum(r.get("scan")=="error" for r in results),
+                  "timeouts": sum(r.get("scan")=="timeout" for r in results),
+                  "findings": sum(int(r.get("findings",0) or 0) for r in results if r.get("scan")=="ok"),
+                  "attack_paths": sum(int(r.get("attack_paths",0) or 0) for r in results if r.get("scan")=="ok"),
+              }
+          }
+          out_path = Path("research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-scanner.json")
+          out_path.write_text(json.dumps(out, indent=2)+"\n")
+
+          md = [
+              "# ADK + Pydantic AI 10-case framework litmus — scanner reveal",
+              "",
+              f"- Scanner code base: `{out['scanner_code_base_sha']}`",
+              f"- Scanned: {out['summary']['scanned']}/{out['summary']['requested']}",
+              f"- Findings: {out['summary']['findings']}",
+              f"- Attack paths: {out['summary']['attack_paths']}",
+              "",
+              "| Case | Framework | Repository | Scan | Agents | Tools | MCP | Flows | Findings | Paths |",
+              "|---|---|---|---|---:|---:|---:|---:|---:|---:|",
+          ]
+          for r in results:
+              md.append(f"| {r['case_id']} | {r['framework']} | {r['repo']} | {r.get('scan')} | {r.get('agents','-')} | {r.get('tools','-')} | {r.get('mcp_servers','-')} | {r.get('flow_paths','-')} | {r.get('findings','-')} | {r.get('attack_paths','-')} |")
+          md += ["", "## Finding detail", ""]
+          for r in results:
+              md += [f"### {r['case_id']} — {r['repo']}", ""]
+              details = r.get("finding_details") or []
+              if not details:
+                  md.append("- No scanner findings.")
+              else:
+                  for d in details:
+                      loc = f"{d.get('path') or '?'}:{d.get('line') or '?'}"
+                      md.append(f"- **{d.get('rule_id')} {d.get('severity')}** — {d.get('title')} — agent={d.get('agent') or 'n/a'} — {loc}")
+                      for ev in (d.get("evidence") or [])[:4]:
+                          md.append(f"  - {ev}")
+              md.append("")
+          Path("research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-scanner.md").write_text("\n".join(md)+"\n")
+          PY
+
+      - name: Commit scanner reveal
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-scanner.json
+          git add research/gpt-horustrace-differential-2026/framework-litmus-adk-pydantic-10-scanner.md
+          if ! git diff --cached --quiet; then
+            git commit -m "research: record ADK/Pydantic 10-case scanner reveal"
+            git push origin HEAD:research/framework-litmus-adk-pydantic-10
+          fi
