@@ -28,9 +28,26 @@
     "baseline_recall_gap_cases": 2,
     "baseline_scanner_precision_gap_cases": 2,
     "agreement_precision_control_cases": 1,
-    "repair_prs": [261, 262, 263, 267],
+    "repair_prs": [
+      261,
+      262,
+      263,
+      267
+    ],
     "post_repair_frozen_180_rerun": false,
-    "validation": "Each repair is covered by targeted positive/negative regressions and passed its PR CI/CodeQL gates. No new broad Frozen-180 result is claimed here."
+    "validation": "Repair PR regressions/CI plus a corrected five-repository targeted postfix run confirm both recall recoveries, both precision repairs, and the clean control. Frozen-180 was not rerun.",
+    "targeted_post_repair_validation": {
+      "scanner_sha": "3134564b73da9f6e45b5297a95dcc196e17ea87d",
+      "harness_pr": 269,
+      "harness_merge_sha": "36c48f88da2106c367e3a96e2f94432e8ef595ca",
+      "workflow_run": 36696082586,
+      "result_commit": "42e10b0c3a689084df7b478b564faf0581448bba",
+      "successful_scans": 5,
+      "failed_scans": 0,
+      "findings": 16,
+      "attack_paths": 6,
+      "note": "Semantic acceptance uses expected recovered/removed gap families, not raw finding/path totals."
+    }
   },
   "cases": [
     {
@@ -47,7 +64,13 @@
         "merge_sha": "a369f8d9abe8ea43fb0e0d42cb986caf950b2998",
         "summary": "Provider-managed ADK BuiltInCodeExecutor no longer implies host process.execute, and read-only policy naming no longer implies IAM/admin authority."
       },
-      "validation": "Targeted precision regressions plus green CI/CodeQL on the repair PR."
+      "validation": "Targeted precision regressions plus green CI/CodeQL on the repair PR.",
+      "post_repair_validation": {
+        "findings": 0,
+        "attack_paths": 0,
+        "semantic_scope": "primary_application",
+        "expected_outcome": "precision_gap_removed"
+      }
     },
     {
       "case_id": "rw-074",
@@ -62,11 +85,26 @@
       "repair": {
         "pr": 263,
         "merge_sha": "926e813fc1ac8ce77ab481ef3f5a957de84c35ba",
-        "rules": ["DATA004", "PATH014"],
+        "rules": [
+          "DATA004",
+          "PATH014"
+        ],
         "summary": "Repository-level BaseTool binding proves model-selected object lookup/mutation and compares it with the owner/tenant check enforced by the normal application path."
       },
       "validation": "Positive owner-scope bypass regression plus a principal-bound owner-check negative; green CI/CodeQL before merge.",
-      "limitation": "Cross-owner impact still requires a valid object identifier outside the caller's authorized scope."
+      "limitation": "Cross-owner impact still requires a valid object identifier outside the caller's authorized scope.",
+      "post_repair_validation": {
+        "findings": 6,
+        "attack_paths": 2,
+        "semantic_scope": "expanded_repository_imports",
+        "expanded_semantic_findings": 6,
+        "expanded_semantic_attack_paths": 2,
+        "recovered_rules": [
+          "DATA004",
+          "PATH014"
+        ],
+        "expected_outcome": "owner_scope_gap_recovered"
+      }
     },
     {
       "case_id": "rw-115",
@@ -81,11 +119,24 @@
       "repair": {
         "pr": 267,
         "merge_sha": "3134564b73da9f6e45b5297a95dcc196e17ea87d",
-        "rules": ["IDN005", "PATH015"],
+        "rules": [
+          "IDN005",
+          "PATH015"
+        ],
         "summary": "Source analysis binds publish-capable LiveKit session issuance to the consuming model agent, resolves function-tool to local MCP dispatch, and follows repository helpers to committed state mutation."
       },
       "validation": "Positive public-session to SQLite mutation regression plus authenticated-token and non-publishing-token negatives; CI and CodeQL both passed.",
-      "limitation": "The pinned source proves repository-local/demo SQLite banking state, not a production banking backend."
+      "limitation": "The pinned source proves repository-local/demo SQLite banking state, not a production banking backend.",
+      "post_repair_validation": {
+        "findings": 10,
+        "attack_paths": 4,
+        "semantic_scope": "primary_application",
+        "recovered_rules": [
+          "IDN005",
+          "PATH015"
+        ],
+        "expected_outcome": "public_realtime_mcp_gap_recovered"
+      }
     },
     {
       "case_id": "rw-142",
@@ -97,7 +148,13 @@
       "outcome": "agreement_precision_control",
       "gap_family": null,
       "repair": null,
-      "validation": "No scanner change required."
+      "validation": "No scanner change required.",
+      "post_repair_validation": {
+        "findings": 0,
+        "attack_paths": 0,
+        "semantic_scope": "primary_application",
+        "expected_outcome": "clean_control_preserved"
+      }
     },
     {
       "case_id": "rw-178",
@@ -113,13 +170,21 @@
         "merge_sha": "ffcef1e84ba934e99b4a4943aa817b0095d33d84",
         "summary": "Pydantic tool names such as run_command no longer imply host process.execute; a concrete subprocess/os.system/exec/eval-class sink is required."
       },
-      "validation": "Authorized application-command registry negative plus existing true process-execution positives; green CI/CodeQL on the repair PR."
+      "validation": "Authorized application-command registry negative plus existing true process-execution positives; green CI/CodeQL on the repair PR.",
+      "post_repair_validation": {
+        "findings": 0,
+        "attack_paths": 0,
+        "semantic_scope": "primary_application",
+        "expected_outcome": "precision_gap_removed"
+      }
     }
   ],
   "conclusions": [
     "Batch 005 found two source-proven recall/composition gaps and two independent precision gap families in five fresh cases.",
     "The recall gaps were not basic entity discovery failures: both required composing application admission/authorization boundaries with effective model-tool authority and a concrete state-changing sink.",
     "The precision gaps reinforced the need to distinguish provider-managed capabilities from local host authority and semantic names from source-proven sinks.",
-    "The next study step is a fresh blinded Batch 006; broad Frozen-180 validation remains a deliberate manual gate rather than a per-PR loop."
+    "The next study step is a fresh blinded Batch 006; broad Frozen-180 validation remains a deliberate manual gate rather than a per-PR loop.",
+    "A five-repository post-repair run at scanner SHA 3134564b73da9f6e45b5297a95dcc196e17ea87d confirmed semantic recovery for rw-074/rw-115, zero findings for rw-029/rw-178, and preservation of the clean rw-142 control.",
+    "The validation run also exposed and repaired a postfix-harness scope blind spot: cross-module semantic findings are now measured from bounded repository-local import context while structural entity metrics remain scoped to the preregistered application root."
   ]
 }
