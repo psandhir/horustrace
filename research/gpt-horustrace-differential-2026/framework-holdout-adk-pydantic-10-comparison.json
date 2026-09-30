@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "study": "gpt-horustrace-differential-2026",
+  "batch_id": "framework-holdout-adk-pydantic-10-comparison",
+  "locks": {
+    "cohort": "05104912966ebfd08e500142aaac75e8b9f14626",
+    "blind_review": "ee5a1b53e187e79a7c26147a10bd322e76d38b31"
+  },
+  "scanner": {
+    "source_base": "55f0da3d5231eb3c63591a643f338942ad1983d2",
+    "reveal_commit": "529ed97ab134a96434bbdbabbf84d0e2e4e5f39c",
+    "workflow_run_id": 36744646489,
+    "artifact_id": 11110894791,
+    "scanned": 10,
+    "errors": 0,
+    "findings": 10,
+    "attack_paths": 1
+  },
+  "alignment": {
+    "semantic": {
+      "total": 8,
+      "full": 2,
+      "partial": 2,
+      "missed": 4,
+      "covered_or_partial_rate": 0.5
+    },
+    "model_agent_paths": {
+      "total": 5,
+      "full": 1,
+      "partial": 2,
+      "missed": 2,
+      "covered_or_partial_rate": 0.6
+    },
+    "deterministic_application_paths": {
+      "total": 1,
+      "full": 0,
+      "partial": 0,
+      "missed": 1
+    },
+    "precision_controls": {
+      "total": 4,
+      "passed": 4
+    }
+  },
+  "priorities": [
+    "P0: exclude RunContext/dependency parameters from model-selected filesystem path provenance",
+    "P0: preserve Docker/sandbox containment on nested console authority",
+    "P0: support Agent.with_toolset and create_console_toolset semantics",
+    "P0: bind toolsets supplied at Pydantic run/run_sync, including conditional MCP",
+    "P0: propagate factory-created agent identity to CLI/runtime invocation",
+    "P1: custom ADK BaseAgent subclass instances and parent-child composition",
+    "P1: ADK higher-order tool factories/closures returning model-callable wrappers",
+    "P1: ADK root ingress to privileged write path composition",
+    "P1: remote SaaS opaque object/resource selector semantics",
+    "P1: deterministic external input to dynamic A2A/HTTP destination provenance"
+  ]
+}
