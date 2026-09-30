@@ -31,6 +31,7 @@ from horustrace.coverage import add_diagnostic, diagnose_dynamic_constructs, dia
 from horustrace.entrypoint_provenance import annotate_flow_entrypoints
 from horustrace.flow import analyze_repository_flows
 from horustrace.heuristics import PRIVILEGED_CAPABILITIES
+from horustrace.llm_semantics import LLMSemanticConfig, enrich_llm_semantics
 from horustrace.limits import (
     MAX_FILE_SIZE_BYTES,
     MAX_FILES_VISITED,
@@ -2046,10 +2047,12 @@ def scan(
     use_default_suppressions: bool = True,
     config: ScanConfig | None = None,
     authority_source: Path | None = None,
+    llm_semantic_config: LLMSemanticConfig | None = None,
 ) -> tuple[Graph, list]:
     root = path.resolve()
     containment_root = canonical_root(root)
     graph = Graph()
+    llm_semantic_stats: dict[str, object] | None = None
 
     if root.is_file():
         candidates = [root]
@@ -2276,6 +2279,13 @@ def scan(
         root if root.is_dir() else root.parent,
         approved_python_paths,
     )
+    if llm_semantic_config is not None:
+        llm_semantic_stats = enrich_llm_semantics(
+            graph,
+            root if root.is_dir() else root.parent,
+            approved_python_paths,
+            llm_semantic_config,
+        )
     # Delegation projection must run after imported tool provenance and source
     # semantics are resolved. Otherwise parent agents inherit stale generic
     # network/write capabilities and lose child destination/control constraints.
@@ -2466,6 +2476,8 @@ def scan(
     }
     if authority_enrichment is not None:
         graph.coverage.resolution["authority_source"] = authority_enrichment.as_dict()
+    if llm_semantic_stats is not None:
+        graph.coverage.resolution["semantic_llm"] = llm_semantic_stats
 
     annotate_risk_semantics(graph)
     non_model_langgraph_agents = _non_model_langgraph_agent_names(graph)
