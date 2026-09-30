@@ -156,6 +156,29 @@ def evaluate(graph: Graph) -> list[Finding]:
                 (agent.name, "tool", tool.name)
             )
             if (
+                tool_authority is not None
+                and tool.metadata.get("dynamic_remote_mcp_catalogue") is True
+                and tool.metadata.get("per_call_approval") is False
+            ):
+                findings.append(
+                    Finding(
+                        "AGT054",
+                        Severity.MEDIUM,
+                        "Dynamic remote MCP catalogue has no per-call approval",
+                        f"Agent '{agent.name}' can invoke a dynamically supplied remote MCP tool catalogue without per-call approval.",
+                        "Restrict the remote MCP catalogue to an explicit allowlist and require per-call approval or an equivalent policy boundary for unreviewed remote tools.",
+                        layer=1,
+                        location=tool.location,
+                        agent=agent.name,
+                        evidence=[
+                            "catalogue=dynamic_remote_mcp",
+                            "per_call_approval=false",
+                            "binding=source_bound",
+                        ],
+                        authority_relationship_id=tool_authority.relationship_id,
+                    )
+                )
+            if (
                 "process.execute" in tool.capabilities
                 and tool.approval is not True
                 and tool.kind != "delegated_agent"
@@ -353,31 +376,35 @@ def evaluate(graph: Graph) -> list[Finding]:
             # unresolved, but authentication and tool-scope controls can be
             # evaluated when source proves them independently of the URL.
             server_authority = mcp_authority_by_object.get(id(server))
-            findings.append(
-                Finding(
-                    "NET001",
-                    Severity.HIGH,
-                    "Outbound reachability lacks a detected restriction",
-                    f"Dynamic remote MCP server '{server.name}' accepts a caller-selected destination without a detected allowlist.",
-                    "Constrain remote MCP endpoints to an explicit allowlist or fixed trusted destination.",
-                    layer=4,
-                    location=server.location,
-                    agent=(
-                        server_authority.agent
-                        if server_authority is not None
-                        else None
-                    ),
-                    evidence=[
-                        "destination=dynamic",
-                        f"transport={server.transport}",
-                    ],
-                    authority_relationship_id=(
-                        server_authority.relationship_id
-                        if server_authority is not None
-                        else None
-                    ),
+            if (
+                server.metadata.get("dynamic_mcp_endpoint_basis")
+                != "operator_configuration"
+            ):
+                findings.append(
+                    Finding(
+                        "NET001",
+                        Severity.HIGH,
+                        "Outbound reachability lacks a detected restriction",
+                        f"Dynamic remote MCP server '{server.name}' accepts a caller-selected destination without a detected allowlist.",
+                        "Constrain remote MCP endpoints to an explicit allowlist or fixed trusted destination.",
+                        layer=4,
+                        location=server.location,
+                        agent=(
+                            server_authority.agent
+                            if server_authority is not None
+                            else None
+                        ),
+                        evidence=[
+                            "destination=dynamic",
+                            f"transport={server.transport}",
+                        ],
+                        authority_relationship_id=(
+                            server_authority.relationship_id
+                            if server_authority is not None
+                            else None
+                        ),
+                    )
                 )
-            )
             if server.authenticated is False:
                 findings.append(
                     Finding(
@@ -460,6 +487,42 @@ def evaluate(graph: Graph) -> list[Finding]:
             server.metadata.get("discovered_tool_capabilities") or []
         )
         server_authority = mcp_authority_by_object.get(id(server))
+        hosted_equivalent = bool(
+            server_authority is not None
+            and any(
+                candidate.name == server_authority.agent
+                and any(
+                    tool.metadata.get("dynamic_remote_mcp_catalogue") is True
+                    and tool.metadata.get("per_call_approval") is False
+                    for tool in candidate.tools
+                )
+                for candidate in graph.agents
+            )
+        )
+        if (
+            server_authority is not None
+            and server.metadata.get("dynamic_remote_mcp_catalogue") is True
+            and server.metadata.get("per_call_approval") is False
+            and not hosted_equivalent
+        ):
+            findings.append(
+                Finding(
+                    "AGT054",
+                    Severity.MEDIUM,
+                    "Dynamic remote MCP catalogue has no per-call approval",
+                    f"Agent '{server_authority.agent}' converts the dynamic tool catalogue from remote MCP server '{server.name}' into callable tools without a per-call approval boundary.",
+                    "Restrict the remote MCP catalogue to an explicit allowlist and require per-call approval or an equivalent policy boundary for unreviewed remote tools.",
+                    layer=1,
+                    location=server.location,
+                    agent=server_authority.agent,
+                    evidence=[
+                        "catalogue=dynamic_remote_mcp",
+                        "per_call_approval=false",
+                        "binding=list_tools_to_function_tool",
+                    ],
+                    authority_relationship_id=server_authority.relationship_id,
+                )
+            )
         dynamic_destination_tools = [
             item
             for item in (server.metadata.get("discovered_tools") or [])
@@ -669,7 +732,11 @@ def evaluate(graph: Graph) -> list[Finding]:
                 for item in outbound_authorities
                 if item.dimensions.get("destinations") != "resolved"
                 and item.semantics.get("network")
-                not in {"fixed_managed_service", "fixed_provider_network"}
+                not in {
+                    "fixed_managed_service",
+                    "fixed_provider_network",
+                    "operator_configured_destination",
+                }
             ]
             authority_destination_gap = bool(unresolved_destination_authorities)
             legacy_destination_gap = (
