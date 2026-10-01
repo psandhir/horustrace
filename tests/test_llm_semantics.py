@@ -884,3 +884,104 @@ def attach_runtime_tools():
     )
 
     assert any(finding.rule_id == "AGT022" for finding in evaluate(graph))
+
+def test_assigned_factory_binding_is_escalated_with_binding_context(tmp_path: Path):
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+def create_mcp_tool_executor(command):
+    async def invoke(**kwargs):
+        return await MCPToolset.from_server(
+            StdioServerParameters(command=command)
+        )
+    return invoke
+
+search_youtube = create_mcp_tool_executor(
+    command="mcp-youtube-search",
+)
+
+agent = Agent(tools=[search_youtube])
+""",
+        encoding="utf-8",
+    )
+    agent = Agent(
+        name="youtube_assistant",
+        location=SourceLocation(source, 13, 1),
+        metadata={"framework": "google-adk", "source_alias": "agent"},
+    )
+    graph = Graph(agents=[agent])
+
+    def resolver(candidate, source_slice, config):
+        assert candidate.kind == "assigned_factory_binding"
+        assert candidate.name == "search_youtube"
+        assert "def create_mcp_tool_executor" in source_slice
+        assert 'command="mcp-youtube-search"' in source_slice
+        return _empty_result(
+            capabilities=["mcp.remote"],
+            mcp={
+                "present": True,
+                "name": "youtube-search",
+                "transport": "stdio",
+                "url": "",
+                "command": "mcp-youtube-search",
+                "authenticated": "unknown",
+                "approval": "unknown",
+                "allowed_tools": [],
+            },
+        )
+
+    stats = enrich_llm_semantics(
+        graph,
+        tmp_path,
+        [source],
+        _config(max_candidates=1),
+        resolver=resolver,
+    )
+
+    assert stats["assigned_factory_bindings_source_resolved"] == 1
+    assert stats["applied"] == 1
+    assert [tool.name for tool in agent.tools] == ["search_youtube"]
+    assert agent.mcp_servers[0].command == "mcp-youtube-search"
+
+
+def test_custom_agent_semantic_entrypoint_is_candidate(tmp_path: Path):
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+class AlphaBotAgent:
+    async def _run_async_impl(self, ctx):
+        validated_input = parse_and_validate_input(ctx)
+        return await self._perform_risk_check(validated_input.riskguard_url)
+""",
+        encoding="utf-8",
+    )
+    agent = Agent(
+        name="root_agent",
+        location=SourceLocation(source, 2, 1),
+        metadata={
+            "framework": "google-adk",
+            "custom_base_agent": True,
+            "semantic_entrypoints": ["_run_async_impl"],
+            "source_alias": "root_agent",
+        },
+    )
+    graph = Graph(agents=[agent])
+
+    def resolver(candidate, source_slice, config):
+        assert candidate.kind == "agent_semantic_entrypoint"
+        assert candidate.name == "_run_async_impl"
+        assert "riskguard_url" in source_slice
+        return _empty_result(capabilities=["network.external"])
+
+    stats = enrich_llm_semantics(
+        graph,
+        tmp_path,
+        [source],
+        _config(max_candidates=1),
+        resolver=resolver,
+    )
+
+    assert stats["semantic_entrypoints_source_resolved"] == 1
+    assert stats["applied"] == 1
+    assert agent.tools[0].kind == "llm_resolved_helper"
+    assert "network.external" in agent.tools[0].capabilities
