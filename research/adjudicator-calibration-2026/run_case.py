@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import shutil
 import subprocess
@@ -64,6 +65,29 @@ def clone_target(root: Path, row: dict) -> Path:
     if got != row["sha"]:
         raise RuntimeError(f"target SHA mismatch: {got} != {row['sha']}")
     return target
+
+
+def load_rw_study_module():
+    path = ROOT.parent.parent / "scripts" / "real_world_agent_security_execute.py"
+    spec = importlib.util.spec_from_file_location("rw_study_execute", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load study harness: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def prepare_frozen180_target(root: Path, row: dict):
+    module = load_rw_study_module()
+    cohort = json.loads(
+        (ROOT.parent.parent / "research" / "real-world-agent-security-2026" / "cohort.json").read_text(encoding="utf-8")
+    )
+    case = next(x for x in cohort["cases"] if x["case_id"] == row["case_id"])
+    scope, authority_scope, error = module.fetch_case(root, case, tier_c=False)
+    if error or scope is None or authority_scope is None:
+        raise RuntimeError(error or "Frozen-180 scope preparation failed")
+    repo_root = root / row["case_id"]
+    return repo_root, scope, authority_scope, module
 
 
 def source_pack(target: Path) -> str:
@@ -155,6 +179,79 @@ def scan(scanner: Path, target: Path, output: Path) -> dict:
     return json.loads(output.read_text(encoding="utf-8"))
 
 
+def study_claims(scanner: Path, scope: Path, authority_scope: Path, module, include_authority_semantics: bool) -> dict:
+    scan_result = module.run(
+        [str(scanner), "scan", str(scope), "--format", "json", "--fail-on", "none"],
+        timeout=900,
+    )
+    graph_result = module.run(
+        [str(scanner), "security-graph", str(scope)],
+        timeout=900,
+    )
+    scan_doc, scan_error = module.parse_json_output(scan_result, "scan")
+    graph_doc, graph_error = module.parse_json_output(graph_result, "security_graph")
+    if scan_error or graph_error or scan_doc is None or graph_doc is None:
+        raise RuntimeError(scan_error or graph_error or "primary study scan failed")
+
+    authority_scan_doc = scan_doc
+    authority_graph_doc = graph_doc
+    if include_authority_semantics and authority_scope != scope:
+        authority_scan_result = module.run(
+            [str(scanner), "scan", str(authority_scope), "--format", "json", "--fail-on", "none"],
+            timeout=900,
+        )
+        authority_graph_result = module.run(
+            [str(scanner), "security-graph", str(authority_scope)],
+            timeout=900,
+        )
+        authority_scan_doc, authority_scan_error = module.parse_json_output(
+            authority_scan_result, "authority_scan"
+        )
+        authority_graph_doc, authority_graph_error = module.parse_json_output(
+            authority_graph_result, "authority_security_graph"
+        )
+        if (
+            authority_scan_error
+            or authority_graph_error
+            or authority_scan_doc is None
+            or authority_graph_doc is None
+        ):
+            raise RuntimeError(
+                authority_scan_error
+                or authority_graph_error
+                or "expanded study scan failed"
+            )
+
+    topology = graph_doc.get("topology") if isinstance(graph_doc.get("topology"), dict) else {}
+    nodes = topology.get("nodes") if isinstance(topology.get("nodes"), list) else []
+    primary_findings = scan_doc.get("findings") if isinstance(scan_doc.get("findings"), list) else []
+    primary_paths = graph_doc.get("attack_paths") if isinstance(graph_doc.get("attack_paths"), list) else []
+    expanded_findings = (
+        authority_scan_doc.get("findings")
+        if include_authority_semantics
+        and authority_scope != scope
+        and isinstance(authority_scan_doc.get("findings"), list)
+        else []
+    )
+    expanded_paths = (
+        authority_graph_doc.get("attack_paths")
+        if include_authority_semantics
+        and authority_scope != scope
+        and isinstance(authority_graph_doc.get("attack_paths"), list)
+        else []
+    )
+    findings = module._merge_primary_agent_findings(
+        primary_findings, expanded_findings, nodes
+    )
+    paths = module._merge_primary_agent_attack_paths(
+        primary_paths, expanded_paths, nodes
+    )
+    return {
+        "findings": [{"index": i, **item} for i, item in enumerate(findings) if isinstance(item, dict)],
+        "attack_paths": [{"index": i, **item} for i, item in enumerate(paths) if isinstance(item, dict)],
+    }
+
+
 def claims(raw: dict) -> dict:
     findings = [{"index": i, **item} for i, item in enumerate(raw.get("findings") or []) if isinstance(item, dict)]
     paths = [{"index": i, **item} for i, item in enumerate(raw.get("attack_paths") or []) if isinstance(item, dict)]
@@ -192,7 +289,13 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix=f"horus-cal-{row['case_id']}-") as td:
         root = Path(td)
-        target = clone_target(root, row)
+        if row["panel"] == "frozen180":
+            target, primary_scope, authority_scope, study_module = prepare_frozen180_target(root, row)
+        else:
+            target = clone_target(root, row)
+            primary_scope = authority_scope = target
+            study_module = None
+
         pack = source_pack(target)
         meta = {k: row[k] for k in ("case_id", "panel", "repo", "sha", "framework")}
         blind = copilot(BLIND + "\nCASE:\n" + json.dumps(meta) + "\nSOURCE PACK:\n" + pack, target)
@@ -201,9 +304,23 @@ def main() -> int:
         for state_name, scanner_sha in scanner_states(row):
             print(f"{row['case_id']} state={state_name} scanner={scanner_sha[:12]}", flush=True)
             scanner = install_scanner(root, state_name, scanner_sha)
-            raw_path = outdir / f"scan-{state_name}.json"
-            raw = scan(scanner, target, raw_path)
-            claim_set = claims(raw)
+
+            if row["panel"] == "frozen180":
+                claim_set = study_claims(
+                    scanner,
+                    primary_scope,
+                    authority_scope,
+                    study_module,
+                    include_authority_semantics=(state_name != "frozen180_baseline"),
+                )
+                (outdir / f"scan-{state_name}.json").write_text(
+                    json.dumps(claim_set, indent=2) + "\n", encoding="utf-8"
+                )
+            else:
+                raw_path = outdir / f"scan-{state_name}.json"
+                raw = scan(scanner, target, raw_path)
+                claim_set = claims(raw)
+
             review = copilot(
                 CLAIM + "\nCASE:\n" + json.dumps({**meta, "scanner_state": state_name, "scanner_sha": scanner_sha})
                 + "\nSOURCE PACK:\n" + pack + "\nHORUSTRACE CLAIMS:\n" + json.dumps(claim_set),
