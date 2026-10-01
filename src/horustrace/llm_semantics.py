@@ -183,6 +183,56 @@ def _helper_ref(
     return choices[0] if len(choices) == 1 else None
 
 
+def _bound_helper_ref(
+    helper: str,
+    agent: Agent,
+    source_by_path: dict[Path, str],
+    by_name: dict[str, list[_FunctionRef]],
+) -> tuple[_FunctionRef | None, bool]:
+    """Resolve a bound helper directly or through a source assignment factory."""
+    direct = _helper_ref(helper, agent, by_name)
+    if direct is not None:
+        return direct, False
+    if agent.location is None:
+        return None, False
+    path = agent.location.path.resolve()
+    source = source_by_path.get(path)
+    if source is None:
+        return None, False
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return None, False
+
+    factory_name: str | None = None
+    for node in ast.walk(tree):
+        value: ast.AST | None = None
+        targets: list[ast.AST] = []
+        if isinstance(node, ast.Assign):
+            value = node.value
+            targets = list(node.targets)
+        elif isinstance(node, ast.AnnAssign):
+            value = node.value
+            targets = [node.target]
+        if not isinstance(value, ast.Call):
+            continue
+        if not any(isinstance(target, ast.Name) and target.id == helper for target in targets):
+            continue
+        factory_name = _call_leaf(value)
+        if factory_name:
+            break
+    if not factory_name:
+        return None, False
+
+    choices = by_name.get(factory_name, [])
+    same_file = [ref for ref in choices if ref.path == path]
+    if len(same_file) == 1:
+        return same_file[0], True
+    if len(choices) == 1:
+        return choices[0], True
+    return None, False
+
+
 def _candidate_id(
     *,
     kind: str,
@@ -394,6 +444,8 @@ def _collect_candidates(
     unresolved_helpers_seen = 0
     bound_helpers_seen = 0
     runtime_contexts_seen = 0
+    semantic_entrypoints_seen = 0
+    assigned_factory_bindings_seen = 0
 
     for agent in graph.agents:
         existing_tool_names = {tool.name for tool in agent.tools}
@@ -425,25 +477,62 @@ def _collect_candidates(
         for helper in _constructor_bound_helper_names(agent, source_by_path):
             if helper in existing_tool_names:
                 continue
-            ref = _helper_ref(helper, agent, by_name)
+            ref, assigned_factory = _bound_helper_ref(
+                helper,
+                agent,
+                source_by_path,
+                by_name,
+            )
             if ref is None:
                 continue
             bound_helpers_seen += 1
+            if assigned_factory:
+                assigned_factory_bindings_seen += 1
+            kind = (
+                "assigned_factory_binding"
+                if assigned_factory
+                else "bound_unresolved_helper"
+            )
             candidates.append(
                 _Candidate(
                     candidate_id=_candidate_id(
-                        kind="bound_unresolved_helper",
+                        kind=kind,
                         agent=agent,
                         name=helper,
                         ref=ref,
                     ),
-                    kind="bound_unresolved_helper",
+                    kind=kind,
                     agent=agent,
                     name=helper,
                     ref=ref,
-                    score=160,
+                    score=180 if assigned_factory else 160,
                 )
             )
+
+        semantic_entrypoints = agent.metadata.get("semantic_entrypoints")
+        if isinstance(semantic_entrypoints, list):
+            for entrypoint in semantic_entrypoints:
+                if not isinstance(entrypoint, str) or not entrypoint:
+                    continue
+                ref = _helper_ref(entrypoint, agent, by_name)
+                if ref is None:
+                    continue
+                semantic_entrypoints_seen += 1
+                candidates.append(
+                    _Candidate(
+                        candidate_id=_candidate_id(
+                            kind="agent_semantic_entrypoint",
+                            agent=agent,
+                            name=entrypoint,
+                            ref=ref,
+                        ),
+                        kind="agent_semantic_entrypoint",
+                        agent=agent,
+                        name=entrypoint,
+                        ref=ref,
+                        score=175,
+                    )
+                )
 
         for ref in _runtime_context_refs(agent, source_by_path, by_name):
             runtime_contexts_seen += 1
@@ -513,6 +602,8 @@ def _collect_candidates(
         "unresolved_helpers_source_resolved": unresolved_helpers_seen,
         "bound_helpers_source_resolved": bound_helpers_seen,
         "runtime_contexts_source_resolved": runtime_contexts_seen,
+        "semantic_entrypoints_source_resolved": semantic_entrypoints_seen,
+        "assigned_factory_bindings_source_resolved": assigned_factory_bindings_seen,
     }
 
 
@@ -585,6 +676,32 @@ def _source_slice(
     ]
     for names, segment in _module_binding_segments(candidate.ref):
         parts.extend(["", f"MODULE BINDING: {names}", segment])
+    if candidate.kind == "assigned_factory_binding":
+        try:
+            tree = ast.parse(candidate.ref.source)
+        except SyntaxError:
+            tree = None
+        if tree is not None:
+            for node in ast.walk(tree):
+                value: ast.AST | None = None
+                targets: list[ast.AST] = []
+                if isinstance(node, ast.Assign):
+                    value = node.value
+                    targets = list(node.targets)
+                elif isinstance(node, ast.AnnAssign):
+                    value = node.value
+                    targets = [node.target]
+                if not isinstance(value, ast.Call):
+                    continue
+                if not any(
+                    isinstance(target, ast.Name) and target.id == candidate.name
+                    for target in targets
+                ):
+                    continue
+                binding = ast.get_source_segment(candidate.ref.source, node)
+                if binding:
+                    parts.extend(["", "BOUND FACTORY ASSIGNMENT:", binding.strip()])
+                break
     used_names = {candidate.ref.node.name}
     helpers: list[_FunctionRef] = []
     for child in ast.walk(candidate.ref.node):
