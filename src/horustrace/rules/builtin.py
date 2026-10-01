@@ -925,7 +925,6 @@ def evaluate(graph: Graph) -> list[Finding]:
             evidence = [
                 "data.read",
                 "data.write/destructive.write",
-                f"agent_instance_key={_agent_instance_key(agent)}",
             ]
             evidence.extend(f"authority_relationship={item}" for item in linked)
             findings.append(
