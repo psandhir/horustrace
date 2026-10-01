@@ -143,6 +143,19 @@ def _semantic_combo_capability_is_supported(tool: object, capability: str) -> bo
     return True
 
 
+def _relationship_combo_capability_is_supported(
+    item: object,
+    capability: str,
+    tools_by_name: dict[str, object],
+) -> bool:
+    if getattr(item, "target_kind", None) != "tool":
+        return True
+    tool = tools_by_name.get(getattr(item, "target_name", ""))
+    return tool is None or _semantic_combo_capability_is_supported(
+        tool, capability
+    )
+
+
 def _identity_findings(identity: Identity, agent: str | None = None) -> list[Finding]:
     findings: list[Finding] = []
     declared_authority = identity.metadata.get("declared_authority")
@@ -852,14 +865,6 @@ def evaluate(graph: Graph) -> list[Finding]:
         ]
         tools_by_name = {tool.name: tool for tool in agent.tools}
 
-        def relationship_capability_supported(item: object, capability: str) -> bool:
-            if getattr(item, "target_kind", None) != "tool":
-                return True
-            tool = tools_by_name.get(getattr(item, "target_name", ""))
-            return tool is None or _semantic_combo_capability_is_supported(
-                tool, capability
-            )
-
         read_authorities = [
             item
             for item in agent_authorities
@@ -881,8 +886,8 @@ def evaluate(graph: Graph) -> list[Finding]:
                 and item.target_name in internal_write_tools
             )
             and any(
-                relationship_capability_supported(item, capability)
-                for capability in {"data.write", "destructive.write"}
+                _relationship_combo_capability_is_supported(item, capability, tools_by_name)
+                for capability in ("data.write", "destructive.write")
                 if capability in item.capabilities
             )
         ]
@@ -893,7 +898,7 @@ def evaluate(graph: Graph) -> list[Finding]:
             and tool.metadata.get("agent_internal_state") is not True
             and any(
                 _semantic_combo_capability_is_supported(tool, capability)
-                for capability in {"data.write", "destructive.write"}
+                for capability in ("data.write", "destructive.write")
                 if capability in tool.capabilities
             )
             for tool in agent.tools
