@@ -160,7 +160,9 @@ jobs:
                       if z and z[-1].strip()=="```": z=z[:-1]
                       s="\n".join(z).strip()
                   try:
-                      x=json.loads(s)
+                      start=s.find("{")
+                      if start < 0: raise ValueError("no JSON object found")
+                      x,_=json.JSONDecoder().raw_decode(s[start:])
                       if isinstance(x,dict): return x
                   except Exception as e: err=f"{e}: {s[:500]}"
                   time.sleep(a+1)
