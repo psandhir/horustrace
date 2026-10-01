@@ -67,6 +67,31 @@ def _parameter_names(node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
     ]
 
 
+def _model_controlled_parameter_names(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> list[str]:
+    """Return parameters the model can plausibly choose directly.
+
+    Pydantic RunContext values are framework dependency/context objects. Treating
+    the context object itself as model-controlled path or destination input
+    produces false filesystem/network provenance such as path_parameters=ctx.
+    Concrete fields copied from context into a model-callable parameter still
+    require an explicit source-supported flow before they are treated as
+    model-selected.
+    """
+    result: list[str] = []
+    for arg in [
+        *node.args.posonlyargs,
+        *node.args.args,
+        *node.args.kwonlyargs,
+    ]:
+        annotation = ast.unparse(arg.annotation) if arg.annotation is not None else ""
+        if "RunContext" in annotation:
+            continue
+        result.append(arg.arg)
+    return result
+
+
 def _expr_names(node: ast.AST | None) -> set[str]:
     if node is None:
         return set()
@@ -318,7 +343,7 @@ def _source_network_semantics(
     function: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> tuple[list[NetworkDestination], dict[str, object]]:
     """Infer fixed-provider HTTP scope only when caller parameters do not choose the URL."""
-    parameters = set(_parameter_names(function))
+    parameters = set(_model_controlled_parameter_names(function))
     tainted = _tainted_aliases(function, parameters)
     fixed_origins: dict[str, str] = {}
 
@@ -707,7 +732,7 @@ def enrich_indirect_tool_content_semantics(
         ref = ref_for_tool(tool)
         if ref is None:
             return None
-        wrapper_parameters = set(_parameter_names(ref.node))
+        wrapper_parameters = set(_model_controlled_parameter_names(ref.node))
         combined_accesses: set[str] = set()
         combined_path_parameters: set[str] = set()
         constrained_evidence: list[bool] = []

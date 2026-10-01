@@ -78,6 +78,84 @@ def _llm_network_gap_is_actionable(tool: object) -> bool:
     }
 
 
+def _semantic_combo_capability_is_supported(tool: object, capability: str) -> bool:
+    """Require source-backed semantics before synthetic facts form aggregate risk.
+
+    A bounded LLM projection can legitimately say that a runtime context may
+    contain execution, filesystem, or network authority while also saying the
+    decisive boundary is unknown. Those facts are useful inventory, but unknown
+    constraints must not manufacture CAP004/CAP005.
+    """
+    metadata = getattr(tool, "metadata", {}) or {}
+    if metadata.get("semantic_projection_kind") != "synthetic":
+        return True
+
+    added = set(metadata.get("semantic_added_capabilities") or [])
+    if capability not in added:
+        return True
+
+    constraints = metadata.get("semantic_constraints") or {}
+    runtime = str(constraints.get("runtime") or "unknown")
+    if runtime in {"blocked", "unknown"}:
+        return False
+
+    if capability == "process.execute":
+        return constraints.get("process_execution") in {
+            "constrained",
+            "unconstrained",
+        }
+
+    if capability == "network.external":
+        if getattr(tool, "destinations", None):
+            return True
+        return constraints.get("network_destination") in {
+            "fixed",
+            "operator_configured",
+            "model_selected",
+            "provider_derived",
+        }
+
+    if capability in {"data.read", "data.write", "destructive.write"}:
+        if (
+            capability in {"data.write", "destructive.write"}
+            and metadata.get("mutation_semantics")
+            in {"agent_internal_state", "local_session_state_write"}
+        ):
+            return False
+        resources = [
+            resource
+            for resource in (getattr(tool, "resources", []) or [])
+            if capability in set(getattr(resource, "access", set()) or set())
+        ]
+        if not resources:
+            return False
+        if capability in {"data.write", "destructive.write"} and any(
+            str(getattr(resource, "kind", "")).lower()
+            in {"file", "filesystem", "path"}
+            for resource in resources
+        ):
+            return constraints.get("filesystem_scope") in {
+                "constrained",
+                "unconstrained",
+            }
+        return True
+
+    return True
+
+
+def _relationship_combo_capability_is_supported(
+    item: object,
+    capability: str,
+    tools_by_name: dict[str, object],
+) -> bool:
+    if getattr(item, "target_kind", None) != "tool":
+        return True
+    tool = tools_by_name.get(getattr(item, "target_name", ""))
+    return tool is None or _semantic_combo_capability_is_supported(
+        tool, capability
+    )
+
+
 def _identity_findings(identity: Identity, agent: str | None = None) -> list[Finding]:
     findings: list[Finding] = []
     declared_authority = identity.metadata.get("declared_authority")
@@ -762,7 +840,22 @@ def evaluate(graph: Graph) -> list[Finding]:
         max_priv = policy.max_privileged_capabilities if policy.max_privileged_capabilities is not None else 3
         if len(privileged) > max_priv:
             findings.append(Finding("CAP003", Severity.HIGH, "High aggregate agent authority", f"Agent '{agent.name}' combines {len(privileged)} privileged capability classes.", "Split duties across narrower agents/tools or introduce explicit control boundaries and approvals.", layer=2, location=agent.location, agent=agent.name, evidence=["privileged=" + ",".join(privileged), f"threshold={max_priv}"]))
-        if "process.execute" in caps and "network.external" in caps:
+        execution_authority = any(
+            "process.execute" in tool.capabilities
+            and _semantic_combo_capability_is_supported(tool, "process.execute")
+            for tool in agent.tools
+        )
+        network_authority = any(
+            "network.external" in tool.capabilities
+            and _semantic_combo_capability_is_supported(tool, "network.external")
+            for tool in agent.tools
+        ) or any(
+            bool(server.url)
+            or server.metadata.get("dynamic_mcp_endpoint_basis")
+            == "operator_configuration"
+            for server in agent.mcp_servers
+        )
+        if execution_authority and network_authority:
             findings.append(Finding("CAP004", Severity.HIGH, "Command execution combined with external network access", f"Agent '{agent.name}' can execute processes and reach external networks.", "Sandbox execution and restrict egress to an explicit destination allowlist.", layer=2, location=agent.location, agent=agent.name, evidence=["process.execute", "network.external"]))
         agent_authorities = [
             item
@@ -770,8 +863,13 @@ def evaluate(graph: Graph) -> list[Finding]:
             if item.agent == agent.name
             and item.agent_instance_key == _agent_instance_key(agent)
         ]
+        tools_by_name = {tool.name: tool for tool in agent.tools}
+
         read_authorities = [
-            item for item in agent_authorities if "data.read" in item.capabilities
+            item
+            for item in agent_authorities
+            if "data.read" in item.capabilities
+            and _relationship_combo_capability_is_supported(item, "data.read", tools_by_name)
         ]
         internal_write_tools = {
             tool.name
@@ -787,18 +885,36 @@ def evaluate(graph: Graph) -> list[Finding]:
                 item.target_kind == "tool"
                 and item.target_name in internal_write_tools
             )
+            and any(
+                _relationship_combo_capability_is_supported(item, capability, tools_by_name)
+                for capability in ("data.write", "destructive.write")
+                if capability in item.capabilities
+            )
         ]
         authority_confirms_read_write = bool(read_authorities and write_authorities)
         effective_legacy_write = any(
             {"data.write", "destructive.write"} & tool.capabilities
             and tool.metadata.get("agent_internal_artifact") is not True
             and tool.metadata.get("agent_internal_state") is not True
+            and any(
+                _semantic_combo_capability_is_supported(tool, capability)
+                for capability in ("data.write", "destructive.write")
+                if capability in tool.capabilities
+            )
             for tool in agent.tools
         ) or any(
             source.capability in {"data.write", "destructive.write"}
             for source in agent.data_sources
         )
-        legacy_read_write = "data.read" in caps and effective_legacy_write
+        effective_legacy_read = any(
+            "data.read" in tool.capabilities
+            and _semantic_combo_capability_is_supported(tool, "data.read")
+            for tool in agent.tools
+        ) or any(
+            source.capability == "data.read"
+            for source in agent.data_sources
+        )
+        legacy_read_write = effective_legacy_read and effective_legacy_write
         if authority_confirms_read_write or legacy_read_write:
             linked = sorted(
                 {
@@ -806,7 +922,10 @@ def evaluate(graph: Graph) -> list[Finding]:
                     for item in [*read_authorities, *write_authorities]
                 }
             )
-            evidence = ["data.read", "data.write/destructive.write"]
+            evidence = [
+                "data.read",
+                "data.write/destructive.write",
+            ]
             evidence.extend(f"authority_relationship={item}" for item in linked)
             findings.append(
                 Finding(

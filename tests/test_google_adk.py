@@ -753,7 +753,7 @@ root_agent = Agent(
     assert tool.metadata["filesystem_path_constrained"] is False
     assert tool.metadata["file_read_external_transfer"] is True
     assert any(
-        item.kind == "file" and item.selector == "*"
+        item.kind == "file" and item.selector == "<model-selected-file>"
         for item in tool.resources
     )
     assert any(
@@ -761,7 +761,7 @@ root_agent = Agent(
         and item.metadata.get("network_scope") == "fixed_managed_service"
         for item in tool.destinations
     )
-    assert any(
+    assert not any(
         f.rule_id == "DATA001" and f.agent == "document_processing_agent"
         for f in findings
     )
@@ -850,7 +850,11 @@ root_agent = Agent(
 
     assert tool.metadata["model_selected_file_read"] is True
     assert tool.metadata.get("file_read_external_transfer") is not True
-    assert any(f.rule_id == "DATA001" for f in findings)
+    assert any(
+        resource.selector == "<model-selected-file>"
+        for resource in tool.resources
+    )
+    assert not any(f.rule_id == "DATA001" for f in findings)
     assert not any(f.rule_id == "PATH010" for f in findings)
     assert not any(item.path_id == "PATH010" for item in graph.attack_paths)
 
@@ -1180,3 +1184,117 @@ root_agent = AlphaBotAgent()
     assert agent.metadata["custom_base_agent"] is True
     assert agent.metadata["semantic_entrypoints"] == ["_run_async_impl"]
     assert any(item.trust == "untrusted" for item in agent.inputs)
+
+
+
+def test_adk_env_configured_remote_mcp_is_not_caller_selected(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        """
+import os
+from google.adk.agents import LlmAgent
+from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPConnectionParams
+from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
+
+MCP_URL = os.environ.get("MCP_SERVER_URL", "https://mcp.example.invalid/mcp")
+
+toolset = McpToolset(
+    connection_params=StreamableHTTPConnectionParams(url=MCP_URL),
+)
+
+root_agent = LlmAgent(
+    name="configured_mcp_agent",
+    model="gemini-flash-latest",
+    tools=[toolset],
+)
+""",
+        "agent.py",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "configured_mcp_agent")
+    server = next(item for item in agent.mcp_servers if item.name == "toolset")
+
+    assert server.metadata["dynamic_mcp_endpoint"] is True
+    assert server.metadata["dynamic_mcp_endpoint_basis"] == "operator_configuration"
+    assert server.metadata["configuration_source"] == "MCP_SERVER_URL"
+    assert any(
+        destination.target == "<operator-configured-mcp>"
+        and destination.restricted is True
+        for destination in agent.effective_destinations
+    )
+    assert not any(
+        finding.rule_id == "NET001" and finding.agent == "configured_mcp_agent"
+        for finding in findings
+    )
+
+
+def test_adk_openapi_toolset_preserves_fixed_server_origins(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "account_api_spec.json").write_text(
+        """
+{
+  "openapi": "3.0.0",
+  "servers": [
+    {"url": "https://api.accountservice.com/v1"},
+    {"url": "https://staging.api.accountservice.com/v1"}
+  ],
+  "paths": {
+    "/accounts/{accountId}": {
+      "get": {"responses": {"200": {"description": "ok"}}},
+      "delete": {"responses": {"204": {"description": "deleted"}}}
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    write(
+        tmp_path,
+        """
+import json
+from pathlib import Path
+from google.adk.agents import LlmAgent
+from google.adk.tools.openapi_tool.openapi_spec_parser.openapi_toolset import OpenAPIToolset
+
+def load_openapi_spec():
+    spec_file = Path(__file__).parent / "account_api_spec.json"
+    with open(spec_file, "r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+open_api_spec = load_openapi_spec()
+toolset = OpenAPIToolset(spec_dict=open_api_spec)
+
+root_agent = LlmAgent(
+    name="api_interacting_agent",
+    model="gemini-flash-latest",
+    tools=[toolset],
+)
+""",
+        "agent.py",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "api_interacting_agent")
+    tool = next(item for item in agent.tools if item.name == "toolset")
+
+    assert tool.metadata["network_scope"] == "explicit_destination"
+    assert set(tool.metadata["openapi_servers"]) == {
+        "https://api.accountservice.com",
+        "https://staging.api.accountservice.com",
+    }
+    assert {
+        destination.target
+        for destination in tool.destinations
+        if destination.restricted is True
+    } == {
+        "https://api.accountservice.com",
+        "https://staging.api.accountservice.com",
+    }
+    assert not any(
+        finding.rule_id == "NET002" and finding.agent == "api_interacting_agent"
+        for finding in findings
+    )
