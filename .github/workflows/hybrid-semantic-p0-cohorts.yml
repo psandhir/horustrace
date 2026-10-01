@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - fix/hybrid-semantic-p0-safety
+      - research/post-281-hybrid-rerun
     paths:
       - ".github/workflows/hybrid-semantic-p0-cohorts.yml"
       - "src/horustrace/llm_semantics.py"
