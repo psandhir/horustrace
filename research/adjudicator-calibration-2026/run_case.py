@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -298,7 +299,12 @@ def main() -> int:
 
         pack = source_pack(target)
         meta = {k: row[k] for k in ("case_id", "panel", "repo", "sha", "framework")}
-        blind = copilot(BLIND + "\nCASE:\n" + json.dumps(meta) + "\nSOURCE PACK:\n" + pack, target)
+        bundle_only = os.environ.get("CALIBRATION_BUNDLE_ONLY") == "1"
+        (outdir / "source-pack.txt").write_text(pack, encoding="utf-8")
+        blind = {} if bundle_only else copilot(
+            BLIND + "\nCASE:\n" + json.dumps(meta) + "\nSOURCE PACK:\n" + pack,
+            target,
+        )
 
         states = []
         for state_name, scanner_sha in scanner_states(row):
@@ -321,17 +327,21 @@ def main() -> int:
                 raw = scan(scanner, target, raw_path)
                 claim_set = claims(raw)
 
-            review = copilot(
-                CLAIM + "\nCASE:\n" + json.dumps({**meta, "scanner_state": state_name, "scanner_sha": scanner_sha})
-                + "\nSOURCE PACK:\n" + pack + "\nHORUSTRACE CLAIMS:\n" + json.dumps(claim_set),
-                target,
-            )
-            recall = copilot(
-                MATCH + "\nCASE:\n" + json.dumps({**meta, "scanner_state": state_name})
-                + "\nBLIND SOURCE REVIEW:\n" + json.dumps(blind)
-                + "\nHORUSTRACE CLAIMS:\n" + json.dumps(claim_set),
-                target,
-            )
+            if bundle_only:
+                review = {"finding_verdicts": [], "path_verdicts": [], "notes": ["pending ChatGPT adjudication"]}
+                recall = {"blind_finding_matches": [], "blind_path_matches": [], "notes": ["pending ChatGPT adjudication"]}
+            else:
+                review = copilot(
+                    CLAIM + "\nCASE:\n" + json.dumps({**meta, "scanner_state": state_name, "scanner_sha": scanner_sha})
+                    + "\nSOURCE PACK:\n" + pack + "\nHORUSTRACE CLAIMS:\n" + json.dumps(claim_set),
+                    target,
+                )
+                recall = copilot(
+                    MATCH + "\nCASE:\n" + json.dumps({**meta, "scanner_state": state_name})
+                    + "\nBLIND SOURCE REVIEW:\n" + json.dumps(blind)
+                    + "\nHORUSTRACE CLAIMS:\n" + json.dumps(claim_set),
+                    target,
+                )
             f_count = len(claim_set["findings"])
             p_count = len(claim_set["attack_paths"])
             archived = (row.get("archived") or {}).get(state_name)
