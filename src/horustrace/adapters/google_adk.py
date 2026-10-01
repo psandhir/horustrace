@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import json
 from pathlib import Path
 from typing import Any
 
@@ -552,6 +553,84 @@ def _auth_present(call: ast.Call, nested: ast.Call | None = None) -> bool | None
     return False
 
 
+def _operator_configuration_source(
+    node: ast.AST | None,
+    calls: dict[str, ast.Call],
+) -> str | None:
+    """Return the configuration key for an environment-derived expression."""
+    resolved = _resolve_call(node, calls)
+    if resolved is None:
+        return None
+    called = (_dotted_name(resolved.func) or "").lower()
+    if called not in {"os.getenv", "os.environ.get"}:
+        return None
+    key = _string(resolved.args[0]) if resolved.args else None
+    return key or "environment"
+
+
+def _openapi_servers(
+    path: Path,
+    call: ast.Call,
+    calls: dict[str, ast.Call],
+    functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+) -> list[str]:
+    """Recover fixed OpenAPI server origins from source-visible local specs."""
+    spec_node = _kw(call, "spec_dict") or _kw(call, "spec_str")
+    payload: object | None = None
+
+    literal = _literal(spec_node)
+    if isinstance(literal, dict):
+        payload = literal
+    elif isinstance(literal, str):
+        try:
+            decoded = json.loads(literal)
+        except json.JSONDecodeError:
+            decoded = None
+        if isinstance(decoded, dict):
+            payload = decoded
+
+    if payload is None and isinstance(spec_node, ast.Name):
+        loader_call = calls.get(spec_node.id)
+        loader_name = _call_name(loader_call.func) if loader_call is not None else None
+        loader = functions.get(loader_name or "")
+        if loader is not None:
+            base = path.parent.resolve()
+            for child in ast.walk(loader):
+                if not (
+                    isinstance(child, ast.Constant)
+                    and isinstance(child.value, str)
+                    and child.value.lower().endswith(".json")
+                ):
+                    continue
+                candidate = (path.parent / child.value).resolve()
+                try:
+                    candidate.relative_to(base)
+                except ValueError:
+                    continue
+                try:
+                    decoded = json.loads(candidate.read_text(encoding="utf-8"))
+                except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                    continue
+                if isinstance(decoded, dict):
+                    payload = decoded
+                    break
+
+    if not isinstance(payload, dict):
+        return []
+
+    servers: list[str] = []
+    for item in payload.get("servers", []) or []:
+        if not isinstance(item, dict):
+            continue
+        value = item.get("url")
+        if not isinstance(value, str) or not value.startswith(("http://", "https://")):
+            continue
+        origin = _fixed_url_origin(ast.Constant(value=value))
+        if origin and origin not in servers:
+            servers.append(origin)
+    return servers
+
+
 def _mcp_from_toolset(path: Path, call: ast.Call, alias: str, calls: dict[str, ast.Call]) -> MCPServer | None:
     if _call_name(call.func) not in {"McpToolset", "MCPToolset"}:
         return None
@@ -571,6 +650,14 @@ def _mcp_from_toolset(path: Path, call: ast.Call, alias: str, calls: dict[str, a
             url = _string(url_node)
             if url_node is not None and url is None:
                 metadata["dynamic_mcp_endpoint"] = True
+                configuration_source = _operator_configuration_source(
+                    url_node, calls
+                )
+                if configuration_source is not None:
+                    metadata["dynamic_mcp_endpoint_basis"] = (
+                        "operator_configuration"
+                    )
+                    metadata["configuration_source"] = configuration_source
             auth = _auth_present(call, conn)
         elif conn_name in STDIO_MCP_PARAMS:
             transport = "stdio"
@@ -681,6 +768,16 @@ def _tool_from_call(
             "tool_filter": allowed,
             "dynamic_tool_filter": dynamic_filter,
         }
+        if name == "OpenAPIToolset":
+            openapi_servers = _openapi_servers(
+                path, call, calls, functions
+            )
+            if openapi_servers:
+                metadata["network_scope"] = "explicit_destination"
+                metadata["openapi_servers"] = openapi_servers
+                metadata["destination_constraint_basis"] = (
+                    "openapi_servers"
+                )
         if name == "ExecuteBashTool":
             approval = True
             metadata["built_in_confirmation"] = True
@@ -748,6 +845,19 @@ def _tool_from_call(
             location=_location(path, call),
             metadata=metadata,
         )
+        if name == "OpenAPIToolset":
+            for server in metadata.get("openapi_servers", []):
+                tool.destinations.append(
+                    NetworkDestination(
+                        target=str(server),
+                        restricted=True,
+                        location=tool.location,
+                        metadata={
+                            "source": "openapi_server",
+                            "network_scope": "explicit_destination",
+                        },
+                    )
+                )
         # Search/retrieval tools ingest external content. URL-context
         # tools additionally expose model-selected content destinations.
         _apply_retrieval_network_semantics(tool, name)
