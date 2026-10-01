@@ -1541,3 +1541,55 @@ app = agent.to_web()
     assert path.metadata["basis"] == "source_bound_ingress_authority"
     assert path.nodes[-1] == "wrapped code execution"
 
+
+
+
+def test_pydantic_run_context_is_not_model_selected_path_parameter(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pathlib import Path
+from pydantic_ai import Agent, RunContext
+
+class Deps:
+    output_dir: str = "/tmp"
+
+agent = Agent("openai:gpt-5.2")
+
+@agent.tool
+def write_report(ctx: RunContext[Deps], filename: str, content: str) -> str:
+    target = Path(filename)
+    target.write_text(content)
+    return str(target)
+
+@agent.tool
+def write_context_file(ctx: RunContext[Deps], content: str) -> str:
+    target = Path(ctx.deps.output_dir) / "report.txt"
+    target.write_text(content)
+    return str(target)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    report = next(item for item in agent.tools if item.name == "write_report")
+    context_write = next(
+        item for item in agent.tools if item.name == "write_context_file"
+    )
+
+    assert report.metadata["model_selected_path_parameters"] == ["filename"]
+    resource = next(
+        item
+        for item in report.resources
+        if item.metadata.get("model_selected_path") is True
+    )
+    assert resource.metadata["path_parameters"] == ["filename"]
+    assert "ctx" not in resource.metadata["path_parameters"]
+
+    assert context_write.metadata.get("model_selected_filesystem_path") is not True
+    assert not any(
+        item.metadata.get("model_selected_path") is True
+        for item in context_write.resources
+    )

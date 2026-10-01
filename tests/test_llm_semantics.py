@@ -985,3 +985,67 @@ class AlphaBotAgent:
     assert stats["applied"] == 1
     assert agent.tools[0].kind == "llm_resolved_helper"
     assert "network.external" in agent.tools[0].capabilities
+
+
+
+def test_synthetic_runtime_unknown_constraints_do_not_form_aggregate_authority(
+    tmp_path: Path,
+):
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+def create_agent():
+    toolset = create_console_toolset(include_execute=True)
+    agent = Agent()
+    return agent.with_toolset(toolset)
+""",
+        encoding="utf-8",
+    )
+    agent = Agent(
+        name="agent",
+        location=SourceLocation(source, 4, 5),
+        metadata={
+            "framework": "pydantic-ai",
+            "instance_key": f"{source}:4:agent",
+        },
+    )
+    graph = Graph(agents=[agent])
+
+    def resolver(candidate, source_slice, config):
+        return _empty_result(
+            capabilities=[
+                "process.execute",
+                "network.external",
+                "data.read",
+                "data.write",
+            ],
+            resources=[
+                {
+                    "kind": "filesystem",
+                    "selector": "Paths supplied to runtime tools",
+                    "access": ["data.read", "data.write"],
+                    "classification": "unknown",
+                    "selector_provenance": "model_selected",
+                }
+            ],
+            constraints={
+                "process_execution": "unknown",
+                "filesystem_scope": "unknown",
+                "network_destination": "unknown",
+                "runtime": "conditional",
+                "secret_access": "unknown",
+            },
+        )
+
+    stats = enrich_llm_semantics(
+        graph,
+        tmp_path,
+        [source],
+        _config(max_candidates=1),
+        resolver=resolver,
+    )
+
+    assert stats["runtime_contexts_source_resolved"] == 1
+    rule_ids = {finding.rule_id for finding in evaluate(graph)}
+    assert "CAP004" not in rule_ids
+    assert "CAP005" not in rule_ids
