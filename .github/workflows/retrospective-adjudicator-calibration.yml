@@ -12,7 +12,6 @@ on:
 permissions:
   contents: read
   actions: read
-  copilot-requests: write
 
 concurrency:
   group: retrospective-adjudicator-calibration
@@ -24,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      GITHUB_TOKEN: ${{ github.token }}
+      CALIBRATION_BUNDLE_ONLY: "1"
     strategy:
       fail-fast: false
       max-parallel: 6
@@ -54,18 +53,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - uses: actions/setup-node@v6
-
-      - name: Install Copilot CLI
+      - name: Generate fixed-source calibration bundle
         run: |
-          npm install -g @github/copilot
-          copilot --version
+          python research/adjudicator-calibration-2026/run_case.py \
+            --case-id "${{ matrix.case_id }}" \
+            --output-dir artifacts
 
-      - name: Run fixed-source retrospective calibration
-        run: |
-          python research/adjudicator-calibration-2026/run_case.py             --case-id "${{ matrix.case_id }}"             --output-dir artifacts
-
-      - name: Upload case result
+      - name: Upload case bundle
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -75,7 +69,7 @@ jobs:
           retention-days: 30
 
   aggregate:
-    name: Aggregate calibration
+    name: Aggregate bundle manifest
     if: always()
     needs: calibrate
     runs-on: ubuntu-latest
@@ -90,7 +84,9 @@ jobs:
 
       - name: Aggregate
         run: |
-          python research/adjudicator-calibration-2026/aggregate.py             --input downloaded             --output aggregate
+          python research/adjudicator-calibration-2026/aggregate.py \
+            --input downloaded \
+            --output aggregate
           cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload aggregate
