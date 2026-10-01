@@ -1,0 +1,100 @@
+name: Retrospective Adjudicator Calibration
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/retrospective-adjudicator-calibration
+    paths:
+      - ".github/workflows/retrospective-adjudicator-calibration.yml"
+      - "research/adjudicator-calibration-2026/**"
+
+permissions:
+  contents: read
+  actions: read
+  copilot-requests: write
+
+concurrency:
+  group: retrospective-adjudicator-calibration
+  cancel-in-progress: true
+
+jobs:
+  calibrate:
+    name: ${{ matrix.case_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        case_id:
+          - f90-001
+          - f90-002
+          - f90-003
+          - f90-004
+          - f90-005
+          - f90-006
+          - rw-004
+          - rw-007
+          - rw-009
+          - rw-012
+          - rw-017
+          - rw-147
+          - rw-150
+          - rw-152
+          - rw-155
+          - rw-164
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot
+          copilot --version
+
+      - name: Run fixed-source retrospective calibration
+        run: |
+          python research/adjudicator-calibration-2026/run_case.py             --case-id "${{ matrix.case_id }}"             --output-dir artifacts
+
+      - name: Upload case result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: calibration-case-${{ matrix.case_id }}
+          path: artifacts/${{ matrix.case_id }}/
+          if-no-files-found: error
+          retention-days: 30
+
+  aggregate:
+    name: Aggregate calibration
+    if: always()
+    needs: calibrate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download case artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: calibration-case-*
+          path: downloaded
+
+      - name: Aggregate
+        run: |
+          python research/adjudicator-calibration-2026/aggregate.py             --input downloaded             --output aggregate
+          cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload aggregate
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrospective-adjudicator-calibration-summary
+          path: aggregate/
+          if-no-files-found: error
+          retention-days: 30

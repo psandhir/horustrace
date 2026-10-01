@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "scanner_states": {
+    "frozen90_v06": "bee59738dd8ea4778a8dd0ea74039304dc307a78",
+    "frozen180_baseline": "418db4e29798a7d25df686dd7bccfd9fefa225bd",
+    "v010": "a17449da60d6c87018558f4fb8bee126a4bd5090",
+    "current_post_287": "fff61df194b085bc06839884f99248943e8ec579"
+  },
+  "cases": [
+    {
+      "case_id": "f90-001",
+      "panel": "frozen90",
+      "repo": "arjunprabhulal/adk-vertex-ai-rag-engine",
+      "sha": "ef9d0344d4d716b1455ffeaf68bedfbb2429a9ed",
+      "framework": "google-adk",
+      "archived": {
+        "frozen90_v06": {
+          "findings": 13,
+          "paths": 2
+        }
+      }
+    },
+    {
+      "case_id": "f90-002",
+      "panel": "frozen90",
+      "repo": "okahu-demos/adk-travel-agent",
+      "sha": "74a09d074fafd0fdd5f1a1a507a960bc4f2ac417",
+      "framework": "google-adk",
+      "archived": {
+        "frozen90_v06": {
+          "findings": 1,
+          "paths": 0
+        }
+      }
+    },
+    {
+      "case_id": "f90-003",
+      "panel": "frozen90",
+      "repo": "openai/openai-cs-agents-demo",
+      "sha": "bd7bfca0f5abf50529370814c3e7c88542011925",
+      "framework": "openai-agents",
+      "archived": {
+        "frozen90_v06": {
+          "findings": 2,
+          "paths": 0
+        }
+      }
+    },
+    {
+      "case_id": "f90-004",
+      "panel": "frozen90",
+      "repo": "rafaelpierre/openai-agents-redis",
+      "sha": "376603a43c315193bde51d76c877cdd6113650e4",
+      "framework": "openai-agents",
+      "archived": {
+        "frozen90_v06": {
+          "findings": 3,
+          "paths": 0
+        }
+      }
+    },
+    {
+      "case_id": "f90-005",
+      "panel": "frozen90",
+      "repo": "langchain-ai/langgraph-cua-py",
+      "sha": "75d38edccea3971b8408b89482966629a5da9679",
+      "framework": "langgraph",
+      "archived": {
+        "frozen90_v06": {
+          "findings": 3,
+          "paths": 0
+        }
+      }
+    },
+    {
+      "case_id": "f90-006",
+      "panel": "frozen90",
+      "repo": "juleswhite/python-agents-mcp-course",
+      "sha": "13f4e907f502079ea6f10fe2d27cef1121efd34a",
+      "framework": "mcp-mixed",
+      "archived": {
+        "frozen90_v06": {
+          "findings": 1,
+          "paths": 0
+        }
+      }
+    },
+    {
+      "case_id": "rw-004",
+      "panel": "frozen180",
+      "repo": "JoanMarinPages/agentGemini",
+      "sha": "0160690bb47cca17e70ceb8486209d7b1cacaf76",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "rw-007",
+      "panel": "frozen180",
+      "repo": "joshnaim1/ocr-test",
+      "sha": "12a850dec83f04039862fb6ef03e0fc80c462bf3",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "rw-009",
+      "panel": "frozen180",
+      "repo": "vivekcommit/Cloud_Architecture_Review",
+      "sha": "16ac50de750de9d4681a501f936184804a819754",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "rw-012",
+      "panel": "frozen180",
+      "repo": "namanraina16/morning-wire",
+      "sha": "29529fbf066b30eb0d7c45d1a70b1eda5dfb53dd",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "rw-017",
+      "panel": "frozen180",
+      "repo": "mxyhi/always-on-memory-agent",
+      "sha": "5a92fd6fa34baa2920ac5ec6b1e1ac4def940311",
+      "framework": "google-adk"
+    },
+    {
+      "case_id": "rw-147",
+      "panel": "frozen180",
+      "repo": "hope-tatenda-mutema/Pedantic-AI-Deep-Research-Agent",
+      "sha": "0369d0675851071e9f2da850951144e2bb022b3f",
+      "framework": "pydantic-ai"
+    },
+    {
+      "case_id": "rw-150",
+      "panel": "frozen180",
+      "repo": "Amar-Ag/project-ideation-tool",
+      "sha": "169a9d50841de7cf05bfd5240f9509e0eccd5167",
+      "framework": "pydantic-ai"
+    },
+    {
+      "case_id": "rw-152",
+      "panel": "frozen180",
+      "repo": "kumarvipu1/agentic-ppt-slide",
+      "sha": "2614076f9fbb0cdde10e481918b5177c5c3399c8",
+      "framework": "pydantic-ai"
+    },
+    {
+      "case_id": "rw-155",
+      "panel": "frozen180",
+      "repo": "shotgun-sh/shotgun",
+      "sha": "4d344d5a46aafc815de441ff670d4131187f33e6",
+      "framework": "pydantic-ai"
+    },
+    {
+      "case_id": "rw-164",
+      "panel": "frozen180",
+      "repo": "amscotti/local-LLM-with-RAG",
+      "sha": "832fb9a2970884e61a6ca2eabcfa103b78df4cfb",
+      "framework": "pydantic-ai"
+    }
+  ]
+}
