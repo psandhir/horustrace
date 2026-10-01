@@ -23,6 +23,8 @@ jobs:
     name: ${{ matrix.case_id }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      GITHUB_TOKEN: \${{ github.token }}
     strategy:
       fail-fast: false
       max-parallel: 6
