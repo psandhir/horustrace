@@ -5,16 +5,18 @@ on:
   push:
     branches:
       - feature/llm-semantic-escalation
+      - feature/semantic-candidate-discovery-v1
     paths:
       - ".github/workflows/hybrid-semantic-holdout-10.yml"
       - "src/horustrace/llm_semantics.py"
+      - "src/horustrace/adapters/google_adk.py"
       - "src/horustrace/scanner.py"
       - "src/horustrace/models.py"
       - "src/horustrace/rules/**"
       - "tests/test_llm_semantics.py"
 
 permissions:
-  contents: write
+  contents: read
   copilot-requests: write
 
 concurrency:
@@ -362,15 +364,11 @@ jobs:
           print("\n".join(lines), flush=True)
           PY
 
-      - name: Commit comparison results
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add             research/gpt-horustrace-differential-2026/hybrid-semantic-holdout-10-results.json             research/gpt-horustrace-differential-2026/HYBRID_SEMANTIC_HOLDOUT_10_RESULTS.md
-          if git diff --cached --quiet; then
-            echo "No holdout result changes."
-          else
-            git commit -m "research: record hybrid semantic holdout results"
-            git push
-          fi
+      - name: Upload comparison results
+        uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-semantic-holdout-10
+          path: |
+            research/gpt-horustrace-differential-2026/hybrid-semantic-holdout-10-results.json
+            research/gpt-horustrace-differential-2026/HYBRID_SEMANTIC_HOLDOUT_10_RESULTS.md
+          if-no-files-found: error

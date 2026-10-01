@@ -1154,3 +1154,29 @@ def test_adk_delegation_preserves_operator_configured_network_scope() -> None:
         path.path_id == "PATH009" and path.agent == "parent"
         for path in build_attack_paths(graph)
     )
+
+def test_adk_custom_base_agent_subclass_is_discovered(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        """
+from google.adk.agents import BaseAgent
+
+class AlphaBotAgent(BaseAgent):
+    def __init__(self):
+        super().__init__(name="AlphaBot")
+
+    async def _run_async_impl(self, ctx):
+        return ctx
+
+root_agent = AlphaBotAgent()
+""",
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    agent = next(item for item in graph.agents if item.metadata.get("source_alias") == "root_agent")
+    assert agent.metadata["agent_type"] == "AlphaBotAgent"
+    assert agent.metadata["custom_base_agent"] is True
+    assert agent.metadata["semantic_entrypoints"] == ["_run_async_impl"]
+    assert any(item.trust == "untrusted" for item in agent.inputs)

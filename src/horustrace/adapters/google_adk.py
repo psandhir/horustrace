@@ -806,6 +806,22 @@ def _callbacks(call: ast.Call) -> dict[str, str]:
     return result
 
 
+def _custom_base_agent_classes(tree: ast.AST) -> dict[str, ast.ClassDef]:
+    """Return source-defined ADK BaseAgent subclasses without executing them."""
+    result: dict[str, ast.ClassDef] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        inherits_base_agent = any(
+            (_call_name(base) == "BaseAgent")
+            or ((_dotted_name(base) or "").endswith(".BaseAgent"))
+            for base in node.bases
+        )
+        if inherits_base_agent:
+            result[node.name] = node
+    return result
+
+
 def _agent_from_call(
     path: Path,
     call: ast.Call,
@@ -815,9 +831,12 @@ def _agent_from_call(
     calls: dict[str, ast.Call],
     sequences: dict[str, list[ast.AST]],
     functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+    custom_agent_classes: dict[str, ast.ClassDef] | None = None,
 ) -> Agent | None:
     agent_type = _call_name(call.func) or ""
-    if agent_type not in AGENT_TYPES:
+    custom_agent_classes = custom_agent_classes or {}
+    custom_base_agent = agent_type in custom_agent_classes
+    if agent_type not in AGENT_TYPES and not custom_base_agent:
         return None
     name = _string(_kw(call, "name")) or alias
     metadata: dict[str, Any] = {
@@ -827,7 +846,18 @@ def _agent_from_call(
         "instance_key": (
             f"{path.resolve()}:{getattr(call, 'lineno', 1) or 1}:{alias}"
         ),
+        "custom_base_agent": custom_base_agent,
     }
+    if custom_base_agent:
+        class_node = custom_agent_classes[agent_type]
+        entrypoints = [
+            item.name
+            for item in class_node.body
+            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and item.name in {"_run_async_impl", "run_async", "run", "invoke"}
+        ]
+        if entrypoints:
+            metadata["semantic_entrypoints"] = entrypoints
     instruction = _string(_kw(call, "instruction")) or _string(_kw(call, "instructions"))
     if instruction:
         metadata["instruction"] = instruction
@@ -976,6 +1006,7 @@ def scan_python_file(path: Path) -> Graph:
         return graph
 
     functions = {node.name: node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    custom_agent_classes = _custom_base_agent_classes(tree)
     imported_functions: dict[str, str] = {}
     for node in tree.body:
         if not isinstance(node, ast.ImportFrom) or not node.module:
@@ -1011,7 +1042,7 @@ def scan_python_file(path: Path) -> Graph:
                 calls[alias] = value
                 scoped_calls.setdefault(scope, {})[alias] = value
                 call_name = _call_name(value.func) or ""
-                if call_name in AGENT_TYPES:
+                if call_name in AGENT_TYPES or call_name in custom_agent_classes:
                     agent_calls.append((alias, value, scope))
                     continue
                 mcp = _mcp_from_toolset(path, value, alias, calls)
@@ -1179,6 +1210,7 @@ def scan_python_file(path: Path) -> Graph:
             visible_calls,
             visible_sequences,
             functions,
+            custom_agent_classes,
         )
         if agent:
             agents_by_alias[alias] = agent
