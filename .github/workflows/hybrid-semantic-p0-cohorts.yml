@@ -1,0 +1,283 @@
+name: Hybrid Semantic P0 Cohorts
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/hybrid-semantic-p0-safety
+    paths:
+      - ".github/workflows/hybrid-semantic-p0-cohorts.yml"
+      - "src/horustrace/llm_semantics.py"
+      - "src/horustrace/rules/builtin.py"
+      - "src/horustrace/analysis.py"
+      - "tests/test_llm_semantics.py"
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+concurrency:
+  group: hybrid-semantic-p0-cohorts
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    name: ${{ matrix.cohort }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        cohort:
+          - frozen-litmus
+          - unseen-v2
+          - framework-holdout
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      SEMANTIC_PROVIDER: copilot
+      SEMANTIC_MODEL: auto
+      COHORT: ${{ matrix.cohort }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot
+          copilot --version
+
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+
+      - name: Run deterministic vs hybrid comparison
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import shutil
+          import subprocess
+          import tempfile
+          import time
+          from pathlib import Path
+
+          from horustrace.config import load_config
+          from horustrace.llm_semantics import LLMSemanticConfig
+          from horustrace.scanner import scan
+
+          COHORTS = {
+              "frozen-litmus": [
+                  ("rw-009","vivekcommit/Cloud_Architecture_Review","16ac50de750de9d4681a501f936184804a819754","google-adk"),
+                  ("rw-017","mxyhi/always-on-memory-agent","5a92fd6fa34baa2920ac5ec6b1e1ac4def940311","google-adk"),
+                  ("rw-004","JoanMarinPages/agentGemini","0160690bb47cca17e70ceb8486209d7b1cacaf76","google-adk"),
+                  ("rw-007","joshnaim1/ocr-test","12a850dec83f04039862fb6ef03e0fc80c462bf3","google-adk"),
+                  ("rw-012","namanraina16/morning-wire","29529fbf066b30eb0d7c45d1a70b1eda5dfb53dd","google-adk"),
+                  ("rw-155","shotgun-sh/shotgun","4d344d5a46aafc815de441ff670d4131187f33e6","pydantic-ai"),
+                  ("rw-152","kumarvipu1/agentic-ppt-slide","2614076f9fbb0cdde10e481918b5177c5c3399c8","pydantic-ai"),
+                  ("rw-147","hope-tatenda-mutema/Pedantic-AI-Deep-Research-Agent","0369d0675851071e9f2da850951144e2bb022b3f","pydantic-ai"),
+                  ("rw-150","Amar-Ag/project-ideation-tool","169a9d50841de7cf05bfd5240f9509e0eccd5167","pydantic-ai"),
+                  ("rw-164","amscotti/local-LLM-with-RAG","832fb9a2970884e61a6ca2eabcfa103b78df4cfb","pydantic-ai"),
+              ],
+              "unseen-v2": [
+                  ("hold-adk-001","AbiramiSukumaran/adk-renovation-single-agent","f1b779be5d1d49093b46102a8440d26830efa07d","google-adk"),
+                  ("hold-adk-002","amiitt001/adk-hiring-agent","7232ba30820c0370634b97142b0bb72c32d9d065","google-adk"),
+                  ("hold-adk-003","Quantum-Cipher/MCP-GCP-governance-protocol","ff3864266f752c572393584721d70059955b33c2","google-adk"),
+                  ("hold-adk-004","Suvam-paul145/student-doubt-classifer-agent","d9463f6209e7a9c9e04310805e8222158ca89fc8","google-adk"),
+                  ("hold-adk-005","amachwe/test_openapi_agent","053380f1b793d5d8e0b31a6fa47898b590bb6a22","google-adk"),
+                  ("hold-pyd-001","mindeye33/speedagent","cc42c792ffac8e3c6ee7679dd3eff6f2f84d7c59","pydantic-ai"),
+                  ("hold-pyd-002","newsbubbles/youtube-manager-mcp","b429601aa96fa4497084e43863a288c6353de59e","pydantic-ai"),
+                  ("hold-pyd-003","gtsbahamas/text-moderation","decb6d85be0afe5bf08d222b519b33cf15e45064","pydantic-ai"),
+                  ("hold-pyd-004","ArhamMirza/AI-Budget-CSV-Manager","44dc9e7df8c007d813d88810ec6e347086527b66","pydantic-ai"),
+                  ("hold-pyd-005","rawheel/PydanticAi-MultiModal","65e7450fab5c0df06ed7f6216b99e2becd8e92b9","pydantic-ai"),
+              ],
+              "framework-holdout": [
+                  ("ho-001","arjunprabhulal/adk-mcp-gemma3","e487feaffeb9b53d49733af985a88a1924781e5f","google-adk"),
+                  ("ho-002","kweinmeister/agentic-trading","9e4046b1144e44785ccaa7ce35a4491f86d79e80","google-adk"),
+                  ("ho-003","mongodb-developer/MongoDB-ADK-Agents","aafaefdb16230ed1c24ca6ae5605360befafaab2","google-adk"),
+                  ("ho-004","langchain-ai/google-adk-realtime-deepagents-example","b94966176abdddea652589d9cf8a59c00be26c8a","google-adk"),
+                  ("ho-005","box-community/google-adk-box-agent","c35dc3d306a7baa3629fd7c72c37e1791cda1e9e","google-adk"),
+                  ("ho-006","coleam00/MongoDB-RAG-Agent","b048eeab220e43b2b8f8c97508e4d6d2c134a468","pydantic-ai"),
+                  ("ho-007","coleam00/human-in-the-loop-rag-agent","b5f6158cacc0c52a1585429de3751a31f551d333","pydantic-ai"),
+                  ("ho-008","slack-samples/bolt-python-starter-agent","01fc89f9059348af2d172f8ea1dc62bffd008611","pydantic-ai"),
+                  ("ho-009","vstorm-co/pydantic-ai-backend","8ac7b678b633aa51c054a884ce27d31b130b8110","pydantic-ai"),
+                  ("ho-010","vstorm-co/subagents-pydantic-ai","bb8c400732ad515a1e2bfc554ee2dcf7500b2ef9","pydantic-ai"),
+              ],
+          }
+
+          cohort_name = os.environ["COHORT"]
+          cases = COHORTS[cohort_name]
+
+          def clone_case(root, case):
+              case_id, repo, sha, _ = case
+              target = root / case_id
+              target.mkdir()
+              for command in [
+                  ["git","init","-q",str(target)],
+                  ["git","-C",str(target),"remote","add","origin",f"https://github.com/{repo}.git"],
+                  ["git","-C",str(target),"fetch","--quiet","--depth=1","--filter=blob:none","origin",sha],
+                  ["git","-C",str(target),"checkout","--quiet","--detach","FETCH_HEAD"],
+              ]:
+                  cp = subprocess.run(
+                      command, text=True, stdout=subprocess.PIPE,
+                      stderr=subprocess.PIPE, timeout=240,
+                  )
+                  if cp.returncode:
+                      raise RuntimeError((cp.stderr or cp.stdout)[-4000:])
+              return target
+
+          def counts(graph, findings):
+              return {
+                  "agents": len(graph.agents),
+                  "tools": sum(len(agent.tools) for agent in graph.agents),
+                  "mcp": sum(len(agent.mcp_servers) for agent in graph.agents),
+                  "findings": len(findings),
+                  "attack_paths": len(graph.attack_paths),
+              }
+
+          results = []
+          runner_temp = Path(os.environ.get("RUNNER_TEMP", "/tmp"))
+          with tempfile.TemporaryDirectory(prefix=f"horustrace-p0-{cohort_name}-") as temp:
+              root = Path(temp)
+              for index, case in enumerate(cases, 1):
+                  case_id, repo_name, sha, framework = case
+                  started = time.monotonic()
+                  print(f"[{index:02d}/10] {case_id} {repo_name}", flush=True)
+                  row = {"case_id":case_id,"repo":repo_name,"sha":sha,"framework":framework}
+                  try:
+                      target = clone_case(root, case)
+                      cfg = load_config(target)
+                      base_graph, base_findings = scan(target, config=cfg)
+                      hybrid_graph, hybrid_findings = scan(
+                          target,
+                          config=cfg,
+                          llm_semantic_config=LLMSemanticConfig(
+                              provider=os.environ["SEMANTIC_PROVIDER"],
+                              model=os.environ["SEMANTIC_MODEL"],
+                              max_candidates=3,
+                              max_slice_chars=8000,
+                              max_total_chars=24000,
+                              min_confidence=0.75,
+                              max_retries=3,
+                              cache_path=runner_temp / f"{case_id}-semantic-cache.json",
+                              fail_open=True,
+                          ),
+                      )
+                      row.update(
+                          scan="ok",
+                          baseline_counts=counts(base_graph, base_findings),
+                          hybrid_counts=counts(hybrid_graph, hybrid_findings),
+                          baseline_findings=[f.as_dict() for f in base_findings],
+                          hybrid_findings=[f.as_dict() for f in hybrid_findings],
+                          baseline_attack_paths=[
+                              {"path_id":p.path_id,"title":p.title,"agent":p.agent,
+                               "severity":p.severity.label(),"nodes":p.nodes,
+                               "metadata":p.metadata}
+                              for p in base_graph.attack_paths
+                          ],
+                          hybrid_attack_paths=[
+                              {"path_id":p.path_id,"title":p.title,"agent":p.agent,
+                               "severity":p.severity.label(),"nodes":p.nodes,
+                               "metadata":p.metadata}
+                              for p in hybrid_graph.attack_paths
+                          ],
+                          semantic_llm=hybrid_graph.coverage.resolution.get("semantic_llm", {}),
+                          semantic_tools=[
+                              {
+                                  "agent": agent.name,
+                                  "tool": tool.name,
+                                  "kind": tool.kind,
+                                  "capabilities": sorted(tool.capabilities),
+                                  "approval": tool.approval,
+                                  "guardrails": tool.guardrails,
+                                  "resources": [
+                                      {"kind":r.kind,"selector":r.selector,
+                                       "access":sorted(r.access),"classification":r.classification,
+                                       "metadata":r.metadata}
+                                      for r in tool.resources
+                                  ],
+                                  "destinations": [
+                                      {"target":d.target,"restricted":d.restricted,
+                                       "metadata":d.metadata}
+                                      for d in tool.destinations
+                                  ],
+                                  "metadata": tool.metadata,
+                              }
+                              for agent in hybrid_graph.agents
+                              for tool in agent.tools
+                              if tool.metadata.get("semantic_origin") == "llm_inferred"
+                          ],
+                      )
+                  except Exception as exc:
+                      row.update(scan="error", error=f"{type(exc).__name__}: {exc}")
+                  row["elapsed_seconds"] = round(time.monotonic() - started, 2)
+                  results.append(row)
+                  shutil.rmtree(root / case_id, ignore_errors=True)
+
+          semantic = [r.get("semantic_llm") or {} for r in results]
+          summary = {
+              "requested": len(cases),
+              "scanned": sum(r.get("scan") == "ok" for r in results),
+              "errors": sum(r.get("scan") != "ok" for r in results),
+              "eligible_candidates": sum(int(s.get("eligible_candidates", 0)) for s in semantic),
+              "selected_candidates": sum(int(s.get("selected_candidates", 0)) for s in semantic),
+              "fresh_llm_calls": sum(int(s.get("escalated", 0)) for s in semantic),
+              "applied": sum(int(s.get("applied", 0)) for s in semantic),
+              "semantic_errors": sum(int(s.get("errors", 0)) for s in semantic),
+              "input_chars": sum(int(s.get("input_chars", 0)) for s in semantic),
+              "baseline_findings": sum((r.get("baseline_counts") or {}).get("findings",0) for r in results),
+              "hybrid_findings": sum((r.get("hybrid_counts") or {}).get("findings",0) for r in results),
+              "baseline_attack_paths": sum((r.get("baseline_counts") or {}).get("attack_paths",0) for r in results),
+              "hybrid_attack_paths": sum((r.get("hybrid_counts") or {}).get("attack_paths",0) for r in results),
+          }
+          report = {
+              "schema_version": 1,
+              "study": "hybrid-semantic-p0-cohorts",
+              "cohort": cohort_name,
+              "scanner_commit": os.environ.get("GITHUB_SHA"),
+              "semantic_provider": os.environ["SEMANTIC_PROVIDER"],
+              "semantic_model": os.environ["SEMANTIC_MODEL"],
+              "summary": summary,
+              "results": results,
+          }
+          out = Path("artifacts") / cohort_name
+          out.mkdir(parents=True, exist_ok=True)
+          (out/"results.json").write_text(json.dumps(report,indent=2,default=str)+"\n")
+          lines = [
+              f"# {cohort_name}",
+              "",
+              f"- Calls: {summary['fresh_llm_calls']}",
+              f"- Applied: {summary['applied']}",
+              f"- Semantic errors: {summary['semantic_errors']}",
+              f"- Findings: {summary['baseline_findings']} -> {summary['hybrid_findings']}",
+              f"- Attack paths: {summary['baseline_attack_paths']} -> {summary['hybrid_attack_paths']}",
+              f"- Input chars: {summary['input_chars']}",
+              "",
+              "| Case | Baseline A/T/M/F/P | Hybrid A/T/M/F/P | Eligible | Calls | Applied |",
+              "|---|---|---|---:|---:|---:|",
+          ]
+          for row in results:
+              if row.get("scan") != "ok":
+                  lines.append(f"| {row['case_id']} | error | error | - | - | - |")
+                  continue
+              b=row["baseline_counts"]; h=row["hybrid_counts"]; s=row["semantic_llm"]
+              lines.append(
+                  f"| {row['case_id']} | {b['agents']}/{b['tools']}/{b['mcp']}/{b['findings']}/{b['attack_paths']} | "
+                  f"{h['agents']}/{h['tools']}/{h['mcp']}/{h['findings']}/{h['attack_paths']} | "
+                  f"{s.get('eligible_candidates',0)} | {s.get('escalated',0)} | {s.get('applied',0)} |"
+              )
+          (out/"results.md").write_text("\n".join(lines)+"\n")
+          print("\n".join(lines), flush=True)
+          PY
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-p0-${{ matrix.cohort }}
+          path: artifacts/${{ matrix.cohort }}/
+          if-no-files-found: error

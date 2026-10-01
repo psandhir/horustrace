@@ -1507,7 +1507,7 @@ def _propagate_adk_delegation(graph: Graph) -> None:
             resources: list[ResourceScope] = []
             destinations: list[NetworkDestination] = []
             privileged_tools: list[Tool] = []
-            outbound_tools: list[Tool] = []
+            network_outbound_tools: list[Tool] = []
             pending = [child]
             visited = {parent.name}
             while pending:
@@ -1523,10 +1523,10 @@ def _propagate_adk_delegation(graph: Graph) -> None:
                     ):
                         privileged_tools.append(original_tool)
                     if (
-                        {"network.external", "external.write"} & original_tool.capabilities
-                        and original_tool not in outbound_tools
+                        "network.external" in original_tool.capabilities
+                        and original_tool not in network_outbound_tools
                     ):
-                        outbound_tools.append(original_tool)
+                        network_outbound_tools.append(original_tool)
                 provenance.extend(f for f in original_facts if f not in provenance)
                 capabilities.update(caps)
                 if children[reachable.name]:
@@ -1557,10 +1557,26 @@ def _propagate_adk_delegation(graph: Graph) -> None:
                 and all(tool.approval is True for tool in privileged_tools)
                 else None
             )
-            managed_outbound = bool(outbound_tools) and all(
-                tool.metadata.get("network_scope") == "fixed_managed_service"
-                for tool in outbound_tools
+            constrained_network_scopes = {
+                "fixed_managed_service",
+                "fixed_provider_network",
+                "operator_configured_destination",
+                "explicit_destination",
+            }
+            network_scopes = {
+                str(tool.metadata.get("network_scope") or "")
+                for tool in network_outbound_tools
+            }
+            all_network_constrained = bool(network_outbound_tools) and all(
+                scope in constrained_network_scopes for scope in network_scopes
             )
+            delegated_network_scope = "inherited"
+            if all_network_constrained:
+                delegated_network_scope = (
+                    next(iter(network_scopes))
+                    if len(network_scopes) == 1
+                    else "explicit_destination"
+                )
             parent.tools.append(Tool(
                 name=f"delegate:{child.name}", kind="delegated_agent",
                 capabilities=capabilities, approval=delegated_approval,
@@ -1578,9 +1594,7 @@ def _propagate_adk_delegation(graph: Graph) -> None:
                     "authority_binding_basis": "adk_delegates_to",
                     "transitive": True,
                     "approval_inherited": delegated_approval is True,
-                    "network_scope": (
-                        "fixed_managed_service" if managed_outbound else "inherited"
-                    ),
+                    "network_scope": delegated_network_scope,
                 },
             ))
 

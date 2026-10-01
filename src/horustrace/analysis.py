@@ -23,6 +23,19 @@ _UNTRUSTED_FLOW_SOURCES = {
 }
 
 
+def _llm_synthetic_approval_gap_is_proven(tool: Tool) -> bool:
+    if tool.metadata.get("semantic_projection_kind") != "synthetic":
+        return True
+    return tool.metadata.get("semantic_approval_state") == "false"
+
+
+def _llm_network_gap_is_actionable(tool: Tool) -> bool:
+    added = set(tool.metadata.get("semantic_added_capabilities") or [])
+    if "network.external" not in added:
+        return True
+    return tool.metadata.get("semantic_network_destination_provenance") == "model_selected"
+
+
 def _path_metadata(*, basis: str, flow_id: str | None = None) -> dict:
     limitations = [
         "Runtime authorization and control effectiveness are not verified.",
@@ -333,21 +346,22 @@ def _delegated_paths(graph: Graph) -> list[AttackPath]:
                             )
                         )
 
-                outbound = {
-                    "network.external",
-                    "external.write",
-                } & tool.capabilities
+                network_outbound = "network.external" in tool.capabilities
                 destination_constrained = bool(
                     tool.destinations
                     and all(destination.restricted for destination in tool.destinations)
                 ) or tool.metadata.get("network_scope") in {
                     "fixed_managed_service",
+                    "fixed_provider_network",
+                    "operator_configured_destination",
                     "explicit_destination",
                 }
                 if (
-                    outbound
+                    network_outbound
+                    and _llm_network_gap_is_actionable(tool)
                     and not destination_constrained
                     and tool.approval is not True
+                    and _llm_synthetic_approval_gap_is_proven(tool)
                     and not model_selected_url_fetch
                 ):
                     paths.append(
@@ -397,15 +411,21 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
             if item.trust == "untrusted" or item.kind in UNTRUSTED_INPUT_KINDS
         ]
         sensitive = agent.sensitive_data_sources
-        outbound = [
+        external_transfer = [
             tool
             for tool in agent.tools
             if {"network.external", "external.write"} & tool.capabilities
         ]
+        network_outbound = [
+            tool
+            for tool in agent.tools
+            if "network.external" in tool.capabilities
+        ]
         unconstrained_outbound = [
             tool
-            for tool in outbound
-            if tool.metadata.get("network_scope")
+            for tool in network_outbound
+            if _llm_network_gap_is_actionable(tool)
+            and tool.metadata.get("network_scope")
             not in {
                 "fixed_managed_service",
                 "fixed_provider_network",
@@ -470,6 +490,7 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
             if (
                 untrusted
                 and tool.approval is not True
+                and _llm_synthetic_approval_gap_is_proven(tool)
                 and ("PATH001", agent.name) not in supported_rule_agents
             ):
                 paths.append(
@@ -531,7 +552,11 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 )
 
         for tool in destructive:
-            if untrusted and tool.approval is not True:
+            if (
+                untrusted
+                and tool.approval is not True
+                and _llm_synthetic_approval_gap_is_proven(tool)
+            ):
                 paths.append(
                     AttackPath(
                         path_id="PATH002",
@@ -549,7 +574,11 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 )
 
         for tool in state_changing:
-            if runtime_bound_untrusted and tool.approval is not True:
+            if (
+                runtime_bound_untrusted
+                and tool.approval is not True
+                and _llm_synthetic_approval_gap_is_proven(tool)
+            ):
                 capability = (
                     "data.write"
                     if "data.write" in tool.capabilities
@@ -1045,7 +1074,7 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 )
             )
 
-        for tool in outbound:
+        for tool in external_transfer:
             if sensitive and tool.approval is not True:
                 paths.append(
                     AttackPath(
@@ -1132,7 +1161,13 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 )
             )
 
-        if untrusted and secret_tools and unconstrained_outbound:
+        secret_egress = [
+            tool
+            for tool in external_transfer
+            if "external.write" in tool.capabilities
+            or tool in unconstrained_outbound
+        ]
+        if untrusted and secret_tools and secret_egress:
             paths.append(
                 AttackPath(
                     path_id="PATH005",
@@ -1142,12 +1177,12 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                         untrusted[0].name,
                         agent.name,
                         secret_tools[0].name,
-                        unconstrained_outbound[0].name,
+                        secret_egress[0].name,
                     ],
                     severity=Severity.HIGH,
                     rationale=(
                         "The normalized agent model combines untrusted input, secret-reading "
-                        "capability and unconstrained outbound capability."
+                        "capability and external-write or unconstrained network authority."
                     ),
                     location=agent.location,
                     metadata=_path_metadata(basis="capability_cooccurrence"),
