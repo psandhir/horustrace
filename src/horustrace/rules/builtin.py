@@ -869,7 +869,7 @@ def evaluate(graph: Graph) -> list[Finding]:
             item
             for item in agent_authorities
             if "data.read" in item.capabilities
-            and relationship_capability_supported(item, "data.read")
+            and _relationship_combo_capability_is_supported(item, "data.read", tools_by_name)
         ]
         internal_write_tools = {
             tool.name
@@ -906,7 +906,15 @@ def evaluate(graph: Graph) -> list[Finding]:
             source.capability in {"data.write", "destructive.write"}
             for source in agent.data_sources
         )
-        legacy_read_write = "data.read" in caps and effective_legacy_write
+        effective_legacy_read = any(
+            "data.read" in tool.capabilities
+            and _semantic_combo_capability_is_supported(tool, "data.read")
+            for tool in agent.tools
+        ) or any(
+            source.capability == "data.read"
+            for source in agent.data_sources
+        )
+        legacy_read_write = effective_legacy_read and effective_legacy_write
         if authority_confirms_read_write or legacy_read_write:
             linked = sorted(
                 {
