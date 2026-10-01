@@ -943,7 +943,7 @@ def _function_file_transfer_semantics(
     resources = [
         ResourceScope(
             kind="file",
-            selector="<model-selected-file>" if containment else "*",
+            selector="<model-selected-file>",
             access={"data.read"},
             location=read_locations[0],
             metadata={
