@@ -1,0 +1,77 @@
+name: Agent-Centric Unseen 15 Source Review
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/agent-centric-unseen-15-2026-10
+    paths:
+      - ".github/workflows/agent-centric-unseen-15-source.yml"
+      - "research/agent-centric-unseen-15-2026-10/**"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: agent-centric-unseen-15-source
+  cancel-in-progress: true
+
+jobs:
+  source:
+    name: ${{ matrix.case_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        case_id:
+          - fresh-adk-001
+          - fresh-adk-002
+          - fresh-adk-003
+          - fresh-adk-004
+          - fresh-adk-005
+          - fresh-pyd-001
+          - fresh-pyd-002
+          - fresh-pyd-003
+          - fresh-pyd-004
+          - fresh-pyd-005
+          - fresh-oai-001
+          - fresh-oai-002
+          - fresh-oai-003
+          - fresh-oai-004
+          - fresh-oai-005
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate source-only bundle
+        run: |
+          python research/agent-centric-unseen-15-2026-10/source_case.py \
+            --case-id "${{ matrix.case_id }}" \
+            --output-dir artifacts
+
+      - name: Assert scanner was not executed
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          manifests = list(Path("artifacts").rglob("manifest.json"))
+          assert len(manifests) == 1, manifests
+          doc = json.loads(manifests[0].read_text(encoding="utf-8"))
+          assert doc["horustrace_executed"] is False
+          print("source-only boundary verified")
+          PY
+
+      - name: Upload source bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: unseen-source-${{ matrix.case_id }}
+          path: artifacts/${{ matrix.case_id }}/
+          if-no-files-found: error
+          retention-days: 30
