@@ -4,6 +4,7 @@ import ast
 import copy
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlparse
 
 from horustrace.adapters.google_adk import (
     AGENT_TYPES,
@@ -716,16 +717,110 @@ def _resolved_string(info: ModuleInfo, node: ast.AST | None) -> str | None:
     return None
 
 
+def _fixed_url_origin(
+    info: ModuleInfo,
+    node: ast.AST | None,
+    assignments: dict[str, ast.AST] | None = None,
+    visited: set[str] | None = None,
+) -> str | None:
+    """Resolve a fixed scheme/host while allowing dynamic path/query values."""
+    if node is None:
+        return None
+
+    assignments = assignments or {}
+    visited = set() if visited is None else set(visited)
+
+    if isinstance(node, ast.Name):
+        if node.id in visited:
+            return None
+        visited.add(node.id)
+        assigned = assignments.get(node.id) or info.assignments.get(node.id)
+        if assigned is not None:
+            return _fixed_url_origin(info, assigned, assignments, visited)
+        constant = info.constants.get(node.id)
+        if isinstance(constant, str):
+            node = ast.Constant(value=constant)
+        else:
+            return None
+
+    if isinstance(node, ast.Call):
+        called = (_dotted(node.func) or _name(node.func) or "").lower()
+        if called in {"urllib.request.request", "request"}:
+            target = node.args[0] if node.args else _kw(node, "url")
+            return _fixed_url_origin(info, target, assignments, visited)
+        return None
+
+    prefix = ""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        prefix = node.value
+    elif isinstance(node, ast.JoinedStr):
+        for value in node.values:
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                prefix += value.value
+            else:
+                break
+    elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        return _fixed_url_origin(info, node.left, assignments, visited)
+
+    if not prefix.startswith(("http://", "https://")):
+        return None
+    parsed = urlparse(prefix)
+    if not parsed.scheme or not parsed.hostname:
+        return None
+    port = f":{parsed.port}" if parsed.port else ""
+    return f"{parsed.scheme}://{parsed.hostname}{port}"
+
+
 def _network_call_destination(
     info: ModuleInfo,
     call: ast.Call,
     called: str,
+    assignments: dict[str, ast.AST] | None = None,
 ) -> NetworkDestination | None:
-    if not any(marker in called for marker in ("requests.", "httpx.", "aiohttp", "urllib", "session.get", "session.post", "session.put", "session.patch", "session.delete")):
+    # urllib.parse/string helpers are not network sinks. Only urlopen performs
+    # I/O; Request(...) is a local request-object constructor whose wrapped URL
+    # is resolved when it reaches urlopen().
+    network_call = (
+        any(
+            marker in called
+            for marker in (
+                "requests.",
+                "httpx.",
+                "aiohttp",
+                "session.get",
+                "session.post",
+                "session.put",
+                "session.patch",
+                "session.delete",
+            )
+        )
+        or called.endswith("urllib.request.urlopen")
+        or called == "urlopen"
+    )
+    if not network_call:
         return None
-    target = _resolved_string(info, call.args[0]) if call.args else None
+
+    target_node = call.args[0] if call.args else _kw(call, "url")
+    target = _resolved_string(info, target_node)
     if target and target.startswith(("http://", "https://")):
-        return _destination(info.path, call, target, restricted=False, source="literal_url")
+        return _destination(
+            info.path,
+            call,
+            target,
+            restricted=False,
+            source="literal_url",
+        )
+
+    fixed_origin = _fixed_url_origin(info, target_node, assignments)
+    if fixed_origin:
+        return _destination(
+            info.path,
+            call,
+            fixed_origin,
+            restricted=True,
+            source="fixed_url_origin",
+        )
+
     return _destination(
         info.path,
         call,
@@ -971,6 +1066,15 @@ def _analyze_function(
     caps: set[str] = set()
     destinations: list[NetworkDestination] = []
     scopes: set[str] = set()
+    local_assignments: dict[str, ast.AST] = {}
+    for assignment in ast.walk(func):
+        if not isinstance(assignment, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = assignment.value
+        if value is None:
+            continue
+        for name in _assignment_targets(assignment):
+            local_assignments[name] = value
 
     for node in ast.walk(func):
         if isinstance(node, ast.Call):
@@ -1023,7 +1127,12 @@ def _analyze_function(
             if action in {"delete", "remove", "destroy", "purge"}:
                 caps.update({"data.write", "destructive.write"})
 
-            network_destination = _network_call_destination(info, node, called)
+            network_destination = _network_call_destination(
+                info,
+                node,
+                called,
+                local_assignments,
+            )
             if network_destination is not None:
                 caps.add("network.external")
                 if leaf in {"post", "put", "patch", "delete"}:
