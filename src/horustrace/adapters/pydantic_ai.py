@@ -213,21 +213,31 @@ def is_pydantic_ai_file(path: Path) -> bool:
 
 def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
     capabilities = set(infer_capabilities(node.name))
-    # Function names are discovery hints, not proof of externally effective
-    # authority. Require a concrete source sink for host execution and network
-    # / external-write authority. This prevents helpers such as
-    # compose_email_content() from becoming privileged merely because "email"
-    # appears in the function name.
+    # Function names remain discovery hints, but host execution/network authority
+    # still require concrete source sinks. Ambiguous mutation verbs are handled
+    # after body inspection so pure helpers such as add(a, b) do not become writes.
     capabilities.difference_update(
         {"process.execute", "network.external", "external.write"}
     )
+    body_write_evidence = False
+
     for child in ast.walk(node):
         if not isinstance(child, ast.Call):
             continue
         dotted = (_dotted(child.func) or _call_name(child.func) or "").lower()
-        leaf = (_call_name(child.func) or "").lower()
+        leaf = (
+            _call_name(child.func)
+            or (dotted.rsplit(".", 1)[-1] if dotted else "")
+        ).lower()
         if (
-            dotted in {"exec", "eval", "compile", "builtins.exec", "builtins.eval", "builtins.compile"}
+            dotted in {
+                "exec",
+                "eval",
+                "compile",
+                "builtins.exec",
+                "builtins.eval",
+                "builtins.compile",
+            }
             or dotted in {"os.system", "os.popen"}
             or dotted.startswith("subprocess.")
             or "create_subprocess_" in dotted
@@ -237,13 +247,31 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
             dotted.startswith(("requests.", "httpx.", "aiohttp."))
             or "urllib" in dotted
         ):
+            # HTTP method is transport evidence, not mutation semantics.
             capabilities.add("network.external")
-            if leaf in {"post", "put", "patch", "delete"}:
-                capabilities.add("external.write")
-        if leaf in {"write", "update", "save", "insert", "create", "put", "edit", "patch"}:
+        if leaf in {
+            "write",
+            "update",
+            "save",
+            "insert",
+            "create",
+            "put",
+            "edit",
+            "patch",
+        }:
+            body_write_evidence = True
             capabilities.add("data.write")
-        if leaf in {"delete", "remove", "unlink", "rmdir", "rmtree", "drop", "purge"}:
-            capabilities.add("destructive.write")
+        if leaf in {
+            "delete",
+            "remove",
+            "unlink",
+            "rmdir",
+            "rmtree",
+            "drop",
+            "purge",
+        }:
+            body_write_evidence = True
+            capabilities.update({"data.write", "destructive.write"})
         if leaf in {"read", "get", "search", "retrieve", "fetch", "query", "list"}:
             capabilities.add("data.read")
         if (
@@ -252,7 +280,42 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
             or leaf in {"get_secret", "access_secret_version"}
         ):
             capabilities.add("secrets.read")
+
+    first_token = node.name.lower().replace("-", "_").split("_", 1)[0]
+    if first_token in {"add", "set", "update"} and not body_write_evidence:
+        capabilities.difference_update(
+            {"data.write", "destructive.write", "external.write"}
+        )
+
     return capabilities
+
+def _mandatory_authorization_gate(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> bool:
+    """Detect a source-visible mandatory policy/authorization gate."""
+    gate_methods = {
+        "require",
+        "arequire",
+        "authorize",
+        "authorize_async",
+        "require_permission",
+        "check_permission",
+    }
+    gate_markers = (
+        ".gate.",
+        ".policy.",
+        ".authz.",
+        ".authorization.",
+        ".permissions.",
+    )
+    for child in ast.walk(node):
+        if not isinstance(child, ast.Call):
+            continue
+        called = (_dotted(child.func) or _call_name(child.func) or "").lower()
+        leaf = (_call_name(child.func) or "").lower()
+        if leaf in gate_methods and any(marker in called for marker in gate_markers):
+            return True
+    return False
 
 
 def _restricted_in_process_eval(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
@@ -700,16 +763,26 @@ def _tool_from_function(
     if delegate_targets:
         capabilities.add("agent.delegate")
 
+    authorization_gate = _mandatory_authorization_gate(node)
     tool = Tool(
         name=node.name,
         kind="function",
         capabilities=capabilities,
         approval=approval,
+        guardrails=authorization_gate,
         destinations=dynamic_destinations,
         location=_location(path, node),
         metadata={
             "framework": "pydantic-ai",
             "source": source,
+            **(
+                {
+                    "guardrail_mechanism": "mandatory_authorization_gate",
+                    "authorization_gate": True,
+                }
+                if authorization_gate
+                else {}
+            ),
             **http_metadata,
             **(
                 {

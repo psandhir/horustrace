@@ -391,9 +391,11 @@ def _infer_function_capabilities(
             )
         )
         if network_call:
+            # HTTP method is transport evidence, not mutation semantics.
+            # Read/query APIs frequently use POST (for example managed search
+            # endpoints), so external.write requires independent semantic
+            # evidence rather than the verb alone.
             caps.add("network.external")
-            if leaf in {"post", "put", "patch", "delete"}:
-                caps.add("external.write")
 
             target_expr = child.args[0] if child.args else None
             target = _string(target_expr)

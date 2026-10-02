@@ -695,6 +695,21 @@ def _decorated_tool_capabilities(
     first_token = node.name.lower().replace("-", "_").split("_", 1)[0]
     suppressed: set[str] = set()
     inference_basis: str | None = None
+
+    # Ambiguous generic mutation verbs are discovery hints only.
+    # Strong semantic verbs such as delete/clear/unsubscribe retain their
+    # existing name semantics; add/set/update require body corroboration
+    # because they are also common pure-computation helpers.
+    if first_token in {"add", "set", "update"}:
+        name_only_writes = (
+            name_capabilities
+            & {"data.write", "destructive.write", "external.write"}
+            - body_capabilities
+        )
+        if name_only_writes:
+            suppressed.update(name_only_writes)
+            inference_basis = "body_effect_corroboration"
+
     if first_token in _CONTROL_HELPER_PREFIXES:
         suppressed.update(
             name_capabilities
