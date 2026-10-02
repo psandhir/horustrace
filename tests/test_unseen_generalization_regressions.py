@@ -222,7 +222,7 @@ async def create_draft(ctx: RunContext[None], recipient: str):
     assert any(
         destination.restricted
         and destination.metadata.get("network_scope") == "fixed_provider_network"
-        and "brave.com" in destination.target
+        and destination.target == "https://api.search.brave.com"
         for destination in search.destinations
     )
     assert any(
