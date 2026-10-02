@@ -862,12 +862,32 @@ def scan_python_file(path: Path) -> Graph:
                 checkpointer = _call_name(_kw(call, "checkpointer"))
                 if checkpointer and checkpointer in memory_aliases:
                     agent.metadata["memory"].append(memory_aliases[checkpointer])
+                interrupt_before = _kw(call, "interrupt_before")
+                if isinstance(interrupt_before, (ast.List, ast.Tuple, ast.Set)):
+                    protected_nodes = [
+                        name
+                        for item in interrupt_before.elts
+                        if (name := _string_ref(item)) is not None
+                    ]
+                    if protected_nodes:
+                        agent.metadata["interrupt_before_nodes"] = list(
+                            dict.fromkeys(protected_nodes)
+                        )
 
         if unresolved_dynamic_edge:
             agent.metadata["dynamic_control_flow"] = True
         agent.metadata["control_edges"] = list(dict.fromkeys(agent.metadata["control_edges"]))
 
         tools_by_name = {tool.name: tool for tool in agent.tools}
+        for protected_name in agent.metadata.get("interrupt_before_nodes", []):
+            protected = tools_by_name.get(str(protected_name))
+            if protected is None:
+                continue
+            protected.approval = True
+            protected.guardrails = True
+            protected.metadata["approval_mechanism"] = "langgraph_interrupt_before"
+            protected.metadata["approval_scope"] = "execution_gate"
+            protected.metadata["approval_mandatory"] = True
         for source, target in agent.metadata["control_edges"]:
             gate = tools_by_name.get(str(source))
             protected = tools_by_name.get(str(target))
