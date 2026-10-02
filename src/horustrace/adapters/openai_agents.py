@@ -1317,7 +1317,11 @@ def scan_python_file(path: Path) -> Graph:
                 if direct_tool:
                     agent.tools.append(direct_tool)
 
-        for element in _resolve_sequence(_kw(node, "mcp_servers"), sequences):
+        mcp_servers_expr = _kw(node, "mcp_servers")
+        mcp_server_elements = _resolve_sequence(mcp_servers_expr, sequences)
+        if not mcp_server_elements and isinstance(mcp_servers_expr, ast.Name):
+            mcp_server_elements = [mcp_servers_expr]
+        for element in mcp_server_elements:
             if isinstance(element, ast.Name):
                 source_name = resolve_alias(element.id)
                 if source_name in mcp_servers:
