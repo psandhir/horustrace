@@ -79,9 +79,16 @@ def _llm_network_gap_is_actionable(tool: object) -> bool:
 
 
 def _tool_has_effective_authority(tool: object, relationship: object | None) -> bool:
-    """Workflow registration alone is topology, not model-callable authority."""
+    """Workflow registration alone is topology, not model-callable authority.
+
+    Concrete browser/computer sinks are an exception: call-shape analysis proves
+    the side effect even when the LangGraph node itself is only a workflow
+    projection.
+    """
     metadata = getattr(tool, "metadata", {}) or {}
     if metadata.get("authority_binding") == "workflow_projection":
+        if metadata.get("computer_control_custom") is True:
+            return True
         return relationship is not None
     return True
 
