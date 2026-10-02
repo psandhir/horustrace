@@ -1059,7 +1059,11 @@ def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer |
         "MCPServerStdio"
         if isinstance(name, str) and name.endswith("MCPServerStdio")
         else "MCPServerStreamableHTTP"
-        if isinstance(name, str) and name.endswith("MCPServerStreamableHTTP")
+        if isinstance(name, str)
+        and (
+            name.endswith("MCPServerStreamableHTTP")
+            or name.endswith("MCPServerHTTP")
+        )
         else name
     )
     if canonical_name not in {
