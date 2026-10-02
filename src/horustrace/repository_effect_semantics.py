@@ -386,6 +386,42 @@ def _summarize_function(
     return result
 
 
+def _has_cross_module_call(
+    modules: dict[str, _ModuleInfo],
+    module: str,
+    symbol: str,
+    seen: set[tuple[str, str]] | None = None,
+) -> bool:
+    """Return True when a repository-local function chain crosses module boundaries."""
+    resolved = _resolve_wrapper_symbol(modules, module, symbol) or (module, symbol)
+    module, symbol = resolved
+    key = (module, symbol)
+    seen = set() if seen is None else set(seen)
+    if key in seen:
+        return False
+    seen.add(key)
+
+    info = modules.get(module)
+    function = info.functions.get(symbol) if info is not None else None
+    if info is None or function is None:
+        return False
+
+    for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
+        target = _call_target(module, info, call)
+        if target is None or target[0] not in modules:
+            continue
+        if target[0] != module:
+            return True
+        if _has_cross_module_call(
+            modules,
+            target[0],
+            target[1],
+            seen,
+        ):
+            return True
+    return False
+
+
 def _tool_source_symbol(
     tool: Tool,
     root: Path,
@@ -424,6 +460,15 @@ def enrich_repository_tool_effects(
         for tool in agent.tools:
             source = _tool_source_symbol(tool, root, modules)
             if source is None:
+                continue
+            imported_or_wrapped = bool(tool.metadata.get("import_module")) or bool(
+                tool.metadata.get("placeholder")
+            )
+            if not imported_or_wrapped and not _has_cross_module_call(
+                modules,
+                source[0],
+                source[1],
+            ):
                 continue
             effect = _summarize_function(
                 modules,
