@@ -1,0 +1,158 @@
+{
+  "case_id": "fresh-adk-001",
+  "repo": "Pratster95/travel-planner-adk-agents",
+  "sha": "ef61d86b175c10f22715ccc998224b1f5cdee630",
+  "framework": "google-adk",
+  "review_status": "blind_source_review_complete",
+  "horustrace_output_seen": false,
+  "evaluator": {
+    "kind": "llm",
+    "model": "GPT-5.6 Sol",
+    "ground_truth": false
+  },
+  "effective_agents": [
+    {
+      "name": "travel_planner",
+      "binding": "root ADK agent with delegated recommender/financial agents and provider export/delete tools",
+      "source_context": "runtime",
+      "evidence": [
+        "agent.py: root LlmAgent and instructions"
+      ]
+    },
+    {
+      "name": "flight_recommender / hotel_recommender / itinerary_recommender / food_recommender",
+      "binding": "ADK child agents with google_search",
+      "source_context": "runtime",
+      "evidence": [
+        "agent.py: child LlmAgent definitions"
+      ]
+    },
+    {
+      "name": "financial_planner_agent",
+      "binding": "delegated agent used by root workflow",
+      "source_context": "runtime",
+      "evidence": [
+        "agent.py: root orchestration instructions and imported agent"
+      ]
+    }
+  ],
+  "expected_claims": [
+    {
+      "claim_id": "fresh-adk-001-c01",
+      "category": "capability",
+      "agent": "travel_planner",
+      "statement": "The effective travel-planning system can create or update Google Sheets through source-bound export tooling.",
+      "severity": "medium",
+      "qualifications": [
+        "Google provider destination is fixed/provider-managed, not arbitrary egress."
+      ],
+      "evidence": [
+        "tools.py: Sheets service build/create/update operations",
+        "agent.py: root/financial workflow exposes export tooling"
+      ],
+      "confidence": "high"
+    },
+    {
+      "claim_id": "fresh-adk-001-c02",
+      "category": "capability",
+      "agent": "travel_planner",
+      "statement": "The effective travel-planning system can create Google Docs through source-bound export tooling.",
+      "severity": "medium",
+      "qualifications": [
+        "Google provider destination is fixed/provider-managed."
+      ],
+      "evidence": [
+        "tools.py: Docs service document creation",
+        "agent.py: export_to_google_doc_tool is exposed to root workflow"
+      ],
+      "confidence": "high"
+    },
+    {
+      "claim_id": "fresh-adk-001-c03",
+      "category": "capability",
+      "agent": "travel_planner",
+      "statement": "The root agent can invoke a destructive Google Drive file-delete operation.",
+      "severity": "high",
+      "qualifications": [
+        "Deletion is scoped by a supplied Drive file ID; destination is Google Drive, not arbitrary network."
+      ],
+      "evidence": [
+        "tools.py: Drive files().delete operation",
+        "agent.py: delete_google_file_tool is source-bound and described as permanent"
+      ],
+      "confidence": "high"
+    },
+    {
+      "claim_id": "fresh-adk-001-c04",
+      "category": "control",
+      "agent": "travel_planner",
+      "statement": "State-changing Google export/delete tooling is source-bound without a detected per-call human approval boundary in the reviewed source.",
+      "severity": "medium",
+      "qualifications": [
+        "This is about approval/control, not destination breadth."
+      ],
+      "evidence": [
+        "agent.py/tools.py: bound mutation tools; no source-visible approval callback around these calls"
+      ],
+      "confidence": "medium"
+    }
+  ],
+  "expected_paths": [
+    {
+      "path_id": "fresh-adk-001-p01",
+      "agent": "travel_planner",
+      "source": "user travel request",
+      "sink": "Google Drive file deletion",
+      "statement": "User-controlled request can reach the root agent and a source-bound Drive deletion tool.",
+      "qualifications": [
+        "Concrete deletion still requires a file ID selected/provided through the tool call."
+      ],
+      "evidence": [
+        "agent.py root instructions/tool binding",
+        "tools.py Drive delete"
+      ],
+      "confidence": "high"
+    },
+    {
+      "path_id": "fresh-adk-001-p02",
+      "agent": "travel_planner",
+      "source": "user travel request",
+      "sink": "Google Sheets/Docs external write",
+      "statement": "User-controlled request can lead the agent workflow to create provider-hosted documents/spreadsheets.",
+      "qualifications": [
+        "Fixed Google provider destinations."
+      ],
+      "evidence": [
+        "agent.py export workflow",
+        "tools.py Sheets/Docs operations"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "negative_controls": [
+    {
+      "control_id": "fresh-adk-001-n01",
+      "statement": "google_search must not be represented as arbitrary caller-selected network destination authority.",
+      "evidence": [
+        "agent.py binds ADK google_search hosted/provider tool"
+      ]
+    },
+    {
+      "control_id": "fresh-adk-001-n02",
+      "statement": "Service-account credential file usage must not be reported as a literal committed credential unless literal credential material is actually present.",
+      "evidence": [
+        "tools.py uses Credentials.from_service_account_file"
+      ]
+    },
+    {
+      "control_id": "fresh-adk-001-n03",
+      "statement": "Google provider APIs must not be described as unrestricted Internet egress.",
+      "evidence": [
+        "tools.py builds Sheets/Drive/Docs provider clients"
+      ]
+    }
+  ],
+  "coverage_notes": [
+    "The source pack establishes provider export/delete operations and delegation; live IAM effectiveness is not verified."
+  ]
+}
