@@ -4,20 +4,21 @@ from pathlib import Path
 from horustrace.scanner import scan
 
 
-def test_remote_http_without_auth_is_flagged(tmp_path: Path) -> None:
+def test_unbound_remote_http_without_auth_is_inventory_only(tmp_path: Path) -> None:
     config = tmp_path / "mcp.json"
     config.write_text(
         json.dumps({"mcpServers": {"tools": {"url": "http://example.test/mcp"}}}),
         encoding="utf-8",
     )
 
-    _, findings = scan(tmp_path)
-    ids = {f.rule_id for f in findings}
-    assert "AGT030" in ids
-    assert "AGT031" in ids
+    graph, findings = scan(tmp_path)
+    server = next(item for item in graph.unbound_mcp_servers if item.name == "tools")
+    assert server.authenticated is False
+    assert server.metadata["binding_state"] == "unbound"
+    assert not any(f.rule_id in {"AGT030", "AGT031", "AGT032"} for f in findings)
 
 
-def test_unpinned_npx_server_is_flagged(tmp_path: Path) -> None:
+def test_unbound_unpinned_npx_server_is_inventory_only(tmp_path: Path) -> None:
     config = tmp_path / "mcp.json"
     config.write_text(
         json.dumps(
@@ -33,10 +34,13 @@ def test_unpinned_npx_server_is_flagged(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    _, findings = scan(tmp_path)
-    ids = {f.rule_id for f in findings}
-    assert "AGT050" in ids
-    assert "AGT001" in ids
+    graph, findings = scan(tmp_path)
+    server = next(
+        item for item in graph.unbound_mcp_servers if item.name == "filesystem"
+    )
+    assert server.command == "npx"
+    assert server.metadata["binding_state"] == "unbound"
+    assert not any(f.rule_id in {"AGT001", "AGT050"} for f in findings)
 
 
 
@@ -99,9 +103,10 @@ def test_mcp_config_redacts_literal_credentials_and_flags_broad_surface(
     assert "sbp_example_secret" not in " ".join(supabase.args)
     assert "--access-token=<redacted>" in supabase.args
 
-    ids = [finding.rule_id for finding in findings]
-    assert ids.count("AGT051") == 2
-    assert "AGT052" in ids
+    assert not any(
+        finding.rule_id in {"AGT051", "AGT052"}
+        for finding in findings
+    )
 
     serialized_evidence = "\n".join(
         evidence

@@ -42,7 +42,7 @@ root_agent = Agent(name="ops", tools=[ExecuteBashTool(policy=policy)])
     assert "blocked_operators" in finding.evidence[0]
 
 
-def test_mcp_denylist_is_not_treated_as_a_complete_allowlist(tmp_path: Path) -> None:
+def test_unbound_mcp_denylist_remains_inventory_only(tmp_path: Path) -> None:
     write(tmp_path, '''
 {
   "mcpServers": {
@@ -54,9 +54,12 @@ def test_mcp_denylist_is_not_treated_as_a_complete_allowlist(tmp_path: Path) -> 
   }
 }
 ''', "mcp.json")
-    _, findings = scan(tmp_path)
-    finding = next(f for f in findings if f.rule_id == "AGT032")
-    assert "allowed_tools=none" in finding.evidence
+    graph, findings = scan(tmp_path)
+    server = next(item for item in graph.unbound_mcp_servers if item.name == "remote")
+    assert server.denied_tools == ["delete_everything"]
+    assert server.allowed_tools == []
+    assert server.metadata["binding_state"] == "unbound"
+    assert not any(f.rule_id == "AGT032" for f in findings)
 
 
 def test_mcp_allowlist_suppresses_tool_surface_finding(tmp_path: Path) -> None:

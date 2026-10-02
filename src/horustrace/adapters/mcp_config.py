@@ -119,14 +119,17 @@ def _auth_from_config(config: dict[str, Any]) -> tuple[bool | None, list[str]]:
     auth_keys: list[str] = []
     if isinstance(headers, dict):
         normalized = {str(key).lower() for key in headers}
+        standard = {
+            "authorization",
+            "proxy-authorization",
+            "x-api-key",
+            "x-goog-api-key",
+        }
         auth_keys = sorted(
-            normalized
-            & {
-                "authorization",
-                "proxy-authorization",
-                "x-api-key",
-                "x-goog-api-key",
-            }
+            key
+            for key in normalized
+            if key in standard
+            or key.endswith(("api_key", "apikey", "_token", "-token"))
         )
         if auth_keys:
             return True, auth_keys

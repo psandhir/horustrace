@@ -14,7 +14,7 @@ def test_reviewed_benchmark_has_perfect_current_metrics(capsys):
     manifest = REPOSITORY / "benchmarks" / "cases.yaml"
     report = run(manifest)
     assert report["summary"] == {
-        "cases": 31, "passed": 31, "true_positive": 74,
+        "cases": 31, "passed": 31, "true_positive": 75,
         "false_positive": 0, "false_negative": 0,
         "precision": 1.0, "recall": 1.0,
     }
