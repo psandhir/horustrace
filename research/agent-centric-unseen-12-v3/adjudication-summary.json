@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "study": "agent-centric-unseen-12-v3",
+  "scanner_sha": "c2c2a929f25356a8e0c76f66cb55ed76efa6cbc8",
+  "workflow_run": 37067753054,
+  "first_pass": true,
+  "findings": {
+    "total": 43,
+    "materially_supported": 28,
+    "false_positive": 15,
+    "materially_supported_precision": 0.6511627906976745
+  },
+  "attack_paths": {
+    "total": 5,
+    "materially_supported": 5,
+    "qualified": 5,
+    "false_positive": 0
+  },
+  "authority_relationships": 85,
+  "systematic_precision_defects": [
+    "HTTP transport verbs are being promoted to write authority without semantic corroboration.",
+    "Mandatory source-visible authorization gates are not represented as tool guardrails.",
+    "Mutation-like function names can still promote pure computation to persistent data.write."
+  ],
+  "recall_gaps": [
+    "Function-return Agent factories can disappear.",
+    "Function-parameter MCP bindings can lose source-proven authority relationships.",
+    "Post-construction dynamic tool registrars preserve generic relationships but lose concrete semantics.",
+    "Static flow and effective-authority effect semantics can disagree.",
+    "Destination provenance can be lost through constants, f-strings and cross-file helpers."
+  ]
+}
