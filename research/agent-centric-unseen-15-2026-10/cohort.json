@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "study": "agent-centric-unseen-15-2026-10",
+  "status": "frozen_before_horustrace_execution",
+  "locked_at": "2026-10-02",
+  "selection": {
+    "target_repositories": 15,
+    "method": "Public GitHub code discovery by first-class framework signature, exact-SHA freeze after source-only inspection and before any HorusTrace execution. Repositories present in the project's prior frozen, real-world, holdout, blind-semantic, fresh-generalization, or adjudicator-calibration studies were excluded.",
+    "prior_repository_exclusion_count": 215,
+    "horustrace_output_used_for_selection": false,
+    "framework_counts": {
+      "google-adk": 5,
+      "pydantic-ai": 5,
+      "openai-agents": 5
+    },
+    "design": "Balanced source-only selection with both expected positive and negative controls: provider search, local tools, MCP, external SaaS mutation, database access, agent delegation/handoffs, explicit approval patterns, and tool-free/in-process agents."
+  },
+  "cases": [
+    {
+      "case_id": "fresh-adk-001",
+      "repo": "Pratster95/travel-planner-adk-agents",
+      "sha": "ef61d86b175c10f22715ccc998224b1f5cdee630",
+      "framework": "google-adk",
+      "evidence_path": "agent.py",
+      "selection_basis": ["multi-agent", "hosted-search", "provider-export-tools"]
+    },
+    {
+      "case_id": "fresh-adk-002",
+      "repo": "bhancockio/adk-fullstack-deploy-tutorial",
+      "sha": "2068420b59506d2443c4115ccb04087a73ae9761",
+      "framework": "google-adk",
+      "evidence_path": "app/agent.py",
+      "selection_basis": ["planner", "tool-free-control"]
+    },
+    {
+      "case_id": "fresh-adk-003",
+      "repo": "arjunprabhulal/adk-python-mcp-client",
+      "sha": "a77a2345ebfef8fad16d423f3d0df8f8335473a0",
+      "framework": "google-adk",
+      "evidence_path": "client.py",
+      "selection_basis": ["mcp", "stdio", "runner"]
+    },
+    {
+      "case_id": "fresh-adk-004",
+      "repo": "mahtabsyed/21-Agentic-Patterns",
+      "sha": "b59f33f542be9fbb9ee46b2e7309da30922235b1",
+      "framework": "google-adk",
+      "evidence_path": "MCP/agent.py",
+      "selection_basis": ["mcp", "filesystem", "stdio"]
+    },
+    {
+      "case_id": "fresh-adk-005",
+      "repo": "shahriarhasan443/clarix_agent",
+      "sha": "ed8326c05f00d60da6be752ac484d80e54b40f90",
+      "framework": "google-adk",
+      "evidence_path": "agent.py",
+      "selection_basis": ["multi-agent", "AgentTool-delegation"]
+    },
+
+    {
+      "case_id": "fresh-pyd-001",
+      "repo": "aws-samples/sample-serverless-pydantic-agents",
+      "sha": "f930e68f7399e9db4c860bf2c36e7d124c8ee83d",
+      "framework": "pydantic-ai",
+      "evidence_path": "lambda/agent.py",
+      "selection_basis": ["serverless", "dynamodb", "read-write-tools"]
+    },
+    {
+      "case_id": "fresh-pyd-002",
+      "repo": "taonic/temporal-copilot-mcp-agent",
+      "sha": "1ce88c04972ec45fa5ae809a1045a02110647c9f",
+      "framework": "pydantic-ai",
+      "evidence_path": "agent.py",
+      "selection_basis": ["http", "human-approval", "workflow"]
+    },
+    {
+      "case_id": "fresh-pyd-003",
+      "repo": "devdaim6/agentic-db-optimizer",
+      "sha": "5dce539dad5fd368592ba6e20d5c6e92921f5507",
+      "framework": "pydantic-ai",
+      "evidence_path": "src/agent.py",
+      "selection_basis": ["database", "guardrails", "transaction-sandbox"]
+    },
+    {
+      "case_id": "fresh-pyd-004",
+      "repo": "NarrateXAI/NarrateX",
+      "sha": "eaa841c3844b71fe1e6b5665e6ce5a81e2ff8638",
+      "framework": "pydantic-ai",
+      "evidence_path": "narratexai/agent.py",
+      "selection_basis": ["multi-agent-module", "in-process-control"]
+    },
+    {
+      "case_id": "fresh-pyd-005",
+      "repo": "linfordlee14/founder-brief-api",
+      "sha": "b8511a5bd1f61f5c9bd0532fb002808cf53df198",
+      "framework": "pydantic-ai",
+      "evidence_path": "agent.py",
+      "selection_basis": ["web-search", "session-memory", "external-provider"]
+    },
+
+    {
+      "case_id": "fresh-oai-001",
+      "repo": "b3cub3d/mcp-playground",
+      "sha": "ab63cf5bf8034c889cbc282233c2f9aa72751e61",
+      "framework": "openai-agents",
+      "evidence_path": "app_agents.py",
+      "selection_basis": ["function-tools", "web-ingress", "mostly-local-tools"]
+    },
+    {
+      "case_id": "fresh-oai-002",
+      "repo": "neo4j-product-examples/graphrag-kyc-agent",
+      "sha": "e39e35be35496fe75c9eff1655bc11f38eee0886",
+      "framework": "openai-agents",
+      "evidence_path": "kyc_agent.py",
+      "selection_basis": ["neo4j", "mcp", "database-read-write"]
+    },
+    {
+      "case_id": "fresh-oai-003",
+      "repo": "softctwo/patent-agents",
+      "sha": "1b1dd86e7f131b68944ab86747c8695d870f6e40",
+      "framework": "openai-agents",
+      "evidence_path": "main_agent.py",
+      "selection_basis": ["function-tools", "domain-workflow", "search"]
+    },
+    {
+      "case_id": "fresh-oai-004",
+      "repo": "srinath-19/Agent_Craft-Send_Emails",
+      "sha": "987443461c0a28ded50f420cf71f05e419e569d0",
+      "framework": "openai-agents",
+      "evidence_path": "agents_SDR.py",
+      "selection_basis": ["multi-agent-as-tools", "sendgrid", "external-mutation"]
+    },
+    {
+      "case_id": "fresh-oai-005",
+      "repo": "linwangolo/finance-chat-agent",
+      "sha": "c07b30281ec3ba214bcd7249d73d940aba991f6d",
+      "framework": "openai-agents",
+      "evidence_path": "src/agents.py",
+      "selection_basis": ["handoffs", "local-data-tools", "session-memory"]
+    }
+  ]
+}
