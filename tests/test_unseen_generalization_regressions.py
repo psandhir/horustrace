@@ -191,3 +191,179 @@ async def create_draft(ctx: RunContext[None], recipient: str):
         finding.rule_id == "NET002" and finding.agent == "agent"
         for finding in findings
     )
+
+def test_pydantic_async_client_helper_preserves_fixed_destination(
+    tmp_path: Path,
+) -> None:
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    (tools / "__init__.py").write_text("", encoding="utf-8")
+    (tools / "providers.py").write_text(
+        """
+import httpx
+
+async def brave_search(query: str):
+    async with httpx.AsyncClient() as client:
+        return await client.get(
+            "https://api.search.brave.com/res/v1/web/search",
+            params={"q": query},
+        )
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent, RunContext
+from tools.providers import brave_search
+
+agent = Agent("openai:gpt-5.2")
+
+@agent.tool
+async def search_web(ctx: RunContext[None], query: str):
+    return await brave_search(query)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    search = next(tool for tool in agent.tools if tool.name == "search_web")
+
+    assert any(
+        destination.target == "https://api.search.brave.com"
+        and destination.restricted is True
+        and destination.metadata.get("network_scope") == "fixed_provider_network"
+        for destination in search.destinations
+    )
+    assert not any(
+        finding.rule_id == "NET002" and finding.agent == "agent"
+        for finding in findings
+    )
+
+
+def test_pydantic_pure_content_helper_does_not_gain_external_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent, RunContext
+
+email_agent = Agent("openai:gpt-5.2")
+
+@email_agent.tool
+def compose_email_content(
+    ctx: RunContext[None],
+    recipient_email: str,
+    subject: str,
+    body: str,
+):
+    return {
+        "to": recipient_email,
+        "subject": subject,
+        "body": body,
+    }
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "email_agent")
+    tool = next(item for item in agent.tools if item.name == "compose_email_content")
+
+    assert "network.external" not in tool.capabilities
+    assert "external.write" not in tool.capabilities
+    assert not any(
+        finding.rule_id == "AGT040"
+        and finding.agent == "email_agent"
+        and finding.location
+        and finding.location.path.name == "agent.py"
+        for finding in findings
+    )
+
+
+def test_pydantic_agent_run_delegation_inherits_fixed_destination(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import httpx
+from pydantic_ai import Agent, RunContext
+
+email_agent = Agent("openai:gpt-5.2")
+
+@email_agent.tool
+async def create_gmail_draft(ctx: RunContext[None], body: str):
+    return await httpx.post(
+        "https://gmail.googleapis.com/gmail/v1/users/me/drafts",
+        json={"body": body},
+    )
+
+research_agent = Agent("openai:gpt-5.2")
+
+@research_agent.tool
+async def create_email_draft(ctx: RunContext[None], body: str):
+    return await email_agent.run(body)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    research = next(item for item in graph.agents if item.name == "research_agent")
+    wrapper = next(
+        item for item in research.tools if item.name == "create_email_draft"
+    )
+
+    assert "agent.delegate" in wrapper.capabilities
+    assert "network.external" in wrapper.capabilities
+    assert wrapper.metadata["delegated_agent_targets"] == ["email_agent"]
+    assert any(
+        destination.target.startswith("https://gmail.googleapis.com/")
+        for destination in wrapper.destinations
+    )
+    assert not any(
+        finding.rule_id == "NET002" and finding.agent == "research_agent"
+        for finding in findings
+    )
+
+
+def test_adk_urllib_request_wrapper_preserves_fixed_host(tmp_path: Path) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import urllib.parse
+import urllib.request
+from google.adk.agents import Agent
+
+def check_package(name: str):
+    params = urllib.parse.urlencode({"q": name})
+    url = "https://search.maven.org/solrsearch/select?" + params
+    req = urllib.request.Request(url, headers={"User-Agent": "horus-test"})
+    with urllib.request.urlopen(req, timeout=6) as response:
+        return response.read().decode("utf-8")
+
+root_agent = Agent(
+    name="package_checker",
+    model="gemini-2.5-flash",
+    tools=[check_package],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "package_checker")
+    tool = next(item for item in agent.tools if item.name == "check_package")
+
+    assert any(
+        destination.target == "https://search.maven.org"
+        and destination.restricted is True
+        for destination in tool.destinations
+    )
+    assert not any(
+        destination.target == "<dynamic-url>"
+        for destination in tool.destinations
+    )
+    assert not any(
+        finding.rule_id == "NET001" and finding.agent == "package_checker"
+        for finding in findings
+    )
+
