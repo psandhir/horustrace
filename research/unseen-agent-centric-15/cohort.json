@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "study": "unseen-agent-centric-15",
+  "status": "frozen_before_horustrace_execution",
+  "locked_at": "2026-10-02",
+  "scanner_baseline": "post-pr-295",
+  "selection": {
+    "target_repositories": 15,
+    "method": "GitHub source discovery by supported-framework signatures and source-quality/semantic-diversity review. Exact current default-branch SHAs frozen before HorusTrace execution. Repository names were checked against HorusTrace research/code to exclude prior cohorts.",
+    "horustrace_output_used_for_selection": false,
+    "prior_horustrace_presence_checked": true,
+    "framework_counts": {
+      "google-adk": 5,
+      "pydantic-ai": 5,
+      "openai-agents": 5
+    }
+  },
+  "cases": [
+    {
+      "case_id": "u15-adk-001",
+      "repo": "mxyhi/always-on-memory-agent",
+      "sha": "5a92fd6fa34baa2920ac5ec6b1e1ac4def940311",
+      "framework": "google-adk",
+      "evidence_path": "agent.py"
+    },
+    {
+      "case_id": "u15-adk-002",
+      "repo": "moonpy-a11y/agent_payments",
+      "sha": "b08e4bec80ea2f8a3664d670bc6fc52b8a50d1ae",
+      "framework": "google-adk",
+      "evidence_path": "agent.py"
+    },
+    {
+      "case_id": "u15-adk-003",
+      "repo": "vivekcommit/Cloud_Architecture_Review",
+      "sha": "16ac50de750de9d4681a501f936184804a819754",
+      "framework": "google-adk",
+      "evidence_path": "agent.py"
+    },
+    {
+      "case_id": "u15-adk-004",
+      "repo": "Quantum-Cipher/MCP-GCP-governance-protocol",
+      "sha": "ff3864266f752c572393584721d70059955b33c2",
+      "framework": "google-adk",
+      "evidence_path": "agent.py"
+    },
+    {
+      "case_id": "u15-adk-005",
+      "repo": "VeerMuchandi/corporate_analyst",
+      "sha": "224dd5a5684e39fd9e89e84296694965e32beb72",
+      "framework": "google-adk",
+      "evidence_path": "agent.py"
+    },
+    {
+      "case_id": "u15-pyd-001",
+      "repo": "newsbubbles/youtube-manager-mcp",
+      "sha": "b429601aa96fa4497084e43863a288c6353de59e",
+      "framework": "pydantic-ai",
+      "evidence_path": "agent.py"
+    },
+    {
+      "case_id": "u15-pyd-002",
+      "repo": "mindeye33/speedagent",
+      "sha": "cc42c792ffac8e3c6ee7679dd3eff6f2f84d7c59",
+      "framework": "pydantic-ai",
+      "evidence_path": "agent.py"
+    },
+    {
+      "case_id": "u15-pyd-003",
+      "repo": "gtsbahamas/text-moderation",
+      "sha": "decb6d85be0afe5bf08d222b519b33cf15e45064",
+      "framework": "pydantic-ai",
+      "evidence_path": "agent.py"
+    },
+    {
+      "case_id": "u15-pyd-004",
+      "repo": "ArhamMirza/AI-Budget-CSV-Manager",
+      "sha": "44dc9e7df8c007d813d88810ec6e347086527b66",
+      "framework": "pydantic-ai",
+      "evidence_path": "agent.py"
+    },
+    {
+      "case_id": "u15-pyd-005",
+      "repo": "lladdy/progressive-disclosure-ai-assistant",
+      "sha": "6e46f905897f4d89ad7219041505b17e81f2114c",
+      "framework": "pydantic-ai",
+      "evidence_path": "agent.py"
+    },
+    {
+      "case_id": "u15-oai-001",
+      "repo": "blastshielddown/dagster-diagnostic-agent",
+      "sha": "5d2d40b339030123f2e851b0d82b8a1d69bb3fe2",
+      "framework": "openai-agents",
+      "evidence_path": "src/dagster_diagnostic_agent/agent.py"
+    },
+    {
+      "case_id": "u15-oai-002",
+      "repo": "wuyoscar/Internal-Safety-Collapse",
+      "sha": "52b9396cfb46128e51986d8fd7cd674048e7a5ad",
+      "framework": "openai-agents",
+      "evidence_path": "experiment/tvd_agent/agent.py"
+    },
+    {
+      "case_id": "u15-oai-003",
+      "repo": "disler/single-file-agents",
+      "sha": "ae5826a4165c4af2e54501ba99b4d98dda0bb8b3",
+      "framework": "openai-agents",
+      "evidence_path": "sfa_openai_agent_sdk_v1.py"
+    },
+    {
+      "case_id": "u15-oai-004",
+      "repo": "totalhack/zillion",
+      "sha": "d508864b13a942942895936559f538c7f7d246c6",
+      "framework": "openai-agents",
+      "evidence_path": "zillion/agent.py"
+    },
+    {
+      "case_id": "u15-oai-005",
+      "repo": "RonglinC/invest-bot",
+      "sha": "c7f52fa60a5b4da106b57ceb3381208d7017477c",
+      "framework": "openai-agents",
+      "evidence_path": "src/agent.py"
+    }
+  ]
+}
