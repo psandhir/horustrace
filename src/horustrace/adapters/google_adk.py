@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from horustrace.heuristics import infer_capabilities, resource_is_broad
+from horustrace.heuristics import corroborate_name_inferred_authority, infer_capabilities, resource_is_broad
 from horustrace.models import (
     Agent,
     Graph,
@@ -250,7 +250,8 @@ def is_google_adk_file(path: Path) -> bool:
 def _infer_function_capabilities(
     node: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> tuple[set[str], list[NetworkDestination]]:
-    caps = set(infer_capabilities(node.name))
+    name_capabilities = set(infer_capabilities(node.name))
+    caps: set[str] = set()
 
     # Generic "execute" in a function name is not enough to prove process
     # execution (for example execute_sql or Google API .execute()).
@@ -489,6 +490,8 @@ def _infer_function_capabilities(
                 )
             ):
                 caps.add("secrets.read")
+
+    caps, _ = corroborate_name_inferred_authority(name_capabilities, caps)
 
     unique: list[NetworkDestination] = []
     seen: set[tuple[str, bool, str]] = set()
