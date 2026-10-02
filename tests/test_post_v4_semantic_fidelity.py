@@ -20,7 +20,7 @@ from agents import Agent, function_tool
 def create_escalation_summary(text: str) -> str:
     lines = [f"Issue: {text}"]
     lines.append("Escalate if needed")
-    return "\n".join(lines)
+    return "\\n".join(lines)
 
 agent = Agent(name="support", tools=[create_escalation_summary])
 """,
