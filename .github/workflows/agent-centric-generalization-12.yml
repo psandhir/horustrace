@@ -5,12 +5,9 @@ on:
   push:
     branches:
       - research/agent-centric-generalization-12-final
-      - fix/agent-centric-residual-fidelity
     paths:
       - ".github/workflows/agent-centric-generalization-12.yml"
       - "research/agent-centric-generalization-12/**"
-      - "src/horustrace/**"
-      - "tests/**"
 
 permissions:
   contents: read
