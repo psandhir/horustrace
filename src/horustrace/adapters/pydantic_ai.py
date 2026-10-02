@@ -1833,6 +1833,7 @@ def scan_python_file(path: Path) -> Graph:
     sequences: dict[str, list[ast.AST]] = {}
     imports: dict[str, str] = {}
     agent_calls: dict[str, ast.Call] = {}
+    factory_agent_aliases: set[str] = set()
     declared_mcp_servers: dict[str, MCPServer] = {}
 
     for node in ast.walk(tree):
@@ -1861,6 +1862,45 @@ def scan_python_file(path: Path) -> Graph:
                     and _call_name(node.value.func) == "Agent"
                 ):
                     agent_calls[target] = node.value
+
+    # Normalize direct factory returns such as
+    # `def create_agent(...): return Agent(...)`. The source proves an Agent
+    # construction even when no module-level variable is assigned.
+    class _FactoryReturnVisitor(ast.NodeVisitor):
+        def __init__(
+            self,
+            root: ast.FunctionDef | ast.AsyncFunctionDef,
+        ) -> None:
+            self.root = root
+            self.calls: list[ast.Call] = []
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            if node is self.root:
+                self.generic_visit(node)
+
+        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+            if node is self.root:
+                self.generic_visit(node)
+
+        def visit_Lambda(self, node: ast.Lambda) -> None:
+            return
+
+        def visit_Return(self, node: ast.Return) -> None:
+            value = node.value
+            if isinstance(value, ast.Call) and _call_name(value.func) == "Agent":
+                self.calls.append(value)
+            self.generic_visit(node)
+
+    for function in functions.values():
+        visitor = _FactoryReturnVisitor(function)
+        visitor.visit(function)
+        if len(visitor.calls) != 1:
+            continue
+        alias = function.name
+        if alias in agent_calls:
+            continue
+        agent_calls[alias] = visitor.calls[0]
+        factory_agent_aliases.add(alias)
 
     decorated_toolsets: dict[str, list[Tool]] = {}
     added_toolsets: dict[str, list[Tool]] = {}
@@ -1932,6 +1972,15 @@ def scan_python_file(path: Path) -> Graph:
                 "agent_type": "Agent",
                 "model": model if isinstance(model, str) else None,
                 "instance_key": f"{path.resolve()}:{call.lineno}:{alias}",
+                **(
+                    {
+                        "factory_function": alias,
+                        "factory_return": True,
+                        "binding_origin": "direct_factory_return",
+                    }
+                    if alias in factory_agent_aliases
+                    else {}
+                ),
             },
         )
 
