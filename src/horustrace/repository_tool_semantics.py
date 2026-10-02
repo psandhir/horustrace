@@ -358,6 +358,36 @@ def _source_network_semantics(
             for name in _target_names(target):
                 fixed_origins[name] = origin
 
+    http_clients: set[str] = set()
+    for child in ast.walk(function):
+        if isinstance(child, (ast.With, ast.AsyncWith)):
+            for item in child.items:
+                if not isinstance(item.context_expr, ast.Call):
+                    continue
+                called = (_dotted_name(item.context_expr.func) or "").lower()
+                if called in {
+                    "httpx.client",
+                    "httpx.asyncclient",
+                    "requests.session",
+                    "aiohttp.clientsession",
+                } and isinstance(item.optional_vars, ast.Name):
+                    http_clients.add(item.optional_vars.id)
+        elif (
+            isinstance(child, (ast.Assign, ast.AnnAssign))
+            and isinstance(child.value, ast.Call)
+        ):
+            called = (_dotted_name(child.value.func) or "").lower()
+            if called not in {
+                "httpx.client",
+                "httpx.asyncclient",
+                "requests.session",
+                "aiohttp.clientsession",
+            }:
+                continue
+            targets = child.targets if isinstance(child, ast.Assign) else [child.target]
+            for target in targets:
+                http_clients.update(_target_names(target))
+
     observed_origins: set[str] = set()
     caller_selected_http = False
     for child in ast.walk(function):
@@ -365,6 +395,12 @@ def _source_network_semantics(
             continue
         called = (_dotted_name(child.func) or "").lower()
         leaf = _call_leaf(child) or ""
+        receiver = (
+            _dotted_name(child.func.value)
+            if isinstance(child.func, ast.Attribute)
+            else None
+        )
+        receiver_root = (receiver or "").split(".", 1)[0]
         is_http = (
             called in {
                 "requests.get",
@@ -378,15 +414,28 @@ def _source_network_semantics(
                 "httpx.patch",
                 "httpx.delete",
             }
-            or leaf in {"get", "post", "put", "patch", "delete", "request"}
-            and any(token in called for token in ("requests", "httpx", "aiohttp"))
+            or (
+                receiver_root in http_clients
+                and leaf in {"get", "post", "put", "patch", "delete", "request", "head"}
+            )
+            or (
+                leaf in {"get", "post", "put", "patch", "delete", "request"}
+                and any(token in called for token in ("requests", "httpx", "aiohttp"))
+            )
         )
         if not is_http:
             continue
-        target = child.args[0] if child.args else next(
-            (keyword.value for keyword in child.keywords if keyword.arg in {"url", "uri"}),
-            None,
-        )
+        if leaf == "request" and len(child.args) > 1:
+            target = child.args[1]
+        else:
+            target = child.args[0] if child.args else next(
+                (
+                    keyword.value
+                    for keyword in child.keywords
+                    if keyword.arg in {"url", "uri"}
+                ),
+                None,
+            )
         if target is None:
             continue
         if isinstance(target, ast.Name) and target.id in fixed_origins:
