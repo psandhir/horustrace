@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "study": "agent-centric-unseen-12-v2",
+  "status": "frozen_before_horustrace_execution",
+  "locked_at": "2026-10-02",
+  "scanner_baseline": "f18465fffbcac9c96457a2ef6b1fd5f26fd45857",
+  "selection": {
+    "target_repositories": 12,
+    "method": "Live GitHub source search for active Python implementations of Google ADK, Pydantic AI, and OpenAI Agents. Exclude every repository present in prior HorusTrace research cohorts (232 unique repositories). Source-screen framework use and security-relevant composition before any HorusTrace execution; freeze exact search-result commit SHAs; select four repositories per framework for diversity of delegation, tools, MCP, network/write authority, and one precision-oriented negative control.",
+    "horustrace_output_used_for_selection": false,
+    "prior_repo_exclusion_count": 232,
+    "framework_counts": {
+      "google-adk": 4,
+      "pydantic-ai": 4,
+      "openai-agents": 4
+    }
+  },
+  "cases": [
+    {
+      "case_id": "unseen2-adk-001",
+      "repo": "ntg2208/production-ai-customer-support",
+      "sha": "f2012935c245ad849dc57c6821a06e87d742c496",
+      "framework": "google-adk",
+      "evidence_path": "agent.py",
+      "selection_signal": "multi-agent delegation with ticket/database tools"
+    },
+    {
+      "case_id": "unseen2-adk-002",
+      "repo": "wkw8402/crack-insurance-agent",
+      "sha": "017a396ec13d1d8523a43f3eaf24029cbeb4299b",
+      "framework": "google-adk",
+      "evidence_path": "agent/agent.py",
+      "selection_signal": "remote Toolbox customer-data toolset"
+    },
+    {
+      "case_id": "unseen2-adk-003",
+      "repo": "Lormyn/aml-agent-adk",
+      "sha": "8cdea3457401c39f1c6ec01abda18eb853c3dc6e",
+      "framework": "google-adk",
+      "evidence_path": "agent/agent.py",
+      "selection_signal": "MCP/PDF/integration tools plus sub-agent"
+    },
+    {
+      "case_id": "unseen2-adk-004",
+      "repo": "gca-americas/dinoquest-ci-agent",
+      "sha": "5c0c64bbe0b3426f0c2ddee61b6bfc163e976728",
+      "framework": "google-adk",
+      "evidence_path": "agent.py",
+      "selection_signal": "GitHub read/write tools and AgentTool delegation"
+    },
+    {
+      "case_id": "unseen2-pyd-001",
+      "repo": "pamelafox/github-repo-maintainer-agent",
+      "sha": "cfee0f7331d2d4c47d818c6cfffc4c1d0f5eb08b",
+      "framework": "pydantic-ai",
+      "evidence_path": "llm_client.py",
+      "selection_signal": "precision negative control: Pydantic agent with application-side GitHub workflow handling but no source-visible callable external tool"
+    },
+    {
+      "case_id": "unseen2-pyd-002",
+      "repo": "BenedatLLC/agent-with-mcp-example",
+      "sha": "126076d5894d35f244b18f647368a80673e0a5c1",
+      "framework": "pydantic-ai",
+      "evidence_path": "agent.py",
+      "selection_signal": "model-callable HTTP MCP server with configurable endpoint"
+    },
+    {
+      "case_id": "unseen2-pyd-003",
+      "repo": "burningion/pydantic-video-editing-agent",
+      "sha": "e7ce7cb7cdf50d1ba80790e32e7c16a42706c379",
+      "framework": "pydantic-ai",
+      "evidence_path": "search.py",
+      "selection_signal": "stdio MCP video-editor execution boundary"
+    },
+    {
+      "case_id": "unseen2-pyd-004",
+      "repo": "dollro/spektr",
+      "sha": "8ce277ff68a333b2f6a7ebba691af14ec4394576",
+      "framework": "pydantic-ai",
+      "evidence_path": "agent/agent.py",
+      "selection_signal": "authenticated remote MCP with configurable transport/endpoint"
+    },
+    {
+      "case_id": "unseen2-oai-001",
+      "repo": "CodingWithLewis/ReceiptPrinterAgent",
+      "sha": "1d4c5313c91b45758ebbdb930d422460f9c66bd9",
+      "framework": "openai-agents",
+      "evidence_path": "agent.py",
+      "selection_signal": "dynamic Arcade Gmail toolset"
+    },
+    {
+      "case_id": "unseen2-oai-002",
+      "repo": "box-community/box-openai-responses-ai-agent",
+      "sha": "be253fdd88d54b7426fd9d0b5e5d23af85f159aa",
+      "framework": "openai-agents",
+      "evidence_path": "main.py",
+      "selection_signal": "Box SaaS tools plus provider WebSearchTool"
+    },
+    {
+      "case_id": "unseen2-oai-003",
+      "repo": "openknowledge/hateoas-agent",
+      "sha": "e5b1dd31c5db8b902316c763285ca33a61b68d88",
+      "framework": "openai-agents",
+      "evidence_path": "agent.py",
+      "selection_signal": "model-selected arbitrary HTTP GET/POST/PUT/DELETE tools"
+    },
+    {
+      "case_id": "unseen2-oai-004",
+      "repo": "ServiceNow/StarShell",
+      "sha": "c54ec900647bdf56130f8fd3a57d5e979c52b576",
+      "framework": "openai-agents",
+      "evidence_path": "app.py",
+      "selection_signal": "shell execution and MCP modes with browser/API integration"
+    }
+  ]
+}
