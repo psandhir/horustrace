@@ -12,23 +12,20 @@ def _write_bound_fixture(root: Path) -> None:
     (root / "agent.py").write_text(
         """
 import os
-from langchain_mcp_adapters.client import MultiServerMCPClient
-from langgraph.prebuilt import create_react_agent
+from agents import Agent
+from agents.mcp import MCPServerStreamableHttp, create_static_tool_filter
 
-client = MultiServerMCPClient({
-    "slack": {
+slack = MCPServerStreamableHttp(
+    params={
         "url": "https://mcp.example.test/mcp",
-        "transport": "streamable_http",
         "headers": {"Authorization": f"Bearer {os.getenv('MCP_TOKEN')}"},
-        "allowed_tools": ["search_messages", "read_thread"],
-        "denied_tools": ["send_message"],
-    }
-})
-
-async def build():
-    tools = await client.get_tools()
-    agent = create_react_agent("openai:gpt-4o", tools=tools)
-    return agent
+    },
+    tool_filter=create_static_tool_filter(
+        allowed_tool_names=["search_messages", "read_thread"],
+        blocked_tool_names=["send_message"],
+    ),
+)
+agent = Agent(name="agent", mcp_servers=[slack])
 """,
         encoding="utf-8",
     )
@@ -62,7 +59,7 @@ def test_effective_mcp_authority_exposes_agent_identity_filter_and_destination(
     assert authority["server"] == "slack"
     assert authority["binding"] == {
         "status": "bound",
-        "origin": "mcp_client_get_tools",
+        "origin": "framework_agent_configuration",
     }
     assert authority["tools"] == {
         "scope": "explicit_allowlist",
@@ -91,20 +88,13 @@ def test_effective_mcp_authority_preserves_unknown_tool_catalogue(
 ) -> None:
     (tmp_path / "agent.py").write_text(
         """
-from langchain_mcp_adapters.client import MultiServerMCPClient
-from langgraph.prebuilt import create_react_agent
+from agents import Agent
+from agents.mcp import MCPServerStreamableHttp
 
-client = MultiServerMCPClient({
-    "weather": {
-        "url": "https://weather.example.test/mcp",
-        "transport": "streamable_http",
-    }
-})
-
-async def build():
-    tools = await client.get_tools()
-    agent = create_react_agent("openai:gpt-4o", tools=tools)
-    return agent
+weather = MCPServerStreamableHttp(
+    params={"url": "https://weather.example.test/mcp"}
+)
+agent = Agent(name="agent", mcp_servers=[weather])
 """,
         encoding="utf-8",
     )
@@ -122,16 +112,13 @@ async def build():
 def test_effective_mcp_authority_reports_unbound_server(tmp_path: Path) -> None:
     (tmp_path / "agent.py").write_text(
         """
-from langchain_mcp_adapters.client import MultiServerMCPClient
-from langgraph.prebuilt import create_react_agent
+from agents import Agent
+from agents.mcp import MCPServerStreamableHttp
 
-client = MultiServerMCPClient({
-    "weather": {
-        "url": "https://weather.example.test/mcp",
-        "transport": "streamable_http",
-    }
-})
-agent = create_react_agent("openai:gpt-4o", tools=[])
+weather = MCPServerStreamableHttp(
+    params={"url": "https://weather.example.test/mcp"}
+)
+agent = Agent(name="agent")
 """,
         encoding="utf-8",
     )
