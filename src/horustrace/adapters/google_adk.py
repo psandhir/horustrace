@@ -382,7 +382,7 @@ def _infer_function_capabilities(
                 "requests.",
                 "httpx.",
                 "aiohttp",
-                "urllib",
+                "urllib.request",
                 "session.get",
                 "session.post",
                 "session.put",
