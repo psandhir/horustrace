@@ -1,0 +1,123 @@
+{
+  "case_id": "fresh-pyd-001",
+  "repo": "aws-samples/sample-serverless-pydantic-agents",
+  "sha": "f930e68f7399e9db4c860bf2c36e7d124c8ee83d",
+  "framework": "pydantic-ai",
+  "review_status": "blind_source_review_complete",
+  "horustrace_output_seen": false,
+  "evaluator": {
+    "kind": "llm",
+    "model": "GPT-5.6 Sol",
+    "ground_truth": false
+  },
+  "effective_agents": [
+    {
+      "name": "agent",
+      "binding": "Pydantic AI agent with three source-bound tools",
+      "source_context": "runtime",
+      "evidence": [
+        "lambda/agent.py: @agent.tool definitions"
+      ]
+    }
+  ],
+  "expected_claims": [
+    {
+      "claim_id": "fresh-pyd-001-c01",
+      "category": "capability",
+      "agent": "agent",
+      "statement": "The agent can read per-user conversation/history records from the configured DynamoDB table.",
+      "severity": "medium",
+      "qualifications": [
+        "AWS service destination is provider-managed; table name comes from runtime dependencies."
+      ],
+      "evidence": [
+        "lambda/agent.py: get_user_history -> boto3 DynamoDB table.query"
+      ],
+      "confidence": "high"
+    },
+    {
+      "claim_id": "fresh-pyd-001-c02",
+      "category": "capability",
+      "agent": "agent",
+      "statement": "The agent can write result data to the configured DynamoDB table without a source-visible per-call approval requirement.",
+      "severity": "medium",
+      "qualifications": [
+        "Write is scoped to the runtime-configured table and agent dependency identity."
+      ],
+      "evidence": [
+        "lambda/agent.py: store_result -> table.put_item"
+      ],
+      "confidence": "high"
+    },
+    {
+      "claim_id": "fresh-pyd-001-c03",
+      "category": "identity",
+      "agent": "agent",
+      "statement": "Deployment source grants the Lambda backing the agent read/write data access to the DynamoDB results table.",
+      "severity": "medium",
+      "qualifications": [
+        "This is declared deployment authority, not live-cloud verification."
+      ],
+      "evidence": [
+        "CDK/deployment source: results_table.grant_read_write_data(agent_function)"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "expected_paths": [
+    {
+      "path_id": "fresh-pyd-001-p01",
+      "agent": "agent",
+      "source": "model-selected user/history lookup",
+      "sink": "DynamoDB query",
+      "statement": "A model tool call can reach DynamoDB data reads in the configured table.",
+      "qualifications": [
+        "Provider-managed destination and runtime-selected table from deps."
+      ],
+      "evidence": [
+        "lambda/agent.py get_user_history"
+      ],
+      "confidence": "high"
+    },
+    {
+      "path_id": "fresh-pyd-001-p02",
+      "agent": "agent",
+      "source": "model-selected result payload",
+      "sink": "DynamoDB put_item",
+      "statement": "A model tool call can persist result data to DynamoDB.",
+      "qualifications": [
+        "Scoped to configured table."
+      ],
+      "evidence": [
+        "lambda/agent.py store_result"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "negative_controls": [
+    {
+      "control_id": "fresh-pyd-001-n01",
+      "statement": "get_order_status must not be represented as external database/network authority because the reviewed implementation reads a local mock dictionary.",
+      "evidence": [
+        "lambda/agent.py get_order_status"
+      ]
+    },
+    {
+      "control_id": "fresh-pyd-001-n02",
+      "statement": "SQS/Lambda orchestration outside bound tools must not automatically become model-callable authority.",
+      "evidence": [
+        "lambda/agent.py orchestration helpers are not @agent.tool bindings"
+      ]
+    },
+    {
+      "control_id": "fresh-pyd-001-n03",
+      "statement": "DynamoDB access must not be described as arbitrary Internet egress.",
+      "evidence": [
+        "boto3 DynamoDB provider client"
+      ]
+    }
+  ],
+  "coverage_notes": [
+    "Deployment IAM is declared source evidence only; live IAM state is unverified."
+  ]
+}
