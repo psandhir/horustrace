@@ -16,6 +16,35 @@ CAPABILITY_PATTERNS: list[tuple[re.Pattern[str], set[str]]] = [
 ]
 
 
+NAME_HINT_PRIVILEGED_CAPABILITIES = {
+    "process.execute",
+    "destructive.write",
+    "external.write",
+    "data.write",
+    "secrets.read",
+    "identity.admin",
+}
+
+
+def corroborate_name_inferred_authority(
+    name_capabilities: set[str],
+    body_capabilities: set[str],
+) -> tuple[set[str], set[str]]:
+    """Keep privileged name hints only when source-visible body semantics corroborate them.
+
+    Names remain useful discovery hints, but a name such as send_email or
+    create_summary is not proof that the function performs a persistent or
+    external effect. Calls made by the function body can corroborate the same
+    capability through known API names or sinks.
+    """
+    unsupported = (
+        name_capabilities
+        & NAME_HINT_PRIVILEGED_CAPABILITIES
+        - body_capabilities
+    )
+    return (name_capabilities | body_capabilities) - unsupported, unsupported
+
+
 PRIVILEGED_CAPABILITIES = {
     "process.execute",
     "destructive.write",
