@@ -248,11 +248,14 @@ def _direct_effect(
             None,
         )
         target = _literal(target_expr)
-        if isinstance(target, str) and target.startswith(("http://", "https://")):
-            if urlparse(target).hostname:
-                result.destinations.append(
-                    _fixed_destination(info.path, target_expr or call, target, "literal_url")
-                )
+        if (
+            isinstance(target, str)
+            and target.startswith(("http://", "https://"))
+            and urlparse(target).hostname
+        ):
+            result.destinations.append(
+                _fixed_destination(info.path, target_expr or call, target, "literal_url")
+            )
 
     if leaf == "open" or dotted.endswith(".open"):
         mode = _literal(call.args[1]) if len(call.args) > 1 else next(
@@ -267,10 +270,11 @@ def _direct_effect(
             result.evidence.add("file:read")
 
     # Concrete persistence APIs.
-    if leaf in {"add", "add_all", "commit", "flush", "merge", "bulk_save_objects"}:
-        if "session" in dotted or "db" in dotted:
-            result.capabilities.add("data.write")
-            result.evidence.add(f"database:{dotted}")
+    if leaf in {"add", "add_all", "commit", "flush", "merge", "bulk_save_objects"} and (
+        "session" in dotted or "db" in dotted
+    ):
+        result.capabilities.add("data.write")
+        result.evidence.add(f"database:{dotted}")
     if leaf in {"delete", "remove"} and ("session" in dotted or "db" in dotted):
         result.capabilities.update({"data.write", "destructive.write"})
         result.evidence.add(f"database:{dotted}")
