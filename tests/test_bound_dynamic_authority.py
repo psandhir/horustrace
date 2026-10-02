@@ -99,4 +99,4 @@ async def call_agent(query: str, mcp_server: str):
         and item.target_name == "server"
     )
     assert relationship.dimensions["target"] == "resolved"
-    assert "tool_scope" in relationship.unresolved
+    assert "tool_catalogue" in relationship.unresolved
