@@ -231,7 +231,10 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
         if not isinstance(child, ast.Call):
             continue
         dotted = (_dotted(child.func) or _call_name(child.func) or "").lower()
-        leaf = (_call_name(child.func) or "").lower()
+        leaf = (
+            _call_name(child.func)
+            or (dotted.rsplit(".", 1)[-1] if dotted else "")
+        ).lower()
         if (
             dotted in {"exec", "eval", "compile", "builtins.exec", "builtins.eval", "builtins.compile"}
             or dotted in {"os.system", "os.popen"}
