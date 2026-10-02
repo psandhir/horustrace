@@ -58,11 +58,12 @@ def test_pydantic_mandatory_authorization_gate_counts_as_control(
 from pydantic_ai import Agent, RunContext
 
 agent = Agent("openai:gpt-4o")
+database = object()
 
 @agent.tool
 async def update_graph(ctx: RunContext[object], node_id: str, value: str) -> str:
     await ctx.deps.gate.arequire("graph:update", node_id)
-    ctx.deps.graph.update(node_id, value)
+    database.update(node_id, value)
     return "updated"
 """,
         encoding="utf-8",
