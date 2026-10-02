@@ -16,7 +16,7 @@ security layers:
 4. **Data & network reachability** — sensitive resources, resource scope, outbound destinations and allowlist violations.
 5. **Attack-path analysis** — potential risk combinations such as untrusted content → delegated agent → shell, or confidential data → agent → external write.
 
-> Status: **v0.9.0**. Cross-framework semantic discovery now has substantially broader LangGraph, MCP/custom and explicit MCP-server coverage while preserving unresolved state when static evidence is insufficient. Effective-authority relationships, policy assessments and deployed-authority reconciliation remain static evidence; HorusTrace does not prove runtime exploitability or silently infer complete live cloud authority.
+> Status: **v0.9.0**. HorusTrace is currently scoped around agent-centric security analysis, with first-class focus on Google ADK, Pydantic AI and OpenAI Agents SDK. Framework-neutral MCP/tool inventory remains available, but effective authority requires a supported or otherwise source-proven agent binding. Effective-authority relationships, policy assessments and deployed-authority reconciliation remain static evidence; HorusTrace does not prove runtime exploitability or silently infer complete live cloud authority.
 
 Release notes: [`docs/releases/v0.9.0.md`](docs/releases/v0.9.0.md)  
 Frozen-180 v0.9 validation closeout: [`docs/research/v0.9-recall-foundation-closeout.md`](docs/research/v0.9-recall-foundation-closeout.md)
@@ -127,7 +127,7 @@ for aligned and expanded examples.
 - OpenAI Agents SDK Python constructs, including v0.4 handoff normalization.
 - **Pydantic AI / Pydantic AI Harness — first-class static adapter** for agents, tools, toolsets, approvals, MCP and security-relevant capabilities.
 - **FastAgent — first-class static Python adapter** for decorator-defined agents, workflows, explicit function tools, shell authority and delegation.
-- LangGraph `StateGraph` / `MessageGraph` normalization, including hardened real-world graph discovery.
+- **LangGraph is currently out of scope for security normalization.** LangGraph workflows are not promoted into agent principals, effective authority, or policy findings.
 - Common MCP JSON configuration (`mcp.json`, `.mcp.json`).
 - Framework-neutral `horustrace.manifest.yaml` for business/security intent.
 - Terraform (`.tf`) for an initial GCP/Azure/AWS IAM view.
