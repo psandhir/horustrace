@@ -414,3 +414,67 @@ root_agent = Agent(
         for finding in findings
     )
 
+def test_adk_imported_tool_local_helpers_preserve_fixed_hosts(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "tools.py").write_text(
+        """
+import json
+import urllib.parse
+import urllib.request
+
+def _check_pypi(name: str):
+    with urllib.request.urlopen(
+        f"https://pypi.org/pypi/{name}/json",
+        timeout=6,
+    ) as response:
+        return json.load(response)
+
+def _check_maven(name: str):
+    query = urllib.parse.urlencode({"q": name})
+    url = "https://search.maven.org/solrsearch/select?" + query
+    req = urllib.request.Request(url, headers={"User-Agent": "horus-test"})
+    with urllib.request.urlopen(req, timeout=6) as response:
+        return json.load(response)
+
+def check_package(name: str, ecosystem: str = "auto"):
+    if ecosystem == "maven":
+        return _check_maven(name)
+    return _check_pypi(name)
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from google.adk.agents import Agent
+from tools import check_package
+
+root_agent = Agent(
+    name="package_checker",
+    model="gemini-2.5-flash",
+    tools=[check_package],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "package_checker")
+    tool = next(item for item in agent.tools if item.name == "check_package")
+
+    fixed = {
+        destination.target
+        for destination in tool.destinations
+        if destination.restricted is True
+    }
+    assert "https://pypi.org" in fixed
+    assert "https://search.maven.org" in fixed
+    assert not any(
+        destination.target == "<dynamic-url>"
+        for destination in tool.destinations
+    )
+    assert not any(
+        finding.rule_id == "NET001" and finding.agent == "package_checker"
+        for finding in findings
+    )
+
