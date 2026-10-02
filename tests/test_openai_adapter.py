@@ -382,12 +382,20 @@ agent = Agent(
     by_name = {tool.name: tool for tool in agent.tools}
 
     assert "destructive.write" in by_name["clear_history"].capabilities
-    assert {"data.write", "external.write", "network.external"} <= (
-        by_name["schedule_a_push_notification"].capabilities
+    assert not (
+        {"data.write", "external.write", "network.external"}
+        & by_name["schedule_a_push_notification"].capabilities
     )
-    assert {"destructive.write", "external.write", "network.external"} <= (
-        by_name["unsubscribe_from_push_notification"].capabilities
+    assert "destructive.write" in by_name["unsubscribe_from_push_notification"].capabilities
+    assert not (
+        {"external.write", "network.external"}
+        & by_name["unsubscribe_from_push_notification"].capabilities
     )
+    assert set(
+        by_name["schedule_a_push_notification"].metadata[
+            "suppressed_name_only_capabilities"
+        ]
+    ) >= {"data.write", "external.write", "network.external"}
     assert any(
         finding.rule_id == "AGT021"
         and finding.agent == "Operations"
