@@ -518,6 +518,38 @@ def _resolve_call(expr: ast.AST | None, calls: dict[str, ast.Call]) -> ast.Call 
     return None
 
 
+def _dynamic_tool_collection(
+    path: Path,
+    expr: ast.AST | None,
+    calls: dict[str, ast.Call],
+) -> Tool | None:
+    """Preserve source-bound runtime tool collections without inventing members."""
+    if not isinstance(expr, ast.Name):
+        return None
+    source_call = calls.get(expr.id)
+    if source_call is None:
+        return None
+    called = _dotted_name(source_call.func) or _call_name(source_call.func) or ""
+    leaf = (_call_name(source_call.func) or "").lower()
+    if "tool" not in leaf and "tool" not in called.lower():
+        return None
+    catalogue = _string(source_call.args[0]) if source_call.args else None
+    return Tool(
+        name=expr.id,
+        kind="dynamic_tool_collection",
+        capabilities=set(),
+        location=_location(path, source_call),
+        metadata={
+            "framework": "google-adk",
+            "binding_origin": "source_bound_dynamic_tool_collection",
+            "dynamic_bound_collection": True,
+            "catalogue_source": called,
+            "catalogue_name": catalogue,
+            "tool_scope_unresolved": True,
+        },
+    )
+
+
 def _tool_filter(call: ast.Call) -> tuple[list[str], bool]:
     node = _kw(call, "tool_filter")
     values = _list_strings(node)
@@ -1107,7 +1139,14 @@ def _agent_from_call(
         agent.tools.append(remote_tool)
         return agent
 
-    for element in _resolve_sequence(_kw(call, "tools"), sequences):
+    tools_expr = _kw(call, "tools")
+    dynamic_collection = _dynamic_tool_collection(path, tools_expr, calls)
+    if dynamic_collection is not None and isinstance(tools_expr, ast.Name) and tools_expr.id not in sequences:
+        agent.tools.append(dynamic_collection)
+        agent.metadata["dynamic_tools"] = True
+        agent.metadata["dynamic_tools_source_bound"] = True
+
+    for element in _resolve_sequence(tools_expr, sequences):
         if isinstance(element, ast.Name):
             if element.id in mcp_servers:
                 agent.mcp_servers.append(mcp_servers[element.id])
