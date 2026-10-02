@@ -358,9 +358,6 @@ def _source_network_semantics(
             for name in _target_names(target):
                 fixed_origins[name] = origin
 
-    if not fixed_origins:
-        return [], {}
-
     observed_origins: set[str] = set()
     caller_selected_http = False
     for child in ast.walk(function):
