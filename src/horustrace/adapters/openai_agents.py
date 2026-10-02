@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from horustrace.heuristics import infer_capabilities
+from horustrace.heuristics import corroborate_name_inferred_authority, infer_capabilities
 from horustrace.models import (
     Agent,
     Graph,
@@ -690,33 +690,25 @@ def _decorated_tool_capabilities(
     """Require source effects before promoting local helpers to privileged authority."""
     name_capabilities = set(infer_capabilities(node.name))
     body_capabilities = _body_call_capabilities(node)
-    capabilities = set(name_capabilities)
+    capabilities, suppressed = corroborate_name_inferred_authority(
+        name_capabilities,
+        body_capabilities,
+    )
+    inference_basis: str | None = (
+        "body_effect_corroboration" if suppressed else None
+    )
 
     first_token = node.name.lower().replace("-", "_").split("_", 1)[0]
-    suppressed: set[str] = set()
-    inference_basis: str | None = None
-
-    # Ambiguous generic mutation verbs are discovery hints only.
-    # Strong semantic verbs such as delete/clear/unsubscribe retain their
-    # existing name semantics; add/set/update require body corroboration
-    # because they are also common pure-computation helpers.
-    if first_token in {"add", "set", "update"}:
-        name_only_writes = (
-            name_capabilities
-            & {"data.write", "destructive.write", "external.write"}
-            - body_capabilities
-        )
-        if name_only_writes:
-            suppressed.update(name_only_writes)
-            inference_basis = "body_effect_corroboration"
-
     if first_token in _CONTROL_HELPER_PREFIXES:
-        suppressed.update(
+        control_suppressed = (
             name_capabilities
             & _CONTROL_NAME_SENSITIVE_CAPABILITIES
             - body_capabilities
         )
-        inference_basis = "control_helper_body_corroboration"
+        suppressed.update(control_suppressed)
+        capabilities.difference_update(control_suppressed)
+        if control_suppressed:
+            inference_basis = "control_helper_body_corroboration"
 
     context_only = _context_only_mutation(node, body_capabilities)
     if context_only:
