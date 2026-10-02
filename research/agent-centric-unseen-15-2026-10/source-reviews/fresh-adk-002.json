@@ -1,0 +1,51 @@
+{
+  "case_id": "fresh-adk-002",
+  "repo": "bhancockio/adk-fullstack-deploy-tutorial",
+  "sha": "2068420b59506d2443c4115ccb04087a73ae9761",
+  "framework": "google-adk",
+  "review_status": "blind_source_review_complete",
+  "horustrace_output_seen": false,
+  "evaluator": {
+    "kind": "llm",
+    "model": "GPT-5.6 Sol",
+    "ground_truth": false
+  },
+  "effective_agents": [
+    {
+      "name": "root_agent",
+      "binding": "ADK LlmAgent with BuiltInPlanner and no source-bound tools",
+      "source_context": "runtime",
+      "evidence": [
+        "app/agent.py: root_agent definition"
+      ]
+    }
+  ],
+  "expected_claims": [],
+  "expected_paths": [],
+  "negative_controls": [
+    {
+      "control_id": "fresh-adk-002-n01",
+      "statement": "BuiltInPlanner alone must not imply filesystem, process, network, or external-write authority.",
+      "evidence": [
+        "app/agent.py: planner configuration; no tools"
+      ]
+    },
+    {
+      "control_id": "fresh-adk-002-n02",
+      "statement": "Deployment/UI repository code must not be attributed as model-callable authority without a source binding to the agent.",
+      "evidence": [
+        "app/agent.py has no such tool binding"
+      ]
+    },
+    {
+      "control_id": "fresh-adk-002-n03",
+      "statement": "A tool-control/approval finding must not be emitted merely because an agent exists when it exposes no privileged tools.",
+      "evidence": [
+        "app/agent.py: tool-free agent"
+      ]
+    }
+  ],
+  "coverage_notes": [
+    "Negative-control case for topology/planner-only agents."
+  ]
+}
