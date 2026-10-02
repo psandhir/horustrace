@@ -1299,6 +1299,24 @@ def scan_python_file(path: Path) -> Graph:
                 if source_name in mcp_servers:
                     agent.mcp_servers.append(mcp_servers[source_name])
                     continue
+                if element.id in parameter_names or source_name in parameter_names:
+                    agent.mcp_servers.append(
+                        MCPServer(
+                            name=element.id,
+                            transport="unknown",
+                            authenticated=None,
+                            location=_location(path, element),
+                            metadata={
+                                "framework": "openai-agents",
+                                "binding_origin": "function_parameter",
+                                "source_bound_parameter": True,
+                                "transport_unresolved": True,
+                                "tool_catalogue_unresolved": True,
+                            },
+                        )
+                    )
+                    agent.metadata["parameter_bound_mcp"] = True
+                    continue
                 if source_name in imports:
                     agent.mcp_servers.append(
                         MCPServer(
