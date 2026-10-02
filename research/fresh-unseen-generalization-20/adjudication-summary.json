@@ -1,0 +1,210 @@
+{
+  "schema_version": 1,
+  "study": "fresh-unseen-generalization-20",
+  "adjudication_id": "chatgpt-source-adjudication-v1",
+  "evaluator": {
+    "kind": "llm",
+    "model": "GPT-5.6 Sol",
+    "independent_human": false,
+    "horustrace_output_seen": true,
+    "blind_source_review": false,
+    "ground_truth": false,
+    "second_independent_judge": false
+  },
+  "source_workflow_run": 36992647206,
+  "scanner_commit": "fb8e93e8b4bf499720bd4d9737dfc0979479e210",
+  "findings": {
+    "total": 82,
+    "true_positive": 24,
+    "partial": 35,
+    "false_positive": 23,
+    "unresolved": 0,
+    "strict_precision": 0.2927,
+    "materially_supported_precision": 0.7195,
+    "false_positive_rate": 0.2805,
+    "partial_rate": 0.4268
+  },
+  "attack_paths": {
+    "total": 7,
+    "true_positive": 0,
+    "partial": 5,
+    "false_positive": 2,
+    "unresolved": 0,
+    "materially_supported_precision": 0.7143
+  },
+  "frameworks": {
+    "google-adk": {
+      "findings": 24,
+      "true_positive": 16,
+      "partial": 7,
+      "false_positive": 1,
+      "supported_precision": 0.9583
+    },
+    "pydantic-ai": {
+      "findings": 21,
+      "true_positive": 4,
+      "partial": 11,
+      "false_positive": 6,
+      "supported_precision": 0.7143
+    },
+    "openai-agents": {
+      "findings": 25,
+      "true_positive": 2,
+      "partial": 16,
+      "false_positive": 7,
+      "supported_precision": 0.72
+    },
+    "langgraph": {
+      "findings": 6,
+      "true_positive": 0,
+      "partial": 0,
+      "false_positive": 6,
+      "supported_precision": 0
+    },
+    "mcp-custom": {
+      "findings": 6,
+      "true_positive": 2,
+      "partial": 1,
+      "false_positive": 3,
+      "supported_precision": 0.5
+    }
+  },
+  "rules": {
+    "ADK001": {
+      "claims": 3,
+      "tp": 2,
+      "partial": 1,
+      "fp": 0,
+      "supported_precision": 1
+    },
+    "AGT020": {
+      "claims": 7,
+      "tp": 2,
+      "partial": 3,
+      "fp": 2,
+      "supported_precision": 0.7143
+    },
+    "AGT022": {
+      "claims": 5,
+      "tp": 1,
+      "partial": 4,
+      "fp": 0,
+      "supported_precision": 1
+    },
+    "AGT032": {
+      "claims": 4,
+      "tp": 3,
+      "partial": 1,
+      "fp": 0,
+      "supported_precision": 1
+    },
+    "AGT040": {
+      "claims": 27,
+      "tp": 10,
+      "partial": 12,
+      "fp": 5,
+      "supported_precision": 0.8148
+    },
+    "AGT051": {
+      "claims": 1,
+      "tp": 0,
+      "partial": 0,
+      "fp": 1,
+      "supported_precision": 0
+    },
+    "AGT053": {
+      "claims": 1,
+      "tp": 0,
+      "partial": 1,
+      "fp": 0,
+      "supported_precision": 1
+    },
+    "CAP004": {
+      "claims": 2,
+      "tp": 1,
+      "partial": 1,
+      "fp": 0,
+      "supported_precision": 1
+    },
+    "CAP005": {
+      "claims": 11,
+      "tp": 3,
+      "partial": 7,
+      "fp": 1,
+      "supported_precision": 0.9091
+    },
+    "NET001": {
+      "claims": 4,
+      "tp": 1,
+      "partial": 0,
+      "fp": 3,
+      "supported_precision": 0.25
+    },
+    "NET002": {
+      "claims": 10,
+      "tp": 1,
+      "partial": 0,
+      "fp": 9,
+      "supported_precision": 0.1
+    },
+    "PATH001": {
+      "claims": 5,
+      "tp": 0,
+      "partial": 4,
+      "fp": 1,
+      "supported_precision": 0.8
+    },
+    "PATH002": {
+      "claims": 1,
+      "tp": 0,
+      "partial": 1,
+      "fp": 0,
+      "supported_precision": 1
+    },
+    "PATH006": {
+      "claims": 1,
+      "tp": 0,
+      "partial": 0,
+      "fp": 1,
+      "supported_precision": 0
+    }
+  },
+  "contexts": {
+    "runtime": {
+      "findings": 48,
+      "tp": 21,
+      "partial": 13,
+      "fp": 14,
+      "supported_precision": 0.7083
+    },
+    "example": {
+      "findings": 18,
+      "tp": 0,
+      "partial": 14,
+      "fp": 4,
+      "supported_precision": 0.7778
+    },
+    "notebook": {
+      "findings": 11,
+      "tp": 0,
+      "partial": 8,
+      "fp": 3,
+      "supported_precision": 0.7273
+    },
+    "test": {
+      "findings": 5,
+      "tp": 3,
+      "partial": 0,
+      "fp": 2,
+      "supported_precision": 0.6
+    }
+  },
+  "sensitivity": {
+    "agentops_python_notebook_mirror_pairs": 11,
+    "deduplicated_claims": 71,
+    "deduplicated_materially_supported_precision": 0.7183,
+    "conclusion": "Duplicate example/notebook findings inflate volume but do not explain the precision deficit."
+  },
+  "status": "complete_first_judge",
+  "report": "ADJUDICATION_REPORT.md"
+}
