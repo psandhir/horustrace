@@ -47,6 +47,7 @@ def _looks_placeholder(value: str) -> bool:
         not lowered
         or lowered in explicit_placeholders
         or lowered.startswith(("$", "${", "env:", "<"))
+        or "${" in lowered
         or "getenv(" in lowered
         or "environ[" in lowered
     )
