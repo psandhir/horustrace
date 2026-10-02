@@ -523,7 +523,7 @@ def evaluate(graph: Graph) -> list[Finding]:
                 findings.append(Finding("ADK005", Severity.HIGH, "Computer-use agent lacks an explicit action boundary", f"Agent '{agent.name}' can control a browser/computer without detected confirmation or guardrail controls.", "Add action confirmation/guardrails for navigation, typing, downloads, uploads and state-changing UI actions; isolate the browser profile.", layer=1, location=tool.location, agent=agent.name, evidence=["capability=computer.control"]))
             if builtin == "BigQueryToolset" and "data.write" in tool.capabilities:
                 findings.append(Finding("ADK006", Severity.MEDIUM, "BigQuery toolset permits write-capable operation", f"Agent '{agent.name}' has a BigQueryToolset for which write operations are not statically blocked.", "Use BigQueryToolConfig(write_mode=WriteMode.BLOCKED) for read-only agents and least-privilege IAM on datasets/tables.", layer=1, location=tool.location, agent=agent.name, evidence=[f"write_mode={tool.metadata.get('write_mode')}"]))
-            if builtin in {"GoogleApiToolset", "GmailToolset", "CalendarToolset", "DocsToolset", "SheetsToolset", "SlidesToolset", "YoutubeToolset", "APIHubToolset", "ApplicationIntegrationToolset", "OpenAPIToolset"} and not tool.metadata.get("tool_filter") and not tool.metadata.get("dynamic_tool_filter"):
+            if builtin in {"GoogleApiToolset", "GmailToolset", "CalendarToolset", "DocsToolset", "SheetsToolset", "SlidesToolset", "YoutubeToolset", "APIHubToolset", "ApplicationIntegrationToolset", "OpenAPIToolset"} and not tool.metadata.get("tool_filter") and not tool.metadata.get("dynamic_tool_filter") and not tool.metadata.get("explicit_surface_constraint"):
                 findings.append(Finding("ADK007", Severity.MEDIUM, "Broad ADK toolset surface", f"Agent '{agent.name}' attaches '{builtin}' without a detected tool filter.", "Restrict generated/available tools to the exact operations required by the agent and keep mutation endpoints out of read-only agents.", layer=1, location=tool.location, agent=agent.name, evidence=[f"toolset={builtin}"]))
             if tool.kind == "adk_agent_tool" and tool.metadata.get("include_plugins") is False:
                 findings.append(Finding("ADK008", Severity.MEDIUM, "Delegated ADK AgentTool disables inherited plugins", f"AgentTool '{tool.name}' is configured with include_plugins=False, so parent safety/observability plugins may not apply to the delegated run.", "Ensure the child has equivalent security plugins/callbacks, or inherit parent plugins unless isolation is intentional and reviewed.", layer=1, location=tool.location, agent=agent.name, evidence=[f"delegate={tool.metadata.get('delegate_target')}", "include_plugins=false"]))
@@ -538,6 +538,15 @@ def evaluate(graph: Graph) -> list[Finding]:
             findings.append(Finding("ADK011", Severity.HIGH, "Privileged ADK agent is exposed over A2A without detected safety control", f"Agent '{agent.name}' is exposed using A2A and has privileged capabilities, but no security callback/plugin was detected.", "Authenticate/authorize the A2A endpoint, validate remote input, and enforce tool-level policy before privileged actions.", layer=1, location=agent.location, agent=agent.name, evidence=["a2a_exposed=true", "privileged=" + ",".join(t.name for t in privileged_tools)]))
 
     for server in graph.all_mcp_servers():
+        server_authority = mcp_authority_by_object.get(id(server))
+        if (
+            server.metadata.get("binding_state") == "unbound"
+            and server_authority is None
+        ):
+            # Repository/IDE MCP configuration is inventory until source proves
+            # that an agent can invoke it. Keep visibility without projecting
+            # developer configuration into application effective authority.
+            continue
         if server.url:
             parsed = urlparse(server.url)
             loopback = _is_loopback_url(server.url)
@@ -545,7 +554,6 @@ def evaluate(graph: Graph) -> list[Finding]:
                 findings.append(Finding("AGT031", Severity.HIGH, "Unencrypted remote MCP transport", f"MCP server '{server.name}' uses plaintext HTTP: {server.url}", "Use HTTPS/WSS with certificate validation for remote MCP connections.", layer=1, location=server.location, evidence=[f"url={server.url}"]))
             if server.authenticated is False and not loopback:
                 findings.append(Finding("AGT030", Severity.HIGH, "Remote MCP server has no detected authentication", f"No recognized authentication mechanism was detected for remote MCP server '{server.name}'.", "Require authenticated MCP access using a scoped token/OAuth or workload identity.", layer=1, location=server.location, evidence=[f"url={server.url}", f"authenticated={server.authenticated}"]))
-            server_authority = mcp_authority_by_object.get(id(server))
             tool_scope_resolved = (
                 server_authority is not None
                 and server_authority.dimensions.get("tool_scope") == "resolved"

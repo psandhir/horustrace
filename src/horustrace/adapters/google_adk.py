@@ -587,13 +587,27 @@ def _operator_configuration_source(
 ) -> str | None:
     """Return the configuration key for an environment-derived expression."""
     resolved = _resolve_call(node, calls)
-    if resolved is None:
+    if resolved is not None:
+        called = (_dotted_name(resolved.func) or "").lower()
+        if called in {"os.getenv", "os.environ.get"}:
+            key = _string(resolved.args[0]) if resolved.args else None
+            return key or "environment"
+
+    if node is None:
         return None
-    called = (_dotted_name(resolved.func) or "").lower()
-    if called not in {"os.getenv", "os.environ.get"}:
-        return None
-    key = _string(resolved.args[0]) if resolved.args else None
-    return key or "environment"
+    sources: set[str] = set()
+    for child in ast.walk(node):
+        if child is node or not isinstance(child, ast.Name):
+            continue
+        nested = _resolve_call(child, calls)
+        if nested is None:
+            continue
+        called = (_dotted_name(nested.func) or "").lower()
+        if called not in {"os.getenv", "os.environ.get"}:
+            continue
+        key = _string(nested.args[0]) if nested.args else None
+        sources.add(key or "environment")
+    return next(iter(sources)) if len(sources) == 1 else None
 
 
 def _openapi_servers(
@@ -806,6 +820,18 @@ def _tool_from_call(
                 metadata["destination_constraint_basis"] = (
                     "openapi_servers"
                 )
+        if name == "ApplicationIntegrationToolset":
+            integration = _string(_kw(call, "integration"))
+            triggers = _list_strings(_kw(call, "triggers"))
+            if integration:
+                metadata["integration"] = integration
+                metadata["integration_triggers"] = triggers
+                metadata["network_scope"] = "fixed_managed_service"
+                metadata["network_provider"] = "google-application-integration"
+                metadata["destination_constraint_basis"] = "application_integration_name"
+                if triggers:
+                    metadata["explicit_surface_constraint"] = True
+                    metadata["surface_constraint_basis"] = "integration_and_triggers"
         if name == "ExecuteBashTool":
             approval = True
             metadata["built_in_confirmation"] = True
@@ -886,6 +912,20 @@ def _tool_from_call(
                         },
                     )
                 )
+        if name == "ApplicationIntegrationToolset" and metadata.get("integration"):
+            tool.destinations.append(
+                NetworkDestination(
+                    target="<google-application-integration:" + str(metadata["integration"]) + ">",
+                    restricted=True,
+                    location=tool.location,
+                    metadata={
+                        "source": "application_integration",
+                        "network_scope": "fixed_managed_service",
+                        "integration": metadata["integration"],
+                        "triggers": list(metadata.get("integration_triggers") or []),
+                    },
+                )
+            )
         # Search/retrieval tools ingest external content. URL-context
         # tools additionally expose model-selected content destinations.
         _apply_retrieval_network_semantics(tool, name)
@@ -1016,18 +1056,54 @@ def _agent_from_call(
                                          metadata={"inferred": True}))
 
     if agent_type == "RemoteA2aAgent":
-        card = _string(_arg(call, 1, "agent_card"))
+        card_node = _arg(call, 1, "agent_card")
+        card = _string(card_node)
+        configuration_source = _operator_configuration_source(card_node, calls)
         auth = any(_kw(call, k) is not None for k in ("auth_scheme", "auth_credential", "credential_key"))
-        agent.metadata.update({"remote_a2a": True, "agent_card": card, "authenticated": auth})
+        agent.metadata.update({
+            "remote_a2a": True,
+            "agent_card": card,
+            "authenticated": auth,
+            "configuration_source": configuration_source,
+        })
+        remote_metadata: dict[str, Any] = {
+            "framework": "google-adk",
+            "authenticated": auth,
+            "agent_card": card,
+        }
+        if configuration_source:
+            remote_metadata["network_scope"] = "operator_configured_destination"
+            remote_metadata["destination_constraint_basis"] = "operator_configuration"
+            remote_metadata["configuration_source"] = configuration_source
         remote_tool = Tool(
             name=f"{name}:a2a",
             kind="adk_a2a_remote",
             capabilities={"agent.delegate", "data.read", "external.write", "network.external"},
             location=agent.location,
-            metadata={"framework": "google-adk", "authenticated": auth, "agent_card": card},
+            metadata=remote_metadata,
         )
         if card and card.startswith(("http://", "https://")):
-            remote_tool.destinations.append(NetworkDestination(target=card, restricted=True, location=agent.location))
+            remote_tool.destinations.append(
+                NetworkDestination(
+                    target=card,
+                    restricted=True,
+                    location=agent.location,
+                    metadata={"network_scope": "explicit_destination", "source": "agent_card"},
+                )
+            )
+        elif configuration_source:
+            remote_tool.destinations.append(
+                NetworkDestination(
+                    target="<operator-configured-a2a>",
+                    restricted=True,
+                    location=agent.location,
+                    metadata={
+                        "network_scope": "operator_configured_destination",
+                        "source": "operator_configuration",
+                        "configuration_source": configuration_source,
+                    },
+                )
+            )
         agent.tools.append(remote_tool)
         return agent
 

@@ -635,31 +635,96 @@ def _body_call_capabilities(
     return capabilities
 
 
+def _context_only_mutation(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    body_capabilities: set[str],
+) -> bool:
+    """Return True when writes are confined to an agent run-context object."""
+    parameter_names = {
+        arg.arg
+        for arg in [
+            *node.args.posonlyargs,
+            *node.args.args,
+            *node.args.kwonlyargs,
+        ]
+    }
+    context_mutation = False
+
+    def target_is_run_context(target: ast.AST) -> bool:
+        dotted = _dotted_name(target)
+        if dotted:
+            root = dotted.split(".", 1)[0]
+            return root in parameter_names and (
+                dotted.startswith(f"{root}.context.")
+                or dotted == f"{root}.context"
+            )
+        if isinstance(target, ast.Subscript):
+            receiver = _dotted_name(target.value)
+            if receiver:
+                root = receiver.split(".", 1)[0]
+                return root in parameter_names and (
+                    receiver.startswith(f"{root}.context.")
+                    or receiver == f"{root}.context"
+                )
+        return False
+
+    for child in ast.walk(node):
+        targets: list[ast.AST] = []
+        if isinstance(child, ast.Assign):
+            targets = list(child.targets)
+        elif isinstance(child, (ast.AnnAssign, ast.AugAssign)):
+            targets = [child.target]
+        elif isinstance(child, ast.Delete):
+            targets = list(child.targets)
+        if any(target_is_run_context(target) for target in targets):
+            context_mutation = True
+
+    if not context_mutation:
+        return False
+    return not bool(body_capabilities & _CONTROL_NAME_SENSITIVE_CAPABILITIES)
+
+
 def _decorated_tool_capabilities(
     node: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> tuple[set[str], dict[str, Any]]:
-    """Keep control/helper names from implying privileged side effects by themselves."""
+    """Require source effects before promoting local helpers to privileged authority."""
     name_capabilities = set(infer_capabilities(node.name))
     body_capabilities = _body_call_capabilities(node)
     capabilities = set(name_capabilities)
 
     first_token = node.name.lower().replace("-", "_").split("_", 1)[0]
     suppressed: set[str] = set()
+    inference_basis: str | None = None
     if first_token in _CONTROL_HELPER_PREFIXES:
-        suppressed = (
+        suppressed.update(
             name_capabilities
             & _CONTROL_NAME_SENSITIVE_CAPABILITIES
             - body_capabilities
         )
-        capabilities.difference_update(suppressed)
+        inference_basis = "control_helper_body_corroboration"
+
+    context_only = _context_only_mutation(node, body_capabilities)
+    if context_only:
+        suppressed.update(
+            name_capabilities
+            & {"data.write", "destructive.write", "external.write"}
+            - body_capabilities
+        )
+        if inference_basis is None:
+            inference_basis = "run_context_effect_boundary"
+
+    capabilities.difference_update(suppressed)
 
     metadata: dict[str, Any] = {
         "name_inferred_capabilities": sorted(name_capabilities),
         "body_call_inferred_capabilities": sorted(body_capabilities),
     }
+    if context_only:
+        metadata["effect_scope"] = "run_context"
+        metadata["persistent_effect_proven"] = False
     if suppressed:
         metadata["suppressed_name_only_capabilities"] = sorted(suppressed)
-        metadata["capability_inference"] = "control_helper_body_corroboration"
+        metadata["capability_inference"] = inference_basis
     return capabilities, metadata
 
 

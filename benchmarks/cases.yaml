@@ -120,6 +120,7 @@ cases:
   expected:
   - AGT001@-
   - AGT050@-
+  - DATA001@agent
 - name: mcp-secure-authenticated-allowlisted
   path: cases/mcp-3
   expected: []

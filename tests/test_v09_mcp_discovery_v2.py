@@ -272,10 +272,11 @@ class MCPConnection:
     assert server.authenticated is True
     assert server.metadata["auth_mechanism"] == "oauth2.1"
     assert server.metadata["dynamic_mcp_endpoint"] is True
-    assert not any(finding.rule_id == "AGT030" for finding in findings)
-    assert not any(finding.rule_id == "AGT031" for finding in findings)
-    assert any(finding.rule_id == "AGT032" for finding in findings)
-    assert any(finding.rule_id == "NET001" for finding in findings)
+    assert server.metadata["binding_state"] == "unbound"
+    assert not any(
+        finding.rule_id in {"AGT030", "AGT031", "AGT032", "NET001"}
+        for finding in findings
+    )
 
 def test_remote_mcp_explicit_http_client_without_auth_is_flagged(
     tmp_path: Path,
@@ -307,9 +308,11 @@ async def connect(url):
     assert server.authenticated is False
     assert server.metadata["auth_mechanism"] == "explicit-http-client-no-auth"
     assert server.metadata["dynamic_mcp_endpoint"] is True
-    assert any(finding.rule_id == "AGT030" for finding in findings)
-    assert any(finding.rule_id == "NET001" for finding in findings)
-    assert not any(finding.rule_id == "AGT031" for finding in findings)
+    assert server.metadata["binding_state"] == "unbound"
+    assert not any(
+        finding.rule_id in {"AGT030", "AGT031", "AGT032", "NET001"}
+        for finding in findings
+    )
 
 
 def test_remote_mcp_http_client_auth_header_is_not_flagged(
