@@ -508,23 +508,6 @@ class ScanCoverage:
 
 
 @dataclass(slots=True)
-class WorkflowNode:
-    """Non-principal workflow topology entity.
-
-    Workflow nodes describe graph execution structure without implying autonomous
-    agent authority. Adapters may classify their semantic role while security rules
-    continue to operate on Graph.agents and their explicitly bound capabilities.
-    """
-
-    name: str
-    role: str = "unknown"
-    framework: str = "generic"
-    location: SourceLocation | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-    provenance: list[EvidenceFact] = field(default_factory=list)
-
-
-@dataclass(slots=True)
 class Graph:
     coverage: ScanCoverage = field(default_factory=ScanCoverage)
     agents: list[Agent] = field(default_factory=list)
@@ -538,7 +521,6 @@ class Graph:
     suppressed_findings: list[Any] = field(default_factory=list)
     suppression_diagnostics: list[dict[str, Any]] = field(default_factory=list)
     configuration_audit: dict[str, Any] = field(default_factory=dict)
-    workflow_nodes: list[WorkflowNode] = field(default_factory=list)
 
     def all_tools(self) -> list[Tool]:
         tools = list(self.unbound_tools)
