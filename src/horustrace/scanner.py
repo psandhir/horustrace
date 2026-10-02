@@ -72,8 +72,8 @@ from horustrace.registry_config import (
     enrich_config_registry_agents,
     is_registry_config_filename,
 )
-from horustrace.repository_tool_semantics import enrich_indirect_tool_content_semantics
 from horustrace.repository_effect_semantics import enrich_repository_tool_effects
+from horustrace.repository_tool_semantics import enrich_indirect_tool_content_semantics
 from horustrace.rules.builtin import evaluate
 from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
 from horustrace.runtime_viability import annotate_runtime_viability
