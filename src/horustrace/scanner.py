@@ -73,6 +73,7 @@ from horustrace.registry_config import (
     is_registry_config_filename,
 )
 from horustrace.repository_tool_semantics import enrich_indirect_tool_content_semantics
+from horustrace.repository_effect_semantics import enrich_repository_tool_effects
 from horustrace.rules.builtin import evaluate
 from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
 from horustrace.runtime_viability import annotate_runtime_viability
@@ -2398,6 +2399,11 @@ def scan(
             raise ScannerError(str(exc)) from exc
     _link_global_identities(graph)
     _resolve_imported_tool_placeholders(graph)
+    enrich_repository_tool_effects(
+        graph,
+        root if root.is_dir() else root.parent,
+        approved_python_paths,
+    )
     enrich_config_registry_agents(
         graph,
         root if root.is_dir() else root.parent,
