@@ -705,7 +705,7 @@ def enrich_indirect_tool_content_semantics(
                     **helper_network_metadata,
                     "destination_constraint_basis": "repository_local_helper_fixed_origin",
                 }
-            if "gmail" in helper.module.lower() and any(
+            if any(
                 isinstance(nested, ast.Call)
                 and _call_leaf(nested) == "build"
                 and nested.args
