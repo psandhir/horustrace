@@ -367,6 +367,7 @@ root_agent = Agent(
         for finding in findings
     )
 
+
 def test_adk_imported_tool_local_helpers_preserve_fixed_hosts(
     tmp_path: Path,
 ) -> None:
