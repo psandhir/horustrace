@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "study": "agent-centric-generalization-12",
+  "status": "frozen_from_fresh-unseen-generalization-20_before_rerun",
+  "locked_at": "2026-10-02",
+  "scanner_baseline": "post-langgraph-removal",
+  "selection": {
+    "target_repositories": 12,
+    "method": "Exact same frozen ADK, Pydantic AI and OpenAI Agents cases from fresh-unseen-generalization-20. No repository replacement or reselection after seeing prior HorusTrace output.",
+    "horustrace_output_used_for_selection": false,
+    "framework_counts": {
+      "google-adk": 4,
+      "pydantic-ai": 4,
+      "openai-agents": 4
+    }
+  },
+  "cases": [
+    {"case_id":"gen-adk-001","repo":"AbiramiSukumaran/renovation-agent-adk-mcp-toolbox","sha":"8c0aed21d68d865254b65e667b764fc31af25781","framework":"google-adk","evidence_path":"agent.py"},
+    {"case_id":"gen-adk-002","repo":"RawleySM/adk-builder-manus","sha":"c98e25dc40f581e0c4adfd6eaecd44050633a659","framework":"google-adk","evidence_path":"agent.py"},
+    {"case_id":"gen-adk-003","repo":"NavyaSivakoti/pipeline-reviewer","sha":"a4cf7b7d995a4ad4a6ff59538eb9d061ffb7ffd7","framework":"google-adk","evidence_path":"agent.py"},
+    {"case_id":"gen-adk-004","repo":"scspai/adk-email-agent","sha":"d32b07c65e0f8de37e95302919bdba4458d1de39","framework":"google-adk","evidence_path":"agent.py"},
+    {"case_id":"gen-pyd-001","repo":"newsbubbles/pharmiq","sha":"c69949739647a47ec8339b473bdf578c8cf8bfd9","framework":"pydantic-ai","evidence_path":"agent.py"},
+    {"case_id":"gen-pyd-002","repo":"coleam00/PydanticAI-Research-Agent","sha":"6462e3be4aa8bfd1a6224fe390b9422e6ae47f38","framework":"pydantic-ai","evidence_path":"agents/research_agent.py"},
+    {"case_id":"gen-pyd-003","repo":"FaustoS88/Pydantic-AI-Pinescript-Expert","sha":"03cbd93c486435df08d70185fbab9aa61fff5fbb","framework":"pydantic-ai","evidence_path":"agent.py"},
+    {"case_id":"gen-pyd-004","repo":"coleam00/pydantic-ai-github-agent","sha":"43586396a10620cf4ebea542890275c9c6a0d8eb","framework":"pydantic-ai","evidence_path":"github_agent.py"},
+    {"case_id":"gen-oai-001","repo":"temporal-community/openai-agents-demos","sha":"ee5f871b48cb26ec28239ef7a4719ab10c4903e8","framework":"openai-agents","evidence_path":"openai_agents/workflows/research_agents/triage_agent.py"},
+    {"case_id":"gen-oai-002","repo":"AsharibAli/agentic-ai-projects","sha":"51005b953b9797516f965bb86fd7abe902b20b9f","framework":"openai-agents","evidence_path":"06_agents_sdk/src/agents_sdk/main.py"},
+    {"case_id":"gen-oai-003","repo":"GobinFan/python-mcp-server-client","sha":"29ecd7adff556dfe9fa3d0fb2246baaccde9d54f","framework":"openai-agents","evidence_path":"main.py"},
+    {"case_id":"gen-oai-004","repo":"AgentOps-AI/agentops","sha":"f8e907b92dabe47232978023fdcb01e2a7d4b752","framework":"openai-agents","evidence_path":"examples/openai_agents/customer_service_agent.py"}
+  ]
+}
