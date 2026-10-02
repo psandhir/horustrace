@@ -12,9 +12,6 @@ _AGENT_FACTORIES = {
     "Agent",
     "LlmAgent",
     "ChatAgent",
-    "create_react_agent",
-    "create_supervisor",
-    "create_swarm",
 }
 _MCP_CLIENT_FACTORIES = {"MultiServerMCPClient", "MCPClient"}
 
@@ -95,30 +92,12 @@ def _tools_expr(call: ast.Call) -> ast.AST | None:
     value = _kw(call, "tools")
     if value is not None:
         return value
-    if (_name(call.func) or "") in {
-        "create_react_agent",
-        "create_supervisor",
-        "create_swarm",
-    }:
-        return call.args[1] if len(call.args) > 1 else None
     return None
 
 
 def _client_server_names(call: ast.Call) -> set[str]:
     config = call.args[0] if call.args else _kw(call, "connections")
     return _dict_keys(config)
-
-
-def _langchain_agent_factory_names(tree: ast.AST) -> set[str]:
-    """Return exact local imports of langchain.agents.create_agent."""
-    names: set[str] = set()
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ImportFrom) or node.module != "langchain.agents":
-            continue
-        for alias in node.names:
-            if alias.name == "create_agent":
-                names.add(alias.asname or alias.name)
-    return names
 
 
 def _parse_relationships(
@@ -133,7 +112,6 @@ def _parse_relationships(
     tools_alias_to_client: dict[str, str] = {}
     agent_to_client: list[tuple[str, str]] = []
     agent_factories = set(_AGENT_FACTORIES)
-    agent_factories.update(_langchain_agent_factory_names(tree))
 
     for node in ast.walk(tree):
         if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
@@ -202,6 +180,7 @@ def _parse_relationships(
 
 def _auth_mechanism(server: MCPServer) -> str:
     keys = {str(key).lower() for key in server.metadata.get("auth_keys", [])}
+    keys.update(str(key).lower() for key in server.metadata.get("auth_headers", []))
     if "oauth" in keys:
         return "oauth"
     if "x-api-key" in keys or "x-goog-api-key" in keys:
@@ -353,4 +332,5 @@ def reconstruct_mcp_authority(
                 "auth_mechanism",
                 _auth_mechanism(server),
             )
+            _ensure_configured_identity(agent, server)
             _attach_filesystem_resources(server)
