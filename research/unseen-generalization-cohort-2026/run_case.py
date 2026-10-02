@@ -91,17 +91,23 @@ def main() -> int:
         pack = source_pack(target)
         (out / "source-pack.txt").write_text(pack, encoding="utf-8")
         scan_path = out / "scan.json"
-        scan_proc = run(
-            ["horustrace", "scan", str(target), "--format", "json", "--output", str(scan_path), "--fail-on", "none"],
-            check=False,
-        )
+        try:
+            scan_proc = run(
+                ["horustrace", "scan", str(target), "--format", "json", "--output", str(scan_path), "--fail-on", "none"],
+                timeout=900,
+                check=False,
+            )
+            scan_timeout = None
+        except subprocess.TimeoutExpired as exc:
+            scan_proc = None
+            scan_timeout = f"scan timed out after {exc.timeout} seconds"
         if not scan_path.exists():
             result = {
                 **row,
                 "scanner_sha": CONFIG["scanner_baseline_sha"],
                 "source_pack_chars": len(pack),
-                "scan_status": "error",
-                "scan_error": (scan_proc.stderr or scan_proc.stdout)[-8000:],
+                "scan_status": "timeout" if scan_timeout else "error",
+                "scan_error": scan_timeout or ((scan_proc.stderr or scan_proc.stdout)[-8000:] if scan_proc else "scan failed"),
                 "finding_count": None,
                 "path_count": None,
                 "node_count": None,
