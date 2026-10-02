@@ -213,20 +213,14 @@ def is_pydantic_ai_file(path: Path) -> bool:
 
 def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
     capabilities = set(infer_capabilities(node.name))
-    # Function names are discovery hints, not proof of externally effective
-    # authority. Require a concrete source sink for host execution and network
-    # / external-write authority. This prevents helpers such as
-    # compose_email_content() from becoming privileged merely because "email"
-    # appears in the function name.
+    # Function names remain discovery hints, but host execution/network authority
+    # still require concrete source sinks. Ambiguous mutation verbs are handled
+    # after body inspection so pure helpers such as add(a, b) do not become writes.
     capabilities.difference_update(
-        {
-            "process.execute",
-            "network.external",
-            "external.write",
-            "data.write",
-            "destructive.write",
-        }
+        {"process.execute", "network.external", "external.write"}
     )
+    body_write_evidence = False
+
     for child in ast.walk(node):
         if not isinstance(child, ast.Call):
             continue
@@ -236,7 +230,14 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
             or (dotted.rsplit(".", 1)[-1] if dotted else "")
         ).lower()
         if (
-            dotted in {"exec", "eval", "compile", "builtins.exec", "builtins.eval", "builtins.compile"}
+            dotted in {
+                "exec",
+                "eval",
+                "compile",
+                "builtins.exec",
+                "builtins.eval",
+                "builtins.compile",
+            }
             or dotted in {"os.system", "os.popen"}
             or dotted.startswith("subprocess.")
             or "create_subprocess_" in dotted
@@ -246,12 +247,30 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
             dotted.startswith(("requests.", "httpx.", "aiohttp."))
             or "urllib" in dotted
         ):
-            # POST/PUT/PATCH/DELETE are transport verbs. They do not by
-            # themselves prove that the remote operation mutates state.
+            # HTTP method is transport evidence, not mutation semantics.
             capabilities.add("network.external")
-        if leaf in {"write", "update", "save", "insert", "create", "put", "edit", "patch"}:
+        if leaf in {
+            "write",
+            "update",
+            "save",
+            "insert",
+            "create",
+            "put",
+            "edit",
+            "patch",
+        }:
+            body_write_evidence = True
             capabilities.add("data.write")
-        if leaf in {"delete", "remove", "unlink", "rmdir", "rmtree", "drop", "purge"}:
+        if leaf in {
+            "delete",
+            "remove",
+            "unlink",
+            "rmdir",
+            "rmtree",
+            "drop",
+            "purge",
+        }:
+            body_write_evidence = True
             capabilities.update({"data.write", "destructive.write"})
         if leaf in {"read", "get", "search", "retrieve", "fetch", "query", "list"}:
             capabilities.add("data.read")
@@ -261,8 +280,14 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
             or leaf in {"get_secret", "access_secret_version"}
         ):
             capabilities.add("secrets.read")
-    return capabilities
 
+    first_token = node.name.lower().replace("-", "_").split("_", 1)[0]
+    if first_token in {"add", "set", "update"} and not body_write_evidence:
+        capabilities.difference_update(
+            {"data.write", "destructive.write", "external.write"}
+        )
+
+    return capabilities
 
 def _mandatory_authorization_gate(
     node: ast.FunctionDef | ast.AsyncFunctionDef,
