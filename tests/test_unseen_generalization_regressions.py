@@ -166,3 +166,72 @@ def execute_batch(batch_id: str):
     tool = next(item for item in graph.unbound_tools if item.name == "execute_batch")
 
     assert "process.execute" not in tool.capabilities
+
+
+def test_pydantic_repository_helpers_preserve_fixed_provider_destinations(
+    tmp_path: Path,
+) -> None:
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    (tools / "__init__.py").write_text("", encoding="utf-8")
+    (tools / "providers.py").write_text(
+        """
+import httpx
+from googleapiclient.discovery import build
+
+async def brave_search(api_key: str, query: str):
+    return await httpx.get(
+        "https://api.search.brave.com/res/v1/web/search",
+        params={"q": query},
+        headers={"X-Subscription-Token": api_key},
+    )
+
+def gmail_service(credentials):
+    return build("gmail", "v1", credentials=credentials)
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent, RunContext
+from tools.providers import brave_search
+
+agent = Agent("openai:gpt-5.2")
+
+@agent.tool
+async def search_web(ctx: RunContext[None], query: str):
+    return await brave_search("configured-key", query)
+
+@agent.tool
+async def create_draft(ctx: RunContext[None], recipient: str):
+    from tools.providers import gmail_service
+    service = gmail_service(None)
+    return service.users().drafts().create(
+        userId="me",
+        body={"to": recipient},
+    ).execute()
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    search = next(tool for tool in agent.tools if tool.name == "search_web")
+    draft = next(tool for tool in agent.tools if tool.name == "create_draft")
+
+    assert any(
+        destination.restricted
+        and destination.metadata.get("network_scope") == "fixed_provider_network"
+        and "brave.com" in destination.target
+        for destination in search.destinations
+    )
+    assert any(
+        destination.restricted
+        and destination.metadata.get("provider") == "google"
+        and destination.metadata.get("service") == "gmail"
+        for destination in draft.destinations
+    )
+    assert not any(
+        finding.rule_id == "NET002" and finding.agent == "agent"
+        for finding in findings
+    )
