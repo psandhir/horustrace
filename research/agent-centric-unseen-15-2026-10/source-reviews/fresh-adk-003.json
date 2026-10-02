@@ -1,0 +1,66 @@
+{
+  "case_id": "fresh-adk-003",
+  "repo": "arjunprabhulal/adk-python-mcp-client",
+  "sha": "a77a2345ebfef8fad16d423f3d0df8f8335473a0",
+  "framework": "google-adk",
+  "review_status": "blind_source_review_complete",
+  "horustrace_output_seen": false,
+  "evaluator": {
+    "kind": "llm",
+    "model": "GPT-5.6 Sol",
+    "ground_truth": false
+  },
+  "effective_agents": [
+    {
+      "name": "flight_search_assistant",
+      "binding": "ADK LlmAgent directly bound to a local stdio MCPToolset",
+      "source_context": "runtime",
+      "evidence": [
+        "client.py: LlmAgent tools=[toolset]"
+      ]
+    }
+  ],
+  "expected_claims": [
+    {
+      "claim_id": "fresh-adk-003-c01",
+      "category": "mcp",
+      "agent": "flight_search_assistant",
+      "statement": "The agent is source-bound to a local stdio MCP tool catalogue without an explicit source-visible tool allowlist.",
+      "severity": "medium",
+      "qualifications": [
+        "The reviewed repo does not prove the complete remote/package tool catalogue."
+      ],
+      "evidence": [
+        "client.py: MCPToolset with StdioServerParameters and tools=[toolset]"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "expected_paths": [],
+  "negative_controls": [
+    {
+      "control_id": "fresh-adk-003-n01",
+      "statement": "Starting the MCP server command must not be treated as model-callable process execution.",
+      "evidence": [
+        "client.py: command=mcp-flight-search is connection bootstrap"
+      ]
+    },
+    {
+      "control_id": "fresh-adk-003-n02",
+      "statement": "SERP_API_KEY passed in MCP process environment must not be represented as a model-callable secrets.read capability.",
+      "evidence": [
+        "client.py: env set on StdioServerParameters"
+      ]
+    },
+    {
+      "control_id": "fresh-adk-003-n03",
+      "statement": "No arbitrary remote MCP network destination should be claimed from a fixed local stdio connection.",
+      "evidence": [
+        "client.py: stdio MCP"
+      ]
+    }
+  ],
+  "coverage_notes": [
+    "The source proves agent-to-MCP binding but not the package-internal flight-search tool implementations."
+  ]
+}
