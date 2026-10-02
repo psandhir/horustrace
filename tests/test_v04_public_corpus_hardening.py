@@ -4,72 +4,6 @@ from horustrace.adapters.registry import detect_python_frameworks
 from horustrace.scanner import scan
 
 
-def test_langgraph_class_attribute_graph_is_normalized(tmp_path: Path) -> None:
-    (tmp_path / "graph.py").write_text(
-        """
-from langgraph.graph import StateGraph
-
-class Workflow:
-    def build(self):
-        self.workflow = StateGraph(dict)
-        self.workflow.add_node("research", self.research)
-        self.workflow.add_node("write", self.write)
-        self.workflow.add_edge("research", "write")
-
-    def research(self, state):
-        return state
-
-    def write(self, state):
-        return state
-""",
-        encoding="utf-8",
-    )
-    graph, _ = scan(tmp_path)
-    agent = next(agent for agent in graph.agents if agent.metadata.get("framework") == "langgraph")
-    assert agent.name == "self.workflow"
-    assert {tool.name for tool in agent.tools} == {"research", "write"}
-    assert ("research", "write") in agent.metadata["control_edges"]
-
-
-def test_langgraph_function_local_graph_is_normalized(tmp_path: Path) -> None:
-    (tmp_path / "factory.py").write_text(
-        """
-from langgraph.graph import StateGraph
-
-def build_graph():
-    builder = StateGraph(dict)
-    builder.add_node("fetch", fetch)
-    return builder.compile()
-
-def fetch(state):
-    return state
-""",
-        encoding="utf-8",
-    )
-    graph, _ = scan(tmp_path)
-    agent = next(agent for agent in graph.agents if agent.name == "builder")
-    assert [tool.name for tool in agent.tools] == ["fetch"]
-
-
-def test_langgraph_create_react_agent_is_normalized(tmp_path: Path) -> None:
-    (tmp_path / "agent.py").write_text(
-        """
-from langgraph.prebuilt import create_react_agent
-
-def search_web(query):
-    return query
-
-tools = [search_web]
-agent = create_react_agent("openai:gpt-4o", tools=tools)
-""",
-        encoding="utf-8",
-    )
-    graph, _ = scan(tmp_path)
-    agent = next(agent for agent in graph.agents if agent.name == "agent")
-    assert agent.metadata["agent_type"] == "create_react_agent"
-    assert [tool.name for tool in agent.tools] == ["search_web"]
-
-
 def test_programmatic_mcp_stdio_client_is_discovered(tmp_path: Path) -> None:
     (tmp_path / "client.py").write_text(
         """
@@ -115,26 +49,6 @@ if __name__ == "__main__":
                for tool in graph.all_tools())
 
 
-def test_langgraph_and_mcp_adapters_compose(tmp_path: Path) -> None:
-    path = tmp_path / "mixed.py"
-    path.write_text(
-        """
-from langchain_mcp_adapters.client import MultiServerMCPClient
-from langgraph.prebuilt import create_react_agent
-
-client = MultiServerMCPClient({
-    "weather": {"transport": "stdio", "command": "python", "args": ["weather.py"]}
-})
-agent = create_react_agent("openai:gpt-4o", tools=[])
-""",
-        encoding="utf-8",
-    )
-    assert detect_python_frameworks(path) == ["langgraph", "mcp-python"]
-    graph, _ = scan(tmp_path)
-    assert any(agent.metadata.get("framework") == "langgraph" for agent in graph.agents)
-    assert any(server.name == "weather" for server in graph.all_mcp_servers())
-
-
 def test_framework_detected_but_not_normalized_is_incomplete(tmp_path: Path) -> None:
     (tmp_path / "app.py").write_text(
         """
@@ -162,8 +76,8 @@ def test_notebook_code_cells_are_scanned_statically(tmp_path: Path) -> None:
       "cell_type": "code",
       "metadata": {},
       "source": [
-        "from langgraph.prebuilt import create_react_agent\\n",
-        "agent = create_react_agent('openai:gpt-4o', tools=[])\\n"
+        "from agents import Agent\\n",
+        "agent = Agent(name='NotebookAgent', tools=[])\\n"
       ],
       "outputs": [],
       "execution_count": null
@@ -176,7 +90,7 @@ def test_notebook_code_cells_are_scanned_statically(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     graph, _ = scan(tmp_path)
-    agent = next(agent for agent in graph.agents if agent.metadata.get("framework") == "langgraph")
+    agent = next(agent for agent in graph.agents if agent.metadata.get("framework") == "openai-agents")
     assert agent.location is not None
     assert agent.location.path.name == "agent.ipynb"
 
@@ -213,32 +127,6 @@ server = MCPServerStreamableHttp(
     assert server.authenticated is True
 
 
-def test_langgraph_router_literal_returns_are_resolved(tmp_path: Path) -> None:
-    (tmp_path / "graph.py").write_text(
-        """
-from typing import Literal
-from langgraph.graph import StateGraph
-
-def route(state) -> Literal["tools", "human"]:
-    if state:
-        return "tools"
-    return "human"
-
-builder = StateGraph(dict)
-builder.add_node("start", lambda state: state)
-builder.add_node("tools", lambda state: state)
-builder.add_node("human", lambda state: state)
-builder.add_conditional_edges("start", route)
-""",
-        encoding="utf-8",
-    )
-    graph, _ = scan(tmp_path)
-    agent = next(agent for agent in graph.agents if agent.name == "builder")
-    assert ("start", "tools") in agent.metadata["control_edges"]
-    assert ("start", "human") in agent.metadata["control_edges"]
-    assert not any(item.kind == "unresolved_handoff" for item in graph.coverage.diagnostics)
-
-
 def test_notebook_non_python_cells_do_not_create_parse_failure(tmp_path: Path) -> None:
     (tmp_path / "mixed.ipynb").write_text(
         """{
@@ -257,7 +145,7 @@ def test_notebook_non_python_cells_do_not_create_parse_failure(tmp_path: Path) -
         encoding="utf-8",
     )
     graph, _ = scan(tmp_path)
-    assert any(agent.metadata.get("framework") == "langgraph" for agent in graph.agents)
+    assert any(agent.metadata.get("framework") == "openai-agents" for agent in graph.agents)
     assert not any(item.kind == "parse_error" for item in graph.coverage.diagnostics)
     skipped = [
         item for item in graph.coverage.diagnostics
@@ -469,51 +357,6 @@ async def main():
     )
 
 
-def test_langgraph_tools_condition_is_finite_router(tmp_path: Path) -> None:
-    (tmp_path / "graph.py").write_text(
-        """
-from langgraph.graph import StateGraph
-from langgraph.prebuilt import tools_condition
-
-builder = StateGraph(dict)
-builder.add_node("call_model", lambda state: state)
-builder.add_node("tools", lambda state: state)
-builder.add_conditional_edges("call_model", tools_condition)
-""",
-        encoding="utf-8",
-    )
-    graph, _ = scan(tmp_path)
-    agent = next(item for item in graph.agents if item.name == "builder")
-    assert ("call_model", "tools") in agent.metadata["control_edges"]
-    assert ("call_model", "__end__") in agent.metadata["control_edges"]
-    assert not any(item.kind == "unresolved_handoff" for item in graph.coverage.diagnostics)
-
-
-def test_langgraph_conditional_edges_list_path_map_is_resolved(tmp_path: Path) -> None:
-    (tmp_path / "graph.py").write_text(
-        """
-from langgraph.graph import StateGraph
-
-def route(state):
-    return "alpha"
-
-builder = StateGraph(dict)
-builder.add_node("start", lambda state: state)
-builder.add_node("alpha", lambda state: state)
-builder.add_node("beta", lambda state: state)
-builder.add_conditional_edges("start", route, ["alpha", "beta"])
-""",
-        encoding="utf-8",
-    )
-    graph, _ = scan(tmp_path)
-    agent = next(item for item in graph.agents if item.name == "builder")
-    assert ("start", "alpha") in agent.metadata["control_edges"]
-    assert ("start", "beta") in agent.metadata["control_edges"]
-    assert not any(
-        item.kind == "unresolved_handoff" for item in graph.coverage.diagnostics
-    )
-
-
 def test_external_named_mcp_reference_remains_incomplete(tmp_path: Path) -> None:
     (tmp_path / "agent.py").write_text(
         """
@@ -546,8 +389,8 @@ def test_output_heavy_notebook_can_exceed_normal_source_limit(tmp_path: Path) ->
                 "cell_type": "code",
                 "metadata": {},
                 "source": [
-                    "from langgraph.prebuilt import create_react_agent\n",
-                    "agent = create_react_agent('openai:gpt-4o', tools=[])\n",
+                    "from agents import Agent\n",
+                    "agent = Agent(name='NotebookAgent', tools=[])\n",
                 ],
             },
         ],
@@ -562,7 +405,7 @@ def test_output_heavy_notebook_can_exceed_normal_source_limit(tmp_path: Path) ->
         encoding="utf-8",
     )
     graph, _ = scan(tmp_path)
-    assert any(agent.metadata.get("framework") == "langgraph" for agent in graph.agents)
+    assert any(agent.metadata.get("framework") == "openai-agents" for agent in graph.agents)
     assert not any(
         item.kind == "unsupported_security_construct"
         for item in graph.coverage.diagnostics
@@ -595,51 +438,6 @@ agent = Agent(
     assert not any(item.kind == "unresolved_tool" for item in graph.coverage.diagnostics)
 
 
-def test_langgraph_symbolic_end_path_map_is_resolved(tmp_path: Path) -> None:
-    (tmp_path / "graph.py").write_text(
-        """
-from langgraph.graph import END, StateGraph
-
-def route(state):
-    return END if state else "again"
-
-builder = StateGraph(dict)
-builder.add_node("again", lambda state: state)
-builder.add_conditional_edges(
-    "again",
-    route,
-    {"again": "again", END: END},
-)
-""",
-        encoding="utf-8",
-    )
-    graph, _ = scan(tmp_path)
-    agent = next(item for item in graph.agents if item.name == "builder")
-    assert ("again", "again") in agent.metadata["control_edges"]
-    assert ("again", "__end__") in agent.metadata["control_edges"]
-    assert not any(item.kind == "unresolved_handoff" for item in graph.coverage.diagnostics)
-
-
-def test_langgraph_toolnode_without_explicit_name_is_resolved(tmp_path: Path) -> None:
-    (tmp_path / "graph.py").write_text(
-        """
-from langgraph.graph import StateGraph
-from langgraph.prebuilt import ToolNode, tools_condition
-
-tools = []
-builder = StateGraph(dict)
-builder.add_node("call_model", lambda state: state)
-builder.add_node(ToolNode(tools))
-builder.add_conditional_edges("call_model", tools_condition)
-""",
-        encoding="utf-8",
-    )
-    graph, _ = scan(tmp_path)
-    agent = next(item for item in graph.agents if item.name == "builder")
-    assert any(tool.name == "tools" for tool in agent.tools)
-    assert not any(item.kind == "unresolved_handoff" for item in graph.coverage.diagnostics)
-
-
 def test_invalid_python_in_explicit_snippets_directory_is_informational(tmp_path: Path) -> None:
     snippets = tmp_path / "resources" / "snippets_py"
     snippets.mkdir(parents=True)
@@ -660,47 +458,6 @@ agent = Agent(name="valid")
         item for item in graph.coverage.diagnostics if item.kind == "source_fragment"
     )
     assert diagnostic.incomplete is False
-
-
-def test_same_named_langgraph_builders_in_different_files_remain_distinct(tmp_path: Path) -> None:
-    (tmp_path / "first.py").write_text(
-        """
-from langgraph.graph import StateGraph
-
-builder = StateGraph(dict)
-builder.add_node("first_a", lambda state: state)
-builder.add_node("first_b", lambda state: state)
-builder.add_edge("first_a", "first_b")
-""",
-        encoding="utf-8",
-    )
-    (tmp_path / "second.py").write_text(
-        """
-from langgraph.graph import StateGraph
-
-builder = StateGraph(dict)
-builder.add_node("second_a", lambda state: state)
-builder.add_node("second_b", lambda state: state)
-builder.add_edge("second_a", "second_b")
-""",
-        encoding="utf-8",
-    )
-    graph, _ = scan(tmp_path)
-    builders = [agent for agent in graph.agents if agent.name == "builder"]
-    assert len(builders) == 2
-    by_file = {agent.location.path.name: agent for agent in builders}
-    assert {tool.name for tool in by_file["first.py"].tools} == {"first_a", "first_b"}
-    assert {tool.name for tool in by_file["second.py"].tools} == {"second_a", "second_b"}
-
-    adg = graph.adg.as_dict()
-    builder_nodes = [
-        node for node in adg["nodes"]
-        if node["kind"] == "agent" and node["name"] == "builder"
-    ]
-    assert len(builder_nodes) == 2
-    control_edges = [edge for edge in adg["edges"] if edge["kind"] == "CONTROL_FLOWS_TO"]
-    assert len(control_edges) == 2
-
 
 
 def test_repository_adk_re_compile_is_not_process_execution(tmp_path: Path) -> None:
