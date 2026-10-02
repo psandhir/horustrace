@@ -108,7 +108,7 @@ def main() -> int:
                 "findings": [],
                 "attack_paths": [],
             }
-            (out / "result.json").write_text(json.dumps(result, indent=2) + "\\n", encoding="utf-8")
+            (out / "result.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
             print(json.dumps({"case_id": row["case_id"], "repo": row["repo"], "family": row["family"], "scan_status": "error"}, indent=2))
             return 0
         scan = json.loads(scan_path.read_text(encoding="utf-8"))
@@ -127,7 +127,7 @@ def main() -> int:
                 "findings": [{"index": i, **x} for i, x in enumerate(scan.get("findings") or []) if isinstance(x, dict)],
                 "attack_paths": [],
             }
-            (out / "result.json").write_text(json.dumps(result, indent=2) + "\\n", encoding="utf-8")
+            (out / "result.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
             print(json.dumps({"case_id": row["case_id"], "repo": row["repo"], "family": row["family"], "scan_status": "graph_error"}, indent=2))
             return 0
         graph = parse_json(graph_proc.stdout, "security-graph")
