@@ -495,7 +495,12 @@ def _infer_function_capabilities(
             ):
                 caps.add("secrets.read")
 
-    caps, _ = corroborate_name_inferred_authority(name_capabilities, caps)
+    body_capabilities = set(caps)
+    corroborated_name_capabilities, _ = corroborate_name_inferred_authority(
+        name_capabilities,
+        body_capabilities,
+    )
+    caps = body_capabilities | corroborated_name_capabilities
 
     unique: list[NetworkDestination] = []
     seen: set[tuple[str, bool, str]] = set()
