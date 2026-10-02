@@ -78,7 +78,8 @@ In development on `v0.4-dev`:
 - Add Agent Bill of Materials (AIBOM) generation and machine-readable ADG export.
 - Add SARIF code flows for path-backed findings.
 - Formalize framework normalization beyond Google ADK, with deeper OpenAI Agents
-  handoff support and an initial LangGraph StateGraph adapter.
+  handoff support. LangGraph support was explored but is intentionally out of the
+  current agent-centric product scope pending a separate workflow-security model.
 - Expand coverage diagnostics, reviewed path fixtures, and public-project validation.
 
 Runtime execution, live authorization enforcement, SAT/SMT policy solving, automated
