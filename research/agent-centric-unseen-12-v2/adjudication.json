@@ -1,0 +1,193 @@
+{
+  "schema_version": 1,
+  "study": "agent-centric-unseen-12-v2",
+  "scanner_sha": "f18465fffbcac9c96457a2ef6b1fd5f26fd45857",
+  "workflow_run": 37055170677,
+  "first_pass": true,
+  "findings": {
+    "total": 29,
+    "materially_supported": 16,
+    "false_positive": 13,
+    "materially_supported_precision": 0.5517241379310345
+  },
+  "attack_paths": {
+    "total": 1,
+    "materially_supported": 0,
+    "false_positive": 1
+  },
+  "by_framework": {
+    "google-adk": {
+      "findings": 15,
+      "materially_supported": 10,
+      "false_positive": 5,
+      "attack_paths": 1,
+      "supported_attack_paths": 0
+    },
+    "pydantic-ai": {
+      "findings": 5,
+      "materially_supported": 1,
+      "false_positive": 4,
+      "attack_paths": 0,
+      "supported_attack_paths": 0
+    },
+    "openai-agents": {
+      "findings": 9,
+      "materially_supported": 5,
+      "false_positive": 4,
+      "attack_paths": 0,
+      "supported_attack_paths": 0
+    }
+  },
+  "claim_reviews": [
+    {
+      "case_id": "unseen2-adk-003",
+      "finding_indexes": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "verdict": "materially_supported",
+      "basis": "Source proves privileged delegation, artifact write, fixed sendEmail integration, read/write authority, and no detected approval/callback controls."
+    },
+    {
+      "case_id": "unseen2-adk-003",
+      "finding_indexes": [
+        2
+      ],
+      "verdict": "false_positive",
+      "basis": "ApplicationIntegrationToolset is statically constrained to integration='sendEmail' and trigger 'api_trigger/send_email'; absence of generic tool_filter does not make this toolset broad."
+    },
+    {
+      "case_id": "unseen2-adk-003",
+      "finding_indexes": [
+        8,
+        9
+      ],
+      "verdict": "false_positive",
+      "basis": "Outbound authority is through operator-configured MCP_URL and a fixed managed Application Integration target; treating destination scope as absent overclaims egress."
+    },
+    {
+      "case_id": "unseen2-adk-003",
+      "finding_indexes": [
+        10
+      ],
+      "verdict": "false_positive",
+      "basis": "PATH009 depends on the same incorrect unconstrained-egress premise; integration_tool is fixed to the sendEmail integration/trigger."
+    },
+    {
+      "case_id": "unseen2-adk-004",
+      "finding_indexes": [
+        0,
+        1,
+        2
+      ],
+      "verdict": "materially_supported",
+      "basis": "RemoteA2aAgent is wrapped as AgentTool with no source-visible auth_scheme/auth_credential or approval; source describes canary deploy/promote/rollback authority."
+    },
+    {
+      "case_id": "unseen2-adk-004",
+      "finding_indexes": [
+        3
+      ],
+      "verdict": "false_positive",
+      "basis": "Remote A2A endpoint is operator-configured through CDAGENT_URL; it is dynamic in value but not model-selected/unrestricted."
+    },
+    {
+      "case_id": "unseen2-oai-002",
+      "finding_indexes": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "verdict": "false_positive",
+      "basis": "update_seat only mutates RunContextWrapper[AirlineAgentContext] fields in process/session memory. No external resource mutation is present; data.write and propagated delegated write authority are effective-authority overclaims."
+    },
+    {
+      "case_id": "unseen2-oai-003",
+      "finding_indexes": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "verdict": "materially_supported",
+      "basis": "Function tools directly execute requests.get/post/put/delete against model-supplied URL arguments without approval; dynamic egress, external writes, delete, and combined read/write are source-proven."
+    },
+    {
+      "case_id": "unseen2-pyd-004",
+      "finding_indexes": [
+        3
+      ],
+      "verdict": "materially_supported",
+      "basis": "Runtime Pydantic agent binds a dynamic remote MCP transport with no explicit source-visible tool allowlist."
+    },
+    {
+      "case_id": "unseen2-pyd-004",
+      "finding_indexes": [
+        0,
+        1,
+        2,
+        4
+      ],
+      "verdict": "false_positive",
+      "basis": "All four findings arise from repository .mcp.json developer/IDE configuration that is not bound to the application agent. In addition, context7 carries a CONTEXT7_API_KEY header, so the authentication finding is factually incorrect."
+    }
+  ],
+  "recall_gaps": [
+    {
+      "case_id": "unseen2-adk-001",
+      "class": "repository_tool_composition",
+      "severity": "high",
+      "evidence": "Six agents and 36 tools are inventoried, but ticket booking/refund/database authority behind ALL_TICKET_TOOLS/delegation yields zero findings; authority relationships remain partial/unresolved."
+    },
+    {
+      "case_id": "unseen2-adk-002",
+      "class": "dynamic_bound_tool_registry",
+      "severity": "high",
+      "evidence": "ToolboxSyncClient.load_toolset('customer_data_tools') is directly bound as Agent tools, but scan reports one agent, zero tools, zero findings."
+    },
+    {
+      "case_id": "unseen2-adk-004",
+      "class": "function_local_agent_and_nested_tools",
+      "severity": "high",
+      "evidence": "build_agent() defines model-callable GitHub write, Cloud Build, Artifact Registry, and notification tools, yet scan only models the remote A2A projection and misses local factory/nested tool authority."
+    },
+    {
+      "case_id": "unseen2-oai-001",
+      "class": "dynamic_bound_tool_registry",
+      "severity": "high",
+      "evidence": "get_arcade_tools(..., toolkits=['gmail']) is directly passed to Agent(tools=tools), but scan reports zero tools and zero findings."
+    },
+    {
+      "case_id": "unseen2-oai-004",
+      "class": "function_local_agent_and_helper_binding",
+      "severity": "high",
+      "evidence": "StarShell has shell/API/browser/MCP agent factories; scan discovers 19 agents and five MCP servers but only two tools, zero findings, and 18 unresolved-tool diagnostics."
+    },
+    {
+      "case_id": "unseen2-pyd-002",
+      "class": "function_local_agent_mcp_binding",
+      "severity": "high",
+      "evidence": "A function creates MCPServerHTTP(url=mcp_server), constructs Agent(..., mcp_servers=[server]), and runs it, but the server is classified unbound/declaration_not_agent_bound."
+    },
+    {
+      "case_id": "unseen2-pyd-003",
+      "class": "bound_mcp_policy_surface",
+      "severity": "medium",
+      "evidence": "Twelve MCP relationships are bound to Pydantic agents, including stdio package runners such as video_editor_mcp and serper-mcp-server, but no agent-centric finding represents unresolved/broad MCP tool authority or package execution risk."
+    }
+  ],
+  "design_inferences": [
+    "Dynamic tool registries must remain first-class bound authority even when the concrete tool catalogue is unresolved.",
+    "Function-local Agent factories and nested/local tool definitions need source-scoped normalization rather than top-level-only binding.",
+    "Effect semantics must distinguish process/session/context mutation from external/resource data.write.",
+    "MCP rules must operate on agent-bound authority relationships; unbound developer configuration remains inventory/coverage, not agent risk.",
+    "Dynamic destination values derived from operator configuration and fixed managed integrations must not be treated as arbitrary/model-selected egress."
+  ]
+}
