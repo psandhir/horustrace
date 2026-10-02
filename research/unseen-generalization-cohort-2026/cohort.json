@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "study": "unseen-generalization-cohort-2026",
+  "status": "frozen_before_horustrace_result_review",
+  "frozen_at": "2026-10-02",
+  "scanner_baseline_sha": "e1689cbae63799efbef67fe6146d39fc9bdab1dc",
+  "selection": {
+    "horustrace_results_used_for_selection": false,
+    "prior_180_cohort_excluded": true,
+    "retrospective_calibration_cases_excluded": true,
+    "method": "Five independent GitHub discovery queries representing ADK, Pydantic AI, OpenAI Agents, LangGraph, and MCP/custom. Four public repositories per family were chosen before HorusTrace execution, then pinned to immutable repository SHAs.",
+    "target_count": 20
+  },
+  "cases": [
+    {
+      "case_id": "ug-001",
+      "family": "google-adk",
+      "repo": "google/agents-cli",
+      "sha": "2c3945901e8e5cc933fa94fa44d1d4aaf644b596"
+    },
+    {
+      "case_id": "ug-002",
+      "family": "google-adk",
+      "repo": "AhsanAyaz/ai-agents-google-adk",
+      "sha": "d9543491ed0605b4e91b6ff0e7617db7ed708087"
+    },
+    {
+      "case_id": "ug-003",
+      "family": "google-adk",
+      "repo": "kweinmeister/agentic-trading",
+      "sha": "9e4046b1144e44785ccaa7ce35a4491f86d79e80"
+    },
+    {
+      "case_id": "ug-004",
+      "family": "google-adk",
+      "repo": "mongodb-developer/MongoDB-ADK-Agents",
+      "sha": "aafaefdb16230ed1c24ca6ae5605360befafaab2"
+    },
+    {
+      "case_id": "ug-005",
+      "family": "pydantic-ai",
+      "repo": "pydantic/pydantic-ai-harness",
+      "sha": "e1732b29a6e5980fc6b291ccb60ea7696ad90ecd"
+    },
+    {
+      "case_id": "ug-006",
+      "family": "pydantic-ai",
+      "repo": "vstorm-co/pydantic-deepagents",
+      "sha": "32b57ba6df24c744537b9b9080394ead6fc02c10"
+    },
+    {
+      "case_id": "ug-007",
+      "family": "pydantic-ai",
+      "repo": "coleam00/PydanticAI-Research-Agent",
+      "sha": "6462e3be4aa8bfd1a6224fe390b9422e6ae47f38"
+    },
+    {
+      "case_id": "ug-008",
+      "family": "pydantic-ai",
+      "repo": "vstorm-co/pydantic-ai-backend",
+      "sha": "8ac7b678b633aa51c054a884ce27d31b130b8110"
+    },
+    {
+      "case_id": "ug-009",
+      "family": "openai-agents",
+      "repo": "openai/openai-voice-agent-sdk-sample",
+      "sha": "6cead90cee279646642a244b54554a596ebb88c3"
+    },
+    {
+      "case_id": "ug-010",
+      "family": "openai-agents",
+      "repo": "qx-labs/agents-deep-research",
+      "sha": "5e7f4b2321b20bf04c72a405688ab9980887c603"
+    },
+    {
+      "case_id": "ug-011",
+      "family": "openai-agents",
+      "repo": "chatwoot/ai-agents",
+      "sha": "e846ca18332972eb7f1636e160634219dd3db7d0"
+    },
+    {
+      "case_id": "ug-012",
+      "family": "openai-agents",
+      "repo": "PacktPublishing/Building-Agents-with-OpenAI-Agents-SDK",
+      "sha": "f49a98d003a911201c471970ef896c190344b083"
+    },
+    {
+      "case_id": "ug-013",
+      "family": "langgraph",
+      "repo": "google-gemini/gemini-fullstack-langgraph-quickstart",
+      "sha": "e34e569de465340e42f36cd3cab4fac0c3ce7036"
+    },
+    {
+      "case_id": "ug-014",
+      "family": "langgraph",
+      "repo": "wassim249/fastapi-langgraph-agent-production-ready-template",
+      "sha": "f7faab38fa5332669627139b27c4f2dc4178649e"
+    },
+    {
+      "case_id": "ug-015",
+      "family": "langgraph",
+      "repo": "langchain-ai/react-agent",
+      "sha": "f5520937686b06d7139a165e71af1b86e291b866"
+    },
+    {
+      "case_id": "ug-016",
+      "family": "langgraph",
+      "repo": "JoshuaC215/agent-service-toolkit",
+      "sha": "21e2b6a2b78f2cc573514aeb9315a290d75d18fe"
+    },
+    {
+      "case_id": "ug-017",
+      "family": "mcp-custom",
+      "repo": "lastmile-ai/mcp-agent",
+      "sha": "f62d849350816588b1c6294e7914bbe4d8b84072"
+    },
+    {
+      "case_id": "ug-018",
+      "family": "mcp-custom",
+      "repo": "HKUDS/nanobot",
+      "sha": "d0d0a44e57632c3d269e511339cff7ddb698e62e"
+    },
+    {
+      "case_id": "ug-019",
+      "family": "mcp-custom",
+      "repo": "IBM/mcp-context-forge",
+      "sha": "f32403105ed9954d97bcc65fb5c336405ca192d8"
+    },
+    {
+      "case_id": "ug-020",
+      "family": "mcp-custom",
+      "repo": "NirDiamant/agents-towards-production",
+      "sha": "172848240c64457a4a8991949ee5bcbfe6b08f2d"
+    }
+  ]
+}
