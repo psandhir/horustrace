@@ -78,6 +78,21 @@ def _llm_network_gap_is_actionable(tool: object) -> bool:
     }
 
 
+def _tool_has_effective_authority(tool: object, relationship: object | None) -> bool:
+    """Workflow registration alone is topology, not model-callable authority.
+
+    Concrete browser/computer sinks are an exception: call-shape analysis proves
+    the side effect even when the LangGraph node itself is only a workflow
+    projection.
+    """
+    metadata = getattr(tool, "metadata", {}) or {}
+    if metadata.get("authority_binding") == "workflow_projection":
+        if metadata.get("computer_control_custom") is True:
+            return True
+        return relationship is not None
+    return True
+
+
 def _semantic_combo_capability_is_supported(tool: object, capability: str) -> bool:
     """Require source-backed semantics before synthetic facts form aggregate risk.
 
@@ -323,6 +338,8 @@ def evaluate(graph: Graph) -> list[Finding]:
                     tool.name,
                 )
             )
+            if not _tool_has_effective_authority(tool, tool_authority):
+                continue
             if (
                 tool_authority is not None
                 and tool.metadata.get("dynamic_remote_mcp_catalogue") is True
@@ -842,11 +859,23 @@ def evaluate(graph: Graph) -> list[Finding]:
             findings.append(Finding("CAP003", Severity.HIGH, "High aggregate agent authority", f"Agent '{agent.name}' combines {len(privileged)} privileged capability classes.", "Split duties across narrower agents/tools or introduce explicit control boundaries and approvals.", layer=2, location=agent.location, agent=agent.name, evidence=["privileged=" + ",".join(privileged), f"threshold={max_priv}"]))
         execution_authority = any(
             "process.execute" in tool.capabilities
+            and _tool_has_effective_authority(
+                tool,
+                authority_by_key.get(
+                    (agent.name, _agent_instance_key(agent), "tool", tool.name)
+                ),
+            )
             and _semantic_combo_capability_is_supported(tool, "process.execute")
             for tool in agent.tools
         )
         network_authority = any(
             "network.external" in tool.capabilities
+            and _tool_has_effective_authority(
+                tool,
+                authority_by_key.get(
+                    (agent.name, _agent_instance_key(agent), "tool", tool.name)
+                ),
+            )
             and _semantic_combo_capability_is_supported(tool, "network.external")
             for tool in agent.tools
         ) or any(
@@ -894,6 +923,12 @@ def evaluate(graph: Graph) -> list[Finding]:
         authority_confirms_read_write = bool(read_authorities and write_authorities)
         effective_legacy_write = any(
             {"data.write", "destructive.write"} & tool.capabilities
+            and _tool_has_effective_authority(
+                tool,
+                authority_by_key.get(
+                    (agent.name, _agent_instance_key(agent), "tool", tool.name)
+                ),
+            )
             and tool.metadata.get("agent_internal_artifact") is not True
             and tool.metadata.get("agent_internal_state") is not True
             and any(
@@ -908,6 +943,12 @@ def evaluate(graph: Graph) -> list[Finding]:
         )
         effective_legacy_read = any(
             "data.read" in tool.capabilities
+            and _tool_has_effective_authority(
+                tool,
+                authority_by_key.get(
+                    (agent.name, _agent_instance_key(agent), "tool", tool.name)
+                ),
+            )
             and _semantic_combo_capability_is_supported(tool, "data.read")
             for tool in agent.tools
         ) or any(
@@ -1072,6 +1113,12 @@ def evaluate(graph: Graph) -> list[Finding]:
             tool
             for tool in agent.tools
             if "network.external" in tool.capabilities
+            and _tool_has_effective_authority(
+                tool,
+                authority_by_key.get(
+                    (agent.name, _agent_instance_key(agent), "tool", tool.name)
+                ),
+            )
         ]
         unconstrained_network_tools = [
             tool

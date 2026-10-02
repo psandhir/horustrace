@@ -196,6 +196,19 @@ def _tool_from_call(
         )
         if name == "WebSearchTool":
             tool.metadata["untrusted_input"] = True
+        if name in {"WebSearchTool", "ImageGenerationTool"}:
+            tool.destinations.append(
+                NetworkDestination(
+                    target="<openai-provider>",
+                    restricted=True,
+                    location=tool.location,
+                    metadata={
+                        "source": "provider_managed",
+                        "network_scope": "fixed_provider_network",
+                        "provider": "openai",
+                    },
+                )
+            )
         return tool
 
     if name == "activity_as_tool":
