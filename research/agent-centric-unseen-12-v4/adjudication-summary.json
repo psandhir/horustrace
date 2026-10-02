@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "study": "agent-centric-unseen-12-v4",
+  "scanner_sha": "dc06905be7160463be292219aee9f04c3c5ad6a5",
+  "workflow_run": 37074659886,
+  "first_pass": true,
+  "findings": {
+    "total": 48,
+    "materially_supported": 37,
+    "false_positive": 11,
+    "materially_supported_precision": 0.7708333333333334
+  },
+  "attack_paths": {
+    "total": 4,
+    "materially_supported": 2,
+    "qualified": 2,
+    "false_positive": 2
+  },
+  "authority_relationships": 48,
+  "per_framework": [
+    {
+      "framework": "google-adk",
+      "findings": 27,
+      "materially_supported": 19,
+      "false_positive": 8,
+      "materially_supported_precision": 0.7037037037037037,
+      "authority_relationships": 24
+    },
+    {
+      "framework": "pydantic-ai",
+      "findings": 13,
+      "materially_supported": 12,
+      "false_positive": 1,
+      "materially_supported_precision": 0.9230769230769231,
+      "authority_relationships": 18
+    },
+    {
+      "framework": "openai-agents",
+      "findings": 8,
+      "materially_supported": 6,
+      "false_positive": 2,
+      "materially_supported_precision": 0.75,
+      "authority_relationships": 6
+    }
+  ],
+  "systematic_precision_defects": [
+    "Mutation-like names can still outrank function-body semantics, producing write claims for pure string construction.",
+    "ADK destination provenance can be lost through environment/global configuration and delegation, promoting operator-configured endpoints to arbitrary egress.",
+    "Semantic names such as send_email can manufacture external-write authority without a source-visible send or network side effect."
+  ],
+  "recall_gaps": [
+    "OpenAI Agents MCP collection factories can bind concrete MCP server lists to Agent(mcp_servers=...) while effective-authority relationships disappear.",
+    "OpenAI Agents awaited/composed dynamic tool collections such as provider_tools + [static_tool] can produce zero authority relationships.",
+    "Pydantic AI cross-file Tool(function, ...) wrappers can preserve tool identity while losing the wrapped function's side-effect semantics.",
+    "Pydantic AI decorated tools can lose transitive side effects performed by imported helper functions.",
+    "Some relationships survive only with empty capability, resource, or destination dimensions, so inventory recall remains stronger than authority recall."
+  ]
+}
