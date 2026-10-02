@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from horustrace.heuristics import infer_capabilities
+from horustrace.heuristics import corroborate_name_inferred_authority, infer_capabilities
 from horustrace.models import (
     Agent,
     Graph,
@@ -690,33 +690,25 @@ def _decorated_tool_capabilities(
     """Require source effects before promoting local helpers to privileged authority."""
     name_capabilities = set(infer_capabilities(node.name))
     body_capabilities = _body_call_capabilities(node)
-    capabilities = set(name_capabilities)
+    capabilities, suppressed = corroborate_name_inferred_authority(
+        name_capabilities,
+        body_capabilities,
+    )
+    inference_basis: str | None = (
+        "body_effect_corroboration" if suppressed else None
+    )
 
     first_token = node.name.lower().replace("-", "_").split("_", 1)[0]
-    suppressed: set[str] = set()
-    inference_basis: str | None = None
-
-    # Ambiguous generic mutation verbs are discovery hints only.
-    # Strong semantic verbs such as delete/clear/unsubscribe retain their
-    # existing name semantics; add/set/update require body corroboration
-    # because they are also common pure-computation helpers.
-    if first_token in {"add", "set", "update"}:
-        name_only_writes = (
-            name_capabilities
-            & {"data.write", "destructive.write", "external.write"}
-            - body_capabilities
-        )
-        if name_only_writes:
-            suppressed.update(name_only_writes)
-            inference_basis = "body_effect_corroboration"
-
     if first_token in _CONTROL_HELPER_PREFIXES:
-        suppressed.update(
+        control_suppressed = (
             name_capabilities
             & _CONTROL_NAME_SENSITIVE_CAPABILITIES
             - body_capabilities
         )
-        inference_basis = "control_helper_body_corroboration"
+        suppressed.update(control_suppressed)
+        capabilities.difference_update(control_suppressed)
+        if control_suppressed:
+            inference_basis = "control_helper_body_corroboration"
 
     context_only = _context_only_mutation(node, body_capabilities)
     if context_only:
@@ -1194,32 +1186,58 @@ def scan_python_file(path: Path) -> Graph:
                 candidates.append((line, assignment.value))
         return max(candidates, key=lambda item: item[0])[1] if candidates else None
 
-    def dynamic_collection_tool(node: ast.AST, expr: ast.AST | None) -> Tool | None:
-        if not isinstance(expr, ast.Name):
-            return None
-        value = assignment_value_before_node(node, expr.id)
+    def dynamic_collection_tools(node: ast.AST, expr: ast.AST | None) -> list[Tool]:
+        """Normalize source-bound tool collection expressions without inventing members."""
+        alias = expr.id if isinstance(expr, ast.Name) else "dynamic_tools"
+        value = assignment_value_before_node(node, alias) if isinstance(expr, ast.Name) else expr
+        if value is None:
+            return []
         if isinstance(value, ast.Await):
             value = value.value
+        if isinstance(value, ast.BinOp) and isinstance(value.op, ast.Add):
+            return [
+                *dynamic_collection_tools(node, value.left),
+                *dynamic_collection_tools(node, value.right),
+            ]
+        if isinstance(value, (ast.List, ast.Tuple, ast.Set)):
+            result: list[Tool] = []
+            for element in value.elts:
+                if isinstance(element, ast.Name) and element.id in tools:
+                    result.append(tools[element.id])
+                else:
+                    result.extend(dynamic_collection_tools(node, element))
+            return result
+        if isinstance(value, ast.Name):
+            if value.id in tools:
+                return [tools[value.id]]
+            nested = assignment_value_before_node(node, value.id)
+            if nested is not None and nested is not value:
+                return dynamic_collection_tools(node, nested)
+            return []
         if not isinstance(value, ast.Call):
-            return None
+            return []
         called = _dotted_name(value.func) or _call_name(value.func) or ""
         if "tool" not in called.lower():
-            return None
+            return []
         toolkits = _literal(_kw(value, "toolkits"))
-        return Tool(
-            name=expr.id,
-            kind="dynamic_tool_collection",
-            capabilities=set(),
-            location=_location(path, value),
-            metadata={
-                "framework": "openai-agents",
-                "binding_origin": "source_bound_dynamic_tool_collection",
-                "dynamic_bound_collection": True,
-                "catalogue_source": called,
-                "catalogue_name": toolkits if isinstance(toolkits, (list, tuple)) else None,
-                "tool_scope_unresolved": True,
-            },
-        )
+        if toolkits is None and value.args:
+            toolkits = _literal(value.args[0])
+        return [
+            Tool(
+                name=alias,
+                kind="dynamic_tool_collection",
+                capabilities=set(),
+                location=_location(path, value),
+                metadata={
+                    "framework": "openai-agents",
+                    "binding_origin": "source_bound_dynamic_tool_collection",
+                    "dynamic_bound_collection": True,
+                    "catalogue_source": called,
+                    "catalogue_name": toolkits if isinstance(toolkits, (list, tuple, str)) else None,
+                    "tool_scope_unresolved": True,
+                },
+            )
+        ]
 
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or _call_name(node.func) != "Agent":
@@ -1260,9 +1278,15 @@ def scan_python_file(path: Path) -> Graph:
         else:
             tool_elements = _resolve_sequence(tools_expr, sequences)
             if not tool_elements:
-                dynamic_collection = dynamic_collection_tool(node, tools_expr)
-                if dynamic_collection is not None:
-                    agent.tools.append(dynamic_collection)
+                dynamic_collections = dynamic_collection_tools(node, tools_expr)
+                if dynamic_collections:
+                    for dynamic_collection in dynamic_collections:
+                        if not any(
+                            existing.name == dynamic_collection.name
+                            and existing.kind == dynamic_collection.kind
+                            for existing in agent.tools
+                        ):
+                            agent.tools.append(dynamic_collection)
                     agent.metadata["dynamic_tools"] = True
                     agent.metadata["dynamic_tools_source_bound"] = True
 
@@ -1293,7 +1317,11 @@ def scan_python_file(path: Path) -> Graph:
                 if direct_tool:
                     agent.tools.append(direct_tool)
 
-        for element in _resolve_sequence(_kw(node, "mcp_servers"), sequences):
+        mcp_servers_expr = _kw(node, "mcp_servers")
+        mcp_server_elements = _resolve_sequence(mcp_servers_expr, sequences)
+        if not mcp_server_elements and isinstance(mcp_servers_expr, ast.Name):
+            mcp_server_elements = [mcp_servers_expr]
+        for element in mcp_server_elements:
             if isinstance(element, ast.Name):
                 source_name = resolve_alias(element.id)
                 if source_name in mcp_servers:
@@ -1317,6 +1345,35 @@ def scan_python_file(path: Path) -> Graph:
                     )
                     agent.metadata["parameter_bound_mcp"] = True
                     continue
+                local_factory_value = assignment_value_before_node(node, element.id)
+                local_factory_call = (
+                    local_factory_value.value
+                    if isinstance(local_factory_value, ast.Await)
+                    else local_factory_value
+                )
+                if isinstance(local_factory_call, ast.Call):
+                    factory_name = _call_name(local_factory_call.func)
+                    if factory_name and any(
+                        function.name == factory_name for function in functions
+                    ):
+                        agent.mcp_servers.append(
+                            MCPServer(
+                                name=element.id,
+                                transport="unknown",
+                                authenticated=None,
+                                location=_location(path, local_factory_call),
+                                metadata={
+                                    "framework": "openai-agents",
+                                    "binding_origin": "local_mcp_collection_factory",
+                                    "catalogue_source": factory_name,
+                                    "source_bound_collection": True,
+                                    "transport_unresolved": True,
+                                    "tool_catalogue_unresolved": True,
+                                },
+                            )
+                        )
+                        agent.metadata["dynamic_mcp_source_bound"] = True
+                        continue
                 if source_name in imports:
                     agent.mcp_servers.append(
                         MCPServer(
