@@ -310,6 +310,13 @@ def _mcp_tool_scope(server: MCPServer) -> tuple[dict[str, Any], list[str], str]:
         scope = "unrestricted_or_unknown"
         status = "partially_resolved"
         unresolved.append("tool_filter")
+    elif server.metadata.get("tool_catalogue_unresolved") is True:
+        # Source proves a binding exists, but provides no evidence that the
+        # runtime catalogue is broad or unrestricted. Preserve uncertainty
+        # without upgrading it into an unrestricted-surface claim.
+        scope = "unknown"
+        status = "unknown"
+        unresolved.append("tool_catalogue")
     else:
         scope = "unrestricted_or_unknown"
         status = "unknown"
