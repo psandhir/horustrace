@@ -613,9 +613,28 @@ def _body_call_capabilities(
         if not isinstance(child, ast.Call):
             continue
         called = _dotted_name(child.func) or _call_name(child.func) or ""
-        capabilities.update(infer_capabilities(called))
-
         normalized = called.lower()
+        leaf = (_call_name(child.func) or "").lower()
+        receiver = child.func.value if isinstance(child.func, ast.Attribute) else None
+
+        # Local/in-memory collection mutation is not persistent authority.
+        # Repository/external helper effects are resolved by later source passes.
+        if not (
+            leaf in {
+                "append",
+                "extend",
+                "insert",
+                "remove",
+                "pop",
+                "clear",
+                "update",
+                "add",
+                "discard",
+            }
+            and isinstance(receiver, ast.Name)
+        ):
+            capabilities.update(infer_capabilities(called))
+
         if (
             normalized
             in {
