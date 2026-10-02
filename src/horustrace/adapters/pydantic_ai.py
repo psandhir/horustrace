@@ -252,6 +252,41 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
     return capabilities
 
 
+def _restricted_in_process_eval(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """Identify eval-only execution where Python builtins are explicitly disabled."""
+    saw_eval = False
+    for child in ast.walk(node):
+        if not isinstance(child, ast.Call):
+            continue
+        dotted = (_dotted(child.func) or _call_name(child.func) or "").lower()
+        if dotted in {"eval", "builtins.eval"}:
+            saw_eval = True
+            globals_arg = child.args[1] if len(child.args) > 1 else _kw(child, "globals")
+            if not isinstance(globals_arg, ast.Dict):
+                return False
+            builtins_locked = any(
+                isinstance(key, ast.Constant)
+                and key.value == "__builtins__"
+                and (
+                    isinstance(value, ast.Dict)
+                    and not value.keys
+                    or isinstance(value, ast.Constant)
+                    and value.value is None
+                )
+                for key, value in zip(globals_arg.keys, globals_arg.values)
+            )
+            if not builtins_locked:
+                return False
+            continue
+        if (
+            dotted in {"exec", "compile", "builtins.exec", "builtins.compile", "os.system", "os.popen"}
+            or dotted.startswith("subprocess.")
+            or "create_subprocess_" in dotted
+        ):
+            return False
+    return saw_eval
+
+
 def _expr_uses_names(node: ast.AST | None, names: set[str]) -> bool:
     if node is None or not names:
         return False
@@ -660,6 +695,15 @@ def _tool_from_function(
     )
     if _contains_conditional_approval(node):
         tool.metadata["conditional_approval"] = True
+    if "process.execute" in capabilities and _restricted_in_process_eval(node):
+        tool.metadata.update(
+            {
+                "process_execution_constrained": True,
+                "process_execution_scope": "restricted_in_process_eval",
+                "host_process_execution": False,
+                "control_basis": "eval_builtins_disabled",
+            }
+        )
 
     calls = [child for child in ast.walk(node) if isinstance(child, ast.Call)]
     scoped_path_control = any(
