@@ -696,17 +696,19 @@ def _decorated_tool_capabilities(
     suppressed: set[str] = set()
     inference_basis: str | None = None
 
-    # Mutation-like names (add/set/update/etc.) are discovery hints only.
-    # Persistent state authority requires a body-side effect or known mutating
-    # API call; pure computation must remain non-privileged.
-    name_only_writes = (
-        name_capabilities
-        & {"data.write", "destructive.write", "external.write"}
-        - body_capabilities
-    )
-    if name_only_writes:
-        suppressed.update(name_only_writes)
-        inference_basis = "body_effect_corroboration"
+    # Ambiguous generic mutation verbs are discovery hints only.
+    # Strong semantic verbs such as delete/clear/unsubscribe retain their
+    # existing name semantics; add/set/update require body corroboration
+    # because they are also common pure-computation helpers.
+    if first_token in {"add", "set", "update"}:
+        name_only_writes = (
+            name_capabilities
+            & {"data.write", "destructive.write", "external.write"}
+            - body_capabilities
+        )
+        if name_only_writes:
+            suppressed.update(name_only_writes)
+            inference_basis = "body_effect_corroboration"
 
     if first_token in _CONTROL_HELPER_PREFIXES:
         suppressed.update(
