@@ -695,6 +695,19 @@ def _decorated_tool_capabilities(
     first_token = node.name.lower().replace("-", "_").split("_", 1)[0]
     suppressed: set[str] = set()
     inference_basis: str | None = None
+
+    # Mutation-like names (add/set/update/etc.) are discovery hints only.
+    # Persistent state authority requires a body-side effect or known mutating
+    # API call; pure computation must remain non-privileged.
+    name_only_writes = (
+        name_capabilities
+        & {"data.write", "destructive.write", "external.write"}
+        - body_capabilities
+    )
+    if name_only_writes:
+        suppressed.update(name_only_writes)
+        inference_basis = "body_effect_corroboration"
+
     if first_token in _CONTROL_HELPER_PREFIXES:
         suppressed.update(
             name_capabilities
