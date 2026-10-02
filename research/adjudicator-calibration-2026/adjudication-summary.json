@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "study": "retrospective-adjudicator-calibration-2026",
+  "evaluator": "chatgpt-source-adjudication",
+  "source_workflow_run": 36898339889,
+  "note": "Group-level source adjudication of the exact bundle-only scanner outputs. Recall intentionally omitted; locked source reviews remain regression truth.",
+  "groups": [
+    {
+      "panel": "frozen90",
+      "state": "frozen90_v06",
+      "finding_verdicts": {
+        "true_positive": 7,
+        "partial": 11,
+        "false_positive": 5,
+        "unresolved": 0
+      }
+    },
+    {
+      "panel": "frozen90",
+      "state": "current_post_287",
+      "finding_verdicts": {
+        "true_positive": 9,
+        "partial": 11,
+        "false_positive": 2,
+        "unresolved": 0
+      }
+    },
+    {
+      "panel": "frozen180",
+      "state": "frozen180_baseline",
+      "finding_verdicts": {
+        "true_positive": 7,
+        "partial": 5,
+        "false_positive": 5,
+        "unresolved": 0
+      }
+    },
+    {
+      "panel": "frozen180",
+      "state": "v010",
+      "finding_verdicts": {
+        "true_positive": 7,
+        "partial": 10,
+        "false_positive": 6,
+        "unresolved": 0
+      }
+    },
+    {
+      "panel": "frozen180",
+      "state": "current_post_287",
+      "finding_verdicts": {
+        "true_positive": 19,
+        "partial": 26,
+        "false_positive": 2,
+        "unresolved": 0
+      }
+    }
+  ]
+}
