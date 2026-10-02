@@ -16,13 +16,10 @@ CAPABILITY_PATTERNS: list[tuple[re.Pattern[str], set[str]]] = [
 ]
 
 
-NAME_HINT_PRIVILEGED_CAPABILITIES = {
-    "process.execute",
-    "destructive.write",
-    "external.write",
+NAME_HINT_REQUIRES_BODY_CAPABILITIES = {
     "data.write",
-    "secrets.read",
-    "identity.admin",
+    "external.write",
+    "network.external",
 }
 
 
@@ -30,19 +27,19 @@ def corroborate_name_inferred_authority(
     name_capabilities: set[str],
     body_capabilities: set[str],
 ) -> tuple[set[str], set[str]]:
-    """Keep privileged name hints only when source-visible body semantics corroborate them.
+    """Filter ambiguous name-only effects unless the function body corroborates them.
 
-    Names remain useful discovery hints, but a name such as send_email or
-    create_summary is not proof that the function performs a persistent or
-    external effect. Calls made by the function body can corroborate the same
-    capability through known API names or sinks.
+    This is intentionally a filter, not a body-to-authority promotion step.
+    Concrete sink inference remains adapter-owned. Strong destructive/process/
+    secret/admin semantics keep their existing behavior, while generic persistent
+    and outbound effects inferred only from names require source-visible support.
     """
     unsupported = (
         name_capabilities
-        & NAME_HINT_PRIVILEGED_CAPABILITIES
+        & NAME_HINT_REQUIRES_BODY_CAPABILITIES
         - body_capabilities
     )
-    return (name_capabilities | body_capabilities) - unsupported, unsupported
+    return name_capabilities - unsupported, unsupported
 
 
 PRIVILEGED_CAPABILITIES = {
