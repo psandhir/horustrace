@@ -20,14 +20,14 @@ from horustrace.semantic_discovery import (
 def test_semantic_discovery_serializes_evidence_and_relationships() -> None:
     location = SourceLocation(Path("app/graph.py"), line=12, column=3)
     agent_id = stable_entity_id(
-        framework="langgraph",
+        framework="example-framework",
         kind=SemanticEntityKind.AGENT,
         name="researcher",
         source_key="app/graph.py",
         line=12,
     )
     tool_id = stable_entity_id(
-        framework="langgraph",
+        framework="example-framework",
         kind=SemanticEntityKind.TOOL,
         name="search",
         source_key="app/tools.py",
@@ -44,13 +44,13 @@ def test_semantic_discovery_serializes_evidence_and_relationships() -> None:
         entity_id=agent_id,
         name="researcher",
         kind=SemanticEntityKind.AGENT,
-        framework="langgraph",
+        framework="example-framework",
         location=location,
         provenance=[
             EvidenceFact(
                 subject="researcher",
                 fact="registered agent node",
-                origin="langgraph",
+                origin="example-framework",
                 location=location,
             )
         ],
@@ -59,7 +59,7 @@ def test_semantic_discovery_serializes_evidence_and_relationships() -> None:
         entity_id=tool_id,
         name="search",
         kind=SemanticEntityKind.TOOL,
-        framework="langgraph",
+        framework="example-framework",
     )
     binding = SemanticBinding(
         binding_id=binding_id,
@@ -82,21 +82,21 @@ def test_semantic_discovery_serializes_evidence_and_relationships() -> None:
 
 def test_semantic_ids_are_deterministic_and_source_sensitive() -> None:
     left = stable_entity_id(
-        framework="langgraph",
+        framework="example-framework",
         kind=SemanticEntityKind.CONTROL,
         name="router",
         source_key="app/graph.py",
         line=20,
     )
     same = stable_entity_id(
-        framework="langgraph",
+        framework="example-framework",
         kind=SemanticEntityKind.CONTROL,
         name="router",
         source_key="app/graph.py",
         line=20,
     )
     other = stable_entity_id(
-        framework="langgraph",
+        framework="example-framework",
         kind=SemanticEntityKind.CONTROL,
         name="router",
         source_key="other/graph.py",
@@ -112,7 +112,7 @@ def test_semantic_discovery_rejects_missing_binding_endpoint() -> None:
         entity_id="semantic-v1:entity:one",
         name="graph",
         kind=SemanticEntityKind.WORKFLOW,
-        framework="langgraph",
+        framework="example-framework",
     )
     binding = SemanticBinding(
         binding_id="semantic-v1:binding:one",
@@ -132,7 +132,7 @@ def test_semantic_discovery_rejects_duplicate_ids() -> None:
         entity_id="semantic-v1:entity:duplicate",
         name="graph",
         kind=SemanticEntityKind.WORKFLOW,
-        framework="langgraph",
+        framework="example-framework",
     )
 
     with pytest.raises(ValueError, match="duplicate entity IDs"):

@@ -64,7 +64,6 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
-from horustrace.object_authorization import enrich_model_tool_object_authorization
 from horustrace.path_safety import canonical_root, is_within_root
 from horustrace.provenance import annotate, attach_findings, context
 from horustrace.rag_semantics import enrich_streamlit_rag_directory_semantics
@@ -1288,7 +1287,6 @@ def _merge(target: Graph, source: Graph, path: Path) -> None:
     for agent in source.agents:
         agent.tools = deepcopy(agent.tools)
     target.agents.extend(source.agents)
-    target.workflow_nodes.extend(source.workflow_nodes)
     target.unbound_tools.extend(source.unbound_tools)
     target.unbound_mcp_servers.extend(source.unbound_mcp_servers)
     target.identities.extend(source.identities)
@@ -1782,47 +1780,6 @@ def _link_global_identities(graph: Graph) -> None:
                 agent.identities.append(by_name[name])
 
 
-_NON_MODEL_LANGGRAPH_AUTHORITY_RULES = {
-    "AGT020",
-    "AGT021",
-    "AGT022",
-    "AGT040",
-    "CAP001",
-    "CAP002",
-    "CAP003",
-    "CAP004",
-    "CAP005",
-    "CAP006",
-    "DATA001",
-    "NET001",
-    "NET002",
-}
-
-
-def _non_model_langgraph_agent_names(graph: Graph) -> set[str]:
-    return {
-        agent.name
-        for agent in graph.agents
-        if agent.metadata.get("framework") == "langgraph"
-        and agent.metadata.get("model_driven_workflow") is False
-    }
-
-
-def _filter_non_model_langgraph_findings(graph: Graph, findings: list) -> list:
-    excluded = _non_model_langgraph_agent_names(graph)
-    if not excluded:
-        return findings
-    return [
-        finding
-        for finding in findings
-        if not (
-            finding.agent in excluded
-            and finding.rule_id in _NON_MODEL_LANGGRAPH_AUTHORITY_RULES
-        )
-    ]
-
-
-
 def _enrich_streamlit_pydantic_wrapper_inputs(
     graph: Graph,
     root: Path,
@@ -2309,11 +2266,6 @@ def scan(
         root if root.is_dir() else root.parent,
         approved_python_paths,
     )
-    enrich_model_tool_object_authorization(
-        graph,
-        root if root.is_dir() else root.parent,
-        approved_python_paths,
-    )
     diagnose_dynamic_constructs(graph)
     for agent in graph.agents:
         if agent.metadata.get("dynamic_control_flow"):
@@ -2330,7 +2282,7 @@ def scan(
         for agent in graph.agents
         if agent.metadata.get("framework")
     }
-    for framework in ("google-adk", "langgraph", "openai-agents", "fast-agent"):
+    for framework in ("google-adk", "openai-agents", "fast-agent"):
         if framework in framework_evidence and framework not in normalized_frameworks:
             location = framework_evidence[framework][0]
             add_diagnostic(
@@ -2494,12 +2446,7 @@ def scan(
         graph.coverage.resolution["semantic_llm"] = llm_semantic_stats
 
     annotate_risk_semantics(graph)
-    non_model_langgraph_agents = _non_model_langgraph_agent_names(graph)
-    graph.attack_paths = [
-        path
-        for path in build_attack_paths(graph)
-        if path.agent not in non_model_langgraph_agents
-    ]
+    graph.attack_paths = build_attack_paths(graph)
     for attack_path in graph.attack_paths:
         same_name_agents = [
             agent for agent in graph.agents if agent.name == attack_path.agent
@@ -2525,7 +2472,7 @@ def scan(
                 "Declared static authority is source-proven, but live runtime reachability is blocked by the pinned source error.",
             )
     graph.adg = build_adg(graph, analysis_root)
-    findings = _filter_non_model_langgraph_findings(graph, evaluate(graph))
+    findings = evaluate(graph)
     for finding in findings:
         same_name_agents = [
             agent for agent in graph.agents if agent.name == finding.agent

@@ -3,7 +3,11 @@ import json
 import pytest
 
 from horustrace.adapters.contract import PythonFrameworkAdapter
-from horustrace.adapters.registry import PYTHON_FRAMEWORK_ADAPTERS, adapter_catalogue
+from horustrace.adapters.registry import (
+    PYTHON_FRAMEWORK_ADAPTERS,
+    adapter_catalogue,
+    detect_python_frameworks,
+)
 from horustrace.cli import main
 from horustrace.models import Graph
 
@@ -51,3 +55,18 @@ def test_adapters_cli_exposes_contract_catalogue(capsys) -> None:
     assert document["schema_version"] == 1
     assert any(item["name"] == "google-adk" for item in document["adapters"])
     assert all(item["execution_model"] == "static" for item in document["adapters"])
+
+
+def test_langgraph_is_out_of_scope(tmp_path) -> None:
+    source = tmp_path / "workflow.py"
+    source.write_text(
+        """
+from langgraph.graph import StateGraph
+
+workflow = StateGraph(dict)
+workflow.add_node("transform", lambda state: state)
+""",
+        encoding="utf-8",
+    )
+
+    assert "langgraph" not in detect_python_frameworks(source)

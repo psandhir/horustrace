@@ -11,8 +11,6 @@ from horustrace.adapters.fast_agent import is_fast_agent_file
 from horustrace.adapters.fast_agent import scan_python_file as scan_fast_agent_python
 from horustrace.adapters.google_adk import is_google_adk_file
 from horustrace.adapters.google_adk import scan_python_file as scan_google_adk_python
-from horustrace.adapters.langgraph import is_langgraph_file
-from horustrace.adapters.langgraph import scan_python_file as scan_langgraph_python
 from horustrace.adapters.langchain_tools import is_langchain_tool_file
 from horustrace.adapters.langchain_tools import scan_python_file as scan_langchain_tools_python
 from horustrace.adapters.mcp_python import is_mcp_python_file
@@ -28,7 +26,6 @@ from horustrace.models import Graph
 
 PYTHON_FRAMEWORK_ADAPTERS: tuple[PythonFrameworkAdapter, ...] = (
     PythonFrameworkAdapter("google-adk", is_google_adk_file, scan_google_adk_python),
-    PythonFrameworkAdapter("langgraph", is_langgraph_file, scan_langgraph_python),
     PythonFrameworkAdapter("langchain-tools", is_langchain_tool_file, scan_langchain_tools_python),
     PythonFrameworkAdapter(
         "custom-tool-registry",
@@ -69,7 +66,6 @@ def detect_python_framework(path: Path) -> str | None:
 
 def _merge_graph(target: Graph, source: Graph) -> None:
     target.agents.extend(source.agents)
-    target.workflow_nodes.extend(source.workflow_nodes)
     target.unbound_tools.extend(source.unbound_tools)
     target.unbound_mcp_servers.extend(source.unbound_mcp_servers)
     target.identities.extend(source.identities)
