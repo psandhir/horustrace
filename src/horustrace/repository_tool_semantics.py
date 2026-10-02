@@ -358,9 +358,6 @@ def _source_network_semantics(
             for name in _target_names(target):
                 fixed_origins[name] = origin
 
-    if not fixed_origins:
-        return [], {}
-
     observed_origins: set[str] = set()
     caller_selected_http = False
     for child in ast.walk(function):
@@ -667,9 +664,12 @@ def enrich_indirect_tool_content_semantics(
         if tree is None:
             return {}
         resolved: dict[str, FunctionDefRef] = {}
-        for node in tree.body:
-            if not isinstance(node, ast.ImportFrom):
-                continue
+        import_nodes = [
+            node
+            for node in [*tree.body, *ast.walk(ref.node)]
+            if isinstance(node, ast.ImportFrom)
+        ]
+        for node in import_nodes:
             source_module = _resolved_import_module(ref.module, ref.path, node)
             if not source_module:
                 continue
@@ -685,6 +685,52 @@ def enrich_indirect_tool_content_semantics(
             return
 
         destinations, network_metadata = _source_network_semantics(ref.node)
+
+        helpers = imported_functions(ref)
+        for call in [
+            child
+            for child in ast.walk(ref.node)
+            if isinstance(child, ast.Call)
+        ]:
+            helper = helpers.get(_call_leaf(call) or "")
+            if helper is None:
+                continue
+            helper_destinations, helper_network_metadata = _source_network_semantics(
+                helper.node
+            )
+            if helper_destinations:
+                destinations.extend(helper_destinations)
+                network_metadata = {
+                    **network_metadata,
+                    **helper_network_metadata,
+                    "destination_constraint_basis": "repository_local_helper_fixed_origin",
+                }
+            if any(
+                isinstance(nested, ast.Call)
+                and _call_leaf(nested) == "build"
+                and nested.args
+                and isinstance(nested.args[0], ast.Constant)
+                and nested.args[0].value == "gmail"
+                for nested in ast.walk(helper.node)
+            ):
+                destinations.append(
+                    NetworkDestination(
+                        target="<google-api:gmail>",
+                        restricted=True,
+                        metadata={
+                            "source": "provider_sdk",
+                            "network_scope": "fixed_provider_network",
+                            "provider": "google",
+                            "service": "gmail",
+                        },
+                    )
+                )
+                network_metadata = {
+                    **network_metadata,
+                    "network_scope": "fixed_provider_network",
+                    "destination_constraint_basis": "provider_sdk_literal_service",
+                }
+
         if destinations:
             tool.capabilities.add("network.external")
             for destination in destinations:
