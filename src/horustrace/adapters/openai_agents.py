@@ -1155,6 +1155,57 @@ def scan_python_file(path: Path) -> Graph:
             current = aliases[current]
         return current
 
+    def assignment_value_before_node(node: ast.AST, name: str) -> ast.AST | None:
+        owner = _enclosing_function(functions, node)
+        before_line = getattr(node, "lineno", 0)
+        candidates: list[tuple[int, ast.AST]] = []
+        for assignment in ast.walk(tree):
+            if not isinstance(assignment, (ast.Assign, ast.AnnAssign)):
+                continue
+            if _enclosing_function(functions, assignment) is not owner:
+                continue
+            line = getattr(assignment, "lineno", 0)
+            if line >= before_line or assignment.value is None:
+                continue
+            targets = (
+                assignment.targets
+                if isinstance(assignment, ast.Assign)
+                else [assignment.target]
+            )
+            if any(
+                isinstance(target, ast.Name) and target.id == name
+                for target in targets
+            ):
+                candidates.append((line, assignment.value))
+        return max(candidates, key=lambda item: item[0])[1] if candidates else None
+
+    def dynamic_collection_tool(node: ast.AST, expr: ast.AST | None) -> Tool | None:
+        if not isinstance(expr, ast.Name):
+            return None
+        value = assignment_value_before_node(node, expr.id)
+        if isinstance(value, ast.Await):
+            value = value.value
+        if not isinstance(value, ast.Call):
+            return None
+        called = _dotted_name(value.func) or _call_name(value.func) or ""
+        if "tool" not in called.lower():
+            return None
+        toolkits = _literal(_kw(value, "toolkits"))
+        return Tool(
+            name=expr.id,
+            kind="dynamic_tool_collection",
+            capabilities=set(),
+            location=_location(path, value),
+            metadata={
+                "framework": "openai-agents",
+                "binding_origin": "source_bound_dynamic_tool_collection",
+                "dynamic_bound_collection": True,
+                "catalogue_source": called,
+                "catalogue_name": toolkits if isinstance(toolkits, (list, tuple)) else None,
+                "tool_scope_unresolved": True,
+            },
+        )
+
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or _call_name(node.func) != "Agent":
             continue
@@ -1193,6 +1244,12 @@ def scan_python_file(path: Path) -> Graph:
             tool_elements: list[ast.AST] = []
         else:
             tool_elements = _resolve_sequence(tools_expr, sequences)
+            if not tool_elements:
+                dynamic_collection = dynamic_collection_tool(node, tools_expr)
+                if dynamic_collection is not None:
+                    agent.tools.append(dynamic_collection)
+                    agent.metadata["dynamic_tools"] = True
+                    agent.metadata["dynamic_tools_source_bound"] = True
 
         for element in tool_elements:
             if isinstance(element, ast.Name) and element.id in tools:
