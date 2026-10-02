@@ -88,31 +88,61 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix=f"horus-unseen-{row['case_id']}-") as td:
         target = clone(Path(td), row)
+        pack = source_pack(target)
+        (out / "source-pack.txt").write_text(pack, encoding="utf-8")
         scan_path = out / "scan.json"
         scan_proc = run(
             ["horustrace", "scan", str(target), "--format", "json", "--output", str(scan_path), "--fail-on", "none"],
             check=False,
         )
         if not scan_path.exists():
-            raise RuntimeError(f"scan failed rc={scan_proc.returncode}: {(scan_proc.stderr or scan_proc.stdout)[-4000:]}")
+            result = {
+                **row,
+                "scanner_sha": CONFIG["scanner_baseline_sha"],
+                "source_pack_chars": len(pack),
+                "scan_status": "error",
+                "scan_error": (scan_proc.stderr or scan_proc.stdout)[-8000:],
+                "finding_count": None,
+                "path_count": None,
+                "node_count": None,
+                "findings": [],
+                "attack_paths": [],
+            }
+            (out / "result.json").write_text(json.dumps(result, indent=2) + "\\n", encoding="utf-8")
+            print(json.dumps({"case_id": row["case_id"], "repo": row["repo"], "family": row["family"], "scan_status": "error"}, indent=2))
+            return 0
         scan = json.loads(scan_path.read_text(encoding="utf-8"))
 
         graph_proc = run(["horustrace", "security-graph", str(target)], check=False)
         if graph_proc.returncode:
-            raise RuntimeError((graph_proc.stderr or graph_proc.stdout)[-4000:])
+            result = {
+                **row,
+                "scanner_sha": CONFIG["scanner_baseline_sha"],
+                "source_pack_chars": len(pack),
+                "scan_status": "graph_error",
+                "scan_error": (graph_proc.stderr or graph_proc.stdout)[-8000:],
+                "finding_count": len(scan.get("findings") or []),
+                "path_count": None,
+                "node_count": None,
+                "findings": [{"index": i, **x} for i, x in enumerate(scan.get("findings") or []) if isinstance(x, dict)],
+                "attack_paths": [],
+            }
+            (out / "result.json").write_text(json.dumps(result, indent=2) + "\\n", encoding="utf-8")
+            print(json.dumps({"case_id": row["case_id"], "repo": row["repo"], "family": row["family"], "scan_status": "graph_error"}, indent=2))
+            return 0
         graph = parse_json(graph_proc.stdout, "security-graph")
         topology = graph.get("topology") if isinstance(graph.get("topology"), dict) else {}
         nodes = topology.get("nodes") if isinstance(topology.get("nodes"), list) else []
         paths = graph.get("attack_paths") if isinstance(graph.get("attack_paths"), list) else []
         findings = scan.get("findings") if isinstance(scan.get("findings"), list) else []
 
-        pack = source_pack(target)
-        (out / "source-pack.txt").write_text(pack, encoding="utf-8")
         (out / "security-graph.json").write_text(json.dumps(graph, indent=2) + "\n", encoding="utf-8")
         result = {
             **row,
             "scanner_sha": CONFIG["scanner_baseline_sha"],
             "source_pack_chars": len(pack),
+            "scan_status": "success",
+            "scan_error": None,
             "finding_count": len(findings),
             "path_count": len(paths),
             "node_count": len(nodes),
