@@ -1,21 +1,36 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "study": "agent-centric-generalization-12",
   "source_study": "fresh-unseen-generalization-20",
   "source_adjudication": "chatgpt-source-adjudication-v1",
   "scanner_commit": "faec409216bbbd77c8800f3fc041f31e1212132c",
   "workflow_run": 37042400793,
-  "method": "carry_forward_exact_unchanged_claim_verdicts",
+  "method": "carry_forward_exact_unchanged_claim_verdicts_with_final_rule_level_reconciliation",
+  "scope": {
+    "frameworks": ["google-adk", "pydantic-ai", "openai-agents"],
+    "repositories": 12,
+    "cases_completed": 12,
+    "langgraph_excluded_from_target_scope": true,
+    "mcp_custom_excluded_from_target_scope": true
+  },
+  "baseline_scoped_findings": {
+    "total": 70,
+    "true_positive": 22,
+    "partial": 34,
+    "false_positive": 14,
+    "materially_supported": 56,
+    "materially_supported_precision": 0.8000
+  },
   "findings": {
     "total": 61,
     "true_positive": 22,
-    "partial": 34,
-    "false_positive": 5,
+    "partial": 32,
+    "false_positive": 7,
     "unresolved": 0,
-    "materially_supported": 56,
+    "materially_supported": 54,
     "strict_precision": 0.3607,
-    "materially_supported_precision": 0.9180,
-    "false_positive_rate": 0.0820
+    "materially_supported_precision": 0.8852,
+    "false_positive_rate": 0.1148
   },
   "frameworks": {
     "google-adk": {
@@ -28,9 +43,9 @@
     "pydantic-ai": {
       "findings": 17,
       "true_positive": 4,
-      "partial": 11,
-      "false_positive": 2,
-      "supported_precision": 0.8824
+      "partial": 9,
+      "false_positive": 4,
+      "supported_precision": 0.7647
     },
     "openai-agents": {
       "findings": 20,
@@ -40,18 +55,48 @@
       "supported_precision": 0.9000
     }
   },
+  "claim_delta": {
+    "new_semantic_claims": 0,
+    "removed_claims": 9,
+    "removed_false_positive": 7,
+    "removed_partial": 2,
+    "retained_claims": 61,
+    "retained_claims_with_material_evidence_change": 2
+  },
   "attack_paths": {
     "prior_total": 7,
+    "prior_partial": 5,
+    "prior_false_positive": 2,
     "total": 5,
+    "true_positive": 0,
+    "partial": 5,
+    "false_positive": 0,
+    "materially_supported_precision": 1.0,
     "removed_false_positive": 2,
     "added": 0
   },
-  "removed_false_positives": {
-    "findings": 9,
-    "categories": {
-      "provider_or_fixed_destination": 5,
-      "mcp_bootstrap_not_agent_authority": 2,
-      "capability_misclassification": 2
-    }
-  }
+  "residual_false_positives": {
+    "total": 7,
+    "google_adk_fixed_destination": 1,
+    "pydantic_provider_or_fixed_destination": 3,
+    "pydantic_capability_type": 1,
+    "openai_mixed_repo_langgraph_scope_leakage": 2
+  },
+  "scope_adjusted_sensitivity": {
+    "exclude_langgraph_only_mixed_repo_findings": 2,
+    "findings": 59,
+    "materially_supported": 54,
+    "materially_supported_precision": 0.9153,
+    "note": "Sensitivity analysis only; operational scanner precision remains 0.8852 until scope leakage is fixed."
+  },
+  "attribution": {
+    "pr_291": "removed five OpenAI provider-destination false positives",
+    "pr_292": "removed two PharmIQ bootstrap false positives and two constrained-eval partial overclaims",
+    "pr_293": "removed LangGraph framework support; this rerun establishes non-regression for the three target frameworks"
+  },
+  "limitations": [
+    "Same frozen repositories as #290; not a new unseen cohort.",
+    "Carry-forward precision adjudication, not blind recall evaluation.",
+    "The #290 evaluator saw HorusTrace claims."
+  ]
 }
