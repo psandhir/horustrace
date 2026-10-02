@@ -381,6 +381,7 @@ def evaluate(graph: Graph) -> list[Finding]:
             if (
                 "data.write" in tool.capabilities
                 and tool.approval is not True
+                and not tool.guardrails
                 and _llm_synthetic_approval_gap_is_proven(tool)
                 and tool.kind in {
                     "apply_patch",
