@@ -1,0 +1,103 @@
+name: Fresh Unseen Generalization 20
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/fresh-unseen-generalization-20
+    paths:
+      - ".github/workflows/fresh-unseen-generalization-20.yml"
+      - "research/fresh-unseen-generalization-20/**"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: fresh-unseen-generalization-20
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: ${{ matrix.case_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        case_id:
+          - gen-adk-001
+          - gen-adk-002
+          - gen-adk-003
+          - gen-adk-004
+          - gen-pyd-001
+          - gen-pyd-002
+          - gen-pyd-003
+          - gen-pyd-004
+          - gen-oai-001
+          - gen-oai-002
+          - gen-oai-003
+          - gen-oai-004
+          - gen-lg-001
+          - gen-lg-002
+          - gen-lg-003
+          - gen-lg-004
+          - gen-mcp-001
+          - gen-mcp-002
+          - gen-mcp-003
+          - gen-mcp-004
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+
+      - name: Generate fixed-source scan bundle
+        run: |
+          python research/fresh-unseen-generalization-20/run_case.py \
+            --case-id "${{ matrix.case_id }}" \
+            --output-dir artifacts
+
+      - name: Upload case bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generalization-case-${{ matrix.case_id }}
+          path: artifacts/${{ matrix.case_id }}/
+          if-no-files-found: error
+          retention-days: 30
+
+  aggregate:
+    name: Aggregate unseen cohort
+    if: always()
+    needs: scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download case artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: generalization-case-*
+          path: downloaded
+
+      - name: Aggregate
+        run: |
+          python research/fresh-unseen-generalization-20/aggregate.py \
+            --input downloaded \
+            --output aggregate
+          cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload aggregate
+        uses: actions/upload-artifact@v4
+        with:
+          name: fresh-unseen-generalization-20-summary
+          path: aggregate/
+          if-no-files-found: error
+          retention-days: 30
