@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "study": "agent-centric-unseen-12-v4",
+  "status": "frozen_before_horustrace_execution",
+  "locked_at": "2026-10-02",
+  "scanner_baseline": "dc06905be7160463be292219aee9f04c3c5ad6a5",
+  "selection": {
+    "target_repositories": 12,
+    "method": "Live GitHub code search for Python implementations of Google ADK, Pydantic AI, and OpenAI Agents. Candidates were source-screened for agent/tool/MCP authority composition, checked against HorusTrace prior-cohort references, and frozen before the first HorusTrace execution.",
+    "horustrace_output_used_for_selection": false,
+    "framework_counts": {"google-adk": 4, "pydantic-ai": 4, "openai-agents": 4}
+  },
+  "cases": [
+    {"case_id":"unseen4-adk-001","repo":"AbiramiSukumaran/adk-renovation-agent","sha":"0db085bff18c94a4c74a1dd4b09913a643e3ac5b","framework":"google-adk","evidence_path":"agent.py","selection_signal":"renovation agent with HTTP order-status access, cloud storage/document handling and multiple business tools"},
+    {"case_id":"unseen4-adk-002","repo":"scspai/adk-email-agent","sha":"d32b07c65e0f8de37e95302919bdba4458d1de39","framework":"google-adk","evidence_path":"agent.py","selection_signal":"Gmail read/draft plus label mutation and preference persistence tools"},
+    {"case_id":"unseen4-adk-003","repo":"ranadip/finos_fraud_demo","sha":"f6c38dfd4208243ebff2ea00752d6873113382b7","framework":"google-adk","evidence_path":"agent.py","selection_signal":"fraud-response agent with SOP retrieval, incident creation and card blocking"},
+    {"case_id":"unseen4-adk-004","repo":"pankajmisr/github-pr-review-agent","sha":"f3d85a9af521cb3ef97d8633a7def3b6a1e1bc42","framework":"google-adk","evidence_path":"agent.py","selection_signal":"function-local ADK factory binding GitHub PR read, review submission and comment tools"},
+
+    {"case_id":"unseen4-pyd-001","repo":"oscarpoudel/LLM_ROS2_agent","sha":"d4323debe4340558e2faffc61430d4c661cefd4b","framework":"pydantic-ai","evidence_path":"agent.py","selection_signal":"multi-agent robot control with motion, navigation, status, vision and ROS CLI tools"},
+    {"case_id":"unseen4-pyd-002","repo":"jakezacharia/arby","sha":"5a59738c3f9356fa548e9ef1eff974f48986f62d","framework":"pydantic-ai","evidence_path":"agent.py","selection_signal":"decorator-registered price retrieval and outbound SMS alert tool"},
+    {"case_id":"unseen4-pyd-003","repo":"zahere-dev/pydanticai-price-monitoring-agent","sha":"e5ba882dfe78317a73a129af707741a66da54f61","framework":"pydantic-ai","evidence_path":"agent.py","selection_signal":"web scraping, database read/write and email notification tools bound through Tool wrappers"},
+    {"case_id":"unseen4-pyd-004","repo":"BhargavP2003/swot-agent","sha":"dcf52092f69b6d454dc27d8f89cea220bd44092c","framework":"pydantic-ai","evidence_path":"agent.py","selection_signal":"decorator tools for arbitrary URL fetch, Gemini competition analysis and Reddit retrieval with prepare controls"},
+
+    {"case_id":"unseen4-oai-001","repo":"morgan-heisler/DeckBench","sha":"47393cf4cb8590215ec2276b9603af05e90015f4","framework":"openai-agents","evidence_path":"metrics/agents.py","selection_signal":"OpenAI Agent factory with dynamically constructed MCP stdio servers including filesystem configuration"},
+    {"case_id":"unseen4-oai-002","repo":"blaxel-templates/template-openai-py","sha":"51f59e68b4e69d0391b88f85e03d861130865cc9","framework":"openai-agents","evidence_path":"src/agent.py","selection_signal":"function-local agent with awaited dynamic tool provider plus local function tool"},
+    {"case_id":"unseen4-oai-003","repo":"les2232/CCAIT_AI_supportassistant","sha":"44265ab41ef8042592607d2d749b39c2700d4b9a","framework":"openai-agents","evidence_path":"agent_service.py","selection_signal":"factory-return support triage agent with a local summary tool and explicit source-locking controls"},
+    {"case_id":"unseen4-oai-004","repo":"lutzroeder/agents","sha":"4c276f861c758924bcffa029ae81f8121e920bd5","framework":"openai-agents","evidence_path":"research.py","selection_signal":"multiple OpenAI agents using hosted WebSearchTool for planning and search, plus a no-tool summarizer"}
+  ]
+}
