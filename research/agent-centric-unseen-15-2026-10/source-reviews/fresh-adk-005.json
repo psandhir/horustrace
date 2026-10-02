@@ -1,0 +1,59 @@
+{
+  "case_id": "fresh-adk-005",
+  "repo": "shahriarhasan443/clarix_agent",
+  "sha": "ed8326c05f00d60da6be752ac484d80e54b40f90",
+  "framework": "google-adk",
+  "review_status": "blind_source_review_complete",
+  "horustrace_output_seen": false,
+  "evaluator": {
+    "kind": "llm",
+    "model": "GPT-5.6 Sol",
+    "ground_truth": false
+  },
+  "effective_agents": [
+    {
+      "name": "clarix_agent",
+      "binding": "root ADK LlmAgent delegates to four child agents via AgentTool",
+      "source_context": "runtime",
+      "evidence": [
+        "agent.py: AgentTool(agent=...) bindings"
+      ]
+    },
+    {
+      "name": "audience_agent / ad_writer_agent / email_writer_agent / tone_optimizer_agent",
+      "binding": "delegated text-generation child agents without reviewed external tools",
+      "source_context": "runtime",
+      "evidence": [
+        "agents/*_agent.py"
+      ]
+    }
+  ],
+  "expected_claims": [],
+  "expected_paths": [],
+  "negative_controls": [
+    {
+      "control_id": "fresh-adk-005-n01",
+      "statement": "AgentTool delegation must not itself imply network, process, filesystem, or external-write authority.",
+      "evidence": [
+        "agent.py and child agent files: no external tools"
+      ]
+    },
+    {
+      "control_id": "fresh-adk-005-n02",
+      "statement": "The child name email_writer_agent must not be interpreted as email-send authority without a concrete sending sink.",
+      "evidence": [
+        "agents/email_writer_agent.py: text-generation agent only"
+      ]
+    },
+    {
+      "control_id": "fresh-adk-005-n03",
+      "statement": "Delegated child agents must not be conflated with unrelated repository functions or integrations.",
+      "evidence": [
+        "source-visible AgentTool bindings are explicit"
+      ]
+    }
+  ],
+  "coverage_notes": [
+    "Positive delegation topology, negative privileged-authority control."
+  ]
+}
