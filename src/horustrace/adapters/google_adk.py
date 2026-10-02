@@ -381,6 +381,39 @@ def _infer_function_capabilities(
         if leaf in {"delete", "remove", "destroy", "purge"}:
             caps.update({"data.write", "destructive.write"})
 
+        gcs_write_methods = {
+            "upload_from_file",
+            "upload_from_filename",
+            "upload_from_string",
+            "compose",
+            "rewrite",
+        }
+        gcs_read_methods = {
+            "download_as_bytes",
+            "download_as_string",
+            "download_as_text",
+            "download_to_file",
+            "download_to_filename",
+        }
+        if leaf in gcs_write_methods | gcs_read_methods:
+            if leaf in gcs_write_methods:
+                caps.update({"data.write", "external.write"})
+            else:
+                caps.add("data.read")
+            caps.add("network.external")
+            destinations.append(
+                NetworkDestination(
+                    target="<google-cloud-storage>",
+                    restricted=True,
+                    metadata={
+                        "source": "provider_sdk",
+                        "network_scope": "fixed_provider_network",
+                        "provider": "google",
+                        "service": "cloud-storage",
+                    },
+                )
+            )
+
         network_call = any(
             marker in called
             for marker in (
@@ -712,6 +745,35 @@ def _apply_operator_configured_function_destinations(
     configuration_sources: dict[str, str],
 ) -> None:
     """Replace generic dynamic HTTP destinations with source-proven operator config."""
+    local_configuration_sources = dict(configuration_sources)
+    changed = True
+    while changed:
+        changed = False
+        for statement in ast.walk(function):
+            if not isinstance(statement, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = statement.value
+            if value is None:
+                continue
+            source = _configuration_source_from_expr(
+                value,
+                local_configuration_sources,
+            )
+            if source is None:
+                continue
+            targets = (
+                statement.targets
+                if isinstance(statement, ast.Assign)
+                else [statement.target]
+            )
+            for target in targets:
+                if (
+                    isinstance(target, ast.Name)
+                    and local_configuration_sources.get(target.id) != source
+                ):
+                    local_configuration_sources[target.id] = source
+                    changed = True
+
     operator_destinations: list[NetworkDestination] = []
     for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
         called = (_dotted_name(call.func) or _call_name(call.func) or "").lower()
@@ -733,7 +795,7 @@ def _apply_operator_configured_function_destinations(
         target_expr = call.args[0] if call.args else _kw(call, "url")
         source = _configuration_source_from_expr(
             target_expr,
-            configuration_sources,
+            local_configuration_sources,
         )
         if source is None:
             continue
