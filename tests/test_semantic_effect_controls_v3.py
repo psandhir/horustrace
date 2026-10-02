@@ -1,5 +1,7 @@
+import ast
 from pathlib import Path
 
+from horustrace.adapters.pydantic_ai import _function_capabilities
 from horustrace.scanner import scan
 
 
@@ -33,6 +35,19 @@ root_agent = Agent(name="search-agent", tools=[search_corpus])
         and finding.agent == "search-agent"
         for finding in findings
     )
+
+
+def test_pydantic_dotted_update_is_body_write_evidence() -> None:
+    tree = ast.parse(
+        """
+async def update_graph(ctx, node_id, value):
+    await ctx.deps.gate.arequire("graph:update", node_id)
+    ctx.deps.graph.update(node_id, value)
+"""
+    )
+    function = tree.body[0]
+    assert isinstance(function, ast.AsyncFunctionDef)
+    assert "data.write" in _function_capabilities(function)
 
 
 def test_pydantic_mandatory_authorization_gate_counts_as_control(
