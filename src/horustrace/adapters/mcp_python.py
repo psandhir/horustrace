@@ -391,6 +391,9 @@ def _function_tool(
         }
 
         capabilities = set(infer_capabilities(node.name))
+        # Names such as execute_batch can describe provider/API operations.
+        # Require a concrete host-process sink before asserting process.execute.
+        capabilities.discard("process.execute")
         for child in ast.walk(node):
             if not isinstance(child, ast.Call):
                 continue
