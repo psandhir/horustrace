@@ -1815,6 +1815,136 @@ def _annotate_public_wrapper_run_inputs(
             )
 
 
+def _enclosing_function_node(
+    tree: ast.AST,
+    node: ast.AST,
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    line = getattr(node, "lineno", 0) or 0
+    candidates = [
+        item
+        for item in ast.walk(tree)
+        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and (getattr(item, "lineno", 0) or 0) <= line
+        <= (getattr(item, "end_lineno", 0) or 0)
+    ]
+    if not candidates:
+        return None
+    return min(
+        candidates,
+        key=lambda item: (
+            (getattr(item, "end_lineno", 0) or 0)
+            - (getattr(item, "lineno", 0) or 0)
+        ),
+    )
+
+
+def _assignment_value_before(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    name: str,
+    before_line: int,
+) -> ast.AST | None:
+    candidates: list[tuple[int, ast.AST]] = []
+    for assignment in ast.walk(function):
+        if not isinstance(assignment, (ast.Assign, ast.AnnAssign)):
+            continue
+        line = getattr(assignment, "lineno", 0) or 0
+        if line >= before_line or assignment.value is None:
+            continue
+        targets = (
+            assignment.targets
+            if isinstance(assignment, ast.Assign)
+            else [assignment.target]
+        )
+        if any(
+            isinstance(target, ast.Name) and target.id == name
+            for target in targets
+        ):
+            candidates.append((line, assignment.value))
+    return max(candidates, key=lambda item: item[0])[1] if candidates else None
+
+
+def _local_tool_factory_members(
+    factory: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> list[tuple[ast.FunctionDef | ast.AsyncFunctionDef, bool]]:
+    """Resolve nested callables returned through a local list-valued tool factory.
+
+    Returns (function, conditional) pairs. Conditional members are those only
+    appended under a source-level branch and are preserved as possible authority
+    rather than asserted as unconditional runtime availability.
+    """
+    nested = {
+        item.name: item
+        for item in factory.body
+        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    if not nested:
+        return []
+
+    collections: dict[str, list[tuple[str, bool]]] = {}
+
+    def names_from_sequence(value: ast.AST | None) -> list[str]:
+        if not isinstance(value, (ast.List, ast.Tuple, ast.Set)):
+            return []
+        return [
+            element.id
+            for element in value.elts
+            if isinstance(element, ast.Name) and element.id in nested
+        ]
+
+    for statement in factory.body:
+        if isinstance(statement, (ast.Assign, ast.AnnAssign)) and statement.value is not None:
+            names = names_from_sequence(statement.value)
+            targets = (
+                statement.targets
+                if isinstance(statement, ast.Assign)
+                else [statement.target]
+            )
+            for target in targets:
+                if isinstance(target, ast.Name) and names:
+                    collections[target.id] = [(name, False) for name in names]
+
+    def collect_appends(node: ast.AST, *, conditional: bool) -> None:
+        for child in ast.walk(node):
+            if not isinstance(child, ast.Call) or not isinstance(child.func, ast.Attribute):
+                continue
+            if child.func.attr != "append" or len(child.args) != 1:
+                continue
+            if not isinstance(child.func.value, ast.Name):
+                continue
+            collection = child.func.value.id
+            member = child.args[0]
+            if not isinstance(member, ast.Name) or member.id not in nested:
+                continue
+            collections.setdefault(collection, []).append((member.id, conditional))
+
+    for statement in factory.body:
+        if isinstance(statement, ast.If):
+            collect_appends(statement, conditional=True)
+        elif not isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            collect_appends(statement, conditional=False)
+
+    selected: list[tuple[str, bool]] = []
+    for statement in factory.body:
+        if not isinstance(statement, ast.Return):
+            continue
+        if isinstance(statement.value, ast.Name):
+            selected.extend(collections.get(statement.value.id, []))
+        else:
+            selected.extend(
+                (name, False)
+                for name in names_from_sequence(statement.value)
+            )
+
+    result: list[tuple[ast.FunctionDef | ast.AsyncFunctionDef, bool]] = []
+    seen: set[str] = set()
+    for name, conditional in selected:
+        if name in seen:
+            continue
+        seen.add(name)
+        result.append((nested[name], conditional))
+    return result
+
+
 def scan_python_file(path: Path) -> Graph:
     graph = Graph()
     try:
@@ -2142,6 +2272,78 @@ def scan_python_file(path: Path) -> Graph:
         agents[alias] = agent
         graph.agents.append(agent)
 
+    # Expand repository-local list-valued tool factories used through
+    # post-construction registrar loops:
+    #   tools = make_tools(...)
+    #   for tool_fn in tools:
+    #       agent.tool_plain(tool_fn)
+    # Only statically enumerable nested functions are materialized.
+    expanded_registrar_tools: dict[str, list[Tool]] = {}
+    expanded_registrar_call_lines: set[int] = set()
+    for loop in (
+        node for node in ast.walk(tree)
+        if isinstance(node, (ast.For, ast.AsyncFor))
+        and isinstance(node.target, ast.Name)
+    ):
+        registrar_calls = [
+            child
+            for statement in loop.body
+            for child in ast.walk(statement)
+            if isinstance(child, ast.Call)
+            and isinstance(child.func, ast.Attribute)
+            and child.func.attr in {"tool", "tool_plain"}
+            and child.args
+            and isinstance(child.args[0], ast.Name)
+            and child.args[0].id == loop.target.id
+        ]
+        if not registrar_calls:
+            continue
+        owner_function = _enclosing_function_node(tree, loop)
+        iterable = loop.iter
+        factory_call: ast.Call | None = iterable if isinstance(iterable, ast.Call) else None
+        if isinstance(iterable, ast.Name) and owner_function is not None:
+            value = _assignment_value_before(
+                owner_function,
+                iterable.id,
+                getattr(loop, "lineno", 0) or 0,
+            )
+            if isinstance(value, ast.Call):
+                factory_call = value
+        if factory_call is None:
+            continue
+        factory_name = _call_name(factory_call.func)
+        factory = functions.get(factory_name or "")
+        if factory is None:
+            continue
+        members = _local_tool_factory_members(factory)
+        if not members:
+            continue
+        for call in registrar_calls:
+            owner = _dotted(call.func.value) or _call_name(call.func.value)
+            if owner not in agents:
+                continue
+            expanded_registrar_call_lines.add(getattr(call, "lineno", 0) or 0)
+            for member, conditional in members:
+                tool = _tool_from_function(
+                    path,
+                    member,
+                    source=f"local_factory:{factory.name}",
+                )
+                tool.metadata.update(
+                    {
+                        "binding_origin": f"agent.{call.func.attr}:local_tool_factory",
+                        "tool_factory": factory.name,
+                        "factory_collection_expanded": True,
+                        "conditional_factory_member": conditional,
+                    }
+                )
+                expanded_registrar_tools.setdefault(owner, []).append(tool)
+
+    for owner, tools_from_factory in expanded_registrar_tools.items():
+        for tool in tools_from_factory:
+            _merge_tool(agents[owner].tools, tool)
+        agents[owner].metadata["local_tool_factory_expanded"] = True
+
     # Pydantic AI also supports post-construction registration such as
     # `agent.tool(fn)` / `agent.tool_plain(fn)`. These calls are explicit
     # authority bindings and must not be confused with decorator-only syntax.
@@ -2153,6 +2355,8 @@ def scan_python_file(path: Path) -> Graph:
             continue
         target = call.args[0] if call.args else _kw(call, "func")
         if target is None:
+            continue
+        if (getattr(call, "lineno", 0) or 0) in expanded_registrar_call_lines:
             continue
         tool = _tool_from_reference(
             path,
