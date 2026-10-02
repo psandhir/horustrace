@@ -52,10 +52,10 @@ if __name__ == "__main__":
 def test_framework_detected_but_not_normalized_is_incomplete(tmp_path: Path) -> None:
     (tmp_path / "app.py").write_text(
         """
-from langgraph.graph import StateGraph
+from agents import Agent
 
 def unrelated():
-    return "no graph constructed"
+    return "no agent constructed"
 """,
         encoding="utf-8",
     )
@@ -65,7 +65,7 @@ def unrelated():
         if item.kind == "framework_not_normalized"
     )
     assert diagnostic.diagnostic_id == "ARG-COV-015"
-    assert diagnostic.details["framework"] == "langgraph"
+    assert diagnostic.details["framework"] == "openai-agents"
 
 
 def test_notebook_code_cells_are_scanned_statically(tmp_path: Path) -> None:
@@ -134,8 +134,8 @@ def test_notebook_non_python_cells_do_not_create_parse_failure(tmp_path: Path) -
     {"cell_type": "code", "metadata": {}, "source": ["%%html\\n", "<h1>hello</h1>\\n"]},
     {"cell_type": "code", "metadata": {}, "source": ["pip install example-package\\n"]},
     {"cell_type": "code", "metadata": {}, "source": [
-      "from langgraph.prebuilt import create_react_agent\\n",
-      "agent = create_react_agent('openai:gpt-4o', tools=[])\\n"
+      "from agents import Agent\\n",
+      "agent = Agent(name='NotebookAgent', tools=[])\\n"
     ]}
   ],
   "metadata": {},
