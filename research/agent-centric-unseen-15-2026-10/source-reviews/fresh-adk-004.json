@@ -1,0 +1,88 @@
+{
+  "case_id": "fresh-adk-004",
+  "repo": "mahtabsyed/21-Agentic-Patterns",
+  "sha": "b59f33f542be9fbb9ee46b2e7309da30922235b1",
+  "framework": "google-adk",
+  "review_status": "blind_source_review_complete",
+  "horustrace_output_seen": false,
+  "evaluator": {
+    "kind": "llm",
+    "model": "GPT-5.6 Sol",
+    "ground_truth": false
+  },
+  "effective_agents": [
+    {
+      "name": "filesystem_assistant_agent",
+      "binding": "ADK LlmAgent bound to standard filesystem MCP over stdio",
+      "source_context": "runtime",
+      "evidence": [
+        "MCP/agent.py: MCPToolset bound in tools list"
+      ]
+    }
+  ],
+  "expected_claims": [
+    {
+      "claim_id": "fresh-adk-004-c01",
+      "category": "capability",
+      "agent": "filesystem_assistant_agent",
+      "statement": "The agent has model-callable filesystem authority through the standard filesystem MCP server, scoped to the configured target folder.",
+      "severity": "high",
+      "qualifications": [
+        "Authority is constrained to the configured filesystem server root; it is not global filesystem access."
+      ],
+      "evidence": [
+        "MCP/agent.py: @modelcontextprotocol/server-filesystem with absolute TARGET_FOLDER_PATH"
+      ],
+      "confidence": "high"
+    },
+    {
+      "claim_id": "fresh-adk-004-c02",
+      "category": "mcp",
+      "agent": "filesystem_assistant_agent",
+      "statement": "The bound filesystem MCP catalogue has no explicit source-visible tool allowlist/filter.",
+      "severity": "medium",
+      "qualifications": [
+        "The source comment shows tool_filter is optional/commented out."
+      ],
+      "evidence": [
+        "MCP/agent.py: MCPToolset configuration"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "expected_paths": [
+    {
+      "path_id": "fresh-adk-004-p01",
+      "agent": "filesystem_assistant_agent",
+      "source": "user filesystem request",
+      "sink": "filesystem MCP operation under configured root",
+      "statement": "User-controlled instructions can reach model-callable filesystem operations exposed by the bound MCP server.",
+      "qualifications": [
+        "Confined to the configured server root; exact operation catalogue comes from the standard filesystem MCP package."
+      ],
+      "evidence": [
+        "MCP/agent.py: agent instruction and bound filesystem MCP"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "negative_controls": [
+    {
+      "control_id": "fresh-adk-004-n01",
+      "statement": "The npx MCP bootstrap command must not be described as model-callable shell/process execution.",
+      "evidence": [
+        "MCP/agent.py: StdioServerParameters command/args"
+      ]
+    },
+    {
+      "control_id": "fresh-adk-004-n02",
+      "statement": "Filesystem scope must not be reported as unrestricted host-wide access.",
+      "evidence": [
+        "MCP/agent.py: fixed TARGET_FOLDER_PATH passed to filesystem server"
+      ]
+    }
+  ],
+  "coverage_notes": [
+    "Standard filesystem MCP semantics are source-identifiable from the pinned package command; runtime package behavior is not independently executed."
+  ]
+}
