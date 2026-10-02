@@ -18,10 +18,16 @@ def main() -> int:
     args = ap.parse_args()
 
     rows = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(args.input.rglob("result.json"))]
-    families = defaultdict(lambda: {"repos": 0, "findings": 0, "paths": 0, "nodes": 0})
+    families = defaultdict(lambda: {"repos": 0, "successful_scans": 0, "scan_errors": 0, "findings": 0, "paths": 0, "nodes": 0})
+    errors = []
     for row in rows:
         g = families[row["family"]]
         g["repos"] += 1
+        if row.get("scan_status") != "success":
+            g["scan_errors"] += 1
+            errors.append({"case_id": row["case_id"], "repo": row["repo"], "family": row["family"], "scan_status": row.get("scan_status"), "scan_error": row.get("scan_error")})
+            continue
+        g["successful_scans"] += 1
         g["findings"] += row["finding_count"]
         g["paths"] += row["path_count"]
         g["nodes"] += row["node_count"]
@@ -42,20 +48,28 @@ def main() -> int:
         "cases": len(rows),
         "families": dict(sorted(families.items())),
         "totals": {
-            "findings": sum(r["finding_count"] for r in rows),
-            "paths": sum(r["path_count"] for r in rows),
-            "nodes": sum(r["node_count"] for r in rows),
+            "successful_scans": sum(1 for r in rows if r.get("scan_status") == "success"),
+            "scan_errors": sum(1 for r in rows if r.get("scan_status") != "success"),
+            "findings": sum(r["finding_count"] for r in rows if r.get("scan_status") == "success"),
+            "paths": sum(r["path_count"] for r in rows if r.get("scan_status") == "success"),
+            "nodes": sum(r["node_count"] for r in rows if r.get("scan_status") == "success"),
         },
+        "scan_errors": errors,
         "adjudication": adjudication,
         "results": rows,
     }
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "summary.json").write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")
 
-    lines = ["# Unseen generalization cohort", "", "| Family | Repos | Findings | Paths | Nodes |", "|---|---:|---:|---:|---:|"]
+    lines = ["# Unseen generalization cohort", "", "| Family | Repos | Successful | Scan errors | Findings | Paths | Nodes |", "|---|---:|---:|---:|---:|---:|---:|"]
     for family, g in sorted(families.items()):
-        lines.append(f"| {family} | {g['repos']} | {g['findings']} | {g['paths']} | {g['nodes']} |")
-    lines += ["", f"Total cases: **{len(rows)}**.", f"Total findings: **{output['totals']['findings']}**.", f"Total attack paths: **{output['totals']['paths']}**."]
+        lines.append(f"| {family} | {g['repos']} | {g['successful_scans']} | {g['scan_errors']} | {g['findings']} | {g['paths']} | {g['nodes']} |")
+    lines += ["", f"Total cases: **{len(rows)}**.", f"Successful scans: **{output['totals']['successful_scans']}**.", f"Scanner errors: **{output['totals']['scan_errors']}**.", f"Total findings on successful scans: **{output['totals']['findings']}**.", f"Total attack paths on successful scans: **{output['totals']['paths']}**."]
+    if errors:
+        lines += ["", "## Scanner errors", ""]
+        for item in errors:
+            tail = (item.get("scan_error") or "").splitlines()[-1] if item.get("scan_error") else "unknown error"
+            lines.append(f"- {item['case_id']} / {item['repo']}: {tail}")
     if adjudication:
         lines += ["", "## Source adjudication", "", f"- Strict precision: {adjudication['finding_precision_strict']:.1%}", f"- Materially-supported precision: {adjudication['finding_precision_supported']:.1%}", f"- Explicit FP rate: {adjudication['finding_fp_rate']:.1%}"]
     else:
