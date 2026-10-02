@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "study": "agent-centric-unseen-12-v3",
+  "status": "frozen_before_horustrace_execution",
+  "locked_at": "2026-10-02",
+  "scanner_baseline": "c2c2a929f25356a8e0c76f66cb55ed76efa6cbc8",
+  "selection": {
+    "target_repositories": 12,
+    "method": "Live GitHub code search for active Python implementations of Google ADK, Pydantic AI, and OpenAI Agents. Candidates were source-screened for authority-bearing composition before HorusTrace execution and checked against the HorusTrace repository for prior-cohort reuse.",
+    "horustrace_output_used_for_selection": false,
+    "framework_counts": {"google-adk": 4, "pydantic-ai": 4, "openai-agents": 4}
+  },
+  "cases": [
+    {"case_id":"unseen3-adk-001","repo":"arjunprabhulal/adk-vertex-ai-rag-engine","sha":"ef9d0344d4d716b1455ffeaf68bedfbb2429a9ed","framework":"google-adk","evidence_path":"rag/agent.py","selection_signal":"RAG corpus and GCS create/upload/delete/search tools"},
+    {"case_id":"unseen3-adk-002","repo":"gabrielpreda/adk-a2a-travel-assistant","sha":"4d398777d860d5f07ef95be9675b1abec1196241","framework":"google-adk","evidence_path":"agent.py","selection_signal":"AgentTool delegation across local/remote A2A agents"},
+    {"case_id":"unseen3-adk-003","repo":"jeremylongshore/perception-with-intent","sha":"b812b4406c41584a095b109b41ff5dfc58700b03","framework":"google-adk","evidence_path":"agent.py","selection_signal":"Firestore/news ingestion orchestration with state-changing tools"},
+    {"case_id":"unseen3-adk-004","repo":"sokart/ap-ge-connectors-integration","sha":"54ca29826d00c8e51b9dcbf71c3499d0e2a6c112","framework":"google-adk","evidence_path":"agent/agent.py","selection_signal":"corporate search/datastore tool integration"},
+    {"case_id":"unseen3-pyd-001","repo":"querygraph/typesec","sha":"3f12e622b7f1c67a807798aaff69f111d06ce241","framework":"pydantic-ai","evidence_path":"examples/pydantic_ai_toolgate.py","selection_signal":"policy-gated Pydantic tool with explicit resource authorization"},
+    {"case_id":"unseen3-pyd-002","repo":"lumetra-io/engram-pydantic-ai","sha":"92ddf9f61776aba0910acda32bec6d4449429c38","framework":"pydantic-ai","evidence_path":"engram_pydantic_ai.py","selection_signal":"post-construction durable-memory tool registration"},
+    {"case_id":"unseen3-pyd-003","repo":"gashel01/ragmcp","sha":"721a5192b5d0ccdd13a34ff69f17c9680f9e5288","framework":"pydantic-ai","evidence_path":"ragmcp/integrations/pydantic_ai.py","selection_signal":"dynamic RAG tool factory with optional URL ingestion"},
+    {"case_id":"unseen3-pyd-004","repo":"codescan-ai/codescan","sha":"30abf27a3ba6cd4039d31d79a933b3c329279607","framework":"pydantic-ai","evidence_path":"core/agent.py","selection_signal":"function-local Pydantic agent factory negative/control case"},
+    {"case_id":"unseen3-oai-001","repo":"LIT-Protocol/Vincent-MCP-OpenAI-AgentKit","sha":"fa5a00786c9a0257f69f5e8a48169da2a999628e","framework":"openai-agents","evidence_path":"runner.py","selection_signal":"function-local MCP-bound assistant plus handoff coordinator"},
+    {"case_id":"unseen3-oai-002","repo":"wandb/agents-course","sha":"2f1f774c21676437705d7d10e10fb24f1693d28b","framework":"openai-agents","evidence_path":"_6_mcp.py","selection_signal":"stdio filesystem MCP bound through function parameter"},
+    {"case_id":"unseen3-oai-003","repo":"undertherain/PaperX","sha":"25af7bd2ec41a7b0c3b4033eb7328c1874e1aefd","framework":"openai-agents","evidence_path":"redelivery_agent.py","selection_signal":"subprocess browser automation and outbound HTTP/voice function tools"},
+    {"case_id":"unseen3-oai-004","repo":"totalhack/zillion","sha":"d508864b13a942942895936559f538c7f7d246c6","framework":"openai-agents","evidence_path":"zillion/agent.py","selection_signal":"analytics agent with runtime function-tool planning/execution"}
+  ]
+}
