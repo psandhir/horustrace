@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "study": "agent-centric-generalization-12",
+  "source_study": "fresh-unseen-generalization-20",
+  "source_adjudication": "chatgpt-source-adjudication-v1",
+  "scanner_commit": "faec409216bbbd77c8800f3fc041f31e1212132c",
+  "workflow_run": 37042400793,
+  "method": "carry_forward_exact_unchanged_claim_verdicts",
+  "findings": {
+    "total": 61,
+    "true_positive": 22,
+    "partial": 34,
+    "false_positive": 5,
+    "unresolved": 0,
+    "materially_supported": 56,
+    "strict_precision": 0.3607,
+    "materially_supported_precision": 0.9180,
+    "false_positive_rate": 0.0820
+  },
+  "frameworks": {
+    "google-adk": {
+      "findings": 24,
+      "true_positive": 16,
+      "partial": 7,
+      "false_positive": 1,
+      "supported_precision": 0.9583
+    },
+    "pydantic-ai": {
+      "findings": 17,
+      "true_positive": 4,
+      "partial": 11,
+      "false_positive": 2,
+      "supported_precision": 0.8824
+    },
+    "openai-agents": {
+      "findings": 20,
+      "true_positive": 2,
+      "partial": 16,
+      "false_positive": 2,
+      "supported_precision": 0.9000
+    }
+  },
+  "attack_paths": {
+    "prior_total": 7,
+    "total": 5,
+    "removed_false_positive": 2,
+    "added": 0
+  },
+  "removed_false_positives": {
+    "findings": 9,
+    "categories": {
+      "provider_or_fixed_destination": 5,
+      "mcp_bootstrap_not_agent_authority": 2,
+      "capability_misclassification": 2
+    }
+  }
+}
