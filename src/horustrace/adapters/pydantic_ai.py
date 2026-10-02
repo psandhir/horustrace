@@ -219,7 +219,13 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
     # compose_email_content() from becoming privileged merely because "email"
     # appears in the function name.
     capabilities.difference_update(
-        {"process.execute", "network.external", "external.write"}
+        {
+            "process.execute",
+            "network.external",
+            "external.write",
+            "data.write",
+            "destructive.write",
+        }
     )
     for child in ast.walk(node):
         if not isinstance(child, ast.Call):
@@ -237,13 +243,13 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
             dotted.startswith(("requests.", "httpx.", "aiohttp."))
             or "urllib" in dotted
         ):
+            # POST/PUT/PATCH/DELETE are transport verbs. They do not by
+            # themselves prove that the remote operation mutates state.
             capabilities.add("network.external")
-            if leaf in {"post", "put", "patch", "delete"}:
-                capabilities.add("external.write")
         if leaf in {"write", "update", "save", "insert", "create", "put", "edit", "patch"}:
             capabilities.add("data.write")
         if leaf in {"delete", "remove", "unlink", "rmdir", "rmtree", "drop", "purge"}:
-            capabilities.add("destructive.write")
+            capabilities.update({"data.write", "destructive.write"})
         if leaf in {"read", "get", "search", "retrieve", "fetch", "query", "list"}:
             capabilities.add("data.read")
         if (
@@ -253,6 +259,35 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
         ):
             capabilities.add("secrets.read")
     return capabilities
+
+
+def _mandatory_authorization_gate(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> bool:
+    """Detect a source-visible mandatory policy/authorization gate."""
+    gate_methods = {
+        "require",
+        "arequire",
+        "authorize",
+        "authorize_async",
+        "require_permission",
+        "check_permission",
+    }
+    gate_markers = (
+        ".gate.",
+        ".policy.",
+        ".authz.",
+        ".authorization.",
+        ".permissions.",
+    )
+    for child in ast.walk(node):
+        if not isinstance(child, ast.Call):
+            continue
+        called = (_dotted(child.func) or _call_name(child.func) or "").lower()
+        leaf = (_call_name(child.func) or "").lower()
+        if leaf in gate_methods and any(marker in called for marker in gate_markers):
+            return True
+    return False
 
 
 def _restricted_in_process_eval(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
@@ -700,16 +735,26 @@ def _tool_from_function(
     if delegate_targets:
         capabilities.add("agent.delegate")
 
+    authorization_gate = _mandatory_authorization_gate(node)
     tool = Tool(
         name=node.name,
         kind="function",
         capabilities=capabilities,
         approval=approval,
+        guardrails=authorization_gate,
         destinations=dynamic_destinations,
         location=_location(path, node),
         metadata={
             "framework": "pydantic-ai",
             "source": source,
+            **(
+                {
+                    "guardrail_mechanism": "mandatory_authorization_gate",
+                    "authorization_gate": True,
+                }
+                if authorization_gate
+                else {}
+            ),
             **http_metadata,
             **(
                 {
