@@ -302,6 +302,31 @@ def _infer_function_capabilities(
             if origin:
                 fixed_url_origins[statement.target.id] = origin
 
+    # urllib.request.Request(url, ...) is a fixed wrapper around the URL
+    # expression, not a new caller-selected destination. Track simple request
+    # aliases so urlopen(req) preserves the underlying fixed host.
+    request_origins: dict[str, str] = {}
+    for statement in ast.walk(node):
+        if not isinstance(statement, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = statement.value
+        if not isinstance(value, ast.Call):
+            continue
+        called = (_dotted_name(value.func) or _call_name(value.func) or "").lower()
+        if called not in {"urllib.request.request", "request"}:
+            continue
+        url_expr = value.args[0] if value.args else _kw(value, "url")
+        origin = None
+        if isinstance(url_expr, ast.Name):
+            origin = fixed_url_origins.get(url_expr.id)
+        origin = origin or _fixed_url_origin(url_expr)
+        if origin is None:
+            continue
+        targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+        for target_node in targets:
+            if isinstance(target_node, ast.Name):
+                request_origins[target_node.id] = origin
+
     for child in ast.walk(node):
         if not isinstance(child, ast.Call):
             continue
@@ -384,7 +409,10 @@ def _infer_function_capabilities(
             else:
                 fixed_origin = None
                 if isinstance(target_expr, ast.Name):
-                    fixed_origin = fixed_url_origins.get(target_expr.id)
+                    fixed_origin = (
+                        fixed_url_origins.get(target_expr.id)
+                        or request_origins.get(target_expr.id)
+                    )
                 fixed_origin = fixed_origin or _fixed_url_origin(target_expr)
                 if fixed_origin:
                     destinations.append(
