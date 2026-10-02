@@ -5,7 +5,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from horustrace.heuristics import corroborate_name_inferred_authority, infer_capabilities, resource_is_broad
+from horustrace.heuristics import (
+    corroborate_name_inferred_authority,
+    infer_capabilities,
+    resource_is_broad,
+)
 from horustrace.models import (
     Agent,
     Graph,
