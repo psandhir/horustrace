@@ -3,98 +3,181 @@
 ## Executive result
 
 The exact 12 frozen Google ADK, Pydantic AI and OpenAI Agents repositories from #290
-were rerun after LangGraph support and its framework-specific production plumbing were
-removed from HorusTrace.
+were rerun on the current agent-centric scanner after #291, #292 and #293.
 
-All **12/12 scans completed successfully** on merged main commit
-`faec409216bbbd77c8800f3fc041f31e1212132c`.
+All **12/12 scans completed successfully** on scanner commit
+`faec409216bbbd77c8800f3fc041f31e1212132c` in workflow run
+`37042400793`.
 
-The cleanup reduced the cohort from **70 to 61 findings** and from **7 to 5 attack
-paths** across these three first-class frameworks. Exact claim/path comparison found
-**no new findings or attack paths**. Every removed claim/path had already been
-adjudicated as a false positive in #290.
+Across the three supported framework strata, findings changed from **70 to 61** and
+attack paths from **7 to 5**. Claim/path comparison found **no new semantic claims or
+attack paths**.
+
+The final #290 adjudication cannot be carried forward by treating all nine removed
+claims as false positives: two of the removed constrained-eval findings were previously
+adjudicated **partial**, not FP. The corrected post-rerun materially-supported precision
+is therefore **54/61 = 88.5%**.
+
+## Scope-normalized comparison
+
+The full #290 20-repository study included Google ADK, Pydantic AI, OpenAI Agents,
+LangGraph and MCP/custom and reported 59/82 = 72.0% materially-supported precision.
+
+For the three frameworks that remain in product scope, the #290 baseline was already:
+
+- Google ADK: 23/24 supported
+- Pydantic AI: 15/21 supported
+- OpenAI Agents: 18/25 supported
+- **Total: 56/70 = 80.0%**
+
+The current rerun is therefore compared against **80.0%**, not against the 72.0%
+five-stratum headline.
 
 ## Finding result
 
-| Framework | #290 findings | Post-cleanup findings | Previously supported | Post-cleanup supported precision | Post-cleanup FP |
-|---|---:|---:|---:|---:|---:|
-| Google ADK | 24 | 24 | 23 | **95.8%** | 1 |
-| Pydantic AI | 21 | 17 | 15 | **88.2%** | 2 |
-| OpenAI Agents | 25 | 20 | 18 | **90.0%** | 2 |
-| **Total** | **70** | **61** | **56** | **91.8%** | **5** |
+| Framework | #290 findings | Current findings | TP | Partial | FP | Supported precision |
+|---|---:|---:|---:|---:|---:|---:|
+| Google ADK | 24 | 24 | 16 | 7 | 1 | **23/24 = 95.8%** |
+| Pydantic AI | 21 | 17 | 4 | 9 | 4 | **13/17 = 76.5%** |
+| OpenAI Agents | 25 | 20 | 2 | 16 | 2 | **18/20 = 90.0%** |
+| **Total** | **70** | **61** | **22** | **32** | **7** | **54/61 = 88.5%** |
 
-Carrying forward the exact #290 verdicts for unchanged claims gives:
+Compared with the same frozen framework strata in #290:
 
-- true positive: **22**
-- partial: **34**
-- false positive: **5**
-- materially supported: **56/61 = 91.8%**
-- strict TP precision: **22/61 = 36.1%**
-- explicit FP rate: **5/61 = 8.2%**
+- materially-supported precision: **80.0% -> 88.5%** (**+8.5 pp**)
+- explicit false positives: **14 -> 7**
+- strict true positives: **22 -> 22**
+- partial findings: **34 -> 32**
+- explicit FP rate: **20.0% -> 11.5%**
 
-This carry-forward is valid for this regression comparison because every surviving
-claim matches the prior frozen output by rule/agent/source/message identity and the
-post-cleanup run introduced no new claims.
+This is a meaningful precision improvement, but it is not 91.8%.
 
-## Removed false positives
+## Exact claim delta
 
-Nine findings disappeared:
+The 61 current findings were matched to #290 by case, rule, agent, claim text and source
+location.
 
-- **OpenAI Agents — 5 NET002 false positives**
-  - one Search Agent claim in `openai-agents-demos`;
-  - four AgentOps WebSearch/ImageGeneration claims.
-  - These were previously adjudicated as fixed/provider-managed destinations rather
-    than arbitrary model-selected egress.
-- **Pydantic AI / PharmIQ — 2 path findings**
-  - PATH001: MCP server startup represented as agent-reachable process execution.
-  - PATH006: MCP startup/environment composition represented as model authority.
-  - Both were previously adjudicated as MCP bootstrap, not agent authority.
-- **Pydantic AI Research Agent — 2 capability findings**
-  - AGT020 and CAP004 around restricted in-process calculator `eval`.
-  - Both were previously adjudicated as capability misclassification rather than
-    host process execution.
+- new semantic claims: **0**
+- removed claims: **9**
+- retained claims: **61**
+- retained claims with material evidence-shape changes: **2**
+  - PharmIQ AGT053 drops the unsupported `process.execute` capability while retaining
+    data-write/secrets authority.
+  - Pydantic Research Agent Gmail AGT040 gains network-external evidence; the approval
+    claim itself is unchanged.
 
-No Google ADK finding changed.
+### Removed findings and prior verdicts
+
+**OpenAI Agents — 5 false positives removed**
+
+- one `NET002` Search Agent claim in `openai-agents-demos`
+- four `NET002` AgentOps WebSearch/ImageGeneration claims
+
+All five were previously adjudicated FP because the destination is fixed or
+provider-managed rather than arbitrary model-selected egress. These fixes came from
+#291.
+
+**Pydantic AI / PharmIQ — 2 false positives removed**
+
+- `PATH001`: MCP server bootstrap represented as model-reachable process execution
+- `PATH006`: MCP startup/environment composition represented as combined model
+  authority
+
+Both were previously adjudicated FP. These fixes came from #292.
+
+**Pydantic AI Research Agent — 2 partial findings removed**
+
+- `AGT020`: restricted in-process calculator `eval` described as shell/process
+  execution
+- `CAP004`: the corresponding process + network aggregate
+
+The final #290 rule-level adjudication classified these as **partial**, not FP:
+`AGT020` had 2 TP / 3 partial / 2 FP, with the Pydantic calculator supplying the third
+partial; `CAP004` had 1 TP / 1 partial, with the Pydantic calculator supplying the
+partial. #292 correctly suppresses these overbroad process-execution claims while
+retaining constrained privileged-execution representation through AGT040.
 
 ## Attack paths
 
-The exact path delta is:
+The scoped #290 cohort had seven attack paths:
 
-- prior first-class-framework paths: **7**
-- post-cleanup paths: **5**
-- removed: **2**
-- added: **0**
+- four Google ADK Pipeline Reviewer command paths — partial because the executable and
+  command structure are fixed
+- one PharmIQ MCP state-changing data path — partial/materially supported
+- two PharmIQ process/bootstrap paths — false positive
 
-Both removed paths are the already-adjudicated PharmIQ bootstrap false positives:
+The current rerun has exactly the five supported/qualified paths:
 
-- PATH001 — untrusted input -> MCP startup -> process execution
-- PATH006 — untrusted input -> process execution + secrets read
+- TP: **0**
+- partial: **5**
+- FP: **0**
+- materially-supported path rate: **5/5 = 100%**
 
-The four ADK Pipeline Reviewer paths and the one materially-supported Pydantic path
-remain unchanged.
+This is an improvement from **5/7 = 71.4%**. The 100% figure should not be read as five
+strictly proven arbitrary-impact paths; all five retain material scope qualifications.
 
-## Interpretation
+## Residual false positives
 
-Removing LangGraph was not merely a reporting-scope change. It removed hidden
-LangGraph/LangChain-oriented production semantics that were leaking false authority
-into Pydantic/OpenAI cases.
+The remaining seven FPs are concentrated in four semantic defects:
 
-For the exact frozen first-class-framework cohort, materially-supported precision moves
-from **56/70 = 80.0%** to **56/61 = 91.8%** without removing a previously supported
-claim.
+1. **Google ADK — 1**
+   - Pipeline Reviewer `NET001`: fixed PyPI/Maven hosts are still described as broad
+     or unrestricted destination reachability.
 
-This supports the product decision to make HorusTrace agent-centric around:
+2. **Pydantic AI — 3 destination-provenance FPs**
+   - Gmail/Brave-backed `NET002` claims still lose fixed/provider destination
+     semantics at agent aggregation.
 
-- Google ADK
-- Pydantic AI
-- OpenAI Agents SDK
+3. **Pydantic AI — 1 capability-type FP**
+   - `compose_email_content` is classified as a privileged AGT040 capability although
+     it is an in-process composition helper rather than an external high-impact action.
 
-Framework-neutral MCP/tool discovery remains useful as inventory, but security
-authority should require a supported or otherwise source-proven agent binding.
+4. **OpenAI Agents mixed repository — 2 scope-leakage FPs**
+   - AgentOps `langgraph_example.py` and notebook still produce AGT020 findings for
+     an **unbound** LangGraph/LangChain `calculate` tool.
+   - After #293, LangGraph is not a supported security-analysis framework; generic
+     inventory discovery should not manufacture effective-authority findings from this
+     code.
+
+If the two LangGraph-only mixed-repository findings are excluded analytically, the
+intended-framework claim set is **54/59 = 91.5% materially supported**. Operational
+scanner precision remains **88.5%** until that scope leakage is fixed.
+
+## Attribution
+
+The precision delta must not be attributed to #293 alone.
+
+- #291 removed the five OpenAI provider-destination FPs.
+- #292 removed the two PharmIQ bootstrap FPs and two overbroad constrained-eval
+  partials.
+- #293 removes LangGraph framework support and production plumbing.
+
+The value of this rerun for #293 is therefore primarily **non-regression and product
+scope validation**: ADK, Pydantic AI and OpenAI Agents continue to scan successfully,
+and no new claim/path appears after LangGraph removal.
+
+It also exposes one incomplete aspect of the cleanup: generic unbound-tool logic can
+still emit LangGraph-only findings inside a mixed repository.
+
+## Conclusion
+
+The agent-centric direction is supported by the scoped data, but the current quality
+level is uneven:
+
+- **Google ADK: 95.8% materially supported** — strong unseen precision.
+- **OpenAI Agents: 90.0% raw; effectively 100% on the retained OpenAI claims once the
+  two LangGraph-only scope leaks are excluded** — strong framework semantics, one
+  cross-framework cleanup defect.
+- **Pydantic AI: 76.5%** — still the main semantic-fidelity problem.
+
+The next product work should target the seven residual FPs before another fresh unseen
+cohort. In particular, fixed/provider destination provenance and strict
+supported-agent binding should be treated as framework-level invariants rather than
+additional one-off rule exceptions.
 
 ## Caveat
 
-This is an apples-to-apples regression/generalization rerun of the same frozen 12
-repositories, not a new unseen cohort. The next validation step should therefore be a
-new unseen cohort restricted to these three first-class frameworks after the remaining
-systematic semantic defects are addressed.
+This is an apples-to-apples precision/regression study over the same frozen repositories.
+The #290 evaluator saw HorusTrace claims, so this does **not** establish blind recall.
+A new unseen three-framework cohort remains necessary after the residual systematic
+defects are fixed.
