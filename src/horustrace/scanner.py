@@ -64,7 +64,6 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
-from horustrace.object_authorization import enrich_model_tool_object_authorization
 from horustrace.path_safety import canonical_root, is_within_root
 from horustrace.provenance import annotate, attach_findings, context
 from horustrace.rag_semantics import enrich_streamlit_rag_directory_semantics
@@ -2263,11 +2262,6 @@ def scan(
     # network/write capabilities and lose child destination/control constraints.
     _propagate_adk_delegation(graph)
     enrich_public_realtime_mcp_authority(
-        graph,
-        root if root.is_dir() else root.parent,
-        approved_python_paths,
-    )
-    enrich_model_tool_object_authorization(
         graph,
         root if root.is_dir() else root.parent,
         approved_python_paths,
