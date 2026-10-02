@@ -177,10 +177,17 @@ def execute_code(source: str):
         encoding="utf-8",
     )
 
-    graph, _ = scan(tmp_path)
+    graph, findings = scan(tmp_path)
     tool = next(item for item in graph.unbound_tools if item.name == "execute_code")
 
     assert "process.execute" in tool.capabilities
+    assert tool.metadata["binding_state"] == "unbound"
+    assert not any(
+        finding.rule_id == "AGT020"
+        and finding.location
+        and finding.location.path.name == "tools.py"
+        for finding in findings
+    )
 
 
 def test_langchain_sqldatabase_run_no_throw_exposes_unconstrained_sql_authority(

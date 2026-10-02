@@ -213,11 +213,14 @@ def is_pydantic_ai_file(path: Path) -> bool:
 
 def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
     capabilities = set(infer_capabilities(node.name))
-    # A wrapper named run_command/execute_* is not itself proof of host process
-    # execution. Pydantic tools frequently delegate to application command
-    # registries that enforce their own authorization. Require a concrete
-    # Python process/eval sink below before asserting process.execute.
-    capabilities.discard("process.execute")
+    # Function names are discovery hints, not proof of externally effective
+    # authority. Require a concrete source sink for host execution and network
+    # / external-write authority. This prevents helpers such as
+    # compose_email_content() from becoming privileged merely because "email"
+    # appears in the function name.
+    capabilities.difference_update(
+        {"process.execute", "network.external", "external.write"}
+    )
     for child in ast.walk(node):
         if not isinstance(child, ast.Call):
             continue
@@ -680,6 +683,23 @@ def _tool_from_function(
     dynamic_destinations, http_metadata = _function_http_url_semantics(path, node)
     if dynamic_destinations:
         capabilities.add("network.external")
+
+    # A Pydantic tool may delegate to another repository-local Pydantic Agent.
+    # Record only source-visible candidate targets here; repository assembly
+    # resolves them against normalized agents before inheriting authority.
+    delegate_targets = sorted(
+        {
+            child.func.value.id
+            for child in ast.walk(node)
+            if isinstance(child, ast.Call)
+            and isinstance(child.func, ast.Attribute)
+            and child.func.attr in _AGENT_RUN_METHODS
+            and isinstance(child.func.value, ast.Name)
+        }
+    )
+    if delegate_targets:
+        capabilities.add("agent.delegate")
+
     tool = Tool(
         name=node.name,
         kind="function",
@@ -691,6 +711,15 @@ def _tool_from_function(
             "framework": "pydantic-ai",
             "source": source,
             **http_metadata,
+            **(
+                {
+                    "delegate_target": delegate_targets[0],
+                    "delegate_targets": delegate_targets,
+                    "delegation_basis": "pydantic_agent_run",
+                }
+                if delegate_targets
+                else {}
+            ),
         },
     )
     if _contains_conditional_approval(node):

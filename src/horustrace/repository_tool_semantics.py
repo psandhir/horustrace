@@ -358,6 +358,58 @@ def _source_network_semantics(
             for name in _target_names(target):
                 fixed_origins[name] = origin
 
+    http_clients: set[str] = set()
+    request_origins: dict[str, str] = {}
+    for child in ast.walk(function):
+        if isinstance(child, (ast.With, ast.AsyncWith)):
+            for item in child.items:
+                if not isinstance(item.context_expr, ast.Call):
+                    continue
+                called = (_dotted_name(item.context_expr.func) or "").lower()
+                if called in {
+                    "httpx.client",
+                    "httpx.asyncclient",
+                    "requests.session",
+                    "aiohttp.clientsession",
+                } and isinstance(item.optional_vars, ast.Name):
+                    http_clients.add(item.optional_vars.id)
+        elif (
+            isinstance(child, (ast.Assign, ast.AnnAssign))
+            and isinstance(child.value, ast.Call)
+        ):
+            called = (_dotted_name(child.value.func) or "").lower()
+            targets = child.targets if isinstance(child, ast.Assign) else [child.target]
+            if called in {
+                "httpx.client",
+                "httpx.asyncclient",
+                "requests.session",
+                "aiohttp.clientsession",
+            }:
+                for target in targets:
+                    http_clients.update(_target_names(target))
+                continue
+            if called in {"urllib.request.request", "request"}:
+                url_expr = (
+                    child.value.args[0]
+                    if child.value.args
+                    else next(
+                        (
+                            keyword.value
+                            for keyword in child.value.keywords
+                            if keyword.arg in {"url", "full_url"}
+                        ),
+                        None,
+                    )
+                )
+                origin = None
+                if isinstance(url_expr, ast.Name):
+                    origin = fixed_origins.get(url_expr.id)
+                origin = origin or _fixed_url_origin(url_expr)
+                if origin:
+                    for target in targets:
+                        for name in _target_names(target):
+                            request_origins[name] = origin
+
     observed_origins: set[str] = set()
     caller_selected_http = False
     for child in ast.walk(function):
@@ -365,6 +417,12 @@ def _source_network_semantics(
             continue
         called = (_dotted_name(child.func) or "").lower()
         leaf = _call_leaf(child) or ""
+        receiver = (
+            _dotted_name(child.func.value)
+            if isinstance(child.func, ast.Attribute)
+            else None
+        )
+        receiver_root = (receiver or "").split(".", 1)[0]
         is_http = (
             called in {
                 "requests.get",
@@ -378,16 +436,33 @@ def _source_network_semantics(
                 "httpx.patch",
                 "httpx.delete",
             }
-            or leaf in {"get", "post", "put", "patch", "delete", "request"}
-            and any(token in called for token in ("requests", "httpx", "aiohttp"))
+            or (
+                receiver_root in http_clients
+                and leaf in {"get", "post", "put", "patch", "delete", "request", "head"}
+            )
+            or called in {"urllib.request.urlopen", "urlopen"}
+            or (
+                leaf in {"get", "post", "put", "patch", "delete", "request"}
+                and any(token in called for token in ("requests", "httpx", "aiohttp"))
+            )
         )
         if not is_http:
             continue
-        target = child.args[0] if child.args else next(
-            (keyword.value for keyword in child.keywords if keyword.arg in {"url", "uri"}),
-            None,
-        )
+        if leaf == "request" and len(child.args) > 1:
+            target = child.args[1]
+        else:
+            target = child.args[0] if child.args else next(
+                (
+                    keyword.value
+                    for keyword in child.keywords
+                    if keyword.arg in {"url", "uri"}
+                ),
+                None,
+            )
         if target is None:
+            continue
+        if isinstance(target, ast.Name) and target.id in request_origins:
+            observed_origins.add(request_origins[target.id])
             continue
         if isinstance(target, ast.Name) and target.id in fixed_origins:
             observed_origins.add(fixed_origins[target.id])
@@ -692,8 +767,12 @@ def enrich_indirect_tool_content_semantics(
             for child in ast.walk(ref.node)
             if isinstance(child, ast.Call)
         ]:
-            helper = helpers.get(_call_leaf(call) or "")
-            if helper is None:
+            helper_name = _call_leaf(call) or ""
+            helper = (
+                helpers.get(helper_name)
+                or functions.get((ref.module, helper_name))
+            )
+            if helper is None or helper is ref:
                 continue
             helper_destinations, helper_network_metadata = _source_network_semantics(
                 helper.node
@@ -733,6 +812,18 @@ def enrich_indirect_tool_content_semantics(
 
         if destinations:
             tool.capabilities.add("network.external")
+            if network_metadata.get("network_scope") == "fixed_provider_network":
+                # Source-proven fixed/provider destinations supersede generic
+                # dynamic placeholders emitted before canonical source binding.
+                tool.destinations = [
+                    existing
+                    for existing in tool.destinations
+                    if not (
+                        existing.target in {"<dynamic-url>", "<model-selected-url>"}
+                        and existing.metadata.get("source")
+                        in {"dynamic_network_call", "heuristic", "name_inference"}
+                    )
+                ]
             for destination in destinations:
                 if not any(
                     existing.target == destination.target

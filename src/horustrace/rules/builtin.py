@@ -836,11 +836,10 @@ def evaluate(graph: Graph) -> list[Finding]:
         ):
             findings.append(Finding("AGT001", Severity.MEDIUM, "Broad local MCP filesystem scope", f"MCP server '{server.name}' appears to receive a broad filesystem path.", "Restrict filesystem MCP access to the smallest application-specific directory.", layer=1, location=server.location, evidence=["args=" + " ".join(server.args)]))
 
-    for tool in graph.unbound_tools:
-        if tool.metadata.get("binding_state") == "bound_via_mcp":
-            continue
-        if "process.execute" in tool.capabilities and tool.approval is not True:
-            findings.append(Finding("AGT020", Severity.HIGH, "Shell or process execution without approval", f"Unbound tool '{tool.name}' can execute processes without an explicit approval requirement.", "Require approval for process execution and run the tool inside a constrained sandbox.", layer=1, location=tool.location, evidence=["capability=process.execute", f"approval={tool.approval}"]))
+    # Unbound tools are inventory, not effective agent authority. Security
+    # findings are emitted only after a supported/source-proven binding makes
+    # the tool model-callable. This keeps generic LangChain discovery useful
+    # without promoting mixed-repository examples into agent risk.
 
     # Layer 2: capability/effective-authority analysis.
     for agent in graph.agents:
