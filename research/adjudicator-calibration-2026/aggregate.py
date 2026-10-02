@@ -32,6 +32,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", type=Path, required=True)
     ap.add_argument("--output", type=Path, required=True)
+    ap.add_argument("--adjudication", type=Path, default=Path(__file__).with_name("adjudication-summary.json"))
     args = ap.parse_args()
     rows = []
     for path in sorted(args.input.rglob("result.json")):
@@ -68,9 +69,25 @@ def main() -> int:
                 g["archived_checks"] += 1
                 g["archived_matches"] += int(bool(check.get("matches")))
 
+    external = {}
+    if args.adjudication.exists():
+        doc = json.loads(args.adjudication.read_text(encoding="utf-8"))
+        for item in doc.get("groups", []):
+            external[(item["panel"], item["state"])] = item
+
     summary = []
     for key in sorted(groups):
         g = groups[key]
+        if key in external:
+            ext = external[key]
+            counts = ext.get("finding_verdicts", {})
+            total = sum(int(counts.get(v, 0)) for v in FINDING_VALUES)
+            if total != g["finding_count"]:
+                raise ValueError(f"external adjudication count mismatch for {key}: {total} != {g['finding_count']}")
+            g["finding_verdicts"] = {v: int(counts.get(v, 0)) for v in FINDING_VALUES}
+            g["finding_adjudication_source"] = "external"
+        else:
+            g["finding_adjudication_source"] = "embedded"
         fv = g["finding_verdicts"]
         pv = g["path_verdicts"]
         fr = g["finding_recall"]
@@ -93,6 +110,7 @@ def main() -> int:
         "study": "retrospective-adjudicator-calibration-2026",
         "cases": len(rows),
         "groups": summary,
+        "adjudication_file": str(args.adjudication) if args.adjudication.exists() else None,
         "results": rows,
     }
     args.output.mkdir(parents=True, exist_ok=True)
