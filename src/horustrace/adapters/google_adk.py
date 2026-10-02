@@ -627,11 +627,168 @@ def _auth_present(call: ast.Call, nested: ast.Call | None = None) -> bool | None
     return False
 
 
+def _environment_subscript_key(node: ast.AST | None) -> str | None:
+    if not isinstance(node, ast.Subscript):
+        return None
+    owner = _dotted_name(node.value)
+    if owner != "os.environ":
+        return None
+    return _string(node.slice)
+
+
+def _module_configuration_sources(tree: ast.AST) -> dict[str, str]:
+    """Map module-level aliases to source-visible operator configuration keys."""
+    result: dict[str, str] = {}
+    for node in getattr(tree, "body", []):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        aliases = [target.id for target in targets if isinstance(target, ast.Name)]
+        if not aliases:
+            continue
+
+        source: str | None = _environment_subscript_key(node.value)
+        if source is None and isinstance(node.value, ast.Call):
+            called = (_dotted_name(node.value.func) or "").lower()
+            if called in {"os.getenv", "os.environ.get"}:
+                source = _string(node.value.args[0]) if node.value.args else None
+                source = source or "environment"
+        if source is None and isinstance(node.value, ast.Name):
+            source = result.get(node.value.id)
+        if source is None:
+            continue
+        for alias in aliases:
+            result[alias] = source
+    return result
+
+
+def _configuration_source_from_expr(
+    node: ast.AST | None,
+    configuration_sources: dict[str, str],
+) -> str | None:
+    """Resolve an expression made only from constants and one configuration source."""
+    if node is None:
+        return None
+    direct = _environment_subscript_key(node)
+    if direct:
+        return direct
+    if isinstance(node, ast.Call):
+        called = (_dotted_name(node.func) or "").lower()
+        if called in {"os.getenv", "os.environ.get"}:
+            key = _string(node.args[0]) if node.args else None
+            return key or "environment"
+        return None
+    if isinstance(node, ast.Name):
+        return configuration_sources.get(node.id)
+    if isinstance(node, ast.Constant):
+        return None
+    if isinstance(node, ast.JoinedStr):
+        sources: set[str] = set()
+        for value in node.values:
+            if isinstance(value, ast.Constant):
+                continue
+            expr = value.value if isinstance(value, ast.FormattedValue) else value
+            source = _configuration_source_from_expr(expr, configuration_sources)
+            if source is None:
+                return None
+            sources.add(source)
+        return next(iter(sources)) if len(sources) == 1 else None
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        sources: set[str] = set()
+        for part in (node.left, node.right):
+            if isinstance(part, ast.Constant):
+                continue
+            source = _configuration_source_from_expr(part, configuration_sources)
+            if source is None:
+                return None
+            sources.add(source)
+        return next(iter(sources)) if len(sources) == 1 else None
+    return None
+
+
+def _apply_operator_configured_function_destinations(
+    tool: Tool,
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    configuration_sources: dict[str, str],
+) -> None:
+    """Replace generic dynamic HTTP destinations with source-proven operator config."""
+    operator_destinations: list[NetworkDestination] = []
+    for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
+        called = (_dotted_name(call.func) or _call_name(call.func) or "").lower()
+        if not any(
+            marker in called
+            for marker in (
+                "requests.",
+                "httpx.",
+                "aiohttp",
+                "urllib.request",
+                "session.get",
+                "session.post",
+                "session.put",
+                "session.patch",
+                "session.delete",
+            )
+        ):
+            continue
+        target_expr = call.args[0] if call.args else _kw(call, "url")
+        source = _configuration_source_from_expr(
+            target_expr,
+            configuration_sources,
+        )
+        if source is None:
+            continue
+        operator_destinations.append(
+            NetworkDestination(
+                target=f"<operator-configured:{source}>",
+                restricted=True,
+                location=tool.location,
+                metadata={
+                    "source": "operator_configuration",
+                    "network_scope": "operator_configured_destination",
+                    "configuration_source": source,
+                    "destination_constraint_basis": "operator_configuration",
+                },
+            )
+        )
+
+    if not operator_destinations:
+        return
+
+    tool.destinations = [
+        destination
+        for destination in tool.destinations
+        if not (
+            destination.target == "<dynamic-url>"
+            and destination.metadata.get("network_scope") == "dynamic_destination"
+        )
+    ]
+    seen = {
+        (destination.target, destination.restricted)
+        for destination in tool.destinations
+    }
+    for destination in operator_destinations:
+        key = (destination.target, destination.restricted)
+        if key not in seen:
+            tool.destinations.append(destination)
+            seen.add(key)
+    tool.metadata["network_scope"] = "operator_configured_destination"
+    tool.metadata["destination_constraint_basis"] = "operator_configuration"
+    tool.metadata["configuration_sources"] = sorted(
+        {
+            str(destination.metadata["configuration_source"])
+            for destination in operator_destinations
+        }
+    )
+
+
 def _operator_configuration_source(
     node: ast.AST | None,
     calls: dict[str, ast.Call],
 ) -> str | None:
     """Return the configuration key for an environment-derived expression."""
+    subscript_key = _environment_subscript_key(node)
+    if subscript_key:
+        return subscript_key
     resolved = _resolve_call(node, calls)
     if resolved is not None:
         called = (_dotted_name(resolved.func) or "").lower()
@@ -1272,6 +1429,7 @@ def scan_python_file(path: Path) -> Graph:
     if not _uses_google_adk(tree):
         return graph
 
+    configuration_sources = _module_configuration_sources(tree)
     functions = {node.name: node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
     custom_agent_classes = _custom_base_agent_classes(tree)
     imported_functions: dict[str, str] = {}
@@ -1625,4 +1783,15 @@ def scan_python_file(path: Path) -> Graph:
         for server in mcp_servers.values()
         if _construction_key(server) not in bound_mcp_keys
     )
+    for agent in graph.agents:
+        for tool in agent.tools:
+            function = functions.get(tool.name)
+            if function is None:
+                continue
+            _apply_operator_configured_function_destinations(
+                tool,
+                function,
+                configuration_sources,
+            )
+
     return graph
