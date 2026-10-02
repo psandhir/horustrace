@@ -859,6 +859,7 @@ def evaluate(graph: Graph) -> list[Finding]:
             findings.append(Finding("CAP003", Severity.HIGH, "High aggregate agent authority", f"Agent '{agent.name}' combines {len(privileged)} privileged capability classes.", "Split duties across narrower agents/tools or introduce explicit control boundaries and approvals.", layer=2, location=agent.location, agent=agent.name, evidence=["privileged=" + ",".join(privileged), f"threshold={max_priv}"]))
         execution_authority = any(
             "process.execute" in tool.capabilities
+            and tool.metadata.get("process_execution_constrained") is not True
             and _tool_has_effective_authority(
                 tool,
                 authority_by_key.get(
