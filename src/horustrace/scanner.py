@@ -1606,13 +1606,17 @@ def _propagate_pydantic_delegation(graph: Graph) -> None:
     exact normalized Pydantic agent names are resolved; unrelated object.run()
     calls remain ordinary function calls.
     """
-    pydantic_agents = {
-        agent.name: agent
+    pydantic_agents = [
+        agent
         for agent in graph.agents
         if agent.metadata.get("framework") == "pydantic-ai"
-    }
+    ]
     if not pydantic_agents:
         return
+
+    agents_by_name: dict[str, list[Agent]] = {}
+    for agent in pydantic_agents:
+        agents_by_name.setdefault(agent.name, []).append(agent)
 
     constrained_scopes = {
         "fixed_managed_service",
@@ -1626,29 +1630,38 @@ def _propagate_pydantic_delegation(graph: Graph) -> None:
     # cycles or inventing authority for unresolved candidates.
     for _ in range(8):
         changed = False
-        for parent in pydantic_agents.values():
+        for parent in pydantic_agents:
             for tool in parent.tools:
                 raw_targets = tool.metadata.get("delegate_targets") or []
                 if not raw_targets and tool.metadata.get("delegate_target"):
                     raw_targets = [tool.metadata["delegate_target"]]
-                targets = [
-                    str(target)
-                    for target in raw_targets
-                    if isinstance(target, str)
-                    and target in pydantic_agents
-                    and pydantic_agents[target] is not parent
-                ]
-                if not targets:
+
+                resolved_agents: list[Agent] = []
+                for raw_target in raw_targets:
+                    if not isinstance(raw_target, str):
+                        continue
+                    candidates = [
+                        candidate
+                        for candidate in agents_by_name.get(raw_target, [])
+                        if candidate is not parent
+                    ]
+                    # A name-only Agent.run() reference cannot safely choose
+                    # between multiple source-scoped instances. Preserve the
+                    # delegation hint but do not manufacture effective authority
+                    # until repository provenance disambiguates the target.
+                    if len(candidates) == 1 and candidates[0] not in resolved_agents:
+                        resolved_agents.append(candidates[0])
+                if not resolved_agents:
                     continue
 
-                resolved = sorted(set(targets))
+                resolved = sorted({target.name for target in resolved_agents})
                 prior_caps = set(tool.capabilities)
                 prior_resources = len(tool.resources)
                 prior_destinations = len(tool.destinations)
 
                 tool.capabilities.add("agent.delegate")
-                for target in resolved:
-                    child = pydantic_agents[target]
+                for child in resolved_agents:
+                    target = child.name
                     tool.capabilities.update(child.capabilities)
 
                     resource_keys = {
