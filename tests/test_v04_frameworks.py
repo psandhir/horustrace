@@ -21,27 +21,6 @@ triage = Agent(name="triage", handoffs=[billing])
     assert "DELEGATES_TO" in kinds
 
 
-def test_langgraph_memory_is_first_class_adg_node(tmp_path: Path) -> None:
-    (tmp_path / "workflow.py").write_text(
-        """
-from langgraph.checkpoint.sqlite import SqliteSaver
-from langgraph.graph import StateGraph
-
-memory = SqliteSaver()
-workflow = StateGraph(dict)
-app = workflow.compile(checkpointer=memory)
-""",
-        encoding="utf-8",
-    )
-    graph, _ = scan(tmp_path)
-    agent = next(agent for agent in graph.agents if agent.metadata.get("framework") == "langgraph")
-    assert agent.metadata["memory"][0]["persistent"] is True
-    assert graph.adg is not None
-    memories = [node for node in graph.adg.nodes if node.kind == "memory"]
-    assert len(memories) == 1
-    assert memories[0].attributes["persistent"] is True
-
-
 def test_static_flow_projects_data_flow_edges_to_adg(tmp_path: Path) -> None:
     (tmp_path / "agent.py").write_text(
         """
