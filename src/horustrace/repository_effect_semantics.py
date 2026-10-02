@@ -290,20 +290,76 @@ def _direct_effect(
     if sendgrid_present and leaf == "send":
         result.capabilities.update({"external.write", "network.external"})
         result.evidence.add(f"sendgrid:{dotted}")
+        result.destinations.append(
+            NetworkDestination(
+                target="<provider:sendgrid>",
+                restricted=True,
+                location=_location(info.path, call),
+                metadata={
+                    "source": "provider_sdk",
+                    "network_scope": "fixed_provider_network",
+                    "provider": "sendgrid",
+                    "repository_effect_summary": True,
+                },
+            )
+        )
     if twilio_present and dotted.endswith(".messages.create"):
         result.capabilities.update({"external.write", "network.external"})
         result.evidence.add(f"twilio:{dotted}")
+        result.destinations.append(
+            NetworkDestination(
+                target="<provider:twilio>",
+                restricted=True,
+                location=_location(info.path, call),
+                metadata={
+                    "source": "provider_sdk",
+                    "network_scope": "fixed_provider_network",
+                    "provider": "twilio",
+                    "repository_effect_summary": True,
+                },
+            )
+        )
 
-    # NATS is a network transport. A command/control subject is also an external effect.
+    # NATS is a network transport. Literal brokers are fixed destinations;
+    # only source-visible control/actuation subjects establish external writes.
     nats_present = any(name == "nats" or name.startswith("nats.") for name in info.imported_modules)
     if nats_present and leaf in {"connect", "request", "publish"}:
         result.capabilities.add("network.external")
         result.evidence.add(f"nats:{dotted}")
+        if leaf == "connect" and call.args:
+            broker = _literal(call.args[0])
+            if isinstance(broker, str) and broker.startswith(("nats://", "tls://")):
+                result.destinations.append(
+                    NetworkDestination(
+                        target=broker,
+                        restricted=True,
+                        location=_location(info.path, call),
+                        metadata={
+                            "source": "literal_broker",
+                            "network_scope": "fixed_literal_destination",
+                            "provider": "nats",
+                            "repository_effect_summary": True,
+                        },
+                    )
+                )
         if leaf in {"request", "publish"}:
             subject = _literal(call.args[0]) if call.args else None
             if isinstance(subject, str):
                 lowered = subject.lower()
-                if any(token in lowered for token in ("cmd", "command", "motion", "control", "write", "update")):
+                write_markers = (
+                    "motion",
+                    "nav",
+                    "navigate",
+                    "control",
+                    "actuate",
+                    "ros_cmd",
+                    "write",
+                    "update",
+                )
+                read_markers = ("status", "vision", "query", "read", "get", "search")
+                if any(token in lowered for token in write_markers) and not any(
+                    token in lowered for token in read_markers
+                ):
                     result.capabilities.add("external.write")
                     result.evidence.add(f"nats-command:{subject}")
 
