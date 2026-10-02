@@ -91,7 +91,8 @@ def main() -> int:
 
         findings = scan_doc.get("findings") if isinstance(scan_doc.get("findings"), list) else []
         paths = graph_doc.get("attack_paths") if isinstance(graph_doc.get("attack_paths"), list) else []
-        agents = scan_doc.get("agents") if isinstance(scan_doc.get("agents"), list) else []
+        summary = scan_doc.get("summary") if isinstance(scan_doc.get("summary"), dict) else {}
+        agent_count = int(summary.get("agents") or 0)
         result = {
             "schema_version": 1,
             "case_id": case["case_id"],
@@ -100,7 +101,7 @@ def main() -> int:
             "framework": case["framework"],
             "evidence_path": case.get("evidence_path"),
             "source_pack_chars": len(pack),
-            "counts": {"agents": len(agents), "findings": len(findings), "attack_paths": len(paths)},
+            "counts": {"agents": agent_count, "findings": len(findings), "attack_paths": len(paths)},
             "findings": [{"index": i, **x} for i, x in enumerate(findings) if isinstance(x, dict)],
             "attack_paths": [{"index": i, **x} for i, x in enumerate(paths) if isinstance(x, dict)],
         }
