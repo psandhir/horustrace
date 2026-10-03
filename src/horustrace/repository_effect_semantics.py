@@ -217,6 +217,63 @@ def _call_target(
     return None
 
 
+def _typed_configuration_destination(
+    info: _ModuleInfo,
+    function_name: str,
+    target_expr: ast.AST | None,
+) -> NetworkDestination | None:
+    """Recognize URL origins carried by typed operator configuration objects."""
+    if target_expr is None:
+        return None
+    function = info.functions.get(function_name)
+    if function is None:
+        return None
+
+    config_parameters: set[str] = set()
+    for parameter in [
+        *function.args.posonlyargs,
+        *function.args.args,
+        *function.args.kwonlyargs,
+    ]:
+        annotation = (_dotted(parameter.annotation) or _call_leaf(parameter.annotation) or "")
+        leaf = annotation.rsplit(".", 1)[-1].lower()
+        if leaf.endswith(("config", "settings", "configuration")):
+            config_parameters.add(parameter.arg)
+    if not config_parameters:
+        return None
+
+    destination_attributes = {
+        "base_url",
+        "api_url",
+        "url",
+        "endpoint",
+        "base_endpoint",
+        "host",
+    }
+    for part in ast.walk(target_expr):
+        if not isinstance(part, ast.Attribute) or part.attr.lower() not in destination_attributes:
+            continue
+        dotted = _dotted(part)
+        if not dotted or "." not in dotted:
+            continue
+        root = dotted.split(".", 1)[0]
+        if root not in config_parameters:
+            continue
+        return NetworkDestination(
+            target=f"<operator-configured:{dotted}>",
+            restricted=True,
+            location=_location(info.path, part),
+            metadata={
+                "source": "typed_operator_configuration",
+                "network_scope": "operator_configured_destination",
+                "configuration_source": dotted,
+                "destination_constraint_basis": "typed_configuration_object",
+                "repository_effect_summary": True,
+            },
+        )
+    return None
+
+
 def _direct_effect(
     module: str,
     info: _ModuleInfo,
@@ -254,9 +311,15 @@ def _direct_effect(
             http_mutation_capabilities(call, function_name=function_name)
         )
         result.evidence.add(f"http:{dotted}")
-        target_expr = call.args[0] if call.args else next(
-            (kw.value for kw in call.keywords if kw.arg in {"url", "uri", "endpoint"}),
-            None,
+        target_expr = (
+            call.args[1]
+            if leaf == "request" and len(call.args) > 1
+            else call.args[0]
+            if call.args
+            else next(
+                (kw.value for kw in call.keywords if kw.arg in {"url", "uri", "endpoint"}),
+                None,
+            )
         )
         target = _literal(target_expr)
         if (
@@ -267,6 +330,17 @@ def _direct_effect(
             result.destinations.append(
                 _fixed_destination(info.path, target_expr or call, target, "literal_url")
             )
+        else:
+            configured = _typed_configuration_destination(
+                info,
+                function_name,
+                target_expr,
+            )
+            if configured is not None:
+                result.destinations.append(configured)
+                result.evidence.add(
+                    f"operator-configured-destination:{configured.metadata.get('configuration_source')}"
+                )
 
     if leaf == "open" or dotted.endswith(".open"):
         mode = _literal(call.args[1]) if len(call.args) > 1 else next(
