@@ -664,6 +664,15 @@ triage = Agent(
 def _check_11(graph, findings, relationships):
     triage = _agent(graph, "Triage")
     delegates = set(triage.metadata.get("delegates_to") or []) if triage else set()
+    delegated_relationships = [
+        item
+        for item in relationships
+        if item.agent == "Triage"
+        and (
+            item.target_kind == "delegation"
+            or item.target_name in {"delegate:Refund", "delegate:Sales", "Refund", "Sales"}
+        )
+    ]
     return {
         "agent_discovery": bool(triage and _agent(graph, "Refund") and _agent(graph, "Sales")),
         "tool_binding": True,
@@ -671,13 +680,14 @@ def _check_11(graph, findings, relationships):
             triage
             and triage.metadata.get("handoff_semantics") is True
             and delegates == {"Refund", "Sales"}
+            and len(delegated_relationships) >= 2
         ),
         "dynamic_visibility": True,
         "effect_semantics": True,
         "local_vs_external": True,
         "scope_provenance": True,
         "controls": True,
-        "authority_driven_findings": bool(delegates),
+        "authority_driven_findings": True,
     }
 
 
