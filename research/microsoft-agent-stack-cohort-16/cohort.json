@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "study": "microsoft-agent-stack-cohort-16",
+  "status": "frozen_before_horustrace_reveal",
+  "locked_at": "2026-10-03",
+  "scanner_baseline_commit": "ea7f7b65725ca96b6ac20779141f3ca457c929bc",
+  "selection": {
+    "method": "Fresh public repositories selected from source-visible Microsoft Agent Framework, Foundry, Agent 365, and Microsoft 365 Agents SDK evidence before inspecting HorusTrace output. Exact repository commits are frozen.",
+    "horustrace_output_used_for_selection": false,
+    "total_cases": 16,
+    "scored_p0_cases": 12,
+    "adjacent_discovery_cases": 4,
+    "scored_breakdown": {
+      "microsoft-agent-framework-dotnet": 6,
+      "microsoft-agent-framework-python": 6
+    },
+    "discovery_breakdown": {
+      "microsoft-365-agents-sdk": 1,
+      "agent365-sdk": 1,
+      "agent365-app": 1,
+      "maf-agent365-hybrid": 1
+    }
+  },
+  "cases": [
+    {
+      "case_id": "ms-dotnet-001",
+      "repo": "microsoft-foundry/foundry-samples",
+      "sha": "d807d9a0b2e633040d896cd0ddd58c95e14ac6f1",
+      "scan_path": "samples/csharp/hosted-agents/agent-framework",
+      "stack": "microsoft-agent-framework-dotnet",
+      "scored_p0": true,
+      "expected_framework": "microsoft-agent-framework-dotnet",
+      "expected_agent_min": 1,
+      "evidence_path": "samples/csharp/hosted-agents/agent-framework/mcp-tools/src/mcp-tools/Program.cs",
+      "selection_signal": "Microsoft.Agents.AI + Foundry hosting + MCP tools"
+    },
+    {
+      "case_id": "ms-dotnet-002",
+      "repo": "Azure/microsoft-agent-framework-foundry-starter-pack-net",
+      "sha": "0f6b9dd48c3609614153932c14dacf3ec728281d",
+      "scan_path": ".",
+      "stack": "microsoft-agent-framework-dotnet",
+      "scored_p0": true,
+      "expected_framework": "microsoft-agent-framework-dotnet",
+      "expected_agent_min": 1,
+      "evidence_path": "src/MafStarterPack.HostedAgent/Program.cs",
+      "selection_signal": "Foundry hosted MAF agent + HostedMcpServerTool"
+    },
+    {
+      "case_id": "ms-dotnet-003",
+      "repo": "joslat/MAFPlayground",
+      "sha": "d262d77acc73519c432690c15409620052cede1c",
+      "scan_path": ".",
+      "stack": "microsoft-agent-framework-dotnet",
+      "scored_p0": true,
+      "expected_framework": "microsoft-agent-framework-dotnet",
+      "expected_agent_min": 1,
+      "evidence_path": "AGUI.Server/Agents/BasicAgent.cs",
+      "selection_signal": "Microsoft.Agents.AI application agents"
+    },
+    {
+      "case_id": "ms-dotnet-004",
+      "repo": "Azure-Samples/durable-agents-travel-planner",
+      "sha": "5ff7d3bfc18f7f95dcc60f9b4d6187cdf254c815",
+      "scan_path": ".",
+      "stack": "microsoft-agent-framework-dotnet",
+      "scored_p0": true,
+      "expected_framework": "microsoft-agent-framework-dotnet",
+      "expected_agent_min": 1,
+      "evidence_path": "Functions/TravelPlannerOrchestrator.cs",
+      "selection_signal": "Microsoft.Agents.AI durable-agent application"
+    },
+    {
+      "case_id": "ms-dotnet-005",
+      "repo": "neo4j-labs/neo4j-maf-provider",
+      "sha": "b1aadb6d5316665b32b635f481fc749bf0eaf5d7",
+      "scan_path": "dotnet",
+      "stack": "microsoft-agent-framework-dotnet",
+      "scored_p0": true,
+      "expected_framework": "microsoft-agent-framework-dotnet",
+      "expected_agent_min": 1,
+      "evidence_path": "dotnet/samples/Neo4j.Samples/Program.cs",
+      "selection_signal": "MAF application using custom Neo4j AI context provider"
+    },
+    {
+      "case_id": "ms-dotnet-006",
+      "repo": "leestott/generative-ui-foundry-hosted-agents",
+      "sha": "cfa64e2427672e882a219ededee1ca9cb63ec15e",
+      "scan_path": "agent",
+      "stack": "microsoft-agent-framework-dotnet",
+      "scored_p0": true,
+      "expected_framework": "microsoft-agent-framework-dotnet",
+      "expected_agent_min": 1,
+      "evidence_path": "agent/Program.cs",
+      "selection_signal": "MAF AG-UI hosted application built with AsAIAgent"
+    },
+    {
+      "case_id": "ms-python-001",
+      "repo": "ppiova/claude-foundry-demo",
+      "sha": "40805e88a9f43ba4e42acfed1744b8a35f846ea1",
+      "scan_path": ".",
+      "stack": "microsoft-agent-framework-python",
+      "scored_p0": true,
+      "expected_framework": "microsoft-agent-framework",
+      "expected_agent_min": 1,
+      "evidence_path": "agent.py",
+      "selection_signal": "Agent + AnthropicFoundryClient + MCPStreamableHTTPTool"
+    },
+    {
+      "case_id": "ms-python-002",
+      "repo": "Rahilyw/lost-in-sf-agent",
+      "sha": "73b238b9198348c973d29a5e7027d9d61274e8aa",
+      "scan_path": ".",
+      "stack": "microsoft-agent-framework-python",
+      "scored_p0": true,
+      "expected_framework": "microsoft-agent-framework",
+      "expected_agent_min": 1,
+      "evidence_path": "agent.py",
+      "selection_signal": "Agent + ContextProvider + MCPStreamableHTTPTool + delegated agents"
+    },
+    {
+      "case_id": "ms-python-003",
+      "repo": "leyredelacalzada/FoundryIQ-and-Agent-Framework-demo",
+      "sha": "7838936804708022b66e8c0e119f0829ca3f5d17",
+      "scan_path": "app/backend",
+      "stack": "microsoft-agent-framework-python",
+      "scored_p0": true,
+      "expected_framework": "microsoft-agent-framework",
+      "expected_agent_min": 1,
+      "evidence_path": "app/backend/agents/marketing_agent.py",
+      "selection_signal": "Agent + AzureAIAgentClient + Azure AI Search context provider"
+    },
+    {
+      "case_id": "ms-python-004",
+      "repo": "Azure-Samples/foundry-hosted-agentframework-demos",
+      "sha": "126c8a04ed63da0398e90a12ddf237c1d0800d9a",
+      "scan_path": ".",
+      "stack": "microsoft-agent-framework-python",
+      "scored_p0": true,
+      "expected_framework": "microsoft-agent-framework",
+      "expected_agent_min": 1,
+      "evidence_path": "agents/stage3_foundry_toolbox.py",
+      "selection_signal": "Agent + MCP + Foundry Toolbox + hosted-agent progression"
+    },
+    {
+      "case_id": "ms-python-005",
+      "repo": "eavanvalkenburg/af-demo",
+      "sha": "21cad36433c39bac8d4f957c20b6e4eb4979a58a",
+      "scan_path": ".",
+      "stack": "microsoft-agent-framework-python",
+      "scored_p0": true,
+      "expected_framework": "microsoft-agent-framework",
+      "expected_agent_min": 1,
+      "evidence_path": "agent.py",
+      "selection_signal": "Agent Framework Python function-tool application"
+    },
+    {
+      "case_id": "ms-python-006",
+      "repo": "microsoft/Prior-Authorization-Multi-Agent-Solution-Accelerator",
+      "sha": "b139b24044565b02317821b2590602f924c43311",
+      "scan_path": "agents",
+      "stack": "microsoft-agent-framework-python",
+      "scored_p0": true,
+      "expected_framework": "microsoft-agent-framework",
+      "expected_agent_min": 1,
+      "evidence_path": "agents/coverage/main.py",
+      "selection_signal": "Multiple Foundry-hosted Agent Framework services with MCP and skills"
+    },
+    {
+      "case_id": "ms-discovery-001",
+      "repo": "microsoft/Agents-for-net",
+      "sha": "82bd9856b24b5aed4ecb521656c8f996fd00a4bf",
+      "scan_path": "src/samples/AgenticAI",
+      "stack": "microsoft-365-agents-sdk",
+      "scored_p0": false,
+      "expected_framework": null,
+      "expected_agent_min": 0,
+      "evidence_path": "src/samples/AgenticAI/MyAgent.cs",
+      "selection_signal": "Microsoft 365 Agents SDK AgentApplication routing/ingress"
+    },
+    {
+      "case_id": "ms-discovery-002",
+      "repo": "microsoft/Agent365-dotnet",
+      "sha": "7c05574e316837e091af01c7dcff3a0b3b175fc2",
+      "scan_path": "src",
+      "stack": "agent365-sdk",
+      "scored_p0": false,
+      "expected_framework": null,
+      "expected_agent_min": 0,
+      "evidence_path": "src/Runtime/Core/Agent365SdkUserAgentConfiguration.cs",
+      "selection_signal": "Agent 365 runtime, identity, tooling and observability SDK semantics"
+    },
+    {
+      "case_id": "ms-discovery-003",
+      "repo": "qmatteoq/agent365-demos",
+      "sha": "937f8c12421b6eebfbff764dbafbdbe13cc72f68",
+      "scan_path": ".",
+      "stack": "agent365-app",
+      "scored_p0": false,
+      "expected_framework": null,
+      "expected_agent_min": 0,
+      "evidence_path": "dotnet-agent-no-teams/Agent365/WorkIqToolProvider.cs",
+      "selection_signal": "Agent 365 application with OBO, Work IQ MCP and MAF-adjacent tooling"
+    },
+    {
+      "case_id": "ms-discovery-004",
+      "repo": "david-lorenzo88/agent-framework-a365-agent",
+      "sha": "e4877fb86f91a8890f3419934d08ec4be2ed6899",
+      "scan_path": ".",
+      "stack": "maf-agent365-hybrid",
+      "scored_p0": false,
+      "expected_framework": null,
+      "expected_agent_min": 0,
+      "evidence_path": "agent.py",
+      "selection_signal": "Python Microsoft Agent Framework integrated with Agent 365 tooling/notifications"
+    }
+  ]
+}
