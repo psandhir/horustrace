@@ -24,8 +24,7 @@ Before a judge locks its review, do **not** expose:
 - issue/PR discussions that reveal scanner output; or
 - later scoring artifacts.
 
-The canonical evaluator prompt is
-`LLM_REVIEW_PROMPT_V1.md`. Record its version as `llm-review-v1`.
+For new adjudication runs, the canonical evaluator prompt is\n`LLM_REVIEW_PROMPT_V2.md`. Record its version as `llm-review-v2`. The v1 prompt\nremains unchanged for reproducibility of already-locked historical reviews.
 
 ## Automated Phase-A runner
 
@@ -71,7 +70,7 @@ python scripts/prepare_llm_review_packet.py \
   --judge-b-id second-run-001 \
   --judge-b-provider <provider> \
   --judge-b-model <model-name> \
-  --prompt-version llm-review-v1
+  --prompt-version llm-review-v2
 ```
 
 Different model families/providers are preferred because they reduce shared-model
@@ -162,7 +161,7 @@ python scripts/prepare_llm_review_packet.py \
   --judge-b-id second-phase-b-001 \
   --judge-b-provider <provider> \
   --judge-b-model <model-name> \
-  --prompt-version llm-review-v1
+  --prompt-version llm-review-v2
 ```
 
 Then validate the completed packet:

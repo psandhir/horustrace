@@ -5,6 +5,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse
 
+from horustrace.effect_semantics import (
+    executor_wrapped_callable,
+    http_mutation_capabilities,
+    sql_call_capabilities,
+)
 from horustrace.models import Graph, NetworkDestination, SourceLocation, Tool
 
 
@@ -194,6 +199,13 @@ def _call_target(
     info: _ModuleInfo,
     call: ast.Call,
 ) -> tuple[str, str] | None:
+    wrapped = executor_wrapped_callable(call)
+    if isinstance(wrapped, ast.Name):
+        if wrapped.id in info.functions:
+            return module, wrapped.id
+        if wrapped.id in info.imports:
+            return info.imports[wrapped.id]
+
     if isinstance(call.func, ast.Name):
         name = call.func.id
         if name in info.functions:
@@ -211,10 +223,235 @@ def _call_target(
     return None
 
 
+def _environment_key(node: ast.AST | None) -> str | None:
+    if isinstance(node, ast.Subscript) and _dotted(node.value) == "os.environ":
+        value = _literal(node.slice)
+        return value if isinstance(value, str) else "environment"
+    if isinstance(node, ast.Call):
+        called = (_dotted(node.func) or "").lower()
+        if called in {"os.getenv", "os.environ.get"}:
+            value = _literal(node.args[0]) if node.args else None
+            return value if isinstance(value, str) else "environment"
+    return None
+
+
+def _configuration_source_from_expr(
+    node: ast.AST | None,
+    sources: dict[str, str],
+) -> str | None:
+    if node is None:
+        return None
+    direct = _environment_key(node)
+    if direct:
+        return direct
+    if isinstance(node, ast.Name):
+        return sources.get(node.id)
+    if isinstance(node, ast.Constant):
+        return None
+    if isinstance(node, ast.JoinedStr):
+        origin_source: str | None = None
+        first_dynamic = True
+        for value in node.values:
+            if isinstance(value, ast.Constant):
+                continue
+            expr = value.value if isinstance(value, ast.FormattedValue) else value
+            source = _configuration_source_from_expr(expr, sources)
+            if first_dynamic:
+                first_dynamic = False
+                if source is None:
+                    return None
+                origin_source = source
+                continue
+            if source is not None and source != origin_source:
+                return None
+        return origin_source
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        found: set[str] = set()
+        for part in (node.left, node.right):
+            if isinstance(part, ast.Constant):
+                continue
+            source = _configuration_source_from_expr(part, sources)
+            if source is None:
+                return None
+            found.add(source)
+        return next(iter(found)) if len(found) == 1 else None
+    if isinstance(node, ast.Call):
+        called = (_dotted(node.func) or _call_leaf(node.func) or "").lower()
+        if called in {"urllib.request.request", "request"}:
+            target = node.args[0] if node.args else next(
+                (kw.value for kw in node.keywords if kw.arg == "url"),
+                None,
+            )
+            return _configuration_source_from_expr(target, sources)
+        if isinstance(node.func, ast.Attribute) and node.func.attr in {
+            "rstrip",
+            "lstrip",
+            "strip",
+        }:
+            return _configuration_source_from_expr(node.func.value, sources)
+    return None
+
+
+def _operator_configured_destinations(
+    info: _ModuleInfo,
+    function_name: str,
+) -> list[NetworkDestination]:
+    function = info.functions.get(function_name)
+    if function is None:
+        return []
+
+    sources: dict[str, str] = {}
+    assignments = [
+        node
+        for node in ast.walk(function)
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None
+    ]
+    for _ in range(8):
+        changed = False
+        for assignment in assignments:
+            source = _configuration_source_from_expr(assignment.value, sources)
+            if source is None:
+                continue
+            targets = assignment.targets if isinstance(assignment, ast.Assign) else [assignment.target]
+            for target in targets:
+                if isinstance(target, ast.Name) and sources.get(target.id) != source:
+                    sources[target.id] = source
+                    changed = True
+        if not changed:
+            break
+
+    destinations: list[NetworkDestination] = []
+    seen: set[str] = set()
+    for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
+        called = (_dotted(call.func) or _call_leaf(call.func) or "").lower()
+        if not (
+            called.startswith(("requests.", "httpx.", "aiohttp."))
+            or "urllib.request" in called
+        ):
+            continue
+        leaf = (_call_leaf(call.func) or "").lower()
+        target = (
+            call.args[1]
+            if leaf == "request" and len(call.args) > 1
+            else call.args[0]
+            if call.args
+            else next(
+                (kw.value for kw in call.keywords if kw.arg in {"url", "uri", "endpoint"}),
+                None,
+            )
+        )
+        source = _configuration_source_from_expr(target, sources)
+        if source is None or source in seen:
+            continue
+        seen.add(source)
+        destinations.append(
+            NetworkDestination(
+                target=f"<operator-configured:{source}>",
+                restricted=True,
+                location=_location(info.path, call),
+                metadata={
+                    "source": "operator_configuration",
+                    "network_scope": "operator_configured_destination",
+                    "configuration_source": source,
+                    "destination_constraint_basis": "operator_configuration",
+                    "repository_effect_summary": True,
+                },
+            )
+        )
+    return destinations
+
+
+def _typed_configuration_destination(
+    info: _ModuleInfo,
+    function_name: str,
+    target_expr: ast.AST | None,
+) -> NetworkDestination | None:
+    """Recognize URL origins carried by typed operator configuration objects."""
+    if target_expr is None:
+        return None
+    function = info.functions.get(function_name)
+    if function is None:
+        return None
+
+    config_parameters: set[str] = set()
+    for parameter in [
+        *function.args.posonlyargs,
+        *function.args.args,
+        *function.args.kwonlyargs,
+    ]:
+        annotation = (_dotted(parameter.annotation) or _call_leaf(parameter.annotation) or "")
+        leaf = annotation.rsplit(".", 1)[-1].lower()
+        if leaf.endswith(("config", "settings", "configuration")):
+            config_parameters.add(parameter.arg)
+    if not config_parameters:
+        return None
+
+    destination_attributes = {
+        "base_url",
+        "api_url",
+        "url",
+        "endpoint",
+        "base_endpoint",
+        "host",
+    }
+
+    expressions: list[ast.AST] = [target_expr]
+    seen_names: set[str] = set()
+    for _ in range(8):
+        added = False
+        for expression in list(expressions):
+            if not isinstance(expression, ast.Name) or expression.id in seen_names:
+                continue
+            seen_names.add(expression.id)
+            for assignment in ast.walk(function):
+                if not isinstance(assignment, (ast.Assign, ast.AnnAssign)):
+                    continue
+                targets = (
+                    assignment.targets
+                    if isinstance(assignment, ast.Assign)
+                    else [assignment.target]
+                )
+                if any(
+                    isinstance(target, ast.Name)
+                    and target.id == expression.id
+                    for target in targets
+                ) and assignment.value is not None:
+                    expressions.append(assignment.value)
+                    added = True
+        if not added:
+            break
+
+    for expression in expressions:
+        for part in ast.walk(expression):
+            if not isinstance(part, ast.Attribute) or part.attr.lower() not in destination_attributes:
+                continue
+            dotted = _dotted(part)
+            if not dotted or "." not in dotted:
+                continue
+            root = dotted.split(".", 1)[0]
+            if root not in config_parameters:
+                continue
+            return NetworkDestination(
+                target=f"<operator-configured:{dotted}>",
+                restricted=True,
+                location=_location(info.path, part),
+                metadata={
+                    "source": "typed_operator_configuration",
+                    "network_scope": "operator_configured_destination",
+                    "configuration_source": dotted,
+                    "destination_constraint_basis": "typed_configuration_object",
+                    "repository_effect_summary": True,
+                },
+            )
+    return None
+
+
 def _direct_effect(
     module: str,
     info: _ModuleInfo,
     call: ast.Call,
+    *,
+    function_name: str = "",
 ) -> _FunctionEffect:
     result = _FunctionEffect()
     dotted = (_dotted(call.func) or _call_leaf(call.func) or "").lower()
@@ -242,10 +479,19 @@ def _direct_effect(
         or "urllib.request" in dotted
     ):
         result.capabilities.add("network.external")
+        result.capabilities.update(
+            http_mutation_capabilities(call, function_name=function_name)
+        )
         result.evidence.add(f"http:{dotted}")
-        target_expr = call.args[0] if call.args else next(
-            (kw.value for kw in call.keywords if kw.arg in {"url", "uri", "endpoint"}),
-            None,
+        target_expr = (
+            call.args[1]
+            if leaf == "request" and len(call.args) > 1
+            else call.args[0]
+            if call.args
+            else next(
+                (kw.value for kw in call.keywords if kw.arg in {"url", "uri", "endpoint"}),
+                None,
+            )
         )
         target = _literal(target_expr)
         if (
@@ -256,6 +502,17 @@ def _direct_effect(
             result.destinations.append(
                 _fixed_destination(info.path, target_expr or call, target, "literal_url")
             )
+        else:
+            configured = _typed_configuration_destination(
+                info,
+                function_name,
+                target_expr,
+            )
+            if configured is not None:
+                result.destinations.append(configured)
+                result.evidence.add(
+                    f"operator-configured-destination:{configured.metadata.get('configuration_source')}"
+                )
 
     if leaf == "open" or dotted.endswith(".open"):
         mode = _literal(call.args[1]) if len(call.args) > 1 else next(
@@ -269,7 +526,11 @@ def _direct_effect(
             result.capabilities.add("data.read")
             result.evidence.add("file:read")
 
-    # Concrete persistence APIs.
+    # Concrete SQL and persistence APIs.
+    sql_capabilities = sql_call_capabilities(call)
+    if sql_capabilities:
+        result.capabilities.update(sql_capabilities)
+        result.evidence.add(f"sql:{leaf}")
     if leaf in {"add", "add_all", "commit", "flush", "merge", "bulk_save_objects"} and (
         "session" in dotted or "db" in dotted
     ):
@@ -420,7 +681,15 @@ def _summarize_function(
     next_stack.add(key)
 
     for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
-        _merge_effect(result, _direct_effect(module, info, call))
+        _merge_effect(
+            result,
+            _direct_effect(
+                module,
+                info,
+                call,
+                function_name=symbol,
+            ),
+        )
         target = _call_target(module, info, call)
         if target is None:
             continue
@@ -437,6 +706,18 @@ def _summarize_function(
                 next_stack,
             ),
         )
+
+    for destination in _operator_configured_destinations(info, symbol):
+        if not any(
+            existing.target == destination.target
+            and existing.metadata.get("network_scope")
+            == destination.metadata.get("network_scope")
+            for existing in result.destinations
+        ):
+            result.destinations.append(destination)
+            result.evidence.add(
+                f"operator-configured-destination:{destination.metadata.get('configuration_source')}"
+            )
 
     cache[key] = result
     return result
@@ -478,6 +759,56 @@ def _has_cross_module_call(
     return False
 
 
+def _direct_function_effect(
+    modules: dict[str, _ModuleInfo],
+    module: str,
+    symbol: str,
+) -> _FunctionEffect:
+    resolved = _resolve_wrapper_symbol(modules, module, symbol) or (module, symbol)
+    info = modules.get(resolved[0])
+    function = info.functions.get(resolved[1]) if info is not None else None
+    if info is None or function is None:
+        return _FunctionEffect()
+
+    result = _FunctionEffect()
+    for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
+        _merge_effect(
+            result,
+            _direct_effect(
+                resolved[0],
+                info,
+                call,
+                function_name=resolved[1],
+            ),
+        )
+    for destination in _operator_configured_destinations(info, resolved[1]):
+        if not any(
+            existing.target == destination.target
+            and existing.metadata.get("network_scope")
+            == destination.metadata.get("network_scope")
+            for existing in result.destinations
+        ):
+            result.destinations.append(destination)
+    return result
+
+
+def _effect_has_transitive_delta(
+    effect: _FunctionEffect,
+    direct: _FunctionEffect,
+) -> bool:
+    if effect.capabilities - direct.capabilities:
+        return True
+    direct_destinations = {
+        (item.target, item.restricted, str(item.metadata.get("source") or ""))
+        for item in direct.destinations
+    }
+    return any(
+        (item.target, item.restricted, str(item.metadata.get("source") or ""))
+        not in direct_destinations
+        for item in effect.destinations
+    )
+
+
 def _tool_source_symbol(
     tool: Tool,
     root: Path,
@@ -517,15 +848,6 @@ def enrich_repository_tool_effects(
             source = _tool_source_symbol(tool, root, modules)
             if source is None:
                 continue
-            imported_or_wrapped = bool(tool.metadata.get("import_module")) or bool(
-                tool.metadata.get("placeholder")
-            )
-            if not imported_or_wrapped and not _has_cross_module_call(
-                modules,
-                source[0],
-                source[1],
-            ):
-                continue
             effect = _summarize_function(
                 modules,
                 source[0],
@@ -536,8 +858,42 @@ def enrich_repository_tool_effects(
             if not effect.capabilities and not effect.destinations:
                 continue
 
+            imported_or_wrapped = bool(tool.metadata.get("import_module")) or bool(
+                tool.metadata.get("placeholder")
+            )
+            if not imported_or_wrapped and not _has_cross_module_call(
+                modules,
+                source[0],
+                source[1],
+            ):
+                direct_effect = _direct_function_effect(
+                    modules,
+                    source[0],
+                    source[1],
+                )
+                if not _effect_has_transitive_delta(effect, direct_effect):
+                    continue
+
             before = set(tool.capabilities)
             tool.capabilities.update(effect.capabilities)
+            if any(
+                destination.restricted is True
+                and destination.metadata.get("network_scope")
+                in {
+                    "operator_configured_destination",
+                    "fixed_provider_network",
+                    "fixed_literal_destination",
+                }
+                for destination in effect.destinations
+            ):
+                tool.destinations = [
+                    destination
+                    for destination in tool.destinations
+                    if not (
+                        destination.target in {"<dynamic-url>", "<model-selected-url>"}
+                        and destination.restricted is False
+                    )
+                ]
             seen = {
                 (item.target, item.restricted, str(item.metadata.get("source") or ""))
                 for item in tool.destinations

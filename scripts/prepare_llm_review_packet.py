@@ -98,6 +98,7 @@ def prepare_packet(
                     "prompt_version": prompt_version,
                 },
                 "verdict": "unresolved",
+                "partial_reasons": [],
                 "severity": "unresolved",
                 "evidence": [],
                 "rationale": "",
@@ -115,7 +116,7 @@ def main() -> int:
     parser.add_argument("--judge-b-id", required=True)
     parser.add_argument("--judge-b-provider", required=True)
     parser.add_argument("--judge-b-model", required=True)
-    parser.add_argument("--prompt-version", default="llm-review-v1")
+    parser.add_argument("--prompt-version", default="llm-review-v2")
     args = parser.parse_args()
 
     prepared = prepare_packet(

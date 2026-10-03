@@ -644,6 +644,34 @@ def _source_control_semantics(
         calls = [
             child for child in ast.walk(current.node) if isinstance(child, ast.Call)
         ]
+
+        has_rejecting_raise = any(
+            isinstance(child, ast.Raise) for child in ast.walk(current.node)
+        )
+        parent_membership_guard = any(
+            isinstance(child, ast.Compare)
+            and any(isinstance(op, (ast.In, ast.NotIn)) for op in child.ops)
+            and any(
+                isinstance(part, ast.Attribute) and part.attr == "parents"
+                for part in ast.walk(child)
+            )
+            for child in ast.walk(current.node)
+        )
+        canonical_relative_guard = any(
+            _call_leaf(call) in {"relative_to", "is_relative_to"}
+            for call in calls
+        )
+        if has_rejecting_raise and (
+            parent_membership_guard or canonical_relative_guard
+        ):
+            result.update(
+                {
+                    "filesystem_path_constrained": True,
+                    "filesystem_scope": "<source-constrained-workspace>",
+                    "filesystem_control_basis": "canonical_path_containment",
+                }
+            )
+
         if (
             "ALLOWED_COMMANDS" in names
             and "DANGEROUS_PATTERNS" in names
@@ -726,6 +754,10 @@ def enrich_indirect_tool_content_semantics(
     def ref_for_tool(tool: Tool) -> FunctionDefRef | None:
         source_path = tool.metadata.get("source_path")
         source_function = tool.metadata.get("source_function")
+        if not isinstance(source_path, str) and tool.location is not None:
+            source_path = str(tool.location.path)
+        if not isinstance(source_function, str):
+            source_function = tool.name
         if not isinstance(source_path, str) or not isinstance(source_function, str):
             return None
         path = Path(source_path).resolve()
@@ -846,22 +878,29 @@ def enrich_indirect_tool_content_semantics(
             tool.metadata.update(controls)
             tool.guardrails = True
 
+        constrained_scope = controls.get("filesystem_scope")
         if (
             controls.get("filesystem_path_constrained") is True
+            and isinstance(constrained_scope, str)
+            and constrained_scope
             and not any(
-                resource.kind == "file" and resource.selector == ".shotgun/**"
+                resource.kind == "file" and resource.selector == constrained_scope
                 for resource in tool.resources
             )
         ):
             tool.resources.append(
                 ResourceScope(
                     kind="file",
-                    selector=".shotgun/**",
+                    selector=constrained_scope,
                     access=set(
                         tool.capabilities
                         & {"data.read", "data.write", "destructive.write"}
                     ),
                     location=tool.location,
+                    metadata={
+                        "path_containment": "source_proven",
+                        "basis": controls.get("filesystem_control_basis"),
+                    },
                 )
             )
 
@@ -966,6 +1005,7 @@ def enrich_indirect_tool_content_semantics(
             if (
                 semantics.path_parameters
                 and semantics.constrained is False
+                and tool.metadata.get("filesystem_path_constrained") is not True
                 and not any(
                     resource.kind == "file"
                     and resource.metadata.get("model_selected_path") is True

@@ -133,8 +133,11 @@ def _finding_recall_metrics(
     phase_a_rows: dict[str, dict[str, Any]],
     observations: dict[str, bool],
 ) -> dict[str, Any]:
-    tp = fn = unsupported_detected = unsupported_not_detected = 0
+    supported_tp = supported_fn = partial_tp = partial_fn = 0
+    unsupported_detected = unsupported_not_detected = 0
     unresolved = disagreements = 0
+    partial_reasons: Counter[str] = Counter()
+
     for case_id, row in phase_a_rows.items():
         if row.get("case_type") != "finding":
             continue
@@ -145,23 +148,42 @@ def _finding_recall_metrics(
         if verdict == "unresolved":
             unresolved += 1
             continue
-        if verdict not in {"supported", "unsupported"}:
+        if verdict not in {"supported", "partial", "unsupported"}:
             raise ScoreError(f"finding recall {case_id}: invalid consensus verdict")
         if case_id not in observations:
             raise ScoreError(f"finding recall {case_id}: missing scanner observation")
+
         detected = observations[case_id]
-        if verdict == "supported" and detected:
-            tp += 1
-        elif verdict == "supported":
-            fn += 1
+        if verdict == "supported":
+            if detected:
+                supported_tp += 1
+            else:
+                supported_fn += 1
+        elif verdict == "partial":
+            partial_reasons.update(row.get("consensus_partial_reasons", []))
+            if detected:
+                partial_tp += 1
+            else:
+                partial_fn += 1
         elif detected:
             unsupported_detected += 1
         else:
             unsupported_not_detected += 1
+
+    strict_total = supported_tp + supported_fn
+    material_total = strict_total + partial_tp + partial_fn
     return {
-        "supported_tp": tp,
-        "supported_fn": fn,
-        "recall": _ratio(tp, tp + fn),
+        "supported_tp": supported_tp,
+        "supported_fn": supported_fn,
+        "partial_tp": partial_tp,
+        "partial_fn": partial_fn,
+        "recall": _ratio(supported_tp, strict_total),
+        "strict_recall": _ratio(supported_tp, strict_total),
+        "materially_supported_recall": _ratio(
+            supported_tp + partial_tp,
+            material_total,
+        ),
+        "partial_reason_taxonomy": dict(sorted(partial_reasons.items())),
         "unsupported_detected": unsupported_detected,
         "unsupported_not_detected": unsupported_not_detected,
         "unresolved_cases": unresolved,
@@ -194,9 +216,10 @@ def _finding_precision_and_severity(
     phase_b_rows: dict[str, dict[str, Any]],
     hidden: dict[str, dict[str, Any]],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    tp = fp = unresolved = disagreements = 0
+    tp = partial = fp = unresolved = disagreements = 0
     exact = one_level = severity_total = 0
     taxonomy: Counter[str] = Counter()
+    partial_reasons: Counter[str] = Counter()
     by_rule: dict[str, Counter[str]] = defaultdict(Counter)
     by_owasp: dict[str, Counter[str]] = defaultdict(Counter)
 
@@ -212,6 +235,7 @@ def _finding_precision_and_severity(
         if verdict == "unresolved":
             unresolved += 1
             continue
+
         rule_id = str(hidden[case_id].get("rule_id") or "unknown")
         mapped_owasp = hidden[case_id].get("owasp_agentic")
         if not isinstance(mapped_owasp, list):
@@ -225,6 +249,16 @@ def _finding_precision_and_severity(
             by_rule[rule_id]["supported"] += 1
             for risk_id in mapped_owasp:
                 by_owasp[str(risk_id)]["supported"] += 1
+        elif verdict == "partial":
+            partial += 1
+            reasons = row.get("consensus_partial_reasons", [])
+            if isinstance(reasons, list):
+                partial_reasons.update(
+                    reason for reason in reasons if isinstance(reason, str)
+                )
+            by_rule[rule_id]["partial"] += 1
+            for risk_id in mapped_owasp:
+                by_owasp[str(risk_id)]["partial"] += 1
         elif verdict == "unsupported":
             fp += 1
             by_rule[rule_id]["unsupported"] += 1
@@ -233,6 +267,8 @@ def _finding_precision_and_severity(
         else:
             raise ScoreError(f"Phase-B review {case_id}: invalid consensus verdict")
 
+        # Keep severity agreement strict: partially-qualified claims are reported
+        # separately rather than mixed into the historical strict-TP denominator.
         if verdict != "supported" or not row.get("severity_consensus"):
             continue
         human = str(row.get("consensus_severity") or "")
@@ -246,7 +282,9 @@ def _finding_precision_and_severity(
             taxonomy["exact"] += 1
         elif abs(delta) == 1:
             one_level += 1
-            taxonomy["scanner_one_level_higher" if delta > 0 else "scanner_one_level_lower"] += 1
+            taxonomy[
+                "scanner_one_level_higher" if delta > 0 else "scanner_one_level_lower"
+            ] += 1
         elif delta > 1:
             taxonomy["scanner_two_plus_levels_higher"] += 1
         else:
@@ -256,20 +294,35 @@ def _finding_precision_and_severity(
         result: dict[str, Any] = {}
         for key, counts in sorted(groups.items()):
             supported = int(counts["supported"])
+            partial_count = int(counts["partial"])
             unsupported = int(counts["unsupported"])
+            adjudicated = supported + partial_count + unsupported
             result[key] = {
                 "sampled": int(counts["sampled"]),
                 "supported": supported,
+                "partial": partial_count,
                 "unsupported": unsupported,
-                "precision": _ratio(supported, supported + unsupported),
+                "precision": _ratio(supported, adjudicated),
+                "strict_precision": _ratio(supported, adjudicated),
+                "materially_supported_precision": _ratio(
+                    supported + partial_count,
+                    adjudicated,
+                ),
             }
         return result
 
+    adjudicated = tp + partial + fp
     finding = {
-        "sampled_scanner_findings": tp + fp + unresolved + disagreements,
+        "sampled_scanner_findings": (
+            adjudicated + unresolved + disagreements
+        ),
         "supported_tp": tp,
+        "partial": partial,
         "unsupported_fp": fp,
-        "precision": _ratio(tp, tp + fp),
+        "precision": _ratio(tp, adjudicated),
+        "strict_precision": _ratio(tp, adjudicated),
+        "materially_supported_precision": _ratio(tp + partial, adjudicated),
+        "partial_reason_taxonomy": dict(sorted(partial_reasons.items())),
         "unresolved_cases": unresolved,
         "review_disagreements": disagreements,
         "by_rule": grouped_precision(by_rule),
