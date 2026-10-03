@@ -84,7 +84,7 @@ jobs:
             --judge-b-id "google-${{ github.run_id }}-${{ github.run_attempt }}" \
             --judge-b-provider google \
             --judge-b-model "${{ inputs.gemini_model }}" \
-            --prompt-version llm-review-v1 \
+            --prompt-version llm-review-v2 \
             --max-source-chars "${{ inputs.max_source_chars }}"
 
       - name: Validate locked reviews
