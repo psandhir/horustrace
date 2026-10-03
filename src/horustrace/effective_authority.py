@@ -171,26 +171,38 @@ def _tool_relationship(
 ) -> EffectiveAuthorityRelationship:
     identity = _identity(graph, agent, tool.identity)
     inherited_control = agent.metadata.get("tool_control_enforcing") is True
-    approval_resolved = (
-        tool.approval is not None
-        or tool.guardrails
-        or inherited_control
+    conditional_approval = tool.metadata.get("conditional_approval") is True
+    approval_resolved = tool.approval is not None or inherited_control
+    dynamic_availability = (
+        tool.metadata.get("availability_condition_unresolved") is True
     )
     unresolved: list[str] = []
     dimensions = {
         "target": "resolved",
         "capabilities": "resolved" if tool.capabilities else "unknown",
         "identity": "resolved" if identity is not None else "unknown",
-        "approval": "resolved" if approval_resolved else "unknown",
+        "approval": (
+            "partially_resolved"
+            if conditional_approval
+            else "resolved"
+            if approval_resolved
+            else "unknown"
+        ),
         "resources": "resolved" if tool.resources else "unknown",
         "destinations": "resolved" if tool.destinations else "unknown",
     }
+    if dynamic_availability:
+        dimensions["availability"] = "partially_resolved"
     if not tool.capabilities:
         unresolved.append("capabilities")
     if identity is None:
         unresolved.append("identity")
-    if not approval_resolved:
+    if conditional_approval:
+        unresolved.append("approval_condition")
+    elif not approval_resolved:
         unresolved.append("approval")
+    if dynamic_availability:
+        unresolved.append("availability")
     if not tool.resources:
         unresolved.append("resources")
     if not tool.destinations:
@@ -242,6 +254,18 @@ def _tool_relationship(
                     else None
                 )
             ),
+            **(
+                {
+                    "conditional": True,
+                    "scope": tool.metadata.get("approval_scope"),
+                    "policy": tool.metadata.get("approval_policy"),
+                    "policy_callable": tool.metadata.get(
+                        "approval_policy_callable"
+                    ),
+                }
+                if conditional_approval
+                else {}
+            ),
         },
         tool_scope=None,
         resources=tuple(_resource(resource) for resource in tool.resources),
@@ -258,6 +282,18 @@ def _tool_relationship(
                 "tool_catalogue_unresolved"
             ),
             "capability_bundle": tool.metadata.get("capability_bundle"),
+            "availability": (
+                "conditional"
+                if dynamic_availability
+                else "disabled"
+                if tool.metadata.get("tool_enabled") is False
+                else "enabled"
+                if tool.metadata.get("tool_enabled") is True
+                else None
+            ),
+            "availability_policy_callable": tool.metadata.get(
+                "tool_enablement_callable"
+            ),
             "mutation": tool.metadata.get("mutation_semantics"),
             "network": (
                 tool.metadata.get("network_semantics")
@@ -352,11 +388,18 @@ def _mcp_relationship(
         server.metadata.get("dynamic_mcp_endpoint")
         and server.transport in {"http", "sse", "streamable-http", "streamable_http"}
     )
+    conditional_approval = server.metadata.get("conditional_approval") is True
     dimensions = {
         "target": "resolved",
         "capabilities": "resolved",
         "identity": "resolved" if identity is not None else "unknown",
-        "approval": "resolved" if server.approval is not None or server.guardrails else "unknown",
+        "approval": (
+            "partially_resolved"
+            if conditional_approval
+            else "resolved"
+            if server.approval is not None
+            else "unknown"
+        ),
         "resources": "resolved" if server.resources else "unknown",
         "destinations": (
             "resolved"
@@ -367,7 +410,9 @@ def _mcp_relationship(
     }
     if identity is None:
         unresolved.append("identity")
-    if server.approval is None and not server.guardrails:
+    if conditional_approval:
+        unresolved.append("approval_condition")
+    elif server.approval is None:
         unresolved.append("approval")
     if not server.resources:
         unresolved.append("resources")
@@ -451,6 +496,15 @@ def _mcp_relationship(
             "required": server.approval,
             "guardrails": server.guardrails,
             "mechanism": server.metadata.get("approval_mechanism"),
+            **(
+                {
+                    "conditional": True,
+                    "scope": server.metadata.get("approval_scope"),
+                    "policy": server.metadata.get("approval_policy"),
+                }
+                if conditional_approval
+                else {}
+            ),
         },
         tool_scope=tool_scope,
         resources=tuple(_resource(resource) for resource in server.resources),
@@ -466,6 +520,12 @@ def _mcp_relationship(
                 "dynamic_remote_mcp_catalogue"
             ),
             "per_call_approval": server.metadata.get("per_call_approval"),
+            "tool_input_guardrails": list(
+                server.metadata.get("tool_input_guardrails") or []
+            ),
+            "tool_output_guardrails": list(
+                server.metadata.get("tool_output_guardrails") or []
+            ),
             "authentication_state": (
                 "authenticated"
                 if server.authenticated is True
@@ -494,16 +554,54 @@ def _mcp_relationship(
     )
 
 
+def _delegation_relationship(
+    graph: Graph,
+    agent: Agent,
+    tool: Tool,
+) -> EffectiveAuthorityRelationship:
+    """Expose source-proven delegated reachability as first-class authority."""
+    base = _tool_relationship(graph, agent, tool)
+    target = str(
+        tool.metadata.get("delegate_target")
+        or tool.name.removeprefix("delegate:")
+    )
+    return EffectiveAuthorityRelationship(
+        relationship_id=_stable_relationship_id(
+            agent.name, "delegation", target
+        ),
+        agent=base.agent,
+        agent_instance_key=base.agent_instance_key,
+        target_kind="delegation",
+        target_name=target,
+        capabilities=base.capabilities,
+        identity=base.identity,
+        approval=base.approval,
+        tool_scope=base.tool_scope,
+        resources=base.resources,
+        destinations=base.destinations,
+        semantics={
+            **base.semantics,
+            "delegation_projection": True,
+            "transitive": tool.metadata.get("transitive") is True,
+        },
+        dimensions=base.dimensions,
+        unresolved=base.unresolved,
+        evidence=base.evidence,
+        location=base.location,
+    )
+
+
 def effective_authority_relationships(
     graph: Graph,
 ) -> list[EffectiveAuthorityRelationship]:
     result: list[EffectiveAuthorityRelationship] = []
     for agent in graph.agents:
         for tool in agent.tools:
-            if tool.metadata.get("authority_binding") in {
-                "workflow_projection",
-                "delegation_projection",
-            }:
+            authority_binding = tool.metadata.get("authority_binding")
+            if authority_binding == "workflow_projection":
+                continue
+            if authority_binding == "delegation_projection":
+                result.append(_delegation_relationship(graph, agent, tool))
                 continue
             result.append(_tool_relationship(graph, agent, tool))
         for server in agent.mcp_servers:
@@ -527,7 +625,7 @@ def effective_authority_report(graph: Graph) -> dict[str, Any]:
     }
     target_counts = {
         kind: sum(item.target_kind == kind for item in relationships)
-        for kind in ("tool", "mcp_server")
+        for kind in ("tool", "mcp_server", "delegation")
     }
     return {
         "schema_version": EFFECTIVE_AUTHORITY_SCHEMA_VERSION,
@@ -536,6 +634,7 @@ def effective_authority_report(graph: Graph) -> dict[str, Any]:
             "relationships": len(relationships),
             "tool_relationships": target_counts["tool"],
             "mcp_relationships": target_counts["mcp_server"],
+            "delegation_relationships": target_counts["delegation"],
             "fully_resolved_relationships": resolution_counts["fully_resolved"],
             "partially_resolved_relationships": resolution_counts["partially_resolved"],
             "unknown_relationships": resolution_counts["unknown"],
