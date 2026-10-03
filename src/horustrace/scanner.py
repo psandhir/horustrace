@@ -16,6 +16,7 @@ from horustrace.adapters.fast_agent_config import (
 )
 from horustrace.adapters.iac_identity import scan_terraform
 from horustrace.adapters.manifest import MANIFEST_FILENAMES, scan_manifest
+from horustrace.adapters.microsoft_foundry import scan_foundry_config
 from horustrace.adapters.mcp_config import MCP_FILENAMES, scan_mcp_config
 from horustrace.adapters.registry import detect_python_frameworks, scan_python_file
 from horustrace.adapters.repository_adk import enrich_repository_graph
@@ -2363,6 +2364,7 @@ def scan(
         elif candidate.name in MANIFEST_FILENAMES:
             _merge(graph, scan_manifest(candidate), candidate)
         elif candidate.suffix.lower() in {".yaml", ".yml"}:
+            _merge(graph, scan_foundry_config(candidate), candidate)
             _merge(graph, scan_adk_config(candidate), candidate)
         elif candidate.name == ".env" or candidate.name.startswith(".env."):
             _merge(graph, scan_adk_env(candidate), candidate)
@@ -2456,7 +2458,12 @@ def scan(
         for agent in graph.agents
         if agent.metadata.get("framework")
     }
-    for framework in ("google-adk", "openai-agents", "fast-agent"):
+    for framework in (
+        "google-adk",
+        "openai-agents",
+        "microsoft-agent-framework",
+        "fast-agent",
+    ):
         if framework in framework_evidence and framework not in normalized_frameworks:
             location = framework_evidence[framework][0]
             add_diagnostic(
