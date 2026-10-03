@@ -170,10 +170,7 @@ def _tool_relationship(
     tool: Tool,
 ) -> EffectiveAuthorityRelationship:
     identity = _identity(graph, agent, tool.identity)
-    callbacks = agent.metadata.get("callbacks") or {}
-    inherited_control = bool(agent.metadata.get("approval_plugin")) or bool(
-        callbacks.get("before_tool_callback")
-    )
+    inherited_control = agent.metadata.get("tool_control_enforcing") is True
     approval_resolved = (
         tool.approval is not None
         or tool.guardrails
@@ -240,7 +237,7 @@ def _tool_relationship(
             "mechanism": (
                 tool.metadata.get("approval_mechanism")
                 or (
-                    "agent_before_tool_control"
+                    agent.metadata.get("tool_control_mechanism")
                     if inherited_control
                     else None
                 )
