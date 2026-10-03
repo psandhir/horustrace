@@ -21,7 +21,7 @@ _METHOD_RE = re.compile(
         (?:public|private|protected|internal|static|async|virtual|override|
            sealed|partial|unsafe|extern|new)\s+
     )*
-    (?:[A-Za-z_]\w*(?:[.<>,?\[\]]*[A-Za-z0-9_])?\s+)+
+    (?:[\w.<>,?\[\]]+\s+)+
     (?P<name>[A-Za-z_]\w*)\s*\(
     """,
     re.VERBOSE,
