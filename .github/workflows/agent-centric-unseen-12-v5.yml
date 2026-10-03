@@ -1,10 +1,10 @@
-name: Agent-Centric Unseen 12 v5 post-315 regression post-313 regression
+name: Agent-Centric Unseen 12 v5 post-315 regression
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - research/agent-centric-unseen-12-v5-post313
+      - research/agent-centric-unseen-12-v5-post315
     paths:
       - ".github/workflows/agent-centric-unseen-12-v5.yml"
       - "research/agent-centric-unseen-12-v5/**"
@@ -14,7 +14,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: agent-centric-unseen-12-v5-post313
+  group: agent-centric-unseen-12-v5-post315
   cancel-in-progress: true
 
 jobs:
@@ -56,7 +56,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: agent-centric-unseen5-post313-case-${{ matrix.case_id }}
+          name: agent-centric-unseen5-post315-case-${{ matrix.case_id }}
           path: artifacts/${{ matrix.case_id }}/
           if-no-files-found: error
           retention-days: 30
@@ -70,7 +70,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          pattern: agent-centric-unseen5-post313-case-*
+          pattern: agent-centric-unseen5-post315-case-*
           path: downloaded
       - name: Aggregate
         run: |
@@ -78,7 +78,7 @@ jobs:
           cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
-          name: agent-centric-unseen-12-v5-post313-summary
+          name: agent-centric-unseen-12-v5-post315-summary
           path: aggregate/
           if-no-files-found: error
           retention-days: 30
