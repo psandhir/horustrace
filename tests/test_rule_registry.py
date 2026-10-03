@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from horustrace.models import Severity
+from horustrace.models import Finding, Graph, Severity
+from horustrace.provenance import attach_findings
 from horustrace.rule_registry import RULE_REGISTRY, get_rule_metadata, iter_rule_metadata
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -92,3 +93,27 @@ def test_registry_default_severities_match_emitted_rules() -> None:
 def test_unknown_rule_metadata_raises_key_error() -> None:
     with pytest.raises(KeyError):
         get_rule_metadata("UNKNOWN999")
+
+
+def test_policy_violation_annotation_follows_registry_metadata() -> None:
+    policy_rules = [
+        rule for rule in RULE_REGISTRY.values()
+        if rule.assessment == "policy_violation"
+    ]
+    findings = [
+        Finding(
+            rule_id=rule.rule_id,
+            severity=rule.default_severity,
+            title=rule.title,
+            message="test",
+            recommendation="test",
+            layer=rule.layer,
+        )
+        for rule in policy_rules
+    ]
+
+    attach_findings(Graph(), findings)
+
+    assert {finding.rule_id for finding in findings if finding.assessment == "policy_violation"} == {
+        rule.rule_id for rule in policy_rules
+    }
