@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from horustrace.effect_semantics import (
+    http_mutation_capabilities,
+    is_local_collection_mutation,
+    sql_call_capabilities,
+)
 from horustrace.heuristics import corroborate_name_inferred_authority, infer_capabilities
 from horustrace.models import (
     Agent,
@@ -607,7 +612,7 @@ _CONTROL_NAME_SENSITIVE_CAPABILITIES = {
 def _body_call_capabilities(
     node: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> set[str]:
-    """Collect semantic evidence from calls made by a decorated tool body."""
+    """Collect source-visible effects without treating helper names as sinks."""
     capabilities: set[str] = set()
     for child in ast.walk(node):
         if not isinstance(child, ast.Call):
@@ -615,27 +620,8 @@ def _body_call_capabilities(
         called = _dotted_name(child.func) or _call_name(child.func) or ""
         normalized = called.lower()
         leaf = (_call_name(child.func) or "").lower()
-        receiver = child.func.value if isinstance(child.func, ast.Attribute) else None
 
-        # Local/in-memory collection mutation is not persistent authority.
-        # Repository/external helper effects are resolved by later source passes.
-        if not (
-            leaf in {
-                "append",
-                "extend",
-                "insert",
-                "remove",
-                "pop",
-                "clear",
-                "update",
-                "add",
-                "discard",
-            }
-            and isinstance(receiver, ast.Name)
-        ):
-            capabilities.update(infer_capabilities(called))
-
-        if (
+        process_sink = (
             normalized
             in {
                 "exec",
@@ -649,8 +635,60 @@ def _body_call_capabilities(
             }
             or normalized.startswith("subprocess.")
             or "create_subprocess_" in normalized
-        ):
+            or normalized.endswith(".popen")
+        )
+        network_sink = (
+            normalized.startswith(("requests.", "httpx.", "aiohttp."))
+            or "urllib.request" in normalized
+            or normalized.startswith(
+                (
+                    "session.get",
+                    "session.post",
+                    "session.put",
+                    "session.patch",
+                    "session.delete",
+                )
+            )
+        )
+
+        inferred = set(infer_capabilities(called))
+        # An arbitrary helper named execute/request/send is not itself evidence
+        # of process or network authority. Repository-local helper effects are
+        # resolved later by repository_effect_semantics.
+        if not process_sink:
+            inferred.discard("process.execute")
+        if not network_sink:
+            inferred.difference_update({"network.external", "external.write"})
+
+        if is_local_collection_mutation(child):
+            inferred.difference_update({"data.write", "destructive.write"})
+
+        capabilities.update(inferred)
+
+        if process_sink:
             capabilities.add("process.execute")
+
+        if normalized == "open" or normalized.endswith(".open"):
+            mode = _literal(child.args[1]) if len(child.args) > 1 else "r"
+            if not isinstance(mode, str):
+                mode = "r"
+            capabilities.discard("data.read")
+            capabilities.add(
+                "data.write"
+                if any(marker in mode for marker in "wax+")
+                else "data.read"
+            )
+
+        capabilities.update(sql_call_capabilities(child))
+
+        if network_sink:
+            capabilities.add("network.external")
+            capabilities.update(
+                http_mutation_capabilities(
+                    child,
+                    function_name=node.name,
+                )
+            )
     return capabilities
 
 
@@ -754,17 +792,35 @@ def _decorated_tool_capabilities(
     return capabilities, metadata
 
 
+def _tool_configuration_source_from_expr(
+    node: ast.AST | None,
+    configuration_sources: dict[str, str],
+) -> str | None:
+    if node is None:
+        return None
+    sources = {
+        configuration_sources[part.id]
+        for part in ast.walk(node)
+        if isinstance(part, ast.Name) and part.id in configuration_sources
+    }
+    return next(iter(sources)) if len(sources) == 1 else None
+
+
 def _decorated_tool_network_destinations(
     path: Path,
     node: ast.FunctionDef | ast.AsyncFunctionDef,
     imports: dict[str, str] | None = None,
     external_clients: dict[str, str] | None = None,
+    constants: dict[str, str] | None = None,
+    configuration_sources: dict[str, str] | None = None,
 ) -> list[NetworkDestination]:
     destinations: list[NetworkDestination] = []
     seen: set[tuple[str, str]] = set()
     literal_urls: dict[str, set[str]] = {}
     imports = imports or {}
     external_clients = external_clients or {}
+    constants = constants or {}
+    configuration_sources = configuration_sources or {}
     url_parameters = {
         arg.arg
         for arg in [
@@ -851,6 +907,16 @@ def _decorated_tool_network_destinations(
             elif child.args:
                 target_expr = child.args[0]
 
+        module_constant_url = (
+            constants.get(target_expr.id)
+            if isinstance(target_expr, ast.Name)
+            else None
+        )
+        configuration_source = _tool_configuration_source_from_expr(
+            target_expr,
+            configuration_sources,
+        )
+
         if not is_network_call and external_sink:
             referenced = {
                 part.id
@@ -866,6 +932,33 @@ def _decorated_tool_network_destinations(
         if isinstance(direct, str) and direct.startswith(("http://", "https://")):
             if urlparse(direct).hostname:
                 add(direct, "literal_url", target_expr or child)
+            continue
+
+        if (
+            isinstance(module_constant_url, str)
+            and module_constant_url.startswith(("http://", "https://"))
+            and urlparse(module_constant_url).hostname
+        ):
+            add(module_constant_url, "literal_url", target_expr or child)
+            continue
+
+        if configuration_source is not None:
+            source_name = configuration_source.removeprefix("env:")
+            key = (f"<operator-configured:{source_name}>", "operator_configuration")
+            if key not in seen:
+                seen.add(key)
+                destinations.append(
+                    NetworkDestination(
+                        target=key[0],
+                        restricted=True,
+                        location=_location(path, target_expr or child),
+                        metadata={
+                            "source": "operator_configuration",
+                            "configuration_source": configuration_source,
+                            "network_scope": "operator_configured_destination",
+                        },
+                    )
+                )
             continue
 
         if target_expr is not None:
@@ -895,6 +988,8 @@ def _decorated_function_tool(
     node: ast.FunctionDef | ast.AsyncFunctionDef,
     imports: dict[str, str] | None = None,
     external_clients: dict[str, str] | None = None,
+    constants: dict[str, str] | None = None,
+    configuration_sources: dict[str, str] | None = None,
 ) -> Tool | None:
     for decorator in node.decorator_list:
         decorator_name: str | None = None
@@ -935,6 +1030,8 @@ def _decorated_function_tool(
                     node,
                     imports,
                     external_clients,
+                    constants,
+                    configuration_sources,
                 )
             )
             if tool.destinations:
@@ -1124,6 +1221,8 @@ def scan_python_file(path: Path) -> Graph:
                 node,
                 imports,
                 external_clients,
+                constants,
+                configuration_sources,
             )
             if tool:
                 tools[node.name] = tool
