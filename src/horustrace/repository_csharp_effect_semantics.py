@@ -104,98 +104,114 @@ class _Effect:
     capability_evidence: dict[str, set[_EvidenceRef]] = field(
         default_factory=dict
     )
+    unresolved_calls: set[str] = field(default_factory=set)
+
+
+def _first_marker_offset(body: str, markers: tuple[str, ...]) -> int | None:
+    lowered = body.lower()
+    offsets = [
+        offset
+        for marker in markers
+        if (offset := lowered.find(marker)) >= 0
+    ]
+    return min(offsets) if offsets else None
+
+
+def _body_capability_offsets(body: str) -> dict[str, int]:
+    groups: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
+        (
+            (
+                "process.start",
+                "processstartinfo",
+                "powershell.create",
+                "system.management.automation",
+                "shell.execute",
+            ),
+            ("process.execute",),
+        ),
+        (
+            (
+                "httpclient",
+                ".getasync(",
+                ".postasync(",
+                ".putasync(",
+                ".patchasync(",
+                ".sendasync(",
+                "webrequest",
+                "restclient",
+            ),
+            ("network.external",),
+        ),
+        (
+            (
+                ".postasync(",
+                ".putasync(",
+                ".patchasync(",
+                "sendmail",
+                "sendemail",
+                "sendmessage",
+            ),
+            ("external.write", "data.write"),
+        ),
+        (
+            (
+                "file.write",
+                "file.append",
+                "file.create",
+                "directory.create",
+                "savechanges",
+                "executenonquery",
+                ".insert(",
+                ".update(",
+                ".upsert(",
+            ),
+            ("data.write",),
+        ),
+        (
+            (
+                "file.delete",
+                "directory.delete",
+                ".deleteasync(",
+                ".remove(",
+                ".drop(",
+            ),
+            ("data.write", "destructive.write"),
+        ),
+        (
+            (
+                "file.read",
+                "file.openread",
+                ".getasync(",
+                ".query",
+                ".tolistasync(",
+                ".findasync(",
+            ),
+            ("data.read",),
+        ),
+        (
+            (
+                "secretclient",
+                "getsecret",
+                "keyvault",
+                "tokencredential",
+            ),
+            ("secrets.read",),
+        ),
+    )
+    result: dict[str, int] = {}
+    for markers, capabilities in groups:
+        offset = _first_marker_offset(body, markers)
+        if offset is None:
+            continue
+        for capability in capabilities:
+            current = result.get(capability)
+            if current is None or offset < current:
+                result[capability] = offset
+    return result
 
 
 def _body_capabilities(body: str) -> set[str]:
-    value = body.lower()
-    capabilities: set[str] = set()
-    if any(
-        marker in value
-        for marker in (
-            "process.start",
-            "processstartinfo",
-            "powershell.create",
-            "system.management.automation",
-            "shell.execute",
-        )
-    ):
-        capabilities.add("process.execute")
-    if any(
-        marker in value
-        for marker in (
-            "httpclient",
-            ".getasync(",
-            ".postasync(",
-            ".putasync(",
-            ".patchasync(",
-            ".sendasync(",
-            "webrequest",
-            "restclient",
-        )
-    ):
-        capabilities.add("network.external")
-    if any(
-        marker in value
-        for marker in (
-            ".postasync(",
-            ".putasync(",
-            ".patchasync(",
-            "sendmail",
-            "sendemail",
-            "sendmessage",
-        )
-    ):
-        capabilities.update({"external.write", "data.write"})
-    if any(
-        marker in value
-        for marker in (
-            "file.write",
-            "file.append",
-            "file.create",
-            "directory.create",
-            "savechanges",
-            "executenonquery",
-            ".insert(",
-            ".update(",
-            ".upsert(",
-        )
-    ):
-        capabilities.add("data.write")
-    if any(
-        marker in value
-        for marker in (
-            "file.delete",
-            "directory.delete",
-            ".deleteasync(",
-            ".remove(",
-            ".drop(",
-        )
-    ):
-        capabilities.update({"data.write", "destructive.write"})
-    if any(
-        marker in value
-        for marker in (
-            "file.read",
-            "file.openread",
-            ".getasync(",
-            ".query",
-            ".tolistasync(",
-            ".findasync(",
-        )
-    ):
-        capabilities.add("data.read")
-    if any(
-        marker in value
-        for marker in (
-            "secretclient",
-            "getsecret",
-            "keyvault",
-            "tokencredential",
-        )
-    ):
-        capabilities.add("secrets.read")
-    return capabilities
-
+    return set(_body_capability_offsets(body))
 
 def _location(path: Path, source: str, offset: int) -> SourceLocation:
     line = source.count("\n", 0, max(offset, 0)) + 1
@@ -336,6 +352,7 @@ def _merge_effect(target: _Effect, incoming: _Effect) -> None:
     target.evidence.update(incoming.evidence)
     for capability, refs in incoming.capability_evidence.items():
         target.capability_evidence.setdefault(capability, set()).update(refs)
+    target.unresolved_calls.update(incoming.unresolved_calls)
     seen = {
         (
             destination.target,
@@ -369,31 +386,36 @@ def _candidate_callees(
     *,
     by_class: dict[tuple[str, str], list[_MethodInfo]],
     by_name: dict[str, list[_MethodInfo]],
-) -> list[_MethodInfo]:
+) -> tuple[list[_MethodInfo], set[str]]:
     masked = mask_non_code(method.body)
     result: list[_MethodInfo] = []
+    unresolved: set[str] = set()
     seen: set[tuple[str, str | None, str, int]] = set()
 
     for match in _CALL_RE.finditer(masked):
         name = match.group("name")
         qualifier = match.group("qualifier")
         candidates: list[_MethodInfo] = []
+        candidate_label = f"{qualifier}.{name}" if qualifier else name
 
         if qualifier:
-            candidates = by_class.get((qualifier, name), [])
+            matching = by_class.get((qualifier, name), [])
+            if len(matching) == 1:
+                candidates = matching
+            elif len(matching) > 1:
+                unresolved.add(candidate_label)
         elif method.class_name and (method.class_name, name) in by_class:
-            candidates = by_class[(method.class_name, name)]
+            matching = by_class[(method.class_name, name)]
+            if len(matching) == 1:
+                candidates = matching
+            elif len(matching) > 1:
+                unresolved.add(candidate_label)
         else:
             named = by_name.get(name, [])
-            groups = {
-                (
-                    str(item.path.resolve()),
-                    item.class_name,
-                )
-                for item in named
-            }
-            if len(groups) == 1:
+            if len(named) == 1:
                 candidates = named
+            elif len(named) > 1:
+                unresolved.add(candidate_label)
 
         for candidate in candidates:
             key = _method_key(candidate)
@@ -401,8 +423,7 @@ def _candidate_callees(
                 continue
             seen.add(key)
             result.append(candidate)
-    return result
-
+    return result, unresolved
 
 def _summarize_method(
     method: _MethodInfo,
@@ -432,14 +453,28 @@ def _summarize_method(
             else method.name
         ),
     )
-    method_capabilities = _body_capabilities(method.body)
+    capability_offsets = _body_capability_offsets(method.body)
+    method_capabilities = set(capability_offsets)
     effect = _Effect(capabilities=set(method_capabilities))
     effect.evidence.add(evidence)
-    for capability in method_capabilities:
+    for capability, local_offset in capability_offsets.items():
+        capability_location = _location(
+            method.path,
+            method.source,
+            method.body_start + local_offset,
+        )
         effect.capability_evidence.setdefault(
             capability,
             set(),
-        ).add(evidence)
+        ).add(
+            _EvidenceRef(
+                path=method.path,
+                line=capability_location.line,
+                column=capability_location.column,
+                symbol=evidence.symbol,
+                kind="csharp_effect",
+            )
+        )
 
     seen_urls: set[str] = set()
     for url_match in _URL_RE.finditer(method.body):
@@ -467,11 +502,13 @@ def _summarize_method(
                 )
             )
 
-    for callee in _candidate_callees(
+    callees, unresolved_calls = _candidate_callees(
         method,
         by_class=by_class,
         by_name=by_name,
-    ):
+    )
+    effect.unresolved_calls.update(unresolved_calls)
+    for callee in callees:
         _merge_effect(
             effect,
             _summarize_method(
@@ -491,6 +528,7 @@ def _summarize_method(
             capability: set(refs)
             for capability, refs in effect.capability_evidence.items()
         },
+        unresolved_calls=set(effect.unresolved_calls),
     )
     _merge_effect(deduped, effect)
     cache[key] = deduped
@@ -560,6 +598,7 @@ def _append_fact(
 ) -> None:
     if fact not in facts:
         facts.append(fact)
+
 
 def enrich_csharp_repository_tool_effects(
     graph: Graph,
@@ -666,6 +705,21 @@ def enrich_csharp_repository_tool_effects(
                     "repository_effect_evidence_details": evidence_details,
                     "repository_effect_capabilities": sorted(
                         effect.capabilities
+                    ),
+                    "repository_effect_capability_evidence": {
+                        capability: [
+                            _evidence_dict(ref, root)
+                            for ref in sorted(refs)
+                        ]
+                        for capability, refs in sorted(
+                            effect.capability_evidence.items()
+                        )
+                    },
+                    "repository_effect_partial": bool(
+                        effect.unresolved_calls
+                    ),
+                    "repository_effect_unresolved_calls": sorted(
+                        effect.unresolved_calls
                     ),
                     "repository_effect_sources": sorted(
                         {
