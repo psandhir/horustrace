@@ -16,13 +16,22 @@ _ROUTE_RE = re.compile(
 )
 
 _CLASS_RE = re.compile(
-    r"(?P<attrs>(?:\s*\[[^\]]+\]\s*)*)"
-    r"(?:public|internal|private|protected|sealed|partial|abstract|static|\s)*"
-    r"class\s+(?P<class>[A-Za-z_]\w*)"
+    r"\bclass\s+(?P<class>[A-Za-z_]\w*)"
     r"(?P<header>[^\{;]*?)"
     r":\s*AgentApplication\b",
     re.DOTALL,
 )
+
+_CLASS_MODIFIERS = {
+    "public",
+    "internal",
+    "private",
+    "protected",
+    "sealed",
+    "partial",
+    "abstract",
+    "static",
+}
 
 
 def is_microsoft_365_agents_dotnet_file(path: Path) -> bool:
@@ -41,6 +50,33 @@ def is_microsoft_365_agents_dotnet_file(path: Path) -> bool:
             or "MapDefaultAgentEndpoints" in source
         )
     )
+
+
+def _leading_agent_attribute(
+    source: str,
+    masked: str,
+    class_start: int,
+) -> str:
+    """Return a directly attached [Agent(...)] attribute without nested regexes."""
+    window_start = max(0, class_start - 2048)
+    masked_prefix = masked[window_start:class_start]
+    original_prefix = source[window_start:class_start]
+    search_end = len(masked_prefix)
+
+    while True:
+        start = masked_prefix.rfind("[Agent", 0, search_end)
+        if start < 0:
+            return ""
+        end = masked_prefix.find("]", start + len("[Agent"))
+        if end < 0:
+            search_end = start
+            continue
+
+        tail = masked_prefix[end + 1:]
+        tokens = tail.split()
+        if all(token in _CLASS_MODIFIERS for token in tokens):
+            return original_prefix[start:end + 1]
+        search_end = start
 
 
 def _declared_agent_name(attrs: str, class_name: str) -> str:
@@ -105,17 +141,21 @@ def _turn_identity(path: Path, source: str, offset: int) -> Identity:
 
 def _class_agents(path: Path, source: str) -> list[Agent]:
     result: list[Agent] = []
-    for match in _CLASS_RE.finditer(source):
-        attrs = match.group("attrs") or ""
+    masked = mask_non_code(source)
+    for match in _CLASS_RE.finditer(masked):
+        attrs = _leading_agent_attribute(
+            source,
+            masked,
+            match.start(),
+        )
         class_name = match.group("class")
         name = _declared_agent_name(attrs, class_name)
 
         # Limit route/authorization evidence to this class body when possible.
-        body_start = source.find("{", match.end() - 1)
+        body_start = masked.find("{", match.end() - 1)
         if body_start < 0:
             body_end = len(source)
         else:
-            masked = mask_non_code(source)
             depth = 0
             body_end = len(source)
             for index in range(body_start, len(masked)):
