@@ -199,7 +199,7 @@ root_agent = Agent(name="api_agent", model="gemini-flash-latest", tools=[api])
     assert not any("test-placeholder-not-a-real-secret" in " ".join(f.evidence) for f in findings)
 
 
-def test_adk_before_tool_callback_counts_as_agent_safety_control(tmp_path: Path) -> None:
+def test_adk_noop_before_tool_callback_is_not_credited_as_enforcement(tmp_path: Path) -> None:
     write(tmp_path, '''
 from google.adk import Agent
 from google.adk.tools.bash_tool import ExecuteBashTool
@@ -214,8 +214,52 @@ root_agent = Agent(
     before_tool_callback=security_gate,
 )
 ''')
-    _, findings = scan(tmp_path)
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "controlled_ops")
+    assert agent.metadata["tool_control_state"] == "non_enforcing"
+    assert agent.metadata["tool_control_enforcing"] is False
+    assert any(f.rule_id == "ADK001" for f in findings)
+
+    relationship = next(
+        item
+        for item in effective_authority_report(graph)["relationships"]
+        if item["agent"] == "controlled_ops" and item["target"]["kind"] == "tool"
+    )
+    assert relationship["dimensions"]["approval"] == "unknown"
+    assert relationship["approval"]["inherited_control"] is False
+
+
+def test_adk_blocking_before_tool_callback_is_credited_as_control(tmp_path: Path) -> None:
+    write(tmp_path, '''
+from google.adk import Agent
+from google.adk.tools.bash_tool import ExecuteBashTool
+
+def security_gate(tool, args, context):
+    if getattr(tool, "name", "") == "ExecuteBashTool":
+        return {"error": "blocked by policy"}
+    return None
+
+root_agent = Agent(
+    name="controlled_ops",
+    model="gemini-flash-latest",
+    tools=[ExecuteBashTool()],
+    before_tool_callback=security_gate,
+)
+''')
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "controlled_ops")
+    assert agent.metadata["tool_control_state"] == "enforcing"
+    assert agent.metadata["tool_control_enforcing"] is True
     assert not any(f.rule_id == "ADK001" for f in findings)
+
+    relationship = next(
+        item
+        for item in effective_authority_report(graph)["relationships"]
+        if item["agent"] == "controlled_ops" and item["target"]["kind"] == "tool"
+    )
+    assert relationship["dimensions"]["approval"] == "resolved"
+    assert relationship["approval"]["inherited_control"] is True
+    assert relationship["approval"]["mechanism"] == "adk_before_tool_callback"
 
 
 def test_adk_agenttool_plugin_isolation_detected(tmp_path: Path) -> None:
@@ -332,6 +376,25 @@ app = App(root_agent=root_agent, plugins=[SoftInstructionDefensePlugin()])
     assert agent.metadata.get("approval_plugin") is not True
     assert tool.approval is not True
     assert tool.guardrails is False
+    assert any(f.rule_id == "ADK001" and f.agent == "admin" for f in findings)
+
+
+def test_adk_hitl_plugin_without_explicit_scope_is_not_global_control(tmp_path: Path) -> None:
+    write(tmp_path, '''
+from google.adk import Agent, App
+from trustworthy import HITLToolPlugin
+
+def delete_user(user_id: str):
+    return {"deleted": user_id}
+
+root_agent = Agent(name="admin", tools=[delete_user])
+app = App(root_agent=root_agent, plugins=[HITLToolPlugin()])
+''')
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "admin")
+    assert agent.metadata.get("approval_plugin") is True
+    assert agent.metadata.get("approval_plugin_scope_unresolved") is True
+    assert agent.metadata.get("tool_control_enforcing") is not True
     assert any(f.rule_id == "ADK001" and f.agent == "admin" for f in findings)
 
 
@@ -487,7 +550,78 @@ root_agent = Workflow(
     assert root.metadata["framework"] == "google-adk"
     assert root.metadata["agent_type"] == "Workflow"
     assert root.metadata["workflow"] == "Workflow"
+    assert root.metadata["workflow_edges"] == [
+        {"source": "START", "target": "risk_reviewer"}
+    ]
+    assert root.metadata["delegates_to"] == ["risk_reviewer"]
     assert reviewer.metadata["agent_type"] == "LlmAgent"
+
+    assert graph.adg is not None
+    root_node = next(
+        node for node in graph.adg.nodes
+        if node.kind == "agent" and node.name == "root_agent"
+    )
+    reviewer_node = next(
+        node for node in graph.adg.nodes
+        if node.kind == "agent" and node.name == "risk_reviewer"
+    )
+    assert any(
+        edge.kind == "WORKFLOW_FLOWS_TO"
+        and edge.source == root_node.node_id
+        and edge.target == reviewer_node.node_id
+        for edge in graph.adg.edges
+    )
+
+
+def test_adk_v2_workflow_routes_preserve_function_nodes_and_routes(tmp_path: Path) -> None:
+    write(tmp_path, '''
+from google.adk import Event, Workflow
+from google.adk.agents import LlmAgent
+
+def router(node_input: str):
+    if node_input == "b":
+        return Event(route="RUN_B")
+    return Event(route="RUN_C")
+
+task_b = LlmAgent(name="task_b", model="gemini-flash-latest")
+task_c = LlmAgent(name="task_c", model="gemini-flash-latest")
+
+root_agent = Workflow(
+    name="routing_workflow",
+    edges=[
+        ("START", router),
+        (router, {"RUN_B": task_b, "RUN_C": task_c}),
+    ],
+)
+''')
+    graph, _ = scan(tmp_path)
+    root = next(item for item in graph.agents if item.name == "routing_workflow")
+
+    assert root.metadata["workflow_edges"] == [
+        {"source": "START", "target": "router"},
+        {"source": "router", "target": "task_b", "route": "RUN_B"},
+        {"source": "router", "target": "task_c", "route": "RUN_C"},
+    ]
+    assert set(root.metadata["delegates_to"]) == {"task_b", "task_c"}
+
+    assert graph.adg is not None
+    router_node = next(
+        node
+        for node in graph.adg.nodes
+        if node.kind == "workflow_node"
+        and node.attributes.get("node_name") == "router"
+    )
+    task_b_node = next(
+        node for node in graph.adg.nodes
+        if node.kind == "agent" and node.name == "task_b"
+    )
+    assert any(
+        edge.kind == "WORKFLOW_FLOWS_TO"
+        and edge.source == router_node.node_id
+        and edge.target == task_b_node.node_id
+        and edge.attributes.get("route") == "RUN_B"
+        for edge in graph.adg.edges
+    )
 
 
 def test_adk_same_alias_constructions_keep_source_instance_identity(
