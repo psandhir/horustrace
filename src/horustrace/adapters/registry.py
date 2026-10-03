@@ -35,11 +35,6 @@ PYTHON_FRAMEWORK_ADAPTERS: tuple[PythonFrameworkAdapter, ...] = (
         scan_custom_tool_registry_python,
     ),
     PythonFrameworkAdapter("openai-agents", is_openai_agents_file, scan_openai_python),
-    PythonFrameworkAdapter(
-        "microsoft-agent-framework",
-        is_microsoft_agent_framework_file,
-        scan_microsoft_agent_framework_python,
-    ),
     PythonFrameworkAdapter("pydantic-ai", is_pydantic_ai_file, scan_pydantic_ai_python),
     PythonFrameworkAdapter("fast-agent", is_fast_agent_file, scan_fast_agent_python),
     PythonFrameworkAdapter(
@@ -48,6 +43,11 @@ PYTHON_FRAMEWORK_ADAPTERS: tuple[PythonFrameworkAdapter, ...] = (
         scan_model_tool_loop_python,
     ),
     PythonFrameworkAdapter("mcp-python", is_mcp_python_file, scan_mcp_python),
+    PythonFrameworkAdapter(
+        "microsoft-agent-framework",
+        is_microsoft_agent_framework_file,
+        scan_microsoft_agent_framework_python,
+    ),
 )
 
 
