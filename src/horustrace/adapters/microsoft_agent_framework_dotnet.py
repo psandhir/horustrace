@@ -1690,12 +1690,16 @@ def scan_dotnet_file(path: Path) -> Graph:
                 "framework": FRAMEWORK,
                 "language": "csharp",
                 "agent_type": (
-                    "ChatClientAgent"
-                    if (
-                        "ChatClientAgent" in item.expression
-                        or target_typed_chat_agent
+                    "HarnessAgent"
+                    if ".AsHarnessAgent(" in item.expression
+                    else (
+                        "ChatClientAgent"
+                        if (
+                            "ChatClientAgent" in item.expression
+                            or target_typed_chat_agent
+                        )
+                        else "AIAgent"
                     )
-                    else "AIAgent"
                 ),
                 "provider": "microsoft-foundry" if foundry else None,
                 "foundry_backed": foundry,
@@ -1706,6 +1710,19 @@ def scan_dotnet_file(path: Path) -> Graph:
         graph.agents.append(agent)
         aliases[item.name] = agent
         aliases.setdefault(agent.name, agent)
+
+    dynamic_loaders, dynamic_catalogues = _dynamic_tool_catalogues(
+        path,
+        source,
+        masked,
+        known,
+        tool_vars=tool_vars,
+        hosted_vars=hosted_vars,
+        mcp_lists=mcp_lists,
+        mcp_servers=mcp_servers,
+        agent_aliases=aliases,
+    )
+    tool_vars.update(dynamic_loaders)
 
     bound_clients: set[str] = set()
     bound_hosted: set[str] = set()
@@ -1733,6 +1750,8 @@ def scan_dotnet_file(path: Path) -> Graph:
             references = refs(value)
             bound_hosted.update(references & hosted_vars.keys())
             for ref in references:
+                if ref in dynamic_catalogues:
+                    agent.tools.extend(deepcopy(dynamic_catalogues[ref]))
                 if ref in mcp_lists:
                     bound_clients.add(mcp_lists[ref])
                 if ref in known:
@@ -1769,6 +1788,15 @@ def scan_dotnet_file(path: Path) -> Graph:
                             "dynamic_tool_catalogue": True,
                         },
                     ))
+
+        agent.tools.extend(_harness_builtin_tools(
+            path,
+            source,
+            expression,
+            offset=expression_offset,
+            known=known,
+            agent_aliases=aliases,
+        ))
 
         agent.tools = _dedupe_tools(agent.tools)
         agent.mcp_servers = _dedupe_servers(agent.mcp_servers)
@@ -1842,6 +1870,131 @@ def scan_dotnet_file(path: Path) -> Graph:
 
         hosted_agent.tools = _dedupe_tools(hosted_agent.tools)
         hosted_agent.mcp_servers = _dedupe_servers(hosted_agent.mcp_servers)
+
+    # Reconstruct workflow authority only when a workflow is exposed as an
+    # agent. The effective authority of that surface is the union of its
+    # source-proven participant agents.
+    workflows = _workflow_definitions(source, known, aliases)
+
+    for item, agent in zip(agent_items, graph.agents):
+        for ref in refs(item.expression):
+            definition = workflows.get(ref)
+            if definition is None:
+                continue
+            agent.tools.extend(_workflow_delegation_tools(
+                path,
+                source,
+                definition,
+                offset=item.offset,
+                agent_aliases=aliases,
+            ))
+            agent.metadata["workflow_kind"] = definition.get("kind")
+            agent.metadata["workflow_source_alias"] = ref
+        agent.tools = _dedupe_tools(agent.tools)
+
+    for expression, expression_offset in _hosted_agent_expressions(source, masked):
+        name = _hosted_agent_name(expression)
+        if not name:
+            continue
+        hosted_agent = next(
+            (
+                candidate for candidate in graph.agents
+                if candidate.name == name
+                and candidate.metadata.get("hosting_registration") is True
+            ),
+            None,
+        )
+        if hosted_agent is None:
+            continue
+        for ref in refs(expression):
+            definition = workflows.get(ref)
+            if definition is None:
+                continue
+            hosted_agent.tools.extend(_workflow_delegation_tools(
+                path,
+                source,
+                definition,
+                offset=expression_offset,
+                agent_aliases=aliases,
+            ))
+            hosted_agent.metadata["workflow_kind"] = definition.get("kind")
+            hosted_agent.metadata["workflow_source_alias"] = ref
+        hosted_agent.tools = _dedupe_tools(hosted_agent.tools)
+
+    # Hosting's AddWorkflow(...).AddAsAIAgent() creates an agent surface without
+    # an explicit AIAgent assignment. Inventory it and project participant
+    # authority from the workflow construction statement.
+    for expression, expression_offset in _hosted_workflow_agent_expressions(
+        source,
+        masked,
+    ):
+        name = _hosted_workflow_name(expression)
+        if not name:
+            continue
+        workflow_agent = next(
+            (candidate for candidate in graph.agents if candidate.name == name),
+            None,
+        )
+        if workflow_agent is None:
+            workflow_agent = Agent(
+                name=name,
+                location=location(path, source, expression_offset),
+                metadata={
+                    "framework": FRAMEWORK,
+                    "language": "csharp",
+                    "agent_type": "WorkflowAgent",
+                    "hosting_registration": True,
+                    "binding_origin": "AddWorkflow.AddAsAIAgent",
+                    "source_aliases": [],
+                },
+            )
+            graph.agents.append(workflow_agent)
+            aliases.setdefault(name, workflow_agent)
+
+        referenced_definition = next(
+            (
+                workflows[ref] for ref in refs(expression)
+                if ref in workflows
+            ),
+            None,
+        )
+        definition = referenced_definition or {
+            "kind": _workflow_kind(expression) or "workflow",
+            "participants": _workflow_participants(expression, aliases),
+        }
+        workflow_agent.tools.extend(_workflow_delegation_tools(
+            path,
+            source,
+            definition,
+            offset=expression_offset,
+            agent_aliases=aliases,
+        ))
+        workflow_agent.metadata["workflow_kind"] = definition.get("kind")
+        workflow_agent.tools = _dedupe_tools(workflow_agent.tools)
+
+    run_options = _run_option_tool_sets(
+        path,
+        source,
+        masked,
+        known,
+        tool_vars=tool_vars,
+        hosted_vars=hosted_vars,
+        mcp_lists=mcp_lists,
+        mcp_servers=mcp_servers,
+        agent_aliases=aliases,
+    )
+    _bind_per_run_authority(
+        path,
+        source,
+        masked,
+        agent_aliases=aliases,
+        run_options=run_options,
+        known=known,
+        tool_vars=tool_vars,
+        hosted_vars=hosted_vars,
+        mcp_lists=mcp_lists,
+        mcp_servers=mcp_servers,
+    )
 
     graph.unbound_mcp_servers.extend(
         server for name, server in mcp_servers.items()
