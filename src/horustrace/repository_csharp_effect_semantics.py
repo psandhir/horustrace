@@ -4,7 +4,11 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from horustrace.adapters.csharp_source import balanced_end, mask_non_code, statement_end
+from horustrace.adapters.csharp_source import (
+    balanced_end,
+    mask_non_code,
+    statement_end,
+)
 from horustrace.models import Graph, NetworkDestination, SourceLocation, Tool
 
 
