@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "study": "agent-centric-unseen-12-v6",
+  "status": "fresh_blind_source_adjudicated",
+  "cohort_freeze_commit": "4ebb3bece0796502c70f4a6f9bc93d20e5cdc79f",
+  "scanner_baseline": "fd4f3f9962452e2baa5732b482fae2bde5ef6dd1",
+  "workflow_run": 37120016284,
+  "raw": {
+    "cases": 12,
+    "agents": 106,
+    "authority_relationships": 73,
+    "findings": 39,
+    "attack_paths": 3,
+    "frameworks": {
+      "google-adk": {
+        "repos": 4,
+        "agents": 57,
+        "authority_relationships": 20,
+        "findings": 2,
+        "attack_paths": 0
+      },
+      "pydantic-ai": {
+        "repos": 4,
+        "agents": 4,
+        "authority_relationships": 7,
+        "findings": 7,
+        "attack_paths": 1
+      },
+      "openai-agents": {
+        "repos": 4,
+        "agents": 45,
+        "authority_relationships": 46,
+        "findings": 30,
+        "attack_paths": 2
+      }
+    }
+  },
+  "findings": {
+    "supported": 13,
+    "partial": 5,
+    "unsupported": 21,
+    "unresolved": 0,
+    "strict_precision": 0.3333,
+    "materially_supported_precision": 0.4615,
+    "partial_reason_taxonomy": {
+      "effect_semantics": 5
+    },
+    "by_framework": {
+      "google-adk": {
+        "total": 2,
+        "supported": 0,
+        "partial": 0,
+        "unsupported": 2,
+        "strict_precision": 0,
+        "materially_supported_precision": 0
+      },
+      "pydantic-ai": {
+        "total": 7,
+        "supported": 7,
+        "partial": 0,
+        "unsupported": 0,
+        "strict_precision": 1,
+        "materially_supported_precision": 1
+      },
+      "openai-agents": {
+        "total": 30,
+        "supported": 6,
+        "partial": 5,
+        "unsupported": 19,
+        "strict_precision": 0.2,
+        "materially_supported_precision": 0.3667
+      }
+    },
+    "unsupported_clusters": [
+      {
+        "cluster": "semantic_name_add_to_write",
+        "count": 2,
+        "cases": [
+          "unseen6-adk-001"
+        ],
+        "reason": "Arithmetic add() is source-visible and has no persistent mutation."
+      },
+      {
+        "cluster": "semantic_name_execute_to_process",
+        "count": 10,
+        "cases": [
+          "unseen6-oai-004"
+        ],
+        "reason": "agoragentic_execute performs HTTP/API invocation; no process execution sink exists."
+      },
+      {
+        "cluster": "configured_destination_lost",
+        "count": 7,
+        "cases": [
+          "unseen6-oai-003",
+          "unseen6-oai-004"
+        ],
+        "reason": "Literal Pushover URL and operator-configured Agoragentic base URL are not model-selected destination hosts."
+      },
+      {
+        "cluster": "mock_business_action_effect_invention",
+        "count": 2,
+        "cases": [
+          "unseen6-oai-001"
+        ],
+        "reason": "Mock submit_refund_request returns success and performs no network/external mutation."
+      }
+    ]
+  },
+  "attack_paths": {
+    "total": 3,
+    "supported": 1,
+    "partial": 0,
+    "unsupported": 2,
+    "unresolved": 0
+  },
+  "selected_signal_recall": {
+    "full": 2,
+    "partial": 7,
+    "missed": 3,
+    "cases": [
+      {
+        "case_id": "unseen6-adk-001",
+        "verdict": "missed",
+        "reason": "Imported dynamic MCP collection get_adk_tools() does not reach effective authority."
+      },
+      {
+        "case_id": "unseen6-adk-002",
+        "verdict": "partial",
+        "reason": "Custom MCP toolset variable is bound only as an empty generic tool; SSE MCP authority is not reconstructed."
+      },
+      {
+        "case_id": "unseen6-adk-003",
+        "verdict": "partial",
+        "reason": "MCP/search/PDF bindings recovered but filesystem root CONTENT_FOLDER is not preserved as resource scope."
+      },
+      {
+        "case_id": "unseen6-adk-004",
+        "verdict": "missed",
+        "reason": "Star-expanded list-comprehension A2A and MCP collections produce zero effective authority."
+      },
+      {
+        "case_id": "unseen6-pyd-001",
+        "verdict": "full",
+        "reason": "File read/write and shell=True command execution are recovered with static command flow."
+      },
+      {
+        "case_id": "unseen6-pyd-002",
+        "verdict": "partial",
+        "reason": "Arbitrary URL fetch network effect is recovered; imported Tavily search network effects are missing."
+      },
+      {
+        "case_id": "unseen6-pyd-003",
+        "verdict": "missed",
+        "reason": "Function-local Agent toolsets=[client] leaves the MCP declaration unbound and effective authority empty."
+      },
+      {
+        "case_id": "unseen6-pyd-004",
+        "verdict": "partial",
+        "reason": "Stdio MCP binding is recovered but same-repo MCP catalogue/order_send effects are not projected."
+      },
+      {
+        "case_id": "unseen6-oai-001",
+        "verdict": "full",
+        "reason": "Real reads, hosted web search and handoff bindings are recovered; errors are false-positive effects on mock refund."
+      },
+      {
+        "case_id": "unseen6-oai-002",
+        "verdict": "partial",
+        "reason": "Handoffs/file reads are recovered but explicit InputGuardrail is not represented in control observations/effective authority."
+      },
+      {
+        "case_id": "unseen6-oai-003",
+        "verdict": "partial",
+        "reason": "Parameter-level MCP bindings appear but concrete MCP list composition/catalogue and agent-as-tool delegation remain incomplete."
+      },
+      {
+        "case_id": "unseen6-oai-004",
+        "verdict": "partial",
+        "reason": "HTTP/memory authority is partly recovered but execute effect semantics and configured destination provenance are wrong."
+      }
+    ]
+  },
+  "build_decision": {
+    "p0": [
+      "body_first_effect_semantics_and_negative_corroboration",
+      "framework_neutral_operator_configured_destination_provenance",
+      "dynamic_composed_framework_binding_normalization",
+      "same_repo_mcp_server_linkage_and_catalogue_propagation",
+      "control_and_agent_delegation_propagation",
+      "mcp_resource_scope_propagation"
+    ],
+    "p1": [
+      "semantic_deduplication_across_notebook_output_copies",
+      "source_context_classification_for_test_example_tutorial_agents"
+    ],
+    "next_gate": "rerun frozen v6 only as regression after shared fixes; then freeze fresh v7"
+  }
+}
