@@ -17,6 +17,8 @@ from horustrace.adapters.mcp_python import is_mcp_python_file
 from horustrace.adapters.mcp_python import scan_python_file as scan_mcp_python
 from horustrace.adapters.model_tool_loop import is_model_tool_loop_file
 from horustrace.adapters.model_tool_loop import scan_python_file as scan_model_tool_loop_python
+from horustrace.adapters.microsoft_agent_framework import is_microsoft_agent_framework_file
+from horustrace.adapters.microsoft_agent_framework import scan_python_file as scan_microsoft_agent_framework_python
 from horustrace.adapters.openai_agents import is_openai_agents_file
 from horustrace.adapters.openai_agents import scan_python_file as scan_openai_python
 from horustrace.adapters.pydantic_ai import is_pydantic_ai_file
@@ -33,6 +35,11 @@ PYTHON_FRAMEWORK_ADAPTERS: tuple[PythonFrameworkAdapter, ...] = (
         scan_custom_tool_registry_python,
     ),
     PythonFrameworkAdapter("openai-agents", is_openai_agents_file, scan_openai_python),
+    PythonFrameworkAdapter(
+        "microsoft-agent-framework",
+        is_microsoft_agent_framework_file,
+        scan_microsoft_agent_framework_python,
+    ),
     PythonFrameworkAdapter("pydantic-ai", is_pydantic_ai_file, scan_pydantic_ai_python),
     PythonFrameworkAdapter("fast-agent", is_fast_agent_file, scan_fast_agent_python),
     PythonFrameworkAdapter(
