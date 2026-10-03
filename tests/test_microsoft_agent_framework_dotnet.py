@@ -595,3 +595,193 @@ AIAgent agent = chatClient.AsAIAgent(
     assert skill.approval is True
     assert "data.read" in skill.capabilities
     assert "process.execute" in skill.capabilities
+
+
+def test_dotnet_maf_hosted_code_interpreter_is_effective_authority(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+AIAgent agent = chatClient.AsAIAgent(
+    name: "Coder",
+    tools: [new HostedCodeInterpreterTool() { Inputs = [] }]);
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "Coder")
+    tool = next(
+        item
+        for item in agent.tools
+        if item.metadata.get("provider_tool_type") == "HostedCodeInterpreterTool"
+    )
+
+    assert tool.kind == "provider_tool"
+    assert tool.metadata["provider_managed"] is True
+    assert "process.execute" in tool.capabilities
+    assert "data.read" in tool.capabilities
+    assert "data.write" in tool.capabilities
+
+
+def test_dotnet_maf_hosted_web_and_file_search_preserve_read_authority(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+AIAgent agent = chatClient.AsAIAgent(
+    name: "Researcher",
+    tools: [
+        new HostedWebSearchTool(),
+        new HostedFileSearchTool(),
+    ]);
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "Researcher")
+    tools = {
+        item.metadata.get("provider_tool_type"): item
+        for item in agent.tools
+        if item.kind == "provider_tool"
+    }
+
+    assert tools["HostedWebSearchTool"].capabilities == {
+        "data.read",
+        "network.external",
+    }
+    assert tools["HostedFileSearchTool"].capabilities == {"data.read"}
+
+
+def test_dotnet_maf_foundry_openapi_tool_uses_source_visible_http_effects(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Foundry;
+
+AITool openApiTool =
+    FoundryAITool.CreateOpenApiTool(CreateOpenAPIFunctionDefinition());
+
+AIAgent agent = chatClient.AsAIAgent(
+    name: "ApiAgent",
+    tools: [openApiTool]);
+
+OpenApiFunctionDefinition CreateOpenAPIFunctionDefinition()
+{
+    const string Spec = """
+    {
+      "servers": [{"url": "https://api.example.test/v1"}],
+      "paths": {
+        "/records": {
+          "get": {},
+          "post": {}
+        }
+      }
+    }
+    """;
+    return BuildDefinition(Spec);
+}
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "ApiAgent")
+    tool = next(
+        item
+        for item in agent.tools
+        if item.metadata.get("provider_tool_type") == "CreateOpenApiTool"
+    )
+
+    assert "network.external" in tool.capabilities
+    assert "data.read" in tool.capabilities
+    assert "data.write" in tool.capabilities
+    assert "external.write" in tool.capabilities
+    assert tool.metadata["http_effect_basis"] == "source_visible_openapi_schema"
+    assert any(
+        destination.target == "https://api.example.test/v1"
+        for destination in tool.destinations
+    )
+
+
+def test_dotnet_maf_foundry_data_tools_are_bound_from_variables(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Foundry;
+
+AITool sharepoint = FoundryAITool.CreateSharepointTool(sharepointOptions);
+AITool fabric = FoundryAITool.CreateMicrosoftFabricTool(fabricOptions);
+
+AIAgent agent = chatClient.AsAIAgent(
+    name: "EnterpriseDataAgent",
+    tools: [sharepoint, fabric]);
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item for item in graph.agents if item.name == "EnterpriseDataAgent"
+    )
+    types = {
+        item.metadata.get("provider_tool_type"): item
+        for item in agent.tools
+        if item.kind == "provider_tool"
+    }
+
+    assert types["CreateSharepointTool"].capabilities == {
+        "data.read",
+        "network.external",
+    }
+    assert types["CreateMicrosoftFabricTool"].capabilities == {
+        "data.read",
+        "network.external",
+    }
+
+
+def test_dotnet_maf_codeact_provider_is_effective_only_when_attached(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.LocalCodeAct;
+
+var attachedCodeAct = new LocalCodeActProvider(pythonExecutable, options);
+var unusedCodeAct = new LocalCodeActProvider(otherPython, otherOptions);
+
+AIAgent agent = chatClient.AsAIAgent(
+    new ChatClientAgentOptions
+    {
+        Name = "CodeActAgent",
+        AIContextProviders = [attachedCodeAct],
+    });
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "CodeActAgent")
+    codeact = [
+        item
+        for item in agent.tools
+        if item.kind == "microsoft_dotnet_codeact"
+    ]
+
+    assert len(codeact) == 1
+    assert codeact[0].name == "attachedCodeAct"
+    assert codeact[0].metadata["binding_origin"] == "LocalCodeActProvider"
+    assert codeact[0].metadata["sandbox"] == "host-process"
+    assert codeact[0].capabilities == {"process.execute"}
