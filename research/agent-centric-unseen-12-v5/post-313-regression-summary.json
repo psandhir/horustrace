@@ -1,0 +1,74 @@
+{
+  "schema_version": 2,
+  "study": "agent-centric-unseen-12-v5-post313-regression",
+  "status": "source_adjudicated_regression",
+  "cohort": "agent-centric-unseen-12-v5",
+  "cohort_freeze_commit": "7757d09d7f03ca86dc31febf4dfc2e2823c2bda1",
+  "original_scanner_baseline": "86145932dce3895406f9e57b6783ad6eb706a107",
+  "scanner_sha": "0a2dd7f6098fb94321e7c2fb4602cc8cc016555e",
+  "workflow_run": 37114881586,
+  "raw": {
+    "cases": 12,
+    "agents": 24,
+    "authority_relationships": 118,
+    "findings": 109,
+    "attack_paths": 19,
+    "baseline_findings": 73,
+    "baseline_attack_paths": 9
+  },
+  "finding_delta_adjudication": {
+    "retained_prior_materially_supported": 59,
+    "retained_prior_false_positive": 0,
+    "new_findings": 50,
+    "new_supported": 38,
+    "new_partial": 12,
+    "new_unsupported": 0,
+    "new_unresolved": 0,
+    "partial_reason_taxonomy": {
+      "runtime_qualification": 12,
+      "reachability": 12
+    },
+    "materially_supported_total": 109,
+    "materially_supported_precision": 1,
+    "new_strict_precision": 0.76,
+    "new_materially_supported_precision": 1
+  },
+  "attack_paths": {
+    "total": 19,
+    "materially_supported_or_qualified": 19,
+    "invalid": 0,
+    "new_qualified": 12,
+    "qualification": "Fixed executable/runtime process boundaries in Trunks helper composition."
+  },
+  "known_false_positive_closure": {
+    "baseline_clear_false_positives": 6,
+    "retained": 0,
+    "resolved": 6
+  },
+  "regressions": [
+    {
+      "class": "function_local_import_effect_propagation",
+      "case_id": "unseen5-adk-001",
+      "affected_tools": [
+        "tool_extract_facts_batch",
+        "tool_find_loop_functions",
+        "tool_resolve_calls"
+      ],
+      "impact": "Three previously materially-supported privileged effects disappear after name-only mutation suppression.",
+      "priority": "P0"
+    },
+    {
+      "class": "adk_mcp_authority_binding",
+      "case_id": "unseen5-adk-004",
+      "impact": "Configured MCPToolset remains declaration_not_agent_bound; mcp_authority bound_relationships stays 0.",
+      "priority": "P0"
+    }
+  ],
+  "residual_recall_gaps": [
+    "adk_module_level_client_object_effects",
+    "pydantic_repository_object_method_effects",
+    "pydantic_tavily_web_search_network_effect",
+    "adk_delegated_child_authority_projection"
+  ],
+  "decision": "Fix the two P0 shared integration gaps, rerun frozen v5 once, then freeze fresh unseen v6."
+}
