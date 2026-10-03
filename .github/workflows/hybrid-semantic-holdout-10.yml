@@ -365,7 +365,7 @@ jobs:
           PY
 
       - name: Upload comparison results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: hybrid-semantic-holdout-10
           path: |
