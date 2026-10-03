@@ -544,11 +544,8 @@ def _file_skill_tool(
 
 
 def _hosted_agent_name(expression: str) -> str | None:
-    named = named_string(expression, "name")
-    if named:
-        return named
     match = re.search(
-        r"\.AddAIAgent\s*\(\s*@?\"([^\"]+)\"",
+        r"\.AddAIAgent\s*\(\s*(?:name\s*:\s*)?@?\"([^\"]+)\"",
         expression,
     )
     return match.group(1) if match else None
