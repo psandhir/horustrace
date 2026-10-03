@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import json
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -658,7 +659,7 @@ def _workflow_graph_topology(
                 add_edge(first, target_node, route_node)
             continue
         chain = [first, second, *rest]
-        for source_node, target_node in zip(chain, chain[1:]):
+        for source_node, target_node in pairwise(chain):
             add_edge(source_node, target_node)
 
     return edges, agent_nodes, unresolved
