@@ -26,12 +26,18 @@ horustrace report ./agent-app \
 
 The landing dashboard is organized for security review rather than raw inventory.
 It surfaces an assessment signal, a priority review queue, finding severity,
-effective-authority posture, environment inventory, Authority Contract status, and
-scan coverage. Dashboard metrics remain drillable into the corresponding agent,
-finding, attack-path, or contract view.
+effective-authority posture, environment inventory, organisation-policy violations,
+Authority Contract status, OWASP Agentic Top 10 posture, and scan coverage. Dashboard
+metrics remain drillable into the corresponding agent, finding, policy, OWASP,
+attack-path, or contract view.
 
-The top-level agent, finding, and contract views include reviewer-oriented filters;
-agent and finding views also provide search. Agent rows are ordered by static review priority so critical/high
+The top-level agent, finding, policy, OWASP, and contract views are separate assurance
+surfaces. The organisation-policy view contains only findings whose rule assessment is
+`policy_violation`; it is distinct from the per-agent Authority Contract. The OWASP
+view always lists all ten categories and distinguishes runtime findings, non-runtime
+mapped findings, no mapped findings, and categories that are not assessed by an enabled
+detector. Agent and finding views also provide reviewer-oriented filters and search.
+Agent rows are ordered by static review priority so critical/high
 findings, contract violations, attack paths, unresolved checks, and write-capable
 authority rise above lower-signal inventory.
 
@@ -56,8 +62,10 @@ security profile with six views:
 - **Evidence** — relationship IDs, resolution state, source locations, ADG evidence,
   approval/control state, and semantic evidence.
 
-The report also includes repository-level findings, attack paths, contract posture,
-and scan-coverage diagnostics. Navigation, drill-down rows, and filters are keyboard
+The report also includes repository-level findings, organisation-policy posture,
+OWASP Top 10 status, attack paths, contract posture, and scan-coverage diagnostics.
+Finding cards show their assessment class and any OWASP mappings. Navigation,
+drill-down rows, and filters are keyboard
 accessible; full-screen agency maps can be dismissed with Escape; and reduced-motion
 preferences are respected.
 
@@ -85,7 +93,14 @@ All effective-authority and attack-path information remains static evidence.
 ## Visualization contract
 
 The visual report has its own versioned projection,
-`horustrace.visual_report` schema version 1. The underlying security topology is
+`horustrace.visual_report` schema version 1. It embeds the additive
+`horustrace.assurance` schema version 1 summary used across JSON, SARIF, console,
+and HTML reporting. The assurance summary has four stable sections:
+`security`, `organization_policy`, `authority_contract`, and
+`owasp_agentic`. Existing detailed `authority_contract` and `owasp_agentic`
+objects remain available for drill-down and backward compatibility.
+
+The underlying security topology is
 the existing ASG v1 document rather than a second analysis graph.
 
 This separation is intentional: future renderers (for example a richer graph engine,
