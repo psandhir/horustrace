@@ -30,14 +30,24 @@ jobs:
       - name: Generate scan and UX report
         run: |
           mkdir -p artifacts
+          set +e
           horustrace scan target --format json --output artifacts/scan.json
+          JSON_RC=$?
           horustrace scan target --format console --output artifacts/scan.txt
+          CONSOLE_RC=$?
           horustrace report target --output artifacts/horustrace-report.html
+          REPORT_RC=$?
+          set -e
           {
             echo "scanner_commit=$(git rev-parse HEAD)"
             echo "target_repo=GoogleCloudPlatform/agent-starter-pack"
             echo "target_commit=659f047742457bd55e5db0edd088cf678b6f0669"
+            echo "json_scan_exit_code=$JSON_RC"
+            echo "console_scan_exit_code=$CONSOLE_RC"
+            echo "report_exit_code=$REPORT_RC"
           } > artifacts/provenance.txt
+          test -s artifacts/scan.json
+          test -s artifacts/horustrace-report.html
       - name: Summarise report
         run: |
           python - <<'PY'
