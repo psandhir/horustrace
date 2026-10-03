@@ -24,7 +24,7 @@ def _load(path: Path) -> dict[str, Any]:
     validate_json_safety(text)
     raw = json.loads(text)
     if not isinstance(raw, dict):
-        raise ValueError("Agent 365 configuration must be a JSON object")
+        raise TypeError("Agent 365 configuration must be a JSON object")
     return raw
 
 
