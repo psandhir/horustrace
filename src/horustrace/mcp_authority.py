@@ -325,6 +325,7 @@ def reconstruct_mcp_authority(
                 _ensure_configured_identity(agent, server)
                 _attach_filesystem_resources(server)
 
+    wrapped_declarations: set[tuple[Path, int]] = set()
     for agent in graph.agents:
         for server in agent.mcp_servers:
             server.metadata.setdefault("effective_agent", agent.name)
@@ -334,3 +335,25 @@ def reconstruct_mcp_authority(
             )
             _ensure_configured_identity(agent, server)
             _attach_filesystem_resources(server)
+            if server.location is None:
+                continue
+            for line in server.metadata.get("wrapped_mcp_declaration_lines") or []:
+                if isinstance(line, int):
+                    wrapped_declarations.add(
+                        (server.location.path.resolve(), line)
+                    )
+
+    if wrapped_declarations:
+        graph.unbound_mcp_servers = [
+            server
+            for server in graph.unbound_mcp_servers
+            if not (
+                server.location is not None
+                and (
+                    server.location.path.resolve(),
+                    server.location.line,
+                )
+                in wrapped_declarations
+                and server.metadata.get("source") == "StdioServerParameters"
+            )
+        ]
