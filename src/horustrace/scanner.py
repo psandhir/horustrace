@@ -17,6 +17,7 @@ from horustrace.adapters.fast_agent_config import (
 from horustrace.adapters.iac_identity import scan_terraform
 from horustrace.adapters.manifest import MANIFEST_FILENAMES, scan_manifest
 from horustrace.adapters.mcp_config import MCP_FILENAMES, scan_mcp_config
+from horustrace.adapters.microsoft_agent_framework_dotnet import scan_dotnet_file
 from horustrace.adapters.microsoft_foundry import scan_foundry_config
 from horustrace.adapters.registry import detect_python_frameworks, scan_python_file
 from horustrace.adapters.repository_adk import enrich_repository_graph
@@ -1139,7 +1140,7 @@ def _is_source_fragment(path: Path) -> bool:
 
 def _is_supported_scan_candidate(path: Path) -> bool:
     return (
-        path.suffix.lower() in {".py", ".ipynb", ".tf", ".yaml", ".yml"}
+        path.suffix.lower() in {".py", ".ipynb", ".cs", ".tf", ".yaml", ".yml"}
         or path.name
         in (
             MCP_FILENAMES
@@ -2355,6 +2356,8 @@ def scan(
             diagnose_python(temp_path, notebook_graph)
             _remap_source_locations(notebook_graph, temp_path, candidate)
             _merge(graph, notebook_graph, candidate)
+        elif candidate.suffix.lower() == ".cs":
+            _merge(graph, scan_dotnet_file(candidate), candidate)
         elif candidate.suffix == ".tf":
             _merge(graph, scan_terraform(candidate), candidate)
         elif candidate.name in MCP_FILENAMES:
