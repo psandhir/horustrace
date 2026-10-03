@@ -1032,11 +1032,13 @@ def _tool_from_call(
     if name in {"FunctionTool", "LongRunningFunctionTool", "AuthenticatedFunctionTool"}:
         func_node = _arg(call, 0, "func")
         func_name = _call_name(func_node) or alias
-        caps = set(infer_capabilities(func_name))
         destinations: list[NetworkDestination] = []
         if func_name in functions:
-            inferred, destinations = _infer_function_capabilities(functions[func_name])
-            caps.update(inferred)
+            caps, destinations = _infer_function_capabilities(functions[func_name])
+        else:
+            # Name hints are a fallback only when the wrapped implementation is
+            # unavailable. A source-visible function body is authoritative.
+            caps = set(infer_capabilities(func_name))
         approval = _bool(_kw(call, "require_confirmation"))
         return Tool(
             name=func_name,
