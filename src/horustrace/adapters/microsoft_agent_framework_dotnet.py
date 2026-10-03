@@ -39,9 +39,12 @@ _AGENT_MARKERS = (
     "new ChatClientAgent(",
     "new ChatClientAgent (",
     ".BuildAIAgent(",
+    ".AsHarnessAgent(",
+    ".CreateAIAgent(",
 )
 
 _HOSTED_AGENT_MARKER = ".AddAIAgent("
+_DURABLE_AGENT_FACTORY_MARKER = ".AddAIAgentFactory("
 _SKILL_MARKERS = (
     "AgentInlineSkill",
     "AgentClassSkill",
@@ -67,9 +70,15 @@ def is_microsoft_agent_framework_dotnet_file(path: Path) -> bool:
             )
             is not None
             or _HOSTED_AGENT_MARKER in source
+            or _DURABLE_AGENT_FACTORY_MARKER in source
+            or ".ConfigureDurableAgents(" in source
             or any(marker in source for marker in _SKILL_MARKERS)
             or "HostedMcpServerTool" in source
             or "AgentSkillsProviderBuilder" in source
+            or "AgentWorkflowBuilder" in source
+            or ".AddWorkflow(" in source
+            or "ChatClientAgentRunOptions" in source
+            or "FunctionInvokingChatClient.CurrentContext" in source
         )
     )
 
@@ -731,6 +740,429 @@ def _hosted_agent_expressions(source: str, masked: str) -> list[tuple[str, int]]
     return result
 
 
+def _durable_agent_name(expression: str) -> str | None:
+    match = re.search(
+        r"\.AddAIAgentFactory\s*\(\s*(?:name\s*:\s*)?@?\"([^\"]+)\"",
+        expression,
+    )
+    return match.group(1) if match else None
+
+
+def _durable_agent_expressions(
+    source: str,
+    masked: str,
+) -> list[tuple[str, int]]:
+    """Return complete Durable Agent factory registrations."""
+    result: list[tuple[str, int]] = []
+    for match in re.finditer(r"\.AddAIAgentFactory\s*\(", masked):
+        open_paren = masked.find("(", match.start())
+        end = balanced_end(masked, open_paren, "(", ")")
+        if end is None:
+            continue
+        expression = source[match.start():end + 1].strip()
+        if expression:
+            result.append((expression, match.start()))
+    return result
+
+
+
+def _bool_property(expression: str, name: str) -> bool | None:
+    match = re.search(
+        rf"\b{re.escape(name)}\s*=\s*(true|false)\b",
+        expression,
+        re.IGNORECASE,
+    )
+    if not match:
+        return None
+    return match.group(1).lower() == "true"
+
+
+def _resolve_expression(
+    value: str | None,
+    known: dict[str, CSharpAssignment],
+) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if re.fullmatch(r"[A-Za-z_]\w*", stripped) and stripped in known:
+        return known[stripped].expression
+    return stripped
+
+
+def _resource_selector(expression: str | None, fallback: str) -> str:
+    if not expression:
+        return fallback
+    match = re.search(
+        r"new\s+(?:FileSystem)?AgentFileStore\s*\(\s*(.*?)\s*\)",
+        expression,
+        re.DOTALL,
+    )
+    if match:
+        value = match.group(1).strip()
+        literal = re.fullmatch(r'@?"([^"]+)"', value)
+        if literal:
+            return literal.group(1)
+        if value:
+            return value[:240]
+    return fallback
+
+
+def _harness_builtin_tools(
+    path: Path,
+    source: str,
+    expression: str,
+    *,
+    offset: int,
+    known: dict[str, CSharpAssignment],
+    agent_aliases: dict[str, Agent],
+) -> list[Tool]:
+    if ".AsHarnessAgent(" not in expression:
+        return []
+
+    result: list[Tool] = []
+
+    # HostedWebSearchTool is enabled by default by HarnessAgent.
+    if _bool_property(expression, "DisableWebSearch") is not True:
+        result.append(Tool(
+            name="HostedWebSearchTool",
+            kind="provider_tool",
+            capabilities={"data.read", "network.external"},
+            location=location(path, source, offset),
+            metadata={
+                "framework": FRAMEWORK,
+                "provider": "microsoft-foundry",
+                "provider_managed": True,
+                "provider_tool_type": "HostedWebSearchTool",
+                "binding_origin": "HarnessAgent.default",
+                "framework_default": True,
+            },
+        ))
+
+    # File memory is enabled by default and exposes persistent read/write memory
+    # tools. The delete operation is deliberately represented as data.write
+    # rather than broad destructive authority because the store is harness-owned
+    # session memory, not the shared FileAccessStore.
+    if _bool_property(expression, "DisableFileMemory") is not True:
+        memory_store = _resolve_expression(
+            argument_value(expression, "FileMemoryStore"),
+            known,
+        )
+        selector = _resource_selector(
+            memory_store,
+            "<harness-default-file-memory>",
+        )
+        result.append(Tool(
+            name="harness:file-memory",
+            kind="microsoft_dotnet_harness_file_memory",
+            capabilities={"data.read", "data.write"},
+            approval=False,
+            location=location(path, source, offset),
+            resources=[ResourceScope(
+                kind="filesystem",
+                selector=selector,
+                access={"data.read", "data.write"},
+                location=location(path, source, offset),
+                metadata={
+                    "framework": FRAMEWORK,
+                    "harness_internal_memory": True,
+                    "persistent": True,
+                    "framework_default": memory_store is None,
+                },
+            )],
+            metadata={
+                "framework": FRAMEWORK,
+                "binding_origin": "HarnessAgent.FileMemoryProvider",
+                "persistent_memory": True,
+                "supports_delete": True,
+                "framework_default": memory_store is None,
+            },
+        ))
+
+    # Harness file-based AgentSkillsProvider is also enabled by default. With no
+    # explicit script runner the framework guarantees skill/resource reads, but
+    # not arbitrary process execution.
+    if _bool_property(expression, "DisableAgentSkillsProvider") is not True:
+        source_value = _resolve_expression(
+            argument_value(expression, "AgentSkillsSource"),
+            known,
+        )
+        result.append(Tool(
+            name="harness:agent-skills",
+            kind="microsoft_dotnet_agent_skill",
+            capabilities={"data.read"},
+            approval=True,
+            location=location(path, source, offset),
+            metadata={
+                "framework": FRAMEWORK,
+                "binding_origin": "HarnessAgent.AgentSkillsProvider",
+                "dynamic_tool_catalogue": True,
+                "skill_source": "custom" if source_value else "cwd",
+                "skill_source_expression": source_value,
+                "framework_default": source_value is None,
+            },
+        ))
+
+    file_store = _resolve_expression(
+        argument_value(expression, "FileAccessStore"),
+        known,
+    )
+    if file_store:
+        file_options = _resolve_expression(
+            argument_value(expression, "FileAccessProviderOptions"),
+            known,
+        ) or ""
+        disable_write = _bool_property(file_options, "DisableWriteTools") is True
+        read_approval = (
+            _bool_property(file_options, "DisableReadOnlyToolApproval") is not True
+        )
+        write_approval = (
+            _bool_property(file_options, "DisableWriteToolApproval") is not True
+        )
+
+        auto_approval_enabled = (
+            _bool_property(expression, "DisableToolAutoApproval") is not True
+        )
+        approval_options = _resolve_expression(
+            argument_value(expression, "ToolApprovalAgentOptions"),
+            known,
+        ) or ""
+        read_auto = (
+            auto_approval_enabled
+            and (
+                "FileAccessProvider.ReadOnlyToolsAutoApprovalRule"
+                in approval_options
+                or "FileAccessProvider.AllToolsAutoApprovalRule"
+                in approval_options
+            )
+        )
+        write_auto = (
+            auto_approval_enabled
+            and "FileAccessProvider.AllToolsAutoApprovalRule" in approval_options
+        )
+        selector = _resource_selector(
+            file_store,
+            "<configured-harness-file-store>",
+        )
+        shared_metadata = {
+            "framework": FRAMEWORK,
+            "binding_origin": "HarnessAgent.FileAccessProvider",
+            "store_expression": file_store,
+        }
+        result.append(Tool(
+            name="harness:file-access-read",
+            kind="microsoft_dotnet_harness_file_access",
+            capabilities={"data.read"},
+            approval=False if read_auto else read_approval,
+            location=location(path, source, offset),
+            resources=[ResourceScope(
+                kind="filesystem",
+                selector=selector,
+                access={"data.read"},
+                location=location(path, source, offset),
+                metadata={**shared_metadata, "shared_store": True},
+            )],
+            metadata={
+                **shared_metadata,
+                "access_mode": "read",
+                "auto_approved": read_auto,
+            },
+        ))
+        if not disable_write:
+            result.append(Tool(
+                name="harness:file-access-write",
+                kind="microsoft_dotnet_harness_file_access",
+                capabilities={"data.write", "destructive.write"},
+                approval=False if write_auto else write_approval,
+                location=location(path, source, offset),
+                resources=[ResourceScope(
+                    kind="filesystem",
+                    selector=selector,
+                    access={"data.write", "destructive.write"},
+                    location=location(path, source, offset),
+                    metadata={**shared_metadata, "shared_store": True},
+                )],
+                metadata={
+                    **shared_metadata,
+                    "access_mode": "write",
+                    "auto_approved": write_auto,
+                    "supports_delete": True,
+                },
+            ))
+
+    background = argument_value(expression, "BackgroundAgents")
+    if background:
+        for ref in refs(background):
+            child = agent_aliases.get(ref)
+            if child is None:
+                continue
+            result.append(Tool(
+                name=child.name,
+                kind="delegated_agent",
+                capabilities={"agent.delegate"},
+                location=location(path, source, offset),
+                metadata={
+                    "framework": FRAMEWORK,
+                    "delegate_target": ref,
+                    "binding_origin": "HarnessAgent.BackgroundAgentsProvider",
+                    "authority_binding_basis": (
+                        "microsoft_dotnet_harness_background_agent"
+                    ),
+                    "background_execution": True,
+                },
+            ))
+
+    return _dedupe_tools(result)
+
+
+_WORKFLOW_MARKERS = (
+    "BuildSequential(",
+    "BuildConcurrent(",
+    "CreateHandoffBuilderWith(",
+    "CreateGroupChatBuilderWith(",
+    "CreateSequentialBuilderWith(",
+    "CreateConcurrentBuilderWith(",
+)
+
+
+def _workflow_kind(expression: str) -> str | None:
+    if "BuildSequential" in expression or "CreateSequentialBuilderWith" in expression:
+        return "sequential"
+    if "BuildConcurrent" in expression or "CreateConcurrentBuilderWith" in expression:
+        return "concurrent"
+    if "CreateHandoffBuilderWith" in expression or ".WithHandoffs(" in expression:
+        return "handoff"
+    if "CreateGroupChatBuilderWith" in expression or ".AddParticipants(" in expression:
+        return "group_chat"
+    return None
+
+
+def _workflow_participants(
+    expression: str,
+    agent_aliases: dict[str, Agent],
+) -> list[str]:
+    result: list[str] = []
+    for ref in refs(expression):
+        if ref in agent_aliases and ref not in result:
+            result.append(ref)
+    return result
+
+
+def _workflow_definitions(
+    source: str,
+    known: dict[str, CSharpAssignment],
+    agent_aliases: dict[str, Agent],
+) -> dict[str, dict[str, object]]:
+    builders: dict[str, dict[str, object]] = {}
+    workflows: dict[str, dict[str, object]] = {}
+
+    for name, item in known.items():
+        if any(marker in item.expression for marker in _WORKFLOW_MARKERS):
+            kind = _workflow_kind(item.expression) or "workflow"
+            builders[name] = {
+                "kind": kind,
+                "participants": _workflow_participants(
+                    item.expression,
+                    agent_aliases,
+                ),
+                "source_alias": name,
+            }
+
+    # Builder mutation is common for handoff/group-chat workflows.
+    for builder_name, definition in builders.items():
+        for match in re.finditer(
+            rf"\b{re.escape(builder_name)}\."
+            r"(?:WithHandoffs|AddParticipants)\s*\(",
+            source,
+        ):
+            end = statement_end(mask_non_code(source), match.start())
+            statement = source[match.start():end]
+            for participant in _workflow_participants(
+                statement,
+                agent_aliases,
+            ):
+                participants = definition["participants"]
+                if (
+                    isinstance(participants, list)
+                    and participant not in participants
+                ):
+                    participants.append(participant)
+
+    for name, item in known.items():
+        direct = any(marker in item.expression for marker in _WORKFLOW_MARKERS)
+        builder_match = re.search(
+            r"\b([A-Za-z_]\w*)\.Build\s*\(",
+            item.expression,
+        )
+        if direct:
+            workflows[name] = dict(builders.get(name, {
+                "kind": _workflow_kind(item.expression) or "workflow",
+                "participants": _workflow_participants(
+                    item.expression,
+                    agent_aliases,
+                ),
+                "source_alias": name,
+            }))
+        elif builder_match and builder_match.group(1) in builders:
+            workflows[name] = dict(builders[builder_match.group(1)])
+            workflows[name]["source_alias"] = name
+
+    return workflows
+
+
+def _workflow_delegation_tools(
+    path: Path,
+    source: str,
+    definition: dict[str, object],
+    *,
+    offset: int,
+    agent_aliases: dict[str, Agent],
+) -> list[Tool]:
+    result: list[Tool] = []
+    kind = str(definition.get("kind") or "workflow")
+    participants = definition.get("participants")
+    if not isinstance(participants, list):
+        return result
+    for alias in participants:
+        child = agent_aliases.get(str(alias))
+        if child is None:
+            continue
+        result.append(Tool(
+            name=child.name,
+            kind="delegated_agent",
+            capabilities={"agent.delegate"},
+            location=location(path, source, offset),
+            metadata={
+                "framework": FRAMEWORK,
+                "delegate_target": str(alias),
+                "binding_origin": "AgentWorkflowBuilder",
+                "workflow_kind": kind,
+                "authority_binding_basis": "microsoft_dotnet_workflow_projection",
+            },
+        ))
+    return _dedupe_tools(result)
+
+
+def _hosted_workflow_agent_expressions(
+    source: str,
+    masked: str,
+) -> list[tuple[str, int]]:
+    result: list[tuple[str, int]] = []
+    for match in re.finditer(r"\.AddWorkflow\s*\(", masked):
+        end = statement_end(masked, match.start())
+        expression = source[match.start():end].strip()
+        if ".AddAsAIAgent" in expression:
+            result.append((expression, match.start()))
+    return result
+
+
+def _hosted_workflow_name(expression: str) -> str | None:
+    match = re.search(
+        r"\.AddWorkflow\s*\(\s*@?\"([^\"]+)\"",
+        expression,
+    )
+    return match.group(1) if match else None
+
+
 def _dedupe_tools(items: Iterable[Tool]) -> list[Tool]:
     result: list[Tool] = []
     seen: set[tuple[str, str, str]] = set()
@@ -838,7 +1270,14 @@ def _parse_tools(
             if server:
                 servers.append(deepcopy(server))
         assigned = known.get(ref)
-        if assigned:
+        bound_tool = tool_vars.get(ref)
+        if (
+            assigned
+            and (
+                bound_tool is None
+                or bound_tool.kind != "microsoft_dotnet_dynamic_tool_loader"
+            )
+        ):
             for nested in refs(assigned.expression):
                 if nested in tool_vars:
                     tools.append(deepcopy(tool_vars[nested]))
@@ -868,6 +1307,193 @@ def _parse_tools(
             servers.append(server)
 
     return _dedupe_tools(tools), _dedupe_servers(servers)
+
+
+
+def _dynamic_tool_catalogues(
+    path: Path,
+    source: str,
+    masked: str,
+    known: dict[str, CSharpAssignment],
+    *,
+    tool_vars: dict[str, Tool],
+    hosted_vars: dict[str, MCPServer],
+    mcp_lists: dict[str, str],
+    mcp_servers: dict[str, MCPServer],
+    agent_aliases: dict[str, Agent],
+) -> tuple[dict[str, Tool], dict[str, list[Tool]]]:
+    loaders: dict[str, Tool] = {}
+    catalogues: dict[str, list[Tool]] = {}
+
+    for name, item in known.items():
+        expr = item.expression
+        if (
+            "FunctionInvokingChatClient.CurrentContext" not in expr
+            or ".Tools" not in expr
+            or ".Add(" not in expr
+        ):
+            continue
+
+        candidates: list[Tool] = []
+        for ref in refs(expr):
+            assigned = known.get(ref)
+            if assigned is None or ref == name:
+                continue
+            parsed, _ = _parse_tools(
+                path,
+                source,
+                masked,
+                assigned.expression,
+                offset=assigned.offset,
+                known=known,
+                tool_vars=tool_vars,
+                hosted_vars=hosted_vars,
+                mcp_lists=mcp_lists,
+                mcp_servers=mcp_servers,
+                agent_aliases=agent_aliases,
+            )
+            for tool in parsed:
+                tool.metadata["runtime_scope"] = "dynamic_catalogue"
+                tool.metadata["conditional_authority"] = True
+                tool.metadata["binding_origin"] = (
+                    "FunctionInvokingChatClient.CurrentContext"
+                )
+                candidates.append(tool)
+
+        candidates = _dedupe_tools(candidates)
+        loader_name = named_string(expr, "name") or name
+        loader = Tool(
+            name=loader_name,
+            kind="microsoft_dotnet_dynamic_tool_loader",
+            capabilities=set().union(
+                *(tool.capabilities for tool in candidates)
+            ) if candidates else set(),
+            location=location(path, source, item.offset),
+            metadata={
+                "framework": FRAMEWORK,
+                "binding_origin": "FunctionInvokingChatClient.CurrentContext",
+                "dynamic_tool_catalogue": True,
+                "conditional_authority": True,
+                "catalogue_tools": [tool.name for tool in candidates],
+                "source_alias": name,
+            },
+        )
+        loaders[name] = loader
+        catalogues[name] = candidates
+
+    return loaders, catalogues
+
+
+def _run_option_tool_sets(
+    path: Path,
+    source: str,
+    masked: str,
+    known: dict[str, CSharpAssignment],
+    *,
+    tool_vars: dict[str, Tool],
+    hosted_vars: dict[str, MCPServer],
+    mcp_lists: dict[str, str],
+    mcp_servers: dict[str, MCPServer],
+    agent_aliases: dict[str, Agent],
+) -> dict[str, tuple[list[Tool], list[MCPServer]]]:
+    result: dict[str, tuple[list[Tool], list[MCPServer]]] = {}
+    for name, item in known.items():
+        if "ChatClientAgentRunOptions" not in item.expression:
+            continue
+        value = _tool_value(item.expression)
+        if not value:
+            continue
+        value_start = item.expression.find(value)
+        tools, servers = _parse_tools(
+            path,
+            source,
+            masked,
+            value,
+            offset=item.offset + max(value_start, 0),
+            known=known,
+            tool_vars=tool_vars,
+            hosted_vars=hosted_vars,
+            mcp_lists=mcp_lists,
+            mcp_servers=mcp_servers,
+            agent_aliases=agent_aliases,
+        )
+        for tool in tools:
+            tool.metadata["runtime_scope"] = "per_run"
+            tool.metadata["conditional_authority"] = True
+            tool.metadata["binding_origin"] = "ChatClientAgentRunOptions"
+        for server in servers:
+            server.metadata["runtime_scope"] = "per_run"
+            server.metadata["conditional_authority"] = True
+            server.metadata["binding_origin"] = "ChatClientAgentRunOptions"
+        result[name] = (tools, servers)
+    return result
+
+
+def _bind_per_run_authority(
+    path: Path,
+    source: str,
+    masked: str,
+    *,
+    agent_aliases: dict[str, Agent],
+    run_options: dict[str, tuple[list[Tool], list[MCPServer]]],
+    known: dict[str, CSharpAssignment],
+    tool_vars: dict[str, Tool],
+    hosted_vars: dict[str, MCPServer],
+    mcp_lists: dict[str, str],
+    mcp_servers: dict[str, MCPServer],
+) -> None:
+    for match in re.finditer(
+        r"\b([A-Za-z_]\w*)\.(RunAsync|RunStreamingAsync)\s*\(",
+        masked,
+    ):
+        alias = match.group(1)
+        agent = agent_aliases.get(alias)
+        if agent is None:
+            continue
+        open_paren = masked.find("(", match.start(), match.end() + 1)
+        end = (
+            balanced_end(masked, open_paren, "(", ")")
+            if open_paren >= 0 else None
+        )
+        if end is None:
+            continue
+        invocation = source[match.start():end + 1]
+        invocation_refs = refs(invocation)
+
+        for option_name in invocation_refs & run_options.keys():
+            tools, servers = run_options[option_name]
+            agent.tools.extend(deepcopy(tools))
+            agent.mcp_servers.extend(deepcopy(servers))
+
+        if "new ChatClientAgentRunOptions" in invocation:
+            value = _tool_value(invocation)
+            if value:
+                tools, servers = _parse_tools(
+                    path,
+                    source,
+                    masked,
+                    value,
+                    offset=match.start() + max(invocation.find(value), 0),
+                    known=known,
+                    tool_vars=tool_vars,
+                    hosted_vars=hosted_vars,
+                    mcp_lists=mcp_lists,
+                    mcp_servers=mcp_servers,
+                    agent_aliases=agent_aliases,
+                )
+                for tool in tools:
+                    tool.metadata["runtime_scope"] = "per_run"
+                    tool.metadata["conditional_authority"] = True
+                    tool.metadata["binding_origin"] = "ChatClientAgentRunOptions"
+                for server in servers:
+                    server.metadata["runtime_scope"] = "per_run"
+                    server.metadata["conditional_authority"] = True
+                    server.metadata["binding_origin"] = "ChatClientAgentRunOptions"
+                agent.tools.extend(tools)
+                agent.mcp_servers.extend(servers)
+
+        agent.tools = _dedupe_tools(agent.tools)
+        agent.mcp_servers = _dedupe_servers(agent.mcp_servers)
 
 
 def _propagate_delegation(graph: Graph) -> None:
@@ -936,8 +1562,9 @@ def _propagate_delegation(graph: Graph) -> None:
                         destination_keys.add(key)
                 tool.metadata["delegated_agent_targets"] = [child.name]
                 tool.metadata["authority_binding"] = "delegation_projection"
-                tool.metadata["authority_binding_basis"] = (
-                    "microsoft_dotnet_agent_as_function"
+                tool.metadata.setdefault(
+                    "authority_binding_basis",
+                    "microsoft_dotnet_agent_as_function",
                 )
                 changed = changed or before != (
                     frozenset(tool.capabilities),
@@ -1099,12 +1726,16 @@ def scan_dotnet_file(path: Path) -> Graph:
                 "framework": FRAMEWORK,
                 "language": "csharp",
                 "agent_type": (
-                    "ChatClientAgent"
-                    if (
-                        "ChatClientAgent" in item.expression
-                        or target_typed_chat_agent
+                    "HarnessAgent"
+                    if ".AsHarnessAgent(" in item.expression
+                    else (
+                        "ChatClientAgent"
+                        if (
+                            "ChatClientAgent" in item.expression
+                            or target_typed_chat_agent
+                        )
+                        else "AIAgent"
                     )
-                    else "AIAgent"
                 ),
                 "provider": "microsoft-foundry" if foundry else None,
                 "foundry_backed": foundry,
@@ -1115,6 +1746,19 @@ def scan_dotnet_file(path: Path) -> Graph:
         graph.agents.append(agent)
         aliases[item.name] = agent
         aliases.setdefault(agent.name, agent)
+
+    dynamic_loaders, dynamic_catalogues = _dynamic_tool_catalogues(
+        path,
+        source,
+        masked,
+        known,
+        tool_vars=tool_vars,
+        hosted_vars=hosted_vars,
+        mcp_lists=mcp_lists,
+        mcp_servers=mcp_servers,
+        agent_aliases=aliases,
+    )
+    tool_vars.update(dynamic_loaders)
 
     bound_clients: set[str] = set()
     bound_hosted: set[str] = set()
@@ -1142,6 +1786,8 @@ def scan_dotnet_file(path: Path) -> Graph:
             references = refs(value)
             bound_hosted.update(references & hosted_vars.keys())
             for ref in references:
+                if ref in dynamic_catalogues:
+                    agent.tools.extend(deepcopy(dynamic_catalogues[ref]))
                 if ref in mcp_lists:
                     bound_clients.add(mcp_lists[ref])
                 if ref in known:
@@ -1178,6 +1824,15 @@ def scan_dotnet_file(path: Path) -> Graph:
                             "dynamic_tool_catalogue": True,
                         },
                     ))
+
+        agent.tools.extend(_harness_builtin_tools(
+            path,
+            source,
+            expression,
+            offset=expression_offset,
+            known=known,
+            agent_aliases=aliases,
+        ))
 
         agent.tools = _dedupe_tools(agent.tools)
         agent.mcp_servers = _dedupe_servers(agent.mcp_servers)
@@ -1251,6 +1906,191 @@ def scan_dotnet_file(path: Path) -> Graph:
 
         hosted_agent.tools = _dedupe_tools(hosted_agent.tools)
         hosted_agent.mcp_servers = _dedupe_servers(hosted_agent.mcp_servers)
+
+    # Durable Agents register factories inside ConfigureDurableAgents rather
+    # than assigning AIAgent variables. Treat each AddAIAgentFactory
+    # registration as the agent inventory surface and bind source-visible
+    # CreateAIAgent tools from the factory body.
+    for expression, expression_offset in _durable_agent_expressions(source, masked):
+        name = _durable_agent_name(expression)
+        if not name:
+            continue
+        if any(
+            existing.name == name
+            and existing.metadata.get("durable_registration") is True
+            and existing.location
+            and existing.location.path == path
+            for existing in graph.agents
+        ):
+            continue
+
+        durable_agent = Agent(
+            name=name,
+            location=location(path, source, expression_offset),
+            metadata={
+                "framework": FRAMEWORK,
+                "language": "csharp",
+                "agent_type": "DurableAIAgent",
+                "durable_registration": True,
+                "hosting_registration": True,
+                "binding_origin": "AddAIAgentFactory",
+                "source_aliases": [],
+            },
+        )
+        graph.agents.append(durable_agent)
+        aliases.setdefault(name, durable_agent)
+
+        tools, servers = _parse_tools(
+            path,
+            source,
+            masked,
+            expression,
+            offset=expression_offset,
+            known=known,
+            tool_vars=tool_vars,
+            hosted_vars=hosted_vars,
+            mcp_lists=mcp_lists,
+            mcp_servers=mcp_servers,
+            agent_aliases=aliases,
+        )
+        durable_agent.tools.extend(tools)
+        durable_agent.mcp_servers.extend(servers)
+
+        references = refs(expression)
+        bound_hosted.update(references & hosted_vars.keys())
+        for ref in references:
+            if ref in mcp_lists:
+                bound_clients.add(mcp_lists[ref])
+
+        durable_agent.tools = _dedupe_tools(durable_agent.tools)
+        durable_agent.mcp_servers = _dedupe_servers(
+            durable_agent.mcp_servers
+        )
+
+    # Reconstruct workflow authority only when a workflow is exposed as an
+    # agent. The effective authority of that surface is the union of its
+    # source-proven participant agents.
+    workflows = _workflow_definitions(source, known, aliases)
+
+    for item, agent in zip(agent_items, graph.agents):
+        for ref in refs(item.expression):
+            definition = workflows.get(ref)
+            if definition is None:
+                continue
+            agent.tools.extend(_workflow_delegation_tools(
+                path,
+                source,
+                definition,
+                offset=item.offset,
+                agent_aliases=aliases,
+            ))
+            agent.metadata["workflow_kind"] = definition.get("kind")
+            agent.metadata["workflow_source_alias"] = ref
+        agent.tools = _dedupe_tools(agent.tools)
+
+    for expression, expression_offset in _hosted_agent_expressions(source, masked):
+        name = _hosted_agent_name(expression)
+        if not name:
+            continue
+        hosted_agent = next(
+            (
+                candidate for candidate in graph.agents
+                if candidate.name == name
+                and candidate.metadata.get("hosting_registration") is True
+            ),
+            None,
+        )
+        if hosted_agent is None:
+            continue
+        for ref in refs(expression):
+            definition = workflows.get(ref)
+            if definition is None:
+                continue
+            hosted_agent.tools.extend(_workflow_delegation_tools(
+                path,
+                source,
+                definition,
+                offset=expression_offset,
+                agent_aliases=aliases,
+            ))
+            hosted_agent.metadata["workflow_kind"] = definition.get("kind")
+            hosted_agent.metadata["workflow_source_alias"] = ref
+        hosted_agent.tools = _dedupe_tools(hosted_agent.tools)
+
+    # Hosting's AddWorkflow(...).AddAsAIAgent() creates an agent surface without
+    # an explicit AIAgent assignment. Inventory it and project participant
+    # authority from the workflow construction statement.
+    for expression, expression_offset in _hosted_workflow_agent_expressions(
+        source,
+        masked,
+    ):
+        name = _hosted_workflow_name(expression)
+        if not name:
+            continue
+        workflow_agent = next(
+            (candidate for candidate in graph.agents if candidate.name == name),
+            None,
+        )
+        if workflow_agent is None:
+            workflow_agent = Agent(
+                name=name,
+                location=location(path, source, expression_offset),
+                metadata={
+                    "framework": FRAMEWORK,
+                    "language": "csharp",
+                    "agent_type": "WorkflowAgent",
+                    "hosting_registration": True,
+                    "binding_origin": "AddWorkflow.AddAsAIAgent",
+                    "source_aliases": [],
+                },
+            )
+            graph.agents.append(workflow_agent)
+            aliases.setdefault(name, workflow_agent)
+
+        referenced_definition = next(
+            (
+                workflows[ref] for ref in refs(expression)
+                if ref in workflows
+            ),
+            None,
+        )
+        definition = referenced_definition or {
+            "kind": _workflow_kind(expression) or "workflow",
+            "participants": _workflow_participants(expression, aliases),
+        }
+        workflow_agent.tools.extend(_workflow_delegation_tools(
+            path,
+            source,
+            definition,
+            offset=expression_offset,
+            agent_aliases=aliases,
+        ))
+        workflow_agent.metadata["workflow_kind"] = definition.get("kind")
+        workflow_agent.tools = _dedupe_tools(workflow_agent.tools)
+
+    run_options = _run_option_tool_sets(
+        path,
+        source,
+        masked,
+        known,
+        tool_vars=tool_vars,
+        hosted_vars=hosted_vars,
+        mcp_lists=mcp_lists,
+        mcp_servers=mcp_servers,
+        agent_aliases=aliases,
+    )
+    _bind_per_run_authority(
+        path,
+        source,
+        masked,
+        agent_aliases=aliases,
+        run_options=run_options,
+        known=known,
+        tool_vars=tool_vars,
+        hosted_vars=hosted_vars,
+        mcp_lists=mcp_lists,
+        mcp_servers=mcp_servers,
+    )
 
     graph.unbound_mcp_servers.extend(
         server for name, server in mcp_servers.items()
