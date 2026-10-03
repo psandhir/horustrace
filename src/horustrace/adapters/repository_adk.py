@@ -1772,9 +1772,15 @@ def _merge_agent(existing: Agent, incoming: Agent) -> None:
         index, existing_tool = current
         replace_placeholder = (
             tool.metadata.get("repository_resolved") is True
-            and existing_tool.kind == "adk_builtin"
-            and existing_tool.metadata.get("adk_builtin")
-            not in BUILTIN_TOOL_CAPABILITIES
+            and (
+                (
+                    existing_tool.kind == "adk_builtin"
+                    and existing_tool.metadata.get("adk_builtin")
+                    not in BUILTIN_TOOL_CAPABILITIES
+                )
+                or existing_tool.kind == "unresolved_bound_tool"
+                or existing_tool.metadata.get("binding_unresolved") is True
+            )
         )
         if replace_placeholder:
             existing.tools[index] = tool
