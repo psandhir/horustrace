@@ -44,7 +44,20 @@ def _rules(findings):
 
 
 def _metadata_signal(metadata: dict, *tokens: str) -> bool:
-    lowered = json.dumps(metadata, default=str).lower()
+    """Match semantic metadata keys only; never infer from file/path values."""
+    keys: list[str] = []
+
+    def collect(value) -> None:
+        if isinstance(value, dict):
+            for key, nested in value.items():
+                keys.append(str(key))
+                collect(nested)
+        elif isinstance(value, (list, tuple, set)):
+            for nested in value:
+                collect(nested)
+
+    collect(metadata)
+    lowered = " ".join(keys).lower()
     return all(token.lower() in lowered for token in tokens)
 
 
@@ -524,8 +537,11 @@ def _check_08(graph, findings, relationships):
         ),
         "controls": bool(
             server
-            and server.approval is None
             and server.guardrails is True
+            and (
+                server.approval is not None
+                or _metadata_signal(server.metadata, "approval")
+            )
             and set(server.allowed_tools) == {"delete_file", "read_file"}
         ),
         "authority_driven_findings": bool(relationships),
