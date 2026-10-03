@@ -803,6 +803,15 @@ def _parse_tools(
         if tool:
             tools.append(tool)
 
+    tools.extend(
+        _provider_tools_in_expression(
+            path,
+            source,
+            value,
+            offset=offset,
+        )
+    )
+
     for match in re.finditer(r"\b([A-Za-z_]\w*)\.AsAIFunction\s*\(", value):
         alias = match.group(1)
         child = agent_aliases.get(alias)
@@ -986,6 +995,11 @@ def scan_dotnet_file(path: Path) -> Graph:
         for name, item in known.items()
         if (tool := _tool_variable(path, source, masked, item)) is not None
     }
+    codeact_vars = {
+        name: tool
+        for name, item in known.items()
+        if (tool := _codeact_provider_tool(path, source, item)) is not None
+    }
 
     # Agent Skills are effective authority only when their provider is attached
     # to an agent. Keep source variables/providers separate until that binding.
@@ -1140,6 +1154,8 @@ def scan_dotnet_file(path: Path) -> Graph:
             for ref in refs(context):
                 for skill in skill_provider_tools.get(ref, []):
                     agent.tools.append(deepcopy(skill))
+                if ref in codeact_vars:
+                    agent.tools.append(deepcopy(codeact_vars[ref]))
 
                 for client in skill_provider_mcp.get(ref, []):
                     server = mcp_servers.get(client)
