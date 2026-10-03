@@ -28,6 +28,8 @@ class _ModuleInfo:
     wrappers: dict[str, str]
     imports: dict[str, tuple[str, str]]
     module_aliases: dict[str, str]
+    function_imports: dict[str, dict[str, tuple[str, str]]]
+    function_module_aliases: dict[str, dict[str, str]]
     imported_modules: set[str]
 
 
@@ -91,6 +93,23 @@ def _resolve_import_module(
     return ".".join(base)
 
 
+def _function_scope_nodes(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+):
+    """Yield nodes owned by one function without descending into nested scopes."""
+    stack = list(reversed(function.body))
+    while stack:
+        node = stack.pop()
+        yield node
+        if isinstance(
+            node,
+            (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda),
+        ):
+            continue
+        children = list(ast.iter_child_nodes(node))
+        stack.extend(reversed(children))
+
+
 def _location(path: Path, node: ast.AST) -> SourceLocation:
     return SourceLocation(
         path=path,
@@ -151,6 +170,8 @@ def _build_modules(root: Path, python_paths: list[Path]) -> dict[str, _ModuleInf
         wrappers: dict[str, str] = {}
         imports: dict[str, tuple[str, str]] = {}
         module_aliases: dict[str, str] = {}
+        function_imports: dict[str, dict[str, tuple[str, str]]] = {}
+        function_module_aliases: dict[str, dict[str, str]] = {}
         imported_modules: set[str] = set()
 
         for node in getattr(tree, "body", []):
@@ -182,6 +203,31 @@ def _build_modules(root: Path, python_paths: list[Path]) -> dict[str, _ModuleInf
                     if isinstance(target, ast.Name):
                         wrappers[target.id] = wrapped_name
 
+        for function_name, function in functions.items():
+            local_imports: dict[str, tuple[str, str]] = {}
+            local_module_aliases: dict[str, str] = {}
+            for node in _function_scope_nodes(function):
+                if isinstance(node, ast.ImportFrom):
+                    source_module = _resolve_import_module(module, path, node)
+                    if source_module:
+                        imported_modules.add(source_module)
+                    for alias in node.names:
+                        if alias.name == "*":
+                            continue
+                        local_imports[alias.asname or alias.name] = (
+                            source_module,
+                            alias.name,
+                        )
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        local = alias.asname or alias.name.split(".")[0]
+                        local_module_aliases[local] = alias.name
+                        imported_modules.add(alias.name)
+            if local_imports:
+                function_imports[function_name] = local_imports
+            if local_module_aliases:
+                function_module_aliases[function_name] = local_module_aliases
+
         modules[module] = _ModuleInfo(
             path=path,
             tree=tree,
@@ -189,6 +235,8 @@ def _build_modules(root: Path, python_paths: list[Path]) -> dict[str, _ModuleInf
             wrappers=wrappers,
             imports=imports,
             module_aliases=module_aliases,
+            function_imports=function_imports,
+            function_module_aliases=function_module_aliases,
             imported_modules=imported_modules,
         )
     return modules
@@ -198,11 +246,26 @@ def _call_target(
     module: str,
     info: _ModuleInfo,
     call: ast.Call,
+    *,
+    function_name: str | None = None,
 ) -> tuple[str, str] | None:
+    local_imports = (
+        info.function_imports.get(function_name, {})
+        if function_name is not None
+        else {}
+    )
+    local_module_aliases = (
+        info.function_module_aliases.get(function_name, {})
+        if function_name is not None
+        else {}
+    )
+
     wrapped = executor_wrapped_callable(call)
     if isinstance(wrapped, ast.Name):
         if wrapped.id in info.functions:
             return module, wrapped.id
+        if wrapped.id in local_imports:
+            return local_imports[wrapped.id]
         if wrapped.id in info.imports:
             return info.imports[wrapped.id]
 
@@ -210,6 +273,8 @@ def _call_target(
         name = call.func.id
         if name in info.functions:
             return module, name
+        if name in local_imports:
+            return local_imports[name]
         if name in info.imports:
             return info.imports[name]
 
@@ -217,7 +282,7 @@ def _call_target(
     if not dotted or "." not in dotted:
         return None
     root, _, rest = dotted.partition(".")
-    imported_module = info.module_aliases.get(root)
+    imported_module = local_module_aliases.get(root) or info.module_aliases.get(root)
     if imported_module and rest and "." not in rest:
         return imported_module, rest
     return None
@@ -690,7 +755,12 @@ def _summarize_function(
                 function_name=symbol,
             ),
         )
-        target = _call_target(module, info, call)
+        target = _call_target(
+            module,
+            info,
+            call,
+            function_name=symbol,
+        )
         if target is None:
             continue
         target_module, target_symbol = target
@@ -744,7 +814,12 @@ def _has_cross_module_call(
         return False
 
     for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
-        target = _call_target(module, info, call)
+        target = _call_target(
+            module,
+            info,
+            call,
+            function_name=symbol,
+        )
         if target is None or target[0] not in modules:
             continue
         if target[0] != module:
