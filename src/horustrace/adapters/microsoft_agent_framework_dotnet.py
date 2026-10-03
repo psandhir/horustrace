@@ -61,6 +61,11 @@ def is_microsoft_agent_framework_dotnet_file(path: Path) -> bool:
         "Microsoft.Agents.AI" in source
         and (
             any(marker in source for marker in _AGENT_MARKERS)
+            or re.search(
+                r"\b(?:AIAgent|ChatClientAgent)\s+[A-Za-z_]\w*\s*=\s*new\s*\(",
+                source,
+            )
+            is not None
             or _HOSTED_AGENT_MARKER in source
             or any(marker in source for marker in _SKILL_MARKERS)
             or "HostedMcpServerTool" in source
