@@ -284,6 +284,26 @@ def _direct_effect(
         result.capabilities.add("data.read")
         result.evidence.add(f"database:{dotted}")
 
+    # DB-API cursor/connection calls often use generic receiver names such as
+    # conn or cursor. Only promote execute-like calls when the SQL operation is
+    # source-visible, so unrelated .execute() methods are not treated as database
+    # authority.
+    if leaf in {"execute", "executemany", "executescript"} and call.args:
+        sql = _literal(call.args[0])
+        if isinstance(sql, str):
+            statement = sql.lstrip().split(None, 1)[0].lower() if sql.strip() else ""
+            if statement in {
+                "insert", "update", "replace", "create", "alter", "drop",
+                "delete", "truncate", "vacuum", "reindex",
+            }:
+                result.capabilities.add("data.write")
+                result.evidence.add(f"database-sql:{statement}")
+                if statement in {"drop", "delete", "truncate"}:
+                    result.capabilities.add("destructive.write")
+            elif statement in {"select", "pragma", "explain"}:
+                result.capabilities.add("data.read")
+                result.evidence.add(f"database-sql:{statement}")
+
     # Source-visible outbound SDK sinks.
     sendgrid_present = any(name.startswith("sendgrid") for name in info.imported_modules)
     twilio_present = any(name.startswith("twilio") for name in info.imported_modules)
@@ -517,15 +537,10 @@ def enrich_repository_tool_effects(
             source = _tool_source_symbol(tool, root, modules)
             if source is None:
                 continue
-            imported_or_wrapped = bool(tool.metadata.get("import_module")) or bool(
-                tool.metadata.get("placeholder")
-            )
-            if not imported_or_wrapped and not _has_cross_module_call(
-                modules,
-                source[0],
-                source[1],
-            ):
-                continue
+            # Summarize every source-resolved tool function. The framework
+            # adapters already capture direct body effects; this repository pass
+            # adds transitive repository-local helper effects, including helpers
+            # in the same module (for example tool -> _run_bash -> subprocess).
             effect = _summarize_function(
                 modules,
                 source[0],
