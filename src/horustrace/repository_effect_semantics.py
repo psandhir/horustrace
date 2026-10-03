@@ -501,6 +501,48 @@ def _has_cross_module_call(
     return False
 
 
+def _direct_function_effect(
+    modules: dict[str, _ModuleInfo],
+    module: str,
+    symbol: str,
+) -> _FunctionEffect:
+    resolved = _resolve_wrapper_symbol(modules, module, symbol) or (module, symbol)
+    info = modules.get(resolved[0])
+    function = info.functions.get(resolved[1]) if info is not None else None
+    if info is None or function is None:
+        return _FunctionEffect()
+
+    result = _FunctionEffect()
+    for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
+        _merge_effect(
+            result,
+            _direct_effect(
+                resolved[0],
+                info,
+                call,
+                function_name=resolved[1],
+            ),
+        )
+    return result
+
+
+def _effect_has_transitive_delta(
+    effect: _FunctionEffect,
+    direct: _FunctionEffect,
+) -> bool:
+    if effect.capabilities - direct.capabilities:
+        return True
+    direct_destinations = {
+        (item.target, item.restricted, str(item.metadata.get("source") or ""))
+        for item in direct.destinations
+    }
+    return any(
+        (item.target, item.restricted, str(item.metadata.get("source") or ""))
+        not in direct_destinations
+        for item in effect.destinations
+    )
+
+
 def _tool_source_symbol(
     tool: Tool,
     root: Path,
@@ -549,6 +591,22 @@ def enrich_repository_tool_effects(
             )
             if not effect.capabilities and not effect.destinations:
                 continue
+
+            imported_or_wrapped = bool(tool.metadata.get("import_module")) or bool(
+                tool.metadata.get("placeholder")
+            )
+            if not imported_or_wrapped and not _has_cross_module_call(
+                modules,
+                source[0],
+                source[1],
+            ):
+                direct_effect = _direct_function_effect(
+                    modules,
+                    source[0],
+                    source[1],
+                )
+                if not _effect_has_transitive_delta(effect, direct_effect):
+                    continue
 
             before = set(tool.capabilities)
             tool.capabilities.update(effect.capabilities)
