@@ -325,10 +325,7 @@ def evaluate(graph: Graph) -> list[Finding]:
 
     # Layer 1: agent/framework/MCP configuration controls.
     for agent in graph.agents:
-        callbacks = agent.metadata.get("callbacks") or {}
-        agent_tool_control = bool(agent.metadata.get("approval_plugin")) or bool(
-            callbacks.get("before_tool_callback")
-        )
+        agent_tool_control = agent.metadata.get("tool_control_enforcing") is True
         for tool in agent.tools:
             tool_authority = authority_by_key.get(
                 (
@@ -484,11 +481,10 @@ def evaluate(graph: Graph) -> list[Finding]:
     for agent in graph.agents:
         if agent.metadata.get("framework") != "google-adk":
             continue
-        callbacks = agent.metadata.get("callbacks") or {}
-        safety_control = bool(agent.metadata.get("approval_plugin")) or bool(callbacks.get("before_tool_callback"))
+        safety_control = agent.metadata.get("tool_control_enforcing") is True
         privileged_tools = [t for t in agent.tools if t.capabilities & PRIVILEGED_CAPABILITIES]
         if privileged_tools and not safety_control and all(t.approval is not True and not t.guardrails for t in privileged_tools):
-            findings.append(Finding("ADK001", Severity.MEDIUM, "Privileged ADK agent has no detected tool-control callback/plugin", f"ADK agent '{agent.name}' exposes privileged capabilities without a before-tool control callback, action-control plugin, or per-tool confirmation.", "Add a before_tool_callback/action-control plugin and require confirmation for high-impact tools.", layer=1, location=agent.location, agent=agent.name, evidence=["privileged_tools=" + ",".join(t.name for t in privileged_tools)]))
+            findings.append(Finding("ADK001", Severity.MEDIUM, "Privileged ADK agent has no detected enforcing tool control", f"ADK agent '{agent.name}' exposes privileged capabilities without a source-proven enforcing before-tool control or per-tool confirmation.", "Add a before_tool_callback/action-control plugin and require confirmation for high-impact tools.", layer=1, location=agent.location, agent=agent.name, evidence=["privileged_tools=" + ",".join(t.name for t in privileged_tools)]))
 
         for tool in agent.tools:
             builtin = str(tool.metadata.get("adk_builtin") or "")
