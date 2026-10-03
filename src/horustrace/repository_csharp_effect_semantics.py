@@ -11,7 +11,6 @@ from horustrace.adapters.csharp_source import (
 )
 from horustrace.models import Graph, NetworkDestination, SourceLocation, Tool
 
-
 FRAMEWORK = "microsoft-agent-framework-dotnet"
 
 _CLASS_RE = re.compile(
