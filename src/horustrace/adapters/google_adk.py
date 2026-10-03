@@ -1885,10 +1885,27 @@ def scan_python_file(path: Path) -> Graph:
             function = functions.get(tool.name)
             if function is None:
                 continue
-            _apply_operator_configured_function_destinations(
-                tool,
-                function,
-                configuration_sources,
-            )
+
+            pending = [function]
+            visited: set[str] = set()
+            while pending:
+                current = pending.pop()
+                if current.name in visited:
+                    continue
+                visited.add(current.name)
+                _apply_operator_configured_function_destinations(
+                    tool,
+                    current,
+                    configuration_sources,
+                )
+                for call in (
+                    node
+                    for node in ast.walk(current)
+                    if isinstance(node, ast.Call)
+                ):
+                    helper_name = _call_name(call.func)
+                    helper = functions.get(helper_name or "")
+                    if helper is not None and helper.name not in visited:
+                        pending.append(helper)
 
     return graph
