@@ -39,6 +39,7 @@ _AGENT_MARKERS = (
     "new ChatClientAgent(",
     "new ChatClientAgent (",
     ".BuildAIAgent(",
+    ".AsHarnessAgent(",
 )
 
 _HOSTED_AGENT_MARKER = ".AddAIAgent("
@@ -70,6 +71,10 @@ def is_microsoft_agent_framework_dotnet_file(path: Path) -> bool:
             or any(marker in source for marker in _SKILL_MARKERS)
             or "HostedMcpServerTool" in source
             or "AgentSkillsProviderBuilder" in source
+            or "AgentWorkflowBuilder" in source
+            or ".AddWorkflow(" in source
+            or "ChatClientAgentRunOptions" in source
+            or "FunctionInvokingChatClient.CurrentContext" in source
         )
     )
 
@@ -729,6 +734,404 @@ def _hosted_agent_expressions(source: str, masked: str) -> list[tuple[str, int]]
         if expression:
             result.append((expression, match.start()))
     return result
+
+
+
+def _bool_property(expression: str, name: str) -> bool | None:
+    match = re.search(
+        rf"\b{re.escape(name)}\s*=\s*(true|false)\b",
+        expression,
+        re.IGNORECASE,
+    )
+    if not match:
+        return None
+    return match.group(1).lower() == "true"
+
+
+def _resolve_expression(
+    value: str | None,
+    known: dict[str, CSharpAssignment],
+) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if re.fullmatch(r"[A-Za-z_]\w*", stripped) and stripped in known:
+        return known[stripped].expression
+    return stripped
+
+
+def _resource_selector(expression: str | None, fallback: str) -> str:
+    if not expression:
+        return fallback
+    match = re.search(
+        r"new\s+(?:FileSystem)?AgentFileStore\s*\(\s*(.*?)\s*\)",
+        expression,
+        re.DOTALL,
+    )
+    if match:
+        value = match.group(1).strip()
+        literal = re.fullmatch(r'@?"([^"]+)"', value)
+        if literal:
+            return literal.group(1)
+        if value:
+            return value[:240]
+    return fallback
+
+
+def _harness_builtin_tools(
+    path: Path,
+    source: str,
+    expression: str,
+    *,
+    offset: int,
+    known: dict[str, CSharpAssignment],
+    agent_aliases: dict[str, Agent],
+) -> list[Tool]:
+    if ".AsHarnessAgent(" not in expression:
+        return []
+
+    result: list[Tool] = []
+
+    # HostedWebSearchTool is enabled by default by HarnessAgent.
+    if _bool_property(expression, "DisableWebSearch") is not True:
+        result.append(Tool(
+            name="HostedWebSearchTool",
+            kind="provider_tool",
+            capabilities={"data.read", "network.external"},
+            location=location(path, source, offset),
+            metadata={
+                "framework": FRAMEWORK,
+                "provider": "microsoft-foundry",
+                "provider_managed": True,
+                "provider_tool_type": "HostedWebSearchTool",
+                "binding_origin": "HarnessAgent.default",
+                "framework_default": True,
+            },
+        ))
+
+    # File memory is enabled by default and exposes persistent read/write memory
+    # tools. The delete operation is deliberately represented as data.write
+    # rather than broad destructive authority because the store is harness-owned
+    # session memory, not the shared FileAccessStore.
+    if _bool_property(expression, "DisableFileMemory") is not True:
+        memory_store = _resolve_expression(
+            argument_value(expression, "FileMemoryStore"),
+            known,
+        )
+        selector = _resource_selector(
+            memory_store,
+            "<harness-default-file-memory>",
+        )
+        result.append(Tool(
+            name="harness:file-memory",
+            kind="microsoft_dotnet_harness_file_memory",
+            capabilities={"data.read", "data.write"},
+            approval=False,
+            location=location(path, source, offset),
+            resources=[ResourceScope(
+                kind="filesystem",
+                selector=selector,
+                access={"data.read", "data.write"},
+                location=location(path, source, offset),
+                metadata={
+                    "framework": FRAMEWORK,
+                    "harness_internal_memory": True,
+                    "persistent": True,
+                    "framework_default": memory_store is None,
+                },
+            )],
+            metadata={
+                "framework": FRAMEWORK,
+                "binding_origin": "HarnessAgent.FileMemoryProvider",
+                "persistent_memory": True,
+                "supports_delete": True,
+                "framework_default": memory_store is None,
+            },
+        ))
+
+    # Harness file-based AgentSkillsProvider is also enabled by default. With no
+    # explicit script runner the framework guarantees skill/resource reads, but
+    # not arbitrary process execution.
+    if _bool_property(expression, "DisableAgentSkillsProvider") is not True:
+        source_value = _resolve_expression(
+            argument_value(expression, "AgentSkillsSource"),
+            known,
+        )
+        result.append(Tool(
+            name="harness:agent-skills",
+            kind="microsoft_dotnet_agent_skill",
+            capabilities={"data.read"},
+            approval=True,
+            location=location(path, source, offset),
+            metadata={
+                "framework": FRAMEWORK,
+                "binding_origin": "HarnessAgent.AgentSkillsProvider",
+                "dynamic_tool_catalogue": True,
+                "skill_source": "custom" if source_value else "cwd",
+                "skill_source_expression": source_value,
+                "framework_default": source_value is None,
+            },
+        ))
+
+    file_store = _resolve_expression(
+        argument_value(expression, "FileAccessStore"),
+        known,
+    )
+    if file_store:
+        file_options = _resolve_expression(
+            argument_value(expression, "FileAccessProviderOptions"),
+            known,
+        ) or ""
+        disable_write = _bool_property(file_options, "DisableWriteTools") is True
+        read_approval = (
+            _bool_property(file_options, "DisableReadOnlyToolApproval") is not True
+        )
+        write_approval = (
+            _bool_property(file_options, "DisableWriteToolApproval") is not True
+        )
+
+        auto_approval_enabled = (
+            _bool_property(expression, "DisableToolAutoApproval") is not True
+        )
+        approval_options = _resolve_expression(
+            argument_value(expression, "ToolApprovalAgentOptions"),
+            known,
+        ) or ""
+        read_auto = (
+            auto_approval_enabled
+            and (
+                "FileAccessProvider.ReadOnlyToolsAutoApprovalRule"
+                in approval_options
+                or "FileAccessProvider.AllToolsAutoApprovalRule"
+                in approval_options
+            )
+        )
+        write_auto = (
+            auto_approval_enabled
+            and "FileAccessProvider.AllToolsAutoApprovalRule" in approval_options
+        )
+        selector = _resource_selector(
+            file_store,
+            "<configured-harness-file-store>",
+        )
+        shared_metadata = {
+            "framework": FRAMEWORK,
+            "binding_origin": "HarnessAgent.FileAccessProvider",
+            "store_expression": file_store,
+        }
+        result.append(Tool(
+            name="harness:file-access-read",
+            kind="microsoft_dotnet_harness_file_access",
+            capabilities={"data.read"},
+            approval=False if read_auto else read_approval,
+            location=location(path, source, offset),
+            resources=[ResourceScope(
+                kind="filesystem",
+                selector=selector,
+                access={"data.read"},
+                location=location(path, source, offset),
+                metadata={**shared_metadata, "shared_store": True},
+            )],
+            metadata={
+                **shared_metadata,
+                "access_mode": "read",
+                "auto_approved": read_auto,
+            },
+        ))
+        if not disable_write:
+            result.append(Tool(
+                name="harness:file-access-write",
+                kind="microsoft_dotnet_harness_file_access",
+                capabilities={"data.write", "destructive.write"},
+                approval=False if write_auto else write_approval,
+                location=location(path, source, offset),
+                resources=[ResourceScope(
+                    kind="filesystem",
+                    selector=selector,
+                    access={"data.write", "destructive.write"},
+                    location=location(path, source, offset),
+                    metadata={**shared_metadata, "shared_store": True},
+                )],
+                metadata={
+                    **shared_metadata,
+                    "access_mode": "write",
+                    "auto_approved": write_auto,
+                    "supports_delete": True,
+                },
+            ))
+
+    background = argument_value(expression, "BackgroundAgents")
+    if background:
+        for ref in refs(background):
+            child = agent_aliases.get(ref)
+            if child is None:
+                continue
+            result.append(Tool(
+                name=child.name,
+                kind="delegated_agent",
+                capabilities={"agent.delegate"},
+                location=location(path, source, offset),
+                metadata={
+                    "framework": FRAMEWORK,
+                    "delegate_target": ref,
+                    "binding_origin": "HarnessAgent.BackgroundAgentsProvider",
+                    "authority_binding_basis": (
+                        "microsoft_dotnet_harness_background_agent"
+                    ),
+                    "background_execution": True,
+                },
+            ))
+
+    return _dedupe_tools(result)
+
+
+_WORKFLOW_MARKERS = (
+    "AgentWorkflowBuilder.BuildSequential",
+    "AgentWorkflowBuilder.BuildConcurrent",
+    "AgentWorkflowBuilder.CreateHandoffBuilderWith",
+    "AgentWorkflowBuilder.CreateGroupChatBuilderWith",
+    "AgentWorkflowBuilder.CreateSequentialBuilderWith",
+    "AgentWorkflowBuilder.CreateConcurrentBuilderWith",
+)
+
+
+def _workflow_kind(expression: str) -> str | None:
+    if "BuildSequential" in expression or "CreateSequentialBuilderWith" in expression:
+        return "sequential"
+    if "BuildConcurrent" in expression or "CreateConcurrentBuilderWith" in expression:
+        return "concurrent"
+    if "CreateHandoffBuilderWith" in expression or ".WithHandoffs(" in expression:
+        return "handoff"
+    if "CreateGroupChatBuilderWith" in expression or ".AddParticipants(" in expression:
+        return "group_chat"
+    return None
+
+
+def _workflow_participants(
+    expression: str,
+    agent_aliases: dict[str, Agent],
+) -> list[str]:
+    result: list[str] = []
+    for ref in refs(expression):
+        if ref in agent_aliases and ref not in result:
+            result.append(ref)
+    return result
+
+
+def _workflow_definitions(
+    source: str,
+    known: dict[str, CSharpAssignment],
+    agent_aliases: dict[str, Agent],
+) -> dict[str, dict[str, object]]:
+    builders: dict[str, dict[str, object]] = {}
+    workflows: dict[str, dict[str, object]] = {}
+
+    for name, item in known.items():
+        if any(marker in item.expression for marker in _WORKFLOW_MARKERS):
+            kind = _workflow_kind(item.expression) or "workflow"
+            builders[name] = {
+                "kind": kind,
+                "participants": _workflow_participants(
+                    item.expression,
+                    agent_aliases,
+                ),
+                "source_alias": name,
+            }
+
+    # Builder mutation is common for handoff/group-chat workflows.
+    for builder_name, definition in builders.items():
+        for match in re.finditer(
+            rf"\b{re.escape(builder_name)}\."
+            r"(?:WithHandoffs|AddParticipants)\s*\(",
+            source,
+        ):
+            end = statement_end(mask_non_code(source), match.start())
+            statement = source[match.start():end]
+            for participant in _workflow_participants(
+                statement,
+                agent_aliases,
+            ):
+                participants = definition["participants"]
+                if (
+                    isinstance(participants, list)
+                    and participant not in participants
+                ):
+                    participants.append(participant)
+
+    for name, item in known.items():
+        direct = any(marker in item.expression for marker in _WORKFLOW_MARKERS)
+        builder_match = re.search(
+            r"\b([A-Za-z_]\w*)\.Build\s*\(",
+            item.expression,
+        )
+        if direct:
+            workflows[name] = dict(builders.get(name, {
+                "kind": _workflow_kind(item.expression) or "workflow",
+                "participants": _workflow_participants(
+                    item.expression,
+                    agent_aliases,
+                ),
+                "source_alias": name,
+            }))
+        elif builder_match and builder_match.group(1) in builders:
+            workflows[name] = dict(builders[builder_match.group(1)])
+            workflows[name]["source_alias"] = name
+
+    return workflows
+
+
+def _workflow_delegation_tools(
+    path: Path,
+    source: str,
+    definition: dict[str, object],
+    *,
+    offset: int,
+    agent_aliases: dict[str, Agent],
+) -> list[Tool]:
+    result: list[Tool] = []
+    kind = str(definition.get("kind") or "workflow")
+    participants = definition.get("participants")
+    if not isinstance(participants, list):
+        return result
+    for alias in participants:
+        child = agent_aliases.get(str(alias))
+        if child is None:
+            continue
+        result.append(Tool(
+            name=child.name,
+            kind="delegated_agent",
+            capabilities={"agent.delegate"},
+            location=location(path, source, offset),
+            metadata={
+                "framework": FRAMEWORK,
+                "delegate_target": str(alias),
+                "binding_origin": "AgentWorkflowBuilder",
+                "workflow_kind": kind,
+                "authority_binding_basis": "microsoft_dotnet_workflow_projection",
+            },
+        ))
+    return _dedupe_tools(result)
+
+
+def _hosted_workflow_agent_expressions(
+    source: str,
+    masked: str,
+) -> list[tuple[str, int]]:
+    result: list[tuple[str, int]] = []
+    for match in re.finditer(r"\.AddWorkflow\s*\(", masked):
+        end = statement_end(masked, match.start())
+        expression = source[match.start():end].strip()
+        if ".AddAsAIAgent" in expression:
+            result.append((expression, match.start()))
+    return result
+
+
+def _hosted_workflow_name(expression: str) -> str | None:
+    match = re.search(
+        r"\.AddWorkflow\s*\(\s*@?\"([^\"]+)\"",
+        expression,
+    )
+    return match.group(1) if match else None
 
 
 def _dedupe_tools(items: Iterable[Tool]) -> list[Tool]:
