@@ -224,3 +224,36 @@ app.MapDefaultAgentEndpoints();
         item.metadata.get("basis") == "MapDefaultAgentEndpoints"
         for item in agent.inputs
     )
+
+
+
+def test_m365_agents_agent_attribute_survives_modifier_and_attribute_stack(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        r"""
+using System;
+using Microsoft.Agents.Builder.App;
+
+[Agent(name: "LayeredAgent", description: "support", version: "1")]
+[Obsolete]
+public sealed partial class LayeredAgentClass(
+    AgentApplicationOptions options
+) : AgentApplication(options)
+{
+    [MessageRoute]
+    public Task OnMessageAsync(
+        ITurnContext turnContext,
+        ITurnState turnState,
+        CancellationToken cancellationToken) => Task.CompletedTask;
+}
+""",
+    )
+
+    graph = scan_microsoft_365_agents_dotnet_file(path)
+    agent = graph.agents[0]
+
+    assert agent.name == "LayeredAgent"
+    assert agent.metadata["class_name"] == "LayeredAgentClass"
+    assert agent.inputs[0].metadata["route_attribute"] == "MessageRoute"
