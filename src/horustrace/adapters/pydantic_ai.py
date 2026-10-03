@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 
 from horustrace.coverage import add_diagnostic
 from horustrace.heuristics import infer_capabilities
-from horustrace.models import (
+from horustrace.effect_semantics import is_local_collection_mutation\nfrom horustrace.models import (
     Agent,
     Graph,
     InputSource,
@@ -249,6 +249,7 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
         ):
             # HTTP method is transport evidence, not mutation semantics.
             capabilities.add("network.external")
+        local_collection_mutation = is_local_collection_mutation(child)
         if leaf in {
             "write",
             "update",
@@ -258,7 +259,7 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
             "put",
             "edit",
             "patch",
-        }:
+        } and not local_collection_mutation:
             body_write_evidence = True
             capabilities.add("data.write")
         if leaf in {
@@ -269,7 +270,7 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
             "rmtree",
             "drop",
             "purge",
-        }:
+        } and not local_collection_mutation:
             body_write_evidence = True
             capabilities.update({"data.write", "destructive.write"})
         if leaf in {"read", "get", "search", "retrieve", "fetch", "query", "list"}:
