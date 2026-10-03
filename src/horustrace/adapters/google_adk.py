@@ -997,6 +997,9 @@ def _mcp_from_toolset(path: Path, call: ast.Call, alias: str, calls: dict[str, a
             server_params = _resolve_call(_kw(conn, "server_params"), calls) or conn
             command = _string(_kw(server_params, "command"))
             args = _list_strings(_kw(server_params, "args"))
+            declaration_line = getattr(server_params, "lineno", None)
+            if isinstance(declaration_line, int):
+                metadata["wrapped_mcp_declaration_lines"] = [declaration_line]
         metadata["connection_type"] = conn_name
     allowed, dynamic_filter = _tool_filter(call)
     if dynamic_filter:
