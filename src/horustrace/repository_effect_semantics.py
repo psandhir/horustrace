@@ -5,7 +5,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse
 
-from horustrace.effect_semantics import (\n    executor_wrapped_callable,\n    http_mutation_capabilities,\n    sql_call_capabilities,\n)\nfrom horustrace.models import Graph, NetworkDestination, SourceLocation, Tool\n
+from horustrace.effect_semantics import (
+    executor_wrapped_callable,
+    http_mutation_capabilities,
+    sql_call_capabilities,
+)
+from horustrace.models import Graph, NetworkDestination, SourceLocation, Tool
+
 
 @dataclass
 class _FunctionEffect:
