@@ -24,9 +24,16 @@ from urllib import error, parse, request
 
 import yaml
 
+from horustrace.adjudication import (
+    ATTACK_VERDICTS,
+    FINDING_VERDICTS,
+    PARTIAL_REASONS,
+    validate_partial_reasons,
+)
+
 STUDY = "attack-path-finding-validation-2026"
 DEFAULT_PROMPT = Path(
-    "research/attack-path-finding-validation-2026/LLM_REVIEW_PROMPT_V1.md"
+    "research/attack-path-finding-validation-2026/LLM_REVIEW_PROMPT_V2.md"
 )
 FORBIDDEN_REVIEW_KEYS = {
     "rule_id",
@@ -38,8 +45,6 @@ FORBIDDEN_REVIEW_KEYS = {
     "source_context",
     "owasp_agentic",
 }
-ATTACK_VERDICTS = {"valid", "invalid", "unresolved"}
-FINDING_VERDICTS = {"supported", "unsupported", "unresolved"}
 SEVERITIES = {"critical", "high", "medium", "low", "informational", "unresolved"}
 CONFIDENCES = {"high", "medium", "low"}
 
@@ -59,6 +64,7 @@ class JudgeConfig:
 class JudgeReview:
     case_id: str
     verdict: str
+    partial_reasons: list[str]
     severity: str
     confidence: str
     evidence: list[str]
@@ -293,6 +299,14 @@ def _review_schema(cases: list[dict[str, Any]]) -> dict[str, Any]:
                     "properties": {
                         "case_id": {"type": "string", "enum": case_ids},
                         "verdict": {"type": "string", "enum": verdicts},
+                        "partial_reasons": {
+                            "type": "array",
+                            "uniqueItems": True,
+                            "items": {
+                                "type": "string",
+                                "enum": sorted(PARTIAL_REASONS),
+                            },
+                        },
                         "severity": {"type": "string", "enum": sorted(SEVERITIES)},
                         "confidence": {"type": "string", "enum": sorted(CONFIDENCES)},
                         "evidence": {
@@ -305,6 +319,7 @@ def _review_schema(cases: list[dict[str, Any]]) -> dict[str, Any]:
                     "required": [
                         "case_id",
                         "verdict",
+                        "partial_reasons",
                         "severity",
                         "confidence",
                         "evidence",
@@ -509,6 +524,15 @@ def _validate_reviews(
             raise LLMAdjudicationError(
                 f"{case_id}: verdict {verdict!r} is invalid for {case_type}"
             )
+        try:
+            partial_reasons = validate_partial_reasons(
+                str(verdict),
+                item.get("partial_reasons"),
+            )
+        except ValueError as exc:
+            raise LLMAdjudicationError(
+                f"{case_id}: {exc}"
+            ) from exc
         severity = item.get("severity")
         confidence = item.get("confidence")
         evidence = item.get("evidence")
@@ -527,6 +551,7 @@ def _validate_reviews(
             JudgeReview(
                 case_id=case_id,
                 verdict=verdict,
+                partial_reasons=partial_reasons,
                 severity=severity,
                 confidence=confidence,
                 evidence=[row.strip() for row in evidence],
@@ -562,6 +587,7 @@ def _review_slot(
         "locked": True,
         "model": model,
         "verdict": review.verdict,
+        "partial_reasons": review.partial_reasons,
         "severity": review.severity,
         "confidence": review.confidence,
         "evidence": review.evidence,
@@ -658,7 +684,7 @@ def main() -> int:
     parser.add_argument("packet", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--prompt-file", type=Path, default=DEFAULT_PROMPT)
-    parser.add_argument("--prompt-version", default="llm-review-v1")
+    parser.add_argument("--prompt-version", default="llm-review-v2")
     parser.add_argument("--judge-a-id", required=True)
     parser.add_argument("--judge-a-provider", choices=("openai", "google", "gemini"), required=True)
     parser.add_argument("--judge-a-model", required=True)
