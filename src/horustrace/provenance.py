@@ -135,7 +135,7 @@ def attach_findings(graph, findings):
             finding.limitations.append(
                 'Capability co-occurrence does not prove an executable data-flow path or exploitability.'
             )
-        elif finding.rule_id in {'CAP001', 'CAP002', 'CAP006', 'DATA002', 'NET003'}:
+        elif get_rule_metadata(finding.rule_id).assessment == 'policy_violation':
             finding.assessment = 'policy_violation'
         elif finding.rule_id == 'IDN001' or any(f.origin == 'inferred' for f in finding.provenance):
             finding.assessment = 'heuristic_risk'
