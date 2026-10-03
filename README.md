@@ -52,8 +52,15 @@ Unknown evidence is never silently treated as compliant.
 A normal `horustrace scan` now performs both evaluations in one pass: the built-in
 HorusTrace security rules assess generic security risk, while any repository Authority
 Contract is evaluated separately against reconstructed effective authority. JSON exposes
-the result under `authority_contract`; console output renders a distinct Authority
-Contract assessment; SARIF stores the contract assessment in run properties.
+the detailed result under `authority_contract`; console output renders a distinct
+Authority Contract assessment; SARIF stores the contract assessment in run properties.
+
+Scan JSON, SARIF, and the interactive HTML report also expose a normalized
+`assurance` schema with four first-class views: generic security findings,
+configured HorusTrace rules classified as organisation-policy violations, Agent
+Authority Contract posture, and OWASP Agentic Top 10 posture. The HTML report renders
+dedicated Organisation Policy and OWASP Top 10 pages rather than leaving those signals
+only in raw finding metadata.
 
 The two CI gates remain independent:
 
