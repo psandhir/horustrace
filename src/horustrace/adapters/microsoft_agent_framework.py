@@ -172,6 +172,82 @@ def is_microsoft_agent_framework_file(path: Path) -> bool:
     return _uses_agent_framework(tree)
 
 
+def _agent_framework_imported_symbols(tree: ast.AST) -> set[str]:
+    """Return local symbols imported from the Microsoft Agent Framework."""
+    result: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if module == _FRAMEWORK_PREFIX or module.startswith(
+                _FRAMEWORK_PREFIX + "."
+            ):
+                for alias in node.names:
+                    result.add(alias.asname or alias.name)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == _FRAMEWORK_PREFIX or alias.name.startswith(
+                    _FRAMEWORK_PREFIX + "."
+                ):
+                    result.add(alias.asname or alias.name.split(".", 1)[0])
+    return result
+
+
+def _is_maf_client_expression(
+    node: ast.AST | None,
+    *,
+    variables: dict[str, ast.AST],
+    imported_symbols: set[str],
+    seen: set[str] | None = None,
+) -> bool:
+    if node is None:
+        return False
+    seen = set(seen or ())
+
+    if isinstance(node, ast.Name):
+        if node.id in seen:
+            return False
+        value = variables.get(node.id)
+        if value is None:
+            return False
+        seen.add(node.id)
+        return _is_maf_client_expression(
+            value,
+            variables=variables,
+            imported_symbols=imported_symbols,
+            seen=seen,
+        )
+
+    if not isinstance(node, ast.Call):
+        return False
+
+    name = _call_name(node.func)
+    dotted = _dotted(node.func) or ""
+    if not name or not name.endswith("Client"):
+        return False
+    return (
+        name in imported_symbols
+        or dotted == _FRAMEWORK_PREFIX
+        or dotted.startswith(_FRAMEWORK_PREFIX + ".")
+    )
+
+
+def _is_maf_client_create_agent(
+    call: ast.Call,
+    *,
+    variables: dict[str, ast.AST],
+    imported_symbols: set[str],
+) -> bool:
+    return (
+        isinstance(call.func, ast.Attribute)
+        and call.func.attr == "create_agent"
+        and _is_maf_client_expression(
+            call.func.value,
+            variables=variables,
+            imported_symbols=imported_symbols,
+        )
+    )
+
+
 def _function_capabilities(
     node: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> set[str]:
@@ -762,6 +838,15 @@ def scan_python_file(path: Path) -> Graph:
     variables: dict[str, ast.AST] = {}
     declared_servers: dict[str, MCPServer] = {}
     agent_specs: list[tuple[ast.Call, list[str]]] = []
+    imported_symbols = _agent_framework_imported_symbols(tree)
+
+    # Resolve assignments before classifying factory calls so client aliases
+    # work regardless of source ordering.
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
+            continue
+        for target in _target_names(node):
+            variables[target.rsplit(".", 1)[-1]] = node.value
 
     # Capture ordinary assignments first.
     for node in ast.walk(tree):
@@ -775,7 +860,11 @@ def scan_python_file(path: Path) -> Graph:
             continue
         call_name = _call_name(node.value.func)
         aliases = [target.rsplit(".", 1)[-1] for target in targets]
-        if call_name in _AGENT_TYPES:
+        if call_name in _AGENT_TYPES or _is_maf_client_create_agent(
+            node.value,
+            variables=variables,
+            imported_symbols=imported_symbols,
+        ):
             agent_specs.append((node.value, aliases))
         elif aliases:
             alias = aliases[0]
@@ -813,6 +902,22 @@ def scan_python_file(path: Path) -> Graph:
                 if server is not None:
                     declared_servers[leaf] = server
 
+    # Provider clients also expose create_agent(...). This can appear inside
+    # return statements rather than assignments, so collect any remaining
+    # source-proven Agent Framework client factories without treating arbitrary
+    # create_agent methods as framework agents.
+    known_agent_calls = {id(call) for call, _ in agent_specs}
+    for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
+        if id(call) in known_agent_calls:
+            continue
+        if _is_maf_client_create_agent(
+            call,
+            variables=variables,
+            imported_symbols=imported_symbols,
+        ):
+            agent_specs.append((call, []))
+            known_agent_calls.add(id(call))
+
     agents_by_alias: dict[str, Agent] = {}
     bound_references: set[str] = set()
 
@@ -820,7 +925,16 @@ def scan_python_file(path: Path) -> Graph:
         runtime_name = _literal(_kw(call, "name"))
         alias = aliases[0] if aliases else None
         agent_name = str(runtime_name or alias or "agent")
-        client_node = _kw(call, "client") or (call.args[0] if call.args else None)
+        client_factory = _is_maf_client_create_agent(
+            call,
+            variables=variables,
+            imported_symbols=imported_symbols,
+        )
+        client_node = (
+            call.func.value
+            if client_factory and isinstance(call.func, ast.Attribute)
+            else (_kw(call, "client") or (call.args[0] if call.args else None))
+        )
         client_expr = _expr(client_node)
         foundry_backed = (
             _call_name(call.func) == "FoundryAgent"
@@ -839,8 +953,17 @@ def scan_python_file(path: Path) -> Graph:
             location=_location(path, call),
             metadata={
                 "framework": "microsoft-agent-framework",
-                "agent_type": _call_name(call.func),
+                "agent_type": (
+                    "client.create_agent"
+                    if client_factory
+                    else _call_name(call.func)
+                ),
                 "client": client_expr,
+                "binding_origin": (
+                    "agent_framework_client.create_agent"
+                    if client_factory
+                    else None
+                ),
                 "provider": "microsoft-foundry" if foundry_backed else None,
                 "foundry_backed": foundry_backed,
                 "source_aliases": list(aliases),
