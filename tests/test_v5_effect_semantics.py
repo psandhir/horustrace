@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from horustrace.mcp_effective import effective_mcp_authority_report
 from horustrace.scanner import scan
 
 
@@ -365,3 +366,52 @@ agent = Agent(name="coder", tools=[write])
         finding.agent == "coder" and finding.rule_id == "PATH012"
         for finding in findings
     )
+
+
+
+def test_adk_factory_returned_agent_preserves_local_mcp_binding(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "agent.py",
+        """
+from google.adk.agents import Agent
+from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, StdioConnectionParams
+from mcp import StdioServerParameters
+
+def create_agent() -> Agent:
+    gitlab_mcp = MCPToolset(
+        connection_params=StdioConnectionParams(
+            server_params=StdioServerParameters(
+                command="mcp-gitlab",
+                args=[],
+            )
+        )
+    )
+    return Agent(
+        name="gitlab_incident_responder",
+        model="gemini-2.5-flash",
+        tools=[gitlab_mcp],
+    )
+
+root_agent = create_agent()
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item for item in graph.agents
+        if item.name == "gitlab_incident_responder"
+    )
+
+    assert len(agent.mcp_servers) == 1
+    server = agent.mcp_servers[0]
+    assert server.name == "gitlab_mcp"
+    assert server.transport == "stdio"
+    assert server.command == "mcp-gitlab"
+
+    authority = effective_mcp_authority_report(graph)
+    assert authority["summary"]["bound_relationships"] == 1
+    assert authority["summary"]["unbound_servers"] == 0
+    assert authority["authorities"][0]["agent"] == "gitlab_incident_responder"
+    assert authority["authorities"][0]["server"] == "gitlab_mcp"
