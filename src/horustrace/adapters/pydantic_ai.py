@@ -14,7 +14,12 @@ from urllib.parse import urlparse
 
 from horustrace.coverage import add_diagnostic
 from horustrace.heuristics import infer_capabilities
-from horustrace.effect_semantics import is_local_collection_mutation\nfrom horustrace.models import (
+from horustrace.effect_semantics import (
+    http_mutation_capabilities,
+    is_local_collection_mutation,
+    sql_call_capabilities,
+)
+from horustrace.models import (
     Agent,
     Graph,
     InputSource,
