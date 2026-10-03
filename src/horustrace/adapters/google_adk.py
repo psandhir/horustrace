@@ -1554,6 +1554,32 @@ def scan_python_file(path: Path) -> Graph:
     scoped_sequences: dict[str, dict[str, list[ast.AST]]] = {}
     safety_plugins: set[str] = set()
 
+    # ADK applications commonly construct and return an Agent from a local
+    # factory, then expose it as `root_agent = create_agent()`. Preserve the
+    # returned Agent's lexical scope so locally-created Tool/MCPToolset aliases
+    # remain visible when the factory invocation is normalized.
+    factory_agent_returns: dict[str, tuple[ast.Call, str]] = {}
+    for function_name, function in functions.items():
+        function_scope = (
+            f"{function.name}@{getattr(function, 'lineno', 0) or 0}"
+        )
+        returned_agents: list[ast.Call] = []
+        for candidate in ast.walk(function):
+            if (
+                not isinstance(candidate, ast.Return)
+                or not isinstance(candidate.value, ast.Call)
+                or _lexical_scope(tree, candidate) != function_scope
+            ):
+                continue
+            returned_type = _call_name(candidate.value.func) or ""
+            if returned_type in AGENT_TYPES or returned_type in custom_agent_classes:
+                returned_agents.append(candidate.value)
+        if len(returned_agents) == 1:
+            factory_agent_returns[function_name] = (
+                returned_agents[0],
+                function_scope,
+            )
+
     for node in ast.walk(tree):
         if isinstance(node, (ast.Assign, ast.AnnAssign)):
             value = node.value
@@ -1572,6 +1598,11 @@ def scan_python_file(path: Path) -> Graph:
                 call_name = _call_name(value.func) or ""
                 if call_name in AGENT_TYPES or call_name in custom_agent_classes:
                     agent_calls.append((alias, value, scope))
+                    continue
+                factory_return = factory_agent_returns.get(call_name)
+                if factory_return is not None:
+                    returned_agent, factory_scope = factory_return
+                    agent_calls.append((alias, returned_agent, factory_scope))
                     continue
                 mcp = _mcp_from_toolset(path, value, alias, calls)
                 if mcp:
