@@ -318,6 +318,64 @@ def _mandatory_authorization_gate(
     return False
 
 
+def _mandatory_runtime_capability_gate(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> bool:
+    """Detect an explicit source-visible runtime switch that blocks the action."""
+
+    def _gate_name(candidate: ast.AST) -> str | None:
+        if isinstance(candidate, ast.Name):
+            return candidate.id.lower()
+        if isinstance(candidate, ast.Attribute):
+            return candidate.attr.lower()
+        return None
+
+    def _looks_like_capability_gate(test: ast.AST) -> bool:
+        markers = (
+            "allow_",
+            "allowed_",
+            "enable_",
+            "enabled_",
+            "permit_",
+            "permitted_",
+            "authorize_",
+            "authorized_",
+            "can_",
+        )
+        exact = {
+            "allowed",
+            "enabled",
+            "permitted",
+            "authorized",
+        }
+        return any(
+            (name := _gate_name(child)) is not None
+            and (name in exact or name.startswith(markers) or name.endswith("_enabled"))
+            for child in ast.walk(test)
+        )
+
+    def _block_terminates(statements: list[ast.stmt]) -> bool:
+        if not statements:
+            return False
+        final = statements[-1]
+        if isinstance(final, (ast.Return, ast.Raise)):
+            return True
+        if isinstance(final, ast.If):
+            return _block_terminates(final.body) and _block_terminates(final.orelse)
+        return False
+
+    for statement in node.body:
+        if not isinstance(statement, ast.If):
+            continue
+        if not _looks_like_capability_gate(statement.test):
+            continue
+        if _block_terminates(statement.body) or (
+            statement.orelse and _block_terminates(statement.orelse)
+        ):
+            return True
+    return False
+
+
 def _restricted_in_process_eval(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     """Identify eval-only execution where Python builtins are explicitly disabled."""
     saw_eval = False
@@ -764,12 +822,13 @@ def _tool_from_function(
         capabilities.add("agent.delegate")
 
     authorization_gate = _mandatory_authorization_gate(node)
+    runtime_capability_gate = _mandatory_runtime_capability_gate(node)
     tool = Tool(
         name=node.name,
         kind="function",
         capabilities=capabilities,
         approval=approval,
-        guardrails=authorization_gate,
+        guardrails=authorization_gate or runtime_capability_gate,
         destinations=dynamic_destinations,
         location=_location(path, node),
         metadata={
@@ -781,6 +840,14 @@ def _tool_from_function(
                     "authorization_gate": True,
                 }
                 if authorization_gate
+                else {}
+            ),
+            **(
+                {
+                    "guardrail_mechanism": "runtime_capability_gate",
+                    "runtime_capability_gate": True,
+                }
+                if runtime_capability_gate and not authorization_gate
                 else {}
             ),
             **http_metadata,
