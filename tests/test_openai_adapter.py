@@ -961,3 +961,273 @@ async def main():
         and finding.agent == "approved-agent"
         for finding in findings
     )
+
+
+def test_openai_conditional_tool_enablement_remains_partial_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent, RunContextWrapper, function_tool
+
+def enabled(ctx: RunContextWrapper[dict], agent: Agent) -> bool:
+    return bool(ctx.context.get("enabled"))
+
+@function_tool(is_enabled=enabled)
+def write_record(value: str) -> str:
+    with open("/tmp/record.txt", "w", encoding="utf-8") as handle:
+        handle.write(value)
+    return value
+
+agent = Agent(name="conditional", tools=[write_record])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "conditional")
+    tool = next(item for item in agent.tools if item.name == "write_record")
+
+    assert tool.metadata["dynamic_tool_enablement"] is True
+    assert tool.metadata["availability_condition_unresolved"] is True
+    assert tool.metadata["tool_enablement_callable"] == "enabled"
+
+    relationship = next(
+        item
+        for item in effective_authority_report(graph)["relationships"]
+        if item["agent"] == "conditional"
+        and item["target"]["name"] == "write_record"
+    )
+    assert relationship["dimensions"]["availability"] == "partially_resolved"
+    assert "availability" in relationship["unresolved"]
+    assert relationship["semantics"]["availability"] == "conditional"
+
+
+def test_openai_conditional_approval_is_preserved_without_becoming_mandatory(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import subprocess
+from agents import Agent, RunContextWrapper, function_tool
+
+async def approval_required(
+    ctx: RunContextWrapper[dict], params: dict, call_id: str
+) -> bool:
+    return params.get("command") != "pwd"
+
+@function_tool(needs_approval=approval_required)
+def run_command(command: str) -> str:
+    return subprocess.run(
+        command, shell=True, capture_output=True, text=True
+    ).stdout
+
+agent = Agent(name="conditional-approval", tools=[run_command])
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(
+        item for item in graph.agents
+        if item.name == "conditional-approval"
+    )
+    tool = next(item for item in agent.tools if item.name == "run_command")
+
+    assert tool.approval is None
+    assert tool.metadata["conditional_approval"] is True
+    assert tool.metadata["approval_mechanism"] == "conditional_callback"
+    assert tool.metadata["approval_policy_callable"] == "approval_required"
+
+    relationship = next(
+        item
+        for item in effective_authority_report(graph)["relationships"]
+        if item["agent"] == "conditional-approval"
+        and item["target"]["name"] == "run_command"
+    )
+    assert relationship["dimensions"]["approval"] == "partially_resolved"
+    assert relationship["approval"]["conditional"] is True
+    assert relationship["approval"]["required"] is None
+    assert "approval_condition" in relationship["unresolved"]
+    assert any(
+        finding.rule_id == "AGT020"
+        and finding.agent == "conditional-approval"
+        for finding in findings
+    )
+
+
+def test_openai_mcp_preserves_per_tool_approval_and_tool_guardrails(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent, ToolGuardrailFunctionOutput
+from agents.decorators import tool_input_guardrail
+from agents.mcp import MCPServerStreamableHttp, create_static_tool_filter
+
+@tool_input_guardrail
+def block_secret_arguments(data):
+    return ToolGuardrailFunctionOutput.allow()
+
+server = MCPServerStreamableHttp(
+    name="ops",
+    params={"url": "https://mcp.example.com/mcp"},
+    require_approval={"delete_file": "always", "read_file": "never"},
+    tool_filter=create_static_tool_filter(
+        allowed_tool_names=["delete_file", "read_file"]
+    ),
+    tool_input_guardrails=[block_secret_arguments],
+)
+agent = Agent(name="mcp-client", mcp_servers=[server])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "mcp-client")
+    server = next(item for item in agent.mcp_servers if item.name == "server")
+
+    assert server.approval is None
+    assert server.guardrails is True
+    assert server.metadata["conditional_approval"] is True
+    assert server.metadata["approval_mechanism"] == "per_tool_policy"
+    assert server.metadata["approval_policy"] == {
+        "delete_file": "always",
+        "read_file": "never",
+    }
+    assert server.metadata["tool_input_guardrails"] == [
+        "block_secret_arguments"
+    ]
+
+    relationship = next(
+        item
+        for item in effective_authority_report(graph)["relationships"]
+        if item["agent"] == "mcp-client"
+        and item["target"]["kind"] == "mcp_server"
+    )
+    assert relationship["dimensions"]["approval"] == "partially_resolved"
+    assert relationship["approval"]["guardrails"] is True
+    assert relationship["approval"]["conditional"] is True
+    assert relationship["semantics"]["tool_input_guardrails"] == [
+        "block_secret_arguments"
+    ]
+
+
+def test_openai_agent_as_tool_preserves_literal_approval(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent
+
+specialist = Agent(name="Specialist")
+manager = Agent(
+    name="Manager",
+    tools=[
+        specialist.as_tool(
+            tool_name="ask_specialist",
+            tool_description="Delegate to specialist",
+            needs_approval=True,
+        )
+    ],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    manager = next(item for item in graph.agents if item.name == "Manager")
+    tool = next(item for item in manager.tools if item.name == "ask_specialist")
+
+    assert tool.approval is True
+    assert tool.metadata["delegate_target"] == "specialist"
+
+    relationship = next(
+        item
+        for item in effective_authority_report(graph)["relationships"]
+        if item["agent"] == "Manager"
+        and item["target"]["name"] == "ask_specialist"
+    )
+    assert relationship["approval"]["required"] is True
+    assert relationship["dimensions"]["approval"] == "resolved"
+
+
+def test_openai_agent_boundary_guardrails_are_preserved_as_boundary_controls(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import (
+    Agent,
+    GuardrailFunctionOutput,
+    RunContextWrapper,
+    input_guardrail,
+    output_guardrail,
+)
+
+@input_guardrail
+async def validate_input(ctx: RunContextWrapper, agent: Agent, input):
+    return GuardrailFunctionOutput(
+        output_info={}, tripwire_triggered=False
+    )
+
+@output_guardrail
+async def validate_output(ctx: RunContextWrapper, agent: Agent, output):
+    return GuardrailFunctionOutput(
+        output_info={}, tripwire_triggered=False
+    )
+
+agent = Agent(
+    name="guarded",
+    input_guardrails=[validate_input],
+    output_guardrails=[validate_output],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "guarded")
+
+    assert agent.metadata["input_guardrails"] == ["validate_input"]
+    assert agent.metadata["output_guardrails"] == ["validate_output"]
+    assert agent.metadata["boundary_guardrails"] is True
+    assert agent.metadata["boundary_guardrails_scope"] == "agent_input_output"
+    assert agent.metadata.get("tool_control_enforcing") is not True
+
+
+def test_openai_handoffs_are_first_class_effective_authority_delegations(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent, handoff
+from agents.extensions import handoff_filters
+
+refund = Agent(name="Refund")
+sales = Agent(name="Sales")
+triage = Agent(
+    name="Triage",
+    handoffs=[
+        refund,
+        handoff(
+            agent=sales,
+            input_filter=handoff_filters.remove_all_tools,
+        ),
+    ],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    report = effective_authority_report(graph)
+    delegated = {
+        item["target"]["name"]
+        for item in report["relationships"]
+        if item["agent"] == "Triage"
+        and item["target"]["kind"] == "delegation"
+    }
+
+    assert delegated == {"Refund", "Sales"}
+    assert report["summary"]["delegation_relationships"] >= 2
