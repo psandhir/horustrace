@@ -18,17 +18,21 @@ class CSharpAssignment:
     name: str
     expression: str
     offset: int
+    declared_type: str | None = None
 
 
 _ASSIGNMENT_RE = re.compile(
     r"""
     (?<![\w.])
     (?:
-        var
-        | [A-Za-z_][\w.]*
+        (?P<var>var)
+        |
+        (?P<declared_type>
+          [A-Za-z_][\w.]*
           (?:\s*<[^;={}\n]+>)?
           (?:\s*\[\])?
           \??
+        )
     )
     \s+
     (?P<name>[A-Za-z_]\w*)
@@ -196,6 +200,11 @@ def assignments(source: str, masked: str) -> dict[str, CSharpAssignment]:
                 match.group("name"),
                 expression,
                 start,
+                (
+                    match.group("declared_type").strip()
+                    if match.group("declared_type")
+                    else None
+                ),
             )
     return result
 
