@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "study": "agent-centric-unseen-12-v4-post-307",
+  "scanner_merge_sha": "86145932dce3895406f9e57b6783ad6eb706a107",
+  "rerun_commit": "17eddad62090a22ccac2efde00c3c61b2dc45f73",
+  "workflow_run": 37078177790,
+  "cases": 12,
+  "findings": {
+    "total": 45,
+    "materially_supported": 44,
+    "false_positive": 1,
+    "materially_supported_precision": 0.9777777777777777
+  },
+  "attack_paths": {
+    "total": 2,
+    "materially_supported": 2,
+    "qualified": 2,
+    "false_positive": 0
+  },
+  "authority_relationships": 51,
+  "per_framework": [
+    {
+      "framework": "google-adk",
+      "findings": 19,
+      "materially_supported": 19,
+      "false_positive": 0,
+      "materially_supported_precision": 1,
+      "authority_relationships": 24
+    },
+    {
+      "framework": "pydantic-ai",
+      "findings": 20,
+      "materially_supported": 19,
+      "false_positive": 1,
+      "materially_supported_precision": 0.95,
+      "authority_relationships": 18
+    },
+    {
+      "framework": "openai-agents",
+      "findings": 6,
+      "materially_supported": 6,
+      "false_positive": 0,
+      "materially_supported_precision": 1,
+      "authority_relationships": 9
+    }
+  ],
+  "residual_known_gap": "Pydantic AI operator-configured DATABASE_URL provenance is still lost in one NET002 relationship in unseen4-pyd-003.",
+  "next_step": "Freeze a fresh ADK/Pydantic AI/OpenAI Agents unseen cohort before scanner execution."
+}
