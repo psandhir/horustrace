@@ -92,7 +92,7 @@ root_agent = Agent(
 ''')
     graph, findings = scan(tmp_path)
     assert any(f.rule_id == 'PATH001' for f in findings)
-    assert not any(f.rule_id == 'ADK001' for f in findings)
+    assert any(f.rule_id == 'ADK001' for f in findings)
     assert any(c['control'] == 'before_tool_callback' and c['effectiveness'] == 'not_verified'
                for c in control_observations(graph))
 
