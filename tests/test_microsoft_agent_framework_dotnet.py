@@ -347,3 +347,251 @@ public static class Utility
     graph = scan_dotnet_file(path)
     assert graph.agents == []
     assert graph.unbound_mcp_servers == []
+
+
+def test_dotnet_maf_target_typed_chat_client_agent_is_inventory_target(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.AI;
+
+ChatClientAgent triageAgent = new(
+    chatClient,
+    instructions: "Route requests.",
+    name: "triage_agent");
+
+ChatClientAgent specialist = new(
+    chatClient,
+    instructions: "Handle specialist requests.",
+    name: "specialist");
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    names = {item.name for item in graph.agents}
+
+    assert {"triage_agent", "specialist"} <= names
+    triage = next(item for item in graph.agents if item.name == "triage_agent")
+    assert triage.metadata["agent_type"] == "ChatClientAgent"
+    assert triage.metadata["target_typed_constructor"] is True
+
+
+def test_dotnet_maf_hosting_add_ai_agent_binds_fluent_function_tools(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Hosting;
+using Microsoft.Extensions.AI;
+
+static string GetWeather(string city) => "sunny";
+static string GetCurrentTime() => DateTime.UtcNow.ToString("O");
+
+builder.AddAIAgent(
+    "assistant",
+    "You are helpful.")
+    .WithAITools(
+        AIFunctionFactory.Create(GetWeather, name: "get_weather"),
+        AIFunctionFactory.Create(GetCurrentTime, name: "get_current_time"));
+
+builder.AddAIAgent(
+    name: "poet",
+    instructions: "Write poetry.");
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    assistant = next(item for item in graph.agents if item.name == "assistant")
+    poet = next(item for item in graph.agents if item.name == "poet")
+
+    assert assistant.metadata["hosting_registration"] is True
+    assert assistant.metadata["binding_origin"] == "AddAIAgent"
+    assert {item.name for item in assistant.tools} == {
+        "get_weather",
+        "get_current_time",
+    }
+    assert poet.metadata["hosting_registration"] is True
+    assert poet.tools == []
+
+
+def test_dotnet_maf_hosting_add_ai_agent_binds_mcp_tool_collection(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Hosting;
+using Microsoft.Extensions.AI;
+using ModelContextProtocol.Client;
+
+await using McpClient mcpClient = await McpClient.CreateAsync(
+    new HttpClientTransport(new()
+    {
+        Endpoint = new Uri("https://learn.microsoft.com/api/mcp"),
+        Name = "Microsoft Learn MCP",
+    }));
+
+var mcpTools = await mcpClient.ListToolsAsync();
+
+builder.AddAIAgent(
+    name: "tool-agent",
+    instructions: "Use Microsoft documentation.",
+    chatClient: chatClient)
+    .WithAITools(mcpTools.Cast<AITool>().ToArray());
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "tool-agent")
+    server = next(
+        item
+        for item in agent.mcp_servers
+        if item.name == "Microsoft Learn MCP"
+    )
+
+    assert server.url == "https://learn.microsoft.com/api/mcp"
+    assert server.transport == "streamable-http"
+    assert not any(
+        item.name == "Microsoft Learn MCP"
+        for item in graph.unbound_mcp_servers
+    )
+
+
+def test_dotnet_maf_inline_agent_skill_is_effective_authority(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.AI;
+
+var lookupSkill = new AgentInlineSkill(
+    name: "lookup-skill",
+    description: "Lookup data.",
+    instructions: "Use the lookup resource and script.")
+    .AddResource("lookup-table", "table")
+    .AddScript("fetch", (string url) =>
+    {
+        using var client = new HttpClient();
+        return client.GetStringAsync(url).Result;
+    });
+
+var skillsProvider = new AgentSkillsProvider(lookupSkill);
+
+AIAgent agent = chatClient.AsAIAgent(
+    new ChatClientAgentOptions
+    {
+        Name = "SkillsAgent",
+        AIContextProviders = [skillsProvider],
+    });
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "SkillsAgent")
+    skill = next(
+        item
+        for item in agent.tools
+        if item.kind == "microsoft_dotnet_agent_skill"
+    )
+
+    assert skill.name == "lookup-skill"
+    assert skill.metadata["skill_source"] == "inline"
+    assert skill.metadata["resources"] == ["lookup-table"]
+    assert skill.metadata["scripts"] == ["fetch"]
+    assert "data.read" in skill.capabilities
+    assert "network.external" in skill.capabilities
+
+
+def test_dotnet_maf_class_agent_skill_is_effective_authority(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.AI;
+
+var converter = new UnitConverterSkill();
+var skillsProvider = new AgentSkillsProvider(converter);
+
+AIAgent agent = chatClient.AsAIAgent(
+    new ChatClientAgentOptions
+    {
+        Name = "ConverterAgent",
+        AIContextProviders = [skillsProvider],
+    });
+
+internal sealed class UnitConverterSkill : AgentClassSkill<UnitConverterSkill>
+{
+    public override AgentSkillFrontmatter Frontmatter { get; } = new(
+        "unit-converter",
+        "Convert units.");
+
+    [AgentSkillResource("conversion-table")]
+    public string Table => "table";
+
+    [AgentSkillScript("convert")]
+    private static string Convert(double value) => value.ToString();
+}
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "ConverterAgent")
+    skill = next(
+        item
+        for item in agent.tools
+        if item.kind == "microsoft_dotnet_agent_skill"
+    )
+
+    assert skill.name == "unit-converter"
+    assert skill.metadata["skill_source"] == "class"
+    assert skill.metadata["class_name"] == "UnitConverterSkill"
+    assert skill.metadata["resources"] == ["conversion-table"]
+    assert skill.metadata["scripts"] == ["convert"]
+    assert "data.read" in skill.capabilities
+
+
+def test_dotnet_maf_file_skills_with_subprocess_runner_are_effective_authority(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.AI;
+
+var skillsBuilder = new AgentSkillsProviderBuilder()
+    .UseFileSkills(
+        [skillsDir],
+        scriptRunner: new SubprocessScriptRunner().RunAsync);
+
+var skillsProvider = skillsBuilder.Build();
+
+AIAgent agent = chatClient.AsAIAgent(
+    new ChatClientAgentOptions
+    {
+        Name = "FileSkillsAgent",
+        AIContextProviders = [skillsProvider],
+    });
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "FileSkillsAgent")
+    skill = next(
+        item
+        for item in agent.tools
+        if item.kind == "microsoft_dotnet_agent_skill"
+    )
+
+    assert skill.metadata["skill_source"] == "file"
+    assert skill.metadata["script_runner"] == "subprocess"
+    assert skill.metadata["dynamic_tool_catalogue"] is True
+    assert skill.approval is True
+    assert "data.read" in skill.capabilities
+    assert "process.execute" in skill.capabilities
