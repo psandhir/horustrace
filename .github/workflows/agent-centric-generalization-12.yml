@@ -52,7 +52,7 @@ jobs:
           python research/agent-centric-generalization-12/run_case.py             --case-id "${{ matrix.case_id }}"             --output-dir artifacts
       - name: Upload case bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: agent-centric-case-${{ matrix.case_id }}
           path: artifacts/${{ matrix.case_id }}/
@@ -74,7 +74,7 @@ jobs:
         run: |
           python research/agent-centric-generalization-12/aggregate.py --input downloaded --output aggregate
           cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: agent-centric-generalization-12-summary
           path: aggregate/

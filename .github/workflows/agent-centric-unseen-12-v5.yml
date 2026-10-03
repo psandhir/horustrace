@@ -54,7 +54,7 @@ jobs:
             --output-dir artifacts
       - name: Upload case bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: agent-centric-unseen5-post313-case-${{ matrix.case_id }}
           path: artifacts/${{ matrix.case_id }}/
@@ -76,7 +76,7 @@ jobs:
         run: |
           python research/agent-centric-unseen-12-v5/aggregate.py --input downloaded --output aggregate
           cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: agent-centric-unseen-12-v5-post313-summary
           path: aggregate/

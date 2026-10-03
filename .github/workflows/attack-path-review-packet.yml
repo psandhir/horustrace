@@ -65,7 +65,7 @@ jobs:
           cat research/attack-path-finding-validation-2026/generated/summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload blinded packet
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: attack-path-review-packet-${{ github.event.pull_request.head.sha || github.sha }}
           path: research/attack-path-finding-validation-2026/generated/
