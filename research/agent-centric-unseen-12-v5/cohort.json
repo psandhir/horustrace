@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "study": "agent-centric-unseen-12-v5",
+  "status": "frozen_before_horustrace_execution",
+  "locked_at": "2026-10-03",
+  "scanner_baseline": "86145932dce3895406f9e57b6783ad6eb706a107",
+  "selection": {
+    "target_repositories": 12,
+    "method": "Live GitHub code search for source implementations of Google ADK, Pydantic AI, and OpenAI Agents. Candidates were source-screened for meaningful agent/tool/MCP authority composition, checked against HorusTrace committed research for prior use, and frozen by exact repository SHA before the first HorusTrace execution.",
+    "horustrace_output_used_for_selection": false,
+    "prior_research_matches": 0,
+    "framework_counts": {
+      "google-adk": 4,
+      "pydantic-ai": 4,
+      "openai-agents": 4
+    }
+  },
+  "cases": [
+    {
+      "case_id": "unseen5-adk-001",
+      "repo": "tosanjay/BinCodeQL",
+      "sha": "fbab4066beef4a2daf8ccfad013d94299927048d",
+      "framework": "google-adk",
+      "evidence_path": "agent.py",
+      "selection_signal": "ADK LlmAgent combining stdio MCP with local workspace mutation and Souffle subprocess execution tools."
+    },
+    {
+      "case_id": "unseen5-adk-002",
+      "repo": "GenX0Gravity/APAC",
+      "sha": "b32acf9c5915aa08015bd9bff99eecc9c970b5f5",
+      "framework": "google-adk",
+      "evidence_path": "agent.py",
+      "selection_signal": "ADK multi-agent orchestrator delegating task/calendar operations and real software deploy/rollback/provision actions."
+    },
+    {
+      "case_id": "unseen5-adk-003",
+      "repo": "moonpy-a11y/agent_payments",
+      "sha": "b08e4bec80ea2f8a3664d670bc6fc52b8a50d1ae",
+      "framework": "google-adk",
+      "evidence_path": "agent.py",
+      "selection_signal": "ADK commerce agent with checkout and purchase tools; complete_purchase is explicitly wrapped with require_confirmation=True."
+    },
+    {
+      "case_id": "unseen5-adk-004",
+      "repo": "ahafarag/gitlab-incident-agent",
+      "sha": "c85b965ac46777744eb5b554236c6fecb4e3529e",
+      "framework": "google-adk",
+      "evidence_path": "agent.py",
+      "selection_signal": "ADK incident responder mixing direct GitLab API reads with an authenticated GitLab stdio MCP toolset instructed to create issues and MR comments."
+    },
+    {
+      "case_id": "unseen5-pyd-001",
+      "repo": "radoshi/llm-code",
+      "sha": "599a41cbd7c013ed001fe866ddd69b3454c3553e",
+      "framework": "pydantic-ai",
+      "evidence_path": "src/llm_code/agent.py",
+      "selection_signal": "Pydantic AI coding agent with cwd-confined file read/write/search and model-controlled shell execution."
+    },
+    {
+      "case_id": "unseen5-pyd-002",
+      "repo": "flipbit03/caducode",
+      "sha": "c6e0244af168f732ace5e221b30f5a2196ee39bc",
+      "framework": "pydantic-ai",
+      "evidence_path": "caducode/agent.py",
+      "selection_signal": "Pydantic AI factory whose decorated run_python tool delegates arbitrary Python execution to a repository-local helper."
+    },
+    {
+      "case_id": "unseen5-pyd-003",
+      "repo": "MhankBarBar/zero-ichi",
+      "sha": "e4c4ae87ce7b81009b4dd4bc6e671a512e8d2bd6",
+      "framework": "pydantic-ai",
+      "evidence_path": "src/ai/agent.py",
+      "selection_signal": "Pydantic AI WhatsApp agent with outbound messaging, dynamic command execution, feature mutation, allowed/blocked action policy and permission checks."
+    },
+    {
+      "case_id": "unseen5-pyd-004",
+      "repo": "GB153/AlpacaAgent",
+      "sha": "56e1156a7ab7afee072deef9a6a950c2ea469711",
+      "framework": "pydantic-ai",
+      "evidence_path": "core/agent.py",
+      "selection_signal": "Pydantic AI trading agent with web/account reads and create_order/close_position mutations guarded by runtime allow_trading."
+    },
+    {
+      "case_id": "unseen5-oai-001",
+      "repo": "wuyoscar/Internal-Safety-Collapse",
+      "sha": "52b9396cfb46128e51986d8fd7cd674048e7a5ad",
+      "framework": "openai-agents",
+      "evidence_path": "experiment/tvd_agent/agent.py",
+      "selection_signal": "OpenAI Agents autonomous worker exposing a model-controlled shell=True subprocess tool scoped to a workspace."
+    },
+    {
+      "case_id": "unseen5-oai-002",
+      "repo": "aaronkazah/trunks",
+      "sha": "35ce6e2551aa821cfa2e211bb13bec02216af776",
+      "framework": "openai-agents",
+      "evidence_path": "examples/openai-agents-pr-agent/agent.py",
+      "selection_signal": "OpenAI Agents coding workflow with workspace-confined reads/writes, shell execution, checkpoint and push operations."
+    },
+    {
+      "case_id": "unseen5-oai-003",
+      "repo": "darrenyao/dingtalk-agent-sdk",
+      "sha": "9b33f58cdcd51fde2e1b62f21446aa6a390e573c",
+      "framework": "openai-agents",
+      "evidence_path": "app/agent/employee_agent.py",
+      "selection_signal": "OpenAI Agents async factory that creates/connects an authenticated DingTalk MCPServerStdio then binds it through mcp_servers."
+    },
+    {
+      "case_id": "unseen5-oai-004",
+      "repo": "aguirreibarra/ai-github-action",
+      "sha": "41c74bbc9694c2166214386bd5be46259d6b91c7",
+      "framework": "openai-agents",
+      "evidence_path": "src/github_agents/github_agent.py",
+      "selection_signal": "OpenAI Agents factory binding cross-file GitHub function tools for repository metadata/content/statistics and file listing through an authenticated client."
+    }
+  ]
+}
