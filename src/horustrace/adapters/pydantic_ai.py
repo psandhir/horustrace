@@ -1413,6 +1413,59 @@ def _toolset_tools(
         return [], [mcp], bool(mcp.metadata.get("dynamic_mcp_endpoint"))
 
     name = _call_name(expr.func)
+    if name == "Capability":
+        # Pydantic AI's declarative Capability is an authority-bearing bundle:
+        # it can contribute function tools and nested toolsets to any Agent that
+        # receives it through capabilities=[...].  Normalize only source-visible
+        # contents; lifecycle hooks/custom subclass behavior remains unresolved.
+        tools: list[Tool] = []
+        servers: list[MCPServer] = []
+        dynamic = False
+
+        tool_expr = _kw(expr, "tools")
+        if tool_expr is not None:
+            elements = _resolve_sequence(tool_expr, sequences)
+            if elements is None:
+                dynamic = True
+            else:
+                for element in elements:
+                    tool = _tool_from_reference(
+                        path,
+                        element,
+                        functions,
+                        assignments,
+                        imports,
+                    )
+                    if tool is not None:
+                        _merge_tool(tools, tool)
+                    else:
+                        dynamic = True
+
+        toolset_expr = _kw(expr, "toolsets") or _kw(expr, "toolset")
+        if toolset_expr is not None:
+            elements = _resolve_sequence(toolset_expr, sequences)
+            if elements is None:
+                dynamic = True
+            else:
+                for element in elements:
+                    child_tools, child_servers, child_dynamic = _toolset_tools(
+                        path,
+                        element,
+                        functions,
+                        assignments,
+                        sequences,
+                        imports,
+                        decorated,
+                        added,
+                        visited=visited,
+                    )
+                    for tool in child_tools:
+                        _merge_tool(tools, tool)
+                    servers.extend(child_servers)
+                    dynamic = dynamic or child_dynamic
+
+        return tools, servers, dynamic
+
     if name == "FunctionToolset":
         tools: list[Tool] = []
         tool_expr = _kw(expr, "tools")
@@ -1532,6 +1585,25 @@ def _toolset_tools(
         return [], [], True
 
     return [], [], True
+
+
+def _is_declarative_capability_expr(
+    expr: ast.AST,
+    assignments: dict[str, ast.AST],
+    *,
+    visited: set[str] | None = None,
+) -> bool:
+    """Return True for source-visible pydantic_ai.capabilities.Capability bundles."""
+    visited = visited or set()
+    if isinstance(expr, ast.Name):
+        if expr.id in visited or expr.id not in assignments:
+            return False
+        return _is_declarative_capability_expr(
+            assignments[expr.id],
+            assignments,
+            visited=visited | {expr.id},
+        )
+    return isinstance(expr, ast.Call) and _call_name(expr.func) == "Capability"
 
 
 def _capability_from_expr(
@@ -2115,6 +2187,7 @@ def scan_python_file(path: Path) -> Graph:
     decorated_toolsets: dict[str, list[Tool]] = {}
     added_toolsets: dict[str, list[Tool]] = {}
     decorated_agents: dict[str, list[Tool]] = {}
+    dynamic_agent_toolsets: dict[str, list[str]] = {}
 
     for node in functions.values():
         for decorator in node.decorator_list:
@@ -2123,6 +2196,7 @@ def scan_python_file(path: Path) -> Graph:
                 continue
             if kind == "toolset":
                 if owner in agent_calls:
+                    dynamic_agent_toolsets.setdefault(owner, []).append(node.name)
                     _diagnostic(
                         graph,
                         path,
@@ -2193,6 +2267,27 @@ def scan_python_file(path: Path) -> Graph:
                 ),
             },
         )
+
+        for provider_name in dynamic_agent_toolsets.get(alias, []):
+            provider = functions.get(provider_name)
+            placeholder = Tool(
+                name=f"dynamic-toolset:{provider_name}",
+                kind="pydantic_dynamic_toolset",
+                capabilities=set(),
+                location=_location(path, provider or call),
+                metadata={
+                    "framework": "pydantic-ai",
+                    "binding_origin": "@agent.toolset",
+                    "dynamic_authority": True,
+                    "tool_catalogue_unresolved": True,
+                    "provider_function": provider_name,
+                },
+            )
+            _merge_tool(agent.tools, placeholder)
+            agent.metadata["dynamic_tools"] = True
+            agent.metadata.setdefault("dynamic_toolset_providers", []).append(
+                provider_name
+            )
 
         tools_expr = _kw(call, "tools")
         if tools_expr is not None:
@@ -2305,6 +2400,41 @@ def scan_python_file(path: Path) -> Graph:
                 )
             else:
                 for element in elements:
+                    if _is_declarative_capability_expr(element, assignments):
+                        capability_tools, capability_servers, dynamic = _toolset_tools(
+                            path,
+                            element,
+                            functions,
+                            assignments,
+                            sequences,
+                            imports,
+                            decorated_toolsets,
+                            added_toolsets,
+                        )
+                        bundle_name = _call_name(element) or "Capability"
+                        for capability_tool in capability_tools:
+                            capability_tool.metadata["binding_origin"] = (
+                                "pydantic_capability"
+                            )
+                            capability_tool.metadata["capability_bundle"] = (
+                                bundle_name
+                            )
+                            _merge_tool(agent.tools, capability_tool)
+                        for capability_server in capability_servers:
+                            capability_server.metadata["binding_origin"] = (
+                                "pydantic_capability"
+                            )
+                            capability_server.metadata["capability_bundle"] = (
+                                bundle_name
+                            )
+                            agent.mcp_servers.append(capability_server)
+                        if dynamic:
+                            agent.metadata["dynamic_tools"] = True
+                            agent.metadata.setdefault(
+                                "partially_resolved_capabilities", []
+                            ).append(bundle_name)
+                        continue
+
                     tool, server, control = _capability_from_expr(
                         path,
                         element,

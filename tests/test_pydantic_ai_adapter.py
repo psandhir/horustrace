@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from horustrace.adapters.registry import detect_python_frameworks
+from horustrace.effective_authority import effective_authority_relationships
 from horustrace.scanner import scan
 
 
@@ -1593,3 +1594,130 @@ def write_context_file(ctx: RunContext[Deps], content: str) -> str:
         item.metadata.get("model_selected_path") is True
         for item in context_write.resources
     )
+
+
+def test_pydantic_dynamic_agent_toolset_preserves_unresolved_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import subprocess
+from pydantic_ai import Agent, FunctionToolset, RunContext
+
+agent = Agent("openai:gpt-5.2")
+
+def run_command(command: str) -> str:
+    return subprocess.run(
+        command,
+        shell=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+
+@agent.toolset
+def dynamic_tools(ctx: RunContext[dict]):
+    return FunctionToolset(tools=[run_command])
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+
+    assert agent.metadata["dynamic_tools"] is True
+    assert agent.metadata["dynamic_toolset_providers"] == ["dynamic_tools"]
+
+    placeholder = next(
+        item
+        for item in agent.tools
+        if item.kind == "pydantic_dynamic_toolset"
+    )
+    assert placeholder.name == "dynamic-toolset:dynamic_tools"
+    assert placeholder.capabilities == set()
+    assert placeholder.metadata["dynamic_authority"] is True
+    assert placeholder.metadata["tool_catalogue_unresolved"] is True
+
+    relationship = next(
+        item
+        for item in effective_authority_relationships(graph)
+        if item.target_name == "dynamic-toolset:dynamic_tools"
+    )
+    assert relationship.resolution == "partially_resolved"
+    assert "capabilities" in relationship.unresolved
+    assert relationship.semantics["dynamic_authority"] is True
+    assert relationship.semantics["tool_catalogue_unresolved"] is True
+
+    assert any(
+        diagnostic.code == "dynamic_configuration"
+        and "@agent.toolset" in diagnostic.message
+        for diagnostic in graph.coverage.diagnostics
+    )
+    assert not any(finding.rule_id == "AGT020" for finding in findings)
+
+
+def test_pydantic_declarative_capability_projects_source_visible_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import subprocess
+import requests
+from pathlib import Path
+
+from pydantic_ai import Agent, FunctionToolset
+from pydantic_ai.capabilities import Capability
+
+def write_record(path: str, value: str) -> str:
+    Path(path).write_text(value)
+    return path
+
+def run_command(command: str) -> str:
+    return subprocess.run(
+        command,
+        shell=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+
+commands = FunctionToolset(tools=[run_command])
+ops = Capability(
+    id="ops",
+    description="Operational tools",
+    tools=[write_record],
+    toolsets=[commands],
+    defer_loading=True,
+)
+
+@ops.tool_plain
+def lookup_order(order_id: str) -> str:
+    return requests.get(
+        f"https://orders.example.com/{order_id}",
+        timeout=5,
+    ).text
+
+agent = Agent("openai:gpt-5.2", capabilities=[ops])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tools = {item.name: item for item in agent.tools}
+
+    assert {"write_record", "run_command", "lookup_order"} <= set(tools)
+    assert "data.write" in tools["write_record"].capabilities
+    assert "process.execute" in tools["run_command"].capabilities
+    assert "network.external" in tools["lookup_order"].capabilities
+
+    for name in ("write_record", "run_command", "lookup_order"):
+        assert tools[name].metadata["binding_origin"] == "pydantic_capability"
+        assert tools[name].metadata["capability_bundle"] == "ops"
+
+    assert "ops" not in set(agent.metadata.get("unmodeled_capabilities") or [])
+
+    relationships = {
+        item.target_name: item
+        for item in effective_authority_relationships(graph)
+    }
+    assert {"write_record", "run_command", "lookup_order"} <= set(relationships)
+    assert relationships["lookup_order"].semantics["capability_bundle"] == "ops"
