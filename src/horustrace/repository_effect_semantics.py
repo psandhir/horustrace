@@ -442,21 +442,56 @@ def _summarize_function(
     for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
         _merge_effect(result, _direct_effect(module, info, call))
         target = _call_target(module, info, call)
-        if target is None:
+        if target is not None:
+            target_module, target_symbol = target
+            if target_module in modules:
+                _merge_effect(
+                    result,
+                    _summarize_function(
+                        modules,
+                        target_module,
+                        target_symbol,
+                        cache,
+                        next_stack,
+                    ),
+                )
             continue
-        target_module, target_symbol = target
-        if target_module not in modules:
-            continue
-        _merge_effect(
-            result,
-            _summarize_function(
-                modules,
-                target_module,
-                target_symbol,
-                cache,
-                next_stack,
-            ),
-        )
+
+        # Thread/executor helpers receive the repository-local callable as an
+        # argument rather than invoking it syntactically. Follow that callable
+        # so effects such as tool -> asyncio.to_thread(_run_sync, arg) ->
+        # subprocess.run(...) are not lost.
+        dotted = (_dotted(call.func) or "").lower()
+        callable_arg: ast.AST | None = None
+        if dotted.endswith("asyncio.to_thread") and call.args:
+            callable_arg = call.args[0]
+        elif dotted.endswith("run_in_executor") and len(call.args) > 1:
+            callable_arg = call.args[1]
+        if isinstance(callable_arg, ast.Name):
+            if callable_arg.id in info.functions:
+                _merge_effect(
+                    result,
+                    _summarize_function(
+                        modules,
+                        module,
+                        callable_arg.id,
+                        cache,
+                        next_stack,
+                    ),
+                )
+            elif callable_arg.id in info.imports:
+                target_module, target_symbol = info.imports[callable_arg.id]
+                if target_module in modules:
+                    _merge_effect(
+                        result,
+                        _summarize_function(
+                            modules,
+                            target_module,
+                            target_symbol,
+                            cache,
+                            next_stack,
+                        ),
+                    )
 
     cache[key] = result
     return result
