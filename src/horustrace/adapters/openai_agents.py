@@ -638,9 +638,30 @@ def _body_call_capabilities(
             # sinks are handled below; concrete network sinks/destinations are
             # reconstructed separately from source and repository semantics.
             call_name_capabilities = set(infer_capabilities(called))
-            call_name_capabilities.difference_update(
-                {"process.execute", "network.external", "external.write"}
-            )
+            # Process execution is never established by an arbitrary method
+            # name. Network/write hints are retained only for explicit outbound
+            # action verbs; generic "request"/"api" naming is insufficient.
+            call_name_capabilities.discard("process.execute")
+            semantic_tokens = {
+                token
+                for token in called.lower().replace("-", "_").replace(".", "_").split("_")
+                if token
+            }
+            outbound_action_tokens = {
+                "send",
+                "email",
+                "post",
+                "publish",
+                "upload",
+                "notify",
+                "notification",
+                "message",
+                "push",
+            }
+            if not (semantic_tokens & outbound_action_tokens):
+                call_name_capabilities.difference_update(
+                    {"network.external", "external.write"}
+                )
             capabilities.update(call_name_capabilities)
 
         if (
