@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "study": "agent-centric-unseen-12-v5",
+  "status": "final_post_317_regression_adjudicated",
+  "cohort_freeze_commit": "7757d09d7f03ca86dc31febf4dfc2e2823c2bda1",
+  "original_scanner_baseline": "86145932dce3895406f9e57b6783ad6eb706a107",
+  "post_313_scanner_baseline": "0a2dd7f6098fb94321e7c2fb4602cc8cc016555e",
+  "final_scanner_baseline": "f2e284ed6c1719d1a55f15371116c06247afa5f1",
+  "workflow_run": 37116999361,
+  "target_repository_shas_changed": 0,
+  "raw": {
+    "cases": 12,
+    "agents": 24,
+    "authority_relationships": 119,
+    "findings": 121,
+    "attack_paths": 23,
+    "frameworks": {
+      "google-adk": {
+        "agents": 8,
+        "authority_relationships": 55,
+        "findings": 47,
+        "attack_paths": 5
+      },
+      "pydantic-ai": {
+        "agents": 6,
+        "authority_relationships": 17,
+        "findings": 13,
+        "attack_paths": 0
+      },
+      "openai-agents": {
+        "agents": 10,
+        "authority_relationships": 47,
+        "findings": 61,
+        "attack_paths": 18
+      }
+    }
+  },
+  "delta_from_post_313": {
+    "prior_findings_retained_by_rule_agent_source_identity": 109,
+    "findings_added": 12,
+    "attack_paths_added": 4,
+    "authority_relationships_added": 1,
+    "changed_cases": [
+      "unseen5-adk-001",
+      "unseen5-adk-004"
+    ]
+  },
+  "finding_delta_adjudication": {
+    "canonical_schema": [
+      "supported",
+      "partial",
+      "unsupported",
+      "unresolved"
+    ],
+    "supported": 12,
+    "partial": 0,
+    "unsupported": 0,
+    "unresolved": 0,
+    "strict_precision": 1,
+    "materially_supported_precision": 1,
+    "partial_reason_taxonomy": {},
+    "classes": [
+      {
+        "rule_id": "AGT020",
+        "count": 2,
+        "verdict": "supported",
+        "reason": "Function-local repository helpers source-prove subprocess.run execution and approval is absent."
+      },
+      {
+        "rule_id": "AGT040",
+        "count": 3,
+        "verdict": "supported",
+        "reason": "Recovered process/write capabilities are source-backed and no guardrail or approval is configured."
+      },
+      {
+        "rule_id": "AGT021",
+        "count": 3,
+        "verdict": "supported",
+        "reason": "Tools unlink or replace files under caller/model-selectable output or facts directories without approval."
+      },
+      {
+        "rule_id": "PATH002",
+        "count": 3,
+        "verdict": "supported",
+        "reason": "Untrusted-input exposure and destructive capability co-occur; emitted findings explicitly state that executable data flow and runtime exploitability are not proven."
+      },
+      {
+        "rule_id": "PATH006",
+        "count": 1,
+        "verdict": "supported",
+        "reason": "The agent source-provenly combines untrusted input exposure with process.execute and destructive.write; emitted finding is explicitly potential/co-occurrence based."
+      }
+    ]
+  },
+  "attack_path_delta_adjudication": {
+    "added": 4,
+    "valid": 4,
+    "invalid": 0,
+    "unresolved": 0,
+    "qualification": "Three PATH002 plus one PATH006 are capability-cooccurrence paths; no executable data-flow or runtime exploitability is claimed."
+  },
+  "mcp_authority_closure": {
+    "case_id": "unseen5-adk-004",
+    "server": "gitlab_mcp",
+    "agent": "gitlab_incident_responder",
+    "before": {
+      "bound_relationships": 0,
+      "unbound_servers": 2,
+      "effective_authority_relationships": 5
+    },
+    "after": {
+      "bound_relationships": 1,
+      "unbound_servers": 0,
+      "effective_authority_relationships": 6
+    },
+    "capability": [
+      "mcp.local"
+    ],
+    "unresolved_dimensions": [
+      "authentication_state",
+      "destination",
+      "tool_catalogue"
+    ]
+  },
+  "original_v5_false_positives": {
+    "identified": 6,
+    "remaining": 0,
+    "reintroduced": 0
+  },
+  "final_material_support": {
+    "findings_materially_supported": 121,
+    "findings_total": 121,
+    "attack_paths_materially_supported_or_qualified": 23,
+    "attack_paths_total": 23,
+    "caveat": "Regression/calibration result only; not an unseen-generalization precision estimate."
+  },
+  "decision": "freeze_v5_and_move_to_fresh_v6"
+}
