@@ -667,6 +667,18 @@ def _summarize_function(
             ),
         )
 
+    for destination in _operator_configured_destinations(info, symbol):
+        if not any(
+            existing.target == destination.target
+            and existing.metadata.get("network_scope")
+            == destination.metadata.get("network_scope")
+            for existing in result.destinations
+        ):
+            result.destinations.append(destination)
+            result.evidence.add(
+                f"operator-configured-destination:{destination.metadata.get('configuration_source')}"
+            )
+
     cache[key] = result
     return result
 
@@ -729,6 +741,14 @@ def _direct_function_effect(
                 function_name=resolved[1],
             ),
         )
+    for destination in _operator_configured_destinations(info, resolved[1]):
+        if not any(
+            existing.target == destination.target
+            and existing.metadata.get("network_scope")
+            == destination.metadata.get("network_scope")
+            for existing in result.destinations
+        ):
+            result.destinations.append(destination)
     return result
 
 
