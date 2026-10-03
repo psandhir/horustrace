@@ -8,10 +8,16 @@ on:
     paths:
       - ".github/workflows/pydantic-fundamentals-15.yml"
       - "research/pydantic-fundamentals-15/run.py"
+      - "src/horustrace/adapters/pydantic_ai.py"
+      - "src/horustrace/effective_authority.py"
+      - "tests/test_pydantic_ai_adapter.py"
   pull_request:
     paths:
       - ".github/workflows/pydantic-fundamentals-15.yml"
       - "research/pydantic-fundamentals-15/run.py"
+      - "src/horustrace/adapters/pydantic_ai.py"
+      - "src/horustrace/effective_authority.py"
+      - "tests/test_pydantic_ai_adapter.py"
 
 permissions:
   contents: read
