@@ -339,6 +339,10 @@ def _infer_function_capabilities(
         called = (_dotted_name(child.func) or _call_name(child.func) or "").lower()
         leaf = (_call_name(child.func) or "").lower()
 
+        sql_capabilities = sql_call_capabilities(child)
+        if sql_capabilities:
+            caps.update(sql_capabilities)
+
         # Only known execution APIs establish process execution.
         if (
             called in {"exec", "eval", "compile", "builtins.exec", "builtins.eval", "builtins.compile"}
@@ -430,11 +434,13 @@ def _infer_function_capabilities(
             )
         )
         if network_call:
-            # HTTP method is transport evidence, not mutation semantics.
-            # Read/query APIs frequently use POST (for example managed search
-            # endpoints), so external.write requires independent semantic
-            # evidence rather than the verb alone.
             caps.add("network.external")
+            caps.update(
+                http_mutation_capabilities(
+                    child,
+                    function_name=node.name,
+                )
+            )
 
             target_expr = child.args[0] if child.args else None
             target = _string(target_expr)
@@ -760,6 +766,14 @@ def _apply_operator_configured_function_destinations(
                 value,
                 local_configuration_sources,
             )
+            if source is None and isinstance(value, ast.Call):
+                called = (_dotted_name(value.func) or _call_name(value.func) or "").lower()
+                if called in {"urllib.request.request", "request"}:
+                    url_expr = value.args[0] if value.args else _kw(value, "url")
+                    source = _configuration_source_from_expr(
+                        url_expr,
+                        local_configuration_sources,
+                    )
             if source is None:
                 continue
             targets = (
@@ -1398,9 +1412,24 @@ def _agent_from_call(
                 _apply_retrieval_network_semantics(tool, element.id)
                 agent.tools.append(tool)
             elif element.id in calls:
-                direct = _tool_from_call(path, calls[element.id], element.id, calls, functions)
-                if direct:
-                    agent.tools.append(direct)
+                direct_mcp = _mcp_from_toolset(
+                    path,
+                    calls[element.id],
+                    element.id,
+                    calls,
+                )
+                if direct_mcp:
+                    agent.mcp_servers.append(direct_mcp)
+                else:
+                    direct = _tool_from_call(
+                        path,
+                        calls[element.id],
+                        element.id,
+                        calls,
+                        functions,
+                    )
+                    if direct:
+                        agent.tools.append(direct)
             else:
                 # Imported or arbitrary helpers can carry capabilities that
                 # static analysis cannot safely infer.
