@@ -5,8 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse
 
-from horustrace.models import Graph, NetworkDestination, SourceLocation, Tool
-
+from horustrace.effect_semantics import (\n    executor_wrapped_callable,\n    http_mutation_capabilities,\n    sql_call_capabilities,\n)\nfrom horustrace.models import Graph, NetworkDestination, SourceLocation, Tool\n
 
 @dataclass
 class _FunctionEffect:
@@ -194,6 +193,13 @@ def _call_target(
     info: _ModuleInfo,
     call: ast.Call,
 ) -> tuple[str, str] | None:
+    wrapped = executor_wrapped_callable(call)
+    if isinstance(wrapped, ast.Name):
+        if wrapped.id in info.functions:
+            return module, wrapped.id
+        if wrapped.id in info.imports:
+            return info.imports[wrapped.id]
+
     if isinstance(call.func, ast.Name):
         name = call.func.id
         if name in info.functions:
@@ -215,6 +221,8 @@ def _direct_effect(
     module: str,
     info: _ModuleInfo,
     call: ast.Call,
+    *,
+    function_name: str = "",
 ) -> _FunctionEffect:
     result = _FunctionEffect()
     dotted = (_dotted(call.func) or _call_leaf(call.func) or "").lower()
@@ -242,6 +250,9 @@ def _direct_effect(
         or "urllib.request" in dotted
     ):
         result.capabilities.add("network.external")
+        result.capabilities.update(
+            http_mutation_capabilities(call, function_name=function_name)
+        )
         result.evidence.add(f"http:{dotted}")
         target_expr = call.args[0] if call.args else next(
             (kw.value for kw in call.keywords if kw.arg in {"url", "uri", "endpoint"}),
@@ -269,7 +280,11 @@ def _direct_effect(
             result.capabilities.add("data.read")
             result.evidence.add("file:read")
 
-    # Concrete persistence APIs.
+    # Concrete SQL and persistence APIs.
+    sql_capabilities = sql_call_capabilities(call)
+    if sql_capabilities:
+        result.capabilities.update(sql_capabilities)
+        result.evidence.add(f"sql:{leaf}")
     if leaf in {"add", "add_all", "commit", "flush", "merge", "bulk_save_objects"} and (
         "session" in dotted or "db" in dotted
     ):
@@ -420,7 +435,15 @@ def _summarize_function(
     next_stack.add(key)
 
     for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
-        _merge_effect(result, _direct_effect(module, info, call))
+        _merge_effect(
+            result,
+            _direct_effect(
+                module,
+                info,
+                call,
+                function_name=symbol,
+            ),
+        )
         target = _call_target(module, info, call)
         if target is None:
             continue
@@ -516,15 +539,6 @@ def enrich_repository_tool_effects(
         for tool in agent.tools:
             source = _tool_source_symbol(tool, root, modules)
             if source is None:
-                continue
-            imported_or_wrapped = bool(tool.metadata.get("import_module")) or bool(
-                tool.metadata.get("placeholder")
-            )
-            if not imported_or_wrapped and not _has_cross_module_call(
-                modules,
-                source[0],
-                source[1],
-            ):
                 continue
             effect = _summarize_function(
                 modules,
