@@ -1,0 +1,78 @@
+name: Post-320 GCP UX Report
+
+on:
+  push:
+    branches:
+      - research/post320-gcp-ux-report
+    paths:
+      - ".github/workflows/post320-gcp-ux-report.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install post-320 HorusTrace
+        run: python -m pip install -e .
+      - name: Fetch pinned GCP candidate
+        run: |
+          git clone --filter=blob:none https://github.com/GoogleCloudPlatform/agent-starter-pack.git target
+          git -C target checkout 659f047742457bd55e5db0edd088cf678b6f0669
+      - name: Generate scan and UX report
+        run: |
+          mkdir -p artifacts
+          horustrace scan target --format json --output artifacts/scan.json
+          horustrace scan target --format console --output artifacts/scan.txt
+          horustrace report target --output artifacts/horustrace-report.html
+          {
+            echo "scanner_commit=$(git rev-parse HEAD)"
+            echo "target_repo=GoogleCloudPlatform/agent-starter-pack"
+            echo "target_commit=659f047742457bd55e5db0edd088cf678b6f0669"
+          } > artifacts/provenance.txt
+      - name: Summarise report
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report=json.loads(Path("artifacts/scan.json").read_text())
+          summary=report.get("summary", {})
+          assurance=report.get("assurance", {})
+          lines=[
+              "# Post-320 GCP UX scan",
+              "",
+              "- Target: GoogleCloudPlatform/agent-starter-pack",
+              "- Target SHA: 659f047742457bd55e5db0edd088cf678b6f0669",
+              f"- Agents: {summary.get('agents', 0)}",
+              f"- Tools: {summary.get('tools', 0)}",
+              f"- MCP servers: {summary.get('mcp_servers', 0)}",
+              f"- Findings: {summary.get('findings', 0)}",
+              f"- Attack paths: {summary.get('attack_paths', 0)}",
+              f"- Policy violations: {summary.get('policy_violations', 0)}",
+              f"- Contract violations: {summary.get('authority_contract_violations', 0)}",
+              f"- Contract unresolved: {summary.get('authority_contract_unresolved', 0)}",
+              f"- OWASP categories with findings: {summary.get('owasp_categories_with_findings', 0)}",
+              f"- OWASP categories not assessed: {summary.get('owasp_categories_not_assessed', 0)}",
+              "",
+              "## Assurance",
+              json.dumps(assurance, indent=2),
+          ]
+          Path("artifacts/summary.md").write_text("\n".join(lines)+"\n")
+          PY
+          cat artifacts/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload UX report bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post320-gcp-agent-starter-pack-ux-report
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
