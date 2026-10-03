@@ -1397,9 +1397,24 @@ def _agent_from_call(
                 _apply_retrieval_network_semantics(tool, element.id)
                 agent.tools.append(tool)
             elif element.id in calls:
-                direct = _tool_from_call(path, calls[element.id], element.id, calls, functions)
-                if direct:
-                    agent.tools.append(direct)
+                direct_mcp = _mcp_from_toolset(
+                    path,
+                    calls[element.id],
+                    element.id,
+                    calls,
+                )
+                if direct_mcp:
+                    agent.mcp_servers.append(direct_mcp)
+                else:
+                    direct = _tool_from_call(
+                        path,
+                        calls[element.id],
+                        element.id,
+                        calls,
+                        functions,
+                    )
+                    if direct:
+                        agent.tools.append(direct)
             else:
                 # Imported or arbitrary helpers can carry capabilities that
                 # static analysis cannot safely infer.
