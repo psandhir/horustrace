@@ -236,7 +236,9 @@ def argument_value(expression: str, name: str) -> str | None:
         if not match:
             continue
         start = match.end()
-        while start < len(masked) and masked[start].isspace():
+        # Skip only source whitespace. String literals are intentionally masked
+        # to spaces, so using the masked text here would skip the value itself.
+        while start < len(expression) and expression[start].isspace():
             start += 1
         paren = bracket = brace = 0
         for i in range(start, len(masked)):
