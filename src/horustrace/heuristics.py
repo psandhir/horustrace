@@ -18,8 +18,10 @@ CAPABILITY_PATTERNS: list[tuple[re.Pattern[str], set[str]]] = [
 
 NAME_HINT_REQUIRES_BODY_CAPABILITIES = {
     "data.write",
+    "destructive.write",
     "external.write",
     "network.external",
+    "process.execute",
 }
 
 
@@ -30,9 +32,10 @@ def corroborate_name_inferred_authority(
     """Filter ambiguous name-only effects unless the function body corroborates them.
 
     This is intentionally a filter, not a body-to-authority promotion step.
-    Concrete sink inference remains adapter-owned. Strong destructive/process/
-    secret/admin semantics keep their existing behavior, while generic persistent
-    and outbound effects inferred only from names require source-visible support.
+    Concrete sink inference remains adapter-owned. Persistent, destructive,
+    outbound, and process effects inferred only from names require source-visible
+    support. Secret/admin hints retain their existing behavior until their source
+    passes provide equivalent concrete sink coverage.
     """
     unsupported = (
         name_capabilities
