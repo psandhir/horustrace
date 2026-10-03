@@ -40,9 +40,11 @@ _AGENT_MARKERS = (
     "new ChatClientAgent (",
     ".BuildAIAgent(",
     ".AsHarnessAgent(",
+    ".CreateAIAgent(",
 )
 
 _HOSTED_AGENT_MARKER = ".AddAIAgent("
+_DURABLE_AGENT_FACTORY_MARKER = ".AddAIAgentFactory("
 _SKILL_MARKERS = (
     "AgentInlineSkill",
     "AgentClassSkill",
@@ -68,6 +70,8 @@ def is_microsoft_agent_framework_dotnet_file(path: Path) -> bool:
             )
             is not None
             or _HOSTED_AGENT_MARKER in source
+            or _DURABLE_AGENT_FACTORY_MARKER in source
+            or ".ConfigureDurableAgents(" in source
             or any(marker in source for marker in _SKILL_MARKERS)
             or "HostedMcpServerTool" in source
             or "AgentSkillsProviderBuilder" in source
@@ -731,6 +735,31 @@ def _hosted_agent_expressions(source: str, masked: str) -> list[tuple[str, int]]
     for match in re.finditer(r"\.AddAIAgent\s*\(", masked):
         end = statement_end(masked, match.start())
         expression = source[match.start():end].strip()
+        if expression:
+            result.append((expression, match.start()))
+    return result
+
+
+def _durable_agent_name(expression: str) -> str | None:
+    match = re.search(
+        r"\.AddAIAgentFactory\s*\(\s*(?:name\s*:\s*)?@?\"([^\"]+)\"",
+        expression,
+    )
+    return match.group(1) if match else None
+
+
+def _durable_agent_expressions(
+    source: str,
+    masked: str,
+) -> list[tuple[str, int]]:
+    """Return complete Durable Agent factory registrations."""
+    result: list[tuple[str, int]] = []
+    for match in re.finditer(r"\.AddAIAgentFactory\s*\(", masked):
+        open_paren = masked.find("(", match.start())
+        end = balanced_end(masked, open_paren, "(", ")")
+        if end is None:
+            continue
+        expression = source[match.start():end + 1].strip()
         if expression:
             result.append((expression, match.start()))
     return result
@@ -1877,6 +1906,66 @@ def scan_dotnet_file(path: Path) -> Graph:
 
         hosted_agent.tools = _dedupe_tools(hosted_agent.tools)
         hosted_agent.mcp_servers = _dedupe_servers(hosted_agent.mcp_servers)
+
+    # Durable Agents register factories inside ConfigureDurableAgents rather
+    # than assigning AIAgent variables. Treat each AddAIAgentFactory
+    # registration as the agent inventory surface and bind source-visible
+    # CreateAIAgent tools from the factory body.
+    for expression, expression_offset in _durable_agent_expressions(source, masked):
+        name = _durable_agent_name(expression)
+        if not name:
+            continue
+        if any(
+            existing.name == name
+            and existing.metadata.get("durable_registration") is True
+            and existing.location
+            and existing.location.path == path
+            for existing in graph.agents
+        ):
+            continue
+
+        durable_agent = Agent(
+            name=name,
+            location=location(path, source, expression_offset),
+            metadata={
+                "framework": FRAMEWORK,
+                "language": "csharp",
+                "agent_type": "DurableAIAgent",
+                "durable_registration": True,
+                "hosting_registration": True,
+                "binding_origin": "AddAIAgentFactory",
+                "source_aliases": [],
+            },
+        )
+        graph.agents.append(durable_agent)
+        aliases.setdefault(name, durable_agent)
+
+        tools, servers = _parse_tools(
+            path,
+            source,
+            masked,
+            expression,
+            offset=expression_offset,
+            known=known,
+            tool_vars=tool_vars,
+            hosted_vars=hosted_vars,
+            mcp_lists=mcp_lists,
+            mcp_servers=mcp_servers,
+            agent_aliases=aliases,
+        )
+        durable_agent.tools.extend(tools)
+        durable_agent.mcp_servers.extend(servers)
+
+        references = refs(expression)
+        bound_hosted.update(references & hosted_vars.keys())
+        for ref in references:
+            if ref in mcp_lists:
+                bound_clients.add(mcp_lists[ref])
+
+        durable_agent.tools = _dedupe_tools(durable_agent.tools)
+        durable_agent.mcp_servers = _dedupe_servers(
+            durable_agent.mcp_servers
+        )
 
     # Reconstruct workflow authority only when a workflow is exposed as an
     # agent. The effective authority of that surface is the union of its

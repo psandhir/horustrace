@@ -273,3 +273,70 @@ agent = Agent(client=client, name="ops", tools=[mcp])
     assert server.url is None
     assert server.metadata["dynamic_mcp_endpoint_basis"] == "operator_configuration"
     assert server.metadata["network_scope"] == "operator_configured_destination"
+
+
+
+def test_microsoft_agent_framework_detects_provider_client_create_agent_return(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        """
+from typing import Annotated
+from agent_framework import ai_function
+from agent_framework.openai import OpenAIResponsesClient
+
+def get_weather(
+    location: Annotated[str, "The city and state"],
+) -> str:
+    return f"sunny in {location}"
+
+def get_weather_detail(
+    location: Annotated[str, "The city and state"],
+) -> str:
+    return f"detailed weather in {location}"
+
+def get_agent():
+    return OpenAIResponsesClient().create_agent(
+        name="WeatherAgent",
+        tools=[get_weather, get_weather_detail],
+    )
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "WeatherAgent")
+
+    assert agent.metadata["framework"] == "microsoft-agent-framework"
+    assert agent.metadata["agent_type"] == "client.create_agent"
+    assert (
+        agent.metadata["binding_origin"]
+        == "agent_framework_client.create_agent"
+    )
+    assert "OpenAIResponsesClient" in str(agent.metadata["client"])
+    assert {item.name for item in agent.tools} == {
+        "get_weather",
+        "get_weather_detail",
+    }
+
+
+def test_microsoft_agent_framework_client_create_agent_requires_maf_provenance(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        """
+from agent_framework import ai_function
+
+class LocalFactory:
+    def create_agent(self, **kwargs):
+        return kwargs
+
+factory = LocalFactory()
+not_a_maf_agent = factory.create_agent(name="LocalOnly")
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    assert graph.agents == []

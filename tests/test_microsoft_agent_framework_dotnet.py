@@ -1171,3 +1171,103 @@ AIAgent agent = chatClient.AsHarnessAgent(new HarnessAgentOptions
         == "HarnessAgent.AgentSkillsProvider"
         for item in agent.tools
     )
+
+
+
+def test_dotnet_maf_durable_agent_factories_are_inventory_and_authority(
+    tmp_path: Path,
+) -> None:
+    source = write(
+        tmp_path,
+        r"""
+using Azure.AI.OpenAI;
+using Azure.Identity;
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.DurableTask;
+using Microsoft.Agents.AI.Hosting.AzureFunctions;
+using Microsoft.Extensions.AI;
+
+builder.ConfigureDurableAgents(configure =>
+{
+    configure.AddAIAgentFactory("DestinationRecommenderAgent", sp =>
+    {
+        var chatClient = new AzureOpenAIClient(endpoint, credential)
+            .GetChatClient(deploymentName);
+
+        return chatClient.CreateAIAgent(
+            name: "DestinationRecommenderAgent",
+            instructions: "Recommend destinations.",
+            services: sp);
+    });
+
+    configure.AddAIAgentFactory("ItineraryPlannerAgent", sp =>
+    {
+        var chatClient = new AzureOpenAIClient(endpoint, credential)
+            .GetChatClient(deploymentName);
+
+        return chatClient.CreateAIAgent(
+            name: "ItineraryPlannerAgent",
+            instructions: "Plan itineraries.",
+            services: sp,
+            tools: [
+                AIFunctionFactory.Create(ConvertCurrency),
+                AIFunctionFactory.Create(GetExchangeRate)
+            ]);
+    });
+});
+
+static string ConvertCurrency(string value) => value;
+static string GetExchangeRate(string value) => value;
+""",
+    )
+
+    assert is_microsoft_agent_framework_dotnet_file(source)
+    graph, _ = scan(tmp_path)
+
+    durable = {
+        item.name: item
+        for item in graph.agents
+        if item.metadata.get("durable_registration") is True
+    }
+    assert set(durable) == {
+        "DestinationRecommenderAgent",
+        "ItineraryPlannerAgent",
+    }
+    assert all(
+        item.metadata["agent_type"] == "DurableAIAgent"
+        for item in durable.values()
+    )
+    assert all(
+        item.metadata["binding_origin"] == "AddAIAgentFactory"
+        for item in durable.values()
+    )
+
+    itinerary = durable["ItineraryPlannerAgent"]
+    assert {item.name for item in itinerary.tools} == {
+        "ConvertCurrency",
+        "GetExchangeRate",
+    }
+
+
+def test_dotnet_maf_direct_create_ai_agent_assignment_is_detected(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r"""
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+AIAgent agent = chatClient.CreateAIAgent(
+    name: "FactoryAgent",
+    tools: [AIFunctionFactory.Create(GetWeather)]);
+
+static string GetWeather(string city) => "sunny";
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "FactoryAgent")
+
+    assert agent.metadata["framework"] == "microsoft-agent-framework-dotnet"
+    assert {item.name for item in agent.tools} == {"GetWeather"}
