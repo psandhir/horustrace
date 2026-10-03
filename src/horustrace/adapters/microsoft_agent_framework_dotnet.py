@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from copy import deepcopy
 from pathlib import Path
-from typing import Iterable
 
 from horustrace.adapters.csharp_source import (
     CSharpAssignment,
