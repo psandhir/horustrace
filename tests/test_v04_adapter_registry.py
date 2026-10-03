@@ -17,6 +17,7 @@ def test_framework_registry_has_stable_adapter_order() -> None:
         "fast-agent",
         "model-tool-loop",
         "mcp-python",
+        "microsoft-agent-framework",
     ]
 
 
