@@ -229,7 +229,10 @@ root_agent = Agent(
         destination.restricted is True
         and destination.metadata.get("configuration_source") == "GITLAB_URL"
         for destination in tool.destinations
-    )
+    ), [
+        (destination.target, destination.restricted, destination.metadata)
+        for destination in tool.destinations
+    ]
     assert not any(
         destination.target == "<dynamic-url>"
         and destination.restricted is False
