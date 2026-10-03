@@ -30,6 +30,7 @@ class _ModuleInfo:
     module_aliases: dict[str, str]
     function_imports: dict[str, dict[str, tuple[str, str]]]
     function_module_aliases: dict[str, dict[str, str]]
+    module_assignments: dict[str, ast.AST]
     imported_modules: set[str]
 
 
@@ -172,6 +173,7 @@ def _build_modules(root: Path, python_paths: list[Path]) -> dict[str, _ModuleInf
         module_aliases: dict[str, str] = {}
         function_imports: dict[str, dict[str, tuple[str, str]]] = {}
         function_module_aliases: dict[str, dict[str, str]] = {}
+        module_assignments: dict[str, ast.AST] = {}
         imported_modules: set[str] = set()
 
         for node in getattr(tree, "body", []):
@@ -190,6 +192,9 @@ def _build_modules(root: Path, python_paths: list[Path]) -> dict[str, _ModuleInf
                     imported_modules.add(alias.name)
             elif isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
                 targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                for target in targets:
+                    if isinstance(target, ast.Name):
+                        module_assignments[target.id] = node.value
                 if not isinstance(node.value, ast.Call) or _call_leaf(node.value.func) != "Tool":
                     continue
                 wrapped = node.value.args[0] if node.value.args else next(
@@ -237,6 +242,7 @@ def _build_modules(root: Path, python_paths: list[Path]) -> dict[str, _ModuleInf
             module_aliases=module_aliases,
             function_imports=function_imports,
             function_module_aliases=function_module_aliases,
+            module_assignments=module_assignments,
             imported_modules=imported_modules,
         )
     return modules
@@ -357,6 +363,74 @@ def _configuration_source_from_expr(
     return None
 
 
+def _fixed_url_from_module_expr(
+    node: ast.AST | None,
+    assignments: dict[str, ast.AST],
+    seen: set[str] | None = None,
+) -> str | None:
+    """Resolve a fixed HTTP origin carried by module-level constants.
+
+    This deliberately does not treat environment/configuration calls as fixed:
+    those are handled by operator-configured provenance instead.
+    """
+    if node is None:
+        return None
+    seen = set() if seen is None else set(seen)
+
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        if node.value.startswith(("http://", "https://")) and urlparse(node.value).hostname:
+            return node.value
+        return None
+
+    if isinstance(node, ast.Name):
+        if node.id in seen:
+            return None
+        assigned = assignments.get(node.id)
+        if assigned is None:
+            return None
+        seen.add(node.id)
+        return _fixed_url_from_module_expr(assigned, assignments, seen)
+
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in {"rstrip", "lstrip", "strip"}
+    ):
+        return _fixed_url_from_module_expr(node.func.value, assignments, seen)
+
+    if isinstance(node, ast.JoinedStr):
+        for value in node.values:
+            if not isinstance(value, ast.FormattedValue):
+                continue
+            resolved = _fixed_url_from_module_expr(value.value, assignments, seen)
+            if resolved:
+                parsed = urlparse(resolved)
+                port = f":{parsed.port}" if parsed.port else ""
+                return f"{parsed.scheme}://{parsed.hostname}{port}"
+        prefix = "".join(
+            value.value
+            for value in node.values
+            if isinstance(value, ast.Constant) and isinstance(value.value, str)
+        )
+        if prefix.startswith(("http://", "https://")):
+            parsed = urlparse(prefix)
+            if parsed.hostname:
+                port = f":{parsed.port}" if parsed.port else ""
+                return f"{parsed.scheme}://{parsed.hostname}{port}"
+        return None
+
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        for part in (node.left, node.right):
+            resolved = _fixed_url_from_module_expr(part, assignments, seen)
+            if not resolved:
+                continue
+            parsed = urlparse(resolved)
+            port = f":{parsed.port}" if parsed.port else ""
+            return f"{parsed.scheme}://{parsed.hostname}{port}"
+
+    return None
+
+
 def _operator_configured_destinations(
     info: _ModuleInfo,
     function_name: str,
@@ -366,6 +440,18 @@ def _operator_configured_destinations(
         return []
 
     sources: dict[str, str] = {}
+    # Seed provenance from module-level configuration before following local
+    # aliases/f-strings in the tool body.
+    for _ in range(8):
+        changed = False
+        for name, expression in info.module_assignments.items():
+            source = _configuration_source_from_expr(expression, sources)
+            if source is not None and sources.get(name) != source:
+                sources[name] = source
+                changed = True
+        if not changed:
+            break
+
     assignments = [
         node
         for node in ast.walk(function)
@@ -732,16 +818,31 @@ def _direct_effect(
                 _fixed_destination(info.path, target_expr or call, target, "literal_url")
             )
         else:
-            configured = _typed_configuration_destination(
-                info,
-                function_name,
+            module_fixed = _fixed_url_from_module_expr(
                 target_expr,
+                info.module_assignments,
             )
-            if configured is not None:
-                result.destinations.append(configured)
-                result.evidence.add(
-                    f"operator-configured-destination:{configured.metadata.get('configuration_source')}"
+            if module_fixed is not None:
+                result.destinations.append(
+                    _fixed_destination(
+                        info.path,
+                        target_expr or call,
+                        module_fixed,
+                        "module_fixed_url",
+                    )
                 )
+                result.evidence.add(f"fixed-destination:{module_fixed}")
+            else:
+                configured = _typed_configuration_destination(
+                    info,
+                    function_name,
+                    target_expr,
+                )
+                if configured is not None:
+                    result.destinations.append(configured)
+                    result.evidence.add(
+                        f"operator-configured-destination:{configured.metadata.get('configuration_source')}"
+                    )
 
     if leaf == "open" or dotted.endswith(".open"):
         mode = _literal(call.args[1]) if len(call.args) > 1 else next(
@@ -1076,6 +1177,39 @@ def _effect_has_transitive_delta(
     )
 
 
+def _effect_refines_tool_destination(
+    tool: Tool,
+    effect: _FunctionEffect,
+) -> bool:
+    """Return True when repository semantics adds stricter destination provenance.
+
+    Local framework adapters often recover the network effect before repository
+    analysis runs, but can only represent its destination as dynamic.  A
+    source-visible fixed or operator-configured origin is therefore a material
+    refinement even when the function has no cross-module/transitive effect
+    delta.
+    """
+    existing = {
+        (
+            item.target,
+            item.restricted,
+            str(item.metadata.get("network_scope") or ""),
+        )
+        for item in tool.destinations
+    }
+    for destination in effect.destinations:
+        if destination.restricted is not True:
+            continue
+        key = (
+            destination.target,
+            destination.restricted,
+            str(destination.metadata.get("network_scope") or ""),
+        )
+        if key not in existing:
+            return True
+    return False
+
+
 def _tool_source_symbol(
     tool: Tool,
     root: Path,
@@ -1128,6 +1262,7 @@ def enrich_repository_tool_effects(
             imported_or_wrapped = bool(tool.metadata.get("import_module")) or bool(
                 tool.metadata.get("placeholder")
             )
+            merge_capabilities = True
             if not imported_or_wrapped and not _has_cross_module_call(
                 modules,
                 source[0],
@@ -1138,11 +1273,24 @@ def enrich_repository_tool_effects(
                     source[0],
                     source[1],
                 )
-                if not _effect_has_transitive_delta(effect, direct_effect):
+                transitive_delta = _effect_has_transitive_delta(
+                    effect,
+                    direct_effect,
+                )
+                destination_refinement = _effect_refines_tool_destination(
+                    tool,
+                    effect,
+                )
+                if not transitive_delta and not destination_refinement:
                     continue
+                # A same-module destination-only refinement must not re-promote
+                # direct effects into privileged capabilities. Framework adapters
+                # remain authoritative for those direct capability claims.
+                merge_capabilities = transitive_delta
 
             before = set(tool.capabilities)
-            tool.capabilities.update(effect.capabilities)
+            if merge_capabilities:
+                tool.capabilities.update(effect.capabilities)
             if any(
                 destination.restricted is True
                 and destination.metadata.get("network_scope")
