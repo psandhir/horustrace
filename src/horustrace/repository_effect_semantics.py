@@ -498,9 +498,9 @@ def _summarize_function(
 
     for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
         _merge_effect(result, _direct_effect(module, info, call))
-        target = _call_target(module, info, call)
+        target = _executor_callback_target(module, info, call)
         if target is None:
-            target = _executor_callback_target(module, info, call)
+            target = _call_target(module, info, call)
         if target is None:
             continue
         target_module, target_symbol = target
