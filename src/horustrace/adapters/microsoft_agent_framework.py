@@ -1,0 +1,911 @@
+"""Static Microsoft Agent Framework adapter.
+
+This adapter only parses source; it never imports or executes target code.
+It normalizes Microsoft Agent Framework agents, local/function tools, hosted
+provider tools, MCP clients, Foundry Toolbox bindings, and agent-as-tool
+delegation into HorusTrace's framework-neutral graph.
+"""
+from __future__ import annotations
+
+import ast
+from copy import deepcopy
+from pathlib import Path
+from typing import Any
+
+from horustrace.effect_semantics import (
+    http_mutation_capabilities,
+    is_local_collection_mutation,
+    sql_call_capabilities,
+)
+from horustrace.heuristics import infer_capabilities
+from horustrace.models import (
+    Agent,
+    Graph,
+    MCPServer,
+    NetworkDestination,
+    SourceLocation,
+    Tool,
+)
+
+_FRAMEWORK_PREFIX = "agent_framework"
+_AGENT_TYPES = {"Agent", "FoundryAgent"}
+
+_MCP_TYPES = {
+    "MCPStdioTool": "stdio",
+    "MCPStreamableHTTPTool": "streamable-http",
+    "MCPWebsocketTool": "websocket",
+}
+
+_PROVIDER_TOOL_FACTORIES: dict[str, tuple[str, set[str]]] = {
+    "get_web_search_tool": (
+        "microsoft_web_search",
+        {"data.read", "network.external"},
+    ),
+    "get_file_search_tool": ("microsoft_file_search", {"data.read"}),
+    "get_code_interpreter_tool": (
+        "microsoft_code_interpreter",
+        {"process.execute", "data.read", "data.write"},
+    ),
+    "get_shell_tool": (
+        "microsoft_shell",
+        {"process.execute", "data.read", "data.write", "network.external"},
+    ),
+    "get_image_generation_tool": (
+        "microsoft_image_generation",
+        {"external.write", "network.external"},
+    ),
+}
+
+_HOSTED_TOOL_FUNCTIONS: dict[str, tuple[str, set[str]]] = {
+    "web_search_tool": (
+        "microsoft_web_search",
+        {"data.read", "network.external"},
+    ),
+    "file_search_tool": ("microsoft_file_search", {"data.read"}),
+    "code_interpreter_tool": (
+        "microsoft_code_interpreter",
+        {"process.execute", "data.read", "data.write"},
+    ),
+    "hosted_mcp_tool": (
+        "microsoft_hosted_mcp",
+        {"network.external"},
+    ),
+}
+
+_SHELL_TOOL_TYPES = {"LocalShellTool", "DockerShellTool"}
+
+
+def _location(path: Path, node: ast.AST) -> SourceLocation:
+    return SourceLocation(
+        path=path,
+        line=getattr(node, "lineno", 1) or 1,
+        column=(getattr(node, "col_offset", 0) or 0) + 1,
+    )
+
+
+def _call_name(node: ast.AST | None) -> str | None:
+    if isinstance(node, ast.Subscript):
+        return _call_name(node.value)
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def _dotted(node: ast.AST | None) -> str | None:
+    if node is None:
+        return None
+    if isinstance(node, ast.Subscript):
+        return _dotted(node.value)
+    parts: list[str] = []
+    current = node
+    while isinstance(current, ast.Attribute):
+        parts.append(current.attr)
+        current = current.value
+    if isinstance(current, ast.Name):
+        parts.append(current.id)
+        return ".".join(reversed(parts))
+    return None
+
+
+def _literal(node: ast.AST | None) -> Any:
+    if node is None:
+        return None
+    try:
+        return ast.literal_eval(node)
+    except (TypeError, ValueError):
+        return None
+
+
+def _kw(call: ast.Call, name: str) -> ast.AST | None:
+    return next((item.value for item in call.keywords if item.arg == name), None)
+
+
+def _expr(node: ast.AST | None) -> str | None:
+    if node is None:
+        return None
+    try:
+        return ast.unparse(node)
+    except (AttributeError, ValueError):
+        return _dotted(node) or _call_name(node)
+
+
+def _target_names(node: ast.Assign | ast.AnnAssign) -> list[str]:
+    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+    result: list[str] = []
+    for target in targets:
+        if isinstance(target, ast.Name):
+            result.append(target.id)
+        elif isinstance(target, ast.Attribute):
+            dotted = _dotted(target)
+            if dotted:
+                result.append(dotted)
+        elif isinstance(target, (ast.List, ast.Tuple)):
+            for item in target.elts:
+                if isinstance(item, ast.Name):
+                    result.append(item.id)
+    return result
+
+
+def _uses_agent_framework(tree: ast.AST) -> bool:
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if module == _FRAMEWORK_PREFIX or module.startswith(_FRAMEWORK_PREFIX + "."):
+                return True
+        elif isinstance(node, ast.Import):
+            if any(
+                alias.name == _FRAMEWORK_PREFIX
+                or alias.name.startswith(_FRAMEWORK_PREFIX + ".")
+                for alias in node.names
+            ):
+                return True
+    return False
+
+
+def is_microsoft_agent_framework_file(path: Path) -> bool:
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    except (OSError, UnicodeDecodeError, SyntaxError):
+        return False
+    return _uses_agent_framework(tree)
+
+
+def _function_capabilities(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> set[str]:
+    capabilities = set(infer_capabilities(node.name))
+    capabilities.difference_update(
+        {"process.execute", "network.external", "external.write"}
+    )
+    body_write = False
+
+    for child in ast.walk(node):
+        if not isinstance(child, ast.Call):
+            continue
+        dotted = (_dotted(child.func) or _call_name(child.func) or "").lower()
+        leaf = (_call_name(child.func) or "").lower()
+
+        sql_caps = sql_call_capabilities(child)
+        capabilities.update(sql_caps)
+        body_write = body_write or "data.write" in sql_caps
+
+        if (
+            dotted in {"exec", "eval", "compile", "builtins.exec", "builtins.eval"}
+            or dotted in {"os.system", "os.popen"}
+            or dotted.startswith("subprocess.")
+            or "create_subprocess_" in dotted
+        ):
+            capabilities.add("process.execute")
+
+        if dotted.startswith(("requests.", "httpx.", "aiohttp.")) or "urllib" in dotted:
+            capabilities.add("network.external")
+            mutation = http_mutation_capabilities(child, function_name=node.name)
+            capabilities.update(mutation)
+            body_write = body_write or "data.write" in mutation
+
+        if (
+            leaf in {"write", "save", "insert", "create", "put", "patch", "update"}
+            and not is_local_collection_mutation(child)
+        ):
+            capabilities.add("data.write")
+            body_write = True
+        if (
+            leaf in {"delete", "unlink", "rmdir", "rmtree", "drop", "purge"}
+            and not is_local_collection_mutation(child)
+        ):
+            capabilities.update({"data.write", "destructive.write"})
+            body_write = True
+        if leaf in {"read", "get", "search", "retrieve", "fetch", "query", "list"}:
+            capabilities.add("data.read")
+        if (
+            "keyvault" in dotted
+            or "secretclient" in dotted
+            or leaf in {"get_secret", "access_secret"}
+        ):
+            capabilities.add("secrets.read")
+
+    first = node.name.lower().replace("-", "_").split("_", 1)[0]
+    if first in {"add", "set", "update"} and not body_write:
+        capabilities.difference_update(
+            {"data.write", "destructive.write", "external.write"}
+        )
+    return capabilities
+
+
+def _approval(
+    node: ast.AST | None,
+) -> tuple[bool | None, dict[str, Any]]:
+    if node is None:
+        return None, {}
+    value = _literal(node)
+    if value is True or (
+        isinstance(value, str) and value in {"always_require", "always"}
+    ):
+        return True, {"approval_mode": value}
+    if value is False or (
+        isinstance(value, str) and value in {"never_require", "never"}
+    ):
+        return False, {"approval_mode": value}
+    if isinstance(value, dict):
+        always = value.get("always_require_approval")
+        never = value.get("never_require_approval")
+        return None, {
+            "conditional_approval": True,
+            "approval_scope": "per_tool",
+            "approval_policy": value,
+            "always_require_approval": list(always or []),
+            "never_require_approval": list(never or []),
+        }
+    return None, {
+        "conditional_approval": True,
+        "approval_scope": "per_call",
+        "approval_policy_callable": _expr(node),
+    }
+
+
+def _function_approval(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> tuple[bool | None, dict[str, Any]]:
+    """Return approval declared by the Agent Framework @tool decorator."""
+    for decorator in node.decorator_list:
+        if not isinstance(decorator, ast.Call):
+            continue
+        if _call_name(decorator.func) != "tool":
+            continue
+        return _approval(_kw(decorator, "approval_mode"))
+    return None, {}
+
+
+def _operator_configured(node: ast.AST | None) -> tuple[bool, str | None]:
+    if node is None:
+        return False, None
+    expression = _expr(node) or ""
+    markers = ("os.environ", "os.getenv", "getenv(", "environ.get", "dotenv")
+    return any(marker in expression for marker in markers), expression or None
+
+
+def _mcp_from_call(
+    path: Path,
+    call: ast.Call,
+    *,
+    alias: str | None = None,
+) -> MCPServer | None:
+    kind = _call_name(call.func)
+    hosted = kind == "get_mcp_tool" and isinstance(call.func, ast.Attribute)
+    if kind not in _MCP_TYPES and not hosted:
+        return None
+
+    transport = "hosted" if hosted else _MCP_TYPES[kind]
+    runtime_name = _literal(_kw(call, "name"))
+    if runtime_name is None and call.args:
+        positional_name = _literal(call.args[0])
+        if isinstance(positional_name, str):
+            runtime_name = positional_name
+
+    metadata: dict[str, Any] = {
+        "framework": "microsoft-agent-framework",
+        "mcp_class": kind,
+    }
+    if hosted:
+        metadata.update(
+            {
+                "provider_managed": True,
+                "hosted_mcp": True,
+                "tool_factory": _dotted(call.func) or kind,
+            }
+        )
+
+    server = MCPServer(
+        name=str(runtime_name or alias or kind),
+        transport=transport,
+        location=_location(path, call),
+        metadata=metadata,
+    )
+
+    approval, approval_metadata = _approval(_kw(call, "approval_mode"))
+    server.approval = approval
+    server.metadata.update(approval_metadata)
+
+    allowed = _literal(_kw(call, "allowed_tools"))
+    if isinstance(allowed, (list, tuple, set)):
+        server.allowed_tools = [str(item) for item in allowed]
+
+    if transport == "stdio":
+        # Agent Framework's canonical signature is
+        # MCPStdioTool(name=..., command=..., args=[...]). Never reinterpret the
+        # positional server name as a process command.
+        command = _literal(_kw(call, "command"))
+        args = _literal(_kw(call, "args"))
+        server.command = str(command) if isinstance(command, str) else None
+        if isinstance(args, (list, tuple)):
+            server.args = [str(item) for item in args]
+        return server
+
+    url_node = _kw(call, "url") or _kw(call, "endpoint") or _kw(call, "server_url")
+    url = _literal(url_node)
+    if isinstance(url, str):
+        server.url = url
+        server.metadata["network_scope"] = "fixed_destination"
+    else:
+        configured, expression = _operator_configured(url_node)
+        if configured:
+            server.metadata.update(
+                {
+                    "dynamic_mcp_endpoint_basis": "operator_configuration",
+                    "configuration_source": expression,
+                    "network_scope": "operator_configured_destination",
+                }
+            )
+        elif url_node is not None:
+            server.metadata.update(
+                {
+                    "dynamic_mcp_endpoint": True,
+                    "endpoint_expression": expression,
+                }
+            )
+
+    headers = (
+        _kw(call, "headers")
+        or _kw(call, "static_headers")
+        or _kw(call, "header_provider")
+        or _kw(call, "http_client")
+    )
+    server.authenticated = True if headers is not None else None
+    if headers is not None:
+        server.metadata["authentication_evidence"] = _expr(headers)
+    return server
+
+def _tool_from_call(
+    path: Path,
+    call: ast.Call,
+    *,
+    alias: str | None = None,
+    functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+) -> Tool | None:
+    name = _call_name(call.func)
+    dotted = _dotted(call.func) or name or ""
+    if not name:
+        return None
+
+    if name in _PROVIDER_TOOL_FACTORIES:
+        kind, capabilities = _PROVIDER_TOOL_FACTORIES[name]
+        return Tool(
+            name=alias or name,
+            kind=kind,
+            capabilities=set(capabilities),
+            location=_location(path, call),
+            metadata={
+                "framework": "microsoft-agent-framework",
+                "provider_managed": name != "get_shell_tool",
+                "tool_factory": dotted,
+            },
+        )
+
+    if name in _HOSTED_TOOL_FUNCTIONS:
+        kind, capabilities = _HOSTED_TOOL_FUNCTIONS[name]
+        tool = Tool(
+            name=alias or name,
+            kind=kind,
+            capabilities=set(capabilities),
+            location=_location(path, call),
+            metadata={
+                "framework": "microsoft-agent-framework",
+                "provider_managed": True,
+                "tool_factory": dotted,
+            },
+        )
+        if "network.external" in tool.capabilities:
+            tool.destinations.append(
+                NetworkDestination(
+                    target="<microsoft-foundry>",
+                    restricted=True,
+                    location=tool.location,
+                    metadata={
+                        "source": "provider_managed",
+                        "network_scope": "fixed_provider_network",
+                        "provider": "microsoft-foundry",
+                    },
+                )
+            )
+        return tool
+
+    if name in _SHELL_TOOL_TYPES:
+        return Tool(
+            name=alias or name,
+            kind="microsoft_local_shell",
+            capabilities={"process.execute", "data.read", "data.write", "network.external"},
+            location=_location(path, call),
+            metadata={
+                "framework": "microsoft-agent-framework",
+                "shell_tool": name,
+            },
+        )
+
+    if name == "FunctionTool":
+        wrapped = call.args[0] if call.args else _kw(call, "func")
+        wrapped_name = _call_name(wrapped) or alias or "function_tool"
+        function = functions.get(wrapped_name)
+        approval_node = _kw(call, "approval_mode")
+        if approval_node is not None:
+            approval, approval_metadata = _approval(approval_node)
+        elif function is not None:
+            approval, approval_metadata = _function_approval(function)
+        else:
+            approval, approval_metadata = (None, {})
+        return Tool(
+            name=str(_literal(_kw(call, "name")) or alias or wrapped_name),
+            kind="function",
+            capabilities=(
+                _function_capabilities(function)
+                if function is not None
+                else set(infer_capabilities(wrapped_name))
+            ),
+            approval=approval,
+            location=_location(path, call),
+            metadata={
+                "framework": "microsoft-agent-framework",
+                "wrapped": wrapped_name,
+                **approval_metadata,
+            },
+        )
+
+    if isinstance(call.func, ast.Attribute) and call.func.attr == "as_tool":
+        target = _dotted(call.func.value) or _call_name(call.func.value) or "agent"
+        approval, approval_metadata = _approval(_kw(call, "approval_mode"))
+        return Tool(
+            name=str(_literal(_kw(call, "name")) or alias or target),
+            kind="delegated_agent",
+            capabilities={"agent.delegate"},
+            approval=approval,
+            location=_location(path, call),
+            metadata={
+                "framework": "microsoft-agent-framework",
+                "delegate_target": target,
+                "binding_origin": "agent_as_tool",
+                "propagate_session": bool(_literal(_kw(call, "propagate_session"))),
+                **approval_metadata,
+            },
+        )
+
+    return None
+
+
+def _tool_from_expr(
+    path: Path,
+    node: ast.AST,
+    *,
+    variables: dict[str, ast.AST],
+    functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+) -> tuple[list[Tool], list[MCPServer]]:
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        tools: list[Tool] = []
+        servers: list[MCPServer] = []
+        for item in node.elts:
+            item_tools, item_servers = _tool_from_expr(
+                path,
+                item,
+                variables=variables,
+                functions=functions,
+            )
+            tools.extend(item_tools)
+            servers.extend(item_servers)
+        return tools, servers
+
+    if isinstance(node, ast.Call):
+        if _call_name(node.func) == "FoundryToolbox":
+            return [], [_foundry_toolbox_server(path, node)]
+        server = _mcp_from_call(path, node)
+        if server is not None:
+            return [], [server]
+        tool = _tool_from_call(path, node, functions=functions)
+        return ([tool] if tool else []), []
+
+    reference = _dotted(node) or _call_name(node)
+    if not reference:
+        return [], []
+    leaf = reference.rsplit(".", 1)[-1]
+
+    if leaf in variables:
+        value = variables[leaf]
+        if isinstance(value, ast.Call):
+            if _call_name(value.func) == "FoundryToolbox":
+                return [], [_foundry_toolbox_server(path, value, alias=leaf)]
+            server = _mcp_from_call(path, value, alias=leaf)
+            if server is not None:
+                return [], [server]
+            tool = _tool_from_call(
+                path,
+                value,
+                alias=leaf,
+                functions=functions,
+            )
+            if tool is not None:
+                return [tool], []
+
+    function = functions.get(leaf)
+    if function is not None:
+        approval, approval_metadata = _function_approval(function)
+        return [
+            Tool(
+                name=leaf,
+                kind="function",
+                capabilities=_function_capabilities(function),
+                approval=approval,
+                location=_location(path, function),
+                metadata={
+                    "framework": "microsoft-agent-framework",
+                    "binding_origin": "callable",
+                    **approval_metadata,
+                },
+            )
+        ], []
+
+    return [
+        Tool(
+            name=leaf,
+            kind="dynamic_tool_reference",
+            capabilities=set(),
+            location=_location(path, node),
+            metadata={
+                "framework": "microsoft-agent-framework",
+                "placeholder": True,
+                "authority_binding": True,
+                "authority_binding_basis": "source_reference",
+                "dynamic_tool_catalogue": True,
+            },
+        )
+    ], []
+
+
+def _foundry_toolbox_server(
+    path: Path,
+    call: ast.Call,
+    *,
+    alias: str | None = None,
+) -> MCPServer:
+    endpoint_node = _kw(call, "endpoint") or _kw(call, "toolbox_endpoint")
+    endpoint = _literal(endpoint_node)
+    toolbox_name = _literal(_kw(call, "toolbox_name")) or _literal(_kw(call, "name"))
+    server = MCPServer(
+        name=str(toolbox_name or alias or "foundry-toolbox"),
+        transport="foundry-toolbox",
+        url=endpoint if isinstance(endpoint, str) else None,
+        authenticated=True,
+        location=_location(path, call),
+        metadata={
+            "framework": "microsoft-agent-framework",
+            "provider": "microsoft-foundry",
+            "foundry_toolbox": True,
+            "authentication": "entra",
+        },
+    )
+    if server.url:
+        server.metadata["network_scope"] = "fixed_destination"
+    else:
+        _configured, expression = _operator_configured(endpoint_node)
+        server.metadata.update(
+            {
+                "dynamic_mcp_endpoint_basis": "operator_configuration",
+                "configuration_source": expression or "foundry_project_configuration",
+                "network_scope": "operator_configured_destination",
+            }
+        )
+    return server
+
+
+def _tool_key(tool: Tool) -> tuple[str, str, str]:
+    return (
+        tool.name,
+        tool.kind,
+        str(tool.metadata.get("delegate_target") or ""),
+    )
+
+
+def _server_key(server: MCPServer) -> tuple[str, str, str, str]:
+    return (
+        server.name,
+        server.transport,
+        server.url or "",
+        server.command or "",
+    )
+
+
+def _attach_tools(
+    agent: Agent,
+    tools: list[Tool],
+    servers: list[MCPServer],
+    *,
+    runtime: bool = False,
+) -> None:
+    tool_keys = {_tool_key(tool) for tool in agent.tools}
+    server_keys = {_server_key(server) for server in agent.mcp_servers}
+    for tool in tools:
+        key = _tool_key(tool)
+        if key in tool_keys:
+            continue
+        if runtime:
+            tool.metadata["runtime_tool_binding"] = True
+        agent.tools.append(tool)
+        tool_keys.add(key)
+    for server in servers:
+        key = _server_key(server)
+        if key in server_keys:
+            continue
+        if runtime:
+            server.metadata["runtime_tool_binding"] = True
+        agent.mcp_servers.append(server)
+        server_keys.add(key)
+
+
+def _propagate_microsoft_delegation(graph: Graph) -> None:
+    """Project source-proven Agent.as_tool delegation onto effective authority."""
+    agents = [
+        agent
+        for agent in graph.agents
+        if agent.metadata.get("framework") == "microsoft-agent-framework"
+    ]
+    aliases: dict[str, list[Agent]] = {}
+    for agent in agents:
+        aliases.setdefault(agent.name, []).append(agent)
+        for alias in agent.metadata.get("source_aliases") or []:
+            aliases.setdefault(str(alias), []).append(agent)
+
+    for _ in range(8):
+        changed = False
+        for parent in agents:
+            for tool in parent.tools:
+                if tool.kind != "delegated_agent":
+                    continue
+                target = tool.metadata.get("delegate_target")
+                if not isinstance(target, str):
+                    continue
+                candidates = [
+                    candidate
+                    for candidate in aliases.get(target, [])
+                    if candidate is not parent
+                ]
+                unique = []
+                for candidate in candidates:
+                    if candidate not in unique:
+                        unique.append(candidate)
+                if len(unique) != 1:
+                    continue
+                child = unique[0]
+                before = (
+                    frozenset(tool.capabilities),
+                    len(tool.resources),
+                    len(tool.destinations),
+                )
+                tool.capabilities.update(child.capabilities)
+                tool.capabilities.add("agent.delegate")
+                resource_keys = {
+                    (
+                        item.kind,
+                        item.selector,
+                        tuple(sorted(item.access)),
+                        item.classification,
+                    )
+                    for item in tool.resources
+                }
+                for item in child.effective_resources:
+                    key = (
+                        item.kind,
+                        item.selector,
+                        tuple(sorted(item.access)),
+                        item.classification,
+                    )
+                    if key not in resource_keys:
+                        copied = deepcopy(item)
+                        copied.metadata = {**copied.metadata, "via_agent": child.name}
+                        tool.resources.append(copied)
+                        resource_keys.add(key)
+                destination_keys = {
+                    (item.target, item.direction, item.restricted)
+                    for item in tool.destinations
+                }
+                for item in child.effective_destinations:
+                    key = (item.target, item.direction, item.restricted)
+                    if key not in destination_keys:
+                        copied = deepcopy(item)
+                        copied.metadata = {**copied.metadata, "via_agent": child.name}
+                        tool.destinations.append(copied)
+                        destination_keys.add(key)
+                tool.metadata["delegated_agent_targets"] = [child.name]
+                tool.metadata["authority_binding"] = "delegation_projection"
+                tool.metadata["authority_binding_basis"] = "microsoft_agent_as_tool"
+                after = (
+                    frozenset(tool.capabilities),
+                    len(tool.resources),
+                    len(tool.destinations),
+                )
+                changed = changed or before != after
+        if not changed:
+            break
+
+
+def scan_python_file(path: Path) -> Graph:
+    graph = Graph()
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    except (OSError, UnicodeDecodeError, SyntaxError):
+        return graph
+    if not _uses_agent_framework(tree):
+        return graph
+
+    functions = {
+        node.name: node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    variables: dict[str, ast.AST] = {}
+    declared_servers: dict[str, MCPServer] = {}
+    agent_specs: list[tuple[ast.Call, list[str]]] = []
+
+    # Capture ordinary assignments first.
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
+            continue
+        targets = _target_names(node)
+        for target in targets:
+            alias = target.rsplit(".", 1)[-1]
+            variables[alias] = node.value
+        if not isinstance(node.value, ast.Call):
+            continue
+        call_name = _call_name(node.value.func)
+        aliases = [target.rsplit(".", 1)[-1] for target in targets]
+        if call_name in _AGENT_TYPES:
+            agent_specs.append((node.value, aliases))
+        elif aliases:
+            alias = aliases[0]
+            if call_name == "FoundryToolbox":
+                declared_servers[alias] = _foundry_toolbox_server(
+                    path, node.value, alias=alias
+                )
+            else:
+                server = _mcp_from_call(path, node.value, alias=alias)
+                if server is not None:
+                    declared_servers[alias] = server
+
+    # Agent Framework's canonical samples frequently construct MCP/shell tools
+    # and Agents as context managers. Preserve the "as name" binding exactly as
+    # an assignment so later tools=... and agent.run(..., tools=...) resolution
+    # works without executing the target.
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.withitem) or not isinstance(node.context_expr, ast.Call):
+            continue
+        alias = _dotted(node.optional_vars) or _call_name(node.optional_vars)
+        aliases = [alias] if alias else []
+        if alias:
+            variables[alias.rsplit(".", 1)[-1]] = node.context_expr
+        call_name = _call_name(node.context_expr.func)
+        if call_name in _AGENT_TYPES:
+            agent_specs.append((node.context_expr, aliases))
+        elif alias:
+            leaf = alias.rsplit(".", 1)[-1]
+            if call_name == "FoundryToolbox":
+                declared_servers[leaf] = _foundry_toolbox_server(
+                    path, node.context_expr, alias=leaf
+                )
+            else:
+                server = _mcp_from_call(path, node.context_expr, alias=leaf)
+                if server is not None:
+                    declared_servers[leaf] = server
+
+    agents_by_alias: dict[str, Agent] = {}
+    bound_references: set[str] = set()
+
+    for call, aliases in agent_specs:
+        runtime_name = _literal(_kw(call, "name"))
+        alias = aliases[0] if aliases else None
+        agent_name = str(runtime_name or alias or "agent")
+        client_node = _kw(call, "client") or (call.args[0] if call.args else None)
+        client_expr = _expr(client_node)
+        foundry_backed = (
+            _call_name(call.func) == "FoundryAgent"
+            or bool(
+                client_expr
+                and (
+                    "Foundry" in client_expr
+                    or "AzureAI" in client_expr
+                    or "AzureOpenAI" in client_expr
+                )
+            )
+        )
+
+        agent = Agent(
+            name=agent_name,
+            location=_location(path, call),
+            metadata={
+                "framework": "microsoft-agent-framework",
+                "agent_type": _call_name(call.func),
+                "client": client_expr,
+                "provider": "microsoft-foundry" if foundry_backed else None,
+                "foundry_backed": foundry_backed,
+                "source_aliases": list(aliases),
+            },
+        )
+
+        tools_node = _kw(call, "tools")
+        if tools_node is not None:
+            for item in ast.walk(tools_node):
+                if isinstance(item, (ast.Name, ast.Attribute)):
+                    ref = _dotted(item) or _call_name(item)
+                    if ref:
+                        bound_references.add(ref.rsplit(".", 1)[-1])
+            tools, servers = _tool_from_expr(
+                path,
+                tools_node,
+                variables=variables,
+                functions=functions,
+            )
+            _attach_tools(agent, tools, servers)
+        else:
+            default_options = _literal(_kw(call, "default_options"))
+            if isinstance(default_options, dict) and "tools" in default_options:
+                agent.metadata["default_options_tools_dynamic"] = True
+
+        graph.agents.append(agent)
+        for source_alias in aliases:
+            agents_by_alias[source_alias.rsplit(".", 1)[-1]] = agent
+        agents_by_alias.setdefault(agent.name, agent)
+
+    # Per-run tools are a first-class Agent Framework authority surface:
+    # await agent.run(..., tools=mcp_server). Keep them attached to the exact
+    # source-proven agent variable and mark the binding as runtime-scoped.
+    for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
+        if not isinstance(call.func, ast.Attribute) or call.func.attr != "run":
+            continue
+        owner = _dotted(call.func.value) or _call_name(call.func.value)
+        if not owner:
+            continue
+        agent = agents_by_alias.get(owner.rsplit(".", 1)[-1])
+        if agent is None:
+            continue
+        tools_node = _kw(call, "tools")
+        if tools_node is None:
+            continue
+        for item in ast.walk(tools_node):
+            if isinstance(item, (ast.Name, ast.Attribute)):
+                ref = _dotted(item) or _call_name(item)
+                if ref:
+                    bound_references.add(ref.rsplit(".", 1)[-1])
+        tools, servers = _tool_from_expr(
+            path,
+            tools_node,
+            variables=variables,
+            functions=functions,
+        )
+        _attach_tools(agent, tools, servers, runtime=True)
+        if tools or servers:
+            agent.metadata["runtime_tool_bindings"] = (
+                int(agent.metadata.get("runtime_tool_bindings") or 0) + 1
+            )
+
+    for alias, server in declared_servers.items():
+        if alias not in bound_references:
+            graph.unbound_mcp_servers.append(server)
+
+    _propagate_microsoft_delegation(graph)
+    return graph
