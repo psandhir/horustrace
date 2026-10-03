@@ -213,3 +213,46 @@ def find_loop_functions(binary_path: str) -> list[str]:
     assert "process:subprocess.run" in tool.metadata.get(
         "repository_effect_evidence", []
     )
+
+
+
+def test_function_local_import_recovers_pathlib_write_effect(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "resolve_calls.py",
+        """
+from pathlib import Path
+
+def resolve_call_targets(facts_dir: str, mapping: dict[str, str]) -> None:
+    facts_dir = Path(facts_dir)
+    call_file = facts_dir / "Call.facts"
+    call_file.write_text("resolved")
+""",
+    )
+    _write(
+        tmp_path / "agent.py",
+        """
+from google.adk.agents import Agent
+
+def tool_resolve_calls(mapping: dict, facts_dir: str = "") -> dict:
+    from resolve_calls import resolve_call_targets
+    resolve_call_targets(facts_dir, mapping)
+    return {"facts_dir": facts_dir}
+
+root_agent = Agent(
+    name="resolver",
+    model="gemini-2.5-flash",
+    tools=[tool_resolve_calls],
+)
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "resolver")
+    tool = next(item for item in agent.tools if item.name == "tool_resolve_calls")
+
+    assert "data.write" in tool.capabilities
+    assert "pathlib-write:write_text" in tool.metadata.get(
+        "repository_effect_evidence", []
+    )
