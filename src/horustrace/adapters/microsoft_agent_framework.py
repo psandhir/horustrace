@@ -240,9 +240,13 @@ def _approval(
     if node is None:
         return None, {}
     value = _literal(node)
-    if value in {"always_require", "always"} or value is True:
+    if value is True or (
+        isinstance(value, str) and value in {"always_require", "always"}
+    ):
         return True, {"approval_mode": value}
-    if value in {"never_require", "never"} or value is False:
+    if value is False or (
+        isinstance(value, str) and value in {"never_require", "never"}
+    ):
         return False, {"approval_mode": value}
     if isinstance(value, dict):
         always = value.get("always_require_approval")
