@@ -633,7 +633,15 @@ def _body_call_capabilities(
             }
             and isinstance(receiver, ast.Name)
         ):
-            capabilities.update(infer_capabilities(called))
+            # Arbitrary business/client method names are weak semantic hints,
+            # not proof of host execution or network authority. Concrete process
+            # sinks are handled below; concrete network sinks/destinations are
+            # reconstructed separately from source and repository semantics.
+            call_name_capabilities = set(infer_capabilities(called))
+            call_name_capabilities.difference_update(
+                {"process.execute", "network.external", "external.write"}
+            )
+            capabilities.update(call_name_capabilities)
 
         if (
             normalized
