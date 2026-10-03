@@ -78,6 +78,9 @@ from horustrace.registry_config import (
     enrich_config_registry_agents,
     is_registry_config_filename,
 )
+from horustrace.repository_csharp_effect_semantics import (
+    enrich_csharp_repository_tool_effects,
+)
 from horustrace.repository_effect_semantics import enrich_repository_tool_effects
 from horustrace.repository_tool_semantics import enrich_indirect_tool_content_semantics
 from horustrace.rules.builtin import evaluate
@@ -2207,6 +2210,7 @@ def scan(
 
     seen_real_paths: set[Path] = set()
     approved_python_paths: list[Path] = []
+    approved_csharp_paths: list[Path] = []
     framework_evidence: dict[str, list[SourceLocation]] = {}
     notebook_tempdir = tempfile.TemporaryDirectory(prefix="horustrace-notebooks-")
     notebook_path_map: dict[Path, Path] = {}
@@ -2363,6 +2367,7 @@ def scan(
             _remap_source_locations(notebook_graph, temp_path, candidate)
             _merge(graph, notebook_graph, candidate)
         elif candidate.suffix.lower() == ".cs":
+            approved_csharp_paths.append(candidate)
             _merge(graph, scan_dotnet_file(candidate), candidate)
         elif candidate.suffix == ".tf":
             _merge(graph, scan_terraform(candidate), candidate)
@@ -2382,6 +2387,11 @@ def scan(
 
     _consolidate_global_identities(graph)
     _consolidate_agents(graph)
+    enrich_csharp_repository_tool_effects(
+        graph,
+        root if root.is_dir() else root.parent,
+        approved_csharp_paths,
+    )
     enrich_repository_graph(
         graph,
         root if root.is_dir() else root.parent,
