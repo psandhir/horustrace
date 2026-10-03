@@ -1324,6 +1324,11 @@ public class CurrencyConverterTool
         string fromCurrency,
         string toCurrency)
     {
+        if (amount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(amount));
+        }
+
         var response = await Client.GetAsync(
             $"latest/{fromCurrency.ToUpper()}");
         return await response.Content.ReadAsStringAsync();
@@ -1354,6 +1359,17 @@ public class CurrencyConverterTool
         assert {"data.read", "network.external"} <= tool.capabilities
         assert tool.metadata["repository_effect_resolved"] is True
         assert tool.metadata["method_source_resolved"] is True
+        assert tool.metadata["repository_effect_sources"] == [
+            "Tools/CurrencyConverterTool.cs"
+        ]
+        assert not any(
+            evidence.endswith(":if")
+            for evidence in tool.metadata["repository_effect_evidence"]
+        )
+        assert all(
+            not evidence.startswith("/")
+            for evidence in tool.metadata["repository_effect_evidence"]
+        )
         assert any(
             destination.target == "https://open.er-api.com/v6/"
             for destination in tool.destinations
