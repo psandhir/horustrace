@@ -145,6 +145,77 @@ def _approval_value(value: Any) -> bool | None:
     return None
 
 
+def _expr_reference(node: ast.AST | None) -> str | None:
+    if node is None:
+        return None
+    try:
+        return ast.unparse(node)
+    except (AttributeError, ValueError):
+        return _dotted_name(node) or _call_name(node)
+
+
+def _approval_from_node(
+    node: ast.AST | None,
+) -> tuple[bool | None, dict[str, Any]]:
+    """Preserve approval policy evidence without overstating conditional controls."""
+    if node is None:
+        return None, {}
+
+    literal = _literal(node)
+    approval = _approval_value(literal)
+    metadata: dict[str, Any] = {}
+    if approval is not None:
+        metadata["approval_policy"] = literal
+        return approval, metadata
+
+    if isinstance(literal, dict) and literal:
+        metadata.update(
+            {
+                "conditional_approval": True,
+                "approval_mechanism": "per_tool_policy",
+                "approval_scope": "per_tool",
+                "approval_policy": literal,
+            }
+        )
+        return None, metadata
+
+    metadata.update(
+        {
+            "conditional_approval": True,
+            "approval_mechanism": "conditional_callback",
+            "approval_scope": "per_call",
+            "approval_policy_callable": _expr_reference(node),
+        }
+    )
+    return None, metadata
+
+
+def _control_expr_present(node: ast.AST | None) -> bool:
+    if node is None:
+        return False
+    literal = _literal(node)
+    if isinstance(literal, (list, tuple, set, dict)):
+        return bool(literal)
+    if isinstance(literal, bool):
+        return literal
+    # A source-visible callable/reference is control evidence even when its
+    # runtime behavior cannot be proven statically.
+    return True
+
+
+def _control_references(node: ast.AST | None) -> list[str]:
+    if node is None:
+        return []
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        return [
+            reference
+            for element in node.elts
+            if (reference := _expr_reference(element)) is not None
+        ]
+    reference = _expr_reference(node)
+    return [reference] if reference else []
+
+
 def _location(path: Path, node: ast.AST) -> SourceLocation:
     return SourceLocation(path=path, line=getattr(node, "lineno", 1), column=getattr(node, "col_offset", 0) + 1)
 
@@ -229,39 +300,54 @@ def _tool_from_call(
     if isinstance(node.func, ast.Attribute) and node.func.attr == "as_tool":
         target = _dotted_name(node.func.value) or _call_name(node.func.value) or "agent"
         runtime_name = _literal(_kw(node, "tool_name"))
+        approval, approval_metadata = _approval_from_node(
+            _kw(node, "needs_approval")
+        )
         return Tool(
             name=str(runtime_name or alias or target),
             kind="delegated_agent",
             capabilities={"agent.delegate"},
+            approval=approval,
             location=_location(path, node),
             metadata={
                 "framework": "openai-agents",
                 "delegate_target": target,
                 "source": "agent.as_tool",
                 "binding_origin": "agent_as_tool",
+                **approval_metadata,
             },
         )
 
     if name == "ShellTool":
-        approval = _approval_value(_literal(_kw(node, "needs_approval")))
+        approval, approval_metadata = _approval_from_node(
+            _kw(node, "needs_approval")
+        )
         return Tool(
             name=alias or "ShellTool",
             kind="shell",
             capabilities={"process.execute", "data.read", "data.write", "network.external"},
             approval=approval,
             location=_location(path, node),
-            metadata={"implicit_network": True,
-                      "approval_hook_detected": _kw(node, "on_approval") is not None},
+            metadata={
+                "implicit_network": True,
+                "approval_hook_detected": _kw(node, "on_approval") is not None,
+                **approval_metadata,
+            },
         )
 
     if name == "ApplyPatchTool":
-        approval = _approval_value(_literal(_kw(node, "needs_approval")))
+        approval, approval_metadata = _approval_from_node(
+            _kw(node, "needs_approval")
+        )
         return Tool(
             name=alias or "ApplyPatchTool",
             kind="apply_patch",
             capabilities={"data.write"},
             approval=approval,
-            metadata={"approval_hook_detected": _kw(node, "on_approval") is not None},
+            metadata={
+                "approval_hook_detected": _kw(node, "on_approval") is not None,
+                **approval_metadata,
+            },
             location=_location(path, node),
         )
 
@@ -483,16 +569,20 @@ def _mcp_from_call(
         if url
         else None
     )
-    approval = _approval_value(_literal(_kw(node, "require_approval")))
+    approval, approval_metadata = _approval_from_node(
+        _kw(node, "require_approval")
+    )
     dynamic_url_node = entries.get("url") or direct_url_node
     dynamic_url_source = (
         configuration_sources.get(dynamic_url_node.id)
         if isinstance(dynamic_url_node, ast.Name)
         else None
     )
-    guardrails = bool(_literal(_kw(node, "tool_input_guardrails"))) or bool(
-        _literal(_kw(node, "tool_output_guardrails"))
-    )
+    input_guardrails_node = _kw(node, "tool_input_guardrails")
+    output_guardrails_node = _kw(node, "tool_output_guardrails")
+    guardrails = _control_expr_present(
+        input_guardrails_node
+    ) or _control_expr_present(output_guardrails_node)
 
     allowed_tools: list[str] = []
     denied_tools: list[str] = []
@@ -556,6 +646,9 @@ def _mcp_from_call(
                 else None
             ),
             "dynamic_tool_filter": dynamic_tool_filter,
+            "tool_input_guardrails": _control_references(input_guardrails_node),
+            "tool_output_guardrails": _control_references(output_guardrails_node),
+            **approval_metadata,
         },
     )
 
@@ -930,18 +1023,44 @@ def _decorated_function_tool(
         needs_approval: bool | None = None
         guardrails = False
 
+        approval_metadata: dict[str, Any] = {}
+        enablement_metadata: dict[str, Any] = {}
         if isinstance(decorator, ast.Call):
             decorator_name = _call_name(decorator.func)
-            needs_approval = _approval_value(_literal(_kw(decorator, "needs_approval")))
-            guardrails = bool(_literal(_kw(decorator, "tool_input_guardrails"))) or bool(
-                _literal(_kw(decorator, "tool_output_guardrails"))
+            needs_approval, approval_metadata = _approval_from_node(
+                _kw(decorator, "needs_approval")
             )
+            input_guardrails_node = _kw(decorator, "tool_input_guardrails")
+            output_guardrails_node = _kw(decorator, "tool_output_guardrails")
+            guardrails = _control_expr_present(
+                input_guardrails_node
+            ) or _control_expr_present(output_guardrails_node)
+
+            enabled_node = _kw(decorator, "is_enabled")
+            if enabled_node is not None:
+                enabled_literal = _literal(enabled_node)
+                if isinstance(enabled_literal, bool):
+                    enablement_metadata["tool_enabled"] = enabled_literal
+                else:
+                    enablement_metadata.update(
+                        {
+                            "dynamic_tool_enablement": True,
+                            "availability_condition_unresolved": True,
+                            "tool_enablement_callable": _expr_reference(enabled_node),
+                        }
+                    )
         else:
             decorator_name = _call_name(decorator)
 
         if decorator_name in {"function_tool", "tool"}:
             inline_approval = _inline_confirmation_gate(node)
             capabilities, capability_metadata = _decorated_tool_capabilities(node)
+            if inline_approval:
+                approval_metadata = {
+                    "approval_mechanism": "inline_confirmation",
+                    "approval_scope": "execution_gate",
+                    "approval_mandatory": True,
+                }
             tool = Tool(
                 name=node.name,
                 kind="function",
@@ -951,11 +1070,8 @@ def _decorated_function_tool(
                 location=_location(path, node),
                 metadata={
                     **capability_metadata,
-                    "approval_mechanism": (
-                        "inline_confirmation" if inline_approval else None
-                    ),
-                    "approval_scope": "execution_gate" if inline_approval else None,
-                    "approval_mandatory": True if inline_approval else None,
+                    **approval_metadata,
+                    **enablement_metadata,
                 },
             )
             tool.destinations.extend(
@@ -1308,6 +1424,21 @@ def scan_python_file(path: Path) -> Graph:
         model = _literal(_kw(node, "model"))
         if isinstance(model, str):
             metadata["model"] = model
+
+        input_guardrails_node = _kw(node, "input_guardrails")
+        output_guardrails_node = _kw(node, "output_guardrails")
+        if input_guardrails_node is not None:
+            metadata["input_guardrails"] = _control_references(
+                input_guardrails_node
+            )
+        if output_guardrails_node is not None:
+            metadata["output_guardrails"] = _control_references(
+                output_guardrails_node
+            )
+        if input_guardrails_node is not None or output_guardrails_node is not None:
+            metadata["boundary_guardrails"] = True
+            metadata["boundary_guardrails_scope"] = "agent_input_output"
+
         agent = Agent(
             name=str(name_value or f"agent@{getattr(node, 'lineno', 1)}"),
             location=_location(path, node),
