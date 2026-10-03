@@ -201,8 +201,11 @@ root_agent = Agent(name="api_agent", model="gemini-flash-latest", tools=[api])
 
 def test_adk_noop_before_tool_callback_is_not_credited_as_enforcement(tmp_path: Path) -> None:
     write(tmp_path, '''
+import subprocess
 from google.adk import Agent
-from google.adk.tools.bash_tool import ExecuteBashTool
+
+def run_command(command: str):
+    return subprocess.run(command, shell=True)
 
 def security_gate(tool, args, context):
     return None
@@ -210,7 +213,7 @@ def security_gate(tool, args, context):
 root_agent = Agent(
     name="controlled_ops",
     model="gemini-flash-latest",
-    tools=[ExecuteBashTool()],
+    tools=[run_command],
     before_tool_callback=security_gate,
 )
 ''')
@@ -231,18 +234,21 @@ root_agent = Agent(
 
 def test_adk_blocking_before_tool_callback_is_credited_as_control(tmp_path: Path) -> None:
     write(tmp_path, '''
+import subprocess
 from google.adk import Agent
-from google.adk.tools.bash_tool import ExecuteBashTool
+
+def run_command(command: str):
+    return subprocess.run(command, shell=True)
 
 def security_gate(tool, args, context):
-    if getattr(tool, "name", "") == "ExecuteBashTool":
+    if getattr(tool, "name", "") == "run_command":
         return {"error": "blocked by policy"}
     return None
 
 root_agent = Agent(
     name="controlled_ops",
     model="gemini-flash-latest",
-    tools=[ExecuteBashTool()],
+    tools=[run_command],
     before_tool_callback=security_gate,
 )
 ''')
