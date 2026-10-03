@@ -39,6 +39,20 @@ _BASE_ADDRESS_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
+_NON_METHOD_NAMES = {
+    "catch",
+    "do",
+    "else",
+    "finally",
+    "for",
+    "foreach",
+    "if",
+    "lock",
+    "switch",
+    "using",
+    "while",
+}
+
 
 @dataclass(frozen=True)
 class _ClassSpan:
@@ -163,6 +177,13 @@ def _location(path: Path, source: str, offset: int) -> SourceLocation:
     return SourceLocation(path=path, line=line, column=column)
 
 
+def _display_path(path: Path, root: Path) -> str:
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except (OSError, ValueError):
+        return path.as_posix()
+
+
 def _class_spans(source: str, masked: str) -> list[_ClassSpan]:
     spans: list[_ClassSpan] = []
     for match in _CLASS_RE.finditer(masked):
@@ -211,6 +232,8 @@ def _methods_in_file(path: Path) -> list[_MethodInfo]:
     methods: list[_MethodInfo] = []
 
     for match in _METHOD_RE.finditer(masked):
+        if match.group("name") in _NON_METHOD_NAMES:
+            continue
         params = masked.find("(", match.start(), match.end() + 1)
         if params < 0:
             continue
@@ -339,6 +362,7 @@ def _candidate_callees(
 def _summarize_method(
     method: _MethodInfo,
     *,
+    root: Path,
     by_class: dict[tuple[str, str], list[_MethodInfo]],
     by_name: dict[str, list[_MethodInfo]],
     cache: dict[tuple[str, str | None, str, int], _Effect],
@@ -354,7 +378,7 @@ def _summarize_method(
     stack.add(key)
     effect = _Effect(capabilities=_body_capabilities(method.body))
     effect.evidence.add(
-        f"{method.path}:{method.name}"
+        f"{_display_path(method.path, root)}:{method.name}"
     )
 
     for url in sorted(set(_URL_RE.findall(method.body))):
@@ -377,6 +401,7 @@ def _summarize_method(
             effect,
             _summarize_method(
                 callee,
+                root=root,
                 by_class=by_class,
                 by_name=by_name,
                 cache=cache,
@@ -441,8 +466,6 @@ def enrich_csharp_repository_tool_effects(
     are resolved directly; unqualified cross-file methods are used only when
     the repository has a unique source owner.
     """
-    del root  # Reserved for future namespace/project-aware resolution.
-
     methods: list[_MethodInfo] = []
     for path in csharp_paths:
         methods.extend(_methods_in_file(path))
@@ -483,6 +506,7 @@ def enrich_csharp_repository_tool_effects(
                     effect,
                     _summarize_method(
                         method,
+                        root=root,
                         by_class=by_class,
                         by_name=by_name,
                         cache=cache,
@@ -524,7 +548,7 @@ def enrich_csharp_repository_tool_effects(
                     ),
                     "repository_effect_sources": sorted(
                         {
-                            str(method.path)
+                            _display_path(method.path, root)
                             for method in resolved
                         }
                     ),
