@@ -426,17 +426,17 @@ def _typed_configuration_destination(
             if root not in config_parameters:
                 continue
             return NetworkDestination(
-            target=f"<operator-configured:{dotted}>",
-            restricted=True,
-            location=_location(info.path, part),
-            metadata={
-                "source": "typed_operator_configuration",
-                "network_scope": "operator_configured_destination",
-                "configuration_source": dotted,
-                "destination_constraint_basis": "typed_configuration_object",
-                "repository_effect_summary": True,
-            },
-        )
+                target=f"<operator-configured:{dotted}>",
+                restricted=True,
+                location=_location(info.path, part),
+                metadata={
+                    "source": "typed_operator_configuration",
+                    "network_scope": "operator_configured_destination",
+                    "configuration_source": dotted,
+                    "destination_constraint_basis": "typed_configuration_object",
+                    "repository_effect_summary": True,
+                },
+            )
     return None
 
 
