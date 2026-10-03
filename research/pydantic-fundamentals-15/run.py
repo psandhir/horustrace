@@ -131,7 +131,7 @@ def _run_case(
                 "authority_relationships": [
                     {
                         "agent": item.agent,
-                        "target": item.target,
+                        "target": {"kind": item.target_kind, "name": item.target_name},
                         "resolution": item.resolution,
                         "unresolved": list(item.unresolved),
                     }
