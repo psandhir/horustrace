@@ -256,3 +256,95 @@ root_agent = Agent(
     assert "pathlib-write:write_text" in tool.metadata.get(
         "repository_effect_evidence", []
     )
+
+
+
+def test_internal_named_temporary_file_cleanup_is_not_destructive_authority(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "helpers.py",
+        """
+import subprocess
+import tempfile
+from pathlib import Path
+
+def run_query(query: str) -> str:
+    tmp = tempfile.NamedTemporaryFile(mode="w", delete=False)
+    tmp.write(query)
+    tmp.close()
+    try:
+        subprocess.run(["souffle", tmp.name], check=False)
+        return "ok"
+    finally:
+        Path(tmp.name).unlink(missing_ok=True)
+""",
+    )
+    _write(
+        tmp_path / "agent.py",
+        """
+from google.adk.agents import Agent
+from helpers import run_query
+
+def tool_run_query(query: str) -> str:
+    return run_query(query)
+
+root_agent = Agent(
+    name="query-agent",
+    model="gemini-2.5-flash",
+    tools=[tool_run_query],
+)
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "query-agent")
+    tool = next(item for item in agent.tools if item.name == "tool_run_query")
+
+    assert "process.execute" in tool.capabilities
+    assert "data.write" in tool.capabilities
+    assert "destructive.write" not in tool.capabilities
+    assert "pathlib-temp-cleanup:unlink" in tool.metadata.get(
+        "repository_effect_evidence", []
+    )
+
+
+def test_caller_selected_path_unlink_remains_destructive_authority(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "helpers.py",
+        """
+from pathlib import Path
+
+def delete_output(output_dir: str) -> None:
+    target = Path(output_dir) / "output.csv"
+    target.unlink(missing_ok=True)
+""",
+    )
+    _write(
+        tmp_path / "agent.py",
+        """
+from google.adk.agents import Agent
+from helpers import delete_output
+
+def tool_delete_output(output_dir: str) -> str:
+    delete_output(output_dir)
+    return "deleted"
+
+root_agent = Agent(
+    name="cleanup-agent",
+    model="gemini-2.5-flash",
+    tools=[tool_delete_output],
+)
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "cleanup-agent")
+    tool = next(item for item in agent.tools if item.name == "tool_delete_output")
+
+    assert {"data.write", "destructive.write"} <= tool.capabilities
+    assert "pathlib-destructive:unlink" in tool.metadata.get(
+        "repository_effect_evidence", []
+    )
