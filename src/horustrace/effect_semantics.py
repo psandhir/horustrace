@@ -78,7 +78,7 @@ def is_local_collection_mutation(call: ast.Call) -> bool:
     if tokens & _PERSISTENCE_RECEIVER_MARKERS:
         return False
 
-    return isinstance(receiver, (ast.Name, ast.Attribute, ast.Subscript))
+    return isinstance(receiver, ast.Name)
 
 
 def sql_call_capabilities(call: ast.Call) -> set[str]:
