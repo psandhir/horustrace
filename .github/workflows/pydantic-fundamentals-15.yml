@@ -8,6 +8,10 @@ on:
     paths:
       - ".github/workflows/pydantic-fundamentals-15.yml"
       - "research/pydantic-fundamentals-15/run.py"
+  pull_request:
+    paths:
+      - ".github/workflows/pydantic-fundamentals-15.yml"
+      - "research/pydantic-fundamentals-15/run.py"
 
 permissions:
   contents: read
