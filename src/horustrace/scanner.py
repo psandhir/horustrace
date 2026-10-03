@@ -1579,9 +1579,7 @@ def _propagate_adk_delegation(graph: Graph) -> None:
             parent.tools.append(Tool(
                 name=f"delegate:{child.name}", kind="delegated_agent",
                 capabilities=capabilities, approval=delegated_approval,
-                guardrails=bool(child.metadata.get("safety_plugin")) or bool(
-                    (child.metadata.get("callbacks") or {}).get("before_tool_callback")
-                ),
+                guardrails=child.metadata.get("tool_control_enforcing") is True,
                 resources=resources, destinations=destinations, location=parent.location,
                 provenance=provenance,
                 metadata={
