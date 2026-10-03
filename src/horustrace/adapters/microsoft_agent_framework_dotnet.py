@@ -17,6 +17,7 @@ from horustrace.adapters.csharp_source import (
     method_body,
     named_string,
     refs,
+    statement_end,
 )
 from horustrace.heuristics import (
     corroborate_name_inferred_authority,
@@ -40,6 +41,14 @@ _AGENT_MARKERS = (
     ".BuildAIAgent(",
 )
 
+_HOSTED_AGENT_MARKER = ".AddAIAgent("
+_SKILL_MARKERS = (
+    "AgentInlineSkill",
+    "AgentClassSkill",
+    "AgentSkillsProvider",
+    "UseFileSkills",
+)
+
 
 def is_microsoft_agent_framework_dotnet_file(path: Path) -> bool:
     if path.suffix.lower() != ".cs":
@@ -52,6 +61,8 @@ def is_microsoft_agent_framework_dotnet_file(path: Path) -> bool:
         "Microsoft.Agents.AI" in source
         and (
             any(marker in source for marker in _AGENT_MARKERS)
+            or _HOSTED_AGENT_MARKER in source
+            or any(marker in source for marker in _SKILL_MARKERS)
             or "HostedMcpServerTool" in source
             or "AgentSkillsProviderBuilder" in source
         )
@@ -405,6 +416,152 @@ def _tool_value(expr: str) -> str | None:
 
 def _context_value(expr: str) -> str | None:
     return argument_value(expr, "AIContextProviders")
+
+
+
+def _assignment_is_agent(item: CSharpAssignment) -> bool:
+    if any(marker in item.expression for marker in _AGENT_MARKERS):
+        return True
+    declared = (item.declared_type or "").replace("?", "").strip()
+    return (
+        declared in {"AIAgent", "ChatClientAgent"}
+        and re.match(r"^\s*new\s*\(", item.expression) is not None
+    )
+
+
+def _inline_skill_tool(
+    path: Path,
+    source: str,
+    item: CSharpAssignment,
+) -> Tool | None:
+    expr = item.expression
+    if "AgentInlineSkill" not in expr:
+        return None
+    name = named_string(expr, "name") or item.name
+    capabilities = _body_capabilities(expr)
+    resources = re.findall(r"\.AddResource\s*\(\s*@?\"([^\"]+)\"", expr)
+    scripts = re.findall(r"\.AddScript\s*\(\s*@?\"([^\"]+)\"", expr)
+    if resources:
+        capabilities.add("data.read")
+    return Tool(
+        name=name,
+        kind="microsoft_dotnet_agent_skill",
+        capabilities=capabilities,
+        location=location(path, source, item.offset),
+        metadata={
+            "framework": FRAMEWORK,
+            "skill_source": "inline",
+            "binding_origin": "AgentInlineSkill",
+            "resources": resources,
+            "scripts": scripts,
+        },
+    )
+
+
+def _class_skill_tool(
+    path: Path,
+    source: str,
+    masked: str,
+    item: CSharpAssignment,
+) -> Tool | None:
+    match = re.match(r"\s*new\s+([A-Za-z_]\w*)\s*\(", item.expression)
+    if not match:
+        return None
+    class_name = match.group(1)
+    declaration = re.search(
+        rf"\bclass\s+{re.escape(class_name)}\b[^{{:]*"
+        rf":\s*AgentClassSkill\s*<[^>]+>[^{{]*\{{",
+        masked,
+        re.DOTALL,
+    )
+    if not declaration:
+        return None
+    brace = masked.find("{", declaration.start(), declaration.end() + 1)
+    end = balanced_end(masked, brace, "{", "}") if brace >= 0 else None
+    if end is None:
+        return None
+    class_source = source[declaration.start():end + 1]
+    resources = re.findall(
+        r'AgentSkillResource\s*\(\s*@?"([^"]+)"',
+        class_source,
+    )
+    scripts = re.findall(
+        r'AgentSkillScript\s*\(\s*@?"([^"]+)"',
+        class_source,
+    )
+    frontmatter = re.search(
+        r"Frontmatter[^=]*=\s*new\s*\(\s*@?\"([^\"]+)\"",
+        class_source,
+        re.DOTALL,
+    )
+    capabilities = _body_capabilities(class_source)
+    if "AgentSkillResource" in class_source:
+        capabilities.add("data.read")
+    return Tool(
+        name=frontmatter.group(1) if frontmatter else class_name,
+        kind="microsoft_dotnet_agent_skill",
+        capabilities=capabilities,
+        location=location(path, source, item.offset),
+        metadata={
+            "framework": FRAMEWORK,
+            "skill_source": "class",
+            "binding_origin": "AgentClassSkill",
+            "class_name": class_name,
+            "resources": resources,
+            "scripts": scripts,
+        },
+    )
+
+
+def _file_skill_tool(
+    path: Path,
+    source: str,
+    item: CSharpAssignment,
+) -> Tool | None:
+    if "UseFileSkills" not in item.expression:
+        return None
+    capabilities = {"data.read"}
+    if "SubprocessScriptRunner" in item.expression:
+        capabilities.add("process.execute")
+    return Tool(
+        name=f"{item.name}:file-skills",
+        kind="microsoft_dotnet_agent_skill",
+        capabilities=capabilities,
+        approval=True if "SubprocessScriptRunner" in item.expression else None,
+        location=location(path, source, item.offset),
+        metadata={
+            "framework": FRAMEWORK,
+            "skill_source": "file",
+            "binding_origin": "UseFileSkills",
+            "dynamic_tool_catalogue": True,
+            "script_runner": (
+                "subprocess"
+                if "SubprocessScriptRunner" in item.expression
+                else None
+            ),
+        },
+    )
+
+
+def _hosted_agent_name(expression: str) -> str | None:
+    named = named_string(expression, "name")
+    if named:
+        return named
+    match = re.search(
+        r"\.AddAIAgent\s*\(\s*@?\"([^\"]+)\"",
+        expression,
+    )
+    return match.group(1) if match else None
+
+
+def _hosted_agent_expressions(source: str, masked: str) -> list[tuple[str, int]]:
+    result: list[tuple[str, int]] = []
+    for match in re.finditer(r"\.AddAIAgent\s*\(", masked):
+        end = statement_end(masked, match.start())
+        expression = source[match.start():end].strip()
+        if expression:
+            result.append((expression, match.start()))
+    return result
 
 
 def _dedupe_tools(items: Iterable[Tool]) -> list[Tool]:
