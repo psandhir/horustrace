@@ -65,6 +65,8 @@ def test_review_schema_is_bounded_to_packet_case_ids() -> None:
     assert item["properties"]["case_id"]["enum"] == ["case-001", "case-002"]
     assert schema["properties"]["reviews"]["minItems"] == 2
     assert item["properties"]["confidence"]["enum"] == ["high", "low", "medium"]
+    assert "partial_reasons" in item["required"]
+    assert "partial" in item["properties"]["verdict"]["enum"]
 
 
 def test_validate_reviews_applies_case_specific_verdicts() -> None:
@@ -121,3 +123,45 @@ def test_source_url_pins_sha_and_quotes_path() -> None:
     assert "/owner/repo/" in url
     assert "a" * 40 in url
     assert "space%20dir/agent.py" in url
+
+def test_validate_reviews_accepts_partial_with_reason() -> None:
+    case = _case("finding")
+    payload = {
+        "reviews": [
+            {
+                "case_id": "case-001",
+                "verdict": "partial",
+                "partial_reasons": ["destination_provenance"],
+                "severity": "medium",
+                "confidence": "high",
+                "evidence": ["agent.py:10"],
+                "rationale": "network authority is real but the destination is fixed",
+            }
+        ]
+    }
+
+    reviews = _validate_reviews(payload, [case])
+
+    assert reviews[0].verdict == "partial"
+    assert reviews[0].partial_reasons == ["destination_provenance"]
+
+
+def test_validate_reviews_rejects_partial_without_reason() -> None:
+    case = _case("finding")
+    payload = {
+        "reviews": [
+            {
+                "case_id": "case-001",
+                "verdict": "partial",
+                "partial_reasons": [],
+                "severity": "medium",
+                "confidence": "high",
+                "evidence": ["agent.py:10"],
+                "rationale": "qualification omitted",
+            }
+        ]
+    }
+
+    with pytest.raises(LLMAdjudicationError, match="requires at least one"):
+        _validate_reviews(payload, [case])
+

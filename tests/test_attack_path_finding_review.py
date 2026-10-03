@@ -212,3 +212,96 @@ cases:
     assert report["scanner_reveal_allowed"] is True
     assert report["escalation_cases"] == ["ap-llm-001"]
     assert report["low_confidence_cases"] == ["ap-llm-001"]
+
+def test_partial_finding_consensus_preserves_reason_taxonomy(tmp_path: Path) -> None:
+    packet = tmp_path / "partial-review-packet.yaml"
+    packet.write_text(
+        """
+schema_version: 1
+study: attack-path-finding-validation-2026
+cases:
+  - case_id: fp-partial
+    case_type: finding
+    repository:
+      repo: owner/repo
+      sha: "1111111111111111111111111111111111111111"
+    source_scope: [app.py]
+    question:
+      type: finding
+    reviewers:
+      - reviewer_id: reviewer-a
+        independent_human: true
+        horustrace_output_seen: false
+        locked: true
+        verdict: partial
+        partial_reasons: [destination_provenance]
+        severity: medium
+        evidence: [app.py:10]
+        rationale: core network authority exists but destination is fixed
+      - reviewer_id: reviewer-b
+        independent_human: true
+        horustrace_output_seen: false
+        locked: true
+        verdict: partial
+        partial_reasons: [destination_provenance]
+        severity: medium
+        evidence: [app.py:10]
+        rationale: same qualification independently confirmed
+""",
+        encoding="utf-8",
+    )
+
+    rows = validate_review_packet(packet)
+    report = summarize_rows(rows)
+
+    assert rows[0]["consensus_verdict"] == "partial"
+    assert rows[0]["partial_reason_consensus"] is True
+    assert rows[0]["consensus_partial_reasons"] == ["destination_provenance"]
+    assert report["escalation_cases"] == []
+
+
+def test_partial_reason_disagreement_escalates(tmp_path: Path) -> None:
+    packet = tmp_path / "partial-disagreement.yaml"
+    packet.write_text(
+        """
+schema_version: 1
+study: attack-path-finding-validation-2026
+cases:
+  - case_id: fp-partial
+    case_type: finding
+    repository:
+      repo: owner/repo
+      sha: "1111111111111111111111111111111111111111"
+    source_scope: [app.py]
+    question:
+      type: finding
+    reviewers:
+      - reviewer_id: reviewer-a
+        independent_human: true
+        horustrace_output_seen: false
+        locked: true
+        verdict: partial
+        partial_reasons: [destination_provenance]
+        severity: medium
+        evidence: [app.py:10]
+        rationale: destination is qualified
+      - reviewer_id: reviewer-b
+        independent_human: true
+        horustrace_output_seen: false
+        locked: true
+        verdict: partial
+        partial_reasons: [control_semantics]
+        severity: medium
+        evidence: [app.py:12]
+        rationale: control semantics are qualified
+""",
+        encoding="utf-8",
+    )
+
+    rows = validate_review_packet(packet)
+    report = summarize_rows(rows)
+
+    assert rows[0]["consensus"] is True
+    assert rows[0]["partial_reason_consensus"] is False
+    assert report["escalation_cases"] == ["fp-partial"]
+

@@ -149,14 +149,20 @@ def test_final_metrics_combine_phase_a_and_phase_b() -> None:
     assert report["findings"]["precision_sample"]["by_rule"]["AGT020"] == {
         "sampled": 2,
         "supported": 1,
+        "partial": 0,
         "unsupported": 1,
         "precision": 0.5,
+        "strict_precision": 0.5,
+        "materially_supported_precision": 0.5,
     }
     assert report["findings"]["precision_sample"]["by_owasp_agentic"]["ASI05"] == {
         "sampled": 2,
         "supported": 1,
+        "partial": 0,
         "unsupported": 1,
         "precision": 0.5,
+        "strict_precision": 0.5,
+        "materially_supported_precision": 0.5,
     }
 
 
@@ -220,3 +226,103 @@ def test_unresolved_reviews_are_excluded_from_denominators() -> None:
     assert report["attack_paths"]["unresolved_cases"] == 1
     assert report["findings"]["recall_reference"]["recall"] is None
     assert report["findings"]["precision_sample"]["precision"] is None
+
+def test_partial_findings_have_separate_strict_and_material_precision() -> None:
+    phase_a = {
+        "study": "attack-path-finding-validation-2026",
+        "rows": [
+            {
+                "case_id": "fr-full",
+                "case_type": "finding",
+                "consensus": True,
+                "consensus_verdict": "supported",
+            },
+            {
+                "case_id": "fr-partial",
+                "case_type": "finding",
+                "consensus": True,
+                "consensus_verdict": "partial",
+                "consensus_partial_reasons": ["destination_provenance"],
+            },
+        ],
+    }
+    attack_obs = {
+        "study": "attack-path-finding-validation-2026",
+        "scanner_sha": "c" * 40,
+        "observations": [],
+    }
+    recall_obs = {
+        "study": "attack-path-finding-validation-2026",
+        "scanner_sha": "c" * 40,
+        "observations": [
+            {"case_id": "fr-full", "scanner_detected": True},
+            {"case_id": "fr-partial", "scanner_detected": True},
+        ],
+    }
+    phase_b = {
+        "study": "attack-path-finding-validation-2026",
+        "rows": [
+            {
+                "case_id": "fp-full",
+                "case_type": "finding",
+                "consensus": True,
+                "consensus_verdict": "supported",
+                "severity_consensus": True,
+                "consensus_severity": "medium",
+            },
+            {
+                "case_id": "fp-partial",
+                "case_type": "finding",
+                "consensus": True,
+                "consensus_verdict": "partial",
+                "consensus_partial_reasons": [
+                    "control_semantics",
+                    "destination_provenance",
+                ],
+                "severity_consensus": True,
+                "consensus_severity": "medium",
+            },
+            {
+                "case_id": "fp-bad",
+                "case_type": "finding",
+                "consensus": True,
+                "consensus_verdict": "unsupported",
+                "severity_consensus": True,
+                "consensus_severity": "low",
+            },
+        ],
+    }
+    hidden = {
+        "study": "attack-path-finding-validation-2026",
+        "do_not_distribute_to_reviewers": True,
+        "cases": [
+            {
+                "case_id": case_id,
+                "scanner_sha": "c" * 40,
+                "scanner_severity": "medium",
+                "rule_id": "NET002",
+                "owasp_agentic": ["ASI02"],
+            }
+            for case_id in ("fp-full", "fp-partial", "fp-bad")
+        ],
+    }
+
+    report = score(phase_a, attack_obs, recall_obs, phase_b, hidden)
+    precision = report["findings"]["precision_sample"]
+    recall = report["findings"]["recall_reference"]
+
+    assert precision["supported_tp"] == 1
+    assert precision["partial"] == 1
+    assert precision["unsupported_fp"] == 1
+    assert precision["strict_precision"] == 0.3333
+    assert precision["materially_supported_precision"] == 0.6667
+    assert precision["partial_reason_taxonomy"] == {
+        "control_semantics": 1,
+        "destination_provenance": 1,
+    }
+    assert recall["strict_recall"] == 1.0
+    assert recall["materially_supported_recall"] == 1.0
+    assert recall["partial_reason_taxonomy"] == {
+        "destination_provenance": 1,
+    }
+

@@ -8,8 +8,12 @@ from typing import Any
 
 import yaml
 
-ATTACK_VERDICTS = {"valid", "invalid", "unresolved"}
-FINDING_VERDICTS = {"supported", "unsupported", "unresolved"}
+from horustrace.adjudication import (
+    ATTACK_VERDICTS,
+    FINDING_VERDICTS,
+    validate_partial_reasons,
+)
+
 SEVERITIES = {"critical", "high", "medium", "low", "informational", "unresolved"}
 CONFIDENCES = {"high", "medium", "low"}
 
@@ -51,6 +55,7 @@ def _validate_case_doc(case: dict[str, Any], where: str) -> dict[str, Any]:
     ids: list[str] = []
     reviewer_kinds: list[str] = []
     evaluator_models: list[dict[str, str] | None] = []
+    reviewer_partial_reasons: list[list[str]] = []
     case_where = where
     for index, review in enumerate(reviewers):
         review_where = f"{case_where}: reviewers[{index}]"
@@ -114,6 +119,14 @@ def _validate_case_doc(case: dict[str, Any], where: str) -> dict[str, Any]:
         allowed = ATTACK_VERDICTS if case_type == "attack_path" else FINDING_VERDICTS
         if verdict not in allowed:
             raise ReviewPackError(f"{review_where}: invalid verdict {verdict!r}")
+        try:
+            partial_reasons = validate_partial_reasons(
+                str(verdict),
+                review.get("partial_reasons"),
+            )
+        except ValueError as exc:
+            raise ReviewPackError(f"{review_where}: {exc}") from exc
+        reviewer_partial_reasons.append(partial_reasons)
         severity = review.get("severity", "unresolved")
         if severity not in SEVERITIES:
             raise ReviewPackError(f"{review_where}: invalid severity {severity!r}")
@@ -131,6 +144,18 @@ def _validate_case_doc(case: dict[str, Any], where: str) -> dict[str, Any]:
 
     verdicts = [review["verdict"] for review in reviewers]
     severities = [review.get("severity", "unresolved") for review in reviewers]
+    reason_sets = [set(reasons) for reasons in reviewer_partial_reasons]
+    partial_reason_consensus = (
+        verdicts[0] != "partial"
+        or verdicts[1] != "partial"
+        or reason_sets[0] == reason_sets[1]
+    )
+    consensus_partial_reasons = (
+        sorted(reason_sets[0])
+        if verdicts[0] == verdicts[1] == "partial"
+        and partial_reason_consensus
+        else []
+    )
     return {
         "case_id": case.get("case_id"),
         "case_type": case_type,
@@ -138,6 +163,9 @@ def _validate_case_doc(case: dict[str, Any], where: str) -> dict[str, Any]:
         "consensus_verdict": verdicts[0] if verdicts[0] == verdicts[1] else None,
         "severity_consensus": severities[0] == severities[1],
         "consensus_severity": severities[0] if severities[0] == severities[1] else None,
+        "partial_reason_consensus": partial_reason_consensus,
+        "consensus_partial_reasons": consensus_partial_reasons,
+        "reviewer_partial_reasons": reviewer_partial_reasons,
         "reviewers": ids,
         "reviewer_kinds": reviewer_kinds,
         "review_confidences": [
@@ -189,6 +217,7 @@ def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
         if (
             not row["consensus"]
             or not row["severity_consensus"]
+            or not row.get("partial_reason_consensus", True)
             or "low" in row.get("review_confidences", [])
         )
     ]
