@@ -127,3 +127,89 @@ agent = Agent("openai:gpt-4o", tools=[create_product_tool])
 
     assert "data.write" in tool.capabilities
     assert tool.metadata["repository_effect_resolved"] is True
+
+
+
+def test_adk_tool_inherits_effects_from_function_local_repository_import(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "helpers.py",
+        """
+import subprocess
+
+def extract_facts(binary_path: str) -> str:
+    subprocess.run(["bn-headless", binary_path], check=True)
+    with open("facts/Call.facts", "w") as handle:
+        handle.write(binary_path)
+    return "ok"
+""",
+    )
+    _write(
+        tmp_path / "agent.py",
+        """
+from google.adk.agents import Agent
+
+def tool_extract_facts_batch(binary_path: str) -> str:
+    import sys
+    sys.path.insert(0, ".")
+    from helpers import extract_facts
+    return extract_facts(binary_path)
+
+root_agent = Agent(
+    name="binary-agent",
+    model="gemini-2.5-flash",
+    tools=[tool_extract_facts_batch],
+)
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "binary-agent")
+    tool = next(
+        item for item in agent.tools if item.name == "tool_extract_facts_batch"
+    )
+
+    assert {"process.execute", "data.write"} <= tool.capabilities
+    assert tool.metadata.get("repository_effect_resolved") is True
+    assert "process:subprocess.run" in tool.metadata.get(
+        "repository_effect_evidence", []
+    )
+    assert "file:write" in tool.metadata.get("repository_effect_evidence", [])
+
+
+def test_function_local_module_alias_resolves_repository_helper_effect(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "helpers.py",
+        """
+import subprocess
+
+def find_loops(binary_path: str) -> list[str]:
+    subprocess.run(["bn-headless", "--loops", binary_path], check=True)
+    return []
+""",
+    )
+    _write(
+        tmp_path / "agent.py",
+        """
+from pydantic_ai import Agent
+
+agent = Agent("openai:gpt-4o")
+
+@agent.tool_plain
+def find_loop_functions(binary_path: str) -> list[str]:
+    import helpers as local_helpers
+    return local_helpers.find_loops(binary_path)
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tool = next(item for item in agent.tools if item.name == "find_loop_functions")
+
+    assert "process.execute" in tool.capabilities
+    assert "process:subprocess.run" in tool.metadata.get(
+        "repository_effect_evidence", []
+    )
