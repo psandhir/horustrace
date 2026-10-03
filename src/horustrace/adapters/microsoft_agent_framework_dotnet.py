@@ -170,6 +170,161 @@ def _function_tool(
     return tool
 
 
+
+_PROVIDER_TOOL_CAPABILITIES: dict[str, set[str]] = {
+    "HostedCodeInterpreterTool": {"process.execute", "data.read", "data.write"},
+    "HostedWebSearchTool": {"data.read", "network.external"},
+    "HostedFileSearchTool": {"data.read"},
+    "CreateCodeInterpreterTool": {"process.execute", "data.read", "data.write"},
+    "CreateWebSearchTool": {"data.read", "network.external"},
+    "CreateFileSearchTool": {"data.read"},
+    "CreateImageGenerationTool": {"external.write", "network.external"},
+    "CreateOpenApiTool": {"network.external"},
+    "CreateBingGroundingTool": {"data.read", "network.external"},
+    "CreateBingCustomSearchTool": {"data.read", "network.external"},
+    "CreateMicrosoftFabricTool": {"data.read", "network.external"},
+    "CreateSharepointTool": {"data.read", "network.external"},
+    "CreateAzureAISearchTool": {"data.read", "network.external"},
+    "CreateBrowserAutomationTool": {
+        "data.read", "data.write", "external.write", "network.external"
+    },
+    "CreateComputerTool": {"process.execute", "data.read", "data.write"},
+    "CreateA2ATool": {"agent.delegate", "network.external"},
+}
+
+
+def _provider_tool_kind(expression: str) -> str | None:
+    for kind in _PROVIDER_TOOL_CAPABILITIES:
+        if re.search(rf"\b{re.escape(kind)}\s*\(", expression):
+            return kind
+    return None
+
+
+def _provider_tool(
+    path: Path,
+    source: str,
+    expression: str,
+    *,
+    name: str,
+    offset: int,
+) -> Tool | None:
+    kind = _provider_tool_kind(expression)
+    if kind is None:
+        return None
+    capabilities = set(_PROVIDER_TOOL_CAPABILITIES[kind])
+    metadata: dict[str, object] = {
+        "framework": FRAMEWORK,
+        "provider": "microsoft-foundry",
+        "provider_managed": True,
+        "provider_tool_type": kind,
+    }
+
+    # OpenAPI can represent either read-only or mutating HTTP operations. Promote
+    # effects only when the source-visible schema/function definition proves them.
+    if kind == "CreateOpenApiTool":
+        target = re.search(
+            r"CreateOpenApiTool\s*\(\s*([A-Za-z_]\w*)\s*\(",
+            expression,
+        )
+        definition = (
+            method_body(source, mask_non_code(source), target.group(1))
+            if target
+            else None
+        )
+        definition_source = definition[0] if definition else ""
+        lowered = definition_source.lower()
+        if any(f'"{verb}"' in lowered for verb in ("post", "put", "patch", "delete")):
+            capabilities.update({"external.write", "data.write"})
+        if '"get"' in lowered:
+            capabilities.add("data.read")
+        urls = sorted(set(re.findall(r"https?://[^\s\"'}]+", definition_source)))
+        metadata["http_effect_basis"] = (
+            "source_visible_openapi_schema" if definition_source else "unresolved"
+        )
+    else:
+        urls = []
+
+    tool = Tool(
+        name=name,
+        kind="provider_tool",
+        capabilities=capabilities,
+        location=location(path, source, offset),
+        metadata=metadata,
+    )
+    for url in urls:
+        tool.destinations.append(NetworkDestination(
+            target=url.rstrip(",;"),
+            restricted=True,
+            location=tool.location,
+            metadata={
+                "source": "provider_tool_literal_url",
+                "network_scope": "fixed_literal_destination",
+            },
+        ))
+    return tool
+
+
+def _provider_tools_in_expression(
+    path: Path,
+    source: str,
+    expression: str,
+    *,
+    offset: int,
+) -> list[Tool]:
+    tools: list[Tool] = []
+    for kind in _PROVIDER_TOOL_CAPABILITIES:
+        for match in re.finditer(rf"\b{re.escape(kind)}\s*\(", expression):
+            tool = _provider_tool(
+                path,
+                source,
+                expression[match.start():],
+                name=kind,
+                offset=offset + match.start(),
+            )
+            if tool is not None:
+                tools.append(tool)
+    return _dedupe_tools(tools)
+
+
+def _codeact_provider_tool(
+    path: Path,
+    source: str,
+    item: CSharpAssignment,
+) -> Tool | None:
+    provider_type = next(
+        (
+            marker
+            for marker in ("HyperlightCodeActProvider", "LocalCodeActProvider")
+            if marker in item.expression
+        ),
+        None,
+    )
+    if provider_type is None:
+        return None
+    approval = None
+    if re.search(r"ApprovalMode\s*=\s*[\w.]*NeverRequire\b", item.expression):
+        approval = False
+    elif re.search(r"ApprovalMode\s*=\s*[\w.]*AlwaysRequire\b", item.expression):
+        approval = True
+    return Tool(
+        name=item.name,
+        kind="microsoft_dotnet_codeact",
+        capabilities={"process.execute"},
+        approval=approval,
+        location=location(path, source, item.offset),
+        metadata={
+            "framework": FRAMEWORK,
+            "binding_origin": provider_type,
+            "code_execution": True,
+            "sandbox": (
+                "hyperlight"
+                if provider_type == "HyperlightCodeActProvider"
+                else "host-process"
+            ),
+        },
+    )
+
+
 def _tool_variable(
     path: Path,
     source: str,
@@ -186,6 +341,16 @@ def _tool_variable(
             offset=item.offset,
             approval=True if "ApprovalRequiredAIFunction" in expr else None,
         )
+
+    provider_tool = _provider_tool(
+        path,
+        source,
+        expr,
+        name=item.name,
+        offset=item.offset,
+    )
+    if provider_tool is not None:
+        return provider_tool
 
     shell = (
         "local" if "LocalShellExecutor" in expr
