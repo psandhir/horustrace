@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "study": "agent-centric-unseen-12-v5",
+  "status": "adjudicated_baseline",
+  "cohort_freeze_commit": "7757d09d7f03ca86dc31febf4dfc2e2823c2bda1",
+  "scanner_baseline": "86145932dce3895406f9e57b6783ad6eb706a107",
+  "workflow_run": 37110834365,
+  "raw": {
+    "cases": 12,
+    "agents": 24,
+    "authority_relationships": 118,
+    "findings": 73,
+    "attack_paths": 9
+  },
+  "adjudication": {
+    "findings": {
+      "total": 73,
+      "materially_supported_or_qualified": 67,
+      "false_positive": 6,
+      "precision": 0.9178082191780822
+    },
+    "attack_paths": {
+      "total": 9,
+      "materially_supported_or_qualified": 7,
+      "false_positive": 2
+    },
+    "frameworks": [
+      {
+        "framework": "google-adk",
+        "findings": 25,
+        "supported_or_qualified": 23,
+        "false_positive": 2,
+        "precision": 0.92
+      },
+      {
+        "framework": "pydantic-ai",
+        "findings": 11,
+        "supported_or_qualified": 9,
+        "false_positive": 2,
+        "precision": 0.8181818181818182
+      },
+      {
+        "framework": "openai-agents",
+        "findings": 37,
+        "supported_or_qualified": 35,
+        "false_positive": 2,
+        "precision": 0.9459459459459459
+      }
+    ]
+  },
+  "false_positive_cases": [
+    {
+      "case_id": "unseen5-adk-001",
+      "rule_id": "AGT040",
+      "reason": "Local list append in tool_list_datalog_files is not persistent write authority."
+    },
+    {
+      "case_id": "unseen5-adk-004",
+      "rule_id": "NET001",
+      "reason": "GitLab base URL comes from operator-configured GITLAB_URL."
+    },
+    {
+      "case_id": "unseen5-oai-002",
+      "rule_id": "PATH012",
+      "count": 2,
+      "reason": "Both selected-path implementations enforce workspace containment through _safe_path."
+    },
+    {
+      "case_id": "unseen5-pyd-004",
+      "rule_id": "AGT040",
+      "reason": "create_order is explicitly gated by ctx.deps.allow_trading."
+    },
+    {
+      "case_id": "unseen5-pyd-004",
+      "rule_id": "NET002",
+      "reason": "Alpaca destination derives from operator-configured ALPACA_URL via AlpacaConfig.base_url."
+    }
+  ],
+  "p0_primitives": [
+    "sql_mutation_semantics",
+    "async_executor_wrapper_propagation",
+    "mutating_http_verbs",
+    "operator_config_destination_provenance",
+    "adk_mcp_toolset_variable_binding",
+    "path_containment_recognition",
+    "runtime_guard_recognition",
+    "adk_local_collection_mutation_suppression"
+  ]
+}
