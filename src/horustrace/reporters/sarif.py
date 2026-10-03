@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from horustrace.assurance import build_assurance_report
 from horustrace.models import Finding, FlowPath, ScanCoverage
 from horustrace.owasp import build_owasp_agentic_summary
 from horustrace.rule_registry import get_rule_metadata
@@ -57,6 +58,22 @@ def render(
     rules: dict[str, dict] = {}
     results: list[dict] = []
     flows_by_id = {flow.flow_id: flow for flow in flow_paths or []}
+    contract_report = authority_contract or {
+        "summary": {
+            "agents_with_contract": 0,
+            "relationships_evaluated": 0,
+            "compliant_relationships": 0,
+            "violation_relationships": 0,
+            "unresolved_relationships": 0,
+            "violations": 0,
+            "unresolved": 0,
+        }
+    }
+    owasp_report = build_owasp_agentic_summary(
+        findings,
+        disabled_rules=disabled_rules or [],
+    )
+    assurance = build_assurance_report(findings, contract_report, owasp_report)
 
     for finding in findings:
         rules.setdefault(
@@ -129,22 +146,10 @@ def render(
                 **({
                     "properties": {
                         "coverage": coverage.as_dict(),
-                        "owasp_agentic": build_owasp_agentic_summary(
-                            findings,
-                            disabled_rules=disabled_rules or [],
-                        ),
+                        "assurance": assurance,
+                        "owasp_agentic": owasp_report,
                         "control_observations": controls or [],
-                        "authority_contract": authority_contract or {
-                            "summary": {
-                                "agents_with_contract": 0,
-                                "relationships_evaluated": 0,
-                                "compliant_relationships": 0,
-                                "violation_relationships": 0,
-                                "unresolved_relationships": 0,
-                                "violations": 0,
-                                "unresolved": 0,
-                            }
-                        },
+                        "authority_contract": contract_report,
                         "flow_paths": [flow.as_dict() for flow in flow_paths or []],
                         "suppressions": {
                             "suppressed_findings": [f.as_dict() for f in suppressed or []],

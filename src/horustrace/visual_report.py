@@ -12,6 +12,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+from horustrace.assurance import build_assurance_report
 from horustrace.authority_contract import authority_contract_report
 from horustrace.effective_authority import effective_authority_report
 from horustrace.models import Finding, Graph
@@ -207,6 +208,11 @@ def build_visual_report(
         agent_findings = [
             item for item in findings_docs if item.get("agent") == agent.name
         ]
+        agent_policy_findings = [
+            item
+            for item in agent_findings
+            if item.get("assessment") == "policy_violation"
+        ]
         agent_attack_paths = [
             item for item in attack_paths if item.get("agent") == agent.name
         ]
@@ -283,6 +289,7 @@ def build_visual_report(
                     "authority_relationships": len(relationships),
                     "write_capable_relationships": agent_write_relationships,
                     "findings": len(agent_findings),
+                    "policy_violations": len(agent_policy_findings),
                     "attack_paths": len(agent_attack_paths),
                     "contract_status": contract_status,
                     "contract_violations": len(
@@ -315,6 +322,7 @@ def build_visual_report(
         findings,
         disabled_rules=graph.configuration_audit.get("disabled_rules", []),
     )
+    assurance = build_assurance_report(findings, contract, owasp)
     return {
         "schema_version": VISUAL_REPORT_SCHEMA_VERSION,
         "model": VISUAL_REPORT_MODEL,
@@ -335,6 +343,13 @@ def build_visual_report(
             "attack_paths": len(graph.attack_paths),
             "findings": len(findings),
             "severity": _severity_counts(findings),
+            "policy_violations": assurance["organization_policy"]["violations"],
+            "owasp_categories_with_findings": assurance["owasp_agentic"][
+                "categories_with_findings"
+            ],
+            "owasp_categories_not_assessed": assurance["owasp_agentic"][
+                "categories_not_assessed"
+            ],
             "agents_with_contract": contract["summary"]["agents_with_contract"],
             "contract_violations": contract["summary"]["violations"],
             "contract_unresolved": contract["summary"]["unresolved"],
@@ -342,6 +357,7 @@ def build_visual_report(
         },
         "agents": agents,
         "findings": findings_docs,
+        "assurance": assurance,
         "authority_contract": contract,
         "owasp_agentic": owasp,
         "security_graph": security_graph,
@@ -445,6 +461,8 @@ svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} 
     <button class="active" data-view="dashboard">Dashboard</button>
     <button data-view="agents">Agents</button>
     <button data-view="findings">Findings</button>
+    <button data-view="policy">Organisation policy</button>
+    <button data-view="owasp">OWASP Top 10</button>
     <button data-view="attack">Attack paths</button>
     <button data-view="contracts">Agent contracts</button>
     <button data-view="evidence">Scan evidence</button>
@@ -453,7 +471,7 @@ svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} 
 </aside>
 <main>
   <section id="dashboard" class="view active"></section><section id="agents" class="view"></section><section id="agent-detail" class="view"></section>
-  <section id="findings" class="view"></section><section id="attack" class="view"></section><section id="contracts" class="view"></section><section id="evidence" class="view"></section>
+  <section id="findings" class="view"></section><section id="policy" class="view"></section><section id="owasp" class="view"></section><section id="attack" class="view"></section><section id="contracts" class="view"></section><section id="evidence" class="view"></section>
   <div class="footer">Static evidence only · Runtime effectiveness is not verified · No report data leaves this file.</div>
 </main>
 </div>
@@ -504,8 +522,10 @@ function findingCard(f){{
  const evidence=(f.evidence||[]).map(x=>"<li>"+esc(x)+"</li>").join("");
  const prov=(f.provenance||[]).map(x=>"<li>"+esc(x.origin)+": "+esc(x.fact)+(x.location?" — "+loc(x.location):"")+"</li>").join("");
  const agent=f.agent?'<span class="pill">agent: '+esc(f.agent)+'</span>':"";
+ const policy=f.assessment==="policy_violation"?'<span class="pill">policy violation</span>':"";
+ const owasp=(f.standards?.owasp_agentic||[]).map(x=>'<span class="pill">OWASP '+esc(x)+'</span>').join("");
  return '<article class="finding" data-sev="'+esc(f.severity)+'"><div class="finding-head"><div><div class="finding-title"><strong>'+esc(f.rule_id)+'</strong><span class="badge '+esc(f.severity)+'">'+esc(String(f.severity).toUpperCase())+'</span>'+agent+'</div><div class="finding-name">'+esc(f.title)+'</div></div><span class="muted small">'+loc(f.location)+'</span></div>'+
- '<div class="finding-meta"><span>'+esc(f.assessment||"static")+' assessment</span></div><p>'+esc(f.message)+'</p>'+
+ '<div class="finding-meta"><span>'+esc(f.assessment||"static")+' assessment</span>'+policy+owasp+'</div><p>'+esc(f.message)+'</p>'+
  (evidence?'<details><summary>Evidence</summary><ul>'+evidence+'</ul></details>':"")+(prov?'<details><summary>Provenance</summary><ul>'+prov+'</ul></details>':"")+
  (f.recommendation?'<details><summary>Remediation</summary><p>'+esc(f.recommendation)+'</p></details>':"")+'</article>';
 }}
@@ -518,10 +538,10 @@ function renderDashboard(){{
  const primaryDrill=(s.severity?.critical||0)?"findings:critical":((s.severity?.high||0)?"findings:high":(s.contract_violations?"contracts:violation":"findings:all"));
  root.innerHTML=pageHead("Repository overview","Security assessment","Prioritised static evidence for effective authority, findings, attack paths and declared agent contracts.",badge(s.analysis_incomplete?"unresolved":"compliant"))+
  '<div class="assessment-banner '+esc(state.tone)+'" data-drill="'+primaryDrill+'" role="button" tabindex="0"><div><div class="eyebrow">Assessment signal</div><div class="assessment-title '+esc(state.tone)+'">'+esc(state.label)+'</div><div class="assessment-copy">'+esc(state.copy)+'</div></div><div class="assessment-side"><div class="assessment-count">'+number(state.count)+'<small>'+esc(state.unit)+'</small></div></div></div>'+
- '<div class="cards">'+metric("Active findings",s.findings,(s.severity?.critical||s.severity?.high)?"high":"","Critical "+number(s.severity?.critical||0)+" · High "+number(s.severity?.high||0))+metric("Agents",s.agents,"","agents:all",number(s.write_capable_relationships)+" write-capable relationships")+metric("Attack paths",s.attack_paths,"","attack:all","Static evidence; exploitability not verified")+metric("Contract violations",s.contract_violations,s.contract_violations?"critical":"","contracts:violation",number(s.contract_unresolved)+" unresolved checks")+'</div>'+
+ '<div class="cards">'+metric("Active findings",s.findings,(s.severity?.critical||s.severity?.high)?"high":"","Critical "+number(s.severity?.critical||0)+" · High "+number(s.severity?.high||0))+metric("Policy violations",s.policy_violations,s.policy_violations?"critical":"","policy:all","Configured HorusTrace policy rules")+metric("Contract violations",s.contract_violations,s.contract_violations?"critical":"","contracts:violation",number(s.contract_unresolved)+" unresolved checks")+metric("OWASP categories with findings",s.owasp_categories_with_findings,s.owasp_categories_with_findings?"warn":"","owasp:all",number(s.owasp_categories_not_assessed)+" not assessed")+metric("Agents",s.agents,"","agents:all",number(s.write_capable_relationships)+" write-capable relationships")+metric("Attack paths",s.attack_paths,"","attack:all","Static evidence; exploitability not verified")+'</div>'+
  sectionHead("Priority review queue","Agents ordered by static review priority.")+agentTable(attention)+
  '<div class="grid2"><div>'+sectionHead("Finding severity","Active findings by scanner severity.")+severityCards(s.severity,true)+'</div><div>'+sectionHead("Effective agency","Reconstructed authority and destination scope.")+'<div class="panel">'+drillList([drillRow("Authority relationships",s.authority_relationships,"agents:authority"),drillRow("Not fully resolved",s.authority_not_fully_resolved,"agents:unresolved","warn"),drillRow("Write-capable relationships",s.write_capable_relationships,"agents:write"),drillRow("Unique destinations",s.destinations,"agents:destinations")])+'</div></div></div>'+
- '<div class="grid2"><div>'+sectionHead("Environment inventory","Security-relevant components found in the scan.")+'<div class="cards">'+metric("Tools",s.tools,"","agents:tools")+metric("MCP servers",s.mcp_servers,"","agents:mcp")+metric("Identities",s.identities,"","agents:identities")+metric("Resources",s.resources,"","agents:resources")+'</div></div><div>'+sectionHead("Agent contracts","Declared authority compared with effective authority.")+'<div class="panel">'+drillList(['<div class="drill-row" style="cursor:default"><span>Overall status</span><span>'+badge(s.contract_violations?"violation":(s.contract_unresolved?"unresolved":"compliant"))+'</span></div>',drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),drillRow("Violations",s.contract_violations,"contracts:violation","critical"),drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")])+'</div></div></div>';
+ '<div class="grid2"><div>'+sectionHead("Environment inventory","Security-relevant components found in the scan.")+'<div class="cards">'+metric("Tools",s.tools,"","agents:tools")+metric("MCP servers",s.mcp_servers,"","agents:mcp")+metric("Identities",s.identities,"","agents:identities")+metric("Resources",s.resources,"","agents:resources")+'</div></div><div>'+sectionHead("Agent contracts","Declared authority compared with effective authority.")+'<div class="panel">'+drillList(['<div class="drill-row" style="cursor:default"><span>Overall status</span><span>'+badge(DATA.assurance.authority_contract.status)+'</span></div>',drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),drillRow("Violations",s.contract_violations,"contracts:violation","critical"),drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")])+'</div></div></div>';
  bindDashboardDrill(root);bindAgentRows(root);
 }}
 
@@ -532,7 +552,8 @@ function drillLabel(kind,value){{
   "agents:authority":"Agents with effective authority","agents:unresolved":"Agents with unresolved authority",
   "agents:write":"Agents with write-capable authority","agents:destinations":"Agents with external destinations",
   "findings:all":"All findings","findings:critical":"Critical findings","findings:high":"High findings",
-  "findings:medium":"Medium findings","findings:low":"Low findings","contracts:declared":"Agents with declared contracts",
+  "findings:medium":"Medium findings","findings:low":"Low findings","policy:all":"Organisation policy violations",
+  "owasp:all":"OWASP Agentic Top 10","contracts:declared":"Agents with declared contracts",
   "contracts:violation":"Agents with contract violations","contracts:unresolved":"Agents with unresolved contract checks",
   "attack:all":"Attack paths","agents:attention":"Agents needing attention","agents:attack":"Agents with attack paths","agents:contract":"Agents with contract issues"
  }};
@@ -542,6 +563,8 @@ function routeDrill(action){{
  const [kind,value="all"]=String(action).split(":",2);
  if(kind==="agents"){{renderAgents(value);showView("agents");}}
  else if(kind==="findings"){{renderFindings(value);showView("findings");}}
+ else if(kind==="policy"){{renderPolicy();showView("policy");}}
+ else if(kind==="owasp"){{renderOwasp(value);showView("owasp");}}
  else if(kind==="contracts"){{renderContracts(value);showView("contracts");}}
  else if(kind==="attack"){{renderAttack();showView("attack");}}
 }}
@@ -755,6 +778,39 @@ function renderFindings(severity="all"){{
  root.querySelectorAll("[data-finding-filter]").forEach(btn=>btn.addEventListener("click",()=>renderFindings(btn.dataset.findingFilter)));search.addEventListener("input",apply);apply();
 }}
 
+function renderPolicy(){{
+ const assurance=DATA.assurance.organization_policy;
+ const items=DATA.findings.filter(item=>item.assessment==="policy_violation").sort((a,b)=>severityRank(b.severity)-severityRank(a.severity)||String(a.rule_id).localeCompare(String(b.rule_id)));
+ document.getElementById("policy").innerHTML=pageHead("Policy assurance","Organisation policy","Configured HorusTrace policy rules that were violated by reconstructed agent authority or security state.",badge(assurance.status))+
+ '<div class="cards">'+metric("Violations",assurance.violations,assurance.violations?"critical":"")+metric("Affected agents",(assurance.affected_agents||[]).length)+metric("Triggered rules",(assurance.rule_ids||[]).length)+'</div>'+
+ '<div class="panel"><div class="kv"><div>Policy scope</div><div>'+esc(assurance.scope)+'</div><div>Status</div><div>'+badge(assurance.status)+'</div><div>Rules</div><div>'+esc((assurance.rule_ids||[]).join(", ")||"none")+'</div><div>Affected agents</div><div>'+esc((assurance.affected_agents||[]).join(", ")||"none")+'</div></div></div>'+
+ sectionHead("Policy violations","These are findings whose rule metadata classifies the assessment as policy_violation; Authority Contract results are reported separately.")+
+ (items.length?items.map(findingCard).join(""):'<div class="empty">No configured HorusTrace policy violations were detected.</div>');
+}}
+
+function owaspStatusLabel(item){{
+ if(item.runtime_status==="finding")return "finding";
+ if(item.runtime_status==="no_runtime_findings")return "no runtime findings";
+ if(item.runtime_status==="no_mapped_findings")return "no mapped findings";
+ return "not assessed";
+}}
+function renderOwasp(risk="all"){{
+ const report=DATA.owasp_agentic,categories=report.categories||[];
+ const rows=categories.map(item=>'<tr class="clickable" role="button" tabindex="0" data-owasp="'+esc(item.id)+'"><td><div class="row-title">'+esc(item.id)+" "+esc(item.title)+'</div><div class="row-sub">'+esc((item.mapped_rules||[]).join(", ")||"no enabled mapped detector")+'</div></td><td>'+badge(owaspStatusLabel(item).replaceAll(" ","_"))+'</td><td>'+number(item.runtime_finding_count)+'</td><td>'+number(item.finding_count)+'</td><td>'+esc(item.highest_severity||"—")+'</td><td>'+number((item.affected_agents||[]).length)+'</td></tr>').join("");
+ const selected=risk!=="all"?categories.find(item=>item.id===risk):null;
+ const mapped=selected?DATA.findings.filter(f=>(f.standards?.owasp_agentic||[]).includes(selected.id)):[];
+ const detail=selected?sectionHead(selected.id+" "+selected.title,"Mapped detector evidence for the selected OWASP category.",'<button class="back" id="owasp-clear">Show all</button>')+
+   '<div class="cards">'+metric("Total findings",selected.finding_count)+metric("Runtime findings",selected.runtime_finding_count)+metric("Affected agents",(selected.affected_agents||[]).length)+metric("Enabled mapped rules",(selected.mapped_rules||[]).length)+'</div>'+
+   (mapped.length?mapped.map(findingCard).join(""):'<div class="empty">No mapped findings fired for this category.</div>'):"";
+ const a=DATA.assurance.owasp_agentic;
+ const root=document.getElementById("owasp");
+ root.innerHTML=pageHead("Standards posture","OWASP Agentic Top 10","Detector-level status for every OWASP Top 10 for Agentic Applications 2026 category. NOT ASSESSED means HorusTrace has no enabled mapped detector.",badge(a.status))+
+ '<div class="cards">'+metric("Categories with findings",a.categories_with_findings,a.categories_with_findings?"warn":"")+metric("Runtime finding categories",a.categories_with_runtime_findings)+metric("Mapped detector categories",a.categories_with_mapped_detectors)+metric("Not assessed",a.categories_not_assessed,a.categories_not_assessed?"warn":"")+'</div>'+
+ '<div class="panel flush table-wrap"><table><thead><tr><th>OWASP category</th><th>Status</th><th>Runtime findings</th><th>Total findings</th><th>Highest</th><th>Agents</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+detail;
+ root.querySelectorAll("[data-owasp]").forEach(row=>{{const activate=()=>renderOwasp(row.dataset.owasp);row.addEventListener("click",activate);row.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});}});
+ const clear=root.querySelector("#owasp-clear");if(clear)clear.addEventListener("click",()=>renderOwasp("all"));
+}}
+
 function renderAttack(){{
  const items=DATA.agents.flatMap(a=>(a.path_views||[])),supported=items.filter(x=>x.evidence_strength==="supported_static_dataflow").length,potential=items.length-supported;
  document.getElementById("attack").innerHTML=pageHead("Risk chains","Attack paths","Evidence-aware chains from source/capability context to sensitive actions or destinations.")+
@@ -767,7 +823,7 @@ function renderContracts(mode="all"){{
  items=[...items].sort((a,b)=>(b.summary.contract_violations-a.summary.contract_violations)||(b.summary.contract_unresolved-a.summary.contract_unresolved)||a.name.localeCompare(b.name));
  const filters=[["all","All"],["declared","Declared"],["violation","Violations"],["unresolved","Unresolved"]],chips=filters.map(([value,label])=>'<button class="filter-chip '+(mode===value?"active":"")+'" data-contract-filter="'+value+'">'+esc(label)+'</button>').join("");
  const rows=items.map(a=>'<tr class="clickable" role="button" tabindex="0" data-agent="'+encodeURIComponent(a.name)+'"><td><div class="row-title">'+esc(a.name)+'</div><div class="row-sub">'+esc(a.framework)+'</div></td><td>'+badge(a.summary.contract_status)+'</td><td>'+number(a.summary.contract_violations)+'</td><td>'+number(a.summary.contract_unresolved)+'</td><td>'+number(a.contract.relationships.length)+'</td><td class="row-chevron">›</td></tr>').join("");
- const root=document.getElementById("contracts");root.innerHTML=pageHead("Policy assurance","Agent contracts","Declared Authority Contract constraints compared with reconstructed effective authority.")+
+ const root=document.getElementById("contracts");root.innerHTML=pageHead("Policy assurance","Agent contracts","Declared Authority Contract constraints compared with reconstructed effective authority.",badge(DATA.assurance.authority_contract.status))+
  '<div class="cards">'+metric("Agents with contract",DATA.summary.agents_with_contract)+metric("Violations",DATA.summary.contract_violations,DATA.summary.contract_violations?"critical":"")+metric("Unresolved checks",DATA.summary.contract_unresolved,DATA.summary.contract_unresolved?"warn":"")+'</div>'+
  '<div class="toolbar"><div class="filter-chips">'+chips+'</div><div class="muted small">'+number(items.length)+' agents in view</div></div>'+
  (rows?'<div class="panel flush table-wrap"><table><thead><tr><th>Agent</th><th>Status</th><th>Violations</th><th>Unresolved</th><th>Relationships evaluated</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">No agents matched this contract filter.</div>');
@@ -782,7 +838,7 @@ function renderEvidence(){{
  sectionHead("Diagnostics","Coverage or parsing conditions that may affect completeness.")+(diags.length?diags.map(d=>'<div class="finding" data-sev="medium"><div class="finding-title"><strong>'+esc(d.diagnostic_id||d.code)+'</strong><span class="badge medium">diagnostic</span></div><p>'+esc(d.message)+'</p><div class="muted small">'+loc(d.location)+'</div></div>').join(""):'<div class="empty">No detected coverage diagnostics.</div>');
 }}
 
-renderDashboard();renderAgents();renderFindings();renderAttack();renderContracts();renderEvidence();
+renderDashboard();renderAgents();renderFindings();renderPolicy();renderOwasp();renderAttack();renderContracts();renderEvidence();
 </script>
 </body>
 </html>

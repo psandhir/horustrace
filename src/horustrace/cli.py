@@ -10,6 +10,7 @@ from horustrace import __version__
 from horustrace.adapters.manifest import ManifestError
 from horustrace.adapters.registry import adapter_catalogue
 from horustrace.aibom import build_aibom
+from horustrace.assurance import build_assurance_report
 from horustrace.authority_contract import authority_contract_report
 from horustrace.authority_query import (
     query_effective_authority,
@@ -908,6 +909,15 @@ def main(argv: list[str] | None = None) -> int:
                 ),
             }
         )
+        owasp_agentic = build_owasp_agentic_summary(
+            findings,
+            disabled_rules=disabled_rules,
+        )
+        assurance = build_assurance_report(
+            findings,
+            authority_contract,
+            owasp_agentic,
+        )
     except (ConfigError, ManifestError, ScannerError, SuppressionError, ScanLimitError) as exc:
         print(f"horustrace: {exc}", file=sys.stderr)
         return 1
@@ -922,11 +932,9 @@ def main(argv: list[str] | None = None) -> int:
                 "mcp_authority": effective_mcp_authority_report(graph),
                 "effective_authority": effective_authority_report(graph),
                 "authority_resolution": authority_resolution,
+                "assurance": assurance,
                 "authority_contract": authority_contract,
-                "owasp_agentic": build_owasp_agentic_summary(
-                    findings,
-                    disabled_rules=disabled_rules,
-                ),
+                "owasp_agentic": owasp_agentic,
                 "configuration": {
                     "path": str(config.source_path) if config.source_path else None,
                     "repository": {"strict": config.strict},
@@ -983,6 +991,13 @@ def main(argv: list[str] | None = None) -> int:
                     "adg_nodes": len(graph.adg.nodes) if graph.adg else 0,
                     "adg_edges": len(graph.adg.edges) if graph.adg else 0,
                     "findings": len(findings),
+                    "policy_violations": assurance["organization_policy"]["violations"],
+                    "owasp_categories_with_findings": assurance["owasp_agentic"][
+                        "categories_with_findings"
+                    ],
+                    "owasp_categories_not_assessed": assurance["owasp_agentic"][
+                        "categories_not_assessed"
+                    ],
                     "authority_contract_violations": authority_contract["summary"]["violations"],
                     "authority_contract_unresolved": authority_contract["summary"]["unresolved"],
                     "authority_contract_relationships": authority_contract["summary"][

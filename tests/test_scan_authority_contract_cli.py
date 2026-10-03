@@ -83,6 +83,9 @@ def test_scan_json_includes_separate_authority_contract_assessment(
     assert report["authority_contract"]["summary"]["violations"] == 1
     assert report["authority_contract"]["violations"][0]["clause"] == "deny.capabilities"
     assert report["summary"]["authority_contract_violations"] == 1
+    assert report["assurance"]["authority_contract"]["status"] == "violation"
+    assert report["assurance"]["organization_policy"]["status"] == "no_violations"
+    assert report["assurance"]["owasp_agentic"]["categories"] == 10
 
 
 def test_scan_policy_violation_gate_is_independent_of_finding_severity(
@@ -165,7 +168,10 @@ def test_scan_console_renders_contract_as_separate_assessment(
 
     assert result == 0
     output = capsys.readouterr().out
+    assert "Organisation policy assessment" in output
     assert "Authority Contract assessment" in output
+    assert "OWASP Agentic Top 10 status" in output
+    assert "ASI01 Agent Goal Hijack" in output
     assert "Violations: 1" in output
     assert "VIOLATION agent=support target=tool:shell" in output
 
@@ -192,3 +198,6 @@ def test_scan_sarif_carries_authority_contract_metadata(
     report = json.loads(capsys.readouterr().out)
     properties = report["runs"][0]["properties"]
     assert properties["authority_contract"]["summary"]["violations"] == 1
+    assert properties["assurance"]["authority_contract"]["status"] == "violation"
+    assert properties["assurance"]["organization_policy"]["status"] == "no_violations"
+    assert properties["assurance"]["owasp_agentic"]["categories"] == 10
