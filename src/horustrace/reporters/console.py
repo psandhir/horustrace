@@ -4,8 +4,10 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from horustrace.assurance import build_assurance_report
 from horustrace.authority_contract import authority_contract_report
 from horustrace.models import Finding, Graph, Severity
+from horustrace.owasp import build_owasp_agentic_summary
 from horustrace.provenance import control_observations
 
 LAYER_NAMES = {
@@ -34,6 +36,11 @@ def render(
     flow_reachability = flow_resolution.get("agent_reachability", {})
     contract_report = authority_contract or authority_contract_report(graph)
     contract_summary = contract_report["summary"]
+    owasp_report = build_owasp_agentic_summary(
+        findings,
+        disabled_rules=graph.configuration_audit.get("disabled_rules", []),
+    )
+    assurance = build_assurance_report(findings, contract_report, owasp_report)
     lines = [
         "HorusTrace Security Scan",
         "=" * 23,
@@ -88,33 +95,78 @@ def render(
         )
     lines.append("")
 
-    if contract_summary["agents_with_contract"]:
-        lines.extend([
-            "Authority Contract assessment",
-            f"  Agents with contract: {contract_summary['agents_with_contract']}",
-            f"  Relationships evaluated: {contract_summary['relationships_evaluated']}",
-            f"  Compliant relationships: {contract_summary['compliant_relationships']}",
-            f"  Violation relationships: {contract_summary['violation_relationships']}",
-            f"  Unresolved relationships: {contract_summary['unresolved_relationships']}",
-            f"  Violations: {contract_summary['violations']}",
-            f"  Unresolved clauses: {contract_summary['unresolved']}",
-            "  Runtime effectiveness: not_verified",
-        ])
-        for item in contract_report["violations"]:
-            lines.append(
-                "  VIOLATION "
-                f"agent={item['agent']} "
-                f"target={item['target']['kind']}:{item['target']['name']} "
-                f"clause={item['clause']} reason={item['reason']}"
+    policy = assurance["organization_policy"]
+    lines.extend([
+        "Organisation policy assessment",
+        f"  Status: {policy['status']}",
+        f"  Policy violations: {policy['violations']}",
+        (
+            "  Triggered policy rules: "
+            + (", ".join(policy["rule_ids"]) if policy["rule_ids"] else "none")
+        ),
+        (
+            "  Affected agents: "
+            + (
+                ", ".join(policy["affected_agents"])
+                if policy["affected_agents"]
+                else "none"
             )
-        for item in contract_report["unresolved"]:
-            lines.append(
-                "  UNRESOLVED "
-                f"agent={item['agent']} "
-                f"target={item['target']['kind']}:{item['target']['name']} "
-                f"clause={item['clause']} reason={item['reason']}"
-            )
-        lines.append("")
+        ),
+        "  Scope: configured HorusTrace rules classified as policy_violation",
+        "",
+    ])
+
+    contract_assurance = assurance["authority_contract"]
+    lines.extend([
+        "Authority Contract assessment",
+        f"  Status: {contract_assurance['status']}",
+        f"  Agents with contract: {contract_summary['agents_with_contract']}",
+        f"  Relationships evaluated: {contract_summary['relationships_evaluated']}",
+        f"  Compliant relationships: {contract_summary['compliant_relationships']}",
+        f"  Violation relationships: {contract_summary['violation_relationships']}",
+        f"  Unresolved relationships: {contract_summary['unresolved_relationships']}",
+        f"  Violations: {contract_summary['violations']}",
+        f"  Unresolved clauses: {contract_summary['unresolved']}",
+        "  Runtime effectiveness: not_verified",
+    ])
+    for item in contract_report["violations"]:
+        lines.append(
+            "  VIOLATION "
+            f"agent={item['agent']} "
+            f"target={item['target']['kind']}:{item['target']['name']} "
+            f"clause={item['clause']} reason={item['reason']}"
+        )
+    for item in contract_report["unresolved"]:
+        lines.append(
+            "  UNRESOLVED "
+            f"agent={item['agent']} "
+            f"target={item['target']['kind']}:{item['target']['name']} "
+            f"clause={item['clause']} reason={item['reason']}"
+        )
+    lines.append("")
+
+    lines.extend([
+        "OWASP Agentic Top 10 status",
+        (
+            "  Categories with findings: "
+            f"{owasp_report['summary']['categories_with_findings']} / "
+            f"{owasp_report['summary']['categories']}"
+        ),
+        (
+            "  Categories with runtime findings: "
+            f"{owasp_report['summary']['categories_with_runtime_findings']}"
+        ),
+        f"  Categories not assessed: {owasp_report['summary']['categories_not_assessed']}",
+    ])
+    for item in owasp_report["categories"]:
+        status = str(item["runtime_status"]).replace("_", " ").upper()
+        detail = (
+            f"; runtime={item['runtime_finding_count']}; total={item['finding_count']}"
+            if item["finding_count"]
+            else ""
+        )
+        lines.append(f"  {item['id']} {item['title']}: {status}{detail}")
+    lines.append("")
 
     if graph.suppressed_findings or graph.suppression_diagnostics:
         lines.append("Suppressions")
