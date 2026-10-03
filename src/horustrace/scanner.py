@@ -16,8 +16,8 @@ from horustrace.adapters.fast_agent_config import (
 )
 from horustrace.adapters.iac_identity import scan_terraform
 from horustrace.adapters.manifest import MANIFEST_FILENAMES, scan_manifest
-from horustrace.adapters.microsoft_foundry import scan_foundry_config
 from horustrace.adapters.mcp_config import MCP_FILENAMES, scan_mcp_config
+from horustrace.adapters.microsoft_foundry import scan_foundry_config
 from horustrace.adapters.registry import detect_python_frameworks, scan_python_file
 from horustrace.adapters.repository_adk import enrich_repository_graph
 from horustrace.adg import build_adg
