@@ -1242,10 +1242,21 @@ static string GetExchangeRate(string value) => value;
         for item in durable.values()
     )
 
+    destination = durable["DestinationRecommenderAgent"]
+    assert destination.tools == []
+
     itinerary = durable["ItineraryPlannerAgent"]
     assert {item.name for item in itinerary.tools} == {
         "ConvertCurrency",
         "GetExchangeRate",
+    }
+    assert {
+        item.name
+        for item in graph.agents
+        if item.metadata.get("framework") == "microsoft-agent-framework-dotnet"
+    } == {
+        "DestinationRecommenderAgent",
+        "ItineraryPlannerAgent",
     }
 
 
@@ -1271,3 +1282,133 @@ static string GetWeather(string city) => "sunny";
 
     assert agent.metadata["framework"] == "microsoft-agent-framework-dotnet"
     assert {item.name for item in agent.tools} == {"GetWeather"}
+
+
+
+def test_dotnet_maf_cross_file_function_authority_is_resolved(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r"""
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+using TravelPlannerFunctions.Tools;
+
+AIAgent agent = chatClient.CreateAIAgent(
+    name: "ItineraryPlannerAgent",
+    tools: [
+        AIFunctionFactory.Create(CurrencyConverterTool.ConvertCurrency),
+        AIFunctionFactory.Create(CurrencyConverterTool.GetExchangeRate)
+    ]);
+""",
+    )
+
+    tools_dir = tmp_path / "Tools"
+    tools_dir.mkdir()
+    (tools_dir / "CurrencyConverterTool.cs").write_text(
+        r"""
+using System.Net.Http;
+
+namespace TravelPlannerFunctions.Tools;
+
+public class CurrencyConverterTool
+{
+    private static readonly HttpClient Client = new()
+    {
+        BaseAddress = new Uri("https://open.er-api.com/v6/")
+    };
+
+    public static async Task<string> ConvertCurrency(
+        decimal amount,
+        string fromCurrency,
+        string toCurrency)
+    {
+        var response = await Client.GetAsync(
+            $"latest/{fromCurrency.ToUpper()}");
+        return await response.Content.ReadAsStringAsync();
+    }
+
+    public static async Task<decimal> GetExchangeRate(
+        string fromCurrency,
+        string toCurrency)
+    {
+        await ConvertCurrency(1, fromCurrency, toCurrency);
+        return 1m;
+    }
+}
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.name == "ItineraryPlannerAgent"
+    )
+    tools = {item.name: item for item in agent.tools}
+
+    for name in ("ConvertCurrency", "GetExchangeRate"):
+        tool = tools[name]
+        assert {"data.read", "network.external"} <= tool.capabilities
+        assert tool.metadata["repository_effect_resolved"] is True
+        assert tool.metadata["method_source_resolved"] is True
+        assert any(
+            destination.target == "https://open.er-api.com/v6/"
+            for destination in tool.destinations
+        )
+
+
+def test_dotnet_maf_cross_file_unqualified_method_is_not_guessed_when_ambiguous(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r"""
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+AIAgent agent = chatClient.CreateAIAgent(
+    name: "AmbiguousAgent",
+    tools: [AIFunctionFactory.Create(Search)]);
+""",
+    )
+
+    (tmp_path / "First.cs").write_text(
+        r"""
+public class First
+{
+    public static async Task<string> Search(string value)
+    {
+        using var client = new HttpClient();
+        return await client.GetStringAsync("https://one.example/");
+    }
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "Second.cs").write_text(
+        r"""
+public class Second
+{
+    public static async Task<string> Search(string value)
+    {
+        using var client = new HttpClient();
+        return await client.GetStringAsync("https://two.example/");
+    }
+}
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item for item in graph.agents
+        if item.name == "AmbiguousAgent"
+    )
+    tool = next(item for item in agent.tools if item.name == "Search")
+
+    assert tool.metadata["method_source_resolved"] is False
+    assert "repository_effect_resolved" not in tool.metadata
+    assert tool.destinations == []
