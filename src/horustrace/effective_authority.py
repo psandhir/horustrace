@@ -81,23 +81,32 @@ def _adg_evidence(
     result: list[dict[str, Any]] = []
     nodes = {node.node_id: node for node in graph.adg.nodes}
     for edge in graph.adg.edges:
-        if edge.kind != "INVOKES":
-            continue
         source = nodes.get(edge.source)
         target = nodes.get(edge.target)
         if source is None or target is None:
             continue
         if source.kind != "agent" or source.name != agent:
             continue
-        expected_kind = "tool" if target_kind == "tool" else "mcp_server"
-        if target.kind != expected_kind:
-            continue
-        if target_kind == "tool":
-            matched = target.attributes.get("tool_name") == target_name
+
+        if target_kind == "agent":
+            if (
+                edge.kind != "DELEGATES_TO"
+                or target.kind != "agent"
+                or target.name != target_name
+            ):
+                continue
         else:
-            matched = target.name.endswith(f":{target_name}")
-        if not matched:
-            continue
+            if edge.kind != "INVOKES":
+                continue
+            expected_kind = "tool" if target_kind == "tool" else "mcp_server"
+            if target.kind != expected_kind:
+                continue
+            if target_kind == "tool":
+                matched = target.attributes.get("tool_name") == target_name
+            else:
+                matched = target.name.endswith(f":{target_name}")
+            if not matched:
+                continue
         result.append(
             {
                 "edge_id": edge.edge_id,
@@ -290,6 +299,93 @@ def _tool_relationship(
             )
         ),
         location=_location(tool.location),
+    )
+
+
+def _delegation_relationship(
+    graph: Graph,
+    agent: Agent,
+    tool: Tool,
+) -> EffectiveAuthorityRelationship:
+    """Expose a real agent-to-agent delegation edge as effective authority."""
+    target_name = str(
+        tool.metadata.get("delegate_target")
+        or tool.name.removeprefix("delegate:")
+    )
+    approval_resolved = tool.approval is not None or tool.guardrails
+    dimensions = {
+        "target": "resolved",
+        "capabilities": "resolved" if tool.capabilities else "unknown",
+        "identity": "unknown",
+        "approval": "resolved" if approval_resolved else "unknown",
+        "resources": "resolved" if tool.resources else "unknown",
+        "destinations": "resolved" if tool.destinations else "unknown",
+    }
+    unresolved = [
+        dimension
+        for dimension in ("identity", "approval", "resources", "destinations")
+        if dimensions[dimension] == "unknown"
+    ]
+    if not tool.capabilities:
+        unresolved.append("capabilities")
+
+    return EffectiveAuthorityRelationship(
+        relationship_id=_stable_relationship_id(agent.name, "agent", target_name),
+        agent=agent.name,
+        agent_instance_key=_agent_instance_key(agent),
+        target_kind="agent",
+        target_name=target_name,
+        capabilities=tuple(sorted(tool.capabilities)),
+        identity=None,
+        approval={
+            "required": tool.approval,
+            "guardrails": tool.guardrails,
+            "inherited_control": bool(tool.metadata.get("approval_inherited")),
+            "mechanism": (
+                tool.metadata.get("approval_mechanism")
+                or (
+                    "delegated_child_controls"
+                    if tool.metadata.get("approval_inherited")
+                    else None
+                )
+            ),
+        },
+        tool_scope=None,
+        resources=tuple(_resource(resource) for resource in tool.resources),
+        destinations=tuple(
+            {
+                "target": destination.target,
+                "direction": destination.direction,
+                "restricted": destination.restricted,
+                "metadata": dict(destination.metadata),
+                "location": _location(destination.location),
+            }
+            for destination in tool.destinations
+        ),
+        semantics={
+            "binding_origin": (
+                tool.metadata.get("authority_binding_basis")
+                or tool.metadata.get("binding_origin")
+                or "agent_delegation"
+            ),
+            "delegate_target": target_name,
+            "transitive": tool.metadata.get("transitive") is True,
+            "network": (
+                tool.metadata.get("network_semantics")
+                or tool.metadata.get("network_scope")
+            ),
+        },
+        dimensions=dimensions,
+        unresolved=tuple(sorted(set(unresolved))),
+        evidence=tuple(
+            _adg_evidence(
+                graph,
+                agent=agent.name,
+                target_kind="agent",
+                target_name=target_name,
+            )
+        ),
+        location=_location(tool.location or agent.location),
     )
 
 
@@ -498,10 +594,11 @@ def effective_authority_relationships(
     result: list[EffectiveAuthorityRelationship] = []
     for agent in graph.agents:
         for tool in agent.tools:
-            if tool.metadata.get("authority_binding") in {
-                "workflow_projection",
-                "delegation_projection",
-            }:
+            binding = tool.metadata.get("authority_binding")
+            if binding == "workflow_projection":
+                continue
+            if binding == "delegation_projection":
+                result.append(_delegation_relationship(graph, agent, tool))
                 continue
             result.append(_tool_relationship(graph, agent, tool))
         for server in agent.mcp_servers:
@@ -525,7 +622,7 @@ def effective_authority_report(graph: Graph) -> dict[str, Any]:
     }
     target_counts = {
         kind: sum(item.target_kind == kind for item in relationships)
-        for kind in ("tool", "mcp_server")
+        for kind in ("tool", "mcp_server", "agent")
     }
     return {
         "schema_version": EFFECTIVE_AUTHORITY_SCHEMA_VERSION,
@@ -534,6 +631,7 @@ def effective_authority_report(graph: Graph) -> dict[str, Any]:
             "relationships": len(relationships),
             "tool_relationships": target_counts["tool"],
             "mcp_relationships": target_counts["mcp_server"],
+            "delegation_relationships": target_counts["agent"],
             "fully_resolved_relationships": resolution_counts["fully_resolved"],
             "partially_resolved_relationships": resolution_counts["partially_resolved"],
             "unknown_relationships": resolution_counts["unknown"],
@@ -567,6 +665,7 @@ def render_effective_authority_console(graph: Graph, root: Path) -> str:
         f"Relationships:                {summary['relationships']}",
         f"Tool relationships:           {summary['tool_relationships']}",
         f"MCP relationships:            {summary['mcp_relationships']}",
+        f"Delegation relationships:     {summary['delegation_relationships']}",
         f"Fully resolved:               {summary['fully_resolved_relationships']}",
         f"Partially resolved:           {summary['partially_resolved_relationships']}",
         f"Unknown:                      {summary['unknown_relationships']}",
