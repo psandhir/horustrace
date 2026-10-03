@@ -244,7 +244,6 @@ def _tool_relationship(
         identity=identity_doc,
         approval={
             "required": tool.approval,
-            "conditional": conditional_approval,
             "guardrails": tool.guardrails,
             "inherited_control": inherited_control,
             "mechanism": (
@@ -255,9 +254,18 @@ def _tool_relationship(
                     else None
                 )
             ),
-            "scope": tool.metadata.get("approval_scope"),
-            "policy": tool.metadata.get("approval_policy"),
-            "policy_callable": tool.metadata.get("approval_policy_callable"),
+            **(
+                {
+                    "conditional": True,
+                    "scope": tool.metadata.get("approval_scope"),
+                    "policy": tool.metadata.get("approval_policy"),
+                    "policy_callable": tool.metadata.get(
+                        "approval_policy_callable"
+                    ),
+                }
+                if conditional_approval
+                else {}
+            ),
         },
         tool_scope=None,
         resources=tuple(_resource(resource) for resource in tool.resources),
@@ -486,11 +494,17 @@ def _mcp_relationship(
         identity=identity_doc,
         approval={
             "required": server.approval,
-            "conditional": conditional_approval,
             "guardrails": server.guardrails,
             "mechanism": server.metadata.get("approval_mechanism"),
-            "scope": server.metadata.get("approval_scope"),
-            "policy": server.metadata.get("approval_policy"),
+            **(
+                {
+                    "conditional": True,
+                    "scope": server.metadata.get("approval_scope"),
+                    "policy": server.metadata.get("approval_policy"),
+                }
+                if conditional_approval
+                else {}
+            ),
         },
         tool_scope=tool_scope,
         resources=tuple(_resource(resource) for resource in server.resources),
