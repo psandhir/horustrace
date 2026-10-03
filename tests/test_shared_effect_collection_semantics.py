@@ -115,3 +115,104 @@ def build(config):
         and relationship["target"]["kind"] == "mcp_server"
         for relationship in report["relationships"]
     )
+
+def test_adk_arithmetic_add_does_not_create_persistent_write(tmp_path: Path) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from google.adk.agents import Agent
+
+def add(a: int, b: int) -> int:
+    return a + b
+
+root_agent = Agent(name="calculator", model="gemini-2.5-flash", tools=[add])
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "calculator")
+    tool = next(item for item in agent.tools if item.name == "add")
+
+    assert "data.write" not in tool.capabilities
+    assert "destructive.write" not in tool.capabilities
+    assert not any(
+        finding.agent == "calculator"
+        and finding.rule_id in {"ADK001", "AGT040"}
+        for finding in findings
+    )
+
+
+def test_openai_business_execute_name_does_not_create_process_execution(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent, function_tool
+
+class MarketplaceClient:
+    def execute(self, task: str) -> str:
+        return f"queued:{task}"
+
+client = MarketplaceClient()
+
+@function_tool
+def agoragentic_execute(task: str) -> str:
+    return client.execute(task)
+
+agent = Agent(name="marketplace", tools=[agoragentic_execute])
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "marketplace")
+    tool = next(item for item in agent.tools if item.name == "agoragentic_execute")
+
+    assert "process.execute" not in tool.capabilities
+    assert "process.execute" in set(
+        tool.metadata.get("suppressed_name_only_capabilities") or []
+    )
+    assert not any(
+        finding.agent == "marketplace"
+        and finding.rule_id in {"AGT020", "CAP004"}
+        for finding in findings
+    )
+
+
+def test_openai_local_request_named_mock_does_not_create_network_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "mock_api.py").write_text(
+        """
+def submit_refund_request(order_id: str) -> str:
+    return "success"
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent, function_tool
+import mock_api
+
+@function_tool
+def submit_refund_request(order_id: str) -> str:
+    return mock_api.submit_refund_request(order_id)
+
+agent = Agent(name="support", tools=[submit_refund_request])
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "support")
+    tool = next(item for item in agent.tools if item.name == "submit_refund_request")
+
+    assert "network.external" not in tool.capabilities
+    assert "external.write" not in tool.capabilities
+    assert not tool.destinations
+    assert not any(
+        finding.agent == "support"
+        and finding.rule_id in {"NET001", "NET002"}
+        for finding in findings
+    )
+
