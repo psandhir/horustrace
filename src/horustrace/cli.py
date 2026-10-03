@@ -991,6 +991,13 @@ def main(argv: list[str] | None = None) -> int:
                     "adg_nodes": len(graph.adg.nodes) if graph.adg else 0,
                     "adg_edges": len(graph.adg.edges) if graph.adg else 0,
                     "findings": len(findings),
+                    "policy_violations": assurance["organization_policy"]["violations"],
+                    "owasp_categories_with_findings": assurance["owasp_agentic"][
+                        "categories_with_findings"
+                    ],
+                    "owasp_categories_not_assessed": assurance["owasp_agentic"][
+                        "categories_not_assessed"
+                    ],
                     "authority_contract_violations": authority_contract["summary"]["violations"],
                     "authority_contract_unresolved": authority_contract["summary"]["unresolved"],
                     "authority_contract_relationships": authority_contract["summary"][
