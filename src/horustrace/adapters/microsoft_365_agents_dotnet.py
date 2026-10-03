@@ -57,26 +57,55 @@ def _leading_agent_attribute(
     masked: str,
     class_start: int,
 ) -> str:
-    """Return a directly attached [Agent(...)] attribute without nested regexes."""
+    """Return a directly attached [Agent(...)] attribute in linear time."""
     window_start = max(0, class_start - 2048)
-    masked_prefix = masked[window_start:class_start]
-    original_prefix = source[window_start:class_start]
-    search_end = len(masked_prefix)
+    cursor = class_start
 
-    while True:
-        start = masked_prefix.rfind("[Agent", 0, search_end)
-        if start < 0:
+    while cursor > window_start:
+        while cursor > window_start and masked[cursor - 1].isspace():
+            cursor -= 1
+        if cursor <= window_start:
             return ""
-        end = masked_prefix.find("]", start + len("[Agent"))
-        if end < 0:
-            search_end = start
-            continue
 
-        tail = masked_prefix[end + 1:]
-        tokens = tail.split()
-        if all(token in _CLASS_MODIFIERS for token in tokens):
-            return original_prefix[start:end + 1]
-        search_end = start
+        word_end = cursor
+        word_start = word_end
+        while (
+            word_start > window_start
+            and (
+                masked[word_start - 1].isalnum()
+                or masked[word_start - 1] == "_"
+            )
+        ):
+            word_start -= 1
+        if word_start < word_end:
+            token = masked[word_start:word_end]
+            if token in _CLASS_MODIFIERS:
+                cursor = word_start
+                continue
+            return ""
+
+        if masked[cursor - 1] != "]":
+            return ""
+
+        close = cursor - 1
+        open_index = masked.rfind("[", window_start, close)
+        if open_index < 0:
+            return ""
+
+        attribute_head = masked[open_index + 1:close].lstrip()
+        if (
+            attribute_head.startswith("Agent")
+            and (
+                len(attribute_head) == len("Agent")
+                or attribute_head[len("Agent")].isspace()
+                or attribute_head[len("Agent")] == "("
+            )
+        ):
+            return source[open_index:close + 1]
+
+        cursor = open_index
+
+    return ""
 
 
 def _declared_agent_name(attrs: str, class_name: str) -> str:
