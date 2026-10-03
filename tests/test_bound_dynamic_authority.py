@@ -37,6 +37,111 @@ root_agent = Agent(name="claims_assistant", model="gemini-2.5-flash", tools=tool
     assert "capabilities" in relationship.unresolved
 
 
+def test_adk_direct_tool_factory_call_remains_bound_unresolved_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from google.adk.agents import Agent
+from registry import get_adk_tools
+
+root_agent = Agent(
+    name="claims_assistant",
+    model="gemini-2.5-flash",
+    tools=get_adk_tools(),
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "claims_assistant")
+    dynamic = next(
+        item
+        for item in agent.tools
+        if item.metadata.get("binding_unresolved") is True
+    )
+    assert dynamic.metadata["dynamic_bound_collection"] is True
+    assert dynamic.metadata["catalogue_source"] == "get_adk_tools"
+    assert agent.metadata["dynamic_tools_source_bound"] is True
+
+    relationship = next(
+        item
+        for item in effective_authority_relationships(graph)
+        if item.agent == "claims_assistant"
+        and item.target_kind == "tool"
+        and item.target_name == dynamic.name
+    )
+    assert relationship.dimensions["target"] == "resolved"
+    assert "capabilities" in relationship.unresolved
+
+
+def test_adk_starred_dynamic_collection_does_not_disappear(tmp_path: Path) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from google.adk.agents import Agent
+
+def read_status() -> str:
+    return "ok"
+
+def build_runtime_tools():
+    raise RuntimeError("runtime only")
+
+root_agent = Agent(
+    name="ops",
+    model="gemini-2.5-flash",
+    tools=[read_status, *build_runtime_tools()],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "ops")
+    assert any(item.name == "read_status" for item in agent.tools)
+    assert any(
+        item.metadata.get("binding_unresolved") is True
+        for item in agent.tools
+    )
+    assert any(
+        item.agent == "ops"
+        and item.target_kind == "tool"
+        and "capabilities" in item.unresolved
+        for item in effective_authority_relationships(graph)
+    )
+
+
+def test_adk_unresolved_import_binding_yields_to_repository_resolution(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "tools.py").write_text(
+        """
+import subprocess
+
+def run_task(command: str):
+    return subprocess.run(command, shell=True)
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from google.adk.agents import Agent
+from tools import run_task
+
+root_agent = Agent(name="ops", model="gemini-2.5-flash", tools=[run_task])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "ops")
+    tool = next(item for item in agent.tools if item.name == "run_task")
+
+    assert tool.metadata.get("repository_resolved") is True
+    assert tool.metadata.get("binding_unresolved") is not True
+    assert "process.execute" in tool.capabilities
+
+
 def test_openai_arcade_collection_remains_bound_authority(tmp_path: Path) -> None:
     (tmp_path / "agent.py").write_text(
         """

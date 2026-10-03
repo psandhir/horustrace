@@ -1569,6 +1569,26 @@ def _resolve_tools(
                         tools.append(tool)
                         resolved_refs.add((info.path, item.lineno))
                         continue
+                    tools.append(
+                        Tool(
+                            name=item.id,
+                            kind="dynamic_tool_collection",
+                            capabilities=set(),
+                            location=_loc(info.path, item),
+                            metadata={
+                                "framework": "google-adk",
+                                "binding_origin": "source_bound_unresolved_tool_binding",
+                                "dynamic_bound_collection": True,
+                                "binding_unresolved": True,
+                                "tool_scope_unresolved": True,
+                                "catalogue_source": _name(call.func) or "repository_factory",
+                                "import_module": target.module,
+                                "source_function": symbol,
+                            },
+                        )
+                    )
+                    resolved_refs.add((info.path, item.lineno))
+                    continue
 
             if item.id in info.calls:
                 call = info.calls[item.id]
@@ -1772,9 +1792,15 @@ def _merge_agent(existing: Agent, incoming: Agent) -> None:
         index, existing_tool = current
         replace_placeholder = (
             tool.metadata.get("repository_resolved") is True
-            and existing_tool.kind == "adk_builtin"
-            and existing_tool.metadata.get("adk_builtin")
-            not in BUILTIN_TOOL_CAPABILITIES
+            and (
+                (
+                    existing_tool.kind == "adk_builtin"
+                    and existing_tool.metadata.get("adk_builtin")
+                    not in BUILTIN_TOOL_CAPABILITIES
+                )
+                or existing_tool.kind == "unresolved_bound_tool"
+                or existing_tool.metadata.get("binding_unresolved") is True
+            )
         )
         if replace_placeholder:
             existing.tools[index] = tool

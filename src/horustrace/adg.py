@@ -230,6 +230,36 @@ def _add_flow_edges(builder: _Builder, flow: FlowPath) -> None:
         previous = node_id
 
 
+def _workflow_adg_node_id(
+    builder: _Builder,
+    agent: Agent,
+    source_id: str,
+    agent_ids_by_name: dict[str, list[str]],
+    workflow_node_ids: dict[str, str],
+    name: str,
+) -> str:
+    if name == "START":
+        return source_id
+    candidates = agent_ids_by_name.get(name, [])
+    if len(candidates) == 1:
+        return candidates[0]
+    existing = workflow_node_ids.get(name)
+    if existing is not None:
+        return existing
+    node_id = builder.node(
+        "workflow_node",
+        f"{agent.name}:{name}",
+        location=agent.location,
+        framework=_framework(agent.metadata),
+        attributes={
+            "workflow": agent.name,
+            "node_name": name,
+        },
+    )
+    workflow_node_ids[name] = node_id
+    return node_id
+
+
 def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
     """Project the normalized scanner graph into ADG schema version 1."""
     builder = _Builder(root)
@@ -651,6 +681,44 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                     target_ids[0],
                     location=agent.location,
                 )
+
+        # ADK 2.x Workflow graphs contain ordinary agents plus function/router
+        # nodes. Preserve the graph topology even when a non-agent node has no
+        # separate normalized Agent object.
+        workflow_node_ids: dict[str, str] = {}
+
+        for workflow_edge in agent.metadata.get("workflow_edges") or []:
+            if not isinstance(workflow_edge, dict):
+                continue
+            source_name = workflow_edge.get("source")
+            target_name = workflow_edge.get("target")
+            if not isinstance(source_name, str) or not isinstance(target_name, str):
+                continue
+            builder.edge(
+                "WORKFLOW_FLOWS_TO",
+                _workflow_adg_node_id(
+                    builder,
+                    agent,
+                    source_id,
+                    agent_ids_by_name,
+                    workflow_node_ids,
+                    source_name,
+                ),
+                _workflow_adg_node_id(
+                    builder,
+                    agent,
+                    source_id,
+                    agent_ids_by_name,
+                    workflow_node_ids,
+                    target_name,
+                ),
+                location=agent.location,
+                attributes={
+                    "workflow": agent.name,
+                    "route": workflow_edge.get("route"),
+                },
+            )
+
         for control_edge in agent.metadata.get("control_edges") or []:
             if not isinstance(control_edge, (tuple, list)) or len(control_edge) != 2:
                 continue

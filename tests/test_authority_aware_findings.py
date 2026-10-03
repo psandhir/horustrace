@@ -55,7 +55,12 @@ def test_agt040_respects_inherited_authority_control(tmp_path: Path) -> None:
                     )
                 ],
                 location=location,
-                metadata={"callbacks": {"before_tool_callback": "guard"}},
+                metadata={
+                    "callbacks": {"before_tool_callback": "guard"},
+                    "tool_control_state": "enforcing",
+                    "tool_control_enforcing": True,
+                    "tool_control_mechanism": "adk_before_tool_callback",
+                },
             )
         ]
     )

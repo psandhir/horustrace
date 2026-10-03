@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import json
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -564,9 +565,104 @@ def _infer_function_capabilities(
 def _resolve_sequence(expr: ast.AST | None, sequences: dict[str, list[ast.AST]]) -> list[ast.AST]:
     if isinstance(expr, (ast.List, ast.Tuple, ast.Set)):
         return list(expr.elts)
+    if isinstance(expr, ast.Starred):
+        return _resolve_sequence(expr.value, sequences)
+    if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Add):
+        return _resolve_sequence(expr.left, sequences) + _resolve_sequence(expr.right, sequences)
     if isinstance(expr, ast.Name):
-        return list(sequences.get(expr.id, []))
+        # A source-bound name that cannot be statically enumerated must remain
+        # visible to the binding layer instead of collapsing to an empty list.
+        return list(sequences[expr.id]) if expr.id in sequences else [expr]
     return [expr] if expr is not None else []
+
+
+def _workflow_node_reference(
+    node: ast.AST | None,
+    calls: dict[str, ast.Call],
+) -> tuple[str | None, bool]:
+    """Return a stable workflow-node name and whether it is an ADK agent."""
+    if node is None:
+        return None, False
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value, False
+    if isinstance(node, ast.Name):
+        if node.id == "START":
+            return "START", False
+        call = calls.get(node.id)
+        if call is not None and (_call_name(call.func) or "") in AGENT_TYPES:
+            return _string(_kw(call, "name")) or node.id, True
+        return node.id, False
+    if isinstance(node, ast.Attribute):
+        return _dotted_name(node) or _call_name(node), False
+    if isinstance(node, ast.Call):
+        call_name = _call_name(node.func) or ""
+        if call_name in AGENT_TYPES:
+            return _string(_kw(node, "name")) or call_name, True
+        return call_name or _dotted_name(node.func), False
+    try:
+        return ast.unparse(node), False
+    except (AttributeError, ValueError):
+        return None, False
+
+
+def _workflow_graph_topology(
+    call: ast.Call,
+    calls: dict[str, ast.Call],
+    sequences: dict[str, list[ast.AST]],
+) -> tuple[list[dict[str, Any]], list[str], bool]:
+    """Normalize ADK 2.x Workflow edges without executing routing code."""
+    edges_expr = _kw(call, "edges")
+    if edges_expr is None:
+        return [], [], False
+
+    edges: list[dict[str, Any]] = []
+    agent_nodes: list[str] = []
+    unresolved = False
+
+    def add_edge(
+        source_node: ast.AST | None,
+        target_node: ast.AST | None,
+        route_node: ast.AST | None = None,
+    ) -> None:
+        nonlocal unresolved
+        source, source_is_agent = _workflow_node_reference(source_node, calls)
+        target, target_is_agent = _workflow_node_reference(target_node, calls)
+        if not source or not target:
+            unresolved = True
+            return
+        route = _literal(route_node)
+        if route_node is not None and route is None:
+            route, _ = _workflow_node_reference(route_node, calls)
+        entry: dict[str, Any] = {"source": source, "target": target}
+        if route is not None:
+            entry["route"] = route
+        edges.append(entry)
+        if source_is_agent and source not in agent_nodes:
+            agent_nodes.append(source)
+        if target_is_agent and target not in agent_nodes:
+            agent_nodes.append(target)
+
+    for row in _resolve_sequence(edges_expr, sequences):
+        if isinstance(row, ast.Call) and (_call_name(row.func) or "") == "Edge":
+            add_edge(
+                _arg(row, 0, "from_node") or _kw(row, "from"),
+                _arg(row, 1, "to_node") or _kw(row, "to"),
+                _arg(row, 2, "route"),
+            )
+            continue
+        if not isinstance(row, (ast.Tuple, ast.List)) or len(row.elts) < 2:
+            unresolved = True
+            continue
+        first, second, *rest = row.elts
+        if isinstance(second, ast.Dict) and not rest:
+            for route_node, target_node in zip(second.keys, second.values):
+                add_edge(first, target_node, route_node)
+            continue
+        chain = [first, second, *rest]
+        for source_node, target_node in pairwise(chain):
+            add_edge(source_node, target_node)
+
+    return edges, agent_nodes, unresolved
 
 
 def _resolve_call(expr: ast.AST | None, calls: dict[str, ast.Call]) -> ast.Call | None:
@@ -582,29 +678,55 @@ def _dynamic_tool_collection(
     expr: ast.AST | None,
     calls: dict[str, ast.Call],
 ) -> Tool | None:
-    """Preserve source-bound runtime tool collections without inventing members."""
-    if not isinstance(expr, ast.Name):
+    """Preserve a source-proven tool binding when catalogue enumeration stops."""
+    if expr is None:
         return None
-    source_call = calls.get(expr.id)
-    if source_call is None:
-        return None
-    called = _dotted_name(source_call.func) or _call_name(source_call.func) or ""
-    leaf = (_call_name(source_call.func) or "").lower()
-    if "tool" not in leaf and "tool" not in called.lower():
-        return None
-    catalogue = _string(source_call.args[0]) if source_call.args else None
+
+    alias: str | None = None
+    source_call: ast.Call | None = None
+    source_node = expr
+    if isinstance(expr, ast.Name):
+        alias = expr.id
+        source_call = calls.get(expr.id)
+        if source_call is None:
+            # A bare unresolved symbol proves only that configuration exists,
+            # not that the symbol is a runtime tool collection. Repository
+            # resolution may later prove an imported construction.
+            return None
+    elif isinstance(expr, ast.Await) and isinstance(expr.value, ast.Call):
+        source_call = expr.value
+        alias = _call_name(source_call.func) or "dynamic_tools"
+        source_node = source_call
+    elif isinstance(expr, ast.Call):
+        source_call = expr
+        alias = _call_name(expr.func) or "dynamic_tools"
+    elif isinstance(expr, ast.Starred):
+        return _dynamic_tool_collection(path, expr.value, calls)
+    else:
+        try:
+            alias = ast.unparse(expr)
+        except (AttributeError, ValueError):
+            alias = "dynamic_tools"
+
+    called = ""
+    catalogue: Any = None
+    if source_call is not None:
+        called = _dotted_name(source_call.func) or _call_name(source_call.func) or ""
+        catalogue = _string(source_call.args[0]) if source_call.args else None
+
     return Tool(
-        name=expr.id,
-        kind="dynamic_tool_collection",
+        name=alias or "dynamic_tools",
+        kind="dynamic_tool_collection" if source_call is not None else "unresolved_bound_tool",
         capabilities=set(),
-        location=_location(path, source_call),
+        location=_location(path, source_node),
         metadata={
             "framework": "google-adk",
-            "binding_origin": "source_bound_dynamic_tool_collection",
+            "binding_origin": "source_bound_unresolved_tool_binding",
             "dynamic_bound_collection": True,
-            "catalogue_source": called,
+            "catalogue_source": called or "unresolved_source_binding",
             "catalogue_name": catalogue,
             "tool_scope_unresolved": True,
+            "binding_unresolved": True,
         },
     )
 
@@ -1278,6 +1400,44 @@ def _callbacks(call: ast.Call) -> dict[str, str]:
     return result
 
 
+def _before_tool_control_state(
+    call: ast.Call,
+    functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+) -> str | None:
+    """Classify whether a before-tool callback is source-proven to override execution."""
+    callback = _kw(call, "before_tool_callback")
+    if callback is None:
+        return None
+    if isinstance(callback, ast.Lambda):
+        return (
+            "non_enforcing"
+            if isinstance(callback.body, ast.Constant) and callback.body.value is None
+            else "enforcing"
+        )
+    callback_name = _call_name(callback)
+    function = functions.get(callback_name or "")
+    if function is None:
+        return "unresolved"
+
+    returns = [
+        node
+        for node in ast.walk(function)
+        if isinstance(node, ast.Return)
+    ]
+    if not returns:
+        return "non_enforcing"
+    if any(
+        node.value is not None
+        and not (isinstance(node.value, ast.Constant) and node.value.value is None)
+        for node in returns
+    ):
+        # In ADK, a non-None before_tool_callback return overrides the tool
+        # execution. This proves an enforcement path without claiming that the
+        # callback always blocks or that its policy is complete.
+        return "enforcing"
+    return "non_enforcing"
+
+
 def _custom_base_agent_classes(tree: ast.AST) -> dict[str, ast.ClassDef]:
     """Return source-defined ADK BaseAgent subclasses without executing them."""
     result: dict[str, ast.ClassDef] = {}
@@ -1339,6 +1499,11 @@ def _agent_from_call(
     callbacks = _callbacks(call)
     if callbacks:
         metadata["callbacks"] = callbacks
+    tool_control_state = _before_tool_control_state(call, functions)
+    if tool_control_state is not None:
+        metadata["tool_control_state"] = tool_control_state
+        metadata["tool_control_enforcing"] = tool_control_state == "enforcing"
+        metadata["tool_control_mechanism"] = "adk_before_tool_callback"
     metadata["disallow_transfer_to_parent"] = _bool(_kw(call, "disallow_transfer_to_parent"))
     metadata["disallow_transfer_to_peers"] = _bool(_kw(call, "disallow_transfer_to_peers"))
     metadata["mode"] = _string(_kw(call, "mode"))
@@ -1402,11 +1567,6 @@ def _agent_from_call(
         return agent
 
     tools_expr = _kw(call, "tools")
-    dynamic_collection = _dynamic_tool_collection(path, tools_expr, calls)
-    if dynamic_collection is not None and isinstance(tools_expr, ast.Name) and tools_expr.id not in sequences:
-        agent.tools.append(dynamic_collection)
-        agent.metadata["dynamic_tools"] = True
-        agent.metadata["dynamic_tools_source_bound"] = True
 
     for element in _resolve_sequence(tools_expr, sequences):
         if isinstance(element, ast.Name):
@@ -1444,11 +1604,18 @@ def _agent_from_call(
                     )
                     if direct:
                         agent.tools.append(direct)
+                    else:
+                        unresolved_binding = _dynamic_tool_collection(path, element, calls)
+                        if unresolved_binding:
+                            agent.tools.append(unresolved_binding)
             else:
-                # Imported or arbitrary helpers can carry capabilities that
-                # static analysis cannot safely infer.
+                # Imported or arbitrary helpers remain source-proven bindings
+                # even when their runtime type/catalogue cannot be enumerated.
                 agent.metadata["external_helper_semantics_unresolved"] = True
                 agent.metadata.setdefault("unresolved_helpers", []).append(element.id)
+                unresolved_binding = _dynamic_tool_collection(path, element, calls)
+                if unresolved_binding:
+                    agent.tools.append(unresolved_binding)
         elif isinstance(element, ast.Call):
             direct_mcp = _mcp_from_toolset(path, element, _call_name(element.func) or "mcp", calls)
             if direct_mcp:
@@ -1457,12 +1624,24 @@ def _agent_from_call(
                 direct = _tool_from_call(path, element, _call_name(element.func) or "tool", calls, functions)
                 if direct:
                     agent.tools.append(direct)
+                else:
+                    unresolved_binding = _dynamic_tool_collection(path, element, calls)
+                    if unresolved_binding:
+                        agent.tools.append(unresolved_binding)
         elif isinstance(element, ast.Attribute):
             tool_name = _call_name(element) or "tool"
             caps = set(BUILTIN_TOOL_CAPABILITIES.get(tool_name, set())) or set(infer_capabilities(tool_name))
             tool = Tool(name=tool_name, kind="adk_builtin", capabilities=caps, location=_location(path, element), metadata={"framework": "google-adk", "adk_builtin": tool_name})
             _apply_retrieval_network_semantics(tool, tool_name)
             agent.tools.append(tool)
+        else:
+            unresolved_binding = _dynamic_tool_collection(path, element, calls)
+            if unresolved_binding:
+                agent.tools.append(unresolved_binding)
+
+    if any(tool.metadata.get("dynamic_bound_collection") for tool in agent.tools):
+        agent.metadata["dynamic_tools"] = True
+        agent.metadata["dynamic_tools_source_bound"] = True
 
     code_node = _kw(call, "code_executor")
     code_call = _resolve_call(code_node, calls)
@@ -1472,6 +1651,18 @@ def _agent_from_call(
             agent.tools.append(executor)
 
     delegates: list[str] = []
+    if agent_type == "Workflow":
+        workflow_edges, workflow_agents, workflow_unresolved = _workflow_graph_topology(
+            call,
+            calls,
+            sequences,
+        )
+        if workflow_edges:
+            agent.metadata["workflow_edges"] = workflow_edges
+        if workflow_unresolved:
+            agent.metadata["workflow_topology_unresolved"] = True
+        delegates.extend(workflow_agents)
+
     for element in _resolve_sequence(_kw(call, "sub_agents"), sequences):
         target = _call_name(element)
         if isinstance(element, ast.Name) and element.id in calls:
