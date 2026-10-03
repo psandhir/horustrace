@@ -111,6 +111,37 @@ root_agent = Agent(
     )
 
 
+def test_adk_unresolved_import_binding_yields_to_repository_resolution(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "tools.py").write_text(
+        """
+import subprocess
+
+def run_task(command: str):
+    return subprocess.run(command, shell=True)
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from google.adk.agents import Agent
+from tools import run_task
+
+root_agent = Agent(name="ops", model="gemini-2.5-flash", tools=[run_task])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "ops")
+    tool = next(item for item in agent.tools if item.name == "run_task")
+
+    assert tool.metadata.get("repository_resolved") is True
+    assert tool.metadata.get("binding_unresolved") is not True
+    assert "process.execute" in tool.capabilities
+
+
 def test_openai_arcade_collection_remains_bound_authority(tmp_path: Path) -> None:
     (tmp_path / "agent.py").write_text(
         """
