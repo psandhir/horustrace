@@ -728,16 +728,22 @@ def _configuration_source_from_expr(
     if isinstance(node, ast.Constant):
         return None
     if isinstance(node, ast.JoinedStr):
-        sources: set[str] = set()
+        origin_source: str | None = None
+        first_dynamic = True
         for value in node.values:
             if isinstance(value, ast.Constant):
                 continue
             expr = value.value if isinstance(value, ast.FormattedValue) else value
             source = _configuration_source_from_expr(expr, configuration_sources)
-            if source is None:
+            if first_dynamic:
+                first_dynamic = False
+                if source is None:
+                    return None
+                origin_source = source
+                continue
+            if source is not None and source != origin_source:
                 return None
-            sources.add(source)
-        return next(iter(sources)) if len(sources) == 1 else None
+        return origin_source
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
         sources: set[str] = set()
         for part in (node.left, node.right):
