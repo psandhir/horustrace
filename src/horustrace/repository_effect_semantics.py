@@ -579,6 +579,72 @@ def _path_like_names(
     return path_names
 
 
+def _temporary_handle_names(
+    info: _ModuleInfo,
+    function_name: str,
+) -> set[str]:
+    """Return local variables bound to source-created temporary resources."""
+    function = info.functions.get(function_name)
+    if function is None:
+        return set()
+
+    result: set[str] = set()
+    for node in _function_scope_nodes(function):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = node.value
+        if not isinstance(value, ast.Call):
+            continue
+        called = (_dotted(value.func) or _call_leaf(value.func) or "").rsplit(".", 1)[-1]
+        if called not in {"NamedTemporaryFile", "TemporaryFile", "TemporaryDirectory"}:
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        for target in targets:
+            if isinstance(target, ast.Name):
+                result.add(target.id)
+    return result
+
+
+def _path_receiver_is_internal_temporary(
+    info: _ModuleInfo,
+    function_name: str,
+    receiver: ast.AST | None,
+) -> bool:
+    """Identify pathlib receivers derived solely from a locally-created temp."""
+    temporary_handles = _temporary_handle_names(info, function_name)
+    if not temporary_handles:
+        return False
+
+    def from_temp_name(expr: ast.AST | None) -> bool:
+        if isinstance(expr, ast.Attribute) and expr.attr in {"name", "path"}:
+            return isinstance(expr.value, ast.Name) and expr.value.id in temporary_handles
+        if isinstance(expr, ast.Call):
+            called = (_dotted(expr.func) or _call_leaf(expr.func) or "").rsplit(".", 1)[-1]
+            if called == "Path" and expr.args:
+                return from_temp_name(expr.args[0])
+        return False
+
+    if from_temp_name(receiver):
+        return True
+
+    function = info.functions.get(function_name)
+    if function is None or not isinstance(receiver, ast.Name):
+        return False
+    target_name = receiver.id
+    for node in _function_scope_nodes(function):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        if not any(
+            isinstance(target, ast.Name) and target.id == target_name
+            for target in targets
+        ):
+            continue
+        if from_temp_name(node.value):
+            return True
+    return False
+
+
 def _path_receiver_is_source_proven(
     info: _ModuleInfo,
     function_name: str,
@@ -695,8 +761,16 @@ def _direct_effect(
             result.capabilities.add("data.write")
             result.evidence.add(f"pathlib-write:{leaf}")
         elif leaf in {"unlink", "rmdir"}:
-            result.capabilities.update({"data.write", "destructive.write"})
-            result.evidence.add(f"pathlib-destructive:{leaf}")
+            result.capabilities.add("data.write")
+            if _path_receiver_is_internal_temporary(
+                info,
+                function_name,
+                receiver,
+            ):
+                result.evidence.add(f"pathlib-temp-cleanup:{leaf}")
+            else:
+                result.capabilities.add("destructive.write")
+                result.evidence.add(f"pathlib-destructive:{leaf}")
         elif leaf in {
             "read_text",
             "read_bytes",
