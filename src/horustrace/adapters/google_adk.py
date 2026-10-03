@@ -5,6 +5,11 @@ import json
 from pathlib import Path
 from typing import Any
 
+from horustrace.effect_semantics import (
+    http_mutation_capabilities,
+    is_local_collection_mutation,
+    sql_call_capabilities,
+)
 from horustrace.heuristics import (
     corroborate_name_inferred_authority,
     infer_capabilities,
@@ -339,6 +344,10 @@ def _infer_function_capabilities(
         called = (_dotted_name(child.func) or _call_name(child.func) or "").lower()
         leaf = (_call_name(child.func) or "").lower()
 
+        sql_capabilities = sql_call_capabilities(child)
+        if sql_capabilities:
+            caps.update(sql_capabilities)
+
         # Only known execution APIs establish process execution.
         if (
             called in {"exec", "eval", "compile", "builtins.exec", "builtins.eval", "builtins.compile"}
@@ -368,6 +377,7 @@ def _infer_function_capabilities(
             "get_media",
         }:
             caps.add("data.read")
+        local_collection_mutation = is_local_collection_mutation(child)
         if leaf in {
             "set",
             "create",
@@ -376,9 +386,9 @@ def _infer_function_capabilities(
             "upload",
             "write",
             "save_artifact",
-        }:
+        } and not local_collection_mutation:
             caps.add("data.write")
-        if leaf in {"delete", "remove", "destroy", "purge"}:
+        if leaf in {"delete", "remove", "destroy", "purge"} and not local_collection_mutation:
             caps.update({"data.write", "destructive.write"})
 
         gcs_write_methods = {
@@ -429,11 +439,13 @@ def _infer_function_capabilities(
             )
         )
         if network_call:
-            # HTTP method is transport evidence, not mutation semantics.
-            # Read/query APIs frequently use POST (for example managed search
-            # endpoints), so external.write requires independent semantic
-            # evidence rather than the verb alone.
             caps.add("network.external")
+            caps.update(
+                http_mutation_capabilities(
+                    child,
+                    function_name=node.name,
+                )
+            )
 
             target_expr = child.args[0] if child.args else None
             target = _string(target_expr)
@@ -716,16 +728,22 @@ def _configuration_source_from_expr(
     if isinstance(node, ast.Constant):
         return None
     if isinstance(node, ast.JoinedStr):
-        sources: set[str] = set()
+        origin_source: str | None = None
+        first_dynamic = True
         for value in node.values:
             if isinstance(value, ast.Constant):
                 continue
             expr = value.value if isinstance(value, ast.FormattedValue) else value
             source = _configuration_source_from_expr(expr, configuration_sources)
-            if source is None:
+            if first_dynamic:
+                first_dynamic = False
+                if source is None:
+                    return None
+                origin_source = source
+                continue
+            if source is not None and source != origin_source:
                 return None
-            sources.add(source)
-        return next(iter(sources)) if len(sources) == 1 else None
+        return origin_source
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
         sources: set[str] = set()
         for part in (node.left, node.right):
@@ -759,6 +777,14 @@ def _apply_operator_configured_function_destinations(
                 value,
                 local_configuration_sources,
             )
+            if source is None and isinstance(value, ast.Call):
+                called = (_dotted_name(value.func) or _call_name(value.func) or "").lower()
+                if called in {"urllib.request.request", "request"}:
+                    url_expr = value.args[0] if value.args else _kw(value, "url")
+                    source = _configuration_source_from_expr(
+                        url_expr,
+                        local_configuration_sources,
+                    )
             if source is None:
                 continue
             targets = (
@@ -1397,9 +1423,24 @@ def _agent_from_call(
                 _apply_retrieval_network_semantics(tool, element.id)
                 agent.tools.append(tool)
             elif element.id in calls:
-                direct = _tool_from_call(path, calls[element.id], element.id, calls, functions)
-                if direct:
-                    agent.tools.append(direct)
+                direct_mcp = _mcp_from_toolset(
+                    path,
+                    calls[element.id],
+                    element.id,
+                    calls,
+                )
+                if direct_mcp:
+                    agent.mcp_servers.append(direct_mcp)
+                else:
+                    direct = _tool_from_call(
+                        path,
+                        calls[element.id],
+                        element.id,
+                        calls,
+                        functions,
+                    )
+                    if direct:
+                        agent.tools.append(direct)
             else:
                 # Imported or arbitrary helpers can carry capabilities that
                 # static analysis cannot safely infer.
@@ -1850,10 +1891,27 @@ def scan_python_file(path: Path) -> Graph:
             function = functions.get(tool.name)
             if function is None:
                 continue
-            _apply_operator_configured_function_destinations(
-                tool,
-                function,
-                configuration_sources,
-            )
+
+            pending = [function]
+            visited: set[str] = set()
+            while pending:
+                current = pending.pop()
+                if current.name in visited:
+                    continue
+                visited.add(current.name)
+                _apply_operator_configured_function_destinations(
+                    tool,
+                    current,
+                    configuration_sources,
+                )
+                for call in (
+                    node
+                    for node in ast.walk(current)
+                    if isinstance(node, ast.Call)
+                ):
+                    helper_name = _call_name(call.func)
+                    helper = functions.get(helper_name or "")
+                    if helper is not None and helper.name not in visited:
+                        pending.append(helper)
 
     return graph

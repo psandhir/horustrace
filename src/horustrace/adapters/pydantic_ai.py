@@ -13,6 +13,11 @@ from typing import Any
 from urllib.parse import urlparse
 
 from horustrace.coverage import add_diagnostic
+from horustrace.effect_semantics import (
+    http_mutation_capabilities,
+    is_local_collection_mutation,
+    sql_call_capabilities,
+)
 from horustrace.heuristics import infer_capabilities
 from horustrace.models import (
     Agent,
@@ -229,6 +234,13 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
             _call_name(child.func)
             or (dotted.rsplit(".", 1)[-1] if dotted else "")
         ).lower()
+
+        sql_capabilities = sql_call_capabilities(child)
+        if sql_capabilities:
+            capabilities.update(sql_capabilities)
+            if "data.write" in sql_capabilities:
+                body_write_evidence = True
+
         if (
             dotted in {
                 "exec",
@@ -247,8 +259,15 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
             dotted.startswith(("requests.", "httpx.", "aiohttp."))
             or "urllib" in dotted
         ):
-            # HTTP method is transport evidence, not mutation semantics.
             capabilities.add("network.external")
+            http_mutation = http_mutation_capabilities(
+                child,
+                function_name=node.name,
+            )
+            capabilities.update(http_mutation)
+            if "data.write" in http_mutation:
+                body_write_evidence = True
+        local_collection_mutation = is_local_collection_mutation(child)
         if leaf in {
             "write",
             "update",
@@ -258,7 +277,7 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
             "put",
             "edit",
             "patch",
-        }:
+        } and not local_collection_mutation:
             body_write_evidence = True
             capabilities.add("data.write")
         if leaf in {
@@ -269,7 +288,7 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
             "rmtree",
             "drop",
             "purge",
-        }:
+        } and not local_collection_mutation:
             body_write_evidence = True
             capabilities.update({"data.write", "destructive.write"})
         if leaf in {"read", "get", "search", "retrieve", "fetch", "query", "list"}:
@@ -292,7 +311,7 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
 def _mandatory_authorization_gate(
     node: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> bool:
-    """Detect a source-visible mandatory policy/authorization gate."""
+    """Detect source-visible mandatory authorization or runtime-policy gates."""
     gate_methods = {
         "require",
         "arequire",
@@ -300,6 +319,7 @@ def _mandatory_authorization_gate(
         "authorize_async",
         "require_permission",
         "check_permission",
+        "check_command_permissions",
     }
     gate_markers = (
         ".gate.",
@@ -308,12 +328,72 @@ def _mandatory_authorization_gate(
         ".authorization.",
         ".permissions.",
     )
-    for child in ast.walk(node):
-        if not isinstance(child, ast.Call):
-            continue
-        called = (_dotted(child.func) or _call_name(child.func) or "").lower()
-        leaf = (_call_name(child.func) or "").lower()
+    semantic_markers = (
+        "allow",
+        "allowed",
+        "permission",
+        "authorize",
+        "authz",
+        "policy",
+        "enabled",
+    )
+
+    def is_gate_call(call: ast.Call) -> bool:
+        called = (_dotted(call.func) or _call_name(call.func) or "").lower()
+        leaf = (_call_name(call.func) or "").lower()
         if leaf in gate_methods and any(marker in called for marker in gate_markers):
+            return True
+        return any(marker in leaf for marker in semantic_markers)
+
+    gate_variables: set[str] = set()
+    for child in ast.walk(node):
+        if not isinstance(child, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = child.value
+        if not isinstance(value, (ast.Call, ast.Await)):
+            continue
+        call = value.value if isinstance(value, ast.Await) else value
+        if not isinstance(call, ast.Call) or not is_gate_call(call):
+            continue
+        for name in _target_names(child):
+            gate_variables.add(name)
+
+    def expression_is_gate(expr: ast.AST) -> bool:
+        for part in ast.walk(expr):
+            if isinstance(part, ast.Call) and is_gate_call(part):
+                return True
+            if isinstance(part, ast.Name) and part.id in gate_variables:
+                return True
+            if isinstance(part, ast.Attribute):
+                dotted = (_dotted(part) or "").lower()
+                leaf = part.attr.lower()
+                if any(marker in leaf for marker in semantic_markers):
+                    return True
+                if any(marker in dotted for marker in gate_markers):
+                    return True
+        return False
+
+    for child in ast.walk(node):
+        if isinstance(child, ast.Call) and is_gate_call(child):
+            called = (_dotted(child.func) or _call_name(child.func) or "").lower()
+            leaf = (_call_name(child.func) or "").lower()
+            if leaf in gate_methods and any(marker in called for marker in gate_markers):
+                return True
+
+        if not isinstance(child, ast.If):
+            continue
+        if not any(
+            isinstance(part, ast.UnaryOp)
+            and isinstance(part.op, ast.Not)
+            and expression_is_gate(part.operand)
+            for part in ast.walk(child.test)
+        ):
+            continue
+        if any(
+            isinstance(exit_node, (ast.Return, ast.Raise))
+            for statement in child.body
+            for exit_node in ast.walk(statement)
+        ):
             return True
     return False
 
