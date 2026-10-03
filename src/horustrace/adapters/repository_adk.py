@@ -1569,6 +1569,26 @@ def _resolve_tools(
                         tools.append(tool)
                         resolved_refs.add((info.path, item.lineno))
                         continue
+                    tools.append(
+                        Tool(
+                            name=item.id,
+                            kind="dynamic_tool_collection",
+                            capabilities=set(),
+                            location=_loc(info.path, item),
+                            metadata={
+                                "framework": "google-adk",
+                                "binding_origin": "source_bound_unresolved_tool_binding",
+                                "dynamic_bound_collection": True,
+                                "binding_unresolved": True,
+                                "tool_scope_unresolved": True,
+                                "catalogue_source": _name(call.func) or "repository_factory",
+                                "import_module": target.module,
+                                "source_function": symbol,
+                            },
+                        )
+                    )
+                    resolved_refs.add((info.path, item.lineno))
+                    continue
 
             if item.id in info.calls:
                 call = info.calls[item.id]
