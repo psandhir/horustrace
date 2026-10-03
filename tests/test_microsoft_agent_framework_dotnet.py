@@ -785,3 +785,389 @@ AIAgent agent = chatClient.AsAIAgent(
     assert codeact[0].metadata["binding_origin"] == "LocalCodeActProvider"
     assert codeact[0].metadata["sandbox"] == "host-process"
     assert codeact[0].capabilities == {"process.execute"}
+
+
+def test_dotnet_maf_handoff_workflow_as_agent_projects_participant_authority(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using System.Diagnostics;
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Workflows;
+using Microsoft.Extensions.AI;
+
+static string RunCommand(string command)
+{
+    Process.Start(new ProcessStartInfo("cmd.exe", command));
+    return "ok";
+}
+
+AIAgent triageAgent = chatClient.AsAIAgent(name: "triage");
+AIAgent opsAgent = chatClient.AsAIAgent(
+    name: "ops",
+    tools: [AIFunctionFactory.Create(RunCommand)]);
+
+Workflow workflow = AgentWorkflowBuilder
+    .CreateHandoffBuilderWith(triageAgent)
+    .WithHandoffs(triageAgent, [opsAgent])
+    .WithHandoffs(opsAgent, triageAgent)
+    .Build();
+
+AIAgent supportAgent = workflow.AsAIAgent(name: "support-workflow");
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    workflow_agent = next(
+        item for item in graph.agents if item.name == "support-workflow"
+    )
+
+    assert workflow_agent.metadata["workflow_kind"] == "handoff"
+    delegated = {
+        item.name: item
+        for item in workflow_agent.tools
+        if item.kind == "delegated_agent"
+    }
+    assert {"triage", "ops"} <= delegated.keys()
+    assert "process.execute" in delegated["ops"].capabilities
+    assert delegated["ops"].metadata["authority_binding_basis"] == (
+        "microsoft_dotnet_workflow_projection"
+    )
+    assert "process.execute" in workflow_agent.capabilities
+
+
+def test_dotnet_maf_hosted_addworkflow_as_agent_projects_participants(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Hosting;
+using Microsoft.Agents.AI.Workflows;
+
+var writerBuilder = builder.AddAIAgent(
+    "writer",
+    "Write a draft.");
+
+var reviewerBuilder = builder.AddAIAgent(
+    "reviewer",
+    "Review the draft.");
+
+builder.AddWorkflow("review-workflow", (sp, key) =>
+{
+    var agents = new List<IHostedAgentBuilder>()
+    {
+        writerBuilder,
+        reviewerBuilder,
+    }.Select(ab => sp.GetRequiredKeyedService<AIAgent>(ab.Name));
+
+    return AgentWorkflowBuilder.BuildSequential(
+        workflowName: key,
+        agents: agents);
+}).AddAsAIAgent();
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    workflow_agent = next(
+        item for item in graph.agents if item.name == "review-workflow"
+    )
+
+    assert workflow_agent.metadata["agent_type"] == "WorkflowAgent"
+    assert workflow_agent.metadata["workflow_kind"] == "sequential"
+    delegated = {
+        item.name
+        for item in workflow_agent.tools
+        if item.kind == "delegated_agent"
+    }
+    assert delegated == {"writer", "reviewer"}
+
+
+def test_dotnet_maf_per_run_tools_extend_effective_authority(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using System.IO;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+static string DeleteFile(string path)
+{
+    File.Delete(path);
+    return "deleted";
+}
+
+AIAgent agent = chatClient.AsAIAgent(name: "RuntimeAgent");
+
+var options = new ChatClientAgentRunOptions(new()
+{
+    Tools =
+    [
+        new ApprovalRequiredAIFunction(
+            AIFunctionFactory.Create(DeleteFile))
+    ]
+});
+
+await agent.RunAsync("Delete the temporary file.", null, options);
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "RuntimeAgent")
+    tool = next(item for item in agent.tools if item.name == "DeleteFile")
+
+    assert tool.approval is True
+    assert {"data.write", "destructive.write"} <= tool.capabilities
+    assert tool.metadata["runtime_scope"] == "per_run"
+    assert tool.metadata["conditional_authority"] is True
+    assert tool.metadata["binding_origin"] == "ChatClientAgentRunOptions"
+
+
+def test_dotnet_maf_dynamic_tool_catalogue_is_projected_conditionally(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using System.IO;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+static string DeleteFile(string path)
+{
+    File.Delete(path);
+    return "deleted";
+}
+
+Dictionary<string, List<AITool>> toolCatalog = new()
+{
+    ["delete"] =
+    [
+        AIFunctionFactory.Create(DeleteFile, name: "delete_file")
+    ],
+};
+
+AIFunction requestToolsFunction = AIFunctionFactory.Create(
+    (string description) =>
+    {
+        var context = FunctionInvokingChatClient.CurrentContext
+            ?? throw new InvalidOperationException();
+
+        var tools = context.Options?.Tools;
+        foreach (var kvp in toolCatalog)
+        {
+            foreach (var tool in kvp.Value)
+            {
+                tools!.Add(tool);
+            }
+        }
+        return "loaded";
+    },
+    name: "RequestTools");
+
+AIAgent agent = chatClient.AsAIAgent(
+    name: "DynamicAgent",
+    tools: [requestToolsFunction]);
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "DynamicAgent")
+
+    loader = next(
+        item
+        for item in agent.tools
+        if item.kind == "microsoft_dotnet_dynamic_tool_loader"
+    )
+    dynamic = next(item for item in agent.tools if item.name == "delete_file")
+
+    assert loader.metadata["dynamic_tool_catalogue"] is True
+    assert loader.metadata["catalogue_tools"] == ["delete_file"]
+    assert "destructive.write" in loader.capabilities
+    assert dynamic.metadata["runtime_scope"] == "dynamic_catalogue"
+    assert dynamic.metadata["conditional_authority"] is True
+    assert "destructive.write" in dynamic.capabilities
+
+
+def test_dotnet_maf_harness_defaults_are_explicit_effective_authority(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+AIAgent agent = chatClient.AsHarnessAgent(new HarnessAgentOptions
+{
+    Name = "DefaultHarness",
+});
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "DefaultHarness")
+
+    assert agent.metadata["agent_type"] == "HarnessAgent"
+    kinds = {item.kind: item for item in agent.tools}
+
+    web = next(
+        item
+        for item in agent.tools
+        if item.metadata.get("provider_tool_type") == "HostedWebSearchTool"
+    )
+    assert web.metadata["framework_default"] is True
+    assert web.capabilities == {"data.read", "network.external"}
+
+    memory = kinds["microsoft_dotnet_harness_file_memory"]
+    assert memory.approval is False
+    assert memory.capabilities == {"data.read", "data.write"}
+    assert memory.resources[0].selector == "<harness-default-file-memory>"
+
+    skills = next(
+        item
+        for item in agent.tools
+        if item.kind == "microsoft_dotnet_agent_skill"
+        and item.metadata.get("binding_origin")
+        == "HarnessAgent.AgentSkillsProvider"
+    )
+    assert skills.approval is True
+    assert skills.metadata["dynamic_tool_catalogue"] is True
+    assert skills.metadata["skill_source"] == "cwd"
+
+
+def test_dotnet_maf_harness_file_access_preserves_approval_boundary(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+AIAgent agent = chatClient.AsHarnessAgent(new HarnessAgentOptions
+{
+    Name = "DataAgent",
+    DisableWebSearch = true,
+    DisableFileMemory = true,
+    DisableAgentSkillsProvider = true,
+    FileAccessStore = new FileSystemAgentFileStore("working"),
+    ToolApprovalAgentOptions = new ToolApprovalAgentOptions
+    {
+        AutoApprovalRules =
+        [
+            FileAccessProvider.ReadOnlyToolsAutoApprovalRule
+        ],
+    },
+});
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "DataAgent")
+    tools = {
+        item.metadata.get("access_mode"): item
+        for item in agent.tools
+        if item.kind == "microsoft_dotnet_harness_file_access"
+    }
+
+    read = tools["read"]
+    write_tool = tools["write"]
+
+    assert read.approval is False
+    assert read.metadata["auto_approved"] is True
+    assert read.capabilities == {"data.read"}
+
+    assert write_tool.approval is True
+    assert write_tool.metadata["auto_approved"] is False
+    assert {"data.write", "destructive.write"} <= write_tool.capabilities
+    assert write_tool.resources[0].selector == "working"
+
+
+def test_dotnet_maf_harness_background_agents_project_child_authority(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using System.Diagnostics;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+static string RunCommand(string command)
+{
+    Process.Start(new ProcessStartInfo("cmd.exe", command));
+    return "ok";
+}
+
+AIAgent worker = chatClient.AsAIAgent(
+    name: "Worker",
+    tools: [AIFunctionFactory.Create(RunCommand)]);
+
+AIAgent parent = chatClient.AsHarnessAgent(new HarnessAgentOptions
+{
+    Name = "ParentHarness",
+    DisableWebSearch = true,
+    DisableFileMemory = true,
+    DisableAgentSkillsProvider = true,
+    BackgroundAgents = [worker],
+});
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    parent = next(item for item in graph.agents if item.name == "ParentHarness")
+    delegated = next(
+        item
+        for item in parent.tools
+        if item.kind == "delegated_agent" and item.name == "Worker"
+    )
+
+    assert delegated.metadata["background_execution"] is True
+    assert delegated.metadata["authority_binding_basis"] == (
+        "microsoft_dotnet_harness_background_agent"
+    )
+    assert "process.execute" in delegated.capabilities
+    assert "process.execute" in parent.capabilities
+
+
+def test_dotnet_maf_harness_can_disable_default_authority_surfaces(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+AIAgent agent = chatClient.AsHarnessAgent(new HarnessAgentOptions
+{
+    Name = "LeanHarness",
+    DisableWebSearch = true,
+    DisableFileMemory = true,
+    DisableAgentSkillsProvider = true,
+});
+''',
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "LeanHarness")
+
+    assert not any(
+        item.metadata.get("provider_tool_type") == "HostedWebSearchTool"
+        for item in agent.tools
+    )
+    assert not any(
+        item.kind == "microsoft_dotnet_harness_file_memory"
+        for item in agent.tools
+    )
+    assert not any(
+        item.metadata.get("binding_origin")
+        == "HarnessAgent.AgentSkillsProvider"
+        for item in agent.tools
+    )
