@@ -217,6 +217,138 @@ def _call_target(
     return None
 
 
+def _environment_key(node: ast.AST | None) -> str | None:
+    if isinstance(node, ast.Subscript) and _dotted(node.value) == "os.environ":
+        value = _literal(node.slice)
+        return value if isinstance(value, str) else "environment"
+    if isinstance(node, ast.Call):
+        called = (_dotted(node.func) or "").lower()
+        if called in {"os.getenv", "os.environ.get"}:
+            value = _literal(node.args[0]) if node.args else None
+            return value if isinstance(value, str) else "environment"
+    return None
+
+
+def _configuration_source_from_expr(
+    node: ast.AST | None,
+    sources: dict[str, str],
+) -> str | None:
+    if node is None:
+        return None
+    direct = _environment_key(node)
+    if direct:
+        return direct
+    if isinstance(node, ast.Name):
+        return sources.get(node.id)
+    if isinstance(node, ast.Constant):
+        return None
+    if isinstance(node, ast.JoinedStr):
+        found: set[str] = set()
+        for value in node.values:
+            if isinstance(value, ast.Constant):
+                continue
+            expr = value.value if isinstance(value, ast.FormattedValue) else value
+            source = _configuration_source_from_expr(expr, sources)
+            if source is None:
+                return None
+            found.add(source)
+        return next(iter(found)) if len(found) == 1 else None
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        found: set[str] = set()
+        for part in (node.left, node.right):
+            if isinstance(part, ast.Constant):
+                continue
+            source = _configuration_source_from_expr(part, sources)
+            if source is None:
+                return None
+            found.add(source)
+        return next(iter(found)) if len(found) == 1 else None
+    if isinstance(node, ast.Call):
+        called = (_dotted(node.func) or _call_leaf(node.func) or "").lower()
+        if called in {"urllib.request.request", "request"}:
+            target = node.args[0] if node.args else next(
+                (kw.value for kw in node.keywords if kw.arg == "url"),
+                None,
+            )
+            return _configuration_source_from_expr(target, sources)
+        if isinstance(node.func, ast.Attribute) and node.func.attr in {
+            "rstrip",
+            "lstrip",
+            "strip",
+        }:
+            return _configuration_source_from_expr(node.func.value, sources)
+    return None
+
+
+def _operator_configured_destinations(
+    info: _ModuleInfo,
+    function_name: str,
+) -> list[NetworkDestination]:
+    function = info.functions.get(function_name)
+    if function is None:
+        return []
+
+    sources: dict[str, str] = {}
+    assignments = [
+        node
+        for node in ast.walk(function)
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None
+    ]
+    for _ in range(8):
+        changed = False
+        for assignment in assignments:
+            source = _configuration_source_from_expr(assignment.value, sources)
+            if source is None:
+                continue
+            targets = assignment.targets if isinstance(assignment, ast.Assign) else [assignment.target]
+            for target in targets:
+                if isinstance(target, ast.Name) and sources.get(target.id) != source:
+                    sources[target.id] = source
+                    changed = True
+        if not changed:
+            break
+
+    destinations: list[NetworkDestination] = []
+    seen: set[str] = set()
+    for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
+        called = (_dotted(call.func) or _call_leaf(call.func) or "").lower()
+        if not (
+            called.startswith(("requests.", "httpx.", "aiohttp."))
+            or "urllib.request" in called
+        ):
+            continue
+        leaf = (_call_leaf(call.func) or "").lower()
+        target = (
+            call.args[1]
+            if leaf == "request" and len(call.args) > 1
+            else call.args[0]
+            if call.args
+            else next(
+                (kw.value for kw in call.keywords if kw.arg in {"url", "uri", "endpoint"}),
+                None,
+            )
+        )
+        source = _configuration_source_from_expr(target, sources)
+        if source is None or source in seen:
+            continue
+        seen.add(source)
+        destinations.append(
+            NetworkDestination(
+                target=f"<operator-configured:{source}>",
+                restricted=True,
+                location=_location(info.path, call),
+                metadata={
+                    "source": "operator_configuration",
+                    "network_scope": "operator_configured_destination",
+                    "configuration_source": source,
+                    "destination_constraint_basis": "operator_configuration",
+                    "repository_effect_summary": True,
+                },
+            )
+        )
+    return destinations
+
+
 def _typed_configuration_destination(
     info: _ModuleInfo,
     function_name: str,
