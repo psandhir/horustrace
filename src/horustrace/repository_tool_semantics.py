@@ -920,6 +920,7 @@ def enrich_indirect_tool_content_semantics(
         combined_accesses: set[str] = set()
         combined_path_parameters: set[str] = set()
         constrained_evidence: list[bool] = []
+        constrained_path_parameters: set[str] = set()
         returns_file_content = False
 
         direct = _function_semantics(ref.node, wrapper_parameters)
@@ -927,6 +928,8 @@ def enrich_indirect_tool_content_semantics(
         combined_path_parameters.update(direct.path_parameters)
         if direct.accesses:
             constrained_evidence.append(direct.constrained)
+        if direct.constrained:
+            constrained_path_parameters.update(direct.path_parameters)
         returns_file_content = returns_file_content or direct.returns_file_content
 
         helpers = imported_functions(ref)
@@ -936,19 +939,27 @@ def enrich_indirect_tool_content_semantics(
             if isinstance(child, ast.Call)
         ]:
             helper_name = _call_leaf(call)
-            helper = helpers.get(helper_name or "")
+            helper = (
+                helpers.get(helper_name or "")
+                or functions.get((ref.module, helper_name or ""))
+            )
             if helper is None:
                 continue
             helper_parameters = _parameter_names(helper.node)
             tainted_helper_parameters: set[str] = set()
+            wrapper_arguments: set[str] = set()
             for index, argument in enumerate(call.args):
                 if index >= len(helper_parameters):
                     break
-                if _expr_names(argument) & wrapper_parameters:
+                origins = _expr_names(argument) & wrapper_parameters
+                if origins:
                     tainted_helper_parameters.add(helper_parameters[index])
+                    wrapper_arguments.update(origins)
             for keyword in call.keywords:
-                if keyword.arg and _expr_names(keyword.value) & wrapper_parameters:
+                origins = _expr_names(keyword.value) & wrapper_parameters
+                if keyword.arg and origins:
                     tainted_helper_parameters.add(keyword.arg)
+                    wrapper_arguments.update(origins)
             if not tainted_helper_parameters:
                 continue
 
@@ -956,19 +967,13 @@ def enrich_indirect_tool_content_semantics(
                 helper.node,
                 tainted_helper_parameters,
             )
+            if helper_semantics.constrained:
+                constrained_path_parameters.update(wrapper_arguments)
             if not helper_semantics.accesses:
                 continue
             combined_accesses.update(helper_semantics.accesses)
             constrained_evidence.append(helper_semantics.constrained)
-            for wrapper_parameter in wrapper_parameters:
-                if any(
-                    wrapper_parameter in _expr_names(argument)
-                    for argument in call.args
-                ) or any(
-                    wrapper_parameter in _expr_names(keyword.value)
-                    for keyword in call.keywords
-                ):
-                    combined_path_parameters.add(wrapper_parameter)
+            combined_path_parameters.update(wrapper_arguments)
 
             if helper_semantics.returns_file_content:
                 for return_node in ast.walk(ref.node):
@@ -983,9 +988,13 @@ def enrich_indirect_tool_content_semantics(
 
         if not combined_accesses:
             return None
+        parameter_containment_complete = bool(combined_path_parameters) and (
+            combined_path_parameters <= constrained_path_parameters
+        )
         return FunctionSemantics(
             accesses=frozenset(combined_accesses),
-            constrained=bool(constrained_evidence) and all(constrained_evidence),
+            constrained=parameter_containment_complete
+            or (bool(constrained_evidence) and all(constrained_evidence)),
             returns_file_content=returns_file_content,
             path_parameters=frozenset(combined_path_parameters),
         )
