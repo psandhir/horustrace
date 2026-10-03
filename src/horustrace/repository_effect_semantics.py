@@ -511,6 +511,104 @@ def _typed_configuration_destination(
     return None
 
 
+def _path_like_names(
+    info: _ModuleInfo,
+    function_name: str,
+) -> set[str]:
+    """Resolve simple pathlib.Path aliases within one function."""
+    function = info.functions.get(function_name)
+    if function is None:
+        return set()
+
+    path_names = {
+        parameter.arg
+        for parameter in [
+            *function.args.posonlyargs,
+            *function.args.args,
+            *function.args.kwonlyargs,
+        ]
+        if (
+            (_dotted(parameter.annotation) or _call_leaf(parameter.annotation) or "")
+            .rsplit(".", 1)[-1]
+            == "Path"
+        )
+    }
+
+    def expr_is_path_like(expr: ast.AST | None) -> bool:
+        if expr is None:
+            return False
+        if isinstance(expr, ast.Name):
+            return expr.id in path_names
+        if isinstance(expr, ast.Call):
+            called = _dotted(expr.func) or _call_leaf(expr.func) or ""
+            if called.rsplit(".", 1)[-1] == "Path":
+                return True
+            if (
+                isinstance(expr.func, ast.Attribute)
+                and expr.func.attr in {"resolve", "absolute", "expanduser"}
+            ):
+                return expr_is_path_like(expr.func.value)
+        if isinstance(expr, ast.Attribute):
+            return expr.attr in {"parent", "parents"} and expr_is_path_like(expr.value)
+        if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Div):
+            return expr_is_path_like(expr.left)
+        return False
+
+    assignments = [
+        node
+        for node in ast.walk(function)
+        if isinstance(node, (ast.Assign, ast.AnnAssign))
+        and node.value is not None
+    ]
+    for _ in range(8):
+        changed = False
+        for assignment in assignments:
+            if not expr_is_path_like(assignment.value):
+                continue
+            targets = (
+                assignment.targets
+                if isinstance(assignment, ast.Assign)
+                else [assignment.target]
+            )
+            for target in targets:
+                if isinstance(target, ast.Name) and target.id not in path_names:
+                    path_names.add(target.id)
+                    changed = True
+        if not changed:
+            break
+    return path_names
+
+
+def _path_receiver_is_source_proven(
+    info: _ModuleInfo,
+    function_name: str,
+    receiver: ast.AST | None,
+) -> bool:
+    path_names = _path_like_names(info, function_name)
+
+    def check(expr: ast.AST | None) -> bool:
+        if expr is None:
+            return False
+        if isinstance(expr, ast.Name):
+            return expr.id in path_names
+        if isinstance(expr, ast.Call):
+            called = _dotted(expr.func) or _call_leaf(expr.func) or ""
+            if called.rsplit(".", 1)[-1] == "Path":
+                return True
+            if (
+                isinstance(expr.func, ast.Attribute)
+                and expr.func.attr in {"resolve", "absolute", "expanduser"}
+            ):
+                return check(expr.func.value)
+        if isinstance(expr, ast.Attribute):
+            return expr.attr in {"parent", "parents"} and check(expr.value)
+        if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Div):
+            return check(expr.left)
+        return False
+
+    return check(receiver)
+
+
 def _direct_effect(
     module: str,
     info: _ModuleInfo,
@@ -590,6 +688,26 @@ def _direct_effect(
         else:
             result.capabilities.add("data.read")
             result.evidence.add("file:read")
+
+    receiver = call.func.value if isinstance(call.func, ast.Attribute) else None
+    if _path_receiver_is_source_proven(info, function_name, receiver):
+        if leaf in {"write_text", "write_bytes", "touch", "mkdir", "chmod"}:
+            result.capabilities.add("data.write")
+            result.evidence.add(f"pathlib-write:{leaf}")
+        elif leaf in {"unlink", "rmdir"}:
+            result.capabilities.update({"data.write", "destructive.write"})
+            result.evidence.add(f"pathlib-destructive:{leaf}")
+        elif leaf in {
+            "read_text",
+            "read_bytes",
+            "iterdir",
+            "glob",
+            "rglob",
+            "stat",
+            "exists",
+        }:
+            result.capabilities.add("data.read")
+            result.evidence.add(f"pathlib-read:{leaf}")
 
     # Concrete SQL and persistence APIs.
     sql_capabilities = sql_call_capabilities(call)
