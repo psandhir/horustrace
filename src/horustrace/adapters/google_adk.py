@@ -688,6 +688,11 @@ def _dynamic_tool_collection(
     if isinstance(expr, ast.Name):
         alias = expr.id
         source_call = calls.get(expr.id)
+        if source_call is None:
+            # A bare unresolved symbol proves only that configuration exists,
+            # not that the symbol is a runtime tool collection. Repository
+            # resolution may later prove an imported construction.
+            return None
     elif isinstance(expr, ast.Await) and isinstance(expr.value, ast.Call):
         source_call = expr.value
         alias = _call_name(source_call.func) or "dynamic_tools"
