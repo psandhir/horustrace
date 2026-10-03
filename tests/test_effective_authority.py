@@ -199,7 +199,12 @@ def test_effective_authority_includes_inherited_agent_tool_control(tmp_path: Pat
                     )
                 ],
                 location=location,
-                metadata={"callbacks": {"before_tool_callback": "guard"}},
+                metadata={
+                    "callbacks": {"before_tool_callback": "guard"},
+                    "tool_control_state": "enforcing",
+                    "tool_control_enforcing": True,
+                    "tool_control_mechanism": "adk_before_tool_callback",
+                },
             )
         ]
     )
@@ -209,8 +214,42 @@ def test_effective_authority_includes_inherited_agent_tool_control(tmp_path: Pat
 
     assert relationship["dimensions"]["approval"] == "resolved"
     assert relationship["approval"]["inherited_control"] is True
-    assert relationship["approval"]["mechanism"] == "agent_before_tool_control"
+    assert relationship["approval"]["mechanism"] == "adk_before_tool_callback"
     assert "approval" not in relationship["unresolved"]
+
+
+def test_effective_authority_does_not_credit_callback_presence_without_enforcement(
+    tmp_path: Path,
+) -> None:
+    location = SourceLocation(tmp_path / "agent.py", line=4)
+    graph = Graph(
+        agents=[
+            Agent(
+                name="observed_only",
+                tools=[
+                    Tool(
+                        name="write",
+                        kind="function",
+                        capabilities={"data.write"},
+                        location=location,
+                    )
+                ],
+                location=location,
+                metadata={
+                    "callbacks": {"before_tool_callback": "log_only"},
+                    "tool_control_state": "non_enforcing",
+                    "tool_control_enforcing": False,
+                },
+            )
+        ]
+    )
+    graph.adg = build_adg(graph, tmp_path)
+
+    relationship = effective_authority_report(graph)["relationships"][0]
+
+    assert relationship["dimensions"]["approval"] == "unknown"
+    assert relationship["approval"]["inherited_control"] is False
+    assert "approval" in relationship["unresolved"]
 
 
 def test_effective_authority_excludes_workflow_projection_tools(tmp_path: Path) -> None:
