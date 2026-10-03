@@ -1273,6 +1273,193 @@ def _parse_tools(
     return _dedupe_tools(tools), _dedupe_servers(servers)
 
 
+
+def _dynamic_tool_catalogues(
+    path: Path,
+    source: str,
+    masked: str,
+    known: dict[str, CSharpAssignment],
+    *,
+    tool_vars: dict[str, Tool],
+    hosted_vars: dict[str, MCPServer],
+    mcp_lists: dict[str, str],
+    mcp_servers: dict[str, MCPServer],
+    agent_aliases: dict[str, Agent],
+) -> tuple[dict[str, Tool], dict[str, list[Tool]]]:
+    loaders: dict[str, Tool] = {}
+    catalogues: dict[str, list[Tool]] = {}
+
+    for name, item in known.items():
+        expr = item.expression
+        if (
+            "FunctionInvokingChatClient.CurrentContext" not in expr
+            or ".Tools" not in expr
+            or ".Add(" not in expr
+        ):
+            continue
+
+        candidates: list[Tool] = []
+        for ref in refs(expr):
+            assigned = known.get(ref)
+            if assigned is None or ref == name:
+                continue
+            parsed, _ = _parse_tools(
+                path,
+                source,
+                masked,
+                assigned.expression,
+                offset=assigned.offset,
+                known=known,
+                tool_vars=tool_vars,
+                hosted_vars=hosted_vars,
+                mcp_lists=mcp_lists,
+                mcp_servers=mcp_servers,
+                agent_aliases=agent_aliases,
+            )
+            for tool in parsed:
+                tool.metadata["runtime_scope"] = "dynamic_catalogue"
+                tool.metadata["conditional_authority"] = True
+                tool.metadata["binding_origin"] = (
+                    "FunctionInvokingChatClient.CurrentContext"
+                )
+                candidates.append(tool)
+
+        candidates = _dedupe_tools(candidates)
+        loader_name = named_string(expr, "name") or name
+        loader = Tool(
+            name=loader_name,
+            kind="microsoft_dotnet_dynamic_tool_loader",
+            capabilities=set().union(
+                *(tool.capabilities for tool in candidates)
+            ) if candidates else set(),
+            location=location(path, source, item.offset),
+            metadata={
+                "framework": FRAMEWORK,
+                "binding_origin": "FunctionInvokingChatClient.CurrentContext",
+                "dynamic_tool_catalogue": True,
+                "conditional_authority": True,
+                "catalogue_tools": [tool.name for tool in candidates],
+                "source_alias": name,
+            },
+        )
+        loaders[name] = loader
+        catalogues[name] = candidates
+
+    return loaders, catalogues
+
+
+def _run_option_tool_sets(
+    path: Path,
+    source: str,
+    masked: str,
+    known: dict[str, CSharpAssignment],
+    *,
+    tool_vars: dict[str, Tool],
+    hosted_vars: dict[str, MCPServer],
+    mcp_lists: dict[str, str],
+    mcp_servers: dict[str, MCPServer],
+    agent_aliases: dict[str, Agent],
+) -> dict[str, tuple[list[Tool], list[MCPServer]]]:
+    result: dict[str, tuple[list[Tool], list[MCPServer]]] = {}
+    for name, item in known.items():
+        if "ChatClientAgentRunOptions" not in item.expression:
+            continue
+        value = _tool_value(item.expression)
+        if not value:
+            continue
+        value_start = item.expression.find(value)
+        tools, servers = _parse_tools(
+            path,
+            source,
+            masked,
+            value,
+            offset=item.offset + max(value_start, 0),
+            known=known,
+            tool_vars=tool_vars,
+            hosted_vars=hosted_vars,
+            mcp_lists=mcp_lists,
+            mcp_servers=mcp_servers,
+            agent_aliases=agent_aliases,
+        )
+        for tool in tools:
+            tool.metadata["runtime_scope"] = "per_run"
+            tool.metadata["conditional_authority"] = True
+            tool.metadata["binding_origin"] = "ChatClientAgentRunOptions"
+        for server in servers:
+            server.metadata["runtime_scope"] = "per_run"
+            server.metadata["conditional_authority"] = True
+            server.metadata["binding_origin"] = "ChatClientAgentRunOptions"
+        result[name] = (tools, servers)
+    return result
+
+
+def _bind_per_run_authority(
+    path: Path,
+    source: str,
+    masked: str,
+    *,
+    agent_aliases: dict[str, Agent],
+    run_options: dict[str, tuple[list[Tool], list[MCPServer]]],
+    known: dict[str, CSharpAssignment],
+    tool_vars: dict[str, Tool],
+    hosted_vars: dict[str, MCPServer],
+    mcp_lists: dict[str, str],
+    mcp_servers: dict[str, MCPServer],
+) -> None:
+    for match in re.finditer(
+        r"\b([A-Za-z_]\w*)\.(RunAsync|RunStreamingAsync)\s*\(",
+        masked,
+    ):
+        alias = match.group(1)
+        agent = agent_aliases.get(alias)
+        if agent is None:
+            continue
+        open_paren = masked.find("(", match.start(), match.end() + 1)
+        end = (
+            balanced_end(masked, open_paren, "(", ")")
+            if open_paren >= 0 else None
+        )
+        if end is None:
+            continue
+        invocation = source[match.start():end + 1]
+        invocation_refs = refs(invocation)
+
+        for option_name in invocation_refs & run_options.keys():
+            tools, servers = run_options[option_name]
+            agent.tools.extend(deepcopy(tools))
+            agent.mcp_servers.extend(deepcopy(servers))
+
+        if "new ChatClientAgentRunOptions" in invocation:
+            value = _tool_value(invocation)
+            if value:
+                tools, servers = _parse_tools(
+                    path,
+                    source,
+                    masked,
+                    value,
+                    offset=match.start() + max(invocation.find(value), 0),
+                    known=known,
+                    tool_vars=tool_vars,
+                    hosted_vars=hosted_vars,
+                    mcp_lists=mcp_lists,
+                    mcp_servers=mcp_servers,
+                    agent_aliases=agent_aliases,
+                )
+                for tool in tools:
+                    tool.metadata["runtime_scope"] = "per_run"
+                    tool.metadata["conditional_authority"] = True
+                    tool.metadata["binding_origin"] = "ChatClientAgentRunOptions"
+                for server in servers:
+                    server.metadata["runtime_scope"] = "per_run"
+                    server.metadata["conditional_authority"] = True
+                    server.metadata["binding_origin"] = "ChatClientAgentRunOptions"
+                agent.tools.extend(tools)
+                agent.mcp_servers.extend(servers)
+
+        agent.tools = _dedupe_tools(agent.tools)
+        agent.mcp_servers = _dedupe_servers(agent.mcp_servers)
+
+
 def _propagate_delegation(graph: Graph) -> None:
     agents = [
         a for a in graph.agents
@@ -1339,8 +1526,9 @@ def _propagate_delegation(graph: Graph) -> None:
                         destination_keys.add(key)
                 tool.metadata["delegated_agent_targets"] = [child.name]
                 tool.metadata["authority_binding"] = "delegation_projection"
-                tool.metadata["authority_binding_basis"] = (
-                    "microsoft_dotnet_agent_as_function"
+                tool.metadata.setdefault(
+                    "authority_binding_basis",
+                    "microsoft_dotnet_agent_as_function",
                 )
                 changed = changed or before != (
                     frozenset(tool.capabilities),
