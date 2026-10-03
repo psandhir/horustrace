@@ -17,6 +17,10 @@ from horustrace.adapters.fast_agent_config import (
 from horustrace.adapters.iac_identity import scan_terraform
 from horustrace.adapters.manifest import MANIFEST_FILENAMES, scan_manifest
 from horustrace.adapters.mcp_config import MCP_FILENAMES, scan_mcp_config
+from horustrace.adapters.microsoft_agent365 import (
+    AGENT365_CONFIG_FILENAMES,
+    scan_agent365_config,
+)
 from horustrace.adapters.microsoft_agent_framework_dotnet import scan_dotnet_file
 from horustrace.adapters.microsoft_foundry import scan_foundry_config
 from horustrace.adapters.registry import detect_python_frameworks, scan_python_file
@@ -1147,6 +1151,7 @@ def _is_supported_scan_candidate(path: Path) -> bool:
             | MANIFEST_FILENAMES
             | SUPPRESSION_FILENAMES
             | FAST_AGENT_CONFIG_FILENAMES
+            | AGENT365_CONFIG_FILENAMES
         )
         or path.name == ".env"
         or path.name.startswith(".env.")
@@ -2238,6 +2243,7 @@ def scan(
             | MCP_FILENAMES
             | SUPPRESSION_FILENAMES
             | FAST_AGENT_CONFIG_FILENAMES
+            | AGENT365_CONFIG_FILENAMES
         )
         seen_real_paths.add(real_candidate)
         try:
@@ -2262,11 +2268,11 @@ def scan(
                     ),
                 )
                 continue
-            if candidate.name in MCP_FILENAMES:
+            if candidate.name in (MCP_FILENAMES | AGENT365_CONFIG_FILENAMES):
                 validate_json_safety(text)
                 raw = json.loads(text)
                 if not isinstance(raw, dict):
-                    raise ValueError("invalid MCP configuration")
+                    raise ValueError("invalid JSON security configuration")
             elif candidate.suffix.lower() in {".yaml", ".yml"}:
                 validate_yaml_safety(text)
                 yaml.safe_load(text)
@@ -2364,6 +2370,8 @@ def scan(
             _merge(graph, scan_mcp_config(candidate), candidate)
         elif candidate.name in FAST_AGENT_CONFIG_FILENAMES:
             _merge(graph, scan_fast_agent_config(candidate), candidate)
+        elif candidate.name in AGENT365_CONFIG_FILENAMES:
+            _merge(graph, scan_agent365_config(candidate), candidate)
         elif candidate.name in MANIFEST_FILENAMES:
             _merge(graph, scan_manifest(candidate), candidate)
         elif candidate.suffix.lower() in {".yaml", ".yml"}:
