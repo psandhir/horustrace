@@ -158,29 +158,76 @@ def _containment_detected(
     function: ast.FunctionDef | ast.AsyncFunctionDef,
     tainted: set[str],
 ) -> bool:
+    def _block_terminates(statements: list[ast.stmt]) -> bool:
+        if not statements:
+            return False
+        final = statements[-1]
+        if isinstance(final, (ast.Return, ast.Raise)):
+            return True
+        if isinstance(final, ast.If):
+            return _block_terminates(final.body) and _block_terminates(final.orelse)
+        return False
+
     for child in ast.walk(function):
-        if not isinstance(child, ast.Call):
-            continue
-        called = (_dotted_name(child.func) or "").lower()
-        leaf = _call_leaf(child) or ""
-        if leaf in {"relative_to", "is_relative_to"}:
-            receiver = child.func.value if isinstance(child.func, ast.Attribute) else None
-            if _expr_names(receiver) & tainted:
+        if isinstance(child, ast.Call):
+            called = (_dotted_name(child.func) or "").lower()
+            leaf = _call_leaf(child) or ""
+            if leaf in {"relative_to", "is_relative_to"}:
+                receiver = (
+                    child.func.value
+                    if isinstance(child.func, ast.Attribute)
+                    else None
+                )
+                if _expr_names(receiver) & tainted:
+                    return True
+            if (
+                called
+                in {
+                    "os.path.commonpath",
+                    "posixpath.commonpath",
+                    "ntpath.commonpath",
+                }
+                and _expr_names(child) & tainted
+            ):
                 return True
-        if (
-            called in {"os.path.commonpath", "posixpath.commonpath", "ntpath.commonpath"}
-            and _expr_names(child) & tainted
+            if (
+                leaf
+                in {
+                    "_validate_agent_scoped_path",
+                    "validate_agent_scoped_path",
+                    "_resolve_agent_scoped_path",
+                }
+                and any(_expr_names(argument) & tainted for argument in child.args)
+            ):
+                return True
+            continue
+
+        # Common pathlib containment idiom:
+        #
+        #   target = (WORKDIR / path).resolve()
+        #   if target != WORKDIR and WORKDIR not in target.parents:
+        #       raise ValueError(...)
+        #
+        # Treat this as a constraint only when the failing branch provably
+        # terminates; a bare membership comparison is not a security boundary.
+        if not isinstance(child, ast.If) or not _block_terminates(child.body):
+            continue
+        for comparison in (
+            item for item in ast.walk(child.test) if isinstance(item, ast.Compare)
         ):
-            return True
-        if (
-            leaf in {
-                "_validate_agent_scoped_path",
-                "validate_agent_scoped_path",
-                "_resolve_agent_scoped_path",
-            }
-            and any(_expr_names(argument) & tainted for argument in child.args)
-        ):
-            return True
+            for operator, comparator in zip(
+                comparison.ops,
+                comparison.comparators,
+            ):
+                if not isinstance(operator, ast.NotIn):
+                    continue
+                if not (
+                    isinstance(comparator, ast.Attribute)
+                    and comparator.attr == "parents"
+                ):
+                    continue
+                if _expr_names(comparator.value) & tainted:
+                    return True
     return False
 
 
