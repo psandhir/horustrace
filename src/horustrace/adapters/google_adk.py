@@ -1598,6 +1598,10 @@ def _agent_from_call(
                     )
                     if direct:
                         agent.tools.append(direct)
+                    else:
+                        unresolved_binding = _dynamic_tool_collection(path, element, calls)
+                        if unresolved_binding:
+                            agent.tools.append(unresolved_binding)
             else:
                 # Imported or arbitrary helpers remain source-proven bindings
                 # even when their runtime type/catalogue cannot be enumerated.
