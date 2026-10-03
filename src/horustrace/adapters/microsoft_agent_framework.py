@@ -205,14 +205,18 @@ def _function_capabilities(
             capabilities.update(mutation)
             body_write = body_write or "data.write" in mutation
 
-        if leaf in {"write", "save", "insert", "create", "put", "patch", "update"}:
-            if not is_local_collection_mutation(child):
-                capabilities.add("data.write")
-                body_write = True
-        if leaf in {"delete", "unlink", "rmdir", "rmtree", "drop", "purge"}:
-            if not is_local_collection_mutation(child):
-                capabilities.update({"data.write", "destructive.write"})
-                body_write = True
+        if (
+            leaf in {"write", "save", "insert", "create", "put", "patch", "update"}
+            and not is_local_collection_mutation(child)
+        ):
+            capabilities.add("data.write")
+            body_write = True
+        if (
+            leaf in {"delete", "unlink", "rmdir", "rmtree", "drop", "purge"}
+            and not is_local_collection_mutation(child)
+        ):
+            capabilities.update({"data.write", "destructive.write"})
+            body_write = True
         if leaf in {"read", "get", "search", "retrieve", "fetch", "query", "list"}:
             capabilities.add("data.read")
         if (
@@ -596,7 +600,7 @@ def _foundry_toolbox_server(
     if server.url:
         server.metadata["network_scope"] = "fixed_destination"
     else:
-        configured, expression = _operator_configured(endpoint_node)
+        _configured, expression = _operator_configured(endpoint_node)
         server.metadata.update(
             {
                 "dynamic_mcp_endpoint_basis": "operator_configuration",
