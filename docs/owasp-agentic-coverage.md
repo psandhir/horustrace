@@ -11,7 +11,7 @@ a claim that every agentic risk is detected.
 | ASI03 Identity and Privilege Abuse | Direct static detection | `IDN001` through `IDN004` identify broad roles, wildcard permissions, broad OAuth scopes, and unsafe credential sources. |
 | ASI04 Agentic Supply Chain | Direct static detection | `AGT050` detects unpinned MCP package execution. |
 | ASI05 Unexpected Code Execution | Direct static detection | Execution rules include `AGT020`, `ADK002` through `ADK004`, `ADK012`, and `PATH001`. |
-| ASI06 Memory and Context Poisoning | Not currently covered | This release does not perform semantic prompt, memory, or context evaluation. |
+| ASI06 Memory and Context Poisoning | Partial/static evidence | `PATH007` detects supported untrusted-input paths to persistent memory/checkpoint writes and `PATH012` captures tool-returned local/repository content re-entering model context alongside unconstrained filesystem authority. This is static evidence, not semantic prompt or runtime memory-poisoning proof. |
 | ASI07 Insecure Inter-Agent Communication | Direct static detection | Remote MCP and A2A transport and authentication rules include `AGT030`, `AGT031`, and `ADK009` through `ADK011`. |
 | ASI08 Cascading Failures | Not currently covered | The scanner does not model runtime cascade or recovery behavior. |
 | ASI09 Human-Agent Trust Exploitation | Runtime/evaluation required | Static configuration cannot establish misleading interaction or human reliance. |
