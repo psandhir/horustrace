@@ -986,12 +986,12 @@ def _harness_builtin_tools(
 
 
 _WORKFLOW_MARKERS = (
-    "AgentWorkflowBuilder.BuildSequential",
-    "AgentWorkflowBuilder.BuildConcurrent",
-    "AgentWorkflowBuilder.CreateHandoffBuilderWith",
-    "AgentWorkflowBuilder.CreateGroupChatBuilderWith",
-    "AgentWorkflowBuilder.CreateSequentialBuilderWith",
-    "AgentWorkflowBuilder.CreateConcurrentBuilderWith",
+    "BuildSequential(",
+    "BuildConcurrent(",
+    "CreateHandoffBuilderWith(",
+    "CreateGroupChatBuilderWith(",
+    "CreateSequentialBuilderWith(",
+    "CreateConcurrentBuilderWith(",
 )
 
 
@@ -1241,7 +1241,14 @@ def _parse_tools(
             if server:
                 servers.append(deepcopy(server))
         assigned = known.get(ref)
-        if assigned:
+        bound_tool = tool_vars.get(ref)
+        if (
+            assigned
+            and (
+                bound_tool is None
+                or bound_tool.kind != "microsoft_dotnet_dynamic_tool_loader"
+            )
+        ):
             for nested in refs(assigned.expression):
                 if nested in tool_vars:
                     tools.append(deepcopy(tool_vars[nested]))
