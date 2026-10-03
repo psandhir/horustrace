@@ -1,0 +1,92 @@
+name: Post-320 ADK Recipes UX Report
+
+on:
+  push:
+    branches:
+      - research/post320-adk-recipes-ux-report
+    paths:
+      - ".github/workflows/post320-adk-recipes-ux-report.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install post-320 HorusTrace
+        run: python -m pip install -e .
+      - name: Fetch pinned ADK Recipes candidate
+        run: |
+          git clone --filter=blob:none https://github.com/google/adk-recipes.git target
+          git -C target checkout c4b738d7cf4a7c3ef9b461a37f5ce1feef01bcef
+      - name: Generate scan and UX report
+        run: |
+          mkdir -p artifacts
+          set +e
+          horustrace scan target --format json --output artifacts/scan.json
+          JSON_RC=$?
+          horustrace scan target --format console --output artifacts/scan.txt
+          CONSOLE_RC=$?
+          horustrace report target --output artifacts/horustrace-report.html
+          REPORT_RC=$?
+          set -e
+          {
+            echo "scanner_commit=$(git rev-parse HEAD)"
+            echo "target_repo=google/adk-recipes"
+            echo "target_commit=c4b738d7cf4a7c3ef9b461a37f5ce1feef01bcef"
+            echo "json_scan_exit_code=$JSON_RC"
+            echo "console_scan_exit_code=$CONSOLE_RC"
+            echo "report_exit_code=$REPORT_RC"
+          } > artifacts/provenance.txt
+          test -s artifacts/scan.json
+          test -s artifacts/horustrace-report.html
+      - name: Summarise report
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report=json.loads(Path("artifacts/scan.json").read_text())
+          summary=report.get("summary", {})
+          assurance=report.get("assurance", {})
+          coverage=report.get("coverage", {})
+          lines=[
+              "# Post-320 ADK Recipes UX scan",
+              "",
+              "- Target: google/adk-recipes",
+              "- Target SHA: c4b738d7cf4a7c3ef9b461a37f5ce1feef01bcef",
+              f"- Agents: {summary.get('agents', 0)}",
+              f"- Tools: {summary.get('tools', 0)}",
+              f"- MCP servers: {summary.get('mcp_servers', 0)}",
+              f"- Identities: {summary.get('identities', 0)}",
+              f"- Authority relationships: {summary.get('effective_authority_relationships', 0)}",
+              f"- Findings: {summary.get('findings', 0)}",
+              f"- Attack paths: {summary.get('attack_paths', 0)}",
+              f"- Policy violations: {summary.get('policy_violations', 0)}",
+              f"- Contract violations: {summary.get('authority_contract_violations', 0)}",
+              f"- Contract unresolved: {summary.get('authority_contract_unresolved', 0)}",
+              f"- OWASP categories with findings: {summary.get('owasp_categories_with_findings', 0)}",
+              f"- OWASP categories not assessed: {summary.get('owasp_categories_not_assessed', 0)}",
+              f"- Coverage incomplete: {coverage.get('incomplete', False)}",
+              "",
+              "## Assurance",
+              json.dumps(assurance, indent=2),
+          ]
+          Path("artifacts/summary.md").write_text("\n".join(lines)+"\n")
+          PY
+          cat artifacts/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload UX report bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post320-adk-recipes-ux-report
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
