@@ -806,7 +806,6 @@ def scan_dotnet_file(path: Path) -> Graph:
     }
 
     mcp_lists: dict[str, str] = {}
-    skills: dict[str, str] = {}
     for name, item in known.items():
         match = re.search(
             r"\b([A-Za-z_]\w*)\.ListToolsAsync\s*\(",
@@ -814,12 +813,6 @@ def scan_dotnet_file(path: Path) -> Graph:
         )
         if match and match.group(1) in mcp_servers:
             mcp_lists[name] = match.group(1)
-        match = re.search(
-            r"\.UseMcpSkills\s*\(\s*([A-Za-z_]\w*)",
-            item.expression,
-        )
-        if match and match.group(1) in mcp_servers:
-            skills[name] = match.group(1)
 
     tool_vars = {
         name: tool
@@ -827,13 +820,97 @@ def scan_dotnet_file(path: Path) -> Graph:
         if (tool := _tool_variable(path, source, masked, item)) is not None
     }
 
+    # Agent Skills are effective authority only when their provider is attached
+    # to an agent. Keep source variables/providers separate until that binding.
+    skill_vars: dict[str, Tool] = {}
+    for name, item in known.items():
+        skill = (
+            _inline_skill_tool(path, source, item)
+            or _class_skill_tool(path, source, masked, item)
+        )
+        if skill is not None:
+            skill_vars[name] = skill
+
+    skill_builder_tools: dict[str, list[Tool]] = {}
+    skill_builder_mcp: dict[str, list[str]] = {}
+    for name, item in known.items():
+        file_skill = _file_skill_tool(path, source, item)
+        if file_skill is not None:
+            skill_builder_tools.setdefault(name, []).append(file_skill)
+
+        match = re.search(
+            r"\.UseMcpSkills\s*\(\s*([A-Za-z_]\w*)",
+            item.expression,
+        )
+        if match and match.group(1) in mcp_servers:
+            skill_builder_mcp.setdefault(name, []).append(match.group(1))
+
+    # Builders are often mutated after construction, e.g.
+    # skillsBuilder.UseMcpSkills(toolboxMcpClient);
+    for builder_name in known:
+        for match in re.finditer(
+            rf"\b{re.escape(builder_name)}\.UseMcpSkills\s*"
+            r"\(\s*([A-Za-z_]\w*)",
+            source,
+        ):
+            client = match.group(1)
+            if client in mcp_servers:
+                values = skill_builder_mcp.setdefault(builder_name, [])
+                if client not in values:
+                    values.append(client)
+
+    skill_provider_tools: dict[str, list[Tool]] = {}
+    skill_provider_mcp: dict[str, list[str]] = {}
+    for name, item in known.items():
+        expression_refs = refs(item.expression)
+
+        if "new AgentSkillsProvider" in item.expression:
+            local_tools = [
+                deepcopy(skill_vars[ref])
+                for ref in expression_refs
+                if ref in skill_vars
+            ]
+            if local_tools:
+                skill_provider_tools[name] = _dedupe_tools(local_tools)
+
+        build_match = re.search(
+            r"\b([A-Za-z_]\w*)\.Build\s*\(",
+            item.expression,
+        )
+        if build_match:
+            builder_name = build_match.group(1)
+            if builder_name in skill_builder_tools:
+                skill_provider_tools[name] = _dedupe_tools(
+                    deepcopy(skill_builder_tools[builder_name])
+                )
+            if builder_name in skill_builder_mcp:
+                skill_provider_mcp[name] = list(
+                    dict.fromkeys(skill_builder_mcp[builder_name])
+                )
+
+        if name in skill_builder_tools:
+            skill_provider_tools.setdefault(
+                name,
+                _dedupe_tools(deepcopy(skill_builder_tools[name])),
+            )
+        if name in skill_builder_mcp:
+            skill_provider_mcp.setdefault(
+                name,
+                list(dict.fromkeys(skill_builder_mcp[name])),
+            )
+
     agent_items = [
         item for item in known.values()
-        if any(marker in item.expression for marker in _AGENT_MARKERS)
+        if _assignment_is_agent(item)
     ]
     aliases: dict[str, Agent] = {}
     for item in agent_items:
         foundry = _foundry_agent(item.expression, foundry_clients)
+        declared = (item.declared_type or "").replace("?", "").strip()
+        target_typed_chat_agent = (
+            declared == "ChatClientAgent"
+            and re.match(r"^\s*new\s*\(", item.expression) is not None
+        )
         agent = Agent(
             name=_agent_name(item.expression, item.name),
             location=location(path, source, item.offset),
@@ -842,11 +919,16 @@ def scan_dotnet_file(path: Path) -> Graph:
                 "language": "csharp",
                 "agent_type": (
                     "ChatClientAgent"
-                    if "ChatClientAgent" in item.expression else "AIAgent"
+                    if (
+                        "ChatClientAgent" in item.expression
+                        or target_typed_chat_agent
+                    )
+                    else "AIAgent"
                 ),
                 "provider": "microsoft-foundry" if foundry else None,
                 "foundry_backed": foundry,
                 "source_aliases": [item.name],
+                "target_typed_constructor": target_typed_chat_agent,
             },
         )
         graph.agents.append(agent)
@@ -855,15 +937,23 @@ def scan_dotnet_file(path: Path) -> Graph:
 
     bound_clients: set[str] = set()
     bound_hosted: set[str] = set()
-    for item, agent in zip(agent_items, graph.agents):
-        value = _tool_value(item.expression)
+
+    def bind_agent_expression(
+        agent: Agent,
+        expression: str,
+        expression_offset: int,
+    ) -> None:
+        value = _tool_value(expression)
         if value:
-            start = item.expression.find(value)
+            value_start = expression.find(value)
             tools, servers = _parse_tools(
                 path, source, masked, value,
-                offset=item.offset + max(start, 0), known=known,
-                tool_vars=tool_vars, hosted_vars=hosted_vars,
-                mcp_lists=mcp_lists, mcp_servers=mcp_servers,
+                offset=expression_offset + max(value_start, 0),
+                known=known,
+                tool_vars=tool_vars,
+                hosted_vars=hosted_vars,
+                mcp_lists=mcp_lists,
+                mcp_servers=mcp_servers,
                 agent_aliases=aliases,
             )
             agent.tools.extend(tools)
@@ -878,32 +968,106 @@ def scan_dotnet_file(path: Path) -> Graph:
                         if nested in mcp_lists:
                             bound_clients.add(mcp_lists[nested])
 
-        context = _context_value(item.expression)
+        context = _context_value(expression)
         if context:
             for ref in refs(context):
-                client = skills.get(ref)
-                if not client or client not in mcp_servers:
-                    continue
-                server = deepcopy(mcp_servers[client])
-                server.metadata["binding_origin"] = "UseMcpSkills"
-                server.metadata["mcp_skills"] = True
-                agent.mcp_servers.append(server)
-                bound_clients.add(client)
-                agent.tools.append(Tool(
-                    name=f"{ref}:skills",
-                    kind="microsoft_dotnet_mcp_skills",
-                    capabilities={"data.read", "process.execute"},
-                    approval=True,
-                    location=agent.location,
-                    metadata={
-                        "framework": FRAMEWORK,
-                        "binding_origin": "UseMcpSkills",
-                        "dynamic_tool_catalogue": True,
-                    },
-                ))
+                for skill in skill_provider_tools.get(ref, []):
+                    agent.tools.append(deepcopy(skill))
+
+                for client in skill_provider_mcp.get(ref, []):
+                    server = mcp_servers.get(client)
+                    if server is None:
+                        continue
+                    server_copy = deepcopy(server)
+                    server_copy.metadata["binding_origin"] = "UseMcpSkills"
+                    server_copy.metadata["mcp_skills"] = True
+                    agent.mcp_servers.append(server_copy)
+                    bound_clients.add(client)
+                    agent.tools.append(Tool(
+                        name=f"{ref}:mcp-skills",
+                        kind="microsoft_dotnet_mcp_skills",
+                        capabilities={"data.read", "process.execute"},
+                        approval=True,
+                        location=agent.location,
+                        metadata={
+                            "framework": FRAMEWORK,
+                            "binding_origin": "UseMcpSkills",
+                            "dynamic_tool_catalogue": True,
+                        },
+                    ))
 
         agent.tools = _dedupe_tools(agent.tools)
         agent.mcp_servers = _dedupe_servers(agent.mcp_servers)
+
+    for item, agent in zip(agent_items, graph.agents):
+        bind_agent_expression(agent, item.expression, item.offset)
+
+    # Microsoft hosting packages commonly register agents directly on the host
+    # builder. These registrations are first-class agent inventory entries even
+    # when no AIAgent variable exists in source.
+    for expression, expression_offset in _hosted_agent_expressions(source, masked):
+        name = _hosted_agent_name(expression)
+        if not name:
+            continue
+        if any(
+            existing.name == name
+            and existing.metadata.get("hosting_registration") is True
+            and existing.location
+            and existing.location.path == path
+            for existing in graph.agents
+        ):
+            continue
+
+        source_aliases = [
+            item.name
+            for item in known.values()
+            if _HOSTED_AGENT_MARKER in item.expression
+            and _hosted_agent_name(item.expression) == name
+        ]
+        hosted_agent = Agent(
+            name=name,
+            location=location(path, source, expression_offset),
+            metadata={
+                "framework": FRAMEWORK,
+                "language": "csharp",
+                "agent_type": "HostedAIAgent",
+                "hosting_registration": True,
+                "binding_origin": "AddAIAgent",
+                "source_aliases": source_aliases,
+            },
+        )
+        graph.agents.append(hosted_agent)
+        for alias in source_aliases:
+            aliases[alias] = hosted_agent
+        aliases.setdefault(name, hosted_agent)
+
+        # Fluent WithAITool(s) calls and MCP tool collections are in the same
+        # registration statement, so the ordinary tool binder can normalize
+        # them without introducing hosting-specific authority semantics.
+        tools, servers = _parse_tools(
+            path,
+            source,
+            masked,
+            expression,
+            offset=expression_offset,
+            known=known,
+            tool_vars=tool_vars,
+            hosted_vars=hosted_vars,
+            mcp_lists=mcp_lists,
+            mcp_servers=mcp_servers,
+            agent_aliases=aliases,
+        )
+        hosted_agent.tools.extend(tools)
+        hosted_agent.mcp_servers.extend(servers)
+
+        references = refs(expression)
+        bound_hosted.update(references & hosted_vars.keys())
+        for ref in references:
+            if ref in mcp_lists:
+                bound_clients.add(mcp_lists[ref])
+
+        hosted_agent.tools = _dedupe_tools(hosted_agent.tools)
+        hosted_agent.mcp_servers = _dedupe_servers(hosted_agent.mcp_servers)
 
     graph.unbound_mcp_servers.extend(
         server for name, server in mcp_servers.items()
