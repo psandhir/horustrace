@@ -73,6 +73,8 @@ def _graph(root: Path) -> tuple[Graph, list[Finding]]:
             agent="support",
             location=location,
             evidence=["support can update tickets"],
+            assessment="policy_violation",
+            standards={"owasp_agentic": ["ASI02"]},
         )
     ]
     return graph, findings
@@ -90,6 +92,11 @@ def test_visual_report_projects_effective_agency_and_contract(tmp_path: Path) ->
     assert report["summary"]["write_capable_relationships"] == 1
     assert report["summary"]["contract_violations"] == 1
     assert report["summary"]["findings"] == 1
+    assert report["summary"]["policy_violations"] == 1
+    assert report["summary"]["owasp_categories_with_findings"] == 1
+    assert report["assurance"]["organization_policy"]["status"] == "violation"
+    assert report["assurance"]["authority_contract"]["status"] == "violation"
+    assert report["assurance"]["owasp_agentic"]["status"] == "finding"
 
     agent = report["agents"][0]
     assert agent["name"] == "support"
@@ -213,6 +220,13 @@ def test_visual_report_exposes_production_review_workflows(tmp_path: Path) -> No
     assert 'data-finding-filter=' in html
     assert "Search rule, title, agent, message or file" in html
     assert "Trust & provenance" in html
+    assert "Organisation policy" in html
+    assert "OWASP Top 10" in html
+    assert "OWASP Agentic Top 10" in html
+    assert 'data-view="policy"' in html
+    assert 'data-view="owasp"' in html
+    assert "function renderPolicy()" in html
+    assert "function renderOwasp(" in html
     assert "prefers-reduced-motion" in html
     assert "</style></style>" not in html
     assert '<script id="horus-data"<script' not in html
@@ -244,6 +258,8 @@ def test_visual_report_html_is_self_contained(tmp_path: Path) -> None:
     assert "Effective Agency Report" in html
     assert "Agency map" in html
     assert "Agent contracts" in html
+    assert "Organisation policy" in html
+    assert "OWASP Top 10" in html
     assert "Scan evidence" in html
     assert "default-src 'none'" in html
     assert "<script src=" not in html
