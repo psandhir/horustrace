@@ -779,7 +779,21 @@ root_agent = Agent(
 
     graph, _ = scan(tmp_path)
     agent = next(a for a in graph.agents if a.name == "safe_agent")
-    assert agent.tools == []
+    assert len(agent.tools) == 1
+    dynamic = agent.tools[0]
+    assert dynamic.name == "DYNAMIC_TOOLS"
+    assert dynamic.metadata.get("binding_unresolved") is True
+    assert dynamic.metadata.get("dynamic_bound_collection") is True
+    assert dynamic.capabilities == set()
+
+    relationship = next(
+        item
+        for item in effective_authority_report(graph)["relationships"]
+        if item["agent"] == "safe_agent"
+        and item["target"] == {"kind": "tool", "name": "DYNAMIC_TOOLS"}
+    )
+    assert relationship["dimensions"]["target"] == "resolved"
+    assert "capabilities" in relationship["unresolved"]
 
 def test_adk_repository_infers_qualified_mutation_method_calls(
     tmp_path: Path,
