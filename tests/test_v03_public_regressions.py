@@ -225,7 +225,7 @@ root_agent = Agent(name="root", tools=[status])
     assert "secrets.read" not in tool.capabilities
 
 
-def test_before_tool_callback_counts_as_tool_guardrail(tmp_path):
+def test_noop_before_tool_callback_does_not_count_as_tool_guardrail(tmp_path):
     write(
         tmp_path,
         "agent.py",
@@ -238,7 +238,7 @@ root_agent = Agent(name="root", tools=[mutate], before_tool_callback=gate)
 ''',
     )
     _, findings = scan(tmp_path)
-    assert not any(f.rule_id == "AGT040" and f.agent == "root" for f in findings)
+    assert any(f.rule_id == "AGT040" and f.agent == "root" for f in findings)
 
 
 def test_load_artifacts_direct_export_is_resolved(tmp_path):
