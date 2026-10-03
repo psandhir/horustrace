@@ -85,7 +85,7 @@ def is_local_collection_mutation(call: ast.Call) -> bool:
 def sql_call_capabilities(call: ast.Call) -> set[str]:
     """Infer SQL read/write semantics from a literal execute statement."""
     leaf = (call_leaf(call.func) or "").lower()
-    if leaf != "execute" or not call.args:
+    if leaf not in {"execute", "executemany", "executescript"} or not call.args:
         return set()
 
     statement = call.args[0]
@@ -120,9 +120,9 @@ def http_mutation_capabilities(call: ast.Call, *, function_name: str = "") -> se
     """
     leaf = (call_leaf(call.func) or "").lower()
     if leaf == "delete":
-        return {"external.write", "destructive.write"}
+        return {"data.write", "external.write", "destructive.write"}
     if leaf in {"put", "patch"}:
-        return {"external.write"}
+        return {"data.write", "external.write"}
     if leaf != "post":
         return set()
 
@@ -142,7 +142,7 @@ def http_mutation_capabilities(call: ast.Call, *, function_name: str = "") -> se
         for token in function_name.lower().replace("-", "_").split("_")
         if token
     }
-    return set() if tokens & read_tokens else {"external.write"}
+    return set() if tokens & read_tokens else {"data.write", "external.write"}
 
 
 def executor_wrapped_callable(call: ast.Call) -> ast.AST | None:
