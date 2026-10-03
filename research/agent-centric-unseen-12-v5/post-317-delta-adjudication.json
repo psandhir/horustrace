@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "study": "agent-centric-unseen-12-v5-post317-delta",
+  "scanner_sha": "f2e284ed6c1719d1a55f15371116c06247afa5f1",
+  "comparison_baseline": "0a2dd7f6098fb94321e7c2fb4602cc8cc016555e",
+  "reviews": [
+    {
+      "case_id": "unseen5-adk-001",
+      "rule_id": "AGT020",
+      "subjects": [
+        "tool_extract_facts_batch",
+        "tool_find_loop_functions"
+      ],
+      "count": 2,
+      "verdict": "supported",
+      "partial_reasons": [],
+      "evidence": [
+        "agent.py:function-local imports",
+        "bn_utils.py:run_bn_script -> subprocess.run"
+      ],
+      "rationale": "Process execution is source-proven and no approval is configured."
+    },
+    {
+      "case_id": "unseen5-adk-001",
+      "rule_id": "AGT040",
+      "subjects": [
+        "tool_extract_facts_batch",
+        "tool_find_loop_functions",
+        "tool_resolve_calls"
+      ],
+      "count": 3,
+      "verdict": "supported",
+      "partial_reasons": [],
+      "evidence": [
+        "bn_utils.py:subprocess.run",
+        "resolve_calls.py:Path.write_text"
+      ],
+      "rationale": "Recovered privileged effects are source-proven and the tools have no detected guardrail/approval."
+    },
+    {
+      "case_id": "unseen5-adk-001",
+      "rule_id": "AGT021",
+      "subjects": [
+        "tool_run_souffle",
+        "tool_run_taint_pipeline",
+        "tool_run_bn_extra_rules"
+      ],
+      "count": 3,
+      "verdict": "supported",
+      "partial_reasons": [],
+      "evidence": [
+        "agent.py:output_dir/facts_dir tool parameters",
+        "pipeline.py:stale.unlink",
+        "pipeline.py:_stage dst.unlink"
+      ],
+      "rationale": "Deletion/replacement reaches files under caller/model-selectable directory scopes; this is distinct from scanner-owned temporary cleanup."
+    },
+    {
+      "case_id": "unseen5-adk-001",
+      "rule_id": "PATH002",
+      "subjects": [
+        "tool_run_souffle",
+        "tool_run_taint_pipeline",
+        "tool_run_bn_extra_rules"
+      ],
+      "count": 3,
+      "verdict": "supported",
+      "partial_reasons": [],
+      "evidence": [
+        "agent tool exposure",
+        "destructive.write capability",
+        "approval=None",
+        "basis=capability_cooccurrence"
+      ],
+      "rationale": "The claim is explicitly a potential co-occurrence path and already states that executable data flow/runtime exploitability are unverified."
+    },
+    {
+      "case_id": "unseen5-adk-001",
+      "rule_id": "PATH006",
+      "subjects": [
+        "BinCodeQL"
+      ],
+      "count": 1,
+      "verdict": "supported",
+      "partial_reasons": [],
+      "evidence": [
+        "untrusted input exposure",
+        "process.execute",
+        "destructive.write",
+        "basis=capability_cooccurrence"
+      ],
+      "rationale": "The agent source-provenly exposes both high-risk capabilities; the finding does not overclaim executable exploit flow."
+    }
+  ]
+}
