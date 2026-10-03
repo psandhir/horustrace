@@ -388,16 +388,44 @@ def _typed_configuration_destination(
         "base_endpoint",
         "host",
     }
-    for part in ast.walk(target_expr):
-        if not isinstance(part, ast.Attribute) or part.attr.lower() not in destination_attributes:
-            continue
-        dotted = _dotted(part)
-        if not dotted or "." not in dotted:
-            continue
-        root = dotted.split(".", 1)[0]
-        if root not in config_parameters:
-            continue
-        return NetworkDestination(
+
+    expressions: list[ast.AST] = [target_expr]
+    seen_names: set[str] = set()
+    for _ in range(8):
+        added = False
+        for expression in list(expressions):
+            if not isinstance(expression, ast.Name) or expression.id in seen_names:
+                continue
+            seen_names.add(expression.id)
+            for assignment in ast.walk(function):
+                if not isinstance(assignment, (ast.Assign, ast.AnnAssign)):
+                    continue
+                targets = (
+                    assignment.targets
+                    if isinstance(assignment, ast.Assign)
+                    else [assignment.target]
+                )
+                if any(
+                    isinstance(target, ast.Name)
+                    and target.id == expression.id
+                    for target in targets
+                ) and assignment.value is not None:
+                    expressions.append(assignment.value)
+                    added = True
+        if not added:
+            break
+
+    for expression in expressions:
+        for part in ast.walk(expression):
+            if not isinstance(part, ast.Attribute) or part.attr.lower() not in destination_attributes:
+                continue
+            dotted = _dotted(part)
+            if not dotted or "." not in dotted:
+                continue
+            root = dotted.split(".", 1)[0]
+            if root not in config_parameters:
+                continue
+            return NetworkDestination(
             target=f"<operator-configured:{dotted}>",
             restricted=True,
             location=_location(info.path, part),
@@ -842,6 +870,24 @@ def enrich_repository_tool_effects(
 
             before = set(tool.capabilities)
             tool.capabilities.update(effect.capabilities)
+            if any(
+                destination.restricted is True
+                and destination.metadata.get("network_scope")
+                in {
+                    "operator_configured_destination",
+                    "fixed_provider_network",
+                    "fixed_literal_destination",
+                }
+                for destination in effect.destinations
+            ):
+                tool.destinations = [
+                    destination
+                    for destination in tool.destinations
+                    if not (
+                        destination.target in {"<dynamic-url>", "<model-selected-url>"}
+                        and destination.restricted is False
+                    )
+                ]
             seen = {
                 (item.target, item.restricted, str(item.metadata.get("source") or ""))
                 for item in tool.destinations
