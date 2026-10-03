@@ -253,6 +253,11 @@ def _tool_relationship(
                 or tool.metadata.get("source")
             ),
             "delegate_target": tool.metadata.get("delegate_target"),
+            "dynamic_authority": tool.metadata.get("dynamic_authority"),
+            "tool_catalogue_unresolved": tool.metadata.get(
+                "tool_catalogue_unresolved"
+            ),
+            "capability_bundle": tool.metadata.get("capability_bundle"),
             "mutation": tool.metadata.get("mutation_semantics"),
             "network": (
                 tool.metadata.get("network_semantics")
