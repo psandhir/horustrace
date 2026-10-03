@@ -243,6 +243,14 @@ def _direct_effect(
     ):
         result.capabilities.add("network.external")
         result.evidence.add(f"http:{dotted}")
+        if leaf in {"post", "put", "patch"}:
+            result.capabilities.update({"data.write", "external.write"})
+            result.evidence.add(f"http-write:{dotted}")
+        elif leaf == "delete":
+            result.capabilities.update(
+                {"data.write", "external.write", "destructive.write"}
+            )
+            result.evidence.add(f"http-delete:{dotted}")
         target_expr = call.args[0] if call.args else next(
             (kw.value for kw in call.keywords if kw.arg in {"url", "uri", "endpoint"}),
             None,
@@ -283,6 +291,31 @@ def _direct_effect(
     ):
         result.capabilities.add("data.read")
         result.evidence.add(f"database:{dotted}")
+
+    # DB-API cursors commonly expose all SQL through cursor.execute(). Use
+    # the source-visible statement verb rather than treating every execute()
+    # as a read or inventing write authority from the method name alone.
+    if leaf in {"execute", "executemany", "executescript"} and call.args:
+        statement = _literal(call.args[0])
+        if isinstance(statement, str):
+            normalized = statement.lstrip().split(None, 1)[0].upper() if statement.strip() else ""
+            if normalized in {
+                "INSERT",
+                "UPDATE",
+                "REPLACE",
+                "UPSERT",
+                "MERGE",
+                "CREATE",
+                "ALTER",
+            }:
+                result.capabilities.add("data.write")
+                result.evidence.add(f"sql-write:{normalized.lower()}")
+            elif normalized in {"DELETE", "DROP", "TRUNCATE"}:
+                result.capabilities.update({"data.write", "destructive.write"})
+                result.evidence.add(f"sql-destructive:{normalized.lower()}")
+            elif normalized in {"SELECT", "PRAGMA", "EXPLAIN"}:
+                result.capabilities.add("data.read")
+                result.evidence.add(f"sql-read:{normalized.lower()}")
 
     # Source-visible outbound SDK sinks.
     sendgrid_present = any(name.startswith("sendgrid") for name in info.imported_modules)
@@ -387,6 +420,50 @@ def _resolve_wrapper_symbol(
     return None
 
 
+def _executor_callback_target(
+    module: str,
+    info: _ModuleInfo,
+    call: ast.Call,
+) -> tuple[str, str] | None:
+    """Resolve repository-local callables passed through common async executors."""
+    dotted = (_dotted(call.func) or _call_leaf(call.func) or "").lower()
+    callback: ast.AST | None = None
+    if dotted in {"asyncio.to_thread", "to_thread"} and call.args:
+        callback = call.args[0]
+    elif dotted.endswith(".run_in_executor") and len(call.args) >= 2:
+        callback = call.args[1]
+    if callback is None:
+        return None
+    if isinstance(callback, ast.Name):
+        if callback.id in info.functions:
+            return module, callback.id
+        if callback.id in info.imports:
+            return info.imports[callback.id]
+    dotted_callback = _dotted(callback)
+    if dotted_callback and "." in dotted_callback:
+        root, _, rest = dotted_callback.partition(".")
+        imported_module = info.module_aliases.get(root)
+        if imported_module and rest and "." not in rest:
+            return imported_module, rest
+    return None
+
+
+def _has_executor_callback(
+    modules: dict[str, _ModuleInfo],
+    module: str,
+    symbol: str,
+) -> bool:
+    info = modules.get(module)
+    function = info.functions.get(symbol) if info is not None else None
+    if info is None or function is None:
+        return False
+    return any(
+        _executor_callback_target(module, info, call) is not None
+        for call in ast.walk(function)
+        if isinstance(call, ast.Call)
+    )
+
+
 def _summarize_function(
     modules: dict[str, _ModuleInfo],
     module: str,
@@ -422,6 +499,8 @@ def _summarize_function(
     for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
         _merge_effect(result, _direct_effect(module, info, call))
         target = _call_target(module, info, call)
+        if target is None:
+            target = _executor_callback_target(module, info, call)
         if target is None:
             continue
         target_module, target_symbol = target
@@ -520,10 +599,18 @@ def enrich_repository_tool_effects(
             imported_or_wrapped = bool(tool.metadata.get("import_module")) or bool(
                 tool.metadata.get("placeholder")
             )
-            if not imported_or_wrapped and not _has_cross_module_call(
-                modules,
-                source[0],
-                source[1],
+            if (
+                not imported_or_wrapped
+                and not _has_cross_module_call(
+                    modules,
+                    source[0],
+                    source[1],
+                )
+                and not _has_executor_callback(
+                    modules,
+                    source[0],
+                    source[1],
+                )
             ):
                 continue
             effect = _summarize_function(
