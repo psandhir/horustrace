@@ -10,7 +10,7 @@ from horustrace.heuristics import (
     infer_capabilities,
     resource_is_broad,
 )
-from horustrace.models import (
+from horustrace.effect_semantics import is_local_collection_mutation\nfrom horustrace.models import (
     Agent,
     Graph,
     Identity,
@@ -368,6 +368,7 @@ def _infer_function_capabilities(
             "get_media",
         }:
             caps.add("data.read")
+        local_collection_mutation = is_local_collection_mutation(child)
         if leaf in {
             "set",
             "create",
@@ -376,9 +377,9 @@ def _infer_function_capabilities(
             "upload",
             "write",
             "save_artifact",
-        }:
+        } and not local_collection_mutation:
             caps.add("data.write")
-        if leaf in {"delete", "remove", "destroy", "purge"}:
+        if leaf in {"delete", "remove", "destroy", "purge"} and not local_collection_mutation:
             caps.update({"data.write", "destructive.write"})
 
         gcs_write_methods = {
