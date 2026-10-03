@@ -40,7 +40,6 @@ _AGENT_MARKERS = (
     "new ChatClientAgent (",
     ".BuildAIAgent(",
     ".AsHarnessAgent(",
-    ".CreateAIAgent(",
 )
 
 _HOSTED_AGENT_MARKER = ".AddAIAgent("
@@ -69,6 +68,7 @@ def is_microsoft_agent_framework_dotnet_file(path: Path) -> bool:
                 source,
             )
             is not None
+            or ".CreateAIAgent(" in source
             or _HOSTED_AGENT_MARKER in source
             or _DURABLE_AGENT_FACTORY_MARKER in source
             or ".ConfigureDurableAgents(" in source
@@ -598,8 +598,30 @@ def _context_value(expr: str) -> str | None:
 
 
 
+def _root_method_call(expression: str, method_name: str) -> bool:
+    """Return True when method_name is the outermost call of an expression.
+
+    This deliberately rejects nested calls inside hosting/configuration
+    builders. A nested CreateAIAgent in ConfigureDurableAgents must not turn
+    the outer FunctionsApplicationBuilder assignment into an AIAgent.
+    """
+    masked = mask_non_code(expression)
+    pattern = re.compile(rf"\.{re.escape(method_name)}\s*\(")
+    for match in pattern.finditer(masked):
+        open_paren = masked.find("(", match.start())
+        end = balanced_end(masked, open_paren, "(", ")")
+        if end is None:
+            continue
+        suffix = masked[end + 1:].strip()
+        if not suffix or re.fullmatch(r"!+", suffix):
+            return True
+    return False
+
+
 def _assignment_is_agent(item: CSharpAssignment) -> bool:
     if any(marker in item.expression for marker in _AGENT_MARKERS):
+        return True
+    if _root_method_call(item.expression, "CreateAIAgent"):
         return True
     declared = (item.declared_type or "").replace("?", "").strip()
     return (
