@@ -1599,6 +1599,159 @@ def _propagate_adk_delegation(graph: Graph) -> None:
 
 
 
+def _propagate_delegated_agent_tools(graph: Graph) -> None:
+    """Project source-proven agent-as-tool delegation onto the callable tool.
+
+    Framework adapters preserve the delegation edge and source alias; this pass
+    adds only authority already normalized on the uniquely resolved child agent.
+    Ambiguous or external targets remain unresolved rather than guessed.
+    """
+    agents_by_name: dict[str, list[Agent]] = {}
+    agents_by_alias: dict[str, list[Agent]] = {}
+    for agent in graph.agents:
+        agents_by_name.setdefault(agent.name, []).append(agent)
+        source_alias = agent.metadata.get("source_alias")
+        if isinstance(source_alias, str) and source_alias:
+            agents_by_alias.setdefault(source_alias, []).append(agent)
+
+    constrained_scopes = {
+        "fixed_managed_service",
+        "fixed_provider_network",
+        "operator_configured_destination",
+        "explicit_destination",
+        "fixed_literal_destination",
+    }
+
+    for _ in range(8):
+        changed = False
+        for parent in graph.agents:
+            for tool in parent.tools:
+                if (
+                    tool.kind != "delegated_agent"
+                    or tool.metadata.get("authority_binding") == "delegation_projection"
+                ):
+                    continue
+                raw_target = tool.metadata.get("delegate_target")
+                if not isinstance(raw_target, str) or not raw_target:
+                    continue
+
+                candidates = [
+                    candidate
+                    for candidate in (
+                        agents_by_name.get(raw_target, [])
+                        or agents_by_alias.get(raw_target, [])
+                    )
+                    if candidate is not parent
+                ]
+                if len(candidates) != 1:
+                    tool.metadata["delegated_authority_unresolved"] = True
+                    continue
+
+                child = candidates[0]
+                prior_caps = set(tool.capabilities)
+                prior_resources = len(tool.resources)
+                prior_destinations = len(tool.destinations)
+
+                tool.capabilities.add("agent.delegate")
+                tool.capabilities.update(child.capabilities)
+
+                resource_keys = {
+                    (
+                        item.kind,
+                        item.selector,
+                        tuple(sorted(item.access)),
+                        item.classification,
+                    )
+                    for item in tool.resources
+                }
+                for item in child.effective_resources:
+                    key = (
+                        item.kind,
+                        item.selector,
+                        tuple(sorted(item.access)),
+                        item.classification,
+                    )
+                    if key in resource_keys:
+                        continue
+                    tool.resources.append(
+                        ResourceScope(
+                            kind=item.kind,
+                            selector=item.selector,
+                            access=set(item.access),
+                            classification=item.classification,
+                            location=item.location,
+                            metadata={**item.metadata, "via_agent": child.name},
+                            provenance=list(item.provenance),
+                        )
+                    )
+                    resource_keys.add(key)
+
+                destination_keys = {
+                    (
+                        item.target,
+                        item.direction,
+                        bool(item.restricted),
+                        str(item.metadata.get("network_scope") or ""),
+                    )
+                    for item in tool.destinations
+                }
+                for item in child.effective_destinations:
+                    key = (
+                        item.target,
+                        item.direction,
+                        bool(item.restricted),
+                        str(item.metadata.get("network_scope") or ""),
+                    )
+                    if key in destination_keys:
+                        continue
+                    tool.destinations.append(
+                        NetworkDestination(
+                            target=item.target,
+                            direction=item.direction,
+                            restricted=item.restricted,
+                            location=item.location,
+                            metadata={**item.metadata, "via_agent": child.name},
+                            provenance=list(item.provenance),
+                        )
+                    )
+                    destination_keys.add(key)
+
+                outbound = [
+                    item
+                    for item in tool.destinations
+                    if item.direction == "outbound"
+                ]
+                if "network.external" in tool.capabilities and outbound:
+                    scopes = {
+                        str(item.metadata.get("network_scope") or "")
+                        for item in outbound
+                    }
+                    if all(
+                        item.restricted
+                        and str(item.metadata.get("network_scope") or "")
+                        in constrained_scopes
+                        for item in outbound
+                    ):
+                        tool.metadata["network_scope"] = (
+                            next(iter(scopes))
+                            if len(scopes) == 1
+                            else "explicit_destination"
+                        )
+
+                tool.metadata["delegated_agent_targets"] = [child.name]
+                tool.metadata["delegated_authority_resolved"] = True
+                tool.metadata.pop("delegated_authority_unresolved", None)
+
+                if (
+                    prior_caps != tool.capabilities
+                    or prior_resources != len(tool.resources)
+                    or prior_destinations != len(tool.destinations)
+                ):
+                    changed = True
+        if not changed:
+            break
+
+
 def _propagate_pydantic_delegation(graph: Graph) -> None:
     """Project source-proven Pydantic Agent.run delegation onto the wrapper tool.
 
@@ -2437,6 +2590,7 @@ def scan(
     # network/write capabilities and lose child destination/control constraints.
     _propagate_pydantic_delegation(graph)
     _propagate_adk_delegation(graph)
+    _propagate_delegated_agent_tools(graph)
     enrich_public_realtime_mcp_authority(
         graph,
         root if root.is_dir() else root.parent,
