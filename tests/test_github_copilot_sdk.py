@@ -56,6 +56,37 @@ async def main():
     assert agent.identities[0].provider == "github"
 
 
+def test_python_copilot_async_context_manager_session_is_detected(
+    tmp_path: Path,
+) -> None:
+    path = write(
+        tmp_path,
+        '''
+from copilot import CopilotClient
+from copilot.session import PermissionHandler
+
+async def main():
+    async with CopilotClient() as client:
+        async with await client.create_session(
+            on_permission_request=PermissionHandler.approve_all,
+            available_tools=["view"],
+        ) as session:
+            pass
+''',
+        "context_manager.py",
+    )
+
+    graph = scan_github_copilot_sdk_file(path)
+    agent = next(item for item in graph.agents if item.name == "session")
+    builtins = next(
+        tool for tool in agent.tools
+        if tool.kind == "github_copilot_builtin_tools"
+    )
+
+    assert builtins.approval is False
+    assert builtins.capabilities == {"data.read"}
+
+
 def test_python_copilot_available_tools_restrict_builtin_authority(
     tmp_path: Path,
 ) -> None:
