@@ -445,3 +445,67 @@ agent = await service.add_tool_servers_to_agent(
     )
     assert identity.metadata["permission_model"] == "delegated"
     assert "mcp_MailTools:McpServers.Mail.All" in identity.oauth_scopes
+
+
+def test_agent365_direct_manifest_binding_requires_manifest_load_evidence(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path,
+        "a365.config.json",
+        {
+            "agentIdentityDisplayName": "DirectWorkIqAgent",
+            "authMode": "obo",
+        },
+    )
+    _write(
+        tmp_path,
+        "ToolingManifest.json",
+        {
+            "mcpServers": [
+                {
+                    "mcpServerName": "mcp_MailTools",
+                    "url": "https://agent365.example.test/mail",
+                    "scope": "Tools.ListInvoke.All",
+                    "audience": "mail-audience",
+                }
+            ]
+        },
+    )
+    (tmp_path / "WorkIqToolProvider.cs").write_text(
+        """
+using System.Text.Json;
+using ModelContextProtocol.Client;
+
+var manifestPath = Path.Combine(root, "ToolingManifest.json");
+using var stream = File.OpenRead(manifestPath);
+var manifest = JsonSerializer.Deserialize<object>(stream);
+var transport = new HttpClientTransport(options);
+var client = await McpClient.CreateAsync(transport);
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "Program.cs").write_text(
+        """
+using ModelContextProtocol.Client;
+
+// ToolingManifest.json defines Work IQ servers elsewhere.
+var learnTransport = new HttpClientTransport(options);
+var learnClient = await McpClient.CreateAsync(learnTransport);
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item for item in graph.agents
+        if item.name == "DirectWorkIqAgent"
+    )
+    server = next(
+        item for item in agent.mcp_servers
+        if item.name == "mcp_MailTools"
+    )
+
+    assert server.metadata["runtime_binding_evidence"] == [
+        "WorkIqToolProvider.cs:agent365_direct_manifest_mcp_binding"
+    ]
