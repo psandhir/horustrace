@@ -189,9 +189,12 @@ def _resolved_literal(
     values: dict[str, ast.AST] | None = None,
 ) -> Any:
     current = _resolve_node(node, values)
-    if isinstance(current, ast.Call) and _call_name(current.func) == "cast":
-        if len(current.args) >= 2:
-            current = _resolve_node(current.args[1], values)
+    if (
+        isinstance(current, ast.Call)
+        and _call_name(current.func) == "cast"
+        and len(current.args) >= 2
+    ):
+        current = _resolve_node(current.args[1], values)
     return _literal(current)
 
 
