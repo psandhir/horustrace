@@ -2,22 +2,26 @@ from __future__ import annotations
 
 import ast
 import re
+from collections.abc import Iterable
 from copy import deepcopy
 from pathlib import Path
-from typing import Iterable
 
 from horustrace.adapters.csharp_source import (
     argument_value,
-    assignments as csharp_assignments,
     balanced_end,
     collection_strings,
-    location as csharp_location,
     mask_comments,
     mask_non_code,
     method_body,
     named_string,
     refs,
     unquote,
+)
+from horustrace.adapters.csharp_source import (
+    assignments as csharp_assignments,
+)
+from horustrace.adapters.csharp_source import (
+    location as csharp_location,
 )
 from horustrace.heuristics import infer_capabilities
 from horustrace.models import (
@@ -543,8 +547,9 @@ def _python_agent_from_custom_config(
                 child.tools.append(deepcopy(tool))
         for server in parent.mcp_servers:
             if any(
-                name.startswith(f"{server.name}-")
-                or name.startswith(f"mcp:{server.name}-")
+                name.startswith(
+                    (f"{server.name}-", f"mcp:{server.name}-")
+                )
                 for name in requested
             ):
                 child.mcp_servers.append(deepcopy(server))
