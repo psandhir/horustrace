@@ -12,6 +12,11 @@ on:
     paths:
       - ".github/workflows/amazon-sdk-unseen-holdout-10.yml"
       - "research/amazon-sdk-unseen-holdout-10/**"
+      - "src/horustrace/adapters/amazon_agentic.py"
+      - "src/horustrace/adapters/repository_adk.py"
+      - "src/horustrace/strands_repository.py"
+      - "src/horustrace/scanner.py"
+      - "tests/test_amazon_agentic.py"
 
 permissions:
   contents: read
