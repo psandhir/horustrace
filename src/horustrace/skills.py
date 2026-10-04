@@ -153,53 +153,149 @@ def _skill_key(skill: Skill) -> tuple[str, str]:
     return (skill.name, location)
 
 
+def _under(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve().relative_to(parent.resolve())
+    except (OSError, RuntimeError, ValueError):
+        return False
+    return True
+
+
+def _source_roots(agent_path: Path | None, root: Path, raw: str) -> list[Path]:
+    value = Path(raw)
+    if value.is_absolute():
+        candidates = [value]
+    else:
+        candidates = [root / value]
+        if agent_path is not None:
+            candidates.append(agent_path.parent / value)
+    result: list[Path] = []
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except (OSError, RuntimeError):
+            continue
+        if not _under(resolved, root) or not resolved.is_dir():
+            continue
+        if resolved not in result:
+            result.append(resolved)
+    return result
+
+
 def bind_discovered_skills(graph: Graph, root: Path) -> None:
-    """Bind only exact skill names already emitted by framework adapters."""
+    """Bind exact skill names or literal repository-local skill source paths."""
+    root = root.resolve()
     by_name: dict[str, list[Skill]] = {}
     for skill in graph.unbound_skills:
         by_name.setdefault(skill.name, []).append(skill)
 
     bound: set[tuple[str, str]] = set()
     for agent in graph.agents:
-        requested = agent.metadata.get("skills")
-        if not isinstance(requested, (list, tuple, set)):
-            continue
         seen = {_skill_key(item) for item in agent.skills}
-        for raw_name in requested:
-            name = str(raw_name).strip()
-            if not name:
-                continue
-            matches = by_name.get(name, [])
-            if len(matches) != 1:
+
+        requested = agent.metadata.get("skills")
+        if isinstance(requested, (list, tuple, set)):
+            for raw_name in requested:
+                name = str(raw_name).strip()
+                if not name:
+                    continue
+                matches = by_name.get(name, [])
+                if len(matches) != 1:
+                    graph.coverage.diagnostics.append(
+                        ScanDiagnostic(
+                            "unresolved_skill",
+                            (
+                                f"Skill reference '{name}' could not be resolved uniquely "
+                                f"for agent '{agent.name}'."
+                            ),
+                            agent.location,
+                            details={
+                                "agent": agent.name,
+                                "skill": name,
+                                "matches": len(matches),
+                            },
+                        )
+                    )
+                    continue
+                skill = deepcopy(matches[0])
+                key = _skill_key(skill)
+                if key in seen:
+                    continue
+                skill.metadata = {
+                    **skill.metadata,
+                    "binding_state": "bound",
+                    "binding_origin": "framework_skill_reference",
+                    "bound_agent": agent.name,
+                }
+                agent.skills.append(skill)
+                seen.add(key)
+                bound.add(key)
+
+        source_paths = agent.metadata.get("skill_source_paths")
+        if isinstance(source_paths, (list, tuple, set)):
+            for raw_path in source_paths:
+                source = str(raw_path).strip()
+                if not source:
+                    continue
+                source_roots = _source_roots(
+                    agent.location.path if agent.location else None,
+                    root,
+                    source,
+                )
+                if len(source_roots) != 1:
+                    graph.coverage.diagnostics.append(
+                        ScanDiagnostic(
+                            "unresolved_skill",
+                            (
+                                f"Skill source path '{source}' could not be resolved uniquely "
+                                f"for agent '{agent.name}'."
+                            ),
+                            agent.location,
+                            details={
+                                "agent": agent.name,
+                                "skill_source": source,
+                                "matches": len(source_roots),
+                            },
+                        )
+                    )
+                    continue
+                source_root = source_roots[0]
+                matches = [
+                    skill
+                    for skill in graph.unbound_skills
+                    if skill.location is not None
+                    and _under(skill.location.path.parent, source_root)
+                ]
+                for matched in matches:
+                    skill = deepcopy(matched)
+                    key = _skill_key(skill)
+                    if key in seen:
+                        continue
+                    skill.metadata = {
+                        **skill.metadata,
+                        "binding_state": "bound",
+                        "binding_origin": "framework_skill_source_path",
+                        "binding_source_path": source,
+                        "bound_agent": agent.name,
+                    }
+                    agent.skills.append(skill)
+                    seen.add(key)
+                    bound.add(key)
+
+        remote_sources = agent.metadata.get("remote_skill_sources")
+        if isinstance(remote_sources, list):
+            for source in remote_sources:
                 graph.coverage.diagnostics.append(
                     ScanDiagnostic(
                         "unresolved_skill",
                         (
-                            f"Skill reference '{name}' could not be resolved uniquely "
-                            f"for agent '{agent.name}'."
+                            f"Remote skill catalogue for agent '{agent.name}' cannot be "
+                            "enumerated from repository source alone."
                         ),
                         agent.location,
-                        details={
-                            "agent": agent.name,
-                            "skill": name,
-                            "matches": len(matches),
-                        },
+                        details={"agent": agent.name, "source": source},
                     )
                 )
-                continue
-            skill = deepcopy(matches[0])
-            key = _skill_key(skill)
-            if key in seen:
-                continue
-            skill.metadata = {
-                **skill.metadata,
-                "binding_state": "bound",
-                "binding_origin": "framework_skill_reference",
-                "bound_agent": agent.name,
-            }
-            agent.skills.append(skill)
-            seen.add(key)
-            bound.add(key)
 
     if bound:
         graph.unbound_skills = [
