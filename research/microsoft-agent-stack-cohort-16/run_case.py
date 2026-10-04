@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from horustrace.config import load_config
+from horustrace.effective_authority import effective_authority_report
 from horustrace.scanner import scan
 
 ROOT = Path(__file__).resolve().parent
@@ -334,6 +335,9 @@ def main() -> int:
                 "unbound_mcp_servers": unbound,
                 "findings": [item.as_dict() for item in findings],
                 "attack_paths": attack_paths,
+                "effective_authority": clean(
+                    effective_authority_report(graph)
+                ),
                 "diagnostics": diagnostic_rows,
                 "counts": {
                     "agents": len(agents),
