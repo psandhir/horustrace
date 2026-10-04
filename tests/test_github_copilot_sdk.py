@@ -179,6 +179,9 @@ async def main():
     publish = next(tool for tool in parent.tools if tool.name == "publish_issue")
     assert "network.external" in publish.capabilities
     assert "external.write" in publish.capabilities
+    assert [item.target for item in publish.destinations] == [
+        "https://issues.example.test/api"
+    ]
 
     delegated = next(
         tool for tool in parent.tools
@@ -343,6 +346,9 @@ AIAgent agent = copilotClient.AsAIAgent(new AIAgentOptions
     assert "process.execute" in agent.capabilities
     assert "network.external" in tool.capabilities
     assert "external.write" in tool.capabilities
+    assert [item.target for item in tool.destinations] == [
+        "https://issues.example.test/api"
+    ]
 
 
 def test_copilot_adapter_ignores_unrelated_python_and_csharp(
