@@ -204,21 +204,15 @@ def _repository_effect_evidence(tool: Tool) -> list[dict[str, Any]]:
     return [unique[item] for item in sorted(unique)]
 
 
-def _source_effect_resolution(tool: Tool) -> tuple[str | None, list[str]]:
+def _source_effect_status(tool: Tool) -> str | None:
     resolution = tool.metadata.get("repository_effect_resolution")
     if not isinstance(resolution, str) or not resolution:
-        return None, []
-
-    unresolved_calls = [
-        str(item)
-        for item in (tool.metadata.get("repository_effect_unresolved_calls") or [])
-        if isinstance(item, str)
-    ]
+        return None
     if resolution == "resolved":
-        return "resolved", []
+        return "resolved"
     if resolution == "partial":
-        return "partially_resolved", unresolved_calls or ["source_effects"]
-    return "unknown", unresolved_calls or [resolution]
+        return "partially_resolved"
+    return "unknown"
 
 def _resolution_status(unresolved: list[str], dimensions: dict[str, str]) -> str:
     if not unresolved:
@@ -286,9 +280,14 @@ def _tool_relationship(
     dynamic_availability = (
         tool.metadata.get("availability_condition_unresolved") is True
     )
-    source_effect_status, source_effect_unresolved = (
-        _source_effect_resolution(tool)
-    )
+    source_effect_status = _source_effect_status(tool)
+    source_effect_unresolved_calls = [
+        str(item)
+        for item in (
+            tool.metadata.get("repository_effect_unresolved_calls") or []
+        )
+        if isinstance(item, str)
+    ]
     unresolved: list[str] = []
     dimensions = {
         "target": "resolved",
@@ -423,7 +422,7 @@ def _tool_relationship(
             "source_effect_partial": (
                 tool.metadata.get("repository_effect_partial") is True
             ),
-            "source_effect_unresolved_calls": source_effect_unresolved,
+            "source_effect_unresolved_calls": source_effect_unresolved_calls,
             "source_effect_sources": list(
                 tool.metadata.get("repository_effect_sources") or []
             ),
