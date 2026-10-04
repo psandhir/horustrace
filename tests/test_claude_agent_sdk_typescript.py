@@ -50,7 +50,7 @@ async function run() {
 
 
 def test_claude_typescript_sdk_mcp_and_subagent(tmp_path: Path) -> None:
-    path = _write(
+    _write(
         tmp_path,
         """
 import {
