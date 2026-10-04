@@ -10,7 +10,6 @@ from horustrace.models import (
     Graph,
     MCPServer,
     NetworkDestination,
-    ResourceScope,
     SourceLocation,
     Tool,
 )
