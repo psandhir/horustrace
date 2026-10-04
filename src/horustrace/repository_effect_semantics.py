@@ -761,6 +761,50 @@ def _path_receiver_is_source_proven(
     return check(receiver)
 
 
+def _smtp_receiver_is_source_proven(
+    info: _ModuleInfo,
+    function_name: str,
+    receiver: ast.AST | None,
+) -> bool:
+    if not isinstance(receiver, ast.Name):
+        return False
+    function = info.functions.get(function_name)
+    if function is None:
+        return False
+
+    def is_smtp_constructor(expr: ast.AST | None) -> bool:
+        if not isinstance(expr, ast.Call):
+            return False
+        called = (_dotted(expr.func) or _call_leaf(expr.func) or "").lower()
+        if called in {"smtplib.smtp", "smtplib.smtp_ssl"}:
+            return True
+        leaf = (_call_leaf(expr.func) or "")
+        imported = info.imports.get(leaf)
+        return bool(
+            imported
+            and imported[0] == "smtplib"
+            and imported[1] in {"SMTP", "SMTP_SSL"}
+        )
+
+    for node in ast.walk(function):
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            if any(
+                isinstance(target, ast.Name) and target.id == receiver.id
+                for target in targets
+            ) and is_smtp_constructor(node.value):
+                return True
+        if isinstance(node, (ast.With, ast.AsyncWith)):
+            for item in node.items:
+                if (
+                    isinstance(item.optional_vars, ast.Name)
+                    and item.optional_vars.id == receiver.id
+                    and is_smtp_constructor(item.context_expr)
+                ):
+                    return True
+    return False
+
+
 def _direct_effect(
     module: str,
     info: _ModuleInfo,
@@ -906,6 +950,10 @@ def _direct_effect(
     # Source-visible outbound SDK sinks.
     sendgrid_present = any(name.startswith("sendgrid") for name in info.imported_modules)
     twilio_present = any(name.startswith("twilio") for name in info.imported_modules)
+    smtp_present = any(
+        name == "smtplib" or name.startswith("smtplib.")
+        for name in info.imported_modules
+    )
     if sendgrid_present and leaf == "send":
         result.capabilities.update({"external.write", "network.external"})
         result.evidence.add(f"sendgrid:{dotted}")
@@ -934,6 +982,31 @@ def _direct_effect(
                     "source": "provider_sdk",
                     "network_scope": "fixed_provider_network",
                     "provider": "twilio",
+                    "repository_effect_summary": True,
+                },
+            )
+        )
+
+    if (
+        smtp_present
+        and leaf in {"send_message", "sendmail"}
+        and _smtp_receiver_is_source_proven(
+            info,
+            function_name,
+            receiver,
+        )
+    ):
+        result.capabilities.update({"external.write", "network.external"})
+        result.evidence.add(f"smtp:{dotted}")
+        result.destinations.append(
+            NetworkDestination(
+                target="<operator-configured:smtp>",
+                restricted=True,
+                location=_location(info.path, call),
+                metadata={
+                    "source": "standard_library_smtp",
+                    "network_scope": "operator_configured_destination",
+                    "provider": "smtp",
                     "repository_effect_summary": True,
                 },
             )

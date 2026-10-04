@@ -175,6 +175,89 @@ def _kw(call: ast.Call, name: str) -> ast.AST | None:
     return next((item.value for item in call.keywords if item.arg == name), None)
 
 
+def _mapping_key_value_before(
+    scope: ast.AST,
+    mapping_name: str,
+    key: str,
+    before_line: int,
+) -> ast.AST | None:
+    """Resolve a literal mapping key populated before a call in the same scope."""
+    candidates: list[tuple[int, ast.AST]] = []
+    for node in ast.walk(scope):
+        line = getattr(node, "lineno", 0) or 0
+        if line <= 0 or line >= before_line:
+            continue
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                if isinstance(target, ast.Name) and target.id == mapping_name:
+                    if isinstance(node.value, ast.Dict):
+                        for map_key, map_value in zip(node.value.keys, node.value.values):
+                            if _literal(map_key) == key:
+                                candidates.append((line, map_value))
+                elif (
+                    isinstance(target, ast.Subscript)
+                    and isinstance(target.value, ast.Name)
+                    and target.value.id == mapping_name
+                    and _literal(target.slice) == key
+                ):
+                    candidates.append((line, node.value))
+    return max(candidates, key=lambda item: item[0])[1] if candidates else None
+
+
+def _agent_kw(
+    call: ast.Call,
+    name: str,
+    tree: ast.AST,
+    assignments: dict[str, ast.AST],
+) -> ast.AST | None:
+    """Resolve direct Agent kwargs plus source-visible expanded kwargs construction."""
+    direct = _kw(call, name)
+    if direct is not None:
+        return direct
+
+    scope: ast.AST = _enclosing_function_node(tree, call) or tree
+    before_line = getattr(call, "lineno", 0) or 0
+    for keyword in call.keywords:
+        if keyword.arg is not None or not isinstance(keyword.value, ast.Name):
+            continue
+        value = _mapping_key_value_before(
+            scope,
+            keyword.value.id,
+            name,
+            before_line,
+        )
+        if value is not None:
+            return value
+        assigned = assignments.get(keyword.value.id)
+        if isinstance(assigned, ast.Dict):
+            for map_key, map_value in zip(assigned.keys, assigned.values):
+                if _literal(map_key) == name:
+                    return map_value
+    return None
+
+
+def _dynamic_authority_tool(
+    path: Path,
+    node: ast.AST,
+    alias: str,
+    dimension: str,
+) -> Tool:
+    return Tool(
+        name=f"dynamic-{dimension}:{alias}",
+        kind=f"pydantic_dynamic_{dimension}",
+        capabilities=set(),
+        location=_location(path, node),
+        metadata={
+            "framework": "pydantic-ai",
+            "binding_origin": f"Agent.{dimension}",
+            "dynamic_authority": True,
+            "tool_catalogue_unresolved": True,
+            "authority_dimension": dimension,
+        },
+    )
+
+
 def _target_names(node: ast.Assign | ast.AnnAssign | ast.AST) -> list[str]:
     if isinstance(node, ast.Assign):
         targets = node.targets
@@ -225,6 +308,27 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
         {"process.execute", "network.external", "external.write"}
     )
     body_write_evidence = False
+    smtp_receivers: set[str] = set()
+    for child in ast.walk(node):
+        if isinstance(child, (ast.Assign, ast.AnnAssign)) and child.value is not None:
+            targets = child.targets if isinstance(child, ast.Assign) else [child.target]
+            if (
+                isinstance(child.value, ast.Call)
+                and (_dotted(child.value.func) or "").lower()
+                in {"smtplib.smtp", "smtplib.smtp_ssl"}
+            ):
+                smtp_receivers.update(
+                    target.id for target in targets if isinstance(target, ast.Name)
+                )
+        elif isinstance(child, (ast.With, ast.AsyncWith)):
+            for item in child.items:
+                if (
+                    isinstance(item.context_expr, ast.Call)
+                    and (_dotted(item.context_expr.func) or "").lower()
+                    in {"smtplib.smtp", "smtplib.smtp_ssl"}
+                    and isinstance(item.optional_vars, ast.Name)
+                ):
+                    smtp_receivers.add(item.optional_vars.id)
 
     for child in ast.walk(node):
         if not isinstance(child, ast.Call):
@@ -299,6 +403,14 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
             or leaf in {"get_secret", "access_secret_version"}
         ):
             capabilities.add("secrets.read")
+        if (
+            leaf in {"send_message", "sendmail"}
+            and isinstance(child.func, ast.Attribute)
+            and isinstance(child.func.value, ast.Name)
+            and child.func.value.id in smtp_receivers
+        ):
+            capabilities.update({"external.write", "network.external"})
+            body_write_evidence = True
 
     first_token = node.name.lower().replace("-", "_").split("_", 1)[0]
     if first_token in {"add", "set", "update"} and not body_write_evidence:
@@ -1184,7 +1296,9 @@ def _auth_state(call: ast.Call) -> bool | None:
 def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer | None:
     name = _call_name(call.func)
     canonical_name = (
-        "MCPServerStdio"
+        "MCP"
+        if name == "MCPCapability"
+        else "MCPServerStdio"
         if isinstance(name, str) and name.endswith("MCPServerStdio")
         else "MCPServerStreamableHTTP"
         if isinstance(name, str)
@@ -1289,6 +1403,67 @@ def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer |
         location=_location(path, call),
         metadata={**metadata, "dynamic_mcp_endpoint": True},
     )
+
+
+def _string_sequence_from_expr(
+    expr: ast.AST | None,
+    assignments: dict[str, ast.AST],
+) -> tuple[list[str], bool]:
+    if isinstance(expr, ast.Name):
+        expr = assignments.get(expr.id)
+    if not isinstance(expr, (ast.List, ast.Tuple, ast.Set)):
+        return [], expr is not None
+    values: list[str] = []
+    dynamic = False
+    for element in expr.elts:
+        value = _literal(element)
+        if isinstance(value, str):
+            values.append(value)
+        else:
+            dynamic = True
+    return values, dynamic
+
+
+def _mcp_capability_server_from_call(
+    path: Path,
+    call: ast.Call,
+    assignments: dict[str, ast.AST],
+) -> MCPServer | None:
+    local = _kw(call, "local")
+    resolved_local = assignments.get(local.id) if isinstance(local, ast.Name) else local
+    if isinstance(resolved_local, ast.Call) and _call_name(resolved_local.func) == "StdioTransport":
+        command_node = (
+            resolved_local.args[0]
+            if resolved_local.args
+            else _kw(resolved_local, "command")
+        )
+        args_node = (
+            resolved_local.args[1]
+            if len(resolved_local.args) > 1
+            else _kw(resolved_local, "args")
+        )
+        command = _literal(command_node)
+        args, dynamic_args = _string_sequence_from_expr(args_node, assignments)
+        configured_id = _literal(_kw(call, "id"))
+        return MCPServer(
+            name=configured_id if isinstance(configured_id, str) else "mcp",
+            transport="stdio",
+            command=command if isinstance(command, str) else None,
+            args=args,
+            authenticated=None,
+            location=_location(path, call),
+            metadata={
+                "framework": "pydantic-ai",
+                "source": "MCP",
+                "binding_origin": "pydantic_capability",
+                "local_transport": "StdioTransport",
+                "dynamic_command": not isinstance(command, str),
+                "dynamic_args": dynamic_args,
+                "partial_transport_configuration": dynamic_args
+                or not isinstance(command, str),
+            },
+        )
+    return _mcp_server_from_call(path, call, "mcp")
 
 
 def _mcp_server_from_expr(
@@ -1558,6 +1733,24 @@ def _toolset_tools(
 
     if name == "load_mcp_toolsets":
         return [], [], True
+
+    if name:
+        return [
+            Tool(
+                name=f"toolset:{name}",
+                kind="pydantic_function_toolset",
+                capabilities=set(),
+                location=_location(path, expr),
+                metadata={
+                    "framework": "pydantic-ai",
+                    "binding_origin": "Agent.toolsets",
+                    "dynamic_authority": True,
+                    "tool_catalogue_unresolved": True,
+                    "toolset_class_candidate": name,
+                    "import_module": imports.get(name),
+                },
+            )
+        ], [], True
 
     return [], [], True
 
@@ -2093,8 +2286,8 @@ def _capability_from_expr(
         return None, None, None
 
     name = _call_name(expr.func) or ""
-    if name == "MCP":
-        return None, _mcp_server_from_call(path, expr, "mcp"), None
+    if name in {"MCP", "MCPCapability"}:
+        return None, _mcp_capability_server_from_call(path, expr, assignments), None
     if name == "NativeTool":
         wrapped = expr.args[0] if expr.args else _kw(expr, "tool")
         if isinstance(wrapped, ast.Call):
@@ -2757,11 +2950,15 @@ def scan_python_file(path: Path) -> Graph:
                 provider_name
             )
 
-        tools_expr = _kw(call, "tools")
+        tools_expr = _agent_kw(call, "tools", tree, assignments)
         if tools_expr is not None:
             elements = _resolve_sequence(tools_expr, sequences)
             if elements is None:
                 agent.metadata["dynamic_tools"] = True
+                _merge_tool(
+                    agent.tools,
+                    _dynamic_authority_tool(path, tools_expr, alias, "tools"),
+                )
                 _diagnostic(
                     graph,
                     path,
@@ -2782,6 +2979,27 @@ def scan_python_file(path: Path) -> Graph:
 
         for tool in decorated_agents.get(alias, []):
             _merge_tool(agent.tools, deepcopy(tool))
+
+        builtin_tools_expr = _agent_kw(call, "builtin_tools", tree, assignments)
+        if builtin_tools_expr is not None:
+            builtin_elements = _resolve_sequence(builtin_tools_expr, sequences)
+            if builtin_elements is None:
+                agent.metadata["dynamic_tools"] = True
+                _merge_tool(
+                    agent.tools,
+                    _dynamic_authority_tool(
+                        path,
+                        builtin_tools_expr,
+                        alias,
+                        "builtin_tools",
+                    ),
+                )
+                _diagnostic(
+                    graph,
+                    path,
+                    builtin_tools_expr,
+                    "Pydantic AI builtin tools collection could not be statically resolved.",
+                )
 
         mcp_servers_expr = _kw(call, "mcp_servers")
         if mcp_servers_expr is not None:
@@ -2811,7 +3029,7 @@ def scan_python_file(path: Path) -> Graph:
                             "Pydantic AI MCP server reference could not be normalized.",
                         )
 
-        toolsets_expr = _kw(call, "toolsets")
+        toolsets_expr = _agent_kw(call, "toolsets", tree, assignments)
         if toolsets_expr is not None:
             elements = _resolve_sequence(toolsets_expr, sequences)
             if elements is None:
@@ -2825,6 +3043,11 @@ def scan_python_file(path: Path) -> Graph:
                 if configured_mcp is not None:
                     agent.mcp_servers.append(configured_mcp)
                     agent.metadata["configuration_dependent_mcp_toolsets"] = True
+                else:
+                    _merge_tool(
+                        agent.tools,
+                        _dynamic_authority_tool(path, toolsets_expr, alias, "toolsets"),
+                    )
                 _diagnostic(
                     graph,
                     path,
@@ -2854,12 +3077,17 @@ def scan_python_file(path: Path) -> Graph:
                     if dynamic:
                         agent.metadata["dynamic_tools"] = True
 
-        capabilities_expr = _kw(call, "capabilities")
+        capabilities_expr = _agent_kw(call, "capabilities", tree, assignments)
         safety_capabilities: list[str] = []
         unmodeled_capabilities: list[str] = []
         if capabilities_expr is not None:
             elements = _resolve_sequence(capabilities_expr, sequences)
             if elements is None:
+                agent.metadata["dynamic_tools"] = True
+                _merge_tool(
+                    agent.tools,
+                    _dynamic_authority_tool(path, capabilities_expr, alias, "capabilities"),
+                )
                 _diagnostic(
                     graph,
                     path,
@@ -3064,7 +3292,7 @@ def scan_python_file(path: Path) -> Graph:
         owner = _dotted(call.func.value) or _call_name(call.func.value)
         if owner not in agents or call.func.attr not in _AGENT_RUN_METHODS:
             continue
-        toolsets_expr = _kw(call, "toolsets")
+        toolsets_expr = _agent_kw(call, "toolsets", tree, assignments)
         if toolsets_expr is None:
             continue
         elements = _resolve_sequence(toolsets_expr, sequences)

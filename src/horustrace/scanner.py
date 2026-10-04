@@ -99,6 +99,7 @@ from horustrace.models import (
 )
 from horustrace.path_safety import canonical_root, is_within_root
 from horustrace.provenance import annotate, attach_findings, context
+from horustrace.pydantic_repository import enrich_pydantic_repository_graph
 from horustrace.rag_semantics import enrich_streamlit_rag_directory_semantics
 from horustrace.realtime_session_semantics import enrich_public_realtime_mcp_authority
 from horustrace.registry_config import (
@@ -2513,6 +2514,11 @@ def scan(
             raise ScannerError(str(exc)) from exc
     _link_global_identities(graph)
     _resolve_imported_tool_placeholders(graph)
+    enrich_pydantic_repository_graph(
+        graph,
+        root if root.is_dir() else root.parent,
+        python_paths=approved_python_paths,
+    )
     enrich_repository_tool_effects(
         graph,
         root if root.is_dir() else root.parent,
