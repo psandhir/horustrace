@@ -594,11 +594,8 @@ def _scan_strands_python(path: Path, tree: ast.AST) -> Graph:
                     imports_strands = True
         elif isinstance(node, ast.ImportFrom):
             module = node.module or ""
-            if (
-                module == "strands"
-                or module.startswith("strands.")
-                or module == "strands_harness"
-                or module.startswith("strands_harness.")
+            if module in {"strands", "strands_harness"} or module.startswith(
+                ("strands.", "strands_harness.")
             ):
                 imports_strands = True
             if module == "strands_harness":
