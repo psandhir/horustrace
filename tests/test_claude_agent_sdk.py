@@ -502,3 +502,76 @@ async def dynamic_agent():
     assert dynamic_root.metadata["permission_mode"] == "bypassPermissions"
     assert dynamic_root.metadata["hook_events"] == ["PreToolUse"]
     assert any(server.name == "<dynamic-mcp>" for server in dynamic_root.mcp_servers)
+
+
+def test_workflow_tool_projects_dynamic_delegated_authority(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        """
+from claude_agent_sdk import ClaudeAgentOptions, query
+
+options = ClaudeAgentOptions(
+    allowed_tools=["Read", "Workflow"],
+    permission_mode="acceptEdits",
+    cwd="/workspace",
+)
+
+async def run():
+    async for _ in query(prompt="run workflow", options=options):
+        pass
+""",
+    )
+
+    graph = scan_python_file(path)
+    agent = next(item for item in graph.agents if item.name == "options")
+    workflow = next(tool for tool in agent.tools if tool.name == "Workflow")
+
+    assert {"agent.delegate", "process.execute"} <= workflow.capabilities
+    assert workflow.metadata["dynamic_workflow"] is True
+    assert workflow.metadata["runtime_generated_workflow"] is True
+    assert workflow.metadata["delegate_target_unresolved"] is True
+    assert workflow.approval is False
+    assert {item.selector for item in workflow.resources} == {"/workspace"}
+
+
+def test_hook_control_state_requires_source_visible_enforcement(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        """
+from claude_agent_sdk import ClaudeAgentOptions, HookMatcher, query
+
+async def observer(input_data, tool_use_id, context):
+    print(input_data)
+    return {}
+
+async def blocker(input_data, tool_use_id, context):
+    if input_data.get("tool_name") == "Bash":
+        return {"decision": "block", "reason": "approval required"}
+    return {}
+
+observer_options = ClaudeAgentOptions(
+    tools=["Bash"],
+    hooks={"PreToolUse": [HookMatcher(matcher="Bash", hooks=[observer])]},
+)
+guarded_options = ClaudeAgentOptions(
+    tools=["Bash"],
+    can_use_tool=blocker,
+    hooks={"PreToolUse": [HookMatcher(matcher="Bash", hooks=[blocker])]},
+)
+
+async def run():
+    async for _ in query(prompt="one", options=observer_options):
+        pass
+    async for _ in query(prompt="two", options=guarded_options):
+        pass
+""",
+    )
+
+    graph = scan_python_file(path)
+    observer = next(item for item in graph.agents if item.name == "observer_options")
+    guarded = next(item for item in graph.agents if item.name == "guarded_options")
+
+    assert observer.metadata["tool_control_state"] == "non_enforcing"
+    assert observer.metadata["tool_control_enforcing"] is False
+    assert guarded.metadata["tool_control_state"] == "enforcing"
+    assert guarded.metadata["tool_control_enforcing"] is True
