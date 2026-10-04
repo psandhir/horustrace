@@ -79,13 +79,7 @@ _BUILTIN_TOOL_CAPABILITIES: dict[str, set[str]] = {
 }
 
 
-_URL_RE = re.compile(
-    r"https?://[A-Za-z0-9._~:/?#\\[\\]@!    "subagent": {"agent.delegate"},
-}
-
-
-'()*+,;=%-]+"
-)
+_URL_RE = re.compile(r"""https?://[^\s"'<>]+""")
 
 
 def _attach_literal_destinations(tool: Tool, text: str) -> None:
