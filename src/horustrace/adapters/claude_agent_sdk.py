@@ -1329,6 +1329,36 @@ def scan_python_file(path: Path) -> Graph:
             )
         )
         roots[-1].metadata["execution_binding_unresolved"] = True
+        used_option_calls.add(id(call))
+
+    # Configuration builders are frequently defined in one module and consumed
+    # by query()/ClaudeSDKClient in another. Preserve their returned option
+    # surface as evidence even when this file contains no local entrypoint.
+    for function_name, calls in function_returns.items():
+        for index, call in enumerate(calls):
+            if id(call) in used_option_calls:
+                continue
+            builder_name = (
+                function_name
+                if len(calls) == 1
+                else f"{function_name}#{index + 1}"
+            )
+            roots.append(
+                _option_agent(
+                    path,
+                    builder_name,
+                    call,
+                    sequences,
+                    dicts,
+                    values,
+                    custom_tools,
+                    sdk_servers,
+                    subagent_defs,
+                )
+            )
+            roots[-1].metadata["execution_binding_unresolved"] = True
+            roots[-1].metadata["option_builder_return"] = True
+            used_option_calls.add(id(call))
 
     graph.agents.extend(roots)
 
