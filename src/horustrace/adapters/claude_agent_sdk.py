@@ -997,10 +997,19 @@ def _option_agent(
         agent.tools.append(delegated)
 
     if agents_node is not None and not agent_entries:
-        literal_agents = _resolved_literal(agents_node, values)
-        if literal_agents not in ({}, None):
+        resolved_agents_node = _resolve_node(agents_node, values)
+        explicitly_empty = (
+            isinstance(resolved_agents_node, ast.Constant)
+            and resolved_agents_node.value is None
+        ) or (
+            isinstance(resolved_agents_node, ast.Dict)
+            and not resolved_agents_node.keys
+        )
+        if not explicitly_empty:
             agent.metadata["dynamic_subagents"] = True
-            agent.metadata["unresolved_subagent_registry"] = _expr_reference(agents_node)
+            agent.metadata["unresolved_subagent_registry"] = _expr_reference(
+                resolved_agents_node
+            )
             agent.tools.append(
                 Tool(
                     name="<dynamic-subagents>",
