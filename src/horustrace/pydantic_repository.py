@@ -142,6 +142,27 @@ def _module_by_path(modules: dict[str, _ModuleInfo]) -> dict[Path, _ModuleInfo]:
     return {info.path: info for info in modules.values()}
 
 
+def _resolve_module_reference(
+    modules: dict[str, _ModuleInfo],
+    module_name: str,
+) -> _ModuleInfo | None:
+    """Resolve repository modules when the scan root is below the package root.
+
+    Scanning src/agents can yield local module sub_agent while source imports
+    use src.agents.sub_agent. Resolve only an exact or unique suffix match so
+    unrelated same-named modules are never guessed.
+    """
+    direct = modules.get(module_name)
+    if direct is not None:
+        return direct
+    matches = [
+        info
+        for name, info in modules.items()
+        if module_name.endswith(f".{name}")
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
 def _names_from_sequence(node: ast.AST | None) -> list[str]:
     if not isinstance(node, (ast.List, ast.Tuple, ast.Set)):
         return []
@@ -316,7 +337,7 @@ def _resolve_toolset_class(
 ) -> tuple[_ModuleInfo, ast.ClassDef] | None:
     imported = owner.imports.get(candidate)
     if imported and imported[1]:
-        target = modules.get(imported[0])
+        target = _resolve_module_reference(modules, imported[0])
         if target is not None:
             cls = target.toolset_classes.get(imported[1])
             if cls is not None:
@@ -343,7 +364,7 @@ def _resolve_member(
         return owner, function
     imported = owner.imports.get(member)
     if imported and imported[1]:
-        target = modules.get(imported[0])
+        target = _resolve_module_reference(modules, imported[0])
         function = target.functions.get(imported[1]) if target is not None else None
         if target is not None and function is not None:
             return target, function
@@ -474,7 +495,7 @@ def _resolve_imported_delegation(
                 imported = info.imports.get(call.func.value.id)
                 if not imported or not imported[1]:
                     continue
-                child_module = modules.get(imported[0])
+                child_module = _resolve_module_reference(modules, imported[0])
                 if child_module is None:
                     continue
                 matches = agents_by_source.get(
