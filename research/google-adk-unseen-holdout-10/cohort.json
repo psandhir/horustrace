@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "study": "google-adk-unseen-holdout-10",
+  "status": "frozen_before_horustrace_execution",
+  "locked_at": "2026-10-04",
+  "scanner_baseline": "1be194c94b3b643f2c8d081e5fa14e6643eb3a9f",
+  "selection": {
+    "target_cases": 10,
+    "unique_repositories": 9,
+    "method": "Source-only selection from current public Google/GoogleCloudPlatform and independent Google ADK repositories after canonical depth-parity closure. No HorusTrace output from this cohort was used to select cases. Every target is pinned to an exact commit SHA and scanned at an application-level path.",
+    "horustrace_output_used_for_selection": false,
+    "interpretation": "Fresh unseen Google ADK Python holdout to test whether canonical depth semantics generalize to repository composition, helper factories, custom BaseAgent implementations, skills, MCP, callbacks/plugins, data stores and multi-agent delegation.",
+    "surface_counts": {
+      "factory-mcp": 1,
+      "skills-agent-registry": 1,
+      "custom-base-agent": 1,
+      "multi-agent-mcp": 1,
+      "database-tools": 1,
+      "callbacks-subagents": 1,
+      "multi-agent-stdio-mcp": 1,
+      "skills-dynamic-mcp": 1,
+      "unsafe-code-agenttool-mcp": 1,
+      "dynamic-a2a-delegation": 1
+    },
+    "score_dimensions": [
+      "agent_root_detection",
+      "tool_and_mcp_binding",
+      "delegation_and_multi_agent_projection",
+      "custom_base_agent_visibility",
+      "source_effect_semantics",
+      "dynamic_authority_visibility",
+      "control_and_callback_fidelity",
+      "resource_and_destination_provenance",
+      "identity_and_auth_evidence",
+      "effective_authority_projection"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "gadk-hold-001",
+      "repo": "google/mcp-security",
+      "sha": "9885ec6856ec72333091cf1a3b2ac1bb26abe149",
+      "surface": "factory-mcp",
+      "application_path": "run-with-google-adk",
+      "evidence_path": "src/mcp_security_agent/agent.py",
+      "validation_role": "first_party_holdout",
+      "source_signal": "ADK v2 LlmAgent is returned by create_security_agent(), exposed as root_agent, and receives a helper-built list of conditional stdio MCP toolsets plus a before-model callback. Tests cross-file factory/toolset resolution without executing settings-dependent code."
+    },
+    {
+      "case_id": "gadk-hold-002",
+      "repo": "GoogleCloudPlatform/race-condition",
+      "sha": "26efc1b4674344d6303ee4226ec3204c08733fec",
+      "surface": "skills-agent-registry",
+      "application_path": "agents/planner",
+      "evidence_path": "agent.py",
+      "validation_role": "first_party_holdout",
+      "source_signal": "Planner root is returned by get_agent(), binds helper-built SkillToolset/PreloadMemory/FunctionTool and dynamically discovered Agent Registry MCP tools, uses a financial guardrail callback, and is exposed through A2A deployment."
+    },
+    {
+      "case_id": "gadk-hold-003",
+      "repo": "kweinmeister/agentic-trading",
+      "sha": "a8ae98dee650c8402c16b54b79aca86e8d930a3f",
+      "surface": "custom-base-agent",
+      "application_path": "riskguard",
+      "evidence_path": "agent.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Source-defined RiskGuardAgent subclasses ADK BaseAgent and implements _run_async_impl for an A2A-hosted risk decision workflow. Tests custom BaseAgent principal recognition without inventing model-callable tools."
+    },
+    {
+      "case_id": "gadk-hold-004",
+      "repo": "seehiong/adk-web-multi-agent",
+      "sha": "144ce2d3edb427c9addaef1fdc8f3372f04c8d45",
+      "surface": "multi-agent-mcp",
+      "application_path": "agents",
+      "evidence_path": "agent.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Coordinator LlmAgent imports two repository-local specialist agents, delegates through sub_agents, with one specialist backed by Streamable HTTP MCP and another using a database toolbox client. Tests cross-file delegation and specialist authority propagation."
+    },
+    {
+      "case_id": "gadk-hold-005",
+      "repo": "mongodb-developer/MongoDB-ADK-Agents",
+      "sha": "aafaefdb16230ed1c24ca6ae5605360befafaab2",
+      "surface": "database-tools",
+      "application_path": "mongodb-groceries-agent",
+      "evidence_path": "agent.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Direct ADK Agent binds plain functions that perform MongoDB vector reads, cart reads and update_one(upsert=True) persistent mutation. Tests source-over-name data read/write inference and database authority."
+    },
+    {
+      "case_id": "gadk-hold-006",
+      "repo": "GoogleCloudPlatform/generative-ai",
+      "sha": "eb477e2e7da6b5a68f9d687683d1214eaf2d1684",
+      "surface": "callbacks-subagents",
+      "application_path": "agents/adk/new-hire-onboarding",
+      "evidence_path": "app/agent.py",
+      "validation_role": "first_party_holdout",
+      "source_signal": "HR coordinator uses a before-agent state callback, multiple repository-local onboarding tools and an IT provisioning subagent. Tests cross-file tool effects, callback classification and delegated mutation authority."
+    },
+    {
+      "case_id": "gadk-hold-007",
+      "repo": "GoogleCloudPlatform/generative-ai",
+      "sha": "eb477e2e7da6b5a68f9d687683d1214eaf2d1684",
+      "surface": "multi-agent-stdio-mcp",
+      "application_path": "gemini/mcp/adk_multiagent_mcp_app",
+      "evidence_path": "main.py",
+      "validation_role": "first_party_holdout",
+      "source_signal": "Async factory creates root LlmAgent plus two specialist subagents; specialists receive three inline stdio MCPToolsets for Airbnb, weather and cocktail servers. Tests factory-returned multi-agent roots, inline MCP construction and delegated MCP authority."
+    },
+    {
+      "case_id": "gadk-hold-008",
+      "repo": "RHEcosystemAppEng/google-lightspeed-agent",
+      "sha": "1483d23f89eaa3195cdfb7fa23a4baee2a6399f6",
+      "surface": "skills-dynamic-mcp",
+      "application_path": "src/lightspeed_agent",
+      "evidence_path": "core/agent.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Production-style Red Hat Lightspeed LlmAgent uses ADK SkillToolset and helper-built MCP authority with stdio/SSE/HTTP transport selected from runtime configuration, dynamic auth header provider and large explicit tool filters. Tests dynamic MCP preservation and skills composition."
+    },
+    {
+      "case_id": "gadk-hold-009",
+      "repo": "lavinigam-gcp/build-with-adk",
+      "sha": "e3f55ff1c348a686cd665211dd43815ca5feffe0",
+      "surface": "unsafe-code-agenttool-mcp",
+      "application_path": "adk-iterative-refinement",
+      "evidence_path": "app/agent.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Agent-builder app combines SkillToolset, stdio ADK docs MCP, AgentTool delegation to an UnsafeLocalCodeExecutor child, and local file/process tools. Tests high-authority composition and delegated local execution."
+    },
+    {
+      "case_id": "gadk-hold-010",
+      "repo": "mayurnimavatg/project-horizon",
+      "sha": "cca6ce64bb92602690f328c914e326c4ec1ed21e",
+      "surface": "dynamic-a2a-delegation",
+      "application_path": "host_agent",
+      "evidence_path": "agent.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Async create_host_agent() constructs an ADK Agent after runtime A2A specialist discovery and binds a repository-local delegate tool that calls discovered specialist endpoints. Tests factory-returned async roots and dynamic delegation authority without inventing a specialist catalogue."
+    }
+  ]
+}
