@@ -29,6 +29,7 @@ from horustrace.models import (
     Graph,
     Identity,
     MCPServer,
+    NetworkDestination,
     ResourceScope,
     SourceLocation,
     Tool,
@@ -76,6 +77,37 @@ _BUILTIN_TOOL_CAPABILITIES: dict[str, set[str]] = {
     "delegate": {"agent.delegate"},
     "subagent": {"agent.delegate"},
 }
+
+
+_URL_RE = re.compile(
+    r"https?://[A-Za-z0-9._~:/?#\\[\\]@!    "subagent": {"agent.delegate"},
+}
+
+
+'()*+,;=%-]+"
+)
+
+
+def _attach_literal_destinations(tool: Tool, text: str) -> None:
+    if "network.external" not in tool.capabilities:
+        return
+    seen = {item.target for item in tool.destinations}
+    for raw in _URL_RE.findall(text):
+        target = raw.rstrip('",);]}')
+        if not target or target in seen:
+            continue
+        tool.destinations.append(
+            NetworkDestination(
+                target=target,
+                restricted=True,
+                location=tool.location,
+                metadata={
+                    "source": "literal_url",
+                    "network_scope": "fixed_literal_destination",
+                },
+            )
+        )
+        seen.add(target)
 
 
 def _source_location(path: Path, node: ast.AST) -> SourceLocation:
@@ -362,7 +394,7 @@ def _python_custom_tools(
             else None
         )
         name = explicit or node.name
-        result[node.name] = Tool(
+        tool = Tool(
             name=name,
             kind="function",
             capabilities=_python_body_capabilities(node),
@@ -373,6 +405,8 @@ def _python_custom_tools(
                 "wrapped": node.name,
             },
         )
+        _attach_literal_destinations(tool, ast.unparse(node))
+        result[node.name] = tool
 
     functions = {
         node.name: node
@@ -402,7 +436,7 @@ def _python_custom_tools(
         handler = _keyword(value, "handler")
         handler_name = handler.id if isinstance(handler, ast.Name) else None
         body = functions.get(handler_name) if handler_name else None
-        result[target] = Tool(
+        tool = Tool(
             name=name,
             kind="function",
             capabilities=_python_body_capabilities(body) if body else set(),
@@ -414,6 +448,9 @@ def _python_custom_tools(
                 "declaration_only": body is None,
             },
         )
+        if body is not None:
+            _attach_literal_destinations(tool, ast.unparse(body))
+        result[target] = tool
     return result
 
 
@@ -692,18 +729,18 @@ def _scan_python(path: Path, source: str) -> Graph:
                             agent.tools.append(deepcopy(custom_tools[item.id]))
                         elif item.id in functions_by_name:
                             fn = functions_by_name[item.id]
-                            agent.tools.append(
-                                Tool(
-                                    name=item.id,
-                                    kind="function",
-                                    capabilities=_python_body_capabilities(fn),
-                                    location=_source_location(path, item),
-                                    metadata={
-                                        "framework": FRAMEWORK,
-                                        "binding_origin": "GitHubCopilotAgent.tools",
-                                    },
-                                )
+                            tool = Tool(
+                                name=item.id,
+                                kind="function",
+                                capabilities=_python_body_capabilities(fn),
+                                location=_source_location(path, item),
+                                metadata={
+                                    "framework": FRAMEWORK,
+                                    "binding_origin": "GitHubCopilotAgent.tools",
+                                },
                             )
+                            _attach_literal_destinations(tool, ast.unparse(fn))
+                            agent.tools.append(tool)
             graph.agents.append(agent)
 
     if not imports_copilot:
@@ -913,7 +950,7 @@ def _csharp_custom_tools(
             if body_info is not None
             else set()
         )
-        result[name] = Tool(
+        tool = Tool(
             name=tool_name,
             kind="function",
             capabilities=capabilities,
@@ -924,6 +961,9 @@ def _csharp_custom_tools(
                 "wrapped": target,
             },
         )
+        if body_info is not None:
+            _attach_literal_destinations(tool, body_info[0])
+        result[name] = tool
     return result
 
 
@@ -1066,6 +1106,20 @@ def _csharp_session_custom_agents(
             )
             if builtin:
                 child.tools.append(builtin)
+            requested = set(tool_names)
+            for tool in parent.tools:
+                if tool.kind == "github_copilot_builtin_tools":
+                    continue
+                if tool.name in requested or f"custom:{tool.name}" in requested:
+                    child.tools.append(deepcopy(tool))
+            for server in parent.mcp_servers:
+                if any(
+                    item.startswith(
+                        (f"{server.name}-", f"mcp:{server.name}-")
+                    )
+                    for item in requested
+                ):
+                    child.mcp_servers.append(deepcopy(server))
         result.append(child)
     return result
 
