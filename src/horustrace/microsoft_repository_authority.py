@@ -17,11 +17,87 @@ _RUNTIME_AGENT_FRAMEWORKS = {
 _TOOLING_MANIFEST = "ToolingManifest.json"
 
 
+def _strip_json_comments(text: str) -> str:
+    """Remove JSONC comments without altering quoted string content.
+
+    Newlines are preserved so parser diagnostics still point at the original
+    source line. Comment bytes are replaced with spaces rather than removed.
+    """
+    result = list(text)
+    index = 0
+    in_string = False
+    escaped = False
+
+    while index < len(text):
+        char = text[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            index += 1
+            continue
+
+        if char == '"':
+            in_string = True
+            index += 1
+            continue
+
+        if char == "/" and index + 1 < len(text):
+            next_char = text[index + 1]
+            if next_char == "/":
+                result[index] = " "
+                result[index + 1] = " "
+                index += 2
+                while index < len(text) and text[index] not in "\r\n":
+                    result[index] = " "
+                    index += 1
+                continue
+            if next_char == "*":
+                result[index] = " "
+                result[index + 1] = " "
+                index += 2
+                while index < len(text):
+                    if (
+                        text[index] == "*"
+                        and index + 1 < len(text)
+                        and text[index + 1] == "/"
+                    ):
+                        result[index] = " "
+                        result[index + 1] = " "
+                        index += 2
+                        break
+                    if text[index] not in "\r\n":
+                        result[index] = " "
+                    index += 1
+                continue
+
+        index += 1
+
+    return "".join(result)
+
+
+def parse_microsoft_authority_json(
+    text: str,
+    *,
+    allow_comments: bool,
+) -> dict[str, Any]:
+    validate_json_safety(text)
+    parsed_text = _strip_json_comments(text) if allow_comments else text
+    value = json.loads(parsed_text)
+    if not isinstance(value, dict):
+        raise TypeError("Microsoft authority configuration must be a JSON object")
+    return value
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     text = path.read_text(encoding="utf-8")
-    validate_json_safety(text)
-    value = json.loads(text)
-    return value if isinstance(value, dict) else {}
+    return parse_microsoft_authority_json(
+        text,
+        allow_comments=path.name.startswith("appsettings"),
+    )
 
 
 def _strings(value: Any) -> list[str]:
