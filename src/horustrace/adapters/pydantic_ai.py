@@ -827,22 +827,6 @@ def _tool_from_function(
     if dynamic_destinations:
         capabilities.add("network.external")
 
-    # A Pydantic tool may delegate to another repository-local Pydantic Agent.
-    # Record only source-visible candidate targets here; repository assembly
-    # resolves them against normalized agents before inheriting authority.
-    delegate_targets = sorted(
-        {
-            child.func.value.id
-            for child in ast.walk(node)
-            if isinstance(child, ast.Call)
-            and isinstance(child.func, ast.Attribute)
-            and child.func.attr in _AGENT_RUN_METHODS
-            and isinstance(child.func.value, ast.Name)
-        }
-    )
-    if delegate_targets:
-        capabilities.add("agent.delegate")
-
     authorization_gate = _mandatory_authorization_gate(node)
     tool = Tool(
         name=node.name,
@@ -864,15 +848,6 @@ def _tool_from_function(
                 else {}
             ),
             **http_metadata,
-            **(
-                {
-                    "delegate_target": delegate_targets[0],
-                    "delegate_targets": delegate_targets,
-                    "delegation_basis": "pydantic_agent_run",
-                }
-                if delegate_targets
-                else {}
-            ),
         },
     )
     if _contains_conditional_approval(node):
@@ -1604,6 +1579,499 @@ def _is_declarative_capability_expr(
             visited=visited | {expr.id},
         )
     return isinstance(expr, ast.Call) and _call_name(expr.func) == "Capability"
+
+
+
+def _resolved_expr(
+    expr: ast.AST,
+    assignments: dict[str, ast.AST],
+    *,
+    visited: set[str] | None = None,
+) -> ast.AST:
+    """Resolve simple repository-local aliases without executing target code."""
+    visited = visited or set()
+    if isinstance(expr, ast.Name) and expr.id in assignments and expr.id not in visited:
+        return _resolved_expr(
+            assignments[expr.id],
+            assignments,
+            visited=visited | {expr.id},
+        )
+    return expr
+
+
+def _string_expr(
+    expr: ast.AST | None,
+    assignments: dict[str, ast.AST],
+) -> str | None:
+    if expr is None:
+        return None
+    expr = _resolved_expr(expr, assignments)
+    value = _literal(expr)
+    if isinstance(value, str):
+        return value
+    if isinstance(expr, ast.Call) and _call_name(expr.func) in {"Path", "PurePath"}:
+        value = _literal(expr.args[0]) if expr.args else None
+        return value if isinstance(value, str) else None
+    return None
+
+
+def _workspace_spec_from_expr(
+    expr: ast.AST,
+    assignments: dict[str, ast.AST],
+) -> dict[str, Any] | None:
+    expr = _resolved_expr(expr, assignments)
+    if not isinstance(expr, ast.Call):
+        return None
+    name = _call_name(expr.func) or ""
+
+    if name == "BubblewrapSandbox":
+        wrapped = expr.args[0] if expr.args else _kw(expr, "workspace")
+        spec = (
+            _workspace_spec_from_expr(wrapped, assignments)
+            if wrapped is not None
+            else {}
+        ) or {}
+        network = _literal(_kw(expr, "network"))
+        spec.update(
+            {
+                "sandbox": "bubblewrap",
+                "sandboxed": True,
+                "execution_boundary": (
+                    "remote-sandbox"
+                    if spec.get("remote")
+                    else "local-sandbox"
+                ),
+                "network_allowed": bool(network) if isinstance(network, bool) else False,
+            }
+        )
+        return spec
+
+    if name == "LocalWorkspace":
+        root = _string_expr(
+            expr.args[0] if expr.args else _kw(expr, "root"),
+            assignments,
+        )
+        read_only = _literal(_kw(expr, "read_only"))
+        return {
+            "provider": "local",
+            "root": root,
+            "working_dir": root,
+            "remote": False,
+            "sandboxed": False,
+            "read_only": read_only is True,
+            "execution_boundary": "local-host",
+        }
+
+    if name in {"E2BSandbox", "SpritesSandbox"}:
+        provider = "e2b" if name == "E2BSandbox" else "sprites"
+        working_dir = _string_expr(_kw(expr, "working_dir"), assignments)
+        spec: dict[str, Any] = {
+            "provider": provider,
+            "working_dir": working_dir,
+            "root": working_dir,
+            "remote": True,
+            "sandboxed": True,
+            "execution_boundary": "remote-sandbox",
+        }
+        internet = _literal(_kw(expr, "allow_internet_access"))
+        if isinstance(internet, bool):
+            spec["network_allowed"] = internet
+        return spec
+
+    if name == "SSHWorkspace":
+        destination = _string_expr(
+            expr.args[0] if expr.args else _kw(expr, "destination"),
+            assignments,
+        )
+        working_dir = _string_expr(_kw(expr, "working_dir"), assignments)
+        return {
+            "provider": "ssh",
+            "destination": destination,
+            "working_dir": working_dir,
+            "root": working_dir,
+            "remote": True,
+            "sandboxed": False,
+            "network_allowed": True,
+            "execution_boundary": "remote-host",
+        }
+
+    return None
+
+
+def _resource_once(
+    tool: Tool,
+    *,
+    kind: str,
+    selector: str | None,
+    access: set[str],
+    location: SourceLocation,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    if not selector:
+        return
+    key = (kind, selector, tuple(sorted(access)))
+    if any(
+        (item.kind, item.selector, tuple(sorted(item.access))) == key
+        for item in tool.resources
+    ):
+        return
+    tool.resources.append(
+        ResourceScope(
+            kind=kind,
+            selector=selector,
+            access=set(access),
+            location=location,
+            metadata=dict(metadata or {}),
+        )
+    )
+
+
+def _apply_workspace_semantics(agent: Agent, spec: dict[str, Any]) -> None:
+    """Apply current Pydantic workspace/sandbox constraints to model-callable tools."""
+    provider = str(spec.get("provider") or "unknown")
+    root = spec.get("root") or spec.get("working_dir")
+    read_only = spec.get("read_only") is True
+    network_allowed = spec.get("network_allowed")
+    sandboxed = spec.get("sandboxed") is True
+    sandbox = spec.get("sandbox")
+    boundary = str(spec.get("execution_boundary") or "workspace")
+
+    public_spec = {
+        key: value
+        for key, value in spec.items()
+        if value is not None
+    }
+    agent.metadata["workspace"] = public_spec
+    agent.metadata["workspace_provider"] = provider
+    agent.metadata["execution_boundary"] = boundary
+    agent.metadata["workspace_remote"] = spec.get("remote") is True
+    agent.metadata["workspace_sandboxed"] = sandboxed
+    if read_only:
+        agent.metadata["workspace_read_only"] = True
+    else:
+        agent.metadata["workspace_writable"] = True
+    if sandbox:
+        agent.metadata["sandbox"] = sandbox
+    if isinstance(network_allowed, bool):
+        agent.metadata["workspace_network_allowed"] = network_allowed
+
+    destination = spec.get("destination")
+    if isinstance(destination, str) and destination:
+        target = destination if "://" in destination else f"ssh://{destination}"
+        if not any(item.target == target for item in agent.network):
+            agent.network.append(
+                NetworkDestination(
+                    target=target,
+                    restricted=True,
+                    location=agent.location,
+                    metadata={
+                        "source": "pydantic_workspace",
+                        "network_scope": "fixed_execution_target",
+                        "destination_provenance": "operator_configuration",
+                        "workspace_provider": provider,
+                    },
+                )
+            )
+
+    workspace_tools = {
+        "FileSystem",
+        "Shell",
+        "Coder",
+        "Memory",
+        "Skills",
+        "CapabilityCreation",
+    }
+    for tool in agent.tools:
+        if tool.name not in workspace_tools and tool.kind not in {
+            "filesystem",
+            "shell",
+            "coder",
+            "persistent_memory",
+            "skills",
+            "capability_creation",
+        }:
+            continue
+
+        tool.metadata["workspace_provider"] = provider
+        tool.metadata["execution_boundary"] = boundary
+        if sandboxed:
+            tool.metadata["sandboxed"] = True
+        if sandbox:
+            tool.metadata["sandbox"] = sandbox
+        if read_only:
+            tool.metadata["workspace_read_only"] = True
+        if isinstance(network_allowed, bool):
+            tool.metadata["network_allowed"] = network_allowed
+
+        if root and tool.kind in {"filesystem", "shell", "coder"}:
+            access = tool.capabilities & {
+                "data.read",
+                "data.write",
+                "destructive.write",
+            }
+            _resource_once(
+                tool,
+                kind="file",
+                selector=str(root),
+                access=access,
+                location=tool.location or agent.location or SourceLocation(Path(".")),
+                metadata={
+                    "source": "pydantic_workspace",
+                    "workspace_provider": provider,
+                },
+            )
+
+        if read_only and tool.kind in {"filesystem", "persistent_memory"}:
+            tool.capabilities.difference_update(
+                {"data.write", "destructive.write", "external.write"}
+            )
+            for resource in tool.resources:
+                resource.access.difference_update(
+                    {"data.write", "destructive.write", "external.write"}
+                )
+
+        if network_allowed is False and tool.kind in {"shell", "coder"}:
+            tool.capabilities.discard("network.external")
+            tool.metadata["network_isolated"] = True
+
+        if isinstance(destination, str) and destination and tool.kind in {"shell", "coder"}:
+            target = destination if "://" in destination else f"ssh://{destination}"
+            if not any(item.target == target for item in tool.destinations):
+                tool.destinations.append(
+                    NetworkDestination(
+                        target=target,
+                        restricted=True,
+                        location=tool.location or agent.location,
+                        metadata={
+                            "source": "pydantic_workspace",
+                            "network_scope": "fixed_execution_target",
+                            "destination_provenance": "operator_configuration",
+                            "workspace_provider": provider,
+                        },
+                    )
+                )
+
+
+def _harness_special_capability(
+    path: Path,
+    expr: ast.AST,
+    assignments: dict[str, ast.AST],
+    agent: Agent,
+) -> bool:
+    """Normalize authority-bearing current Harness capabilities and boundaries."""
+    resolved = _resolved_expr(expr, assignments)
+    if not isinstance(resolved, ast.Call):
+        return False
+    name = _call_name(resolved.func) or ""
+
+    workspace = _workspace_spec_from_expr(resolved, assignments)
+    if workspace is not None:
+        existing = dict(agent.metadata.get("_workspace_spec") or {})
+        existing.update({key: value for key, value in workspace.items() if value is not None})
+        agent.metadata["_workspace_spec"] = existing
+        return True
+
+    if name == "Memory":
+        store = resolved.args[0] if resolved.args else _kw(resolved, "store")
+        store = _resolved_expr(store, assignments) if store is not None else None
+        selector: str | None = None
+        store_name = "unknown"
+        if isinstance(store, ast.Call):
+            store_name = _call_name(store.func) or "unknown"
+            selector = _string_expr(
+                store.args[0] if store.args else _kw(store, "directory"),
+                assignments,
+            )
+            if selector is None:
+                selector = _string_expr(_kw(store, "database"), assignments)
+        tool = Tool(
+            name="Memory",
+            kind="persistent_memory",
+            capabilities={"data.read", "data.write"},
+            location=_location(path, resolved),
+            metadata={
+                "framework": "pydantic-ai",
+                "capability": "Memory",
+                "store": store_name,
+                "persistent_state": store_name not in {"InMemoryStore", "unknown"},
+            },
+        )
+        if selector:
+            _resource_once(
+                tool,
+                kind="memory",
+                selector=selector,
+                access={"data.read", "data.write"},
+                location=tool.location or _location(path, resolved),
+                metadata={"source": "pydantic_harness_memory", "store": store_name},
+            )
+        _merge_tool(agent.tools, tool)
+        return True
+
+    if name == "Skills":
+        selector = _string_expr(
+            resolved.args[0] if resolved.args else _kw(resolved, "directory"),
+            assignments,
+        )
+        tool = Tool(
+            name="Skills",
+            kind="skills",
+            capabilities={"data.read"},
+            location=_location(path, resolved),
+            metadata={
+                "framework": "pydantic-ai",
+                "capability": "Skills",
+                "deferred_capability_catalogue": True,
+                "dynamic_authority": True,
+                "scripts_executed": False,
+            },
+        )
+        if selector:
+            _resource_once(
+                tool,
+                kind="file",
+                selector=selector,
+                access={"data.read"},
+                location=tool.location or _location(path, resolved),
+                metadata={"source": "pydantic_harness_skills"},
+            )
+        _merge_tool(agent.tools, tool)
+        agent.metadata["dynamic_tools"] = True
+        return True
+
+    if name == "CapabilityCreation":
+        selector = _string_expr(_kw(resolved, "directory"), assignments)
+        if selector is None and resolved.args:
+            selector = _string_expr(resolved.args[0], assignments)
+        tool = Tool(
+            name="CapabilityCreation",
+            kind="capability_creation",
+            capabilities={"process.execute", "data.read", "data.write"},
+            location=_location(path, resolved),
+            metadata={
+                "framework": "pydantic-ai",
+                "capability": "CapabilityCreation",
+                "dynamic_authority": True,
+                "model_authored_code": True,
+                "host_process_execution": True,
+                "requires_writable_local_workspace": True,
+            },
+        )
+        if selector:
+            _resource_once(
+                tool,
+                kind="file",
+                selector=selector,
+                access={"data.read", "data.write", "process.execute"},
+                location=tool.location or _location(path, resolved),
+                metadata={"source": "pydantic_harness_capability_creation"},
+            )
+        _merge_tool(agent.tools, tool)
+        agent.metadata["dynamic_tools"] = True
+        return True
+
+    if name in {"GitHub", "Slack"}:
+        service = name.lower()
+        default_url = (
+            "https://api.githubcopilot.com/mcp/"
+            if name == "GitHub"
+            else "https://mcp.slack.com/mcp"
+        )
+        configured_url = _string_expr(_kw(resolved, "url"), assignments)
+        url = configured_url or default_url
+        auth_node = _kw(resolved, "auth")
+        authenticated = True if auth_node is not None else None
+        read_only = _literal(_kw(resolved, "read_only")) is True
+        server = MCPServer(
+            name=str(_literal(_kw(resolved, "id")) or service),
+            transport="streamable-http",
+            url=url,
+            authenticated=authenticated,
+            location=_location(path, resolved),
+            metadata={
+                "framework": "pydantic-ai",
+                "source": f"pydantic_harness.{service}",
+                "hosted_harness_capability": True,
+                "service": service,
+                "read_only": read_only,
+                "dynamic_tool_catalogue": True,
+                "credential_source": (
+                    "explicit"
+                    if auth_node is not None
+                    else ("GITHUB_TOKEN" if name == "GitHub" else "SLACK_USER_TOKEN")
+                ),
+            },
+        )
+        agent.mcp_servers.append(server)
+        if read_only:
+            agent.metadata.setdefault("read_only_integrations", []).append(service)
+        return True
+
+    if name in {"SubAgents", "Subagents"}:
+        targets: list[str] = []
+        roster = _kw(resolved, "agents")
+        if isinstance(roster, (ast.List, ast.Tuple, ast.Set)):
+            for member in roster.elts:
+                member = _resolved_expr(member, assignments)
+                target: ast.AST | None = member
+                if isinstance(member, ast.Call) and _call_name(member.func) == "SubAgent":
+                    target = member.args[0] if member.args else _kw(member, "agent")
+                if isinstance(target, ast.Name):
+                    targets.append(target.id)
+        include_self = _literal(_kw(resolved, "include_self")) is True
+        if include_self:
+            targets.append("self")
+        targets = list(dict.fromkeys(targets))
+        max_depth = _literal(_kw(resolved, "max_depth"))
+        tool = Tool(
+            name="SubAgents",
+            kind="delegated_agent",
+            capabilities={"agent.delegate"},
+            location=_location(path, resolved),
+            metadata={
+                "framework": "pydantic-ai",
+                "capability": "SubAgents",
+                "delegate_targets": targets,
+                "include_self": include_self,
+                **({"max_depth": max_depth} if isinstance(max_depth, int) else {}),
+                "delegation_basis": "pydantic_harness_subagents",
+            },
+        )
+        if len(targets) == 1:
+            tool.metadata["delegate_target"] = targets[0]
+        _merge_tool(agent.tools, tool)
+        return True
+
+    return False
+
+
+def _bind_local_agent_delegations(
+    agents: dict[str, Agent],
+    functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+) -> None:
+    """Bind only calls whose receiver is a normalized Pydantic Agent alias."""
+    for parent in agents.values():
+        for tool in parent.tools:
+            function = functions.get(tool.name)
+            if function is None:
+                continue
+            targets = sorted(
+                {
+                    child.func.value.id
+                    for child in ast.walk(function)
+                    if isinstance(child, ast.Call)
+                    and isinstance(child.func, ast.Attribute)
+                    and child.func.attr in _AGENT_RUN_METHODS
+                    and isinstance(child.func.value, ast.Name)
+                    and child.func.value.id in agents
+                }
+            )
+            if not targets:
+                continue
+            tool.capabilities.add("agent.delegate")
+            tool.metadata["delegate_target"] = targets[0]
+            tool.metadata["delegate_targets"] = targets
+            tool.metadata["delegation_basis"] = "pydantic_agent_run"
 
 
 def _capability_from_expr(
@@ -2400,6 +2868,13 @@ def scan_python_file(path: Path) -> Graph:
                 )
             else:
                 for element in elements:
+                    if _harness_special_capability(
+                        path,
+                        element,
+                        assignments,
+                        agent,
+                    ):
+                        continue
                     if _is_declarative_capability_expr(element, assignments):
                         capability_tools, capability_servers, dynamic = _toolset_tools(
                             path,
@@ -2635,6 +3110,13 @@ def scan_python_file(path: Path) -> Graph:
             agent.mcp_servers.extend(servers)
             if dynamic:
                 agent.metadata["dynamic_tools"] = True
+
+    for agent in graph.agents:
+        workspace_spec = agent.metadata.pop("_workspace_spec", None)
+        if isinstance(workspace_spec, dict):
+            _apply_workspace_semantics(agent, workspace_spec)
+
+    _bind_local_agent_delegations(agents, functions)
 
     for agent in graph.agents:
         for tool in agent.tools:

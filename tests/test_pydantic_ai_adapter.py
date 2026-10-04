@@ -1721,3 +1721,198 @@ agent = Agent("openai:gpt-5.2", capabilities=[ops])
     }
     assert {"write_record", "run_command", "lookup_order"} <= set(relationships)
     assert relationships["lookup_order"].semantics["capability_bundle"] == "ops"
+
+
+
+def test_pydantic_current_workspace_constraints_are_projected(tmp_path: Path) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+from pydantic_ai.capabilities import LocalWorkspace
+from pydantic_ai_harness import FileSystem
+
+agent = Agent(
+    "anthropic:claude-opus-5-5",
+    capabilities=[
+        LocalWorkspace("/srv/read-only", read_only=True),
+        FileSystem(),
+    ],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    fs = next(item for item in agent.tools if item.name == "FileSystem")
+
+    assert agent.metadata["workspace_provider"] == "local"
+    assert agent.metadata["workspace_read_only"] is True
+    assert agent.metadata["workspace"]["root"] == "/srv/read-only"
+    assert fs.capabilities == {"data.read"}
+    assert any(
+        resource.selector == "/srv/read-only"
+        and resource.access == {"data.read"}
+        for resource in fs.resources
+    )
+    assert not any(
+        finding.rule_id == "AGT040" and finding.agent == "agent"
+        for finding in findings
+    )
+
+
+def test_pydantic_bubblewrap_removes_network_but_preserves_ssh_target(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+from pydantic_ai_harness import BubblewrapSandbox, Coder, SSHWorkspace
+
+agent = Agent(
+    "anthropic:claude-opus-5-5",
+    capabilities=[
+        BubblewrapSandbox(SSHWorkspace("dev@build-box", working_dir="/srv/app")),
+        Coder(),
+    ],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    coder = next(item for item in agent.tools if item.name == "Coder")
+
+    assert agent.metadata["sandbox"] == "bubblewrap"
+    assert agent.metadata["workspace_network_allowed"] is False
+    assert "network.external" not in coder.capabilities
+    assert "process.execute" in coder.capabilities
+    assert any(resource.selector == "/srv/app" for resource in coder.resources)
+    assert any(destination.target == "ssh://dev@build-box" for destination in agent.network)
+    assert coder.metadata["network_isolated"] is True
+
+
+def test_pydantic_subagents_bind_named_children_without_subprocess_false_delegation(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import subprocess
+from pydantic_ai import Agent
+from pydantic_ai_harness import SubAgent, SubAgents
+
+def run_command(command: str) -> str:
+    return subprocess.run(command, shell=True, capture_output=True, text=True).stdout
+
+def write_report(path: str, content: str) -> str:
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(content)
+    return path
+
+worker = Agent("anthropic:claude-opus-5-5", name="worker", tools=[write_report])
+parent = Agent(
+    "anthropic:claude-opus-5-5",
+    name="parent",
+    tools=[run_command],
+    capabilities=[
+        SubAgents(
+            agents=[SubAgent(worker)],
+            include_self=True,
+            max_depth=2,
+        )
+    ],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    parent = next(item for item in graph.agents if item.name == "parent")
+    run_command = next(item for item in parent.tools if item.name == "run_command")
+    delegated = next(item for item in parent.tools if item.name == "SubAgents")
+
+    assert run_command.metadata.get("delegate_target") is None
+    assert "agent.delegate" not in run_command.capabilities
+    assert delegated.metadata["delegate_targets"] == ["worker", "self"]
+    assert delegated.metadata["include_self"] is True
+    assert delegated.metadata["max_depth"] == 2
+    assert "data.write" in delegated.capabilities
+
+
+def test_pydantic_memory_skills_and_capability_creation_are_authority_bearing(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pathlib import Path
+from pydantic_ai import Agent
+from pydantic_ai.capabilities import LocalWorkspace
+from pydantic_ai_harness import CapabilityCreation, Memory, Skills
+from pydantic_ai_harness.memory import FileStore
+
+creation = CapabilityCreation(directory=Path(".authored"))
+agent = Agent(
+    "anthropic:claude-opus-5-5",
+    capabilities=[
+        LocalWorkspace("/workspace"),
+        Memory(FileStore(".agent-memory")),
+        Skills(".agents/skills"),
+        creation,
+    ],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tools = {item.name: item for item in agent.tools}
+
+    assert {"Memory", "Skills", "CapabilityCreation"} <= set(tools)
+    assert {"data.read", "data.write"} <= tools["Memory"].capabilities
+    assert any(r.selector == ".agent-memory" for r in tools["Memory"].resources)
+    assert tools["Skills"].capabilities == {"data.read"}
+    assert tools["Skills"].metadata["deferred_capability_catalogue"] is True
+    assert any(r.selector == ".agents/skills" for r in tools["Skills"].resources)
+    assert {"process.execute", "data.write"} <= tools["CapabilityCreation"].capabilities
+    assert tools["CapabilityCreation"].metadata["host_process_execution"] is True
+    assert any(r.selector == ".authored" for r in tools["CapabilityCreation"].resources)
+    assert agent.metadata["dynamic_tools"] is True
+
+
+def test_pydantic_hosted_harness_mcp_capabilities_preserve_auth_and_readonly(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+from pydantic_ai_harness.github import GitHub
+from pydantic_ai_harness.slack import Slack
+
+github_agent = Agent(
+    "openai:gpt-5.6-sol",
+    capabilities=[GitHub(auth="gh-token")],
+)
+slack_agent = Agent(
+    "openai:gpt-5.6-sol",
+    capabilities=[Slack(auth="xoxp-token", read_only=True)],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    github = next(item for item in graph.agents if item.name == "github_agent")
+    slack = next(item for item in graph.agents if item.name == "slack_agent")
+
+    github_server = github.mcp_servers[0]
+    assert github_server.url == "https://api.githubcopilot.com/mcp/"
+    assert github_server.authenticated is True
+    assert github_server.metadata["read_only"] is False
+
+    slack_server = slack.mcp_servers[0]
+    assert slack_server.url == "https://mcp.slack.com/mcp"
+    assert slack_server.authenticated is True
+    assert slack_server.metadata["read_only"] is True
+    assert slack.metadata["read_only_integrations"] == ["slack"]
