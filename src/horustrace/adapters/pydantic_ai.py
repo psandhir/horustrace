@@ -175,6 +175,89 @@ def _kw(call: ast.Call, name: str) -> ast.AST | None:
     return next((item.value for item in call.keywords if item.arg == name), None)
 
 
+def _mapping_key_value_before(
+    scope: ast.AST,
+    mapping_name: str,
+    key: str,
+    before_line: int,
+) -> ast.AST | None:
+    """Resolve a literal mapping key populated before a call in the same scope."""
+    candidates: list[tuple[int, ast.AST]] = []
+    for node in ast.walk(scope):
+        line = getattr(node, "lineno", 0) or 0
+        if line <= 0 or line >= before_line:
+            continue
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                if isinstance(target, ast.Name) and target.id == mapping_name:
+                    if isinstance(node.value, ast.Dict):
+                        for map_key, map_value in zip(node.value.keys, node.value.values):
+                            if _literal(map_key) == key:
+                                candidates.append((line, map_value))
+                elif (
+                    isinstance(target, ast.Subscript)
+                    and isinstance(target.value, ast.Name)
+                    and target.value.id == mapping_name
+                    and _literal(target.slice) == key
+                ):
+                    candidates.append((line, node.value))
+    return max(candidates, key=lambda item: item[0])[1] if candidates else None
+
+
+def _agent_kw(
+    call: ast.Call,
+    name: str,
+    tree: ast.AST,
+    assignments: dict[str, ast.AST],
+) -> ast.AST | None:
+    """Resolve direct Agent kwargs plus source-visible expanded kwargs construction."""
+    direct = _kw(call, name)
+    if direct is not None:
+        return direct
+
+    scope: ast.AST = _enclosing_function_node(tree, call) or tree
+    before_line = getattr(call, "lineno", 0) or 0
+    for keyword in call.keywords:
+        if keyword.arg is not None or not isinstance(keyword.value, ast.Name):
+            continue
+        value = _mapping_key_value_before(
+            scope,
+            keyword.value.id,
+            name,
+            before_line,
+        )
+        if value is not None:
+            return value
+        assigned = assignments.get(keyword.value.id)
+        if isinstance(assigned, ast.Dict):
+            for map_key, map_value in zip(assigned.keys, assigned.values):
+                if _literal(map_key) == name:
+                    return map_value
+    return None
+
+
+def _dynamic_authority_tool(
+    path: Path,
+    node: ast.AST,
+    alias: str,
+    dimension: str,
+) -> Tool:
+    return Tool(
+        name=f"dynamic-{dimension}:{alias}",
+        kind=f"pydantic_dynamic_{dimension}",
+        capabilities=set(),
+        location=_location(path, node),
+        metadata={
+            "framework": "pydantic-ai",
+            "binding_origin": f"Agent.{dimension}",
+            "dynamic_authority": True,
+            "tool_catalogue_unresolved": True,
+            "authority_dimension": dimension,
+        },
+    )
+
+
 def _target_names(node: ast.Assign | ast.AnnAssign | ast.AST) -> list[str]:
     if isinstance(node, ast.Assign):
         targets = node.targets
@@ -1559,6 +1642,24 @@ def _toolset_tools(
     if name == "load_mcp_toolsets":
         return [], [], True
 
+    if name:
+        return [
+            Tool(
+                name=f"toolset:{name}",
+                kind="pydantic_function_toolset",
+                capabilities=set(),
+                location=_location(path, expr),
+                metadata={
+                    "framework": "pydantic-ai",
+                    "binding_origin": "Agent.toolsets",
+                    "dynamic_authority": True,
+                    "tool_catalogue_unresolved": True,
+                    "toolset_class_candidate": name,
+                    "import_module": imports.get(name),
+                },
+            )
+        ], [], True
+
     return [], [], True
 
 
@@ -2757,11 +2858,15 @@ def scan_python_file(path: Path) -> Graph:
                 provider_name
             )
 
-        tools_expr = _kw(call, "tools")
+        tools_expr = _agent_kw(call, "tools", tree, assignments)
         if tools_expr is not None:
             elements = _resolve_sequence(tools_expr, sequences)
             if elements is None:
                 agent.metadata["dynamic_tools"] = True
+                _merge_tool(
+                    agent.tools,
+                    _dynamic_authority_tool(path, tools_expr, alias, "tools"),
+                )
                 _diagnostic(
                     graph,
                     path,
@@ -2782,6 +2887,27 @@ def scan_python_file(path: Path) -> Graph:
 
         for tool in decorated_agents.get(alias, []):
             _merge_tool(agent.tools, deepcopy(tool))
+
+        builtin_tools_expr = _agent_kw(call, "builtin_tools", tree, assignments)
+        if builtin_tools_expr is not None:
+            builtin_elements = _resolve_sequence(builtin_tools_expr, sequences)
+            if builtin_elements is None:
+                agent.metadata["dynamic_tools"] = True
+                _merge_tool(
+                    agent.tools,
+                    _dynamic_authority_tool(
+                        path,
+                        builtin_tools_expr,
+                        alias,
+                        "builtin_tools",
+                    ),
+                )
+                _diagnostic(
+                    graph,
+                    path,
+                    builtin_tools_expr,
+                    "Pydantic AI builtin tools collection could not be statically resolved.",
+                )
 
         mcp_servers_expr = _kw(call, "mcp_servers")
         if mcp_servers_expr is not None:
@@ -2811,7 +2937,7 @@ def scan_python_file(path: Path) -> Graph:
                             "Pydantic AI MCP server reference could not be normalized.",
                         )
 
-        toolsets_expr = _kw(call, "toolsets")
+        toolsets_expr = _agent_kw(call, "toolsets", tree, assignments)
         if toolsets_expr is not None:
             elements = _resolve_sequence(toolsets_expr, sequences)
             if elements is None:
@@ -2825,6 +2951,11 @@ def scan_python_file(path: Path) -> Graph:
                 if configured_mcp is not None:
                     agent.mcp_servers.append(configured_mcp)
                     agent.metadata["configuration_dependent_mcp_toolsets"] = True
+                else:
+                    _merge_tool(
+                        agent.tools,
+                        _dynamic_authority_tool(path, toolsets_expr, alias, "toolsets"),
+                    )
                 _diagnostic(
                     graph,
                     path,
@@ -2854,12 +2985,17 @@ def scan_python_file(path: Path) -> Graph:
                     if dynamic:
                         agent.metadata["dynamic_tools"] = True
 
-        capabilities_expr = _kw(call, "capabilities")
+        capabilities_expr = _agent_kw(call, "capabilities", tree, assignments)
         safety_capabilities: list[str] = []
         unmodeled_capabilities: list[str] = []
         if capabilities_expr is not None:
             elements = _resolve_sequence(capabilities_expr, sequences)
             if elements is None:
+                agent.metadata["dynamic_tools"] = True
+                _merge_tool(
+                    agent.tools,
+                    _dynamic_authority_tool(path, capabilities_expr, alias, "capabilities"),
+                )
                 _diagnostic(
                     graph,
                     path,
@@ -3064,7 +3200,7 @@ def scan_python_file(path: Path) -> Graph:
         owner = _dotted(call.func.value) or _call_name(call.func.value)
         if owner not in agents or call.func.attr not in _AGENT_RUN_METHODS:
             continue
-        toolsets_expr = _kw(call, "toolsets")
+        toolsets_expr = _agent_kw(call, "toolsets", tree, assignments)
         if toolsets_expr is None:
             continue
         elements = _resolve_sequence(toolsets_expr, sequences)
