@@ -110,6 +110,110 @@ def _adg_evidence(
     return sorted(result, key=lambda item: item["edge_id"])
 
 
+
+
+def _repository_effect_evidence(tool: Tool) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+
+    details = tool.metadata.get("repository_effect_evidence_details")
+    if isinstance(details, list):
+        for item in details:
+            if not isinstance(item, dict):
+                continue
+            path = item.get("path")
+            symbol = item.get("symbol")
+            line = item.get("line")
+            column = item.get("column")
+            if not isinstance(path, str) or not isinstance(symbol, str):
+                continue
+            result.append(
+                {
+                    "kind": "SOURCE_METHOD",
+                    "origin": "observed",
+                    "symbol": symbol,
+                    "location": {
+                        "path": path,
+                        "line": line,
+                        "column": column,
+                    },
+                }
+            )
+
+    capability_evidence = tool.metadata.get(
+        "repository_effect_capability_evidence"
+    )
+    if isinstance(capability_evidence, dict):
+        for capability, items in sorted(capability_evidence.items()):
+            if not isinstance(capability, str) or not isinstance(items, list):
+                continue
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                path = item.get("path")
+                symbol = item.get("symbol")
+                line = item.get("line")
+                column = item.get("column")
+                if not isinstance(path, str) or not isinstance(symbol, str):
+                    continue
+                result.append(
+                    {
+                        "kind": "SOURCE_EFFECT",
+                        "origin": "observed",
+                        "effect": "capability",
+                        "capability": capability,
+                        "symbol": symbol,
+                        "location": {
+                            "path": path,
+                            "line": line,
+                            "column": column,
+                        },
+                    }
+                )
+
+    for destination in tool.destinations:
+        if not destination.metadata.get("repository_effect_summary"):
+            continue
+        result.append(
+            {
+                "kind": "SOURCE_EFFECT",
+                "origin": "observed",
+                "effect": "destination",
+                "target": destination.target,
+                "symbol": destination.metadata.get("source_symbol"),
+                "location": _location(destination.location),
+            }
+        )
+
+    def key(item: dict[str, Any]) -> tuple[str, str, str, str, int, int]:
+        location = item.get("location") or {}
+        return (
+            str(item.get("kind") or ""),
+            str(item.get("effect") or ""),
+            str(item.get("capability") or item.get("target") or ""),
+            str(location.get("path") or ""),
+            int(location.get("line") or 0),
+            int(location.get("column") or 0),
+        )
+
+    unique: dict[
+        tuple[str, str, str, str, int, int],
+        dict[str, Any],
+    ] = {}
+    for item in result:
+        unique.setdefault(key(item), item)
+    return [unique[item] for item in sorted(unique)]
+
+
+def _source_effect_status(tool: Tool) -> str | None:
+    resolution = tool.metadata.get("repository_effect_resolution")
+    if not isinstance(resolution, str) or not resolution:
+        return None
+    if resolution == "resolved":
+        return "resolved"
+    if resolution == "partial":
+        return "partially_resolved"
+    return "unknown"
+
 def _resolution_status(unresolved: list[str], dimensions: dict[str, str]) -> str:
     if not unresolved:
         return "fully_resolved"
@@ -176,6 +280,14 @@ def _tool_relationship(
     dynamic_availability = (
         tool.metadata.get("availability_condition_unresolved") is True
     )
+    source_effect_status = _source_effect_status(tool)
+    source_effect_unresolved_calls = [
+        str(item)
+        for item in (
+            tool.metadata.get("repository_effect_unresolved_calls") or []
+        )
+        if isinstance(item, str)
+    ]
     unresolved: list[str] = []
     dimensions = {
         "target": "resolved",
@@ -193,6 +305,8 @@ def _tool_relationship(
     }
     if dynamic_availability:
         dimensions["availability"] = "partially_resolved"
+    if source_effect_status is not None:
+        dimensions["source_effects"] = source_effect_status
     if not tool.capabilities:
         unresolved.append("capabilities")
     if identity is None:
@@ -203,6 +317,8 @@ def _tool_relationship(
         unresolved.append("approval")
     if dynamic_availability:
         unresolved.append("availability")
+    if source_effect_status in {"partially_resolved", "unknown"}:
+        unresolved.append("source_effects")
     if not tool.resources:
         unresolved.append("resources")
     if not tool.destinations:
@@ -300,6 +416,16 @@ def _tool_relationship(
                 or tool.metadata.get("network_scope")
             ),
             "sensitive_write_domain": tool.metadata.get("sensitive_write_domain"),
+            "source_effect_resolution": (
+                tool.metadata.get("repository_effect_resolution")
+            ),
+            "source_effect_partial": (
+                tool.metadata.get("repository_effect_partial") is True
+            ),
+            "source_effect_unresolved_calls": source_effect_unresolved_calls,
+            "source_effect_sources": list(
+                tool.metadata.get("repository_effect_sources") or []
+            ),
             "required_authority": {
                 "provider": tool.metadata.get("required_authority_provider"),
                 "roles": list(tool.metadata.get("required_roles") or []),
@@ -319,13 +445,14 @@ def _tool_relationship(
         },
         dimensions=dimensions,
         unresolved=tuple(sorted(set(unresolved))),
-        evidence=tuple(
-            _adg_evidence(
+        evidence=(
+            *_adg_evidence(
                 graph,
                 agent=agent.name,
                 target_kind="tool",
                 target_name=tool.name,
-            )
+            ),
+            *_repository_effect_evidence(tool),
         ),
         location=_location(tool.location),
     )
