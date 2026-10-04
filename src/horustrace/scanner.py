@@ -60,6 +60,7 @@ from horustrace.mcp_context import (
 from horustrace.mcp_resolution import unresolved_mcp_summary
 from horustrace.microsoft_repository_authority import (
     enrich_microsoft_repository_authority,
+    parse_microsoft_authority_json,
 )
 from horustrace.models import (
     Agent,
@@ -2295,10 +2296,12 @@ def scan(
                     ),
                 )
                 continue
-            if (
-                candidate.name in (MCP_FILENAMES | AGENT365_CONFIG_FILENAMES)
-                or _is_microsoft_authority_json(candidate)
-            ):
+            if _is_microsoft_authority_json(candidate):
+                parse_microsoft_authority_json(
+                    text,
+                    allow_comments=candidate.name.startswith("appsettings"),
+                )
+            elif candidate.name in (MCP_FILENAMES | AGENT365_CONFIG_FILENAMES):
                 validate_json_safety(text)
                 raw = json.loads(text)
                 if not isinstance(raw, dict):

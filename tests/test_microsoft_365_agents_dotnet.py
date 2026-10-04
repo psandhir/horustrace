@@ -404,6 +404,7 @@ public class ScopedAgent(AgentApplicationOptions options) : AgentApplication(opt
         """
 {
   "AgentApplication": {
+    // .NET appsettings commonly permits JSONC comments.
     "UserAuthorization": {
       "Handlers": {
         "agentic": {
