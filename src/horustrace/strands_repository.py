@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from horustrace.adapters.amazon_agentic import (
-    STRANDS_FRAMEWORK,
     _VENDED_TOOL_CAPABILITIES,
+    STRANDS_FRAMEWORK,
     _attach_literal_destinations,
     _attach_literal_resources,
     _aws_runtime_identity,
@@ -289,10 +289,7 @@ def _statement_walk(
         yield node, conditional
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             continue
-        if isinstance(node, ast.If):
-            yield from _statement_walk(node.body, conditional=True)
-            yield from _statement_walk(node.orelse, conditional=True)
-        elif isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+        if isinstance(node, (ast.If, ast.For, ast.AsyncFor, ast.While)):
             yield from _statement_walk(node.body, conditional=True)
             yield from _statement_walk(node.orelse, conditional=True)
         elif isinstance(node, (ast.With, ast.AsyncWith)):
@@ -524,9 +521,8 @@ def _vended_tool(
         return None
     module, remote = ref
     if not (
-        module.startswith("strands.vended_tools")
-        or module == "strands_tools"
-        or module.startswith("strands_tools.")
+        module == "strands_tools"
+        or module.startswith(("strands.vended_tools", "strands_tools."))
     ):
         return None
     source_name = remote or name
@@ -771,10 +767,7 @@ def _literal_or_source(node: ast.AST | None) -> tuple[Any, str | None]:
         return value, None
     if node is None:
         return None, None
-    try:
-        return None, ast.unparse(node)
-    except Exception:
-        return None, None
+    return None, ast.unparse(node)
 
 
 def enrich_strands_repository_graph(
