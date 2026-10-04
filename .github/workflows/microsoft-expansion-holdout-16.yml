@@ -1,0 +1,88 @@
+name: Microsoft Expansion Holdout 16
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/microsoft-expansion-holdout-16
+    paths:
+      - ".github/workflows/microsoft-expansion-holdout-16.yml"
+      - "research/microsoft-expansion-holdout-16/**"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: microsoft-expansion-holdout-16
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: ${{ matrix.case_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        case_id:
+          - msx-maf-001
+          - msx-a365-001
+          - msx-a365-002
+          - msx-a365-003
+          - msx-a365-004
+          - msx-a365-005
+          - msx-m365-001
+          - msx-m365-002
+          - msx-m365-003
+          - msx-m365cop-001
+          - msx-mafcop-001
+          - msx-cop-001
+          - msx-cop-002
+          - msx-cop-003
+          - msx-cop-004
+          - msx-cop-005
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+      - name: Generate frozen scan bundle
+        run: |
+          python research/microsoft-expansion-holdout-16/run_case.py \
+            --case-id "${{ matrix.case_id }}" \
+            --output-dir artifacts
+      - name: Upload case bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: microsoft-expansion-case-${{ matrix.case_id }}
+          path: artifacts/${{ matrix.case_id }}/
+          if-no-files-found: error
+          retention-days: 30
+
+  aggregate:
+    name: Aggregate Microsoft holdout
+    if: always()
+    needs: scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: microsoft-expansion-case-*
+          path: downloaded
+      - name: Aggregate
+        run: |
+          python research/microsoft-expansion-holdout-16/aggregate.py --input downloaded --output aggregate
+          cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: microsoft-expansion-holdout-16-summary
+          path: aggregate/
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "study": "microsoft-expansion-holdout-16",
+  "status": "frozen_before_horustrace_execution",
+  "locked_at": "2026-10-04",
+  "scanner_baseline": "3ccf9bc2124bd7f6307091a9a5c49c5851db2a56",
+  "selection": {
+    "target_cases": 16,
+    "unique_repositories": 9,
+    "method": "Source-only selection from public Microsoft and independent repositories after Microsoft P0/P1 implementation. No HorusTrace output from this cohort was used to select cases. Cases are scanned at application_path rather than at whole-repository scope so multiple independent sample applications in a monorepo remain distinct.",
+    "horustrace_output_used_for_selection": false,
+    "interpretation": "Expansion validation holdout, not a claim that every source pattern was unseen during implementation. The core MAF case is a regression sentinel; newer Agent 365, M365 Agents SDK, GitHub Copilot SDK and hybrid cases test real-source generalization.",
+    "surface_counts": {
+      "core-maf-regression": 1,
+      "agent365": 5,
+      "m365-agents-sdk": 3,
+      "m365-copilot-hybrid": 1,
+      "maf-copilot-hybrid": 1,
+      "github-copilot-sdk": 5
+    },
+    "score_dimensions": [
+      "agent_root_detection",
+      "tool_and_mcp_binding",
+      "delegation",
+      "effective_authority",
+      "identity_and_authentication",
+      "resource_and_destination_scope",
+      "approval_posture",
+      "resolved_conditional_unresolved_certainty"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "msx-maf-001",
+      "repo": "microsoft/Agent-Framework-Samples",
+      "sha": "5b854b7e1c3838f17f41bcf2412ef79d7662db37",
+      "surface": "core-maf-regression",
+      "application_path": "07.Workflow/code_samples/dotNET/02.dotnet-agent-framework-workflow-ghmodel-sequential",
+      "evidence_path": "Program.cs",
+      "validation_role": "regression_sentinel",
+      "source_signal": "Sequential .NET MAF workflow composed from multiple agents; validates that workflow-as-agent/delegated participant authority remains intact after later Microsoft adapters."
+    },
+    {
+      "case_id": "msx-a365-001",
+      "repo": "microsoft/Agent365-Samples",
+      "sha": "ecbf8995a55eea893c8b29f84cbdb26f9cf30661",
+      "surface": "agent365",
+      "application_path": "python/agent-framework/sample-agent",
+      "evidence_path": "agent.py",
+      "validation_role": "expansion_validation",
+      "source_signal": "Python Agent Framework application dynamically attaches Agent 365 MCP tooling through McpToolRegistrationService with agentic/OBO authentication context."
+    },
+    {
+      "case_id": "msx-a365-002",
+      "repo": "microsoft/Agent365-Samples",
+      "sha": "ecbf8995a55eea893c8b29f84cbdb26f9cf30661",
+      "surface": "agent365",
+      "application_path": "dotnet/agent-framework/sample-agent",
+      "evidence_path": "Agent/MyAgent.cs",
+      "validation_role": "expansion_validation",
+      "source_signal": "AgentApplication ingress combines agentic and OBO auto-sign-in handlers with Agent 365 tooling; ToolingManifest declares authenticated Mail MCP authority."
+    },
+    {
+      "case_id": "msx-a365-003",
+      "repo": "microsoft/Agent365-Samples",
+      "sha": "ecbf8995a55eea893c8b29f84cbdb26f9cf30661",
+      "surface": "agent365",
+      "application_path": "dotnet/w365-computer-use/sample-agent",
+      "evidence_path": "Agent/MyAgent.cs",
+      "validation_role": "expansion_validation",
+      "source_signal": "Windows 365 computer-use agent combines AgentApplication routes, multiple authenticated MCP destinations, conditional W365 tooling, screen-share identity and computer-control orchestration."
+    },
+    {
+      "case_id": "msx-a365-004",
+      "repo": "microsoft/windows-365-for-agents",
+      "sha": "9865929088556e77e7d71d880094a7a130fe66b7",
+      "surface": "agent365",
+      "application_path": "W365A-Playground-Agent/src",
+      "evidence_path": "Program.cs",
+      "validation_role": "expansion_validation",
+      "source_signal": "Standalone Windows 365 Agent 365 application registers ToolingManifest-backed MCP tooling plus channel authentication, computer-use orchestration and screen-share support."
+    },
+    {
+      "case_id": "msx-a365-005",
+      "repo": "qmatteoq/agent365-demos",
+      "sha": "937f8c12421b6eebfbff764dbafbdbe13cc72f68",
+      "surface": "agent365",
+      "application_path": "dotnet-agent-teammate",
+      "evidence_path": "Agent365/WorkIqToolProvider.cs",
+      "validation_role": "expansion_validation",
+      "source_signal": "Independent Agent 365 teammate demo reads ToolingManifest URL/audience/scope and directly connects Work IQ MCP servers, exercising manifest-to-runtime binding outside Microsoft sample code."
+    },
+    {
+      "case_id": "msx-m365-001",
+      "repo": "microsoft/Agents",
+      "sha": "af814c26c7b5e4abdc66f3c56a7d276d26fcdc35",
+      "surface": "m365-agents-sdk",
+      "application_path": "samples/dotnet/obo-authorization",
+      "evidence_path": "Program.cs",
+      "validation_role": "expansion_validation",
+      "source_signal": "M365 Agents SDK sample wires ASP.NET authentication and OBO user authorization, exercising delegated identity and downstream Microsoft Graph access."
+    },
+    {
+      "case_id": "msx-m365-002",
+      "repo": "microsoft/Agents",
+      "sha": "af814c26c7b5e4abdc66f3c56a7d276d26fcdc35",
+      "surface": "m365-agents-sdk",
+      "application_path": "samples/dotnet/auto-signin",
+      "evidence_path": "AuthAgent.cs",
+      "validation_role": "expansion_validation",
+      "source_signal": "AgentApplication uses per-route auto-sign-in handlers, turn tokens and Microsoft Graph calls, testing route-scoped delegated-user authority."
+    },
+    {
+      "case_id": "msx-m365-003",
+      "repo": "microsoft/Agents",
+      "sha": "af814c26c7b5e4abdc66f3c56a7d276d26fcdc35",
+      "surface": "m365-agents-sdk",
+      "application_path": "samples/dotnet/multiagent",
+      "evidence_path": "Program.cs",
+      "validation_role": "expansion_validation",
+      "source_signal": "Hosted M365 Agents SDK application registers multiple AgentApplication implementations behind the authenticated runtime, testing multi-agent inventory and route isolation."
+    },
+    {
+      "case_id": "msx-m365cop-001",
+      "repo": "microsoft/Agents",
+      "sha": "af814c26c7b5e4abdc66f3c56a7d276d26fcdc35",
+      "surface": "m365-copilot-hybrid",
+      "application_path": "samples/dotnet/copilot-sdk",
+      "evidence_path": "DungeonScribeAgent.cs",
+      "validation_role": "expansion_validation",
+      "source_signal": "M365 AgentApplication obtains a delegated GitHub OAuth token then creates a Copilot SDK session with approve-all and custom tools, joining ingress identity to Copilot effective authority."
+    },
+    {
+      "case_id": "msx-mafcop-001",
+      "repo": "microsoft/agent-framework",
+      "sha": "e9857bd75a21843803431a2e7dfa41ee9b017ac7",
+      "surface": "maf-copilot-hybrid",
+      "application_path": "python/samples/02-agents/providers/github_copilot",
+      "evidence_path": "github_copilot_with_mcp.py",
+      "validation_role": "expansion_validation",
+      "source_signal": "GitHubCopilotAgent MAF integration includes approve-all, function tools and local/remote MCP configuration; validates that the wrapper preserves underlying Copilot CLI authority."
+    },
+    {
+      "case_id": "msx-cop-001",
+      "repo": "massgen/MassGen",
+      "sha": "007bd8579298d7dc3ff2a43c378e27a284902f22",
+      "surface": "github-copilot-sdk",
+      "application_path": "massgen/backend",
+      "evidence_path": "copilot.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Independent production backend integrates CopilotClient/Tool into a multi-agent system with configurable execution, native hooks and SDK-owned sessions."
+    },
+    {
+      "case_id": "msx-cop-002",
+      "repo": "koushilab/copilot-sdk-hands-on",
+      "sha": "4bfc06f9b0f5c21f2dbfc7917af545f516686665",
+      "surface": "github-copilot-sdk",
+      "application_path": "backend",
+      "evidence_path": "copilot_client.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Independent Python application builds a session configuration dictionary and injects custom SDK tools before calling create_session, testing indirection rather than keyword-only construction."
+    },
+    {
+      "case_id": "msx-cop-003",
+      "repo": "ricard0g/conviertlo",
+      "sha": "163938991cbcaff7c7a2a556623467c69b37b259",
+      "surface": "github-copilot-sdk",
+      "application_path": "conviertlo",
+      "evidence_path": "services/copilot_service.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Media conversion application creates streaming Copilot sessions with approve-all; the surrounding application turns model output into local media commands, testing whether built-in authority is reconstructed conservatively."
+    },
+    {
+      "case_id": "msx-cop-004",
+      "repo": "UBC-FRESH/agent-workbench",
+      "sha": "7d6cbef251828c3307f358cca8b6a0c202c0e1e7",
+      "surface": "github-copilot-sdk",
+      "application_path": "src/agent_workbench",
+      "evidence_path": "copilot_sdk_bridge.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Agent workbench composes Copilot session manifests, available-tool modes, custom agent profiles and define_tool wrappers across modules, stressing repository-local indirection."
+    },
+    {
+      "case_id": "msx-cop-005",
+      "repo": "Azure/azure-sdk-tools",
+      "sha": "00354e0e954e41ceddff19d6e8bdda5c3370a8bf",
+      "surface": "github-copilot-sdk",
+      "application_path": "tools/azsdk-cli/Azure.Sdk.Tools.Cli/CopilotAgents",
+      "evidence_path": "CopilotClientWrapper.cs",
+      "validation_role": "external_holdout",
+      "source_signal": "Real .NET tooling wraps CopilotClient behind an interface and passes SessionConfig through helper layers, testing C# alias/wrapper indirection rather than direct top-level construction."
+    }
+  ]
+}
