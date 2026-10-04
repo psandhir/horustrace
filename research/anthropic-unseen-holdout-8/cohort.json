@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "study": "anthropic-unseen-holdout-8",
+  "status": "frozen_before_horustrace_execution",
+  "locked_at": "2026-10-04",
+  "scanner_baseline": "2015d0c0f5983210c1e0a6f8bc3fe06cf1b03f4d",
+  "selection": {
+    "target_cases": 8,
+    "unique_repositories": 8,
+    "horustrace_output_used_for_selection": false,
+    "method": "Source-only selection after Anthropic canonical 15/15. Four real Claude Agent SDK TypeScript applications and four Managed Agents applications (Python and TypeScript), pinned before any HorusTrace execution.",
+    "surfaces": {
+      "agent-sdk-typescript": 4,
+      "managed-agents-python": 2,
+      "managed-agents-typescript": 2
+    }
+  },
+  "cases": [
+    {
+      "case_id": "anth-hold-001",
+      "repo": "21pounder/terminalAgent",
+      "sha": "989b029daf17ad878e64f53b49c1dba0623ddf66",
+      "application_path": "deepresearch",
+      "evidence_path": "src/agents/base.ts",
+      "surface": "agent-sdk-typescript",
+      "source_signal": "BaseAgent dynamically imports @anthropic-ai/claude-agent-sdk query(), then invokes it with inline options carrying cwd, additionalDirectories, project settings, MCP servers, permissionMode and the claude_code preset tool surface."
+    },
+    {
+      "case_id": "anth-hold-002",
+      "repo": "OpenSource03/harnss",
+      "sha": "dc1dfd8a33caa46a1eefcfe9e14697b27ac4c33d",
+      "application_path": "electron",
+      "evidence_path": "src/ipc/claude-sessions.ts",
+      "surface": "agent-sdk-typescript",
+      "source_signal": "Desktop session host invokes Claude Agent SDK query through a repository-local SDK wrapper, supports runtime permission modes including bypass, canUseTool permission callbacks, MCP configuration and project/workspace scope."
+    },
+    {
+      "case_id": "anth-hold-003",
+      "repo": "taovc/pr-cockpit",
+      "sha": "f4da887231459fbbb0930ed25903d9b5d775700d",
+      "application_path": "core",
+      "evidence_path": "agent/review.ts",
+      "surface": "agent-sdk-typescript",
+      "source_signal": "Review/verify agents invoke query() with repository-local buildReviewOptions/buildHelperOptions, cwd, MCP/chrome options, max turns and structured outputs; tests cross-file options builders rather than direct literal options."
+    },
+    {
+      "case_id": "anth-hold-004",
+      "repo": "shawnpetros/salazar",
+      "sha": "e16841146e2ef2d71aa99117334939037e9804ff",
+      "application_path": "src",
+      "evidence_path": "engine/agents/planner.ts",
+      "surface": "agent-sdk-typescript",
+      "source_signal": "Planner/generator/evaluator use Claude Agent SDK query() with role-specific options and a security module implementing a Bash command allowlist hook; tests TypeScript control and options composition."
+    },
+    {
+      "case_id": "anth-hold-005",
+      "repo": "ucsandman/DashClaw",
+      "sha": "704824de5f5f2fa052d4c36ec269a1ab0dbfcc8a",
+      "application_path": "examples/managed-agent-mcp",
+      "evidence_path": "main.py",
+      "surface": "managed-agents-python",
+      "source_signal": "Creates a Claude Managed Agent with an MCP server, mcp_toolset permission policy and optional skill, then creates a cloud environment/session; agent definition is assembled with local variables and conditional composition."
+    },
+    {
+      "case_id": "anth-hold-006",
+      "repo": "perplexityai/search_evals",
+      "sha": "cab4c5df36e5660dc73f5580352eb52962587f01",
+      "application_path": "search_evals",
+      "evidence_path": "harnesses/anthropic.py",
+      "surface": "managed-agents-python",
+      "source_signal": "Async evaluation harness creates/reuses Managed Agents and cloud environments with await client.beta.agents.create(), managed agent toolset configuration, sessions and event polling."
+    },
+    {
+      "case_id": "anth-hold-007",
+      "repo": "Fluint-io/agent-quickstarts",
+      "sha": "2b5e74aa0872e746f66617948f12edc01ee908da",
+      "application_path": "multi-thread-nudge",
+      "evidence_path": "scripts/create-agent.ts",
+      "surface": "managed-agents-typescript",
+      "source_signal": "TypeScript Managed Agent create call spreads buildAgentParams() containing multiple operator-configured MCP endpoints and permission policies; tests repository-local TypeScript config-builder propagation."
+    },
+    {
+      "case_id": "anth-hold-008",
+      "repo": "HereNotThere/slashtalk",
+      "sha": "24f750665675459975405f8b51fb8581c6149a0d",
+      "application_path": "apps/desktop/src/main",
+      "evidence_path": "anthropic.ts",
+      "surface": "managed-agents-typescript",
+      "source_signal": "Production-style TypeScript Managed Agents integration creates cloud environments, vault credentials, managed agents with built-in toolset/skills/MCP toolsets, and sessions carrying vault_ids."
+    }
+  ]
+}
