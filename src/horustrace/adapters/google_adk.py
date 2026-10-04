@@ -1023,17 +1023,21 @@ def _operator_configuration_source(
     return next(iter(sources)) if len(sources) == 1 else None
 
 
-def _openapi_servers(
+def _openapi_payload(
     path: Path,
     call: ast.Call,
     calls: dict[str, ast.Call],
     functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
-) -> list[str]:
-    """Recover fixed OpenAPI server origins from source-visible local specs."""
+    values: dict[str, ast.AST] | None = None,
+) -> dict[str, Any] | None:
+    """Recover a source-visible OpenAPI document without executing target code."""
     spec_node = _kw(call, "spec_dict") or _kw(call, "spec_str")
+    values = values or {}
     payload: object | None = None
 
     literal = _literal(spec_node)
+    if literal is None and isinstance(spec_node, ast.Name):
+        literal = _literal(values.get(spec_node.id))
     if isinstance(literal, dict):
         payload = literal
     elif isinstance(literal, str):
@@ -1070,9 +1074,11 @@ def _openapi_servers(
                     payload = decoded
                     break
 
-    if not isinstance(payload, dict):
-        return []
+    return payload if isinstance(payload, dict) else None
 
+
+def _openapi_servers(payload: dict[str, Any]) -> list[str]:
+    """Recover fixed OpenAPI server origins."""
     servers: list[str] = []
     for item in payload.get("servers", []) or []:
         if not isinstance(item, dict):
@@ -1084,6 +1090,60 @@ def _openapi_servers(
         if origin and origin not in servers:
             servers.append(origin)
     return servers
+
+
+def _openapi_operation_semantics(
+    payload: dict[str, Any],
+) -> tuple[set[str], list[dict[str, Any]], list[str], bool]:
+    """Project source-visible OpenAPI methods, mutation risk and auth posture."""
+    methods = {"get", "put", "post", "delete", "patch", "head", "options", "trace"}
+    operations: list[dict[str, Any]] = []
+    capabilities: set[str] = {"network.external"}
+    auth_required = bool(payload.get("security"))
+
+    paths = payload.get("paths")
+    if isinstance(paths, dict):
+        for route, path_item in paths.items():
+            if not isinstance(path_item, dict):
+                continue
+            for method, operation in path_item.items():
+                method_lower = str(method).lower()
+                if method_lower not in methods or not isinstance(operation, dict):
+                    continue
+                mutating = method_lower in {"post", "put", "patch", "delete"}
+                destructive = method_lower == "delete"
+                operation_security = operation.get("security")
+                if operation_security:
+                    auth_required = True
+                operations.append(
+                    {
+                        "method": method_lower.upper(),
+                        "path": str(route),
+                        "operation_id": operation.get("operationId"),
+                        "mutating": mutating,
+                        "destructive": destructive,
+                        "security_required": bool(operation_security),
+                    }
+                )
+                if method_lower in {"get", "head", "options"}:
+                    capabilities.add("data.read")
+                if mutating:
+                    capabilities.update({"data.write", "external.write"})
+                if destructive:
+                    capabilities.add("destructive.write")
+
+    # API calls return data even when the operation mutates state.
+    if operations:
+        capabilities.add("data.read")
+
+    schemes: list[str] = []
+    components = payload.get("components")
+    if isinstance(components, dict):
+        raw_schemes = components.get("securitySchemes")
+        if isinstance(raw_schemes, dict):
+            schemes = sorted(str(name) for name in raw_schemes)
+
+    return capabilities, operations, schemes, auth_required
 
 
 def _mcp_from_toolset(path: Path, call: ast.Call, alias: str, calls: dict[str, ast.Call]) -> MCPServer | None:
@@ -1148,6 +1208,7 @@ def _tool_from_call(
     alias: str,
     calls: dict[str, ast.Call],
     functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+    values: dict[str, ast.AST] | None = None,
 ) -> Tool | None:
     name = _call_name(call.func) or ""
 
@@ -1227,15 +1288,30 @@ def _tool_from_call(
             "dynamic_tool_filter": dynamic_filter,
         }
         if name == "OpenAPIToolset":
-            openapi_servers = _openapi_servers(
-                path, call, calls, functions
+            openapi_payload = _openapi_payload(
+                path, call, calls, functions, values
             )
-            if openapi_servers:
-                metadata["network_scope"] = "explicit_destination"
-                metadata["openapi_servers"] = openapi_servers
-                metadata["destination_constraint_basis"] = (
-                    "openapi_servers"
+            if openapi_payload:
+                openapi_servers = _openapi_servers(openapi_payload)
+                openapi_caps, openapi_operations, security_schemes, auth_required = (
+                    _openapi_operation_semantics(openapi_payload)
                 )
+                if openapi_operations:
+                    caps = openapi_caps
+                    metadata["openapi_operations"] = openapi_operations
+                    metadata["openapi_methods"] = sorted(
+                        {item["method"] for item in openapi_operations}
+                    )
+                    metadata["operation_semantics_source"] = "openapi_spec"
+                if security_schemes:
+                    metadata["openapi_security_schemes"] = security_schemes
+                metadata["openapi_auth_required"] = auth_required
+                if openapi_servers:
+                    metadata["network_scope"] = "explicit_destination"
+                    metadata["openapi_servers"] = openapi_servers
+                    metadata["destination_constraint_basis"] = (
+                        "openapi_servers"
+                    )
         if name == "ApplicationIntegrationToolset":
             integration = _string(_kw(call, "integration"))
             triggers = _list_strings(_kw(call, "triggers"))
@@ -1740,12 +1816,14 @@ def scan_python_file(path: Path) -> Graph:
 
     calls: dict[str, ast.Call] = {}
     sequences: dict[str, list[ast.AST]] = {}
+    values: dict[str, ast.AST] = {}
     tools: dict[str, Tool] = {}
     mcp_servers: dict[str, MCPServer] = {}
     identities: dict[str, Identity] = {}
     agent_calls: list[tuple[str, ast.Call, str]] = []
     scoped_calls: dict[str, dict[str, ast.Call]] = {}
     scoped_sequences: dict[str, dict[str, list[ast.AST]]] = {}
+    scoped_values: dict[str, dict[str, ast.AST]] = {}
     safety_plugins: set[str] = set()
 
     # ADK applications commonly construct and return an Agent from a local
@@ -1785,6 +1863,10 @@ def scan_python_file(path: Path) -> Graph:
             if isinstance(value, (ast.List, ast.Tuple, ast.Set)):
                 sequences[alias] = list(value.elts)
                 scoped_sequences.setdefault(scope, {})[alias] = list(value.elts)
+                continue
+            if not isinstance(value, ast.Call):
+                values[alias] = value
+                scoped_values.setdefault(scope, {})[alias] = value
                 continue
             if isinstance(value, ast.Call):
                 calls[alias] = value
@@ -1834,6 +1916,7 @@ def scan_python_file(path: Path) -> Graph:
     # same-named assignment encountered elsewhere in the module.
     module_calls = scoped_calls.get("__module__", {})
     module_sequences = scoped_sequences.get("__module__", {})
+    module_values = scoped_values.get("__module__", {})
     scoped_tools: dict[str, dict[str, Tool]] = {}
     scoped_mcp_servers: dict[str, dict[str, MCPServer]] = {}
     for scope, scope_calls in scoped_calls.items():
@@ -1841,6 +1924,10 @@ def scan_python_file(path: Path) -> Graph:
         visible_sequences = {
             **module_sequences,
             **scoped_sequences.get(scope, {}),
+        }
+        visible_values = {
+            **module_values,
+            **scoped_values.get(scope, {}),
         }
         for alias, scoped_call in scope_calls.items():
             mcp = _mcp_from_toolset(
@@ -1877,6 +1964,7 @@ def scan_python_file(path: Path) -> Graph:
                 alias,
                 visible_calls,
                 functions,
+                visible_values,
             )
             if tool:
                 filter_node = _kw(scoped_call, "tool_filter")
@@ -1905,7 +1993,7 @@ def scan_python_file(path: Path) -> Graph:
         mcp = _mcp_from_toolset(path, call, alias, calls)
         if mcp:
             mcp_servers[alias] = mcp
-        tool = _tool_from_call(path, call, alias, calls, functions)
+        tool = _tool_from_call(path, call, alias, calls, functions, values)
         if tool:
             tools[alias] = tool
 
