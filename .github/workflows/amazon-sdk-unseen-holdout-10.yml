@@ -1,0 +1,92 @@
+name: Amazon SDK Unseen Holdout 10
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/amazon-sdk-unseen-holdout-10
+    paths:
+      - ".github/workflows/amazon-sdk-unseen-holdout-10.yml"
+      - "research/amazon-sdk-unseen-holdout-10/**"
+  pull_request:
+    paths:
+      - ".github/workflows/amazon-sdk-unseen-holdout-10.yml"
+      - "research/amazon-sdk-unseen-holdout-10/**"
+      - "src/horustrace/adapters/amazon_agentic.py"
+      - "src/horustrace/adapters/repository_adk.py"
+      - "src/horustrace/strands_repository.py"
+      - "src/horustrace/scanner.py"
+      - "tests/test_amazon_agentic.py"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: amazon-sdk-unseen-holdout-10-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: ${{ matrix.case_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        case_id:
+          - amazon-hold-001
+          - amazon-hold-002
+          - amazon-hold-003
+          - amazon-hold-004
+          - amazon-hold-005
+          - amazon-hold-006
+          - amazon-hold-007
+          - amazon-hold-008
+          - amazon-hold-009
+          - amazon-hold-010
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+      - name: Generate frozen scan bundle
+        run: |
+          python research/amazon-sdk-unseen-holdout-10/run_case.py \
+            --case-id "${{ matrix.case_id }}" \
+            --output-dir artifacts
+      - name: Upload case bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: amazon-sdk-holdout-case-${{ matrix.case_id }}
+          path: artifacts/${{ matrix.case_id }}/
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    name: Aggregate Amazon SDK holdout
+    if: always()
+    needs: scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: amazon-sdk-holdout-case-*
+          path: downloaded
+          merge-multiple: false
+      - name: Aggregate
+        run: |
+          python research/amazon-sdk-unseen-holdout-10/aggregate.py --input downloaded --output aggregate
+          cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: amazon-sdk-unseen-holdout-10-summary
+          path: aggregate/
+          if-no-files-found: error
+          retention-days: 30
