@@ -1452,3 +1452,100 @@ root_agent = LlmAgent(
         finding.rule_id == "NET002" and finding.agent == "api_interacting_agent"
         for finding in findings
     )
+
+
+def test_adk_openapi_named_spec_preserves_operations_and_server(tmp_path: Path) -> None:
+    write(tmp_path, '''
+from google.adk import Agent
+from google.adk.tools.openapi_tool import OpenAPIToolset
+
+spec = {
+    "openapi": "3.0.0",
+    "info": {"title": "Accounts", "version": "1.0"},
+    "servers": [{"url": "https://api.accounts.example.com/v1"}],
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {"type": "http", "scheme": "bearer"}
+        }
+    },
+    "security": [{"bearerAuth": []}],
+    "paths": {
+        "/accounts/{account_id}": {
+            "get": {
+                "operationId": "getAccount",
+                "responses": {"200": {"description": "ok"}},
+            },
+            "delete": {
+                "operationId": "deleteAccount",
+                "responses": {"204": {"description": "deleted"}},
+            },
+        }
+    },
+}
+accounts = OpenAPIToolset(spec_dict=spec)
+root_agent = Agent(
+    name="account-admin",
+    model="gemini-flash-latest",
+    tools=[accounts],
+)
+''')
+
+    graph, findings = scan(tmp_path)
+    agent = next(a for a in graph.agents if a.name == "account-admin")
+    tool = next(t for t in agent.tools if t.name == "accounts")
+
+    assert "data.read" in tool.capabilities
+    assert "data.write" in tool.capabilities
+    assert "external.write" in tool.capabilities
+    assert "destructive.write" in tool.capabilities
+    assert tool.metadata["openapi_methods"] == ["DELETE", "GET"]
+    assert tool.metadata["openapi_security_schemes"] == ["bearerAuth"]
+    assert tool.metadata["openapi_auth_required"] is True
+    assert any(
+        destination.target == "https://api.accounts.example.com"
+        and destination.restricted is True
+        and destination.metadata.get("network_scope") == "explicit_destination"
+        for destination in tool.destinations
+    )
+    assert not any(
+        f.rule_id == "NET002" and f.agent == "account-admin"
+        for f in findings
+    )
+
+
+def test_adk_openapi_get_only_does_not_invent_write_authority(tmp_path: Path) -> None:
+    write(tmp_path, '''
+from google.adk import Agent
+from google.adk.tools.openapi_tool import OpenAPIToolset
+
+spec = {
+    "openapi": "3.0.0",
+    "info": {"title": "Directory", "version": "1.0"},
+    "servers": [{"url": "https://directory.example.com/api"}],
+    "paths": {
+        "/users": {
+            "get": {
+                "operationId": "listUsers",
+                "responses": {"200": {"description": "ok"}},
+            }
+        }
+    },
+}
+directory = OpenAPIToolset(spec_dict=spec)
+root_agent = Agent(
+    name="directory-reader",
+    model="gemini-flash-latest",
+    tools=[directory],
+)
+''')
+
+    graph, _ = scan(tmp_path)
+    agent = next(a for a in graph.agents if a.name == "directory-reader")
+    tool = next(t for t in agent.tools if t.name == "directory")
+
+    assert "data.read" in tool.capabilities
+    assert "network.external" in tool.capabilities
+    assert "data.write" not in tool.capabilities
+    assert "external.write" not in tool.capabilities
+    assert "destructive.write" not in tool.capabilities
+    assert tool.metadata["openapi_methods"] == ["GET"]
