@@ -227,3 +227,221 @@ AIAgent agent = chatClient.AsAIAgent(name: "SupportAgent");
         identity.provider == "microsoft-entra-agent365"
         for identity in agent.identities
     )
+
+
+def test_agent365_tooling_manifest_becomes_effective_when_runtime_is_wired(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path,
+        "a365.config.json",
+        {
+            "agentIdentityDisplayName": "WorkAgent",
+            "authMode": "obo",
+        },
+    )
+    _write(
+        tmp_path,
+        "ToolingManifest.json",
+        {
+            "mcpServers": [
+                {
+                    "mcpServerName": "mcp_MailTools",
+                    "url": "https://agent365.example.test/mail",
+                    "scope": "Tools.ListInvoke.All",
+                    "audience": "mail-audience",
+                    "publisher": "Microsoft",
+                },
+                {
+                    "mcpServerName": "mcp_CalendarTools",
+                    "url": "https://agent365.example.test/calendar",
+                    "scope": "Tools.ListInvoke.All",
+                    "audience": "calendar-audience",
+                    "publisher": "Microsoft",
+                },
+            ]
+        },
+    )
+    (tmp_path / "Agent365Tools.cs").write_text(
+        """
+using Microsoft.Agents.A365.Tooling;
+
+await toolService.AddToolServersToAgentAsync(
+    agent,
+    userAuthorization,
+    authHandlerName,
+    turnContext);
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "WorkAgent")
+
+    assert {item.name for item in agent.mcp_servers} == {
+        "mcp_MailTools",
+        "mcp_CalendarTools",
+    }
+    mail = next(
+        item for item in agent.mcp_servers
+        if item.name == "mcp_MailTools"
+    )
+    assert mail.metadata["binding_state"] == "source_proven"
+    assert mail.metadata["permission_model"] == "delegated"
+    assert mail.metadata["requires_user_context"] is True
+    assert mail.metadata["requires_admin_consent"] is True
+    assert mail.metadata["permission_grant_state"] == "not_source_proven"
+    assert mail.identity == "WorkAgent"
+
+    identity = next(
+        item for item in agent.identities
+        if item.provider == "microsoft-entra-agent365"
+    )
+    assert "mcp_MailTools:Tools.ListInvoke.All" in identity.oauth_scopes
+    assert any(
+        "agent365_dotnet_tooling_registration" in evidence
+        for evidence in mail.metadata["runtime_binding_evidence"]
+    )
+
+
+def test_agent365_tooling_manifest_stays_unbound_without_runtime_wiring(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path,
+        "a365.config.json",
+        {
+            "agentIdentityDisplayName": "DeclaredOnlyAgent",
+            "authMode": "obo",
+        },
+    )
+    _write(
+        tmp_path,
+        "ToolingManifest.json",
+        {
+            "mcpServers": [
+                {
+                    "mcpServerName": "mcp_TeamsServer",
+                    "url": "https://agent365.example.test/teams",
+                    "scope": "Tools.ListInvoke.All",
+                    "audience": "teams-audience",
+                }
+            ]
+        },
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item for item in graph.agents
+        if item.name == "DeclaredOnlyAgent"
+    )
+
+    assert agent.mcp_servers == []
+    assert len(graph.unbound_mcp_servers) == 1
+    server = graph.unbound_mcp_servers[0]
+    assert server.name == "mcp_TeamsServer"
+    assert server.metadata["binding_state"] == "declared_unbound"
+    assert server.metadata["permission_grant_state"] == "not_source_proven"
+
+
+def test_agent365_workiq_is_not_effective_for_pure_s2s(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path,
+        "a365.config.json",
+        {
+            "agentIdentityDisplayName": "BackgroundAgent",
+            "authMode": "s2s",
+        },
+    )
+    _write(
+        tmp_path,
+        "ToolingManifest.json",
+        {
+            "mcpServers": [
+                {
+                    "mcpServerName": "mcp_MailTools",
+                    "url": "https://agent365.example.test/mail",
+                    "scope": "Tools.ListInvoke.All",
+                    "audience": "mail-audience",
+                }
+            ]
+        },
+    )
+    (tmp_path / "Agent365Tools.cs").write_text(
+        """
+using Microsoft.Agents.A365.Tooling;
+
+await toolService.AddToolServersToAgentAsync(
+    agent,
+    userAuthorization,
+    authHandlerName,
+    turnContext);
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item for item in graph.agents
+        if item.name == "BackgroundAgent"
+    )
+
+    assert agent.mcp_servers == []
+    server = graph.unbound_mcp_servers[0]
+    assert server.metadata["binding_state"] == "incompatible_s2s"
+    assert "delegated user context" in server.metadata["binding_reason"]
+
+
+def test_agent365_python_tooling_binds_to_unique_maf_agent(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from agent_framework import Agent
+from microsoft_agents_a365.tooling.extensions.agentframework.services.mcp_tool_registration_service import (
+    McpToolRegistrationService,
+)
+
+agent = Agent(client=client, instructions="help", tools=[])
+service = McpToolRegistrationService()
+agent = await service.add_tool_servers_to_agent(
+    chat_client=client,
+    agent_instructions="help",
+    initial_tools=[],
+    auth=auth,
+    auth_handler_name="agentic",
+    turn_context=context,
+)
+""",
+        encoding="utf-8",
+    )
+    _write(
+        tmp_path,
+        "ToolingManifest.json",
+        {
+            "mcpServers": [
+                {
+                    "mcpServerName": "mcp_MailTools",
+                    "url": "https://agent365.example.test/mail",
+                    "scope": "McpServers.Mail.All",
+                    "audience": "agent365-audience",
+                }
+            ]
+        },
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item for item in graph.agents
+        if item.metadata.get("framework") == "microsoft-agent-framework"
+    )
+
+    assert {item.name for item in agent.mcp_servers} == {"mcp_MailTools"}
+    identity = next(
+        item for item in agent.identities
+        if item.name == "agent365-delegated-user"
+    )
+    assert identity.metadata["permission_model"] == "delegated"
+    assert "mcp_MailTools:McpServers.Mail.All" in identity.oauth_scopes

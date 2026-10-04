@@ -58,6 +58,9 @@ from horustrace.mcp_context import (
     resolve_local_stdio_implementations,
 )
 from horustrace.mcp_resolution import unresolved_mcp_summary
+from horustrace.microsoft_repository_authority import (
+    enrich_microsoft_repository_authority,
+)
 from horustrace.models import (
     Agent,
     AgentReachability,
@@ -1148,6 +1151,17 @@ def _is_source_fragment(path: Path) -> bool:
     return any(part.lower() in SOURCE_FRAGMENT_DIRS for part in path.parts)
 
 
+def _is_microsoft_authority_json(path: Path) -> bool:
+    return (
+        path.name == "ToolingManifest.json"
+        or path.name == "appsettings.json"
+        or (
+            path.name.startswith("appsettings.")
+            and path.suffix.lower() == ".json"
+        )
+    )
+
+
 def _is_supported_scan_candidate(path: Path) -> bool:
     return (
         path.suffix.lower() in {".py", ".ipynb", ".cs", ".tf", ".yaml", ".yml"}
@@ -1159,6 +1173,7 @@ def _is_supported_scan_candidate(path: Path) -> bool:
             | FAST_AGENT_CONFIG_FILENAMES
             | AGENT365_CONFIG_FILENAMES
         )
+        or _is_microsoft_authority_json(path)
         or path.name == ".env"
         or path.name.startswith(".env.")
     )
@@ -1170,6 +1185,7 @@ def _is_repository_candidate(path: Path) -> bool:
     return (
         _is_supported_scan_candidate(path)
         or path.name == "pyproject.toml"
+        or path.suffix.lower() == ".csproj"
         or is_registry_config_filename(path.name)
     )
 
@@ -2245,12 +2261,16 @@ def scan(
         if not supported:
             graph.coverage.files_skipped += 1
             continue
-        security_config = candidate.name in (
-            MANIFEST_FILENAMES
-            | MCP_FILENAMES
-            | SUPPRESSION_FILENAMES
-            | FAST_AGENT_CONFIG_FILENAMES
-            | AGENT365_CONFIG_FILENAMES
+        security_config = (
+            candidate.name
+            in (
+                MANIFEST_FILENAMES
+                | MCP_FILENAMES
+                | SUPPRESSION_FILENAMES
+                | FAST_AGENT_CONFIG_FILENAMES
+                | AGENT365_CONFIG_FILENAMES
+            )
+            or _is_microsoft_authority_json(candidate)
         )
         seen_real_paths.add(real_candidate)
         try:
@@ -2275,7 +2295,10 @@ def scan(
                     ),
                 )
                 continue
-            if candidate.name in (MCP_FILENAMES | AGENT365_CONFIG_FILENAMES):
+            if (
+                candidate.name in (MCP_FILENAMES | AGENT365_CONFIG_FILENAMES)
+                or _is_microsoft_authority_json(candidate)
+            ):
                 validate_json_safety(text)
                 raw = json.loads(text)
                 if not isinstance(raw, dict):
@@ -2395,6 +2418,11 @@ def scan(
 
     _consolidate_global_identities(graph)
     _consolidate_agents(graph)
+    enrich_microsoft_repository_authority(
+        graph,
+        root if root.is_dir() else root.parent,
+        candidates,
+    )
     enrich_csharp_repository_tool_effects(
         graph,
         root if root.is_dir() else root.parent,
