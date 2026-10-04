@@ -57,16 +57,15 @@ def _delegated_http_tool(
     ):
         return None
     lowered = class_source.lower()
+    # Do not treat arbitrary SDK methods such as CopilotSession.SendAsync as
+    # HTTP authority. Require an HTTP-specific client/request/auth surface in
+    # the same AgentApplication class before projecting delegated-token egress.
     if not any(
         marker in lowered
         for marker in (
             "httpclient",
-            ".getasync(",
-            ".postasync(",
-            ".putasync(",
-            ".patchasync(",
-            ".deleteasync(",
-            ".sendasync(",
+            "httprequestmessage",
+            "authenticationheadervalue",
         )
     ):
         return None
