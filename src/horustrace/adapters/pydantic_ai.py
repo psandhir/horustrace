@@ -827,22 +827,6 @@ def _tool_from_function(
     if dynamic_destinations:
         capabilities.add("network.external")
 
-    # A Pydantic tool may delegate to another repository-local Pydantic Agent.
-    # Record only source-visible candidate targets here; repository assembly
-    # resolves them against normalized agents before inheriting authority.
-    delegate_targets = sorted(
-        {
-            child.func.value.id
-            for child in ast.walk(node)
-            if isinstance(child, ast.Call)
-            and isinstance(child.func, ast.Attribute)
-            and child.func.attr in _AGENT_RUN_METHODS
-            and isinstance(child.func.value, ast.Name)
-        }
-    )
-    if delegate_targets:
-        capabilities.add("agent.delegate")
-
     authorization_gate = _mandatory_authorization_gate(node)
     tool = Tool(
         name=node.name,
@@ -864,15 +848,6 @@ def _tool_from_function(
                 else {}
             ),
             **http_metadata,
-            **(
-                {
-                    "delegate_target": delegate_targets[0],
-                    "delegate_targets": delegate_targets,
-                    "delegation_basis": "pydantic_agent_run",
-                }
-                if delegate_targets
-                else {}
-            ),
         },
     )
     if _contains_conditional_approval(node):
