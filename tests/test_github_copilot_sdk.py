@@ -121,7 +121,7 @@ async def main():
 def test_python_copilot_mcp_custom_tool_and_subagent_authority(
     tmp_path: Path,
 ) -> None:
-    path = write(
+    write(
         tmp_path,
         '''
 import requests
