@@ -26,7 +26,8 @@ horustrace report ./agent-app \
 
 The landing dashboard is organized for security review rather than raw inventory.
 It surfaces an assessment signal, a priority review queue, finding severity,
-effective-authority posture, environment inventory, organisation-policy violations,
+effective-authority posture, environment inventory (including discovered Agent Skills),
+organisation-policy violations,
 Authority Contract status, OWASP Agentic Top 10 posture, and scan coverage. Dashboard
 metrics remain drillable into the corresponding agent, finding, policy, OWASP,
 attack-path, or contract view.
@@ -41,8 +42,10 @@ Agent rows are ordered by static review priority so critical/high
 findings, contract violations, attack paths, unresolved checks, and write-capable
 authority rise above lower-signal inventory.
 
-The agent inventory is the primary drill-down surface. Every discovered agent has a
-security profile with six views:
+The agent inventory is the primary drill-down surface. Bound Agent Skills are included
+in each agent profile, while the Scan evidence view lists the complete skill inventory,
+including skills discovered in the repository that were not source-proven as bound to
+an agent. Every discovered agent has a security profile with six views:
 
 - **Overview** — authority counts, identities, reachable resources and destinations,
   write-capable relationships, finding severity, and contract posture.
