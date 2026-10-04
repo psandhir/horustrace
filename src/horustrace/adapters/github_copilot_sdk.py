@@ -12,6 +12,7 @@ from horustrace.adapters.csharp_source import (
     balanced_end,
     collection_strings,
     location as csharp_location,
+    mask_comments,
     mask_non_code,
     method_body,
     named_string,
@@ -649,6 +650,11 @@ def _scan_python(path: Path, source: str) -> Graph:
                 assigned_calls.append((item.optional_vars.id, call, item.context_expr))
 
     custom_tools = _python_custom_tools(path, tree)
+    functions_by_name = {
+        node.name: node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
 
     if imports_maf_bridge:
         for variable, call, binding in assigned_calls:
@@ -680,21 +686,13 @@ def _scan_python(path: Path, source: str) -> Graph:
                     if isinstance(item, ast.Name):
                         if item.id in custom_tools:
                             agent.tools.append(deepcopy(custom_tools[item.id]))
-                        elif isinstance(assignments.get(item.id), ast.AST):
-                            fn = next(
-                                (
-                                    n
-                                    for n in ast.walk(tree)
-                                    if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
-                                    and n.name == item.id
-                                ),
-                                None,
-                            )
+                        elif item.id in functions_by_name:
+                            fn = functions_by_name[item.id]
                             agent.tools.append(
                                 Tool(
                                     name=item.id,
                                     kind="function",
-                                    capabilities=_python_body_capabilities(fn) if fn else set(),
+                                    capabilities=_python_body_capabilities(fn),
                                     location=_source_location(path, item),
                                     metadata={
                                         "framework": FRAMEWORK,
@@ -937,7 +935,7 @@ def _csharp_initializer_entries(value: str, type_name: str) -> list[tuple[str, s
     pattern = re.compile(
         rf'\["([^"]+)"\]\s*=\s*new\s+{re.escape(type_name)}\b'
     )
-    masked = mask_non_code(value)
+    masked = mask_comments(value)
     for match in pattern.finditer(masked):
         brace = masked.find("{", match.end())
         if brace < 0:
