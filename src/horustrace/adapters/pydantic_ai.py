@@ -991,10 +991,7 @@ def _conditional_tool_guard(
         approval_expr = _kw(child, "require_approval")
         if approval_expr is None:
             continue
-        try:
-            policy = ast.unparse(approval_expr)
-        except Exception:
-            policy = "dynamic"
+        policy = ast.unparse(approval_expr)
         return {
             "tool_control_mechanism": "pydantic_tool_guard",
             "tool_control_policy_callable": policy,
