@@ -17,6 +17,10 @@ from horustrace.adapters.amazon_agentic import (
     scan_amazon_agentic_terraform_file,
     scan_amazon_cloudformation_file,
 )
+from horustrace.adapters.amazon_strands_typescript import (
+    is_amazon_strands_typescript_file,
+    scan_amazon_strands_typescript_file,
+)
 from horustrace.adapters.fast_agent_config import (
     FAST_AGENT_CONFIG_FILENAMES,
     scan_fast_agent_config,
@@ -1175,6 +1179,7 @@ def _is_microsoft_authority_json(path: Path) -> bool:
 def _is_supported_scan_candidate(path: Path) -> bool:
     return (
         path.suffix.lower() in {".py", ".ipynb", ".cs", ".tf", ".yaml", ".yml"}
+        or is_amazon_strands_typescript_file(path)
         or path.name
         in (
             MCP_FILENAMES
@@ -2325,7 +2330,9 @@ def scan(
                 yaml.safe_load(text)
             elif candidate.suffix == ".py":
                 ast.parse(text)
-            elif candidate.suffix.lower() == ".ipynb":
+            elif is_amazon_strands_typescript_file(candidate):
+            _merge(graph, scan_amazon_strands_typescript_file(candidate), candidate)
+        elif candidate.suffix.lower() == ".ipynb":
                 notebook_source, _ = _notebook_python_source(text)
                 ast.parse(notebook_source)
         except (OSError, UnicodeDecodeError, SyntaxError, TypeError, ValueError, yaml.YAMLError) as exc:
