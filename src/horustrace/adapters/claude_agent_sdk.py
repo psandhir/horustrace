@@ -124,7 +124,10 @@ def _targets(node: ast.Assign | ast.AnnAssign) -> list[str]:
     return result
 
 
-def _local_expanded_kwargs(tree: ast.AST, call: ast.Call) -> dict[str, ast.AST]:
+def _local_expanded_kwargs(
+    tree: ast.AST,
+    call: ast.Call,
+) -> tuple[dict[str, ast.AST], bool]:
     """Resolve simple **kwargs dictionaries at the call site.
 
     The file-wide binding tables intentionally stay bounded, but the same local
@@ -135,12 +138,18 @@ def _local_expanded_kwargs(tree: ast.AST, call: ast.Call) -> dict[str, ast.AST]:
     """
     anchor = getattr(call, "lineno", 0) or 0
     result: dict[str, ast.AST] = {}
+    complete = True
 
     for keyword in call.keywords:
         if keyword.arg is not None:
             continue
+        if isinstance(keyword.value, ast.Dict):
+            result.update(_dict_nodes(keyword.value))
+            continue
+
         alias = _expr_key(keyword.value)
         if not alias:
+            complete = False
             continue
 
         candidates: list[tuple[int, ast.Dict]] = []
@@ -153,6 +162,7 @@ def _local_expanded_kwargs(tree: ast.AST, call: ast.Call) -> dict[str, ast.AST]:
             if alias in _targets(node):
                 candidates.append((line, node.value))
         if not candidates:
+            complete = False
             continue
 
         start_line, base = max(candidates, key=lambda item: item[0])
@@ -188,7 +198,7 @@ def _local_expanded_kwargs(tree: ast.AST, call: ast.Call) -> dict[str, ast.AST]:
 
         result.update(entries)
 
-    return result
+    return result, complete
 
 
 def _dict_nodes(node: ast.AST | None) -> dict[str, ast.AST]:
@@ -241,8 +251,11 @@ def _kw(
     if direct is not None:
         return direct
     local_expanded = getattr(call, "_horustrace_expanded_kwargs", None)
-    if isinstance(local_expanded, dict) and name in local_expanded:
-        return local_expanded[name]
+    if isinstance(local_expanded, dict):
+        if name in local_expanded:
+            return local_expanded[name]
+        if getattr(call, "_horustrace_expanded_kwargs_complete", False):
+            return None
     if not dicts:
         return None
     for item in call.keywords:
@@ -1241,9 +1254,11 @@ def scan_python_file(path: Path) -> Graph:
     # mutation pass changes shared binding tables.
     for node in ast.walk(tree):
         if isinstance(node, ast.Call) and _call_name(node.func) == "ClaudeAgentOptions":
-            expanded = _local_expanded_kwargs(tree, node)
+            expanded, complete = _local_expanded_kwargs(tree, node)
             if expanded:
                 node._horustrace_expanded_kwargs = expanded  # type: ignore[attr-defined]
+            if complete and any(keyword.arg is None for keyword in node.keywords):
+                node._horustrace_expanded_kwargs_complete = True  # type: ignore[attr-defined]
 
     _record_container_mutations(tree, sequences, dicts, values)
 
