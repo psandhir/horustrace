@@ -669,9 +669,6 @@ def enrich_csharp_repository_tool_effects(
                     ),
                 )
 
-            if not effect.capabilities and not effect.destinations:
-                continue
-
             before = set(tool.capabilities)
             tool.capabilities.update(effect.capabilities)
 
@@ -700,8 +697,14 @@ def enrich_csharp_repository_tool_effects(
             tool.metadata.update(
                 {
                     "method_source_resolved": True,
-                    "repository_effect_resolved": True,
-                    "repository_effect_resolution": "resolved",
+                    "repository_effect_resolved": not bool(
+                        effect.unresolved_calls
+                    ),
+                    "repository_effect_resolution": (
+                        "partial"
+                        if effect.unresolved_calls
+                        else "resolved"
+                    ),
                     "repository_effect_evidence": [
                         f"{item['path']}:{item['symbol']}"
                         for item in evidence_details
