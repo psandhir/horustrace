@@ -14,6 +14,7 @@ from horustrace.models import (
     NetworkDestination,
     ResourceScope,
     Severity,
+    Skill,
     SourceLocation,
     Tool,
 )
@@ -111,6 +112,49 @@ def test_visual_report_projects_effective_agency_and_contract(tmp_path: Path) ->
 
     encoded = str(report)
     assert str(tmp_path) not in encoded
+
+
+def test_visual_report_surfaces_bound_and_unbound_skills(tmp_path: Path) -> None:
+    bound_location = SourceLocation(tmp_path / "skills" / "review" / "SKILL.md")
+    unbound_location = SourceLocation(tmp_path / "skills" / "unused" / "SKILL.md")
+    graph = Graph(
+        agents=[
+            Agent(
+                name="reviewer",
+                skills=[
+                    Skill(
+                        name="review",
+                        description="Review changes",
+                        allowed_tools={"Read"},
+                        location=bound_location,
+                        metadata={"binding_origin": "framework_skill_reference"},
+                    )
+                ],
+            )
+        ],
+        unbound_skills=[
+            Skill(
+                name="unused",
+                description="Unused skill",
+                location=unbound_location,
+            )
+        ],
+    )
+    graph.adg = build_adg(graph, tmp_path)
+
+    report = build_visual_report(graph, [], tmp_path)
+    html = render_visual_report_html(graph, [], tmp_path)
+
+    assert report["summary"]["skills"] == 2
+    assert report["summary"]["bound_skills"] == 1
+    assert report["summary"]["unbound_skills"] == 1
+    assert report["agents"][0]["summary"]["skills"] == 1
+    by_name = {item["name"]: item for item in report["skills"]}
+    assert by_name["review"]["binding_state"] == "bound"
+    assert by_name["review"]["bound_agents"] == ["reviewer"]
+    assert by_name["unused"]["binding_state"] == "unbound"
+    assert "Skill inventory" in html
+    assert "unused" in html
 
 
 def test_visual_report_preserves_declared_contract_without_relationships(
