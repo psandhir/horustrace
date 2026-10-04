@@ -6,6 +6,7 @@ from pathlib import Path
 
 from horustrace.adapters.csharp_source import (
     balanced_end,
+    mask_comments,
     mask_non_code,
     statement_end,
 )
@@ -236,7 +237,7 @@ def _class_spans(source: str, masked: str) -> list[_ClassSpan]:
         end = balanced_end(masked, brace, "{", "}")
         if end is None:
             continue
-        class_source = source[brace + 1:end]
+        class_source = mask_comments(source[brace + 1:end])
         fixed_urls: dict[str, _FixedUrl] = {}
         for url_match in _BASE_ADDRESS_RE.finditer(class_source):
             target = url_match.group(1).rstrip(",;")
@@ -453,7 +454,9 @@ def _summarize_method(
             else method.name
         ),
     )
-    capability_offsets = _body_capability_offsets(method.body)
+    capability_offsets = _body_capability_offsets(
+        mask_non_code(method.body)
+    )
     method_capabilities = set(capability_offsets)
     effect = _Effect(capabilities=set(method_capabilities))
     effect.evidence.add(evidence)
@@ -477,7 +480,8 @@ def _summarize_method(
         )
 
     seen_urls: set[str] = set()
-    for url_match in _URL_RE.finditer(method.body):
+    comment_masked_body = mask_comments(method.body)
+    for url_match in _URL_RE.finditer(comment_masked_body):
         url = url_match.group(0).rstrip(",;")
         if url in seen_urls:
             continue
