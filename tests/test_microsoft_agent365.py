@@ -509,3 +509,58 @@ var learnClient = await McpClient.CreateAsync(learnTransport);
     assert server.metadata["runtime_binding_evidence"] == [
         "WorkIqToolProvider.cs:agent365_direct_manifest_mcp_binding"
     ]
+
+def test_agent365_runtime_mcp_binding_preserves_config_and_fixed_fallback(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "MyAgent.cs").write_text(
+        r"""
+using Microsoft.Agents.Builder.App;
+using ModelContextProtocol.Client;
+
+public class MyAgent(AgentApplicationOptions options) : AgentApplication(options)
+{
+    public async Task LoadAsync(IConfiguration configuration)
+    {
+        var urls = configuration.GetSection("McpServers").Get<string[]>() ?? [];
+        var gateway = configuration.GetValue<string>("W365:GatewayUrl")
+            ?? "https://agent365.svc.cloud.microsoft/agents/servers/mcp_W365ComputerUse";
+        await orchestrator.StartDirectW365SessionAndListToolsAsync(
+            gateway, token, agentId, context, sessionId, cancellationToken);
+    }
+}
+""",
+        encoding="utf-8",
+    )
+    _write(
+        tmp_path,
+        "ToolingManifest.json",
+        {
+            "mcpServers": [
+                {
+                    "mcpServerName": "mcp_W365ComputerUse",
+                    "url": "mcp_W365ComputerUse",
+                }
+            ]
+        },
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "MyAgent")
+    server = next(
+        item for item in agent.mcp_servers
+        if item.name == "mcp_W365ComputerUse"
+    )
+
+    assert server.url == (
+        "https://agent365.svc.cloud.microsoft/agents/servers/"
+        "mcp_W365ComputerUse"
+    )
+    assert server.metadata["conditional_runtime_binding"] is True
+    assert server.metadata["operator_configured_endpoint"] is True
+    assert "McpServers" in server.metadata["configuration_sources"]
+    assert any(
+        "agent365_runtime_mcp_binding" in item
+        for item in server.metadata["runtime_binding_evidence"]
+    )
+

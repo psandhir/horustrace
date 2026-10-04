@@ -4,7 +4,14 @@ import re
 from pathlib import Path
 
 from horustrace.adapters.csharp_source import location, mask_non_code
-from horustrace.models import Agent, Graph, Identity, InputSource
+from horustrace.models import (
+    Agent,
+    Graph,
+    Identity,
+    InputSource,
+    NetworkDestination,
+    Tool,
+)
 
 FRAMEWORK = "microsoft-365-agents-sdk-dotnet"
 
@@ -32,6 +39,92 @@ _CLASS_MODIFIERS = {
     "abstract",
     "static",
 }
+
+
+_URL_RE = re.compile(r'https?://[^\s"\']+')
+
+
+def _delegated_http_tool(
+    path: Path,
+    source: str,
+    class_source: str,
+    class_offset: int,
+    identity_name: str | None,
+) -> Tool | None:
+    if (
+        "GetTurnTokenAsync" not in class_source
+        and "ExchangeTurnTokenAsync" not in class_source
+    ):
+        return None
+    lowered = class_source.lower()
+    # Do not treat arbitrary SDK methods such as CopilotSession.SendAsync as
+    # HTTP authority. Require an HTTP-specific client/request/auth surface in
+    # the same AgentApplication class before projecting delegated-token egress.
+    if not any(
+        marker in lowered
+        for marker in (
+            "httpclient",
+            "httprequestmessage",
+            "authenticationheadervalue",
+        )
+    ):
+        return None
+
+    capabilities = {"network.external"}
+    if any(
+        marker in lowered
+        for marker in (
+            ".getasync(",
+            "httpmethod.get",
+            ".getstringasync(",
+        )
+    ):
+        capabilities.add("data.read")
+    if any(
+        marker in lowered
+        for marker in (
+            ".postasync(",
+            ".putasync(",
+            ".patchasync(",
+            ".deleteasync(",
+            "httpmethod.post",
+            "httpmethod.put",
+            "httpmethod.patch",
+            "httpmethod.delete",
+        )
+    ):
+        capabilities.update({"external.write", "data.write"})
+
+    tool = Tool(
+        name="m365-delegated-http",
+        kind="http_client",
+        capabilities=capabilities,
+        identity=identity_name,
+        location=location(path, source, class_offset),
+        metadata={
+            "framework": FRAMEWORK,
+            "binding_origin": "delegated_turn_token_http",
+            "token_subject": "signed_in_user",
+        },
+    )
+    seen: set[str] = set()
+    for raw in _URL_RE.findall(class_source):
+        target = raw.rstrip('",);]}')
+        if not target or target in seen:
+            continue
+        seen.add(target)
+        tool.destinations.append(
+            NetworkDestination(
+                target=target,
+                restricted=True,
+                location=tool.location,
+                metadata={
+                    "source": "literal_url",
+                    "network_scope": "fixed_literal_destination",
+                },
+            )
+        )
+    return tool
 
 
 def is_microsoft_365_agents_dotnet_file(path: Path) -> bool:
@@ -236,6 +329,16 @@ def _class_agents(path: Path, source: str) -> list[Agent]:
                 ),
             ))
             agent.metadata["turn_user_authorization"] = True
+
+        delegated_http = _delegated_http_tool(
+            path,
+            source,
+            class_source,
+            match.start(),
+            agent.identities[0].name if agent.identities else None,
+        )
+        if delegated_http is not None:
+            agent.tools.append(delegated_http)
 
         result.append(agent)
     return result

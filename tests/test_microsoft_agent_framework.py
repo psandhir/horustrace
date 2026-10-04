@@ -340,3 +340,33 @@ not_a_maf_agent = factory.create_agent(name="LocalOnly")
     graph, _ = scan(tmp_path)
 
     assert graph.agents == []
+
+def test_microsoft_agent_framework_detects_chatagent_attribute_assignment(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        """
+from agent_framework import ChatAgent
+
+class HostedAgent:
+    def __init__(self, client):
+        self.agent = ChatAgent(
+            chat_client=client,
+            instructions="help",
+            tools=[],
+        )
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "microsoft-agent-framework"
+    )
+
+    assert agent.name == "agent"
+    assert agent.metadata["agent_type"] == "ChatAgent"
+    assert "agent" in agent.metadata["source_aliases"]
+
