@@ -63,6 +63,14 @@ _BUILTIN_TOOL_CAPABILITIES: dict[str, set[str]] = {
         "external.write",
         "destructive.write",
     },
+    "powershell": {
+        "data.read",
+        "data.write",
+        "process.execute",
+        "network.external",
+        "external.write",
+        "destructive.write",
+    },
     "shell": {
         "data.read",
         "data.write",
@@ -186,19 +194,35 @@ def _builtin_capabilities(
     excluded: list[str] | None,
 ) -> set[str]:
     if available is None:
-        result = set(_ALL_BUILTIN_CAPABILITIES)
+        enabled = set(_BUILTIN_TOOL_CAPABILITIES)
     else:
-        result = _capabilities_for_tool_names(available)
+        enabled: set[str] = set()
+        for raw in available:
+            source, name = _strip_tool_prefix(raw)
+            if source and source != "builtin":
+                continue
+            normalized = name.lower().replace("-", "_")
+            if normalized == "*":
+                enabled.update(_BUILTIN_TOOL_CAPABILITIES)
+            else:
+                enabled.add(normalized)
 
     for raw in excluded or []:
         source, name = _strip_tool_prefix(raw)
         if source and source != "builtin":
             continue
-        if name == "*":
-            return set()
         normalized = name.lower().replace("-", "_")
-        result.difference_update(_BUILTIN_TOOL_CAPABILITIES.get(normalized, set()))
-    return result
+        if normalized == "*":
+            enabled.clear()
+        else:
+            enabled.discard(normalized)
+
+    capabilities: set[str] = set()
+    for name in enabled:
+        capabilities.update(
+            _BUILTIN_TOOL_CAPABILITIES.get(name, infer_capabilities(name))
+        )
+    return capabilities
 
 
 def _filesystem_resources(
@@ -985,6 +1009,23 @@ def _csharp_initializer_entries(value: str, type_name: str) -> list[tuple[str, s
     return result
 
 
+def _csharp_braced_property_value(
+    expression: str,
+    name: str,
+) -> str | None:
+    masked = mask_non_code(expression)
+    match = re.search(rf"\\b{re.escape(name)}\\s*=", masked, re.IGNORECASE)
+    if not match:
+        return None
+    brace = masked.find("{", match.end())
+    if brace < 0:
+        return None
+    end = balanced_end(masked, brace, "{", "}")
+    if end is None:
+        return None
+    return expression[match.end():end + 1].strip()
+
+
 def _csharp_mcp_servers(
     path: Path,
     source: str,
@@ -992,7 +1033,10 @@ def _csharp_mcp_servers(
     *,
     base_offset: int,
 ) -> list[MCPServer]:
-    value = argument_value(config_expression, "McpServers")
+    value = _csharp_braced_property_value(
+        config_expression,
+        "McpServers",
+    )
     if not value:
         return []
     result: list[MCPServer] = []
