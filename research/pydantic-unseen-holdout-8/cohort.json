@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "study": "pydantic-unseen-holdout-8",
+  "status": "frozen_before_horustrace_execution",
+  "locked_at": "2026-10-04",
+  "scanner_baseline": "cce9e3f286d103b587d29a32fe10c6d5396a16b8",
+  "selection": {
+    "target_cases": 8,
+    "unique_repositories": 8,
+    "horustrace_output_used_for_selection": false,
+    "method": "Source-only selection after Pydantic current-surface depth parity reached 15/15. Eight independent public repositories were pinned before any HorusTrace execution. The cohort stresses repository composition rather than repeating synthetic conformance cases.",
+    "surfaces": {
+      "wrapper-dynamic-tools-mcp": 2,
+      "config-derived-mcp-capabilities": 2,
+      "declarative-capability-bundle": 1,
+      "dynamic-capability-registry": 1,
+      "custom-toolset-sandbox": 1,
+      "stdio-mcp-factory": 1
+    }
+  },
+  "cases": [
+    {
+      "case_id": "pyd-hold-001",
+      "repo": "PrefectHQ/marvin",
+      "sha": "db665c58fa503e6328f83c81cac20dedd037a274",
+      "application_path": "src/marvin",
+      "evidence_path": "agents/agent.py",
+      "surface": "wrapper-dynamic-tools-mcp",
+      "source_signal": "Marvin's Agent wrapper builds a pydantic_ai.Agent[Any, Any] inside get_agentlet(), composing wrapped repository tools through an agent_kwargs dictionary and conditionally binding active MCP servers as toolsets. Tests subscripted Agent construction, **kwargs composition and dynamic wrapper authority."
+    },
+    {
+      "case_id": "pyd-hold-002",
+      "repo": "rice-awa/MCBE-AI-Agent",
+      "sha": "b29fd30131e86d2b26ab877a625b64600bfaa5e2",
+      "application_path": "services/agent",
+      "evidence_path": "core.py",
+      "surface": "config-derived-mcp-capabilities",
+      "source_signal": "ChatAgentManager._create_agent() constructs a Pydantic Agent with a repository-built harness capability, dynamically supplied MCP toolsets and post-construction tool registration; mcp.py builds stdio/SSE/HTTP Pydantic MCP servers from operator configuration."
+    },
+    {
+      "case_id": "pyd-hold-003",
+      "repo": "hamza-mughal1/AIBA",
+      "sha": "3c3e8dffd6d986022d4c43e83a9cc04002338593",
+      "application_path": "src/agents",
+      "evidence_path": "sub_agent.py",
+      "surface": "config-derived-mcp-capabilities",
+      "source_signal": "Sub-agent composes WebSearch/WebFetch, a Playwright MCP Capability over StdioTransport, optional security guard capabilities and several direct filesystem tools; run() additionally injects a FunctionToolset at runtime."
+    },
+    {
+      "case_id": "pyd-hold-004",
+      "repo": "FaustoS88/Pydantic-AI-Pinescript-Expert",
+      "sha": "03cbd93c486435df08d70185fbab9aa61fff5fbb",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "surface": "declarative-capability-bundle",
+      "source_signal": "A source-visible Capability bundle owns a decorated retrieve tool backed by database/vector retrieval and is composed into pinescript_agent alongside Thinking. Tests capability-bundle tool binding and source-over-name effect semantics."
+    },
+    {
+      "case_id": "pyd-hold-005",
+      "repo": "lucklove/agentic",
+      "sha": "a94db77ed2836f0fd28af4bf739345501550b692",
+      "application_path": ".",
+      "evidence_path": "agent_factory.py",
+      "surface": "dynamic-capability-registry",
+      "source_signal": "make_agent() builds its capability list from a repository-local registry driven by merged profile/global configuration. Registry entries include CodeMode with a read-write mounted workspace, Gitea/MCP, memory, skills and console execution before passing the dynamic list to Agent(capabilities=capabilities)."
+    },
+    {
+      "case_id": "pyd-hold-006",
+      "repo": "jiviny/Daytona-Integration-with-Pydantic-AI",
+      "sha": "9d5aa49c7465bd00077fd636d0d0659067e7b131",
+      "application_path": "src/pydantic_ai_daytona",
+      "evidence_path": "agent.py",
+      "surface": "custom-toolset-sandbox",
+      "source_signal": "build_agent() returns Agent(... toolsets=[DaytonaToolset()]); the repository-local FunctionToolset subclass binds run_python and optionally run_shell, both executing model-selected code/commands in fresh remote Daytona sandboxes."
+    },
+    {
+      "case_id": "pyd-hold-007",
+      "repo": "zby/llm-do",
+      "sha": "d86c686813ec569f1d688ee6948919ff6d0022bb",
+      "application_path": "llm_do",
+      "evidence_path": "runtime/agent_runner.py",
+      "surface": "wrapper-dynamic-tools-mcp",
+      "source_signal": "_build_agent() constructs Pydantic Agent from an AgentSpec and runtime, passing dynamically supplied tools, toolsets and builtins; run_agent() supplies spec.tools and active runtime toolsets. Tests helper-built dynamic authority without inventing concrete tools."
+    },
+    {
+      "case_id": "pyd-hold-008",
+      "repo": "datalayer/mcp-compose",
+      "sha": "692ccb6e7a52a9b074124883b2dc6f0d957d0887",
+      "application_path": "examples/ui",
+      "evidence_path": "agent.py",
+      "surface": "stdio-mcp-factory",
+      "source_signal": "create_agent() creates MCPServerStdio('mcp-compose', args=[...]) inside a factory and binds it via Agent(toolsets=[mcp_server]), then exposes the agent through an interactive CLI. Tests factory-local stdio MCP binding and command provenance."
+    }
+  ]
+}
