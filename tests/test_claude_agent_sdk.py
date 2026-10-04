@@ -432,3 +432,73 @@ def build_options():
     assert root.metadata["hook_events"] == ["PreToolUse"]
     assert any(tool.kind == "delegated_agent" for tool in root.tools)
     assert any(server.name == "<dynamic-mcp>" for server in root.mcp_servers)
+
+
+def test_empty_tools_disables_builtin_tool_projection(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        """
+from claude_agent_sdk import ClaudeAgentOptions, query
+
+options = ClaudeAgentOptions(
+    tools=[],
+    permission_mode="bypassPermissions",
+)
+
+async def run():
+    async for message in query(prompt="summarize only", options=options):
+        pass
+""",
+    )
+
+    graph = scan_python_file(path)
+    agent = next(item for item in graph.agents if item.name == "options")
+
+    assert agent.metadata["tool_surface"] == "explicit"
+    assert agent.tools == []
+
+
+def test_reused_kwargs_names_are_resolved_at_each_call_site(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        """
+from claude_agent_sdk import ClaudeAgentOptions, HookMatcher, query
+
+async def no_tools():
+    options_kwargs = {
+        "permission_mode": "bypassPermissions",
+        "tools": [],
+    }
+    async for message in query(
+        prompt="summarize only",
+        options=ClaudeAgentOptions(**options_kwargs),
+    ):
+        pass
+
+async def dynamic_agent():
+    servers = discover_servers()
+    options_kwargs = {
+        "permission_mode": "bypassPermissions",
+    }
+    options_kwargs["mcp_servers"] = servers
+    options_kwargs["hooks"] = {"PreToolUse": [HookMatcher(hooks=[])]}
+    async for message in query(
+        prompt="work",
+        options=ClaudeAgentOptions(**options_kwargs),
+    ):
+        pass
+""",
+    )
+
+    graph = scan_python_file(path)
+    claude = [agent for agent in graph.agents if agent.metadata.get("framework") == "claude-agent-sdk"]
+
+    no_tool_root = next(agent for agent in claude if agent.metadata.get("tool_surface") == "explicit")
+    assert no_tool_root.tools == []
+    assert no_tool_root.mcp_servers == []
+    assert no_tool_root.metadata.get("hook_events") in (None, [])
+
+    dynamic_root = next(agent for agent in claude if agent.metadata.get("dynamic_mcp_servers"))
+    assert dynamic_root.metadata["permission_mode"] == "bypassPermissions"
+    assert dynamic_root.metadata["hook_events"] == ["PreToolUse"]
+    assert any(server.name == "<dynamic-mcp>" for server in dynamic_root.mcp_servers)
