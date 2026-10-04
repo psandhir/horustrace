@@ -661,7 +661,7 @@ def _scan_agentcore_json(path: Path, document: dict[str, Any]) -> Graph:
         name = raw.get("name")
         if not isinstance(name, str):
             continue
-        credential_type = str(raw.get("type") or raw.get("credentialType") or "credential")
+        credential_type = str(raw.get("authorizerType") or raw.get("type") or raw.get("credentialType") or "credential")
         graph.identities.append(
             Identity(
                 name=name,
