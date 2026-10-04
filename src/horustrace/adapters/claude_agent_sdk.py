@@ -796,6 +796,10 @@ def _option_agent(
         if target.name != subagent_name:
             target = deepcopy(target)
             target.name = subagent_name
+        # Preserve inline AgentDefinition objects as first-class graph agents.
+        # This also lets the generic effective-authority layer project the
+        # delegated agent's own tools/resources instead of only the edge.
+        subagents.setdefault(subagent_name, deepcopy(target))
         agent.metadata.setdefault("delegates_to", []).append(target.name)
         delegated = Tool(
             name=target.name,
