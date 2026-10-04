@@ -36,6 +36,10 @@ _BUILTIN_TOOLS: dict[str, tuple[str, set[str]]] = {
     "WebFetch": ("web_fetch", {"data.read", "network.external"}),
     "WebSearch": ("web_search", {"data.read", "network.external"}),
     "Agent": ("delegated_agent_runtime", {"agent.delegate"}),
+    "Workflow": (
+        "dynamic_workflow",
+        {"agent.delegate", "process.execute", "data.read", "data.write"},
+    ),
     "AskUserQuestion": ("user_interaction", set()),
     "Monitor": ("task_monitor", {"data.read"}),
     "TodoWrite": ("task_state", {"data.write"}),
@@ -60,6 +64,7 @@ _SECURITY_RELEVANT_DEFAULT_TOOLS = (
     "WebFetch",
     "WebSearch",
     "Agent",
+    "Workflow",
 )
 
 
@@ -527,6 +532,11 @@ def _builtin_tool(path: Path, name: str, location: SourceLocation) -> Tool:
         tool.metadata["untrusted_input"] = True
     elif name == "Bash":
         tool.metadata["implicit_network"] = True
+    elif name == "Workflow":
+        tool.metadata["dynamic_workflow"] = True
+        tool.metadata["runtime_generated_workflow"] = True
+        tool.metadata["workflow_runtime"] = "claude-code"
+        tool.metadata["delegate_target_unresolved"] = True
     return tool
 
 
@@ -554,6 +564,16 @@ def _apply_permission_semantics(
         hook_literal = _literal(hooks)
         if hook_entries:
             agent.metadata["hook_events"] = sorted(hook_entries)
+            callback_names = sorted(
+                {
+                    child.id
+                    for child in ast.walk(hooks)
+                    if isinstance(child, ast.Name)
+                    and child.id not in {"HookMatcher"}
+                }
+            )
+            if callback_names:
+                agent.metadata["hook_callbacks"] = callback_names
         elif isinstance(hook_literal, dict):
             agent.metadata["hook_events"] = sorted(str(key) for key in hook_literal)
         else:
@@ -998,7 +1018,7 @@ def _option_agent(
     resources = _filesystem_scopes(path, call, sequences)
     if resources:
         for tool in agent.tools:
-            if tool.name in {"Read", "Glob", "Grep", "Write", "Edit", "NotebookEdit", "Bash"}:
+            if tool.name in {"Read", "Glob", "Grep", "Write", "Edit", "NotebookEdit", "Bash", "Workflow"}:
                 tool.resources.extend(deepcopy(resources))
 
     mcp_node = _kw(call, "mcp_servers", dicts, values)
@@ -1173,6 +1193,69 @@ def _record_container_mutations(
             for key, value in _mapping_entries(call.args[0], dicts, values).items():
                 dicts[base].keys.append(ast.Constant(value=key))
                 dicts[base].values.append(value)
+
+
+def _callback_control_state(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> str:
+    """Classify source-visible Claude SDK hook/can_use_tool enforcement."""
+    enforcing_literals = {"block", "deny", "denied", "reject", "rejected"}
+    for child in ast.walk(node):
+        if isinstance(child, ast.Dict):
+            entries = _dict_nodes(child)
+            for key in (
+                "decision",
+                "permissionDecision",
+                "permission_decision",
+                "behavior",
+            ):
+                value = _literal(entries.get(key))
+                if isinstance(value, str) and value.lower() in enforcing_literals:
+                    return "enforcing"
+            continue
+        if isinstance(child, ast.Call):
+            called = (_call_name(child.func) or "").lower()
+            if any(token in called for token in ("deny", "block", "reject")):
+                return "enforcing"
+        if isinstance(child, ast.Return):
+            value = _literal(child.value)
+            if value is False:
+                return "enforcing"
+    return "non_enforcing"
+
+
+def _annotate_control_states(
+    roots: list[Agent],
+    tree: ast.AST,
+) -> None:
+    functions = {
+        node.name: node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    for agent in roots:
+        callbacks = {
+            name
+            for name in agent.metadata.get("hook_callbacks", [])
+            if isinstance(name, str)
+        }
+        can_use = agent.metadata.get("can_use_tool")
+        if isinstance(can_use, str):
+            callbacks.add(can_use.split(".")[-1])
+
+        states = [
+            _callback_control_state(functions[name])
+            for name in callbacks
+            if name in functions
+        ]
+        if "enforcing" in states:
+            agent.metadata["tool_control_state"] = "enforcing"
+            agent.metadata["tool_control_enforcing"] = True
+        elif states and all(state == "non_enforcing" for state in states):
+            agent.metadata["tool_control_state"] = "non_enforcing"
+            agent.metadata["tool_control_enforcing"] = False
+        elif callbacks:
+            agent.metadata["tool_control_state"] = "unresolved"
 
 
 def scan_python_file(path: Path) -> Graph:
@@ -1453,6 +1536,7 @@ def scan_python_file(path: Path) -> Graph:
             roots[-1].metadata["option_builder_return"] = True
             used_option_calls.add(id(call))
 
+    _annotate_control_states(roots, tree)
     graph.agents.extend(roots)
 
     delegated_names = {
