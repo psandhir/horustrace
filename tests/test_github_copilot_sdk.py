@@ -426,6 +426,12 @@ class Runtime:
         tool.kind == "github_copilot_builtin_tools"
         for tool in agent.tools
     )
+    dynamic = next(
+        tool for tool in agent.tools
+        if tool.kind == "dynamic_tool_reference"
+    )
+    assert dynamic.metadata["dynamic_tool_catalogue"] is True
+    assert dynamic.metadata["tools_expression"] == "tools"
 
 
 def test_python_maf_copilot_options_preserve_mcp_authority(
