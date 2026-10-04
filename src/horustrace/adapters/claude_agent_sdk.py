@@ -124,6 +124,73 @@ def _targets(node: ast.Assign | ast.AnnAssign) -> list[str]:
     return result
 
 
+def _local_expanded_kwargs(tree: ast.AST, call: ast.Call) -> dict[str, ast.AST]:
+    """Resolve simple **kwargs dictionaries at the call site.
+
+    The file-wide binding tables intentionally stay bounded, but the same local
+    variable name is commonly reused in different functions. Resolve the nearest
+    preceding dict assignment for each expanded keyword at this call site, then
+    replay simple subscript/update mutations up to the call. This avoids leaking
+    a later function's options into an earlier ClaudeAgentOptions(**kwargs).
+    """
+    anchor = getattr(call, "lineno", 0) or 0
+    result: dict[str, ast.AST] = {}
+
+    for keyword in call.keywords:
+        if keyword.arg is not None:
+            continue
+        alias = _expr_key(keyword.value)
+        if not alias:
+            continue
+
+        candidates: list[tuple[int, ast.Dict]] = []
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
+                continue
+            line = getattr(node, "lineno", 0) or 0
+            if line > anchor or not isinstance(node.value, ast.Dict):
+                continue
+            if alias in _targets(node):
+                candidates.append((line, node.value))
+        if not candidates:
+            continue
+
+        start_line, base = max(candidates, key=lambda item: item[0])
+        entries = dict(_dict_nodes(base))
+
+        events = sorted(
+            (
+                node
+                for node in ast.walk(tree)
+                if start_line < (getattr(node, "lineno", 0) or 0) <= anchor
+            ),
+            key=lambda node: getattr(node, "lineno", 0) or 0,
+        )
+        for node in events:
+            if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
+                raw_targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                for target in raw_targets:
+                    if not isinstance(target, ast.Subscript):
+                        continue
+                    if _expr_key(target.value) != alias:
+                        continue
+                    key = _literal(target.slice)
+                    if isinstance(key, str):
+                        entries[key] = node.value
+            elif isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+                mutation = node.value
+                if not isinstance(mutation.func, ast.Attribute):
+                    continue
+                if mutation.func.attr != "update" or _expr_key(mutation.func.value) != alias:
+                    continue
+                if len(mutation.args) == 1 and isinstance(mutation.args[0], ast.Dict):
+                    entries.update(_dict_nodes(mutation.args[0]))
+
+        result.update(entries)
+
+    return result
+
+
 def _dict_nodes(node: ast.AST | None) -> dict[str, ast.AST]:
     if not isinstance(node, ast.Dict):
         return {}
@@ -173,6 +240,9 @@ def _kw(
     direct = next((item.value for item in call.keywords if item.arg == name), None)
     if direct is not None:
         return direct
+    local_expanded = getattr(call, "_horustrace_expanded_kwargs", None)
+    if isinstance(local_expanded, dict) and name in local_expanded:
+        return local_expanded[name]
     if not dicts:
         return None
     for item in call.keywords:
@@ -1166,6 +1236,14 @@ def scan_python_file(path: Path) -> Graph:
                 )
                 if server:
                     sdk_servers[name] = server
+
+    # Preserve call-site scope for simple **kwargs before the file-wide
+    # mutation pass changes shared binding tables.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and _call_name(node.func) == "ClaudeAgentOptions":
+            expanded = _local_expanded_kwargs(tree, node)
+            if expanded:
+                setattr(node, "_horustrace_expanded_kwargs", expanded)
 
     _record_container_mutations(tree, sequences, dicts, values)
 
