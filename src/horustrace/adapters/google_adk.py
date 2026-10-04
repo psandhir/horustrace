@@ -1377,6 +1377,19 @@ def _tool_from_call(
             metadata["additional_scopes"] = _list_strings(_kw(call, "additional_scopes"))
             metadata["service_account"] = _kw(call, "service_account") is not None
             metadata["client_secret_literal"] = bool(_string(_kw(call, "client_secret")))
+        if name == "SkillToolset":
+            executor = _kw(call, "code_executor")
+            executor_call = executor if isinstance(executor, ast.Call) else _resolve_call(executor, calls)
+            executor_name = _call_name(executor_call.func) if executor_call else None
+            if executor_name in CODE_EXECUTORS:
+                sandboxed, executor_kind = CODE_EXECUTORS[executor_name]
+                metadata["skill_code_executor"] = executor_name
+                metadata["skill_execution_boundary"] = executor_kind
+                if executor_kind == "provider-managed":
+                    caps.add("provider.code.execute")
+                else:
+                    caps.update({"process.execute", "data.read", "data.write"})
+                    metadata["sandboxed"] = sandboxed
         if name == "ComputerUseToolset":
             metadata["interactive_control"] = True
         if name in {"BigQueryToolset", "BigtableToolset", "DataAgentToolset"}:
