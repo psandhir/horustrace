@@ -11,6 +11,7 @@ from horustrace.models import (
     Finding,
     Graph,
     Identity,
+    NetworkDestination,
     ResourceScope,
     Severity,
     SourceLocation,
@@ -312,3 +313,96 @@ def test_visual_report_cli_accepts_explicit_output(tmp_path: Path) -> None:
 
     assert output.exists()
     assert "Security assessment" in output.read_text(encoding="utf-8")
+
+
+
+def test_visual_report_exposes_csharp_source_effect_evidence(
+    tmp_path: Path,
+) -> None:
+    binding = SourceLocation(tmp_path / "Program.cs", line=20)
+    destination_location = SourceLocation(
+        tmp_path / "Tools" / "CurrencyConverterTool.cs",
+        line=18,
+        column=39,
+    )
+    tool = Tool(
+        name="ConvertCurrency",
+        kind="function",
+        capabilities={"network.external"},
+        destinations=[
+            NetworkDestination(
+                target="https://open.er-api.com/v6/",
+                location=destination_location,
+                metadata={
+                    "source": "csharp_class_base_address",
+                    "repository_effect_summary": True,
+                    "source_symbol": (
+                        "CurrencyConverterTool.ConvertCurrency"
+                    ),
+                },
+            )
+        ],
+        location=binding,
+        metadata={
+            "framework": "microsoft-agent-framework-dotnet",
+            "repository_effect_resolution": "resolved",
+            "repository_effect_partial": False,
+            "repository_effect_unresolved_calls": [],
+            "repository_effect_sources": [
+                "Tools/CurrencyConverterTool.cs"
+            ],
+            "repository_effect_evidence_details": [
+                {
+                    "path": "Tools/CurrencyConverterTool.cs",
+                    "line": 34,
+                    "column": 5,
+                    "symbol": (
+                        "CurrencyConverterTool.ConvertCurrency"
+                    ),
+                    "kind": "csharp_method",
+                }
+            ],
+            "repository_effect_capability_evidence": {
+                "network.external": [
+                    {
+                        "path": "Tools/CurrencyConverterTool.cs",
+                        "line": 43,
+                        "column": 35,
+                        "symbol": (
+                            "CurrencyConverterTool.ConvertCurrency"
+                        ),
+                        "kind": "csharp_effect",
+                    }
+                ]
+            },
+        },
+    )
+    graph = Graph(
+        agents=[
+            Agent(
+                name="ItineraryPlannerAgent",
+                tools=[tool],
+                location=binding,
+                metadata={
+                    "framework": "microsoft-agent-framework-dotnet"
+                },
+            )
+        ]
+    )
+    graph.adg = build_adg(graph, tmp_path)
+
+    report = build_visual_report(graph, [], tmp_path)
+    relationship = report["agents"][0]["effective_authority"][0]
+
+    assert any(
+        item["kind"] == "SOURCE_EFFECT"
+        and item.get("capability") == "network.external"
+        and item["location"]["path"] == "Tools/CurrencyConverterTool.cs"
+        for item in relationship["evidence"]
+    )
+    assert relationship["semantics"]["source_effect_resolution"] == "resolved"
+
+    html = render_visual_report_html(graph, [], tmp_path)
+    assert "SOURCE_EFFECT" in html
+    assert "Tools/CurrencyConverterTool.cs" in html
+    assert str(tmp_path) not in html
