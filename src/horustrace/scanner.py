@@ -99,6 +99,7 @@ from horustrace.models import (
 )
 from horustrace.path_safety import canonical_root, is_within_root
 from horustrace.provenance import annotate, attach_findings, context
+from horustrace.pydantic_repository import enrich_pydantic_repository_graph
 from horustrace.rag_semantics import enrich_streamlit_rag_directory_semantics
 from horustrace.realtime_session_semantics import enrich_public_realtime_mcp_authority
 from horustrace.registry_config import (
@@ -110,7 +111,6 @@ from horustrace.repository_csharp_effect_semantics import (
 )
 from horustrace.repository_effect_semantics import enrich_repository_tool_effects
 from horustrace.repository_tool_semantics import enrich_indirect_tool_content_semantics
-from horustrace.pydantic_repository import enrich_pydantic_repository_graph
 from horustrace.rules.builtin import evaluate
 from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
 from horustrace.runtime_viability import annotate_runtime_viability
