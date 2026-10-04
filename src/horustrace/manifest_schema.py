@@ -31,8 +31,21 @@ AUTHORITY_CONTRACT = {
     'mcp_tools': [MCP_TOOL_CONTRACT],
 }
 POLICY = dict.fromkeys(
-    ('required', 'required_capabilities', 'deny', 'denied_capabilities', 'allowed_resources',
-     'resources', 'allowed_destinations', 'destinations', 'require_approval_for'), STRINGS
+    (
+        'required',
+        'required_capabilities',
+        'deny',
+        'denied_capabilities',
+        'required_skills',
+        'allowed_skills',
+        'denied_skills',
+        'allowed_resources',
+        'resources',
+        'allowed_destinations',
+        'destinations',
+        'require_approval_for',
+    ),
+    STRINGS,
 ) | {'max_privileged_capabilities': int, 'authority': AUTHORITY_CONTRACT}
 TOOL = dict.fromkeys(('name', 'kind', 'identity'), str) | dict.fromkeys(
     ('capabilities', 'capability', 'destinations', 'destination'), STRINGS
