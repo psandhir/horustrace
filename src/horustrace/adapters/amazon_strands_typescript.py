@@ -17,9 +17,8 @@ from horustrace.models import (
 
 FRAMEWORK = "strands-agents"
 _SDK = "@strands-agents/sdk"
-_URL_RE = re.compile(r"https?://[^\\s\\\"'\\)\\]\\}<>]+")
+_URL_RE = re.compile(r"https?://[^\\s\\\"')\\]\\}<>]+")
 _BINDING_RE = re.compile(r"\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*")
-_STRING_RE = re.compile(r"^[\\s]*[\\\"']([^\\\"']+)[\\\"'][\\s]*$")
 
 _VENDED_TOOL_CAPABILITIES: dict[str, set[str]] = {
     "fileEditor": {"data.read", "data.write"},
@@ -39,13 +38,18 @@ _VENDED_TOOL_CAPABILITIES: dict[str, set[str]] = {
 
 
 def _location(path: Path, source: str, offset: int) -> SourceLocation:
-    line = source.count("\\n", 0, max(0, offset)) + 1
-    last_newline = source.rfind("\\n", 0, max(0, offset))
+    line = source.count("\n", 0, max(0, offset)) + 1
+    last_newline = source.rfind("\n", 0, max(0, offset))
     column = offset - last_newline
     return SourceLocation(path, line, max(1, column))
 
 
-def _balanced(source: str, start: int, opener: str, closer: str) -> tuple[str, int] | None:
+def _balanced(
+    source: str,
+    start: int,
+    opener: str,
+    closer: str,
+) -> tuple[str, int] | None:
     if start < 0 or start >= len(source) or source[start] != opener:
         return None
     depth = 0
@@ -123,7 +127,11 @@ def _array_property(text: str, name: str) -> list[str]:
         value = item.strip()
         if not value:
             continue
-        match = re.match(r"([A-Za-z_$][\\w$]*)(?:\\.asTool\\s*\\(.*)?$", value, re.DOTALL)
+        match = re.match(
+            r"([A-Za-z_$][\\w$]*)(?:\\.asTool\\s*\\(.*)?$",
+            value,
+            re.DOTALL,
+        )
         if match:
             refs.append(match.group(1))
     return refs
@@ -132,24 +140,48 @@ def _array_property(text: str, name: str) -> list[str]:
 def _effect_capabilities(name: str, text: str) -> set[str]:
     lower = text.lower()
     capabilities = set(infer_capabilities(name))
-    if any(marker in lower for marker in ("fetch(", "axios.", "http.", "https.", "request(")):
+    if any(
+        marker in lower
+        for marker in ("fetch(", "axios.", "http.", "https.", "request(")
+    ):
         capabilities.add("network.external")
-    if any(marker in lower for marker in (".post(", ".put(", ".patch(", "method: 'post'", 'method: "post"')):
+    if any(
+        marker in lower
+        for marker in (
+            ".post(",
+            ".put(",
+            ".patch(",
+            "method: 'post'",
+            'method: "post"',
+        )
+    ):
         capabilities.update({"data.write", "external.write"})
     if any(marker in lower for marker in (".delete(", "unlink(", "rm(", "remove(")):
         capabilities.update({"data.write", "destructive.write"})
-    if any(marker in lower for marker in ("exec(", "spawn(", "child_process", "bun.$", "deno.command")):
+    if any(
+        marker in lower
+        for marker in ("exec(", "spawn(", "child_process", "bun.$", "deno.command")
+    ):
         capabilities.add("process.execute")
     if any(marker in lower for marker in ("getsecretvalue", "secretsmanager", "secret")):
         capabilities.add("secrets.read")
     if any(marker in lower for marker in ("getobject", "getitem", "query(", "scan(")):
         capabilities.add("data.read")
-    if any(marker in lower for marker in ("putobject", "putitem", "updateitem", "writefile")):
+    if any(
+        marker in lower
+        for marker in ("putobject", "putitem", "updateitem", "writefile")
+    ):
         capabilities.add("data.write")
     return capabilities
 
 
-def _destinations(path: Path, source: str, offset: int, text: str, capabilities: set[str]) -> list[NetworkDestination]:
+def _destinations(
+    path: Path,
+    source: str,
+    offset: int,
+    text: str,
+    capabilities: set[str],
+) -> list[NetworkDestination]:
     if "network.external" not in capabilities:
         return []
     seen: set[str] = set()
@@ -163,7 +195,10 @@ def _destinations(path: Path, source: str, offset: int, text: str, capabilities:
                 target=target,
                 restricted=True,
                 location=_location(path, source, offset),
-                metadata={"source": "literal_url", "network_scope": "fixed_literal_destination"},
+                metadata={
+                    "source": "literal_url",
+                    "network_scope": "fixed_literal_destination",
+                },
             )
         )
     return result
@@ -212,7 +247,13 @@ def _tool_bindings(
             name=explicit or variable,
             kind="function",
             capabilities=capabilities,
-            destinations=_destinations(path, source, binding.start(), body, capabilities),
+            destinations=_destinations(
+                path,
+                source,
+                binding.start(),
+                body,
+                capabilities,
+            ),
             location=_location(path, source, binding.start()),
             metadata={
                 "framework": FRAMEWORK,
@@ -240,7 +281,10 @@ def _vended_tools(path: Path, source: str) -> dict[str, Tool]:
             imported = parts[0].strip()
             local = parts[-1].strip()
             capabilities = set(
-                _VENDED_TOOL_CAPABILITIES.get(imported, infer_capabilities(imported))
+                _VENDED_TOOL_CAPABILITIES.get(
+                    imported,
+                    infer_capabilities(imported),
+                )
             )
             result[local] = Tool(
                 name=imported,
@@ -282,7 +326,15 @@ def _mcp_server(
         url_match = _URL_RE.search(body)
         if url_match:
             url = url_match.group(0)
-    authenticated = True if re.search(r"\\b(headers|authorization|token)\\b", body, re.IGNORECASE) else None
+    authenticated = (
+        True
+        if re.search(
+            r"\\b(headers|authorization|token)\\b",
+            body,
+            re.IGNORECASE,
+        )
+        else None
+    )
     metadata = {
         "framework": FRAMEWORK,
         "language": "typescript",
@@ -332,7 +384,14 @@ def _model_metadata(body: str) -> dict[str, object]:
 
 
 def is_amazon_strands_typescript_file(path: Path) -> bool:
-    if path.suffix.lower() not in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}:
+    if path.suffix.lower() not in {
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx",
+        ".mjs",
+        ".cjs",
+    }:
         return False
     try:
         source = path.read_text(encoding="utf-8")
@@ -351,9 +410,21 @@ def scan_amazon_strands_typescript_file(path: Path) -> Graph:
         return graph
 
     imports = _named_imports(source, _SDK)
-    agent_symbols = {local for local, imported in imports.items() if imported == "Agent"}
-    tool_symbols = {local for local, imported in imports.items() if imported == "tool"}
-    mcp_symbols = {local for local, imported in imports.items() if imported == "McpClient"}
+    agent_symbols = {
+        local
+        for local, imported in imports.items()
+        if imported == "Agent"
+    }
+    tool_symbols = {
+        local
+        for local, imported in imports.items()
+        if imported == "tool"
+    }
+    mcp_symbols = {
+        local
+        for local, imported in imports.items()
+        if imported == "McpClient"
+    }
     if not agent_symbols:
         return graph
 
@@ -363,7 +434,13 @@ def scan_amazon_strands_typescript_file(path: Path) -> Graph:
 
     mcp_lookup: dict[str, MCPServer] = {}
     for variable, body, offset in _constructor_bindings(source, mcp_symbols):
-        mcp_lookup[variable] = _mcp_server(path, source, variable, body, offset)
+        mcp_lookup[variable] = _mcp_server(
+            path,
+            source,
+            variable,
+            body,
+            offset,
+        )
 
     agents_by_variable: dict[str, Agent] = {}
     raw_tools: dict[str, list[str]] = {}
@@ -416,7 +493,8 @@ def scan_amazon_strands_typescript_file(path: Path) -> Graph:
                     Tool(
                         name=child.name,
                         kind="delegated_agent",
-                        capabilities={"agent.delegate"} | set(child.capabilities),
+                        capabilities={"agent.delegate"}
+                        | set(child.capabilities),
                         resources=deepcopy(child.effective_resources),
                         destinations=deepcopy(child.effective_destinations),
                         location=agent.location,
@@ -425,19 +503,35 @@ def scan_amazon_strands_typescript_file(path: Path) -> Graph:
                             "language": "typescript",
                             "delegate_target": child.name,
                             "authority_binding": "delegation_projection",
-                            "authority_binding_basis": "strands_agent_as_tool",
+                            "authority_binding_basis": (
+                                "strands_agent_as_tool"
+                            ),
                         },
                     )
                 )
-                agent.metadata.setdefault("delegates_to", []).append(child.name)
+                agent.metadata.setdefault("delegates_to", []).append(
+                    child.name
+                )
         graph.agents.append(agent)
 
-    bound_mcp = {server.name for agent in graph.agents for server in agent.mcp_servers}
+    bound_mcp = {
+        server.name
+        for agent in graph.agents
+        for server in agent.mcp_servers
+    }
     graph.unbound_mcp_servers.extend(
-        server for name, server in mcp_lookup.items() if name not in bound_mcp
+        server
+        for name, server in mcp_lookup.items()
+        if name not in bound_mcp
     )
-    bound_tools = {tool.name for agent in graph.agents for tool in agent.tools}
+    bound_tools = {
+        tool.name
+        for agent in graph.agents
+        for tool in agent.tools
+    }
     graph.unbound_tools.extend(
-        tool for tool in tool_lookup.values() if tool.name not in bound_tools
+        tool
+        for tool in tool_lookup.values()
+        if tool.name not in bound_tools
     )
     return graph
