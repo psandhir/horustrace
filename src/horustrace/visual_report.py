@@ -338,6 +338,69 @@ def build_visual_report(
             }
         )
 
+    skill_inventory: dict[tuple[str, str], dict[str, Any]] = {}
+    for agent in graph.agents:
+        for skill in agent.skills:
+            location = (
+                _relative_path(str(skill.location.path), root)
+                if skill.location
+                else ""
+            )
+            key = (skill.name, location)
+            item = skill_inventory.setdefault(
+                key,
+                {
+                    "name": skill.name,
+                    "description": skill.description,
+                    "location": (
+                        {
+                            "path": location,
+                            "line": skill.location.line,
+                            "column": skill.location.column,
+                        }
+                        if skill.location
+                        else None
+                    ),
+                    "allowed_tools": sorted(skill.allowed_tools),
+                    "scripts": list(skill.scripts),
+                    "bound_agents": [],
+                    "binding_state": "bound",
+                },
+            )
+            if agent.name not in item["bound_agents"]:
+                item["bound_agents"].append(agent.name)
+    for skill in graph.unbound_skills:
+        location = (
+            _relative_path(str(skill.location.path), root)
+            if skill.location
+            else ""
+        )
+        key = (skill.name, location)
+        skill_inventory.setdefault(
+            key,
+            {
+                "name": skill.name,
+                "description": skill.description,
+                "location": (
+                    {
+                        "path": location,
+                        "line": skill.location.line,
+                        "column": skill.location.column,
+                    }
+                    if skill.location
+                    else None
+                ),
+                "allowed_tools": sorted(skill.allowed_tools),
+                "scripts": list(skill.scripts),
+                "bound_agents": [],
+                "binding_state": "unbound",
+            },
+        )
+    skills = sorted(
+        skill_inventory.values(),
+        key=lambda item: (item["name"], (item.get("location") or {}).get("path", "")),
+    )
+
     owasp = build_owasp_agentic_summary(
         findings,
         disabled_rules=graph.configuration_audit.get("disabled_rules", []),
@@ -379,6 +442,7 @@ def build_visual_report(
             "analysis_incomplete": graph.coverage.incomplete,
         },
         "agents": agents,
+        "skills": skills,
         "findings": findings_docs,
         "assurance": assurance,
         "authority_contract": contract,
@@ -855,9 +919,12 @@ function renderContracts(mode="all"){{
 
 function renderEvidence(){{
  const c=DATA.coverage,diags=c.diagnostics||[],considered=Number(c.files_considered||0),scanned=Number(c.files_scanned||0),pct=considered?Math.max(0,Math.min(100,Math.round(scanned/considered*100))):0;
+ const skills=DATA.skills||[];
+ const skillRows=skills.map(s=>'<tr><td><div class="row-title">'+esc(s.name)+'</div><div class="row-sub">'+loc(s.location)+'</div></td><td>'+badge(s.binding_state)+'</td><td>'+esc((s.bound_agents||[]).join(", ")||"—")+'</td><td>'+esc((s.allowed_tools||[]).join(", ")||"—")+'</td><td>'+number((s.scripts||[]).length)+'</td></tr>').join("");
  document.getElementById("evidence").innerHTML=pageHead("Trust & provenance","Scan evidence","Coverage, diagnostics and report provenance used to qualify the assessment.",badge(c.incomplete?"unresolved":"compliant"))+
  '<div class="cards">'+metric("Files considered",c.files_considered)+metric("Files scanned",c.files_scanned)+metric("Files skipped",c.files_skipped)+metric("Files failed",c.files_failed,c.files_failed?"high":"")+'</div>'+
  sectionHead("Coverage status","Use coverage gaps to qualify confidence in scanner conclusions.")+'<div class="panel"><div class="kv"><div>Status</div><div>'+badge(c.incomplete?"unresolved":"compliant")+'</div><div>Scan completion</div><div>'+number(pct)+'%<div class="coverage-track"><div class="coverage-fill" style="width:'+pct+'%"></div></div></div><div>ASG digest</div><div><code>'+esc(DATA.security_graph.digest)+'</code></div><div>Suppressed findings</div><div>'+number(DATA.suppressed_findings.length)+'</div><div>Report model</div><div><code>'+esc(DATA.model)+' / schema '+esc(DATA.schema_version)+'</code></div></div></div>'+
+ sectionHead("Skill inventory","Portable agent skills discovered in the repository. Unbound means discovered but not source-proven as available to an agent.")+(skillRows?'<div class="panel flush table-wrap"><table><thead><tr><th>Skill</th><th>Binding</th><th>Agents</th><th>Allowed tools</th><th>Scripts</th></tr></thead><tbody>'+skillRows+'</tbody></table></div>':'<div class="empty">No Agent Skills were discovered.</div>')+
  sectionHead("Diagnostics","Coverage or parsing conditions that may affect completeness.")+(diags.length?diags.map(d=>'<div class="finding" data-sev="medium"><div class="finding-title"><strong>'+esc(d.diagnostic_id||d.code)+'</strong><span class="badge medium">diagnostic</span></div><p>'+esc(d.message)+'</p><div class="muted small">'+loc(d.location)+'</div></div>').join(""):'<div class="empty">No detected coverage diagnostics.</div>');
 }}
 
