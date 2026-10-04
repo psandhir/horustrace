@@ -106,13 +106,99 @@ def _literal(node: ast.AST | None) -> Any:
         return None
 
 
-def _kw(call: ast.Call, name: str) -> ast.AST | None:
-    return next((item.value for item in call.keywords if item.arg == name), None)
+def _expr_key(node: ast.AST | None) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return _dotted(node)
+    return None
 
 
 def _targets(node: ast.Assign | ast.AnnAssign) -> list[str]:
     raw = node.targets if isinstance(node, ast.Assign) else [node.target]
-    return [target.id for target in raw if isinstance(target, ast.Name)]
+    result: list[str] = []
+    for target in raw:
+        key = _expr_key(target)
+        if key:
+            result.append(key)
+    return result
+
+
+def _local_expanded_kwargs(
+    tree: ast.AST,
+    call: ast.Call,
+) -> tuple[dict[str, ast.AST], bool]:
+    """Resolve simple **kwargs dictionaries at the call site.
+
+    The file-wide binding tables intentionally stay bounded, but the same local
+    variable name is commonly reused in different functions. Resolve the nearest
+    preceding dict assignment for each expanded keyword at this call site, then
+    replay simple subscript/update mutations up to the call. This avoids leaking
+    a later function's options into an earlier ClaudeAgentOptions(**kwargs).
+    """
+    anchor = getattr(call, "lineno", 0) or 0
+    result: dict[str, ast.AST] = {}
+    complete = True
+
+    for keyword in call.keywords:
+        if keyword.arg is not None:
+            continue
+        if isinstance(keyword.value, ast.Dict):
+            result.update(_dict_nodes(keyword.value))
+            continue
+
+        alias = _expr_key(keyword.value)
+        if not alias:
+            complete = False
+            continue
+
+        candidates: list[tuple[int, ast.Dict]] = []
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
+                continue
+            line = getattr(node, "lineno", 0) or 0
+            if line > anchor or not isinstance(node.value, ast.Dict):
+                continue
+            if alias in _targets(node):
+                candidates.append((line, node.value))
+        if not candidates:
+            complete = False
+            continue
+
+        start_line, base = max(candidates, key=lambda item: item[0])
+        entries = dict(_dict_nodes(base))
+
+        events = sorted(
+            (
+                node
+                for node in ast.walk(tree)
+                if start_line < (getattr(node, "lineno", 0) or 0) <= anchor
+            ),
+            key=lambda node: getattr(node, "lineno", 0) or 0,
+        )
+        for node in events:
+            if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
+                raw_targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                for target in raw_targets:
+                    if not isinstance(target, ast.Subscript):
+                        continue
+                    if _expr_key(target.value) != alias:
+                        continue
+                    key = _literal(target.slice)
+                    if isinstance(key, str):
+                        entries[key] = node.value
+            elif isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+                mutation = node.value
+                if not isinstance(mutation.func, ast.Attribute):
+                    continue
+                if mutation.func.attr != "update" or _expr_key(mutation.func.value) != alias:
+                    continue
+                if len(mutation.args) == 1 and isinstance(mutation.args[0], ast.Dict):
+                    entries.update(_dict_nodes(mutation.args[0]))
+
+        result.update(entries)
+
+    return result, complete
 
 
 def _dict_nodes(node: ast.AST | None) -> dict[str, ast.AST]:
@@ -126,28 +212,120 @@ def _dict_nodes(node: ast.AST | None) -> dict[str, ast.AST]:
     return result
 
 
-def _list_nodes(node: ast.AST | None, sequences: dict[str, list[ast.AST]]) -> list[ast.AST]:
-    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
-        return list(node.elts)
-    if isinstance(node, ast.Name):
-        return list(sequences.get(node.id, []))
+def _resolve_node(
+    node: ast.AST | None,
+    values: dict[str, ast.AST] | None = None,
+) -> ast.AST | None:
+    current = node
+    seen: set[str] = set()
+    for _ in range(6):
+        if current is None:
+            return None
+        key = _expr_key(current)
+        if not key or not values or key not in values or key in seen:
+            return current
+        seen.add(key)
+        current = values[key]
+    return current
+
+
+def _mapping_entries(
+    node: ast.AST | None,
+    dicts: dict[str, ast.Dict],
+    values: dict[str, ast.AST] | None = None,
+) -> dict[str, ast.AST]:
+    current = _resolve_node(node, values)
+    key = _expr_key(current)
+    if key and key in dicts:
+        current = dicts[key]
+    return _dict_nodes(current)
+
+
+def _kw(
+    call: ast.Call,
+    name: str,
+    dicts: dict[str, ast.Dict] | None = None,
+    values: dict[str, ast.AST] | None = None,
+) -> ast.AST | None:
+    direct = next((item.value for item in call.keywords if item.arg == name), None)
+    if direct is not None:
+        return direct
+    local_expanded = getattr(call, "_horustrace_expanded_kwargs", None)
+    if isinstance(local_expanded, dict):
+        if name in local_expanded:
+            return local_expanded[name]
+        if getattr(call, "_horustrace_expanded_kwargs_complete", False):
+            return None
+    if not dicts:
+        return None
+    for item in call.keywords:
+        if item.arg is not None:
+            continue
+        entries = _mapping_entries(item.value, dicts, values)
+        if name in entries:
+            return entries[name]
+    return None
+
+
+def _resolved_literal(
+    node: ast.AST | None,
+    values: dict[str, ast.AST] | None = None,
+) -> Any:
+    current = _resolve_node(node, values)
+    if (
+        isinstance(current, ast.Call)
+        and _call_name(current.func) == "cast"
+        and len(current.args) >= 2
+    ):
+        current = _resolve_node(current.args[1], values)
+    return _literal(current)
+
+
+def _list_nodes(
+    node: ast.AST | None,
+    sequences: dict[str, list[ast.AST]],
+    values: dict[str, ast.AST] | None = None,
+) -> list[ast.AST]:
+    current = _resolve_node(node, values)
+    if isinstance(current, (ast.List, ast.Tuple, ast.Set)):
+        result: list[ast.AST] = []
+        for item in current.elts:
+            if isinstance(item, ast.Starred):
+                result.extend(_list_nodes(item.value, sequences, values))
+            else:
+                result.append(item)
+        return result
+    if isinstance(current, ast.BinOp) and isinstance(current.op, ast.Add):
+        return _list_nodes(current.left, sequences, values) + _list_nodes(
+            current.right, sequences, values
+        )
+    key = _expr_key(current)
+    if key:
+        return list(sequences.get(key, []))
     return []
 
 
-def _string_list(node: ast.AST | None, sequences: dict[str, list[ast.AST]]) -> list[str] | None:
-    elements = _list_nodes(node, sequences)
-    if not elements and node is not None:
-        literal = _literal(node)
+def _string_list(
+    node: ast.AST | None,
+    sequences: dict[str, list[ast.AST]],
+    values: dict[str, ast.AST] | None = None,
+) -> list[str] | None:
+    elements = _list_nodes(node, sequences, values)
+    current = _resolve_node(node, values)
+    if current is None:
+        return None
+    if not elements:
+        literal = _literal(current)
         if isinstance(literal, (list, tuple, set)):
             return [str(item) for item in literal if isinstance(item, str)]
         return None
-    values: list[str] = []
+    resolved: list[str] = []
     for element in elements:
-        value = _literal(element)
+        value = _resolved_literal(element, values)
         if not isinstance(value, str):
             return None
-        values.append(value)
-    return values
+        resolved.append(value)
+    return resolved
 
 
 def _expr_reference(node: ast.AST | None) -> str | None:
@@ -489,6 +667,49 @@ def _mcp_from_dict(
     )
 
 
+def _mcp_from_call(
+    path: Path,
+    name: str,
+    call: ast.Call,
+) -> MCPServer | None:
+    called = _call_name(call.func)
+    transport_by_type = {
+        "McpStdioServerConfig": "stdio",
+        "McpSSEServerConfig": "sse",
+        "McpHttpServerConfig": "http",
+        "McpSdkServerConfig": "sdk",
+    }
+    transport = transport_by_type.get(str(called))
+    if transport is None:
+        return None
+    command = _literal(_kw(call, "command"))
+    url = _literal(_kw(call, "url"))
+    args = _literal(_kw(call, "args"))
+    headers_node = _kw(call, "headers")
+    authenticated, auth_keys = _auth_headers(headers_node)
+    return MCPServer(
+        name=name,
+        transport=transport,
+        url=str(url) if isinstance(url, str) else None,
+        command=str(command) if isinstance(command, str) else None,
+        args=[str(item) for item in args] if isinstance(args, list) else [],
+        authenticated=authenticated if isinstance(url, str) else None,
+        location=_location(path, call),
+        metadata={
+            "framework": FRAMEWORK,
+            "source": f"ClaudeAgentOptions.mcp_servers.{called}",
+            "typed_sdk_config": True,
+            "auth_headers": auth_keys,
+            "dynamic_mcp_endpoint": bool(
+                _kw(call, "url") is not None and not isinstance(url, str)
+            ),
+            "dynamic_command": bool(
+                _kw(call, "command") is not None and not isinstance(command, str)
+            ),
+        },
+    )
+
+
 def _sdk_server_from_call(
     path: Path,
     alias: str,
@@ -536,31 +757,41 @@ def _resolve_mcp_servers(
     node: ast.AST | None,
     sdk_servers: dict[str, MCPServer],
     dicts: dict[str, ast.Dict],
+    values: dict[str, ast.AST] | None = None,
 ) -> tuple[list[MCPServer], bool]:
     if node is None:
         return [], False
-    if isinstance(node, ast.Name):
-        if node.id in dicts:
-            node = dicts[node.id]
-        else:
-            return [], True
-    if isinstance(node, (ast.Constant, ast.JoinedStr)):
+    current = _resolve_node(node, values)
+    if isinstance(current, (ast.Constant, ast.JoinedStr)):
         return [], True
-    entries = _dict_nodes(node)
-    if isinstance(node, ast.Dict) and not node.keys:
+    entries = _mapping_entries(current, dicts, values)
+    if isinstance(current, ast.Dict) and not current.keys:
         return [], False
     if not entries:
         return [], True
     result: list[MCPServer] = []
     dynamic = False
-    for name, value in entries.items():
-        if isinstance(value, ast.Name) and value.id in sdk_servers:
-            server = deepcopy(sdk_servers[value.id])
+    for name, raw_value in entries.items():
+        raw_key = _expr_key(raw_value)
+        if raw_key and raw_key in sdk_servers:
+            server = deepcopy(sdk_servers[raw_key])
             server.name = name
             server.metadata["configured_name"] = name
             result.append(server)
             continue
-        server = _mcp_from_dict(path, name, value)
+        value = _resolve_node(raw_value, values)
+        key = _expr_key(value)
+        if key and key in sdk_servers:
+            server = deepcopy(sdk_servers[key])
+            server.name = name
+            server.metadata["configured_name"] = name
+            result.append(server)
+            continue
+        server: MCPServer | None = None
+        if isinstance(value, ast.Dict):
+            server = _mcp_from_dict(path, name, value)
+        elif isinstance(value, ast.Call):
+            server = _mcp_from_call(path, name, value)
         if server is not None:
             result.append(server)
         else:
@@ -660,9 +891,12 @@ def _option_agent(
     call: ast.Call | None,
     sequences: dict[str, list[ast.AST]],
     dicts: dict[str, ast.Dict],
+    values: dict[str, ast.AST],
     custom_tools: dict[str, Tool],
     sdk_servers: dict[str, MCPServer],
     subagents: dict[str, Agent],
+    *,
+    unresolved_options: ast.AST | None = None,
 ) -> Agent:
     location = _location(path, call) if call is not None else SourceLocation(path)
     agent = Agent(
@@ -675,19 +909,24 @@ def _option_agent(
         },
     )
     if call is None:
+        if unresolved_options is not None:
+            agent.metadata["dynamic_options"] = True
+            agent.metadata["options_expression"] = _expr_reference(unresolved_options)
+            agent.metadata["tool_surface"] = "unresolved"
+            return agent
         agent.metadata["options_defaulted"] = True
         agent.metadata["tool_surface"] = "runtime_default"
         for tool_name in _SECURITY_RELEVANT_DEFAULT_TOOLS:
             agent.tools.append(_builtin_tool(path, tool_name, location))
         return agent
 
-    model = _literal(_kw(call, "model"))
+    model = _resolved_literal(_kw(call, "model", dicts, values), values)
     if isinstance(model, str):
         agent.metadata["model"] = model
 
-    tools_node = _kw(call, "tools")
-    tool_names = _string_list(tools_node, sequences)
-    preset = _literal(tools_node)
+    tools_node = _kw(call, "tools", dicts, values)
+    tool_names = _string_list(tools_node, sequences, values)
+    preset = _resolved_literal(tools_node, values)
     default_surface = tools_node is None or (
         isinstance(preset, dict)
         and preset.get("type") == "preset"
@@ -705,22 +944,39 @@ def _option_agent(
         agent.metadata["dynamic_tools"] = True
         agent.metadata["tool_surface"] = "dynamic"
 
-    allowed = _string_list(_kw(call, "allowed_tools"), sequences) or []
-    denied = _string_list(_kw(call, "disallowed_tools"), sequences) or []
-    permission_mode = _literal(_kw(call, "permission_mode"))
+    allowed_node = _kw(call, "allowed_tools", dicts, values)
+    denied_node = _kw(call, "disallowed_tools", dicts, values)
+    allowed = _string_list(allowed_node, sequences, values) or []
+    denied = _string_list(denied_node, sequences, values) or []
+    permission_mode = _resolved_literal(
+        _kw(call, "permission_mode", dicts, values),
+        values,
+    )
+    hooks_node = _resolve_node(_kw(call, "hooks", dicts, values), values)
     _apply_permission_semantics(
         agent,
         allowed,
         denied,
         permission_mode if isinstance(permission_mode, str) else None,
-        _kw(call, "can_use_tool"),
-        _kw(call, "hooks"),
+        _resolve_node(_kw(call, "can_use_tool", dicts, values), values),
+        hooks_node,
     )
+    if allowed_node is not None and not allowed:
+        agent.metadata["dynamic_allowed_tools"] = True
+    if denied_node is not None and not denied:
+        agent.metadata["dynamic_disallowed_tools"] = True
 
-    strict_mcp = _literal(_kw(call, "strict_mcp_config"))
+    strict_mcp = _resolved_literal(
+        _kw(call, "strict_mcp_config", dicts, values),
+        values,
+    )
     if isinstance(strict_mcp, bool):
         agent.metadata["strict_mcp_config"] = strict_mcp
-    setting_sources = _string_list(_kw(call, "setting_sources"), sequences)
+    setting_sources = _string_list(
+        _kw(call, "setting_sources", dicts, values),
+        sequences,
+        values,
+    )
     if setting_sources is not None:
         agent.metadata["setting_sources"] = setting_sources
         agent.metadata["filesystem_settings_disabled"] = setting_sources == []
@@ -729,7 +985,7 @@ def _option_agent(
         agent.metadata["external_settings_may_apply"] = True
     agent.metadata["managed_policy_may_apply"] = True
 
-    sandbox = _literal(_kw(call, "sandbox"))
+    sandbox = _resolved_literal(_kw(call, "sandbox", dicts, values), values)
     if isinstance(sandbox, dict):
         agent.metadata["sandbox"] = sandbox
         if sandbox.get("enabled") is True:
@@ -745,14 +1001,36 @@ def _option_agent(
             if tool.name in {"Read", "Glob", "Grep", "Write", "Edit", "NotebookEdit", "Bash"}:
                 tool.resources.extend(deepcopy(resources))
 
+    mcp_node = _kw(call, "mcp_servers", dicts, values)
     servers, dynamic_mcp = _resolve_mcp_servers(
         path,
-        _kw(call, "mcp_servers"),
+        mcp_node,
         sdk_servers,
         dicts,
+        values,
     )
     agent.mcp_servers.extend(servers)
+    if dynamic_mcp:
+        agent.metadata["dynamic_mcp_servers"] = True
+        agent.mcp_servers.append(
+            MCPServer(
+                name="<dynamic-mcp>",
+                transport="dynamic",
+                authenticated=None,
+                location=location,
+                metadata={
+                    "framework": FRAMEWORK,
+                    "source": "ClaudeAgentOptions.mcp_servers",
+                    "reference_only": True,
+                    "conditional": True,
+                    "tool_catalogue_unresolved": True,
+                    "expression": _expr_reference(mcp_node),
+                },
+            )
+        )
     for server in agent.mcp_servers:
+        if server.name == "<dynamic-mcp>":
+            continue
         server_prefix = f"mcp__{server.name}"
         auto_approved = [
             rule
@@ -771,16 +1049,15 @@ def _option_agent(
             server.metadata["approval_scope"] = "per_tool"
         if denied_rules:
             server.metadata["denied_tool_rules"] = denied_rules
-    if dynamic_mcp:
-        agent.metadata["dynamic_mcp_servers"] = True
 
-    agents_node = _kw(call, "agents")
-    if isinstance(agents_node, ast.Name) and agents_node.id in dicts:
-        agents_node = dicts[agents_node.id]
-    for subagent_name, value in _dict_nodes(agents_node).items():
+    agents_node = _resolve_node(_kw(call, "agents", dicts, values), values)
+    agent_entries = _mapping_entries(agents_node, dicts, values)
+    for subagent_name, raw_value in agent_entries.items():
+        value = _resolve_node(raw_value, values)
         target: Agent | None = None
-        if isinstance(value, ast.Name):
-            target = subagents.get(value.id)
+        key = _expr_key(value)
+        if key:
+            target = subagents.get(key)
         elif isinstance(value, ast.Call) and _call_name(value.func) == "AgentDefinition":
             target = _subagent_from_call(
                 path,
@@ -796,9 +1073,6 @@ def _option_agent(
         if target.name != subagent_name:
             target = deepcopy(target)
             target.name = subagent_name
-        # Preserve inline AgentDefinition objects as first-class graph agents.
-        # This also lets the generic effective-authority layer project the
-        # delegated agent's own tools/resources instead of only the edge.
         subagents.setdefault(subagent_name, deepcopy(target))
         agent.metadata.setdefault("delegates_to", []).append(target.name)
         delegated = Tool(
@@ -816,7 +1090,89 @@ def _option_agent(
             },
         )
         agent.tools.append(delegated)
+
+    if agents_node is not None and not agent_entries:
+        resolved_agents_node = _resolve_node(agents_node, values)
+        explicitly_empty = (
+            isinstance(resolved_agents_node, ast.Constant)
+            and resolved_agents_node.value is None
+        ) or (
+            isinstance(resolved_agents_node, ast.Dict)
+            and not resolved_agents_node.keys
+        )
+        if not explicitly_empty:
+            agent.metadata["dynamic_subagents"] = True
+            agent.metadata["unresolved_subagent_registry"] = _expr_reference(
+                resolved_agents_node
+            )
+            agent.tools.append(
+                Tool(
+                    name="<dynamic-subagents>",
+                    kind="delegated_agent",
+                    capabilities={"agent.delegate"},
+                    location=location,
+                    metadata={
+                        "framework": FRAMEWORK,
+                        "authority_binding": "dynamic_agent_registry",
+                        "authority_binding_basis": "ClaudeAgentOptions.agents",
+                        "conditional": True,
+                        "delegate_target_unresolved": True,
+                    },
+                )
+            )
     return agent
+
+def _resolve_option_calls(
+    node: ast.AST | None,
+    option_calls: dict[str, ast.Call],
+    function_returns: dict[str, list[ast.Call]],
+    values: dict[str, ast.AST],
+) -> list[ast.Call]:
+    current = _resolve_node(node, values)
+    if isinstance(current, ast.Call) and _call_name(current.func) == "ClaudeAgentOptions":
+        return [current]
+    key = _expr_key(current)
+    if key and key in option_calls:
+        return [option_calls[key]]
+    if isinstance(current, ast.Call):
+        return list(function_returns.get(_call_name(current.func) or "", []))
+    return []
+
+
+def _record_container_mutations(
+    tree: ast.AST,
+    sequences: dict[str, list[ast.AST]],
+    dicts: dict[str, ast.Dict],
+    values: dict[str, ast.AST],
+) -> None:
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
+            raw_targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in raw_targets:
+                if not isinstance(target, ast.Subscript):
+                    continue
+                base = _expr_key(target.value)
+                key = _literal(target.slice)
+                if base and isinstance(key, str) and base in dicts:
+                    dicts[base].keys.append(ast.Constant(value=key))
+                    dicts[base].values.append(node.value)
+
+        if not isinstance(node, ast.Expr) or not isinstance(node.value, ast.Call):
+            continue
+        call = node.value
+        if not isinstance(call.func, ast.Attribute):
+            continue
+        base = _expr_key(call.func.value)
+        if not base:
+            continue
+        if call.func.attr == "append" and len(call.args) == 1 and base in sequences:
+            sequences[base].append(call.args[0])
+        elif call.func.attr == "extend" and len(call.args) == 1 and base in sequences:
+            sequences[base].extend(_list_nodes(call.args[0], sequences, values))
+        elif call.func.attr == "update" and len(call.args) == 1 and base in dicts:
+            for key, value in _mapping_entries(call.args[0], dicts, values).items():
+                dicts[base].keys.append(ast.Constant(value=key))
+                dicts[base].values.append(value)
 
 
 def scan_python_file(path: Path) -> Graph:
@@ -830,10 +1186,25 @@ def scan_python_file(path: Path) -> Graph:
 
     sequences: dict[str, list[ast.AST]] = {}
     dicts: dict[str, ast.Dict] = {}
+    values: dict[str, ast.AST] = {}
     option_calls: dict[str, ast.Call] = {}
     custom_tools: dict[str, Tool] = {}
     sdk_servers: dict[str, MCPServer] = {}
     subagent_defs: dict[str, Agent] = {}
+
+    # Literal/default function parameters are useful for builders such as
+    # build_claude_options(permission_mode="bypassPermissions").
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        positional = list(node.args.posonlyargs) + list(node.args.args)
+        if node.args.defaults:
+            for arg, default in zip(positional[-len(node.args.defaults):], node.args.defaults):
+                if arg.arg not in values:
+                    values[arg.arg] = default
+        for arg, default in zip(node.args.kwonlyargs, node.args.kw_defaults):
+            if default is not None and arg.arg not in values:
+                values[arg.arg] = default
 
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -845,6 +1216,8 @@ def scan_python_file(path: Path) -> Graph:
         if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
             continue
         names = _targets(node)
+        for name in names:
+            values[name] = node.value
         if isinstance(node.value, (ast.List, ast.Tuple, ast.Set)):
             for name in names:
                 sequences[name] = list(node.value.elts)
@@ -877,6 +1250,18 @@ def scan_python_file(path: Path) -> Graph:
                 if server:
                     sdk_servers[name] = server
 
+    # Preserve call-site scope for simple **kwargs before the file-wide
+    # mutation pass changes shared binding tables.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and _call_name(node.func) == "ClaudeAgentOptions":
+            expanded, complete = _local_expanded_kwargs(tree, node)
+            if expanded:
+                node._horustrace_expanded_kwargs = expanded  # type: ignore[attr-defined]
+            if complete and any(keyword.arg is None for keyword in node.keywords):
+                node._horustrace_expanded_kwargs_complete = True  # type: ignore[attr-defined]
+
+    _record_container_mutations(tree, sequences, dicts, values)
+
     # Second pass re-resolves subagents now that SDK MCP declarations are known.
     for node in ast.walk(tree):
         if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
@@ -893,41 +1278,83 @@ def scan_python_file(path: Path) -> Graph:
                 custom_tools,
             )
 
-    roots: list[Agent] = []
-    used_option_aliases: set[str] = set()
-
+    # Summarise simple helper/method return values. This intentionally handles
+    # only direct ClaudeAgentOptions returns or aliases already resolved in-file.
+    function_returns: dict[str, list[ast.Call]] = {}
     for node in ast.walk(tree):
-        if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        if not isinstance(node.value, ast.Call) or _call_name(node.value.func) != "ClaudeSDKClient":
+        candidates: list[ast.Call] = []
+        for child in ast.walk(node):
+            if not isinstance(child, ast.Return):
+                continue
+            current = _resolve_node(child.value, values)
+            if isinstance(current, ast.Call) and _call_name(current.func) == "ClaudeAgentOptions":
+                candidates.append(current)
+                continue
+            key = _expr_key(current)
+            if key and key in option_calls:
+                candidates.append(option_calls[key])
+        if candidates:
+            unique: list[ast.Call] = []
+            seen: set[int] = set()
+            for call in candidates:
+                if id(call) not in seen:
+                    unique.append(call)
+                    seen.add(id(call))
+            function_returns[node.name] = unique
+
+    roots: list[Agent] = []
+    used_option_calls: set[int] = set()
+
+    # ClaudeSDKClient can appear in assignments, returns, attributes and
+    # async-with expressions. Scan constructor calls directly rather than only
+    # assignment statements.
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or _call_name(node.func) != "ClaudeSDKClient":
             continue
-        aliases = _targets(node)
-        if not aliases:
-            continue
-        option_node = _kw(node.value, "options")
-        if option_node is None and node.value.args:
-            option_node = node.value.args[0]
-        call: ast.Call | None = None
-        if isinstance(option_node, ast.Name):
-            call = option_calls.get(option_node.id)
-            used_option_aliases.add(option_node.id)
-        elif (
-            isinstance(option_node, ast.Call)
-            and _call_name(option_node.func) == "ClaudeAgentOptions"
-        ):
-            call = option_node
-        roots.append(
-            _option_agent(
-                path,
-                aliases[0],
-                call,
-                sequences,
-                dicts,
-                custom_tools,
-                sdk_servers,
-                subagent_defs,
-            )
+        option_node = _kw(node, "options", dicts, values)
+        if option_node is None and node.args:
+            option_node = node.args[0]
+        calls = _resolve_option_calls(
+            option_node,
+            option_calls,
+            function_returns,
+            values,
         )
+        base_name = _expr_key(option_node) or f"claude-client@{getattr(node, 'lineno', 1)}"
+        if calls:
+            for index, call in enumerate(calls):
+                used_option_calls.add(id(call))
+                root_name = base_name if len(calls) == 1 else f"{base_name}#{index + 1}"
+                roots.append(
+                    _option_agent(
+                        path,
+                        root_name,
+                        call,
+                        sequences,
+                        dicts,
+                        values,
+                        custom_tools,
+                        sdk_servers,
+                        subagent_defs,
+                    )
+                )
+        else:
+            roots.append(
+                _option_agent(
+                    path,
+                    base_name,
+                    None,
+                    sequences,
+                    dicts,
+                    values,
+                    custom_tools,
+                    sdk_servers,
+                    subagent_defs,
+                    unresolved_options=option_node if option_node is not None else None,
+                )
+            )
 
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or _call_name(node.func) != "query":
@@ -935,35 +1362,51 @@ def scan_python_file(path: Path) -> Graph:
         # Avoid treating client.query(...) as the top-level SDK query() function.
         if isinstance(node.func, ast.Attribute):
             continue
-        option_node = _kw(node, "options")
-        call: ast.Call | None = None
-        option_alias: str | None = None
-        if isinstance(option_node, ast.Name):
-            option_alias = option_node.id
-            call = option_calls.get(option_alias)
-            used_option_aliases.add(option_alias)
-        elif (
-            isinstance(option_node, ast.Call)
-            and _call_name(option_node.func) == "ClaudeAgentOptions"
-        ):
-            call = option_node
-        roots.append(
-            _option_agent(
-                path,
-                option_alias or f"claude-query@{getattr(node, 'lineno', 1)}",
-                call,
-                sequences,
-                dicts,
-                custom_tools,
-                sdk_servers,
-                subagent_defs,
-            )
+        option_node = _kw(node, "options", dicts, values)
+        calls = _resolve_option_calls(
+            option_node,
+            option_calls,
+            function_returns,
+            values,
         )
+        base_name = _expr_key(option_node) or f"claude-query@{getattr(node, 'lineno', 1)}"
+        if calls:
+            for index, call in enumerate(calls):
+                used_option_calls.add(id(call))
+                root_name = base_name if len(calls) == 1 else f"{base_name}#{index + 1}"
+                roots.append(
+                    _option_agent(
+                        path,
+                        root_name,
+                        call,
+                        sequences,
+                        dicts,
+                        values,
+                        custom_tools,
+                        sdk_servers,
+                        subagent_defs,
+                    )
+                )
+        else:
+            roots.append(
+                _option_agent(
+                    path,
+                    base_name,
+                    None,
+                    sequences,
+                    dicts,
+                    values,
+                    custom_tools,
+                    sdk_servers,
+                    subagent_defs,
+                    unresolved_options=option_node if option_node is not None else None,
+                )
+            )
 
-    # If options are defined but passed through an unresolved wrapper, preserve an
-    # explicit agent observation rather than dropping all authority evidence.
+    # Preserve configured options that are passed through wrappers the bounded
+    # resolver cannot connect to an SDK entrypoint.
     for alias, call in option_calls.items():
-        if alias in used_option_aliases:
+        if id(call) in used_option_calls:
             continue
         roots.append(
             _option_agent(
@@ -972,12 +1415,43 @@ def scan_python_file(path: Path) -> Graph:
                 call,
                 sequences,
                 dicts,
+                values,
                 custom_tools,
                 sdk_servers,
                 subagent_defs,
             )
         )
         roots[-1].metadata["execution_binding_unresolved"] = True
+        used_option_calls.add(id(call))
+
+    # Configuration builders are frequently defined in one module and consumed
+    # by query()/ClaudeSDKClient in another. Preserve their returned option
+    # surface as evidence even when this file contains no local entrypoint.
+    for function_name, calls in function_returns.items():
+        for index, call in enumerate(calls):
+            if id(call) in used_option_calls:
+                continue
+            builder_name = (
+                function_name
+                if len(calls) == 1
+                else f"{function_name}#{index + 1}"
+            )
+            roots.append(
+                _option_agent(
+                    path,
+                    builder_name,
+                    call,
+                    sequences,
+                    dicts,
+                    values,
+                    custom_tools,
+                    sdk_servers,
+                    subagent_defs,
+                )
+            )
+            roots[-1].metadata["execution_binding_unresolved"] = True
+            roots[-1].metadata["option_builder_return"] = True
+            used_option_calls.add(id(call))
 
     graph.agents.extend(roots)
 
@@ -1027,12 +1501,35 @@ def scan_python_file(path: Path) -> Graph:
                     details={"framework": FRAMEWORK},
                 )
             )
+        if agent.metadata.get("dynamic_options"):
+            add_diagnostic(
+                graph.coverage,
+                ScanDiagnostic(
+                    "dynamic_configuration",
+                    "Claude Agent SDK options binding could not be fully resolved statically.",
+                    agent.location,
+                    details={
+                        "framework": FRAMEWORK,
+                        "expression": agent.metadata.get("options_expression"),
+                    },
+                )
+            )
         if agent.metadata.get("dynamic_mcp_servers"):
             add_diagnostic(
                 graph.coverage,
                 ScanDiagnostic(
                     "dynamic_configuration",
                     "Claude Agent SDK MCP configuration could not be fully resolved statically.",
+                    agent.location,
+                    details={"framework": FRAMEWORK},
+                )
+            )
+        if agent.metadata.get("dynamic_subagents"):
+            add_diagnostic(
+                graph.coverage,
+                ScanDiagnostic(
+                    "unresolved_delegation",
+                    "Claude Agent SDK subagent registry could not be fully resolved statically.",
                     agent.location,
                     details={"framework": FRAMEWORK},
                 )
