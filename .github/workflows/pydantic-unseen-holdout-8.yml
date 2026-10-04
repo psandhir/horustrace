@@ -1,0 +1,84 @@
+name: Pydantic Unseen Holdout 8
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/pydantic-unseen-holdout-8
+    paths:
+      - ".github/workflows/pydantic-unseen-holdout-8.yml"
+      - "research/pydantic-unseen-holdout-8/**"
+  pull_request:
+    paths:
+      - ".github/workflows/pydantic-unseen-holdout-8.yml"
+      - "research/pydantic-unseen-holdout-8/**"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: pydantic-unseen-holdout-8-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: ${{ matrix.case_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        case_id:
+          - pyd-hold-001
+          - pyd-hold-002
+          - pyd-hold-003
+          - pyd-hold-004
+          - pyd-hold-005
+          - pyd-hold-006
+          - pyd-hold-007
+          - pyd-hold-008
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+      - name: Generate frozen scan bundle
+        run: |
+          python research/pydantic-unseen-holdout-8/run_case.py \
+            --case-id "${{ matrix.case_id }}" \
+            --output-dir artifacts
+      - name: Upload case bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pydantic-holdout-case-${{ matrix.case_id }}
+          path: artifacts/${{ matrix.case_id }}/
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    name: Aggregate Pydantic holdout
+    if: always()
+    needs: scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: pydantic-holdout-case-*
+          path: downloaded
+          merge-multiple: false
+      - name: Aggregate
+        run: |
+          python research/pydantic-unseen-holdout-8/aggregate.py --input downloaded --output aggregate
+          cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pydantic-unseen-holdout-8-summary
+          path: aggregate/
+          if-no-files-found: error
+          retention-days: 30
