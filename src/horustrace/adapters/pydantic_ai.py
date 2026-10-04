@@ -1379,6 +1379,111 @@ def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer |
     )
 
 
+
+def _mcp_capability_server(
+    path: Path,
+    expr: ast.Call,
+    assignments: dict[str, ast.AST],
+    *,
+    alias: str,
+) -> MCPServer | None:
+    """Resolve Pydantic MCP capability transport composition without execution."""
+    local = _kw(expr, "local")
+    if local is None:
+        direct = _mcp_server_from_call(path, expr, alias)
+        if direct is not None:
+            direct.metadata.setdefault("source", "MCP")
+        return direct
+
+    resolved = _resolved_expr(local, assignments)
+    if not isinstance(resolved, ast.Call):
+        server = MCPServer(
+            name=alias,
+            transport="unknown",
+            approval=None,
+            location=_location(path, expr),
+            metadata={
+                "framework": "pydantic-ai",
+                "source": "MCP",
+                "dynamic_mcp_endpoint": True,
+                "tool_catalogue_unresolved": True,
+                "local_transport_expression": _expr_reference(local),
+            },
+        )
+        return server
+
+    transport_name = _call_name(resolved.func) or ""
+    if transport_name == "StdioTransport":
+        command_node = _kw(resolved, "command")
+        if command_node is None and resolved.args:
+            command_node = resolved.args[0]
+        args_node = _kw(resolved, "args")
+        command = _literal(command_node)
+        args = _literal(args_node)
+        return MCPServer(
+            name=alias,
+            transport="stdio",
+            command=command if isinstance(command, str) else None,
+            args=[
+                str(item) for item in args
+            ] if isinstance(args, (list, tuple)) else [],
+            approval=None,
+            location=_location(path, expr),
+            metadata={
+                "framework": "pydantic-ai",
+                "source": "MCP",
+                "transport_source": "StdioTransport",
+                "dynamic_command": command_node is not None and not isinstance(command, str),
+                "dynamic_args": args_node is not None and not isinstance(args, (list, tuple)),
+                "tool_catalogue_unresolved": True,
+            },
+        )
+
+    if transport_name in {
+        "StreamableHTTPTransport",
+        "StreamableHttpTransport",
+        "SSETransport",
+    }:
+        url_node = _kw(resolved, "url")
+        if url_node is None and resolved.args:
+            url_node = resolved.args[0]
+        url = _literal(url_node)
+        return MCPServer(
+            name=alias,
+            transport=(
+                "sse" if transport_name == "SSETransport" else "streamable-http"
+            ),
+            url=url if isinstance(url, str) else None,
+            authenticated=_auth_state(resolved),
+            approval=None,
+            location=_location(path, expr),
+            metadata={
+                "framework": "pydantic-ai",
+                "source": "MCP",
+                "transport_source": transport_name,
+                "dynamic_mcp_endpoint": not isinstance(url, str),
+                "dynamic_mcp_endpoint_basis": (
+                    "operator_configuration" if not isinstance(url, str) else None
+                ),
+                "tool_catalogue_unresolved": True,
+            },
+        )
+
+    return MCPServer(
+        name=alias,
+        transport="unknown",
+        approval=None,
+        location=_location(path, expr),
+        metadata={
+            "framework": "pydantic-ai",
+            "source": "MCP",
+            "transport_source": transport_name or "dynamic",
+            "dynamic_mcp_endpoint": True,
+            "tool_catalogue_unresolved": True,
+        },
+    )
+
+
 def _mcp_server_from_expr(
     path: Path,
     expr: ast.AST,
@@ -2670,6 +2775,7 @@ def scan_python_file(path: Path) -> Graph:
     assignments: dict[str, ast.AST] = {}
     sequences: dict[str, list[ast.AST]] = {}
     imports: dict[str, str] = {}
+    imported_symbols: dict[str, str] = {}
     agent_calls: dict[str, ast.Call] = {}
     factory_agent_aliases: set[str] = set()
     declared_mcp_servers: dict[str, MCPServer] = {}
@@ -2680,7 +2786,9 @@ def scan_python_file(path: Path) -> Graph:
         if isinstance(node, ast.ImportFrom):
             module = node.module or ""
             for alias in node.names:
-                imports[alias.asname or alias.name] = module
+                local_name = alias.asname or alias.name
+                imports[local_name] = module
+                imported_symbols[local_name] = alias.name
         elif isinstance(node, ast.Import):
             for alias in node.names:
                 imports[alias.asname or alias.name.split(".")[0]] = alias.name
@@ -3088,11 +3196,29 @@ def scan_python_file(path: Path) -> Graph:
                             ).append(bundle_name)
                         continue
 
-                    tool, server, control = _capability_from_expr(
-                        path,
-                        element,
-                        assignments,
+                    canonical_capability = (
+                        imported_symbols.get(_call_name(element.func) or "")
+                        if isinstance(element, ast.Call)
+                        else None
                     )
+                    if (
+                        isinstance(element, ast.Call)
+                        and canonical_capability == "MCP"
+                    ):
+                        tool = None
+                        server = _mcp_capability_server(
+                            path,
+                            element,
+                            assignments,
+                            alias=str(_literal(_kw(element, "id")) or "mcp"),
+                        )
+                        control = None
+                    else:
+                        tool, server, control = _capability_from_expr(
+                            path,
+                            element,
+                            assignments,
+                        )
                     if tool is not None:
                         _merge_tool(agent.tools, tool)
                         if tool.kind in {
