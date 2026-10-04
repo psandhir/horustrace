@@ -19,6 +19,7 @@ from horustrace.models import (
     Graph,
     Identity,
     InputSource,
+    MCPServer,
     NetworkDestination,
     ResourceScope,
     SourceLocation,
@@ -1436,6 +1437,8 @@ def _function_sequences(func: ast.FunctionDef | ast.AsyncFunctionDef) -> dict[st
                     _add_sequence_values(seq, list(arg.elts))
                 elif isinstance(arg, ast.Name) and arg.id in sequences:
                     _add_sequence_values(seq, sequences[arg.id])
+                elif isinstance(arg, ast.Call):
+                    _add_sequence_values(seq, [arg])
     return sequences
 
 
@@ -1475,6 +1478,89 @@ def _mcp_from_repository_toolset(
     )
 
 
+def _function_context(
+    info: ModuleInfo,
+    func: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> ModuleInfo:
+    """Build a conservative source-only overlay for one repository helper."""
+    context = copy.copy(info)
+    context.calls = dict(info.calls)
+    context.assignments = dict(info.assignments)
+    context.constants = dict(info.constants)
+    context.imports = dict(info.imports)
+    context.sequences = _function_sequences(func)
+
+    local_calls: dict[str, list[ast.Call]] = {}
+    for node in _module_statements(func.body):
+        if isinstance(node, ast.ImportFrom):
+            module = _relative(
+                info.module,
+                node.level,
+                node.module,
+                current_is_package=info.path.name == "__init__.py",
+            )
+            for alias in node.names:
+                if alias.name != "*":
+                    context.imports[alias.asname or alias.name] = (module, alias.name)
+            continue
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                context.imports[alias.asname or alias.name.split(".")[0]] = (
+                    alias.name,
+                    "",
+                )
+            continue
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        value = node.value
+        for target in targets:
+            if not isinstance(target, ast.Name) or value is None:
+                continue
+            context.assignments[target.id] = value
+            literal = _literal(value)
+            if literal is not None:
+                context.constants[target.id] = literal
+            if isinstance(value, ast.Call):
+                local_calls.setdefault(target.id, []).append(value)
+
+    for name, calls in local_calls.items():
+        if len(calls) == 1:
+            context.calls[name] = calls[0]
+        else:
+            # A single local name reused across branches must not resolve to
+            # whichever assignment happened to appear last in the file.
+            context.calls.pop(name, None)
+    return context
+
+
+def _factory_return_values(
+    func: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> list[ast.AST]:
+    result: list[ast.AST] = []
+    stack: list[ast.AST] = list(reversed(func.body))
+    while stack:
+        node = stack.pop()
+        if isinstance(node, ast.Return):
+            if node.value is not None:
+                result.append(node.value)
+            continue
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            continue
+        stack.extend(reversed(list(ast.iter_child_nodes(node))))
+    return result
+
+
+def _factory_has_runtime_mcp_registry(
+    func: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> bool:
+    return any(
+        isinstance(node, ast.Call)
+        and (_name(node.func) or "") in {"get_mcp_toolset", "list_mcp_servers"}
+        for node in ast.walk(func)
+    )
+
+
 def _simple_factory(func: ast.FunctionDef | ast.AsyncFunctionDef | None) -> ast.Call | None:
     if func is None:
         return None
@@ -1492,6 +1578,7 @@ def _resolve_tools(
     expr: ast.AST | None,
     sequences: dict[str, list[ast.AST]] | None = None,
     visited_sequences: set[tuple[str, str]] | None = None,
+    visited_factories: set[tuple[str, str]] | None = None,
 ) -> tuple[list[Tool], list, list[Identity], set[tuple[Path, int]]]:
     tools: list[Tool] = []
     mcp_servers: list = []
@@ -1500,6 +1587,9 @@ def _resolve_tools(
     visited_sequences = (
         set() if visited_sequences is None else set(visited_sequences)
     )
+    visited_factories = (
+        set() if visited_factories is None else set(visited_factories)
+    )
 
     def add_function(target: ModuleInfo, func: ast.FunctionDef | ast.AsyncFunctionDef, ref: ast.AST) -> None:
         tool, identity = _function_tool(modules, target, func)
@@ -1507,6 +1597,71 @@ def _resolve_tools(
         if identity:
             identities.append(identity)
         resolved_refs.add((info.path, getattr(ref, "lineno", 1)))
+
+    def resolve_factory_call(
+        source_info: ModuleInfo,
+        call: ast.Call,
+        ref: ast.AST,
+    ) -> tuple[list[Tool], list, list[Identity], set[tuple[Path, int]]] | None:
+        helper: tuple[ModuleInfo, ast.FunctionDef | ast.AsyncFunctionDef] | None = None
+        if isinstance(call.func, ast.Name):
+            if call.func.id in source_info.functions:
+                helper = (source_info, source_info.functions[call.func.id])
+            else:
+                imported = _imported_symbol(modules, source_info, call.func.id)
+                if imported and imported[1] in imported[0].functions:
+                    helper = (imported[0], imported[0].functions[imported[1]])
+        elif isinstance(call.func, ast.Attribute):
+            helper = _attribute_function(modules, source_info, call.func)
+        if helper is None:
+            return None
+
+        target, factory = helper
+        key = (target.module, factory.name)
+        if key in visited_factories:
+            return None
+
+        context = _function_context(target, factory)
+        nested_tools: list[Tool] = []
+        nested_mcp: list = []
+        nested_identities: list[Identity] = []
+        nested_refs: set[tuple[Path, int]] = set()
+        for returned in _factory_return_values(factory):
+            resolved = _resolve_tools(
+                modules,
+                context,
+                returned,
+                context.sequences,
+                visited_sequences,
+                visited_factories | {key},
+            )
+            nested_tools.extend(resolved[0])
+            nested_mcp.extend(resolved[1])
+            nested_identities.extend(resolved[2])
+            nested_refs.update(resolved[3])
+
+        if _factory_has_runtime_mcp_registry(factory) and not nested_mcp:
+            nested_mcp.append(
+                MCPServer(
+                    name=f"{factory.name}:runtime-mcp",
+                    transport="unknown",
+                    location=_loc(target.path, factory),
+                    metadata={
+                        "framework": "google-adk",
+                        "repository_resolved": True,
+                        "conditional_runtime_binding": True,
+                        "dynamic_mcp_endpoint": True,
+                        "dynamic_mcp_endpoint_basis": "runtime_registry",
+                        "tool_catalogue_unresolved": True,
+                        "source_function": factory.name,
+                    },
+                )
+            )
+
+        if not nested_tools and not nested_mcp and not nested_identities:
+            return None
+        nested_refs.add((info.path, getattr(ref, "lineno", 1)))
+        return nested_tools, nested_mcp, nested_identities, nested_refs
 
     for item in _resolve_repository_sequence(modules, info, expr, sequences):
         if isinstance(item, ast.Name):
@@ -1546,6 +1701,7 @@ def _resolve_tools(
                             assigned,
                             target.sequences,
                             visited_sequences | {sequence_key},
+                            visited_factories,
                         )
                     )
                     tools.extend(nested_tools)
@@ -1559,6 +1715,41 @@ def _resolve_tools(
                     continue
                 if symbol in target.calls:
                     call = target.calls[symbol]
+                    factory_result = resolve_factory_call(target, call, item)
+                    if factory_result:
+                        tools.extend(factory_result[0])
+                        mcp_servers.extend(factory_result[1])
+                        identities.extend(factory_result[2])
+                        resolved_refs.update(factory_result[3])
+                        continue
+                    if (_name(call.func) or "") in {
+                        "FunctionTool",
+                        "LongRunningFunctionTool",
+                        "AuthenticatedFunctionTool",
+                    }:
+                        wrapped = _kw(call, "func") or (call.args[0] if call.args else None)
+                        wrapped_name = _name(wrapped)
+                        if wrapped_name and wrapped_name in target.functions:
+                            tool, identity = _function_tool(
+                                modules, target, target.functions[wrapped_name]
+                            )
+                            tool.metadata.update(
+                                {
+                                    "wrapper": _name(call.func),
+                                    "import_module": target.module,
+                                    "source_function": wrapped_name,
+                                    "repository_resolved": True,
+                                }
+                            )
+                            approval = _literal(_kw(call, "require_confirmation"))
+                            if isinstance(approval, bool):
+                                tool.approval = approval
+                                tool.guardrails = approval
+                            tools.append(tool)
+                            if identity:
+                                identities.append(identity)
+                            resolved_refs.add((info.path, item.lineno))
+                            continue
                     mcp = _mcp_from_repository_toolset(target, call, symbol)
                     if mcp:
                         mcp_servers.append(mcp)
@@ -1592,6 +1783,13 @@ def _resolve_tools(
 
             if item.id in info.calls:
                 call = info.calls[item.id]
+                factory_result = resolve_factory_call(info, call, item)
+                if factory_result:
+                    tools.extend(factory_result[0])
+                    mcp_servers.extend(factory_result[1])
+                    identities.extend(factory_result[2])
+                    resolved_refs.update(factory_result[3])
+                    continue
                 mcp = _mcp_from_repository_toolset(info, call, item.id)
                 if mcp:
                     mcp_servers.append(mcp)
@@ -1631,30 +1829,13 @@ def _resolve_tools(
                 continue
 
         elif isinstance(item, ast.Call):
-            # Resolve helper factories returning a concrete ADK tool/toolset.
-            helper: tuple[ModuleInfo, ast.FunctionDef | ast.AsyncFunctionDef] | None = None
-            if isinstance(item.func, ast.Name):
-                if item.func.id in info.functions:
-                    helper = (info, info.functions[item.func.id])
-                else:
-                    imported = _imported_symbol(modules, info, item.func.id)
-                    if imported and imported[1] in imported[0].functions:
-                        helper = (imported[0], imported[0].functions[imported[1]])
-            if helper:
-                target, factory = helper
-                returned = _simple_factory(factory)
-                if returned is not None:
-                    alias = _name(returned.func) or _name(item.func) or "tool"
-                    mcp = _mcp_from_repository_toolset(target, returned, alias)
-                    if mcp:
-                        mcp_servers.append(mcp)
-                        resolved_refs.add((info.path, item.lineno))
-                        continue
-                    tool = _tool_from_call(target.path, returned, alias, target.calls, target.functions)
-                    if tool:
-                        tools.append(tool)
-                        resolved_refs.add((info.path, item.lineno))
-                        continue
+            factory_result = resolve_factory_call(info, item, item)
+            if factory_result:
+                tools.extend(factory_result[0])
+                mcp_servers.extend(factory_result[1])
+                identities.extend(factory_result[2])
+                resolved_refs.update(factory_result[3])
+                continue
 
             alias = _name(item.func) or "tool"
             mcp = _mcp_from_repository_toolset(info, item, alias)
