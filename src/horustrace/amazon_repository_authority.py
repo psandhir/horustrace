@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml
 
-from horustrace.models import Graph, Identity, ResourceScope, Tool
+from horustrace.models import Graph, Identity, Tool
 
 
 _TF_BLOCK_RE = re.compile(
