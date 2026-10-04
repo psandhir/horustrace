@@ -1808,6 +1808,24 @@ def _string_expr(
     return None
 
 
+def _skill_directory_strings(
+    expr: ast.AST | None,
+    assignments: dict[str, ast.AST],
+) -> list[str]:
+    if expr is None:
+        return []
+    resolved = _resolved_expr(expr, assignments)
+    if isinstance(resolved, (ast.List, ast.Tuple, ast.Set)):
+        values = [
+            value
+            for item in resolved.elts
+            if (value := _string_expr(item, assignments)) is not None
+        ]
+        return list(dict.fromkeys(values))
+    value = _string_expr(resolved, assignments)
+    return [value] if value is not None else []
+
+
 def _workspace_spec_from_expr(
     expr: ast.AST,
     assignments: dict[str, ast.AST],
@@ -2102,24 +2120,30 @@ def _harness_special_capability(
         return True
 
     if name == "Skills":
-        selector = _string_expr(
-            resolved.args[0] if resolved.args else _kw(resolved, "directory"),
-            assignments,
+        directories_node = (
+            resolved.args[0]
+            if resolved.args
+            else (
+                _kw(resolved, "directories")
+                or _kw(resolved, "directory")
+                or _kw(resolved, "paths")
+            )
         )
+        directories = _skill_directory_strings(directories_node, assignments)
         tool = Tool(
             name="Skills",
-            kind="skills",
+            kind="skills_loader",
             capabilities={"data.read"},
             location=_location(path, resolved),
             metadata={
                 "framework": "pydantic-ai",
                 "capability": "Skills",
                 "deferred_capability_catalogue": True,
-                "dynamic_authority": True,
+                "dynamic_authority": not bool(directories),
                 "scripts_executed": False,
             },
         )
-        if selector:
+        for selector in directories:
             _resource_once(
                 tool,
                 kind="file",
@@ -2129,7 +2153,14 @@ def _harness_special_capability(
                 metadata={"source": "pydantic_harness_skills"},
             )
         _merge_tool(agent.tools, tool)
-        agent.metadata["dynamic_tools"] = True
+        if directories:
+            existing = list(agent.metadata.get("skill_source_paths") or [])
+            agent.metadata["skill_source_paths"] = list(
+                dict.fromkeys([*existing, *directories])
+            )
+            agent.metadata["skill_loader"] = "pydantic_ai_harness.Skills"
+        else:
+            agent.metadata["dynamic_skill_sources"] = True
         return True
 
     if name == "CapabilityCreation":
