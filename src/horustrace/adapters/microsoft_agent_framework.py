@@ -28,7 +28,7 @@ from horustrace.models import (
 )
 
 _FRAMEWORK_PREFIX = "agent_framework"
-_AGENT_TYPES = {"Agent", "FoundryAgent"}
+_AGENT_TYPES = {"Agent", "ChatAgent", "FoundryAgent"}
 
 _MCP_TYPES = {
     "MCPStdioTool": "stdio",
