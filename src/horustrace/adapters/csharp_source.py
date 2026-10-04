@@ -50,6 +50,99 @@ def location(path: Path, source: str, offset: int) -> SourceLocation:
     return SourceLocation(path=path, line=line, column=column)
 
 
+def mask_comments(source: str) -> str:
+    """Mask C# comments while preserving literals, offsets, and newlines."""
+    result = list(source)
+    n = len(source)
+    i = 0
+
+    def blank(start: int, end: int) -> None:
+        for j in range(start, min(end, n)):
+            if result[j] != "\n":
+                result[j] = " "
+
+    while i < n:
+        if source.startswith("//", i):
+            end = source.find("\n", i + 2)
+            end = n if end < 0 else end
+            blank(i, end)
+            i = end
+            continue
+        if source.startswith("/*", i):
+            end = source.find("*/", i + 2)
+            end = n if end < 0 else end + 2
+            blank(i, end)
+            i = end
+            continue
+
+        if source[i] == '"':
+            q = i
+            while q < n and source[q] == '"':
+                q += 1
+            count = q - i
+            if count >= 3:
+                marker = '"' * count
+                end = source.find(marker, q)
+                i = n if end < 0 else end + count
+                continue
+
+        if (
+            source.startswith('@"', i)
+            or source.startswith('$@"', i)
+            or source.startswith('@$"', i)
+        ):
+            quote = source.find('"', i)
+            j = quote + 1
+            while j < n:
+                if source[j] == '"':
+                    if j + 1 < n and source[j + 1] == '"':
+                        j += 2
+                        continue
+                    j += 1
+                    break
+                j += 1
+            i = j
+            continue
+
+        if source[i] == '"' or (
+            source[i] == "$" and i + 1 < n and source[i + 1] == '"'
+        ):
+            j = i + 1 if source[i] == '"' else i + 2
+            escaped = False
+            while j < n:
+                ch = source[j]
+                if escaped:
+                    escaped = False
+                elif ch == "\\":
+                    escaped = True
+                elif ch == '"':
+                    j += 1
+                    break
+                j += 1
+            i = j
+            continue
+
+        if source[i] == "'":
+            j = i + 1
+            escaped = False
+            while j < n:
+                ch = source[j]
+                if escaped:
+                    escaped = False
+                elif ch == "\\":
+                    escaped = True
+                elif ch == "'":
+                    j += 1
+                    break
+                j += 1
+            i = j
+            continue
+
+        i += 1
+
+    return "".join(result)
+
+
 def mask_non_code(source: str) -> str:
     """Mask comments and literals while preserving offsets and newlines."""
     result = list(source)
