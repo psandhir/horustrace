@@ -17,7 +17,7 @@ from horustrace.models import (
 
 FRAMEWORK = "strands-agents"
 _SDK = "@strands-agents/sdk"
-_URL_RE = re.compile(r"https?://[^\s\\"')\]\}<>]+")
+_URL_RE = re.compile(r"https?://[^\s\"')\]\}<>]+")
 _BINDING_RE = re.compile(r"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*")
 
 _VENDED_TOOL_CAPABILITIES: dict[str, set[str]] = {
@@ -84,9 +84,9 @@ def _balanced(
 def _named_imports(source: str, module: str) -> dict[str, str]:
     result: dict[str, str] = {}
     pattern = re.compile(
-        r"import\s*\{(?P<body>.*?)\}\s*from\s*[\\"']"
+        r"import\s*\{(?P<body>.*?)\}\s*from\s*[\"']"
         + re.escape(module)
-        + r"[\\"']",
+        + r"[\"']",
         re.DOTALL,
     )
     for match in pattern.finditer(source):
@@ -104,7 +104,7 @@ def _named_imports(source: str, module: str) -> dict[str, str]:
 
 def _string_property(text: str, name: str) -> str | None:
     match = re.search(
-        rf"\b{re.escape(name)}\s*:\s*([\\"'])(.*?)\1",
+        rf"\b{re.escape(name)}\s*:\s*([\"'])(.*?)\1",
         text,
         re.DOTALL,
     )
@@ -268,8 +268,8 @@ def _tool_bindings(
 def _vended_tools(path: Path, source: str) -> dict[str, Tool]:
     result: dict[str, Tool] = {}
     pattern = re.compile(
-        r"import\s*\{(?P<body>.*?)\}\s*from\s*([\\"'])"
-        r"(?P<module>@strands-agents/sdk/vended-tools/[^\\"']+)\2",
+        r"import\s*\{(?P<body>.*?)\}\s*from\s*([\"'])"
+        r"(?P<module>@strands-agents/sdk/vended-tools/[^\"']+)\2",
         re.DOTALL,
     )
     for match in pattern.finditer(source):
@@ -317,7 +317,7 @@ def _mcp_server(
         command = _string_property(body, "command")
         raw_args = re.search(r"\bargs\s*:\s*\[(.*?)\]", body, re.DOTALL)
         if raw_args:
-            args = re.findall(r"[\\"']([^\\"']+)[\\"']", raw_args.group(1))
+            args = re.findall(r"[\"']([^\"']+)[\"']", raw_args.group(1))
     elif "StreamableHTTPClientTransport" in body:
         transport = "streamable-http"
     elif "SSEClientTransport" in body:
