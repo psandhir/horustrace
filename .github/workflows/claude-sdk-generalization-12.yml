@@ -1,0 +1,96 @@
+name: Claude SDK Generalization 12
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/claude-sdk-generalization-12
+    paths:
+      - ".github/workflows/claude-sdk-generalization-12.yml"
+      - "research/claude-sdk-generalization-12/**"
+      - "src/horustrace/adapters/claude_agent_sdk.py"
+      - "src/horustrace/effective_authority.py"
+      - "src/horustrace/scanner.py"
+  pull_request:
+    paths:
+      - ".github/workflows/claude-sdk-generalization-12.yml"
+      - "research/claude-sdk-generalization-12/**"
+      - "src/horustrace/adapters/claude_agent_sdk.py"
+      - "src/horustrace/effective_authority.py"
+      - "src/horustrace/scanner.py"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: claude-sdk-generalization-12-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: ${{ matrix.case_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        case_id:
+          - claude-ref-001
+          - claude-ext-001
+          - claude-ext-002
+          - claude-ext-003
+          - claude-ext-004
+          - claude-ext-005
+          - claude-ext-006
+          - claude-ext-007
+          - claude-ext-008
+          - claude-ext-009
+          - claude-ext-010
+          - claude-ext-011
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+      - name: Run frozen Claude SDK case
+        run: |
+          python research/claude-sdk-generalization-12/run_case.py \
+            --case-id "${{ matrix.case_id }}" \
+            --output-dir artifacts
+      - name: Upload case bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-sdk-case-${{ matrix.case_id }}
+          path: artifacts/${{ matrix.case_id }}/
+          if-no-files-found: error
+          retention-days: 30
+
+  aggregate:
+    name: Aggregate Claude SDK cohort
+    if: always()
+    needs: scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: claude-sdk-case-*
+          path: downloaded
+      - name: Aggregate
+        run: |
+          python research/claude-sdk-generalization-12/aggregate.py --input downloaded --output aggregate
+          cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload cohort summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-sdk-generalization-12-summary
+          path: aggregate/
+          if-no-files-found: error
+          retention-days: 30

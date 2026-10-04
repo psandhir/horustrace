@@ -21,6 +21,13 @@ from horustrace.adapters.amazon_strands_typescript import (
     is_amazon_strands_typescript_file,
     scan_amazon_strands_typescript_file,
 )
+from horustrace.adapters.anthropic_managed_agents import (
+    scan_anthropic_managed_agents_file,
+)
+from horustrace.adapters.claude_agent_sdk_typescript import (
+    is_claude_agent_sdk_typescript_file,
+    scan_claude_agent_sdk_typescript_file,
+)
 from horustrace.adapters.fast_agent_config import (
     FAST_AGENT_CONFIG_FILENAMES,
     scan_fast_agent_config,
@@ -1181,6 +1188,7 @@ def _is_supported_scan_candidate(path: Path) -> bool:
     return (
         path.suffix.lower() in {".py", ".ipynb", ".cs", ".tf", ".yaml", ".yml"}
         or is_amazon_strands_typescript_file(path)
+        or is_claude_agent_sdk_typescript_file(path)
         or path.name
         in (
             MCP_FILENAMES
@@ -2388,11 +2396,18 @@ def scan(
             for framework in frameworks:
                 framework_evidence.setdefault(framework, []).append(SourceLocation(candidate))
             _merge(graph, scan_python_file(candidate), candidate)
+            _merge(graph, scan_anthropic_managed_agents_file(candidate), candidate)
             _merge(graph, scan_amazon_agentic_python_file(candidate), candidate)
             _merge(graph, scan_github_copilot_sdk_file(candidate), candidate)
             diagnose_python(candidate, graph)
-        elif is_amazon_strands_typescript_file(candidate):
-            _merge(graph, scan_amazon_strands_typescript_file(candidate), candidate)
+        elif (
+            is_amazon_strands_typescript_file(candidate)
+            or is_claude_agent_sdk_typescript_file(candidate)
+        ):
+            if is_amazon_strands_typescript_file(candidate):
+                _merge(graph, scan_amazon_strands_typescript_file(candidate), candidate)
+            if is_claude_agent_sdk_typescript_file(candidate):
+                _merge(graph, scan_claude_agent_sdk_typescript_file(candidate), candidate)
         elif candidate.suffix.lower() == ".ipynb":
             notebook_source, notebook_skips = _notebook_python_source(text)
             for item in notebook_skips:
