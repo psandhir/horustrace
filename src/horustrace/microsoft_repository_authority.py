@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -164,6 +165,21 @@ def _binding_evidence(
         ):
             marker = "agent365_node_tooling_registration"
         elif (
+            "ModelContextProtocol.Client" in source
+            and (
+                "GetOrCreateMcpConnectionAsync(" in source
+                or "GetOrCreateNonW365McpConnectionAsync(" in source
+                or "StartDirectW365SessionAndListToolsAsync(" in source
+                or "McpClient.CreateAsync(" in source
+            )
+            and (
+                "McpServers" in source
+                or "McpServer:Url" in source
+                or "GatewayUrl" in source
+            )
+        ):
+            marker = "agent365_runtime_mcp_binding"
+        elif (
             _TOOLING_MANIFEST in source
             and (
                 "HttpClientTransport" in source
@@ -183,6 +199,56 @@ def _binding_evidence(
         if marker is not None:
             evidence.append(f"{_display(path, root)}:{marker}")
     return sorted(set(evidence))
+
+
+def _enrich_runtime_server_endpoint(
+    server: MCPServer,
+    manifest_path: Path,
+    source_paths: list[Path],
+    root: Path,
+) -> None:
+    fixed_urls: list[tuple[str, str]] = []
+    config_sources: set[str] = set()
+    server_name = server.name.lower()
+
+    for path in source_paths:
+        if not _within(path, manifest_path.parent):
+            continue
+        try:
+            source = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+
+        for raw in re.findall(r'https?://[^\s"\']+', source):
+            url = raw.rstrip('",);]}')
+            if server_name in url.lower():
+                fixed_urls.append((url, _display(path, root)))
+
+        for match in re.finditer(
+            r'(?:GetSection|GetValue<[^>]+>)\s*\(\s*"([^"]*(?:Mcp|MCP|Gateway)[^"]*)"',
+            source,
+        ):
+            config_sources.add(match.group(1))
+        for match in re.finditer(
+            r'configuration\s*\[\s*"([^"]*(?:Mcp|MCP|Gateway)[^"]*)"\s*\]',
+            source,
+        ):
+            config_sources.add(match.group(1))
+
+    if fixed_urls and not (server.url or "").startswith(("http://", "https://")):
+        server.url = fixed_urls[0][0]
+        server.transport = "streamable-http"
+        server.metadata["fixed_fallback_destination"] = fixed_urls[0][0]
+        server.metadata["fixed_fallback_source"] = fixed_urls[0][1]
+        server.metadata["network_scope"] = "fixed_fallback_or_operator_configured"
+
+    if config_sources:
+        server.metadata["configuration_sources"] = sorted(config_sources)
+        server.metadata["operator_configured_endpoint"] = True
+        server.metadata.setdefault(
+            "network_scope",
+            "operator_configured_destination",
+        )
 
 
 def _tooling_servers(path: Path) -> list[MCPServer]:
@@ -390,8 +456,22 @@ def _enrich_agent365_tooling(
             targets = []
 
         for server in _tooling_servers(manifest):
+            _enrich_runtime_server_endpoint(
+                server,
+                manifest,
+                source_paths,
+                root,
+            )
             server.metadata["runtime_binding_evidence"] = evidence
             server.metadata["authority_binding"] = "agent365_workiq"
+            if any(
+                "agent365_runtime_mcp_binding" in item
+                for item in evidence
+            ):
+                server.metadata["conditional_runtime_binding"] = True
+                server.metadata["binding_condition"] = (
+                    "runtime intent/authentication/configuration"
+                )
 
             pure_s2s = bool(
                 targets

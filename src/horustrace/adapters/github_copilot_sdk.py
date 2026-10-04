@@ -128,6 +128,15 @@ def _call_leaf(node: ast.AST | None) -> str | None:
     return None
 
 
+def _python_dotted(node: ast.AST | None) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        base = _python_dotted(node.value)
+        return f"{base}.{node.attr}" if base else node.attr
+    return None
+
+
 def _unwrap_call(node: ast.AST | None) -> ast.Call | None:
     if isinstance(node, ast.Call):
         return node
@@ -481,6 +490,50 @@ def _resolve_python_node(
     return node
 
 
+def _python_mapping_items(
+    node: ast.AST | None,
+    assignments: dict[str, ast.AST],
+    updates: dict[str, dict[str, ast.AST]] | None = None,
+) -> dict[str, ast.AST]:
+    reference = _python_dotted(node)
+    resolved = _resolve_python_node(node, assignments)
+    if not isinstance(resolved, ast.Dict):
+        return {}
+    items = {
+        key: value
+        for key_node, value in zip(resolved.keys, resolved.values)
+        if (key := _literal_string(key_node)) is not None
+    }
+    for key, value in (updates or {}).get(reference or "", {}).items():
+        items[key] = value
+    return items
+
+
+def _python_session_option(
+    call: ast.Call,
+    name: str,
+    assignments: dict[str, ast.AST],
+    updates: dict[str, dict[str, ast.AST]],
+) -> ast.AST | None:
+    direct = _keyword(call, name)
+    if direct is not None:
+        return direct
+    if not call.args:
+        return None
+    return _python_mapping_items(call.args[0], assignments, updates).get(name)
+
+
+def _python_options_call(
+    node: ast.AST | None,
+    assignments: dict[str, ast.AST],
+) -> ast.Call | None:
+    resolved = _resolve_python_node(node, assignments)
+    call = _unwrap_call(resolved)
+    if call is not None and _call_leaf(call.func) == "GitHubCopilotOptions":
+        return call
+    return None
+
+
 def _python_mcp_servers(
     path: Path,
     node: ast.AST | None,
@@ -684,29 +737,45 @@ def _scan_python(path: Path, source: str) -> Graph:
             )
 
     assignments: dict[str, ast.AST] = {}
+    dict_updates: dict[str, dict[str, ast.AST]] = {}
     assigned_calls: list[tuple[str, ast.Call, ast.AST]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign):
             for target in node.targets:
-                if isinstance(target, ast.Name):
-                    assignments[target.id] = node.value
-                    call = _unwrap_call(node.value)
-                    if call is not None:
-                        assigned_calls.append((target.id, call, node))
-        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            assignments[node.target.id] = node.value
+                if isinstance(target, ast.Subscript):
+                    owner = _python_dotted(target.value)
+                    key = _literal_string(target.slice)
+                    if owner and key is not None:
+                        dict_updates.setdefault(owner, {})[key] = node.value
+                    continue
+                binding = _python_dotted(target)
+                if binding is None:
+                    continue
+                assignments[binding] = node.value
+                assignments.setdefault(binding.rsplit(".", 1)[-1], node.value)
+                call = _unwrap_call(node.value)
+                if call is not None:
+                    assigned_calls.append((binding, call, node))
+        elif isinstance(node, ast.AnnAssign):
+            binding = _python_dotted(node.target)
+            if binding is None:
+                continue
+            assignments[binding] = node.value
+            assignments.setdefault(binding.rsplit(".", 1)[-1], node.value)
             call = _unwrap_call(node.value)
             if call is not None:
-                assigned_calls.append((node.target.id, call, node))
+                assigned_calls.append((binding, call, node))
         elif isinstance(node, ast.AsyncWith):
             for item in node.items:
-                if not isinstance(item.optional_vars, ast.Name):
+                binding = _python_dotted(item.optional_vars)
+                if binding is None:
                     continue
                 call = _unwrap_call(item.context_expr)
                 if call is None:
                     continue
-                assignments[item.optional_vars.id] = item.context_expr
-                assigned_calls.append((item.optional_vars.id, call, item.context_expr))
+                assignments[binding] = item.context_expr
+                assignments.setdefault(binding.rsplit(".", 1)[-1], item.context_expr)
+                assigned_calls.append((binding, call, item.context_expr))
 
     custom_tools = _python_custom_tools(path, tree)
     functions_by_name = {
@@ -719,23 +788,55 @@ def _scan_python(path: Path, source: str) -> Graph:
         for variable, call, binding in assigned_calls:
             if _call_leaf(call.func) != "GitHubCopilotAgent":
                 continue
+            default_options = _python_options_call(
+                _keyword(call, "default_options"),
+                assignments,
+            )
+            approve = (
+                _keyword(default_options, "on_permission_request")
+                if default_options is not None
+                else None
+            )
+            approve_text = ast.unparse(approve) if approve is not None else ""
+            approve_all = "approve_all" in approve_text.lower()
+            available = (
+                _string_list(_keyword(default_options, "available_tools"))
+                if default_options is not None
+                else None
+            )
+            excluded = (
+                _string_list(_keyword(default_options, "excluded_tools"))
+                if default_options is not None
+                else None
+            )
+            working = (
+                _literal_string(_keyword(default_options, "working_directory"))
+                if default_options is not None
+                else None
+            )
+            additional = (
+                _string_list(_keyword(default_options, "additional_directories"))
+                if default_options is not None
+                else None
+            )
             agent = Agent(
-                name=variable,
+                name=variable.rsplit(".", 1)[-1],
                 location=_source_location(path, binding),
                 metadata={
                     "framework": FRAMEWORK,
                     "runtime": "copilot-cli",
                     "maf_integration": True,
                     "language": "python",
+                    "source_aliases": [variable],
                 },
             )
             builtin = _builtin_tool(
                 location=agent.location,
-                available=None,
-                excluded=None,
-                approve_all=False,
-                working_directory=None,
-                additional_directories=None,
+                available=available,
+                excluded=excluded,
+                approve_all=approve_all,
+                working_directory=working,
+                additional_directories=additional,
             )
             if builtin:
                 agent.tools.append(builtin)
@@ -759,6 +860,14 @@ def _scan_python(path: Path, source: str) -> Graph:
                             )
                             _attach_literal_destinations(tool, ast.unparse(fn))
                             agent.tools.append(tool)
+            if default_options is not None:
+                agent.mcp_servers.extend(
+                    _python_mcp_servers(
+                        path,
+                        _keyword(default_options, "mcp_servers"),
+                        assignments,
+                    )
+                )
             graph.agents.append(agent)
 
     if not imports_copilot:
@@ -769,38 +878,67 @@ def _scan_python(path: Path, source: str) -> Graph:
     for variable, call, _binding in assigned_calls:
         if _call_leaf(call.func) != "CopilotClient":
             continue
-        clients.add(variable)
+        aliases = {variable, variable.rsplit(".", 1)[-1]}
+        clients.update(aliases)
         identity = _python_auth_identity(path, call)
         if identity:
-            client_identities[variable] = identity
+            for alias in aliases:
+                client_identities[alias] = identity
 
     for variable, call, binding in assigned_calls:
         if not isinstance(call.func, ast.Attribute):
             continue
         if call.func.attr not in {"create_session", "resume_session"}:
             continue
-        owner = call.func.value.id if isinstance(call.func.value, ast.Name) else None
-        if clients and owner not in clients:
+        owner = _python_dotted(call.func.value)
+        owner_aliases = (
+            {owner, owner.rsplit(".", 1)[-1]}
+            if owner
+            else set()
+        )
+        if clients and not (owner_aliases & clients):
             continue
 
         location = _source_location(path, binding)
-        approve = _keyword(call, "on_permission_request")
+        approve = _python_session_option(
+            call,
+            "on_permission_request",
+            assignments,
+            dict_updates,
+        )
         approve_text = ast.unparse(approve) if approve is not None else ""
         approve_all = "approve_all" in approve_text.lower()
 
-        available = _string_list(_keyword(call, "available_tools"))
-        excluded = _string_list(_keyword(call, "excluded_tools"))
-        working = _literal_string(_keyword(call, "working_directory"))
-        additional = _string_list(_keyword(call, "additional_directories"))
+        available = _string_list(
+            _python_session_option(
+                call, "available_tools", assignments, dict_updates
+            )
+        )
+        excluded = _string_list(
+            _python_session_option(
+                call, "excluded_tools", assignments, dict_updates
+            )
+        )
+        working = _literal_string(
+            _python_session_option(
+                call, "working_directory", assignments, dict_updates
+            )
+        )
+        additional = _string_list(
+            _python_session_option(
+                call, "additional_directories", assignments, dict_updates
+            )
+        )
 
         agent = Agent(
-            name=variable,
+            name=variable.rsplit(".", 1)[-1],
             location=location,
             metadata={
                 "framework": FRAMEWORK,
                 "runtime": "copilot-cli",
                 "language": "python",
                 "session_operation": call.func.attr,
+                "source_aliases": [variable],
             },
         )
         builtin = _builtin_tool(
@@ -814,18 +952,52 @@ def _scan_python(path: Path, source: str) -> Graph:
         if builtin:
             agent.tools.append(builtin)
 
-        tools_node = _resolve_python_node(_keyword(call, "tools"), assignments)
+        tools_option = _python_session_option(
+            call, "tools", assignments, dict_updates
+        )
+        tools_node = _resolve_python_node(tools_option, assignments)
+        bound_custom_tools = 0
         if isinstance(tools_node, (ast.List, ast.Tuple)):
             for item in tools_node.elts:
                 if isinstance(item, ast.Name) and item.id in custom_tools:
                     agent.tools.append(deepcopy(custom_tools[item.id]))
+                    bound_custom_tools += 1
+        if tools_option is not None and bound_custom_tools == 0:
+            agent.tools.append(
+                Tool(
+                    name="copilot-custom-tools",
+                    kind="dynamic_tool_reference",
+                    capabilities=set(),
+                    location=location,
+                    metadata={
+                        "framework": FRAMEWORK,
+                        "placeholder": True,
+                        "authority_binding": True,
+                        "authority_binding_basis": "session_config_tools_expression",
+                        "dynamic_tool_catalogue": True,
+                        "tools_expression": ast.unparse(tools_option),
+                    },
+                )
+            )
 
         mcp_servers = _python_mcp_servers(
             path,
-            _keyword(call, "mcp_servers"),
+            _python_session_option(
+                call, "mcp_servers", assignments, dict_updates
+            ),
             assignments,
         )
-        disabled = set(_string_list(_keyword(call, "disabled_mcp_servers")) or [])
+        disabled = set(
+            _string_list(
+                _python_session_option(
+                    call,
+                    "disabled_mcp_servers",
+                    assignments,
+                    dict_updates,
+                )
+            )
+            or []
+        )
         agent.mcp_servers.extend(
             server for server in mcp_servers if server.name not in disabled
         )
@@ -833,8 +1005,27 @@ def _scan_python(path: Path, source: str) -> Graph:
         session_identity = _python_auth_identity(path, call)
         if session_identity:
             agent.identities.append(session_identity)
-        elif owner and owner in client_identities:
-            agent.identities.append(deepcopy(client_identities[owner]))
+        elif owner_aliases:
+            inherited = next(
+                (
+                    client_identities[alias]
+                    for alias in owner_aliases
+                    if alias in client_identities
+                ),
+                None,
+            )
+            if inherited is not None:
+                agent.identities.append(deepcopy(inherited))
+            else:
+                agent.identities.append(
+                    Identity(
+                        name="github-copilot-user",
+                        provider="github",
+                        credential_source="copilot_cli_logged_in_user",
+                        location=location,
+                        metadata={"runtime_resolved": True},
+                    )
+                )
         else:
             agent.identities.append(
                 Identity(
@@ -847,7 +1038,9 @@ def _scan_python(path: Path, source: str) -> Graph:
             )
 
         custom_agents_node = _resolve_python_node(
-            _keyword(call, "custom_agents"),
+            _python_session_option(
+                call, "custom_agents", assignments, dict_updates
+            ),
             assignments,
         )
         if isinstance(custom_agents_node, (ast.List, ast.Tuple)):
@@ -990,6 +1183,124 @@ def _csharp_collection(value: str | None) -> list[str] | None:
         return None
     strings = re.findall(r'@?"([^"]+)"', value)
     return strings if strings else []
+
+
+def _csharp_call_argument(
+    expression: str,
+    method_name: str,
+    index: int = 0,
+) -> str | None:
+    masked = mask_non_code(expression)
+    match = re.search(
+        rf"\.{re.escape(method_name)}\s*\(",
+        masked,
+    )
+    if not match:
+        return None
+    start = masked.find("(", match.start())
+    if start < 0:
+        return None
+    end = balanced_end(masked, start, "(", ")")
+    if end is None:
+        return None
+    body = expression[start + 1:end]
+    body_masked = masked[start + 1:end]
+    parts: list[str] = []
+    offset = 0
+    paren = bracket = brace = 0
+    for pos, char in enumerate(body_masked):
+        if char == "(":
+            paren += 1
+        elif char == ")":
+            paren = max(0, paren - 1)
+        elif char == "[":
+            bracket += 1
+        elif char == "]":
+            bracket = max(0, bracket - 1)
+        elif char == "{":
+            brace += 1
+        elif char == "}":
+            brace = max(0, brace - 1)
+        elif char == "," and paren == bracket == brace == 0:
+            parts.append(body[offset:pos].strip())
+            offset = pos + 1
+    parts.append(body[offset:].strip())
+    return parts[index] if index < len(parts) and parts[index] else None
+
+
+def _csharp_initializer_body(expression: str) -> tuple[str, int] | None:
+    masked = mask_non_code(expression)
+    brace = masked.find("{")
+    if brace < 0:
+        return None
+    end = balanced_end(masked, brace, "{", "}")
+    if end is None:
+        return None
+    return expression[brace + 1:end], brace + 1
+
+
+def _csharp_session_config(
+    expression: str,
+    known_assignments: dict,
+) -> tuple[str, int] | None:
+    argument = _csharp_call_argument(expression, "CreateSessionAsync", 0)
+    if not argument:
+        return None
+    candidate = argument.strip()
+    assignment = None
+    if re.fullmatch(r"[A-Za-z_]\w*", candidate):
+        assignment = known_assignments.get(candidate)
+        if assignment is None:
+            return None
+        candidate = assignment.expression
+    if (
+        "SessionConfig" not in candidate
+        and not (
+            assignment is not None
+            and (assignment.declared_type or "").endswith("SessionConfig")
+        )
+    ):
+        return None
+    body = _csharp_initializer_body(candidate)
+    if body is None:
+        return None
+    return body
+
+
+def _csharp_inline_tool_factories(
+    value: str | None,
+    location: SourceLocation,
+) -> list[Tool]:
+    if not value:
+        return []
+    result: list[Tool] = []
+    seen: set[str] = set()
+    for match in re.finditer(
+        r"\b([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\.CreateTool\s*\(",
+        value,
+    ):
+        owner = match.group(1)
+        name = owner.rsplit(".", 1)[-1]
+        if name in seen:
+            continue
+        seen.add(name)
+        result.append(
+            Tool(
+                name=name,
+                kind="function",
+                capabilities=set(),
+                location=location,
+                metadata={
+                    "framework": FRAMEWORK,
+                    "binding_origin": "CreateTool",
+                    "factory_reference": owner,
+                    "placeholder": True,
+                    "authority_binding": True,
+                    "authority_binding_basis": "source_factory_reference",
+                },
+            )
+        )
+    return result
 
 
 def _csharp_initializer_entries(value: str, type_name: str) -> list[tuple[str, str, int]]:
@@ -1215,22 +1526,16 @@ def _scan_csharp(path: Path, source: str) -> Graph:
 
     for name, assignment in known.items():
         expression = assignment.expression
-        match = re.search(
-            r"\b([A-Za-z_]\w*)\.CreateSessionAsync\s*\(",
+        match = re.match(
+            r"\s*(?:await\s+)?([A-Za-z_]\w*)\.CreateSessionAsync\s*\(",
             expression,
         )
         if not match or (clients and match.group(1) not in clients):
             continue
-        config_start = expression.find("new SessionConfig")
-        if config_start < 0:
+        resolved_config = _csharp_session_config(expression, known)
+        if resolved_config is None:
             continue
-        brace = expression.find("{", config_start)
-        if brace < 0:
-            continue
-        end = balanced_end(mask_non_code(expression), brace, "{", "}")
-        if end is None:
-            continue
-        config = expression[brace + 1:end]
+        config, config_relative_offset = resolved_config
         location = csharp_location(path, source, assignment.offset)
 
         approve_all = "PermissionHandler.ApproveAll" in config
@@ -1262,9 +1567,31 @@ def _scan_csharp(path: Path, source: str) -> Graph:
             agent.tools.append(builtin)
 
         tools_value = argument_value(config, "Tools")
+        bound_custom_tools = 0
         for ref in refs(tools_value or ""):
             if ref in custom_tools:
                 agent.tools.append(deepcopy(custom_tools[ref]))
+                bound_custom_tools += 1
+        inline_tools = _csharp_inline_tool_factories(tools_value, location)
+        agent.tools.extend(inline_tools)
+        bound_custom_tools += len(inline_tools)
+        if tools_value and bound_custom_tools == 0:
+            agent.tools.append(
+                Tool(
+                    name="copilot-custom-tools",
+                    kind="dynamic_tool_reference",
+                    capabilities=set(),
+                    location=location,
+                    metadata={
+                        "framework": FRAMEWORK,
+                        "placeholder": True,
+                        "authority_binding": True,
+                        "authority_binding_basis": "session_config_tools_expression",
+                        "dynamic_tool_catalogue": True,
+                        "tools_expression": tools_value,
+                    },
+                )
+            )
 
         disabled = set(
             _csharp_collection(argument_value(config, "DisabledMcpServers")) or []
@@ -1275,7 +1602,7 @@ def _scan_csharp(path: Path, source: str) -> Graph:
                 path,
                 source,
                 config,
-                base_offset=assignment.offset + brace + 1,
+                base_offset=assignment.offset + config_relative_offset,
             )
             if server.name not in disabled
         )

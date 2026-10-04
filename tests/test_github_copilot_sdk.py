@@ -369,3 +369,160 @@ def test_copilot_adapter_ignores_unrelated_python_and_csharp(
     assert not is_github_copilot_sdk_file(cs)
     assert scan_github_copilot_sdk_file(py).agents == []
     assert scan_github_copilot_sdk_file(cs).agents == []
+
+def test_python_copilot_attribute_session_is_detected(
+    tmp_path: Path,
+) -> None:
+    path = write(
+        tmp_path,
+        """
+from copilot import CopilotClient
+from copilot.session import PermissionHandler
+
+class Runtime:
+    async def start(self):
+        self.client = CopilotClient()
+        self.session = await self.client.create_session(
+            on_permission_request=PermissionHandler.approve_all,
+        )
+""",
+        "runtime.py",
+    )
+
+    graph = scan_github_copilot_sdk_file(path)
+    agent = next(item for item in graph.agents if item.name == "session")
+
+    assert "self.session" in agent.metadata["source_aliases"]
+    builtins = next(
+        tool for tool in agent.tools
+        if tool.kind == "github_copilot_builtin_tools"
+    )
+    assert builtins.approval is False
+
+
+def test_python_copilot_positional_config_dict_is_resolved(
+    tmp_path: Path,
+) -> None:
+    path = write(
+        tmp_path,
+        """
+from copilot import CopilotClient
+
+class Runtime:
+    async def start(self, tools):
+        self.client = CopilotClient()
+        session_config = {"model": "gpt-4.1"}
+        session_config["tools"] = tools
+        self.session = await self.client.create_session(session_config)
+""",
+        "runtime.py",
+    )
+
+    graph = scan_github_copilot_sdk_file(path)
+
+    agent = next(item for item in graph.agents if item.name == "session")
+    assert agent.metadata["session_operation"] == "create_session"
+    assert any(
+        tool.kind == "github_copilot_builtin_tools"
+        for tool in agent.tools
+    )
+    dynamic = next(
+        tool for tool in agent.tools
+        if tool.kind == "dynamic_tool_reference"
+    )
+    assert dynamic.metadata["dynamic_tool_catalogue"] is True
+    assert dynamic.metadata["tools_expression"] == "tools"
+
+
+def test_python_maf_copilot_options_preserve_mcp_authority(
+    tmp_path: Path,
+) -> None:
+    path = write(
+        tmp_path,
+        """
+from agent_framework.github import GitHubCopilotAgent, GitHubCopilotOptions
+from copilot.session import PermissionHandler
+
+mcp_servers = {
+    "filesystem": {
+        "type": "stdio",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+        "tools": ["*"],
+    },
+    "microsoft-learn": {
+        "type": "http",
+        "url": "https://learn.microsoft.com/api/mcp",
+        "tools": ["*"],
+    },
+}
+
+agent = GitHubCopilotAgent(
+    instructions="help",
+    default_options=GitHubCopilotOptions(
+        on_permission_request=PermissionHandler.approve_all,
+        mcp_servers=mcp_servers,
+    ),
+)
+""",
+        "agent.py",
+    )
+
+    graph = scan_github_copilot_sdk_file(path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+
+    assert {server.name for server in agent.mcp_servers} == {
+        "filesystem",
+        "microsoft-learn",
+    }
+    remote = next(
+        server for server in agent.mcp_servers
+        if server.name == "microsoft-learn"
+    )
+    assert remote.url == "https://learn.microsoft.com/api/mcp"
+    builtins = next(
+        tool for tool in agent.tools
+        if tool.kind == "github_copilot_builtin_tools"
+    )
+    assert builtins.approval is False
+
+
+def test_dotnet_copilot_session_config_variable_and_inline_factories(
+    tmp_path: Path,
+) -> None:
+    path = write(
+        tmp_path,
+        r"""
+using GitHub.Copilot;
+
+public async Task RunAsync(CancellationToken ct = default)
+{
+    SessionConfig sessionConfig = new()
+    {
+        AvailableTools = ["view"],
+        Tools = [DiceRoller.CreateTool(), InventoryManager.CreateTool("run")],
+        OnPermissionRequest = (request, invocation) =>
+            PermissionHandler.ApproveAll(request, invocation)
+    };
+
+    await using var session =
+        await client.CreateSessionAsync(sessionConfig, ct);
+}
+""",
+        "Agent.cs",
+    )
+
+    graph = scan_github_copilot_sdk_file(path)
+
+    assert all(agent.name != "ct" for agent in graph.agents)
+    agent = next(item for item in graph.agents if item.name == "session")
+    builtins = next(
+        tool for tool in agent.tools
+        if tool.kind == "github_copilot_builtin_tools"
+    )
+    assert builtins.capabilities == {"data.read"}
+    assert builtins.approval is False
+    assert {"DiceRoller", "InventoryManager"} <= {
+        tool.name for tool in agent.tools
+    }
+

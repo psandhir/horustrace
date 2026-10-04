@@ -430,3 +430,43 @@ public class ScopedAgent(AgentApplicationOptions options) : AgentApplication(opt
 
     assert identity.oauth_scopes == set()
     assert "authorization_handlers" not in identity.metadata
+
+def test_m365_agents_delegated_token_projects_graph_http_authority(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        r"""
+using Microsoft.Agents.Builder.App;
+using System.Net.Http.Headers;
+
+public class AuthAgent(AgentApplicationOptions options) : AgentApplication(options)
+{
+    private async Task<string> GetGraphInfo(ITurnContext turnContext)
+    {
+        string accessToken = await UserAuthorization.GetTurnTokenAsync(
+            turnContext,
+            UserAuthorization.DefaultHandlerName);
+        using HttpClient client = new();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", accessToken);
+        return await client.GetStringAsync(
+            "https://graph.microsoft.com/v1.0/me");
+    }
+}
+""",
+    )
+
+    graph = scan_microsoft_365_agents_dotnet_file(path)
+    agent = graph.agents[0]
+
+    tool = next(
+        item for item in agent.tools
+        if item.kind == "http_client"
+    )
+    assert tool.identity == agent.identities[0].name
+    assert {"network.external", "data.read"} <= tool.capabilities
+    assert [item.target for item in tool.destinations] == [
+        "https://graph.microsoft.com/v1.0/me"
+    ]
+
