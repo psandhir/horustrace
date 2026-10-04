@@ -38,6 +38,8 @@ _S3_RE = re.compile(r"s3://[^\s\"']+")
 
 _VENDED_TOOL_CAPABILITIES: dict[str, set[str]] = {
     "file_editor": {"data.read", "data.write"},
+    "file_read": {"data.read"},
+    "file_write": {"data.write"},
     "editor": {"data.read", "data.write"},
     "shell": {
         "data.read",
@@ -266,7 +268,10 @@ def _vended_tool_imports(tree: ast.AST, path: Path) -> dict[str, Tool]:
         if not isinstance(node, ast.ImportFrom):
             continue
         module = node.module or ""
-        if not module.startswith("strands.vended_tools"):
+        if not (
+            module == "strands_tools"
+            or module.startswith(("strands.vended_tools", "strands_tools."))
+        ):
             continue
         for alias in node.names:
             local_name = alias.asname or alias.name
@@ -392,9 +397,16 @@ def _tool_expressions(node: ast.AST | None) -> list[ast.AST]:
     if node is None:
         return []
     if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
-        return list(node.elts)
+        result: list[ast.AST] = []
+        for item in node.elts:
+            result.extend(_tool_expressions(item))
+        return result
+    if isinstance(node, ast.Starred):
+        return _tool_expressions(node.value)
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
         return [*_tool_expressions(node.left), *_tool_expressions(node.right)]
+    if isinstance(node, ast.IfExp):
+        return [*_tool_expressions(node.body), *_tool_expressions(node.orelse)]
     return [node]
 
 

@@ -638,6 +638,22 @@ def _build(root: Path, path: Path) -> ModuleInfo | None:
     return info
 
 
+def _has_google_adk_evidence(info: ModuleInfo) -> bool:
+    """Require source provenance before treating a generic Agent call as Google ADK."""
+    for node in ast.walk(info.tree):
+        if isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if module == "google.adk" or module.startswith("google.adk."):
+                return True
+        elif isinstance(node, ast.Import):
+            if any(
+                alias.name == "google.adk" or alias.name.startswith("google.adk.")
+                for alias in node.names
+            ):
+                return True
+    return False
+
+
 def _find_module(modules: dict[str, ModuleInfo], module_name: str) -> ModuleInfo | None:
     if module_name in modules:
         return modules[module_name]
@@ -1903,6 +1919,8 @@ def enrich_repository_graph(
     resolved_refs: set[tuple[Path, int]] = set()
 
     for info in modules.values():
+        if not _has_google_adk_evidence(info):
+            continue
         functions = list(info.functions.values())
         for call in [node for node in ast.walk(info.tree) if isinstance(node, ast.Call)]:
             if (_name(call.func) or "") not in AGENT_TYPES:
@@ -1937,6 +1955,8 @@ def enrich_repository_graph(
 
     # Root aliases still establish user reachability.
     for info in modules.values():
+        if not _has_google_adk_evidence(info):
+            continue
         for node in info.tree.body:
             if not isinstance(node, ast.Assign):
                 continue
