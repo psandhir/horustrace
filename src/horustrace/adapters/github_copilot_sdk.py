@@ -1014,7 +1014,7 @@ def _csharp_braced_property_value(
     name: str,
 ) -> str | None:
     masked = mask_non_code(expression)
-    match = re.search(rf"\\b{re.escape(name)}\\s*=", masked, re.IGNORECASE)
+    match = re.search(rf"\b{re.escape(name)}\s*=", masked, re.IGNORECASE)
     if not match:
         return None
     brace = masked.find("{", match.end())
