@@ -986,6 +986,94 @@ def _merge_tool(tools: list[Tool], incoming: Tool) -> None:
     current.metadata.update(incoming.metadata)
 
 
+
+def _dynamic_binding_placeholder(
+    path: Path,
+    node: ast.AST,
+    *,
+    name: str,
+    kind: str,
+    binding_origin: str,
+    source_expression: str | None = None,
+) -> Tool:
+    """Preserve source-proven authority binding when the runtime catalogue is unknown."""
+    return Tool(
+        name=name,
+        kind=kind,
+        capabilities=set(),
+        location=_location(path, node),
+        metadata={
+            "framework": "pydantic-ai",
+            "binding_origin": binding_origin,
+            "dynamic_authority": True,
+            "tool_catalogue_unresolved": True,
+            "source_expression": source_expression,
+        },
+    )
+
+
+def _expanded_agent_keyword_values(tree: ast.AST) -> dict[str, dict[str, ast.AST]]:
+    """Recover simple **kwargs dictionaries used to construct Agent instances.
+
+    This intentionally records only authority-bearing Agent keywords. Values are
+    still resolved by the normal static sequence/toolset/capability logic; a
+    dynamic value remains dynamic rather than being executed or guessed.
+    """
+    allowed = {"tools", "toolsets", "mcp_servers", "capabilities", "builtin_tools"}
+    result: dict[str, dict[str, ast.AST]] = {}
+
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+
+        for target in targets:
+            if isinstance(target, ast.Name) and isinstance(node.value, ast.Dict):
+                values = result.setdefault(target.id, {})
+                for key, value in zip(node.value.keys, node.value.values):
+                    literal = _literal(key)
+                    if isinstance(literal, str) and literal in allowed:
+                        values[literal] = value
+                continue
+
+            if not isinstance(target, ast.Subscript):
+                continue
+            if not isinstance(target.value, ast.Name):
+                continue
+            key = _literal(target.slice)
+            if not isinstance(key, str) or key not in allowed:
+                continue
+            result.setdefault(target.value.id, {})[key] = node.value
+
+    return result
+
+
+def _authority_kw(
+    call: ast.Call,
+    name: str,
+    expanded: dict[str, dict[str, ast.AST]],
+) -> tuple[ast.AST | None, bool]:
+    direct = _kw(call, name)
+    if direct is not None:
+        return direct, False
+    for keyword in call.keywords:
+        if keyword.arg is not None or not isinstance(keyword.value, ast.Name):
+            continue
+        value = expanded.get(keyword.value.id, {}).get(name)
+        if value is not None:
+            return value, True
+    return None, False
+
+
+def _expr_reference(node: ast.AST | None) -> str | None:
+    if node is None:
+        return None
+    try:
+        return ast.unparse(node)
+    except (AttributeError, ValueError):
+        return _dotted(node) or _call_name(node)
+
+
 def _resolve_sequence(
     expr: ast.AST | None,
     sequences: dict[str, list[ast.AST]],
@@ -2586,6 +2674,8 @@ def scan_python_file(path: Path) -> Graph:
     factory_agent_aliases: set[str] = set()
     declared_mcp_servers: dict[str, MCPServer] = {}
 
+    expanded_agent_keywords = _expanded_agent_keyword_values(tree)
+
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
             module = node.module or ""
@@ -2757,11 +2847,31 @@ def scan_python_file(path: Path) -> Graph:
                 provider_name
             )
 
-        tools_expr = _kw(call, "tools")
+        tools_expr, tools_from_expanded_kwargs = _authority_kw(
+            call, "tools", expanded_agent_keywords
+        )
         if tools_expr is not None:
             elements = _resolve_sequence(tools_expr, sequences)
             if elements is None:
                 agent.metadata["dynamic_tools"] = True
+                agent.metadata["dynamic_tools_binding"] = True
+                if tools_from_expanded_kwargs:
+                    agent.metadata["expanded_agent_kwargs"] = True
+                _merge_tool(
+                    agent.tools,
+                    _dynamic_binding_placeholder(
+                        path,
+                        tools_expr,
+                        name="<dynamic-tools>",
+                        kind="pydantic_dynamic_tools",
+                        binding_origin=(
+                            "Agent(**kwargs).tools"
+                            if tools_from_expanded_kwargs
+                            else "Agent.tools"
+                        ),
+                        source_expression=_expr_reference(tools_expr),
+                    ),
+                )
                 _diagnostic(
                     graph,
                     path,
@@ -2783,10 +2893,36 @@ def scan_python_file(path: Path) -> Graph:
         for tool in decorated_agents.get(alias, []):
             _merge_tool(agent.tools, deepcopy(tool))
 
-        mcp_servers_expr = _kw(call, "mcp_servers")
+        mcp_servers_expr, mcp_from_expanded_kwargs = _authority_kw(
+            call, "mcp_servers", expanded_agent_keywords
+        )
         if mcp_servers_expr is not None:
             elements = _resolve_sequence(mcp_servers_expr, sequences)
             if elements is None:
+                agent.metadata["dynamic_mcp_servers"] = True
+                if mcp_from_expanded_kwargs:
+                    agent.metadata["expanded_agent_kwargs"] = True
+                agent.mcp_servers.append(
+                    MCPServer(
+                        name=f"{alias}:dynamic-mcp",
+                        transport="unknown",
+                        approval=None,
+                        location=_location(path, mcp_servers_expr),
+                        metadata={
+                            "framework": "pydantic-ai",
+                            "source": (
+                                "Agent(**kwargs).mcp_servers"
+                                if mcp_from_expanded_kwargs
+                                else "Agent.mcp_servers"
+                            ),
+                            "dynamic_mcp_endpoint": True,
+                            "tool_catalogue_unresolved": True,
+                            "dynamic_authority": True,
+                            "binding_origin": "pydantic_mcp_servers",
+                            "source_expression": _expr_reference(mcp_servers_expr),
+                        },
+                    )
+                )
                 _diagnostic(
                     graph,
                     path,
@@ -2811,11 +2947,16 @@ def scan_python_file(path: Path) -> Graph:
                             "Pydantic AI MCP server reference could not be normalized.",
                         )
 
-        toolsets_expr = _kw(call, "toolsets")
+        toolsets_expr, toolsets_from_expanded_kwargs = _authority_kw(
+            call, "toolsets", expanded_agent_keywords
+        )
         if toolsets_expr is not None:
             elements = _resolve_sequence(toolsets_expr, sequences)
             if elements is None:
                 agent.metadata["dynamic_tools"] = True
+                agent.metadata["dynamic_toolsets_binding"] = True
+                if toolsets_from_expanded_kwargs:
+                    agent.metadata["expanded_agent_kwargs"] = True
                 configured_mcp = _configured_mcp_catalogue_from_expr(
                     path,
                     toolsets_expr,
@@ -2825,6 +2966,22 @@ def scan_python_file(path: Path) -> Graph:
                 if configured_mcp is not None:
                     agent.mcp_servers.append(configured_mcp)
                     agent.metadata["configuration_dependent_mcp_toolsets"] = True
+                else:
+                    _merge_tool(
+                        agent.tools,
+                        _dynamic_binding_placeholder(
+                            path,
+                            toolsets_expr,
+                            name="<dynamic-toolsets>",
+                            kind="pydantic_dynamic_toolsets",
+                            binding_origin=(
+                                "Agent(**kwargs).toolsets"
+                                if toolsets_from_expanded_kwargs
+                                else "Agent.toolsets"
+                            ),
+                            source_expression=_expr_reference(toolsets_expr),
+                        ),
+                    )
                 _diagnostic(
                     graph,
                     path,
@@ -2854,12 +3011,33 @@ def scan_python_file(path: Path) -> Graph:
                     if dynamic:
                         agent.metadata["dynamic_tools"] = True
 
-        capabilities_expr = _kw(call, "capabilities")
+        capabilities_expr, capabilities_from_expanded_kwargs = _authority_kw(
+            call, "capabilities", expanded_agent_keywords
+        )
         safety_capabilities: list[str] = []
         unmodeled_capabilities: list[str] = []
         if capabilities_expr is not None:
             elements = _resolve_sequence(capabilities_expr, sequences)
             if elements is None:
+                agent.metadata["dynamic_tools"] = True
+                agent.metadata["dynamic_capabilities_binding"] = True
+                if capabilities_from_expanded_kwargs:
+                    agent.metadata["expanded_agent_kwargs"] = True
+                _merge_tool(
+                    agent.tools,
+                    _dynamic_binding_placeholder(
+                        path,
+                        capabilities_expr,
+                        name="<dynamic-capabilities>",
+                        kind="pydantic_dynamic_capabilities",
+                        binding_origin=(
+                            "Agent(**kwargs).capabilities"
+                            if capabilities_from_expanded_kwargs
+                            else "Agent.capabilities"
+                        ),
+                        source_expression=_expr_reference(capabilities_expr),
+                    ),
+                )
                 _diagnostic(
                     graph,
                     path,
