@@ -257,3 +257,176 @@ public sealed partial class LayeredAgentClass(
     assert agent.name == "LayeredAgent"
     assert agent.metadata["class_name"] == "LayeredAgentClass"
     assert agent.inputs[0].metadata["route_attribute"] == "MessageRoute"
+
+
+def test_m365_agents_appsettings_reconstructs_authorization_authority(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.Builder.App;
+
+public class AgenticAgent(AgentApplicationOptions options) : AgentApplication(options)
+{
+    [MessageRoute(isAgenticOnly: true, autoSignInHandlers: "agentic")]
+    public async Task OnMessageAsync(
+        ITurnContext turnContext,
+        ITurnState turnState,
+        CancellationToken cancellationToken)
+    {
+        var token = await UserAuthorization.GetTurnTokenAsync(
+            turnContext,
+            "agentic",
+            cancellationToken);
+    }
+}
+''',
+    )
+    _write(
+        tmp_path,
+        r'''
+using Microsoft.Agents.Hosting.AspNetCore;
+
+builder.AddAgentDefaults()
+    .AddAgent<AgenticAgent>()
+    .AddAgentAuthorization(b => b.AddAgentAspNetAuthentication());
+
+app.UseAgents();
+app.MapDefaultAgentEndpoints();
+''',
+        "Program.cs",
+    )
+    (tmp_path / "appsettings.json").write_text(
+        """
+{
+  "OutboundHostValidator": {
+    "Enabled": false,
+    "IncludeDefaultMicrosoftHosts": true,
+    "AllowPrivateNetworkAddresses": false,
+    "Hosts": []
+  },
+  "TokenValidation": {
+    "Audiences": ["blueprint-id"],
+    "TenantId": "tenant-id"
+  },
+  "AgentApplication": {
+    "UserAuthorization": {
+      "Handlers": {
+        "agentic": {
+          "Type": "AgenticUserAuthorization",
+          "Settings": {
+            "Scopes": ["https://graph.microsoft.com/.default"]
+          }
+        }
+      }
+    }
+  },
+  "Connections": {
+    "ServiceConnection": {
+      "Settings": {
+        "AuthType": "ClientSecret",
+        "AuthorityEndpoint": "https://login.microsoftonline.com/tenant-id",
+        "ClientSecret": "TOP-SECRET-VALUE",
+        "ClientId": "blueprint-id",
+        "Scopes": ["agent-channel/.default"]
+      }
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "AgenticAgent")
+
+    turn_identity = next(
+        item for item in agent.identities
+        if item.credential_source == "m365-turn-context"
+    )
+    assert "https://graph.microsoft.com/.default" in turn_identity.oauth_scopes
+    assert turn_identity.metadata["identity_type"] == "agentic_user_delegated"
+    assert turn_identity.metadata["token_subject"] == "agentic_user"
+    assert turn_identity.metadata["authorization_handlers"][0]["name"] == (
+        "agentic"
+    )
+    assert agent.metadata["agentic_user_authorization"] is True
+
+    connection = next(
+        item for item in agent.identities
+        if item.name == "m365-connection:ServiceConnection"
+    )
+    assert connection.metadata["permission_model"] == "application"
+    assert connection.metadata["client_secret_present"] is True
+    assert connection.metadata["credential_value_retained"] is False
+    assert "agent-channel/.default" in connection.permissions
+    assert "TOP-SECRET-VALUE" not in repr(graph)
+
+    assert agent.metadata["token_validation"]["audiences"] == ["blueprint-id"]
+    assert agent.metadata["token_validation"]["tenant_id"] == "tenant-id"
+    assert agent.metadata["outbound_host_validator"]["enabled"] is False
+    assert (
+        agent.metadata["outbound_host_validator"][
+            "allow_private_network_addresses"
+        ]
+        is False
+    )
+
+
+def test_m365_agents_unrelated_appsettings_does_not_cross_project_boundary(
+    tmp_path: Path,
+) -> None:
+    project = tmp_path / "agent-project"
+    project.mkdir()
+    _write(
+        project,
+        r'''
+using Microsoft.Agents.Builder.App;
+
+public class ScopedAgent(AgentApplicationOptions options) : AgentApplication(options)
+{
+    [MessageRoute]
+    public async Task OnMessageAsync(
+        ITurnContext turnContext,
+        ITurnState turnState,
+        CancellationToken cancellationToken)
+    {
+        var token = await UserAuthorization.GetTurnTokenAsync(
+            turnContext,
+            "agentic",
+            cancellationToken);
+    }
+}
+''',
+    )
+    (tmp_path / "appsettings.json").write_text(
+        """
+{
+  "AgentApplication": {
+    // .NET appsettings commonly permits JSONC comments.
+    "UserAuthorization": {
+      "Handlers": {
+        "agentic": {
+          "Type": "AgenticUserAuthorization",
+          "Settings": {
+            "Scopes": ["https://graph.microsoft.com/.default"]
+          }
+        }
+      }
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "ScopedAgent")
+    identity = next(
+        item for item in agent.identities
+        if item.credential_source == "m365-turn-context"
+    )
+
+    assert identity.oauth_scopes == set()
+    assert "authorization_handlers" not in identity.metadata
