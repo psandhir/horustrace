@@ -229,7 +229,9 @@ def _string_list(
 ) -> list[str] | None:
     elements = _list_nodes(node, sequences, values)
     current = _resolve_node(node, values)
-    if not elements and current is not None:
+    if current is None:
+        return None
+    if not elements:
         literal = _literal(current)
         if isinstance(literal, (list, tuple, set)):
             return [str(item) for item in literal if isinstance(item, str)]
@@ -687,6 +689,13 @@ def _resolve_mcp_servers(
     result: list[MCPServer] = []
     dynamic = False
     for name, raw_value in entries.items():
+        raw_key = _expr_key(raw_value)
+        if raw_key and raw_key in sdk_servers:
+            server = deepcopy(sdk_servers[raw_key])
+            server.name = name
+            server.metadata["configured_name"] = name
+            result.append(server)
+            continue
         value = _resolve_node(raw_value, values)
         key = _expr_key(value)
         if key and key in sdk_servers:
