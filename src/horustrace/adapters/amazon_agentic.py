@@ -387,11 +387,188 @@ def _aws_runtime_identity(
     )
 
 
+def _tool_expressions(node: ast.AST | None) -> list[ast.AST]:
+    """Flatten statically visible Strands tool collection composition."""
+    if node is None:
+        return []
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        return list(node.elts)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        return [*_tool_expressions(node.left), *_tool_expressions(node.right)]
+    return [node]
+
+
+def _delegated_agent_tool(
+    parent: Agent,
+    child: Agent,
+    *,
+    name: str | None = None,
+    basis: str = "strands_agent_as_tool",
+) -> Tool:
+    return Tool(
+        name=name or child.name,
+        kind="delegated_agent",
+        capabilities={"agent.delegate"} | set(child.capabilities),
+        resources=deepcopy(child.effective_resources),
+        destinations=deepcopy(child.effective_destinations),
+        location=parent.location,
+        metadata={
+            "framework": STRANDS_FRAMEWORK,
+            "delegate_target": child.name,
+            "authority_binding": "delegation_projection",
+            "authority_binding_basis": basis,
+        },
+    )
+
+
+def _hook_classes(tree: ast.AST) -> dict[str, ast.ClassDef]:
+    return {
+        node.name: node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ClassDef)
+    }
+
+
+def _hook_class_control_state(node: ast.ClassDef) -> str:
+    """Classify source-visible Strands hook enforcement without executing it."""
+    for child in ast.walk(node):
+        if isinstance(child, (ast.Assign, ast.AnnAssign)):
+            targets = child.targets if isinstance(child, ast.Assign) else [child.target]
+            if any(
+                isinstance(target, ast.Attribute)
+                and target.attr in {"cancel_tool", "cancel_node"}
+                for target in targets
+            ):
+                return "enforcing"
+        if isinstance(child, ast.Call):
+            leaf = (_leaf(child.func) or "").lower()
+            if leaf in {"interrupt", "cancel_tool", "cancel_node"}:
+                return "enforcing"
+    return "non_enforcing"
+
+
+def _hooks_control_state(
+    tree: ast.AST,
+    node: ast.AST | None,
+) -> tuple[str | None, list[str]]:
+    if node is None:
+        return None, []
+    classes = _hook_classes(tree)
+    states: list[str] = []
+    names: list[str] = []
+    for item in _tool_expressions(node):
+        name: str | None = None
+        if isinstance(item, ast.Call):
+            name = _leaf(item.func)
+        elif isinstance(item, ast.Name):
+            name = item.id
+        if not name:
+            continue
+        names.append(name)
+        hook_class = classes.get(name)
+        states.append(
+            _hook_class_control_state(hook_class)
+            if hook_class is not None
+            else "unresolved"
+        )
+    if not states:
+        return "unresolved", names
+    if "enforcing" in states:
+        return "enforcing", names
+    if all(state == "non_enforcing" for state in states):
+        return "non_enforcing", names
+    return "unresolved", names
+
+
+def _a2a_provider_tool(
+    path: Path,
+    name: str,
+    call: ast.Call,
+    assignment_calls: dict[str, ast.Call],
+) -> Tool:
+    known_urls = _keyword(call, "known_agent_urls")
+    destinations: list[NetworkDestination] = []
+    dynamic = False
+    if isinstance(known_urls, (ast.List, ast.Tuple, ast.Set)):
+        for item in known_urls.elts:
+            literal = _literal_string(item)
+            if literal and literal.startswith(("http://", "https://")):
+                destinations.append(
+                    NetworkDestination(
+                        target=literal,
+                        restricted=True,
+                        location=_location(path, item),
+                        metadata={
+                            "source": "a2a_known_agent_url",
+                            "network_scope": "fixed_literal_destination",
+                        },
+                    )
+                )
+            else:
+                dynamic = True
+    elif known_urls is not None:
+        dynamic = True
+
+    if dynamic or not destinations:
+        destinations.append(
+            NetworkDestination(
+                target="<runtime-discovered-a2a-agent>",
+                restricted=False,
+                location=_location(path, call),
+                metadata={
+                    "source": "a2a_known_agent_urls",
+                    "network_scope": "dynamic_destination",
+                },
+            )
+        )
+
+    authenticated = False
+    auth_scheme: str | None = None
+    httpx_args = _keyword(call, "httpx_client_args")
+    if isinstance(httpx_args, ast.Dict):
+        for key, value in zip(httpx_args.keys, httpx_args.values):
+            if _literal_string(key) != "auth":
+                continue
+            authenticated = True
+            if isinstance(value, ast.Name):
+                auth_call = assignment_calls.get(value.id)
+                if auth_call and (_leaf(auth_call.func) or "").lower() == "sigv4httpxauth":
+                    auth_scheme = "sigv4"
+            elif isinstance(value, ast.Call):
+                if (_leaf(value.func) or "").lower() == "sigv4httpxauth":
+                    auth_scheme = "sigv4"
+
+    return Tool(
+        name=name,
+        kind="strands_a2a_provider",
+        capabilities={"agent.delegate", "network.external", "external.write"},
+        destinations=destinations,
+        guardrails=authenticated,
+        location=_location(path, call),
+        metadata={
+            "framework": STRANDS_FRAMEWORK,
+            "a2a": True,
+            "binding_origin": "A2AClientToolProvider.tools",
+            "dynamic_bound_collection": True,
+            "binding_unresolved": True,
+            "tool_catalogue_unresolved": True,
+            "remote_catalogue_unresolved": True,
+            "destination_provenance": "known_agent_urls",
+            "dynamic_destination": dynamic or not any(d.restricted for d in destinations),
+            "authenticated": authenticated,
+            "auth_scheme": auth_scheme,
+        },
+    )
+
+
 def _scan_strands_python(path: Path, tree: ast.AST) -> Graph:
     graph = Graph()
     imports_strands = False
     agent_symbols: set[str] = set()
     mcp_symbols: set[str] = set()
+    graph_builder_symbols: set[str] = set()
+    swarm_symbols: set[str] = set()
+
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
@@ -409,6 +586,12 @@ def _scan_strands_python(path: Path, tree: ast.AST) -> Graph:
                 for alias in node.names:
                     if alias.name == "MCPClient":
                         mcp_symbols.add(alias.asname or alias.name)
+            if module == "strands.multiagent" or module.startswith("strands.multiagent."):
+                for alias in node.names:
+                    if alias.name == "GraphBuilder":
+                        graph_builder_symbols.add(alias.asname or alias.name)
+                    elif alias.name == "Swarm":
+                        swarm_symbols.add(alias.asname or alias.name)
     if not imports_strands:
         return graph
 
@@ -416,8 +599,14 @@ def _scan_strands_python(path: Path, tree: ast.AST) -> Graph:
     vended_tools = _vended_tool_imports(tree, path)
     tool_lookup = {**vended_tools, **custom_tools}
 
+    assignment_calls: dict[str, ast.Call] = {}
     mcp_lookup: dict[str, MCPServer] = {}
+    a2a_lookup: dict[str, Tool] = {}
     agent_calls: list[tuple[str, ast.Call, ast.AST]] = []
+    graph_builders: dict[str, dict[str, Any]] = {}
+    graph_results: list[tuple[str, str, ast.AST]] = []
+    swarm_calls: list[tuple[str, ast.Call, ast.AST]] = []
+
     for node in ast.walk(tree):
         if not isinstance(node, (ast.Assign, ast.AnnAssign)):
             continue
@@ -425,14 +614,74 @@ def _scan_strands_python(path: Path, tree: ast.AST) -> Graph:
         call = _call_value(node)
         if not name or call is None:
             continue
+        assignment_calls[name] = call
         leaf = _leaf(call.func)
         if leaf in mcp_symbols or leaf == "MCPClient":
             mcp_lookup[name] = _mcp_server_from_call(path, name, call)
         if leaf in agent_symbols or leaf == "Agent":
             agent_calls.append((name, call, node))
+        if leaf == "A2AClientToolProvider":
+            a2a_lookup[name] = _a2a_provider_tool(
+                path, name, call, assignment_calls
+            )
+        if leaf in graph_builder_symbols or leaf == "GraphBuilder":
+            graph_builders[name] = {
+                "nodes": {},
+                "edges": [],
+                "entry_point": None,
+                "max_node_executions": None,
+                "execution_timeout": None,
+                "node_timeout": None,
+                "hooks": None,
+            }
+        if leaf in swarm_symbols or leaf == "Swarm":
+            swarm_calls.append((name, call, node))
+        if (
+            isinstance(call.func, ast.Attribute)
+            and call.func.attr == "build"
+            and isinstance(call.func.value, ast.Name)
+            and call.func.value.id in graph_builders
+        ):
+            graph_results.append((name, call.func.value.id, node))
+
+    # Recover GraphBuilder topology from method calls.
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if not isinstance(node.func.value, ast.Name):
+            continue
+        builder_name = node.func.value.id
+        spec = graph_builders.get(builder_name)
+        if spec is None:
+            continue
+        method = node.func.attr
+        if method == "add_node" and node.args:
+            executor = node.args[0]
+            if isinstance(executor, ast.Name):
+                node_id = (
+                    _literal_string(node.args[1])
+                    if len(node.args) > 1
+                    else executor.id
+                ) or executor.id
+                spec["nodes"][node_id] = executor.id
+        elif method == "add_edge" and len(node.args) >= 2:
+            source = _literal_string(node.args[0])
+            target = _literal_string(node.args[1])
+            if source and target:
+                spec["edges"].append({"source": source, "target": target})
+        elif method == "set_entry_point" and node.args:
+            spec["entry_point"] = _literal_string(node.args[0])
+        elif method == "set_max_node_executions" and node.args:
+            spec["max_node_executions"] = _literal(node.args[0])
+        elif method == "set_execution_timeout" and node.args:
+            spec["execution_timeout"] = _literal(node.args[0])
+        elif method == "set_node_timeout" and node.args:
+            spec["node_timeout"] = _literal(node.args[0])
+        elif method == "set_hook_providers" and node.args:
+            spec["hooks"] = node.args[0]
 
     agents: dict[str, Agent] = {}
-    raw_tools: dict[str, list[str]] = {}
+    raw_tools: dict[str, list[ast.AST]] = {}
     for name, call, binding in agent_calls:
         location = _location(path, binding)
         model_meta = _model_metadata(_keyword(call, "model"))
@@ -451,42 +700,153 @@ def _scan_strands_python(path: Path, tree: ast.AST) -> Graph:
         identity = _aws_runtime_identity(path, location, model_meta)
         if identity is not None:
             agent.identities.append(identity)
-        tool_node = _keyword(call, "tools")
-        refs: list[str] = []
-        if isinstance(tool_node, (ast.List, ast.Tuple, ast.Set)):
-            refs = [item.id for item in tool_node.elts if isinstance(item, ast.Name)]
-        elif isinstance(tool_node, ast.Name):
-            refs = [tool_node.id]
-        raw_tools[name] = refs
+
+        hook_state, hook_names = _hooks_control_state(tree, _keyword(call, "hooks"))
+        if hook_names:
+            agent.metadata["hooks"] = hook_names
+            agent.metadata["hook_control_state"] = hook_state
+            agent.metadata["tool_control_state"] = hook_state
+            agent.metadata["tool_control_enforcing"] = hook_state == "enforcing"
+
+        raw_tools[name] = _tool_expressions(_keyword(call, "tools"))
         agents[name] = agent
 
-    for name, agent in agents.items():
-        for ref in raw_tools.get(name, []):
+    def bind_tool_expression(agent: Agent, expr: ast.AST) -> None:
+        if isinstance(expr, ast.Name):
+            ref = expr.id
             if ref in tool_lookup:
                 agent.tools.append(deepcopy(tool_lookup[ref]))
-                continue
+                return
             if ref in mcp_lookup:
                 agent.mcp_servers.append(deepcopy(mcp_lookup[ref]))
-                continue
+                return
+            if ref in a2a_lookup:
+                agent.tools.append(deepcopy(a2a_lookup[ref]))
+                return
             child = agents.get(ref)
             if child is not None and child is not agent:
-                delegated = Tool(
-                    name=child.name,
-                    kind="delegated_agent",
-                    capabilities={"agent.delegate"} | set(child.capabilities),
-                    resources=deepcopy(child.effective_resources),
-                    destinations=deepcopy(child.effective_destinations),
-                    location=agent.location,
-                    metadata={
-                        "framework": STRANDS_FRAMEWORK,
-                        "delegate_target": child.name,
-                        "authority_binding": "delegation_projection",
-                        "authority_binding_basis": "strands_agent_as_tool",
-                    },
-                )
-                agent.tools.append(delegated)
+                agent.tools.append(_delegated_agent_tool(agent, child))
                 agent.metadata.setdefault("delegates_to", []).append(child.name)
+                return
+
+        if (
+            isinstance(expr, ast.Attribute)
+            and expr.attr == "tools"
+            and isinstance(expr.value, ast.Name)
+            and expr.value.id in a2a_lookup
+        ):
+            agent.tools.append(deepcopy(a2a_lookup[expr.value.id]))
+            return
+
+        if (
+            isinstance(expr, ast.Call)
+            and isinstance(expr.func, ast.Attribute)
+            and expr.func.attr in {"as_tool", "asTool"}
+            and isinstance(expr.func.value, ast.Name)
+        ):
+            child = agents.get(expr.func.value.id)
+            if child is not None and child is not agent:
+                alias = _literal_string(_keyword(expr, "name")) or child.name
+                agent.tools.append(
+                    _delegated_agent_tool(
+                        agent,
+                        child,
+                        name=alias,
+                        basis="strands_agent_as_tool_explicit",
+                    )
+                )
+                agent.metadata.setdefault("delegates_to", []).append(child.name)
+
+    for name, agent in agents.items():
+        for expr in raw_tools.get(name, []):
+            bind_tool_expression(agent, expr)
         graph.agents.append(agent)
+
+    # Materialize GraphBuilder results as authority-bearing orchestrators.
+    for result_name, builder_name, binding in graph_results:
+        spec = graph_builders[builder_name]
+        orchestrator = Agent(
+            name=result_name,
+            location=_location(path, binding),
+            metadata={
+                "framework": STRANDS_FRAMEWORK,
+                "language": "python",
+                "multiagent_type": "graph",
+                "workflow": "graph",
+                "workflow_edges": list(spec["edges"]),
+                "entry_point": spec["entry_point"],
+                "max_node_executions": spec["max_node_executions"],
+                "execution_timeout": spec["execution_timeout"],
+                "node_timeout": spec["node_timeout"],
+            },
+        )
+        hook_state, hook_names = _hooks_control_state(tree, spec.get("hooks"))
+        if hook_names:
+            orchestrator.metadata["hooks"] = hook_names
+            orchestrator.metadata["hook_control_state"] = hook_state
+            orchestrator.metadata["tool_control_state"] = hook_state
+            orchestrator.metadata["tool_control_enforcing"] = hook_state == "enforcing"
+        delegates: list[str] = []
+        for node_id, ref in spec["nodes"].items():
+            child = agents.get(ref)
+            if child is None:
+                continue
+            delegates.append(child.name)
+            orchestrator.tools.append(
+                _delegated_agent_tool(
+                    orchestrator,
+                    child,
+                    name=node_id,
+                    basis="strands_graph_node",
+                )
+            )
+        if delegates:
+            orchestrator.metadata["delegates_to"] = list(dict.fromkeys(delegates))
+        graph.agents.append(orchestrator)
+
+    # Materialize Swarm membership and safety bounds.
+    for name, call, binding in swarm_calls:
+        members_node = call.args[0] if call.args else _keyword(call, "nodes")
+        member_refs = [
+            item.id
+            for item in _tool_expressions(members_node)
+            if isinstance(item, ast.Name)
+        ]
+        swarm = Agent(
+            name=name,
+            location=_location(path, binding),
+            metadata={
+                "framework": STRANDS_FRAMEWORK,
+                "language": "python",
+                "multiagent_type": "swarm",
+                "workflow": "swarm",
+                "handoff_topology": "dynamic",
+                "max_handoffs": _literal(_keyword(call, "max_handoffs")),
+                "max_iterations": _literal(_keyword(call, "max_iterations")),
+                "execution_timeout": _literal(_keyword(call, "execution_timeout")),
+                "node_timeout": _literal(_keyword(call, "node_timeout")),
+                "entry_point": (
+                    _literal_string(_keyword(call, "entry_point"))
+                    or (member_refs[0] if member_refs else None)
+                ),
+            },
+        )
+        delegates: list[str] = []
+        for ref in member_refs:
+            child = agents.get(ref)
+            if child is None:
+                continue
+            delegates.append(child.name)
+            swarm.tools.append(
+                _delegated_agent_tool(
+                    swarm,
+                    child,
+                    basis="strands_swarm_member",
+                )
+            )
+        if delegates:
+            swarm.metadata["delegates_to"] = list(dict.fromkeys(delegates))
+        graph.agents.append(swarm)
 
     bound_mcp = {server.name for agent in graph.agents for server in agent.mcp_servers}
     graph.unbound_mcp_servers.extend(
