@@ -729,32 +729,33 @@ def _scan_strands_python(path: Path, tree: ast.AST) -> Graph:
                 agent.metadata.setdefault("delegates_to", []).append(child.name)
                 return
 
-        if isinstance(expr, ast.Attribute):
-            if (
-                expr.attr == "tools"
-                and isinstance(expr.value, ast.Name)
-                and expr.value.id in a2a_lookup
-            ):
-                agent.tools.append(deepcopy(a2a_lookup[expr.value.id]))
-                return
+        if (
+            isinstance(expr, ast.Attribute)
+            and expr.attr == "tools"
+            and isinstance(expr.value, ast.Name)
+            and expr.value.id in a2a_lookup
+        ):
+            agent.tools.append(deepcopy(a2a_lookup[expr.value.id]))
+            return
 
-        if isinstance(expr, ast.Call) and isinstance(expr.func, ast.Attribute):
-            if (
-                expr.func.attr in {"as_tool", "asTool"}
-                and isinstance(expr.func.value, ast.Name)
-            ):
-                child = agents.get(expr.func.value.id)
-                if child is not None and child is not agent:
-                    alias = _literal_string(_keyword(expr, "name")) or child.name
-                    agent.tools.append(
-                        _delegated_agent_tool(
-                            agent,
-                            child,
-                            name=alias,
-                            basis="strands_agent_as_tool_explicit",
-                        )
+        if (
+            isinstance(expr, ast.Call)
+            and isinstance(expr.func, ast.Attribute)
+            and expr.func.attr in {"as_tool", "asTool"}
+            and isinstance(expr.func.value, ast.Name)
+        ):
+            child = agents.get(expr.func.value.id)
+            if child is not None and child is not agent:
+                alias = _literal_string(_keyword(expr, "name")) or child.name
+                agent.tools.append(
+                    _delegated_agent_tool(
+                        agent,
+                        child,
+                        name=alias,
+                        basis="strands_agent_as_tool_explicit",
                     )
-                    agent.metadata.setdefault("delegates_to", []).append(child.name)
+                )
+                agent.metadata.setdefault("delegates_to", []).append(child.name)
 
     for name, agent in agents.items():
         for expr in raw_tools.get(name, []):
