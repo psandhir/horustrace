@@ -828,7 +828,7 @@ def enrich_strands_repository_graph(
                 runtime_name = explicit_name
             elif class_node is not None and alias in {"", "agent"}:
                 runtime_name = class_node.name
-            elif alias and alias != "agent":
+            elif alias:
                 runtime_name = alias
             elif function is not None:
                 runtime_name = function.name
