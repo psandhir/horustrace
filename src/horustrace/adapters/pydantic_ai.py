@@ -3118,6 +3118,42 @@ def scan_python_file(path: Path) -> Graph:
                     agent.mcp_servers.extend(servers)
                     if dynamic:
                         agent.metadata["dynamic_tools"] = True
+                        if not tools and not servers:
+                            constructor = (
+                                _call_name(element.func)
+                                if isinstance(element, ast.Call)
+                                else _call_name(element)
+                            ) or "<dynamic-toolset>"
+                            placeholder = _dynamic_binding_placeholder(
+                                path,
+                                element,
+                                name=constructor,
+                                kind="pydantic_dynamic_toolset",
+                                binding_origin="Agent.toolsets",
+                                source_expression=_expr_reference(element),
+                            )
+                            placeholder.metadata["toolset_constructor"] = constructor
+                            if constructor in imports:
+                                placeholder.metadata["import_module"] = imports[constructor]
+                            _merge_tool(agent.tools, placeholder)
+                        if not tools and not servers:
+                            constructor = (
+                                _call_name(element.func)
+                                if isinstance(element, ast.Call)
+                                else _call_name(element)
+                            ) or "<dynamic-toolset>"
+                            placeholder = _dynamic_binding_placeholder(
+                                path,
+                                element,
+                                name=constructor,
+                                kind="pydantic_dynamic_toolset",
+                                binding_origin="Agent.toolsets",
+                                source_expression=_expr_reference(element),
+                            )
+                            placeholder.metadata["toolset_constructor"] = constructor
+                            if constructor in imports:
+                                placeholder.metadata["import_module"] = imports[constructor]
+                            _merge_tool(agent.tools, placeholder)
 
         capabilities_expr, capabilities_from_expanded_kwargs = _authority_kw(
             call, "capabilities", expanded_agent_keywords
