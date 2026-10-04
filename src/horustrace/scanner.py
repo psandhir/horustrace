@@ -10,6 +10,13 @@ from pathlib import Path
 import yaml
 
 from horustrace.adapters.adk_config import scan_adk_config, scan_adk_env
+from horustrace.adapters.amazon_agentic import (
+    AMAZON_AGENTIC_CONFIG_FILENAMES,
+    scan_amazon_agentic_config_file,
+    scan_amazon_agentic_python_file,
+    scan_amazon_agentic_terraform_file,
+    scan_amazon_cloudformation_file,
+)
 from horustrace.adapters.fast_agent_config import (
     FAST_AGENT_CONFIG_FILENAMES,
     scan_fast_agent_config,
@@ -31,6 +38,7 @@ from horustrace.adapters.registry import detect_python_frameworks, scan_python_f
 from horustrace.adapters.repository_adk import enrich_repository_graph
 from horustrace.adg import build_adg
 from horustrace.analysis import build_attack_paths
+from horustrace.amazon_repository_authority import enrich_amazon_repository_authority
 from horustrace.authority_source import (
     AuthoritySourceError,
     enrich_from_terraform_authority_source,
@@ -1174,6 +1182,7 @@ def _is_supported_scan_candidate(path: Path) -> bool:
             | SUPPRESSION_FILENAMES
             | FAST_AGENT_CONFIG_FILENAMES
             | AGENT365_CONFIG_FILENAMES
+            | AMAZON_AGENTIC_CONFIG_FILENAMES
         )
         or _is_microsoft_authority_json(path)
         or path.name == ".env"
@@ -2271,6 +2280,7 @@ def scan(
                 | SUPPRESSION_FILENAMES
                 | FAST_AGENT_CONFIG_FILENAMES
                 | AGENT365_CONFIG_FILENAMES
+                | AMAZON_AGENTIC_CONFIG_FILENAMES
             )
             or _is_microsoft_authority_json(candidate)
         )
@@ -2302,7 +2312,10 @@ def scan(
                     text,
                     allow_comments=candidate.name.startswith("appsettings"),
                 )
-            elif candidate.name in (MCP_FILENAMES | AGENT365_CONFIG_FILENAMES):
+            elif (
+                candidate.name in (MCP_FILENAMES | AGENT365_CONFIG_FILENAMES)
+                or candidate.name == "agentcore.json"
+            ):
                 validate_json_safety(text)
                 raw = json.loads(text)
                 if not isinstance(raw, dict):
@@ -2369,6 +2382,7 @@ def scan(
             for framework in frameworks:
                 framework_evidence.setdefault(framework, []).append(SourceLocation(candidate))
             _merge(graph, scan_python_file(candidate), candidate)
+            _merge(graph, scan_amazon_agentic_python_file(candidate), candidate)
             _merge(graph, scan_github_copilot_sdk_file(candidate), candidate)
             diagnose_python(candidate, graph)
         elif candidate.suffix.lower() == ".ipynb":
@@ -2408,6 +2422,9 @@ def scan(
             _merge(graph, scan_github_copilot_sdk_file(candidate), candidate)
         elif candidate.suffix == ".tf":
             _merge(graph, scan_terraform(candidate), candidate)
+            _merge(graph, scan_amazon_agentic_terraform_file(candidate), candidate)
+        elif candidate.name in AMAZON_AGENTIC_CONFIG_FILENAMES:
+            _merge(graph, scan_amazon_agentic_config_file(candidate), candidate)
         elif candidate.name in MCP_FILENAMES:
             _merge(graph, scan_mcp_config(candidate), candidate)
         elif candidate.name in FAST_AGENT_CONFIG_FILENAMES:
@@ -2417,6 +2434,7 @@ def scan(
         elif candidate.name in MANIFEST_FILENAMES:
             _merge(graph, scan_manifest(candidate), candidate)
         elif candidate.suffix.lower() in {".yaml", ".yml"}:
+            _merge(graph, scan_amazon_cloudformation_file(candidate), candidate)
             _merge(graph, scan_foundry_config(candidate), candidate)
             _merge(graph, scan_adk_config(candidate), candidate)
         elif candidate.name == ".env" or candidate.name.startswith(".env."):
@@ -2440,6 +2458,11 @@ def scan(
         python_paths=approved_python_paths,
     )
     _consolidate_agents(graph)
+    enrich_amazon_repository_authority(
+        graph,
+        root if root.is_dir() else root.parent,
+        candidates,
+    )
     resolve_imported_mcp_placeholders(
         graph,
         root if root.is_dir() else root.parent,
