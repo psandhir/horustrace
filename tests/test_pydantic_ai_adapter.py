@@ -1916,3 +1916,49 @@ slack_agent = Agent(
     assert slack_server.authenticated is True
     assert slack_server.metadata["read_only"] is True
     assert slack.metadata["read_only_integrations"] == ["slack"]
+
+def test_pydantic_repository_delegation_resolves_package_import_below_scan_root(
+    tmp_path: Path,
+) -> None:
+    agents_dir = tmp_path / "src" / "agents"
+    agents_dir.mkdir(parents=True)
+    (agents_dir / "__init__.py").write_text("", encoding="utf-8")
+    (agents_dir / "sub_agent.py").write_text(
+        """
+from pathlib import Path
+from pydantic_ai import Agent
+
+def write_report(path: str, content: str) -> str:
+    Path(path).write_text(content)
+    return path
+
+sub_agent = Agent("openai:gpt-5.6-sol", tools=[write_report])
+""",
+        encoding="utf-8",
+    )
+    (agents_dir / "main_agent.py").write_text(
+        """
+from pydantic_ai import Agent
+from src.agents.sub_agent import sub_agent
+
+main_agent = Agent("openai:gpt-5.6-sol")
+
+@main_agent.tool_plain
+async def spawn_sub_agents(prompt: str) -> str:
+    result = await sub_agent.run(prompt)
+    return result.output
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(agents_dir)
+    main_agent = next(item for item in graph.agents if item.name == "main_agent")
+    delegated = next(item for item in main_agent.tools if item.name == "spawn_sub_agents")
+
+    assert "agent.delegate" in delegated.capabilities
+    assert "data.write" in delegated.capabilities
+    assert delegated.metadata["delegate_targets"] == ["sub_agent"]
+    assert delegated.metadata["delegation_basis"] == (
+        "repository_imported_pydantic_agent_run"
+    )
+
