@@ -952,14 +952,33 @@ def _scan_python(path: Path, source: str) -> Graph:
         if builtin:
             agent.tools.append(builtin)
 
-        tools_node = _resolve_python_node(
-            _python_session_option(call, "tools", assignments, dict_updates),
-            assignments,
+        tools_option = _python_session_option(
+            call, "tools", assignments, dict_updates
         )
+        tools_node = _resolve_python_node(tools_option, assignments)
+        bound_custom_tools = 0
         if isinstance(tools_node, (ast.List, ast.Tuple)):
             for item in tools_node.elts:
                 if isinstance(item, ast.Name) and item.id in custom_tools:
                     agent.tools.append(deepcopy(custom_tools[item.id]))
+                    bound_custom_tools += 1
+        if tools_option is not None and bound_custom_tools == 0:
+            agent.tools.append(
+                Tool(
+                    name="copilot-custom-tools",
+                    kind="dynamic_tool_reference",
+                    capabilities=set(),
+                    location=location,
+                    metadata={
+                        "framework": FRAMEWORK,
+                        "placeholder": True,
+                        "authority_binding": True,
+                        "authority_binding_basis": "session_config_tools_expression",
+                        "dynamic_tool_catalogue": True,
+                        "tools_expression": ast.unparse(tools_option),
+                    },
+                )
+            )
 
         mcp_servers = _python_mcp_servers(
             path,
