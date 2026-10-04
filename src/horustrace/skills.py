@@ -282,6 +282,19 @@ def bind_discovered_skills(graph: Graph, root: Path) -> None:
                     seen.add(key)
                     bound.add(key)
 
+        if agent.metadata.get("dynamic_skill_sources") is True:
+            graph.coverage.diagnostics.append(
+                ScanDiagnostic(
+                    "unresolved_skill",
+                    (
+                        f"Skill sources for agent '{agent.name}' are dynamically "
+                        "configured and cannot be enumerated from repository source alone."
+                    ),
+                    agent.location,
+                    details={"agent": agent.name, "source": "dynamic"},
+                )
+            )
+
         remote_sources = agent.metadata.get("remote_skill_sources")
         if isinstance(remote_sources, list):
             for source in remote_sources:
