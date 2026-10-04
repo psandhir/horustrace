@@ -197,12 +197,14 @@ def _toolset_members(cls: ast.ClassDef) -> list[tuple[str, bool]]:
     selected: list[tuple[str, bool]] = []
     for call in (node for node in ast.walk(init) if isinstance(node, ast.Call)):
         dotted = _dotted(call.func) or ""
-        if not dotted.endswith("__init__"):
-            continue
-        if not (
-            dotted.startswith("super.")
-            or dotted.endswith("FunctionToolset.__init__")
-        ):
+        is_super_init = (
+            isinstance(call.func, ast.Attribute)
+            and call.func.attr == "__init__"
+            and isinstance(call.func.value, ast.Call)
+            and _call_name(call.func.value.func) == "super"
+        )
+        is_function_toolset_init = dotted.endswith("FunctionToolset.__init__")
+        if not (is_super_init or is_function_toolset_init):
             continue
         tools_expr = call.args[0] if call.args else next(
             (item.value for item in call.keywords if item.arg == "tools"),
