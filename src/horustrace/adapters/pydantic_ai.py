@@ -1267,7 +1267,9 @@ def _auth_state(call: ast.Call) -> bool | None:
 def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer | None:
     name = _call_name(call.func)
     canonical_name = (
-        "MCPServerStdio"
+        "MCP"
+        if name == "MCPCapability"
+        else "MCPServerStdio"
         if isinstance(name, str) and name.endswith("MCPServerStdio")
         else "MCPServerStreamableHTTP"
         if isinstance(name, str)
@@ -1372,6 +1374,67 @@ def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer |
         location=_location(path, call),
         metadata={**metadata, "dynamic_mcp_endpoint": True},
     )
+
+
+def _string_sequence_from_expr(
+    expr: ast.AST | None,
+    assignments: dict[str, ast.AST],
+) -> tuple[list[str], bool]:
+    if isinstance(expr, ast.Name):
+        expr = assignments.get(expr.id)
+    if not isinstance(expr, (ast.List, ast.Tuple, ast.Set)):
+        return [], expr is not None
+    values: list[str] = []
+    dynamic = False
+    for element in expr.elts:
+        value = _literal(element)
+        if isinstance(value, str):
+            values.append(value)
+        else:
+            dynamic = True
+    return values, dynamic
+
+
+def _mcp_capability_server_from_call(
+    path: Path,
+    call: ast.Call,
+    assignments: dict[str, ast.AST],
+) -> MCPServer | None:
+    local = _kw(call, "local")
+    resolved_local = assignments.get(local.id) if isinstance(local, ast.Name) else local
+    if isinstance(resolved_local, ast.Call) and _call_name(resolved_local.func) == "StdioTransport":
+        command_node = (
+            resolved_local.args[0]
+            if resolved_local.args
+            else _kw(resolved_local, "command")
+        )
+        args_node = (
+            resolved_local.args[1]
+            if len(resolved_local.args) > 1
+            else _kw(resolved_local, "args")
+        )
+        command = _literal(command_node)
+        args, dynamic_args = _string_sequence_from_expr(args_node, assignments)
+        configured_id = _literal(_kw(call, "id"))
+        return MCPServer(
+            name=configured_id if isinstance(configured_id, str) else "mcp",
+            transport="stdio",
+            command=command if isinstance(command, str) else None,
+            args=args,
+            authenticated=None,
+            location=_location(path, call),
+            metadata={
+                "framework": "pydantic-ai",
+                "source": "MCP",
+                "binding_origin": "pydantic_capability",
+                "local_transport": "StdioTransport",
+                "dynamic_command": not isinstance(command, str),
+                "dynamic_args": dynamic_args,
+                "partial_transport_configuration": dynamic_args
+                or not isinstance(command, str),
+            },
+        )
+    return _mcp_server_from_call(path, call, "mcp")
 
 
 def _mcp_server_from_expr(
@@ -2194,8 +2257,8 @@ def _capability_from_expr(
         return None, None, None
 
     name = _call_name(expr.func) or ""
-    if name == "MCP":
-        return None, _mcp_server_from_call(path, expr, "mcp"), None
+    if name in {"MCP", "MCPCapability"}:
+        return None, _mcp_capability_server_from_call(path, expr, assignments), None
     if name == "NativeTool":
         wrapped = expr.args[0] if expr.args else _kw(expr, "tool")
         if isinstance(wrapped, ast.Call):
