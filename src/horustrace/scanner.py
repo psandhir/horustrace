@@ -37,8 +37,8 @@ from horustrace.adapters.microsoft_foundry import scan_foundry_config
 from horustrace.adapters.registry import detect_python_frameworks, scan_python_file
 from horustrace.adapters.repository_adk import enrich_repository_graph
 from horustrace.adg import build_adg
-from horustrace.analysis import build_attack_paths
 from horustrace.amazon_repository_authority import enrich_amazon_repository_authority
+from horustrace.analysis import build_attack_paths
 from horustrace.authority_source import (
     AuthoritySourceError,
     enrich_from_terraform_authority_source,
