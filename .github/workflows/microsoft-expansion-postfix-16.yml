@@ -7,7 +7,8 @@ on:
       - fix/microsoft-expansion-p0-p1
     paths:
       - ".github/workflows/microsoft-expansion-postfix-16.yml"
-      - "research/microsoft-expansion-holdout-16/**"\n      - "src/horustrace/**"
+      - "research/microsoft-expansion-holdout-16/**"
+      - "src/horustrace/**"
 
 permissions:
   contents: read
