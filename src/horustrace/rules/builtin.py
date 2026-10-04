@@ -326,6 +326,24 @@ def evaluate(graph: Graph) -> list[Finding]:
     # Layer 1: agent/framework/MCP configuration controls.
     for agent in graph.agents:
         agent_tool_control = agent.metadata.get("tool_control_enforcing") is True
+        for skill in agent.skills:
+            if skill.metadata.get("broad_tool_surface") is True:
+                findings.append(
+                    Finding(
+                        "SKL001",
+                        Severity.MEDIUM,
+                        "Bound skill declares broad tool access",
+                        f"Skill '{skill.name}' bound to agent '{agent.name}' declares wildcard or unrestricted allowed-tools.",
+                        "Restrict the skill allowed-tools declaration to the smallest explicit set required by the workflow.",
+                        layer=1,
+                        location=skill.location or agent.location,
+                        agent=agent.name,
+                        evidence=[
+                            "skill=" + skill.name,
+                            "allowed_tools=" + ",".join(sorted(skill.allowed_tools)),
+                        ],
+                    )
+                )
         for tool in agent.tools:
             tool_authority = authority_by_key.get(
                 (
@@ -850,6 +868,56 @@ def evaluate(graph: Graph) -> list[Finding]:
     for agent in graph.agents:
         caps = agent.capabilities
         policy = agent.policy
+        bound_skills = {skill.name for skill in agent.skills}
+        if policy.allowed_skills:
+            outside_skills = sorted(bound_skills - policy.allowed_skills)
+            if outside_skills:
+                findings.append(
+                    Finding(
+                        "SKL010",
+                        Severity.HIGH,
+                        "Agent uses skill outside declared allowlist",
+                        f"Agent '{agent.name}' binds skills outside its declared skill allowlist.",
+                        "Remove the skill binding or add it to policy only after explicit security review.",
+                        layer=2,
+                        location=agent.location,
+                        agent=agent.name,
+                        evidence=[
+                            "allowed=" + ",".join(sorted(policy.allowed_skills)),
+                            "outside=" + ",".join(outside_skills),
+                        ],
+                    )
+                )
+        missing_skills = sorted(policy.required_skills - bound_skills)
+        if missing_skills:
+            findings.append(
+                Finding(
+                    "SKL011",
+                    Severity.MEDIUM,
+                    "Required skill is not bound",
+                    f"Agent '{agent.name}' is missing skills required by policy.",
+                    "Bind the required reviewed skill or update the policy if the requirement is no longer valid.",
+                    layer=2,
+                    location=agent.location,
+                    agent=agent.name,
+                    evidence=["missing=" + ",".join(missing_skills)],
+                )
+            )
+        denied_skills = sorted(bound_skills & policy.denied_skills)
+        if denied_skills:
+            findings.append(
+                Finding(
+                    "SKL012",
+                    Severity.CRITICAL,
+                    "Agent binds explicitly denied skill",
+                    f"Agent '{agent.name}' binds skills explicitly denied by policy.",
+                    "Remove the denied skill binding or change policy through an explicit risk-acceptance process.",
+                    layer=2,
+                    location=agent.location,
+                    agent=agent.name,
+                    evidence=["denied=" + ",".join(denied_skills)],
+                )
+            )
         if policy.required_capabilities:
             unexpected = sorted(caps - policy.required_capabilities)
             if unexpected:
