@@ -14,6 +14,7 @@ from horustrace.adapters.fast_agent_config import (
     FAST_AGENT_CONFIG_FILENAMES,
     scan_fast_agent_config,
 )
+from horustrace.adapters.github_copilot_sdk import scan_github_copilot_sdk_file
 from horustrace.adapters.iac_identity import scan_terraform
 from horustrace.adapters.manifest import MANIFEST_FILENAMES, scan_manifest
 from horustrace.adapters.mcp_config import MCP_FILENAMES, scan_mcp_config
@@ -2368,6 +2369,7 @@ def scan(
             for framework in frameworks:
                 framework_evidence.setdefault(framework, []).append(SourceLocation(candidate))
             _merge(graph, scan_python_file(candidate), candidate)
+            _merge(graph, scan_github_copilot_sdk_file(candidate), candidate)
             diagnose_python(candidate, graph)
         elif candidate.suffix.lower() == ".ipynb":
             notebook_source, notebook_skips = _notebook_python_source(text)
@@ -2403,6 +2405,7 @@ def scan(
                 scan_microsoft_365_agents_dotnet_file(candidate),
                 candidate,
             )
+            _merge(graph, scan_github_copilot_sdk_file(candidate), candidate)
         elif candidate.suffix == ".tf":
             _merge(graph, scan_terraform(candidate), candidate)
         elif candidate.name in MCP_FILENAMES:
