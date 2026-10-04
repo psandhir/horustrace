@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "study": "amazon-sdk-unseen-holdout-10",
+  "status": "frozen_before_horustrace_execution",
+  "locked_at": "2026-10-04",
+  "scanner_baseline": "1c3aac96851f2fe9856eaf858d7c2ffac0e46784",
+  "selection": {
+    "target_cases": 10,
+    "unique_repositories": 10,
+    "method": "Source-only selection from current AWS-owned and independent Strands/AgentCore repositories after canonical Amazon depth-parity closure. No HorusTrace output from this cohort was used to select cases. Every target is pinned to an exact commit SHA and scanned at an application-level path.",
+    "horustrace_output_used_for_selection": false,
+    "interpretation": "Fresh unseen Amazon agentic holdout testing repository composition, helper/factory patterns, dynamic MCP catalogues, multi-agent delegation, Graph/Swarm, hooks, AgentCore memory/runtime and AWS tool authority.",
+    "surface_counts": {
+      "agentcore-dynamic-tool-registry-hooks": 1,
+      "multi-mcp-runtime-catalogue": 1,
+      "dynamic-remote-mcp": 1,
+      "agent-as-tool-vended-aws": 1,
+      "agentcore-supervisor-factory": 1,
+      "agentcore-factory-conditional-tools": 1,
+      "mcp-nested-agent-vended-tools": 1,
+      "dynamic-swarm-graph-hooks": 1,
+      "cross-file-graph-builder": 1,
+      "class-factory-aws-devops-tools": 1
+    },
+    "score_dimensions": [
+      "agent_root_detection",
+      "tool_and_mcp_binding",
+      "delegation_and_multi_agent_projection",
+      "source_effect_semantics",
+      "dynamic_authority_visibility",
+      "control_and_hook_fidelity",
+      "resource_and_destination_provenance",
+      "identity_and_auth_evidence",
+      "agentcore_boundary",
+      "effective_authority_projection"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "amazon-hold-001",
+      "repo": "aws-samples/sample-strands-agent-with-agentcore",
+      "sha": "6dd9d1335f2b0d1709ab2736aa11d7e12c4173de",
+      "surface": "agentcore-dynamic-tool-registry-hooks",
+      "application_path": "chatbot-app/agentcore/src",
+      "evidence_path": "agents/chat_agent.py",
+      "validation_role": "aws_owned_holdout",
+      "source_signal": "ChatAgent creates a Strands Agent through an instance method using dynamically filtered repository tools, AgentCore Memory/session management and source-defined approval hooks for email/GitHub write operations. Runtime registry breadth may remain unresolved, but the agent, dynamic tool binding and enforcing hooks must not disappear."
+    },
+    {
+      "case_id": "amazon-hold-002",
+      "repo": "aws-samples/sample-Advanced-Strands-Agents-with-MCP",
+      "sha": "e482961172cc86294570526faa9510f3995e89fd",
+      "surface": "multi-mcp-runtime-catalogue",
+      "application_path": "Lab4",
+      "evidence_path": "mcp_integration.py",
+      "validation_role": "aws_owned_holdout",
+      "source_signal": "One Strands agent combines file read/write with tools dynamically listed from two explicit stdio MCP clients (AWS documentation and pricing), including AWS credentials passed to one subprocess. Both MCP server identities/transports and dynamic catalogue binding should remain visible."
+    },
+    {
+      "case_id": "amazon-hold-003",
+      "repo": "aws-samples/sample-fraud-investigation-assistance-using-aws-bedrock-strandsagents-mcp",
+      "sha": "a56263e05fbb3d44e87627af34aa8bd71a24454f",
+      "surface": "dynamic-remote-mcp",
+      "application_path": "app/lambdas/strands-agent-mcp",
+      "evidence_path": "handler.py",
+      "validation_role": "aws_owned_holdout",
+      "source_signal": "call_agent constructs Strands agents around runtime-configured Streamable HTTP or SSE MCP endpoints and binds list_tools_sync results. Endpoints are operator/runtime configured; remote MCP authority must remain explicit without inventing tool catalogues."
+    },
+    {
+      "case_id": "amazon-hold-004",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "surface": "agent-as-tool-vended-aws",
+      "application_path": "src",
+      "evidence_path": "main.py",
+      "validation_role": "aws_owned_holdout",
+      "source_signal": "Main orchestrator composes a large list of specialist Strands agents directly as tools together with use_aws, file read/write, editor and shell. Delegated specialist authority and high-authority local/AWS tools should project into the orchestrator."
+    },
+    {
+      "case_id": "amazon-hold-005",
+      "repo": "aws-solutions-library-samples/guidance-for-multi-agent-orchestration-using-bedrock-agentcore-on-aws",
+      "sha": "eb84b71e2fc22a50fa3b173f1220712da75c26ee",
+      "surface": "agentcore-supervisor-factory",
+      "application_path": "agents/supervisor-agent",
+      "evidence_path": "src/customer_support_assistant/agents/supervisor.py",
+      "validation_role": "aws_owned_holdout",
+      "source_signal": "Customer-support supervisor builds a Strands Agent from a repository-composed tools list with AgentCore session/memory integration and specialist orchestration. Source-proven bound authority should survive factory/helper composition while runtime-only catalogue dimensions remain unresolved."
+    },
+    {
+      "case_id": "amazon-hold-006",
+      "repo": "deeheber/job-search-agent",
+      "sha": "fdbb6f1797406d3dac1263e43f1ec4398a64420f",
+      "surface": "agentcore-factory-conditional-tools",
+      "application_path": "agent",
+      "evidence_path": "src/agentcore_app.py",
+      "validation_role": "external_holdout",
+      "source_signal": "get_agent returns a Strands Agent whose tool list includes search/extraction tools and conditionally appends an SNS notification tool based on environment configuration. The agent and statically possible conditional authority should be retained without assuming SNS is always enabled."
+    },
+    {
+      "case_id": "amazon-hold-007",
+      "repo": "garystafford/aws-strands-agents-mcp-demo",
+      "sha": "324988770122a2302163fc12cdda0f1d805bf407",
+      "surface": "mcp-nested-agent-vended-tools",
+      "application_path": ".",
+      "evidence_path": "agent_stdio_multi_agent.py",
+      "validation_role": "external_holdout",
+      "source_signal": "An orchestrator binds a runtime MCP catalogue, a decorated weather tool that internally constructs another Strands Agent, plus http_request and shell. The fixed stdio MCP server, nested-agent source authority and high-authority vended tools should remain visible."
+    },
+    {
+      "case_id": "amazon-hold-008",
+      "repo": "gensecaihq/Wazuh-Autopilot",
+      "sha": "07da85f90cf7696f0e4783d5302980e12b268e59",
+      "surface": "dynamic-swarm-graph-hooks",
+      "application_path": "backend/app",
+      "evidence_path": "orchestrator.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Production-style orchestrator constructs agents from database definitions, then selects Strands Swarm or Graph dynamically with runtime limits and a source-defined cancellation hook that cancels model/tool calls. Dynamic membership should stay unresolved but orchestration/control authority must remain represented."
+    },
+    {
+      "case_id": "amazon-hold-009",
+      "repo": "fintools-ai/trade-copilot-agent-swarm",
+      "sha": "8ad554543ca618b7e8354e7047b83af675eb019d",
+      "surface": "cross-file-graph-builder",
+      "application_path": ".",
+      "evidence_path": "swarm.py",
+      "validation_role": "external_holdout",
+      "source_signal": "TradingSwarm constructs full and fast GraphBuilder workflows from specialist agents returned by cross-file create_* factories, with parallel edges converging on a coordinator. Graph topology should be retained and member authority should be projected where source-resolvable."
+    },
+    {
+      "case_id": "amazon-hold-010",
+      "repo": "caylent/DevOps-Agent-using-AgentCore-Strands-and-MCPs",
+      "sha": "287eb95511373921b3d22d0f97f0163a1e091692",
+      "surface": "class-factory-aws-devops-tools",
+      "application_path": "src/aws_devops_agent",
+      "evidence_path": "main.py",
+      "validation_role": "external_holdout",
+      "source_signal": "AWSDevOpsAgentV2 builds a Strands Agent on an instance attribute from a large repository-local tool list spanning cost, security, IaC and AWS operations, with explicit safety/consent configuration. Class/factory construction must not hide the principal or its bound authority."
+    }
+  ]
+}

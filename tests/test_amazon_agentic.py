@@ -658,3 +658,184 @@ guarded_agent = Agent(tools=[delete_order], hooks=[Approval()])
     assert observer.metadata["tool_control_enforcing"] is False
     assert guarded.metadata["hook_control_state"] == "enforcing"
     assert guarded.metadata["tool_control_enforcing"] is True
+
+
+def test_strands_repository_factory_retains_conditional_tools(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        '''
+from strands import Agent, tool
+from strands_tools import file_read
+
+@tool
+def send_alert(message: str) -> None:
+    requests.post("https://alerts.example.com", json={"message": message})
+
+def get_agent():
+    tools = [file_read]
+    if ENABLE_ALERTS:
+        tools.append(send_alert)
+    return Agent(tools=tools)
+''',
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "get_agent")
+    file_tool = next(item for item in agent.tools if item.name == "file_read")
+    alert = next(item for item in agent.tools if item.name == "send_alert")
+
+    assert file_tool.capabilities == {"data.read"}
+    assert {"network.external", "data.write", "external.write"} <= alert.capabilities
+    assert alert.metadata["conditional_binding"] is True
+    assert any(
+        destination.target == "https://alerts.example.com"
+        for destination in alert.destinations
+    )
+
+
+def test_strands_repository_resolves_kwargs_instance_agent_and_hook(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        '''
+from strands import Agent
+from strands.hooks import BeforeToolCallEvent, HookProvider, HookRegistry
+
+class ApprovalHook(HookProvider):
+    def register_hooks(self, registry: HookRegistry, **kwargs):
+        registry.add_callback(BeforeToolCallEvent, self.approve)
+
+    def approve(self, event: BeforeToolCallEvent):
+        event.cancel_tool = "approval required"
+
+class ChatAgent:
+    def create_agent(self):
+        hooks = [ApprovalHook()]
+        agent_kwargs = {
+            "tools": self.tools,
+            "hooks": hooks,
+        }
+        self.agent = Agent(**agent_kwargs)
+        return self.agent
+''',
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "ChatAgent")
+
+    assert agent.metadata["tool_control_state"] == "enforcing"
+    assert agent.metadata["tool_control_enforcing"] is True
+    dynamic = next(
+        item for item in agent.tools if item.kind == "dynamic_tool_collection"
+    )
+    assert dynamic.metadata["binding_unresolved"] is True
+    assert dynamic.name == "self.tools"
+
+
+def test_strands_repository_links_dynamic_mcp_catalogues(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        '''
+from mcp import StdioServerParameters, stdio_client
+from strands import Agent
+from strands.tools.mcp import MCPClient
+from strands_tools import file_read
+
+def build_agent():
+    docs = MCPClient(
+        lambda: stdio_client(
+            StdioServerParameters(command="uvx", args=["docs-server"])
+        )
+    )
+    pricing = MCPClient(
+        lambda: stdio_client(
+            StdioServerParameters(command="uvx", args=["pricing-server"])
+        )
+    )
+    tools = docs.list_tools_sync() + pricing.list_tools_sync()
+    return Agent(tools=[file_read, *tools])
+''',
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "build_agent")
+
+    assert {server.name for server in agent.mcp_servers} == {"docs", "pricing"}
+    assert all(
+        server.metadata.get("tool_catalogue_unresolved") is True
+        for server in agent.mcp_servers
+    )
+    assert next(item for item in agent.tools if item.name == "file_read")
+
+
+def test_strands_repository_resolves_returned_graph_and_factory_agents(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        '''
+from strands import Agent
+from strands_tools import shell
+
+def create_worker():
+    return Agent(name="worker", tools=[shell])
+''',
+        "workers.py",
+    )
+    write(
+        tmp_path,
+        '''
+from strands.multiagent import GraphBuilder
+from workers import create_worker
+
+class Workflow:
+    def build(self):
+        worker = create_worker()
+        builder = GraphBuilder()
+        builder.add_node(worker, "worker")
+        builder.set_entry_point("worker")
+        return builder.build()
+''',
+        "workflow.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    worker = next(item for item in graph.agents if item.name == "worker")
+    workflow = next(
+        item
+        for item in graph.agents
+        if item.name == "Workflow.build:graph"
+    )
+
+    assert "process.execute" in worker.capabilities
+    assert workflow.metadata["entry_point"] == "worker"
+    assert workflow.metadata["delegates_to"] == ["worker"]
+    assert "process.execute" in workflow.capabilities
+
+
+def test_google_repository_enricher_does_not_claim_strands_agent(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        '''
+from strands import Agent
+
+agent = Agent(name="only-strands")
+''',
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    assert any(
+        item.name == "only-strands"
+        and item.metadata.get("framework") == "strands-agents"
+        for item in graph.agents
+    )
+    assert not any(
+        item.metadata.get("framework") == "google-adk"
+        for item in graph.agents
+    )
