@@ -2868,6 +2868,13 @@ def scan_python_file(path: Path) -> Graph:
                 )
             else:
                 for element in elements:
+                    if _harness_special_capability(
+                        path,
+                        element,
+                        assignments,
+                        agent,
+                    ):
+                        continue
                     if _is_declarative_capability_expr(element, assignments):
                         capability_tools, capability_servers, dynamic = _toolset_tools(
                             path,
@@ -3103,6 +3110,13 @@ def scan_python_file(path: Path) -> Graph:
             agent.mcp_servers.extend(servers)
             if dynamic:
                 agent.metadata["dynamic_tools"] = True
+
+    for agent in graph.agents:
+        workspace_spec = agent.metadata.pop("_workspace_spec", None)
+        if isinstance(workspace_spec, dict):
+            _apply_workspace_semantics(agent, workspace_spec)
+
+    _bind_local_agent_delegations(agents, functions)
 
     for agent in graph.agents:
         for tool in agent.tools:
