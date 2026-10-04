@@ -1,15 +1,14 @@
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-import re
 from typing import Any
 
 import yaml
 
 from horustrace.models import Graph, Identity, Tool
-
 
 _TF_BLOCK_RE = re.compile(
     r'^\s*(resource|data)\s+"([^"]+)"\s+"([^"]+)"\s*\{',
