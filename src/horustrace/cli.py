@@ -928,6 +928,49 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "version": __version__,
                 "coverage": graph.coverage.as_dict(),
+                "skills": {
+                    "bound": [
+                        {
+                            "agent": agent.name,
+                            "name": skill.name,
+                            "description": skill.description,
+                            "allowed_tools": sorted(skill.allowed_tools),
+                            "scripts": list(skill.scripts),
+                            "source": skill.source,
+                            "location": (
+                                {
+                                    "path": str(skill.location.path),
+                                    "line": skill.location.line,
+                                    "column": skill.location.column,
+                                }
+                                if skill.location
+                                else None
+                            ),
+                            "binding_origin": skill.metadata.get("binding_origin"),
+                        }
+                        for agent in graph.agents
+                        for skill in agent.skills
+                    ],
+                    "unbound": [
+                        {
+                            "name": skill.name,
+                            "description": skill.description,
+                            "allowed_tools": sorted(skill.allowed_tools),
+                            "scripts": list(skill.scripts),
+                            "source": skill.source,
+                            "location": (
+                                {
+                                    "path": str(skill.location.path),
+                                    "line": skill.location.line,
+                                    "column": skill.location.column,
+                                }
+                                if skill.location
+                                else None
+                            ),
+                        }
+                        for skill in graph.unbound_skills
+                    ],
+                },
                 "control_observations": control_observations(graph),
                 "mcp_authority": effective_mcp_authority_report(graph),
                 "effective_authority": effective_authority_report(graph),
@@ -966,6 +1009,9 @@ def main(argv: list[str] | None = None) -> int:
                 "summary": {
                     "agents": len(graph.agents),
                     "tools": len(graph.all_tools()),
+                    "skills": len(graph.all_skills()),
+                    "bound_skills": sum(len(agent.skills) for agent in graph.agents),
+                    "unbound_skills": len(graph.unbound_skills),
                     "mcp_servers": len(graph.all_mcp_servers()),
                     "identities": len(graph.all_identities()),
                     "flow_paths": len(graph.flow_paths),
