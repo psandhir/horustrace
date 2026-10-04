@@ -1243,7 +1243,7 @@ def scan_python_file(path: Path) -> Graph:
         if isinstance(node, ast.Call) and _call_name(node.func) == "ClaudeAgentOptions":
             expanded = _local_expanded_kwargs(tree, node)
             if expanded:
-                setattr(node, "_horustrace_expanded_kwargs", expanded)
+                node._horustrace_expanded_kwargs = expanded  # type: ignore[attr-defined]
 
     _record_container_mutations(tree, sequences, dicts, values)
 
