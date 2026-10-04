@@ -65,6 +65,18 @@ def _llm_synthetic_control_gap_is_proven(tool: object) -> bool:
     )
 
 
+def _authority_approval_gap_is_proven(authority: object | None) -> bool:
+    """Do not claim approval is absent when source proves conditional control."""
+    if authority is None:
+        return True
+    dimensions = getattr(authority, "dimensions", {}) or {}
+    approval = getattr(authority, "approval", {}) or {}
+    return not (
+        dimensions.get("approval") == "partially_resolved"
+        or approval.get("conditional") is True
+    )
+
+
 def _llm_network_gap_is_actionable(tool: object) -> bool:
     """Only let newly LLM-inferred network authority create egress gaps when
     destination provenance is source-supported rather than unknown.
@@ -364,6 +376,7 @@ def evaluate(graph: Graph) -> list[Finding]:
                 "process.execute" in tool.capabilities
                 and tool.approval is not True
                 and _llm_synthetic_approval_gap_is_proven(tool)
+                and _authority_approval_gap_is_proven(tool_authority)
                 and tool.kind != "delegated_agent"
                 and tool.metadata.get("process_execution_constrained") is not True
             ):
@@ -372,6 +385,7 @@ def evaluate(graph: Graph) -> list[Finding]:
                 "destructive.write" in tool.capabilities
                 and tool.approval is not True
                 and _llm_synthetic_approval_gap_is_proven(tool)
+                and _authority_approval_gap_is_proven(tool_authority)
                 and tool.metadata.get("agent_internal_artifact") is not True
             ):
                 findings.append(Finding("AGT021", Severity.HIGH, "Destructive action without human approval", f"Tool '{tool.name}' appears able to perform destructive writes without approval.", "Gate destructive operations with human approval and least-privilege authorization.", layer=1, location=tool.location, agent=agent.name, evidence=["capability=destructive.write", f"approval={tool.approval}"]))
@@ -380,6 +394,7 @@ def evaluate(graph: Graph) -> list[Finding]:
                 and tool.approval is not True
                 and not tool.guardrails
                 and _llm_synthetic_approval_gap_is_proven(tool)
+                and _authority_approval_gap_is_proven(tool_authority)
                 and tool.kind in {
                     "apply_patch",
                     "generic",
@@ -400,6 +415,7 @@ def evaluate(graph: Graph) -> list[Finding]:
                 and not tool.guardrails
                 and tool.approval is not True
                 and _llm_synthetic_control_gap_is_proven(tool)
+                and _authority_approval_gap_is_proven(tool_authority)
                 and not agent_tool_control
             ):
                 sink_location = tool.metadata.get("computer_control_sink_location")
@@ -443,6 +459,8 @@ def evaluate(graph: Graph) -> list[Finding]:
                 and not tool.guardrails
                 and tool.approval is not True
                 and _llm_synthetic_control_gap_is_proven(tool)
+                and _authority_approval_gap_is_proven(tool_authority)
+                and tool.metadata.get("agent_internal_artifact") is not True
                 and not agent_tool_control
             ):
                 evidence = [
