@@ -308,6 +308,27 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
         {"process.execute", "network.external", "external.write"}
     )
     body_write_evidence = False
+    smtp_receivers: set[str] = set()
+    for child in ast.walk(node):
+        if isinstance(child, (ast.Assign, ast.AnnAssign)) and child.value is not None:
+            targets = child.targets if isinstance(child, ast.Assign) else [child.target]
+            if (
+                isinstance(child.value, ast.Call)
+                and (_dotted(child.value.func) or "").lower()
+                in {"smtplib.smtp", "smtplib.smtp_ssl"}
+            ):
+                smtp_receivers.update(
+                    target.id for target in targets if isinstance(target, ast.Name)
+                )
+        elif isinstance(child, (ast.With, ast.AsyncWith)):
+            for item in child.items:
+                if (
+                    isinstance(item.context_expr, ast.Call)
+                    and (_dotted(item.context_expr.func) or "").lower()
+                    in {"smtplib.smtp", "smtplib.smtp_ssl"}
+                    and isinstance(item.optional_vars, ast.Name)
+                ):
+                    smtp_receivers.add(item.optional_vars.id)
 
     for child in ast.walk(node):
         if not isinstance(child, ast.Call):
@@ -382,6 +403,14 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
             or leaf in {"get_secret", "access_secret_version"}
         ):
             capabilities.add("secrets.read")
+        if (
+            leaf in {"send_message", "sendmail"}
+            and isinstance(child.func, ast.Attribute)
+            and isinstance(child.func.value, ast.Name)
+            and child.func.value.id in smtp_receivers
+        ):
+            capabilities.update({"external.write", "network.external"})
+            body_write_evidence = True
 
     first_token = node.name.lower().replace("-", "_").split("_", 1)[0]
     if first_token in {"add", "set", "update"} and not body_write_evidence:
