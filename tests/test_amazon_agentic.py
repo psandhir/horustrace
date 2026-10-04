@@ -459,3 +459,202 @@ agent = Agent()
     names = {item.name for item in graph.agents}
     assert "agent" in names
     assert "RuntimeAgent" in names
+
+
+def test_strands_python_explicit_as_tool_projects_child_authority(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        '''
+import requests
+from strands import Agent, tool
+
+@tool
+def publish(body: str) -> str:
+    return requests.post("https://specialist.example.com/publish", json={"body": body}).text
+
+specialist = Agent(tools=[publish])
+coordinator = Agent(tools=[specialist.as_tool(name="publisher")])
+''',
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    coordinator = next(item for item in graph.agents if item.name == "coordinator")
+    delegated = next(item for item in coordinator.tools if item.kind == "delegated_agent")
+
+    assert delegated.name == "publisher"
+    assert delegated.metadata["delegate_target"] == "specialist"
+    assert "agent.delegate" in delegated.capabilities
+    assert "network.external" in delegated.capabilities
+    assert "external.write" in delegated.capabilities
+    assert coordinator.metadata["delegates_to"] == ["specialist"]
+    assert any(
+        destination.target == "https://specialist.example.com/publish"
+        for destination in delegated.destinations
+    )
+
+
+def test_strands_graph_projects_topology_limits_and_child_authority(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        '''
+import subprocess
+from strands import Agent, tool
+from strands.multiagent import GraphBuilder
+
+@tool
+def run_job(command: str) -> str:
+    return subprocess.run(command, shell=True, capture_output=True, text=True).stdout
+
+planner = Agent(name="planner")
+executor = Agent(name="executor", tools=[run_job])
+reviewer = Agent(name="reviewer")
+
+builder = GraphBuilder()
+builder.add_node(planner, "planner")
+builder.add_node(executor, "executor")
+builder.add_node(reviewer, "reviewer")
+builder.add_edge("planner", "executor")
+builder.add_edge("executor", "reviewer")
+builder.set_entry_point("planner")
+builder.set_max_node_executions(5)
+workflow = builder.build()
+''',
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    workflow = next(item for item in graph.agents if item.name == "workflow")
+
+    assert workflow.metadata["multiagent_type"] == "graph"
+    assert workflow.metadata["entry_point"] == "planner"
+    assert workflow.metadata["max_node_executions"] == 5
+    assert workflow.metadata["workflow_edges"] == [
+        {"source": "planner", "target": "executor"},
+        {"source": "executor", "target": "reviewer"},
+    ]
+    assert set(workflow.metadata["delegates_to"]) == {"planner", "executor", "reviewer"}
+    assert "process.execute" in workflow.capabilities
+
+
+def test_strands_swarm_projects_membership_bounds_and_authority(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        '''
+from strands import Agent
+from strands.multiagent import Swarm
+from strands.vended_tools import shell
+
+researcher = Agent(name="researcher")
+operator = Agent(name="operator", tools=[shell])
+reviewer = Agent(name="reviewer")
+
+team = Swarm(
+    [researcher, operator, reviewer],
+    max_handoffs=8,
+    max_iterations=10,
+    execution_timeout=300.0,
+    node_timeout=60.0,
+)
+''',
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    team = next(item for item in graph.agents if item.name == "team")
+
+    assert team.metadata["multiagent_type"] == "swarm"
+    assert team.metadata["max_handoffs"] == 8
+    assert team.metadata["max_iterations"] == 10
+    assert team.metadata["entry_point"] == "researcher"
+    assert set(team.metadata["delegates_to"]) == {"researcher", "operator", "reviewer"}
+    assert "process.execute" in team.capabilities
+    assert "network.external" in team.capabilities
+
+
+def test_strands_a2a_provider_preserves_dynamic_remote_authority_and_sigv4(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        '''
+import boto3
+from strands import Agent
+from strands_tools.a2a_client import A2AClientToolProvider
+
+ORDER_AGENT_URL = get_runtime_url("order")
+PRODUCT_AGENT_URL = get_runtime_url("product")
+
+session = boto3.Session()
+auth = SigV4HTTPXAuth(
+    credentials=session.get_credentials(),
+    service="bedrock-agentcore",
+    region=session.region_name or "us-west-2",
+)
+
+a2a_provider = A2AClientToolProvider(
+    known_agent_urls=[ORDER_AGENT_URL, PRODUCT_AGENT_URL],
+    httpx_client_args={"auth": auth},
+)
+
+orchestrator = Agent(tools=a2a_provider.tools)
+''',
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    orchestrator = next(item for item in graph.agents if item.name == "orchestrator")
+    provider = next(item for item in orchestrator.tools if item.kind == "strands_a2a_provider")
+
+    assert {"agent.delegate", "network.external", "external.write"} <= provider.capabilities
+    assert provider.metadata["dynamic_bound_collection"] is True
+    assert provider.metadata["tool_catalogue_unresolved"] is True
+    assert provider.metadata["remote_catalogue_unresolved"] is True
+    assert provider.metadata["authenticated"] is True
+    assert provider.metadata["auth_scheme"] == "sigv4"
+    assert any(
+        destination.target == "<runtime-discovered-a2a-agent>"
+        and destination.restricted is False
+        and destination.metadata.get("network_scope") == "dynamic_destination"
+        for destination in provider.destinations
+    )
+
+
+def test_strands_hooks_distinguish_observer_from_enforcement(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        '''
+from strands import Agent, tool
+from strands.hooks import BeforeToolCallEvent, HookProvider, HookRegistry
+
+@tool
+def delete_order(order_id: str) -> None:
+    store.delete(order_id)
+
+class Observer(HookProvider):
+    def register_hooks(self, registry: HookRegistry, **kwargs):
+        registry.add_callback(BeforeToolCallEvent, self.observe)
+
+    def observe(self, event: BeforeToolCallEvent):
+        print(event.tool_use)
+
+class Approval(HookProvider):
+    def register_hooks(self, registry: HookRegistry, **kwargs):
+        registry.add_callback(BeforeToolCallEvent, self.approve)
+
+    def approve(self, event: BeforeToolCallEvent):
+        if event.tool_use.get("name") == "delete_order":
+            event.cancel_tool = "approval required"
+
+observer_agent = Agent(tools=[delete_order], hooks=[Observer()])
+guarded_agent = Agent(tools=[delete_order], hooks=[Approval()])
+''',
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    observer = next(item for item in graph.agents if item.name == "observer_agent")
+    guarded = next(item for item in graph.agents if item.name == "guarded_agent")
+
+    assert observer.metadata["hook_control_state"] == "non_enforcing"
+    assert observer.metadata["tool_control_enforcing"] is False
+    assert guarded.metadata["hook_control_state"] == "enforcing"
+    assert guarded.metadata["tool_control_enforcing"] is True
