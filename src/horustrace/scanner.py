@@ -113,9 +113,9 @@ from horustrace.repository_effect_semantics import enrich_repository_tool_effect
 from horustrace.repository_tool_semantics import enrich_indirect_tool_content_semantics
 from horustrace.rules.builtin import evaluate
 from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
-from horustrace.skills import SKILL_FILENAME, bind_discovered_skills, scan_skill_file
 from horustrace.runtime_viability import annotate_runtime_viability
 from horustrace.semantics import annotate_risk_semantics
+from horustrace.skills import SKILL_FILENAME, bind_discovered_skills, scan_skill_file
 from horustrace.source_context import classify_source_context, path_parts_match
 from horustrace.source_provenance import annotate_tool_source_provenance
 from horustrace.strands_repository import enrich_strands_repository_graph
