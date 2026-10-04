@@ -17,8 +17,8 @@ from horustrace.models import (
 
 FRAMEWORK = "strands-agents"
 _SDK = "@strands-agents/sdk"
-_URL_RE = re.compile(r"https?://[^\\s\\\"')\\]\\}<>]+")
-_BINDING_RE = re.compile(r"\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*")
+_URL_RE = re.compile(r"https?://[^\s\\"')\]\}<>]+")
+_BINDING_RE = re.compile(r"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*")
 
 _VENDED_TOOL_CAPABILITIES: dict[str, set[str]] = {
     "fileEditor": {"data.read", "data.write"},
@@ -84,9 +84,9 @@ def _balanced(
 def _named_imports(source: str, module: str) -> dict[str, str]:
     result: dict[str, str] = {}
     pattern = re.compile(
-        r"import\\s*\\{(?P<body>.*?)\\}\\s*from\\s*[\\\"']"
+        r"import\s*\{(?P<body>.*?)\}\s*from\s*[\\"']"
         + re.escape(module)
-        + r"[\\\"']",
+        + r"[\\"']",
         re.DOTALL,
     )
     for match in pattern.finditer(source):
@@ -94,7 +94,7 @@ def _named_imports(source: str, module: str) -> dict[str, str]:
             item = raw.strip()
             if not item:
                 continue
-            parts = re.split(r"\\s+as\\s+", item)
+            parts = re.split(r"\s+as\s+", item)
             imported = parts[0].strip()
             local = parts[-1].strip()
             if imported and local:
@@ -104,7 +104,7 @@ def _named_imports(source: str, module: str) -> dict[str, str]:
 
 def _string_property(text: str, name: str) -> str | None:
     match = re.search(
-        rf"\\b{re.escape(name)}\\s*:\\s*([\\\"'])(.*?)\\1",
+        rf"\b{re.escape(name)}\s*:\s*([\\"'])(.*?)\1",
         text,
         re.DOTALL,
     )
@@ -112,7 +112,7 @@ def _string_property(text: str, name: str) -> str | None:
 
 
 def _array_property(text: str, name: str) -> list[str]:
-    marker = re.search(rf"\\b{re.escape(name)}\\s*:", text)
+    marker = re.search(rf"\b{re.escape(name)}\s*:", text)
     if not marker:
         return []
     start = text.find("[", marker.end())
@@ -128,7 +128,7 @@ def _array_property(text: str, name: str) -> list[str]:
         if not value:
             continue
         match = re.match(
-            r"([A-Za-z_$][\\w$]*)(?:\\.asTool\\s*\\(.*)?$",
+            r"([A-Za-z_$][\w$]*)(?:\.asTool\s*\(.*)?$",
             value,
             re.DOTALL,
         )
@@ -212,7 +212,7 @@ def _constructor_bindings(
     for binding in _BINDING_RE.finditer(source):
         variable = binding.group(1)
         tail = source[binding.end():]
-        ctor = re.match(r"new\\s+([A-Za-z_$][\\w$]*)\\s*\\(", tail)
+        ctor = re.match(r"new\s+([A-Za-z_$][\w$]*)\s*\(", tail)
         if not ctor or ctor.group(1) not in symbols:
             continue
         open_offset = binding.end() + ctor.end() - 1
@@ -233,7 +233,7 @@ def _tool_bindings(
     for binding in _BINDING_RE.finditer(source):
         variable = binding.group(1)
         tail = source[binding.end():]
-        call = re.match(r"([A-Za-z_$][\\w$]*)\\s*\\(", tail)
+        call = re.match(r"([A-Za-z_$][\w$]*)\s*\(", tail)
         if not call or call.group(1) not in symbols:
             continue
         open_offset = binding.end() + call.end() - 1
@@ -268,8 +268,8 @@ def _tool_bindings(
 def _vended_tools(path: Path, source: str) -> dict[str, Tool]:
     result: dict[str, Tool] = {}
     pattern = re.compile(
-        r"import\\s*\\{(?P<body>.*?)\\}\\s*from\\s*([\\\"'])"
-        r"(?P<module>@strands-agents/sdk/vended-tools/[^\\\"']+)\\2",
+        r"import\s*\{(?P<body>.*?)\}\s*from\s*([\\"'])"
+        r"(?P<module>@strands-agents/sdk/vended-tools/[^\\"']+)\2",
         re.DOTALL,
     )
     for match in pattern.finditer(source):
@@ -277,7 +277,7 @@ def _vended_tools(path: Path, source: str) -> dict[str, Tool]:
             item = raw.strip()
             if not item:
                 continue
-            parts = re.split(r"\\s+as\\s+", item)
+            parts = re.split(r"\s+as\s+", item)
             imported = parts[0].strip()
             local = parts[-1].strip()
             capabilities = set(
@@ -315,9 +315,9 @@ def _mcp_server(
     if "StdioClientTransport" in body:
         transport = "stdio"
         command = _string_property(body, "command")
-        raw_args = re.search(r"\\bargs\\s*:\\s*\\[(.*?)\\]", body, re.DOTALL)
+        raw_args = re.search(r"\bargs\s*:\s*\[(.*?)\]", body, re.DOTALL)
         if raw_args:
-            args = re.findall(r"[\\\"']([^\\\"']+)[\\\"']", raw_args.group(1))
+            args = re.findall(r"[\\"']([^\\"']+)[\\"']", raw_args.group(1))
     elif "StreamableHTTPClientTransport" in body:
         transport = "streamable-http"
     elif "SSEClientTransport" in body:
@@ -329,7 +329,7 @@ def _mcp_server(
     authenticated = (
         True
         if re.search(
-            r"\\b(headers|authorization|token)\\b",
+            r"\b(headers|authorization|token)\b",
             body,
             re.IGNORECASE,
         )
@@ -361,7 +361,7 @@ def _mcp_server(
 
 def _model_metadata(body: str) -> dict[str, object]:
     model_match = re.search(
-        r"\\bmodel\\s*:\\s*(?:new\\s+)?([A-Za-z_$][\\w$]*)",
+        r"\bmodel\s*:\s*(?:new\s+)?([A-Za-z_$][\w$]*)",
         body,
     )
     if not model_match:
@@ -457,7 +457,7 @@ def scan_amazon_strands_typescript_file(path: Path) -> Graph:
                 **model_meta,
             },
         )
-        if re.search(r"\\bsystemPrompt\\s*:", body):
+        if re.search(r"\bsystemPrompt\s*:", body):
             agent.metadata["system_prompt_declared"] = True
         if (
             model_meta.get("model_provider") == "amazon-bedrock"
