@@ -1,0 +1,54 @@
+name: Pydantic Current Depth Parity 15
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/pydantic-current-depth-parity-15
+    paths:
+      - ".github/workflows/pydantic-current-depth-parity-15.yml"
+      - "research/pydantic-current-depth-parity-15/**"
+      - "src/horustrace/adapters/pydantic_ai.py"
+      - "src/horustrace/effective_authority.py"
+      - "src/horustrace/scanner.py"
+      - "tests/test_pydantic_ai_adapter.py"
+  pull_request:
+    paths:
+      - ".github/workflows/pydantic-current-depth-parity-15.yml"
+      - "research/pydantic-current-depth-parity-15/**"
+      - "src/horustrace/adapters/pydantic_ai.py"
+      - "src/horustrace/effective_authority.py"
+      - "src/horustrace/scanner.py"
+      - "tests/test_pydantic_ai_adapter.py"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: pydantic-current-depth-parity-15-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+      - name: Run current Pydantic depth study
+        run: |
+          python research/pydantic-current-depth-parity-15/run.py
+          cat artifacts/pydantic-current-depth-parity-15/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload study result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pydantic-current-depth-parity-15
+          path: artifacts/pydantic-current-depth-parity-15/
+          if-no-files-found: error
+          retention-days: 30
