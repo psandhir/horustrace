@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "study": "amazon-expansion-holdout-14",
+  "status": "frozen_before_horustrace_execution",
+  "locked_at": "2026-10-04",
+  "scanner_baseline": "18caca37b992402351b3c53d93d47c783f218d82",
+  "selection": {
+    "target_cases": 14,
+    "unique_repositories": 10,
+    "method": "Source-only selection from public AWS, Strands, and independent repositories after Amazon P0 implementation in #350. No HorusTrace output from this cohort was used to select cases. Every target is pinned to an exact commit SHA and scanned at an application-level path where practical.",
+    "horustrace_output_used_for_selection": false,
+    "interpretation": "Amazon expansion validation holdout. Cases exercise current Strands Python/TypeScript, managed Bedrock Agent declarations in CloudFormation/Terraform, current AgentCore project configuration, AgentCore Terraform, hybrid Bedrock/Strands/MCP layouts, and AWS execution-role authority reconstruction.",
+    "surface_counts": {
+      "strands-python": 3,
+      "strands-typescript": 1,
+      "bedrock-agent-cloudformation": 1,
+      "bedrock-agent-terraform": 3,
+      "agentcore-current-config": 4,
+      "agentcore-terraform": 2
+    },
+    "score_dimensions": [
+      "agent_root_detection",
+      "tool_and_mcp_binding",
+      "delegation_and_multi_agent_projection",
+      "effective_authority",
+      "aws_identity_and_execution_role",
+      "resource_and_destination_scope",
+      "agentcore_authentication_posture",
+      "resolved_conditional_unresolved_certainty"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "amz-str-001",
+      "repo": "strands-agents/samples",
+      "sha": "11dd549c26c964a707de8189b7974a39603f2605",
+      "surface": "strands-python",
+      "application_path": "python/04-industry-use-cases/productivity/research-agent",
+      "evidence_path": "src/strands_research_agent/agent.py",
+      "validation_role": "expansion_validation",
+      "source_signal": "Repository-structured Strands research agent combines Agent, MCPClient, session management and multiple local tool modules; stresses cross-file tool/MCP binding and conservative destination reconstruction."
+    },
+    {
+      "case_id": "amz-str-002",
+      "repo": "strands-agents/samples",
+      "sha": "11dd549c26c964a707de8189b7974a39603f2605",
+      "surface": "strands-python",
+      "application_path": "python/04-industry-use-cases/software-engineering/aws-audit-assistant",
+      "evidence_path": "strands_boto_agent.py",
+      "validation_role": "expansion_validation",
+      "source_signal": "Strands audit agent uses BedrockModel, custom tools, high-authority vended tools including shell/http/editor/python and an agent-as-tool/document-agent pattern; validates effect projection and delegation."
+    },
+    {
+      "case_id": "amz-str-003",
+      "repo": "strands-agents/samples",
+      "sha": "11dd549c26c964a707de8189b7974a39603f2605",
+      "surface": "strands-python",
+      "application_path": "python/03-integrate/protocols/a2a",
+      "evidence_path": "agent.py",
+      "validation_role": "expansion_validation",
+      "source_signal": "Compact Strands application combines Agent, stdio MCPClient and file_write in an A2A integration; validates local MCP transport and write authority without monorepo contamination."
+    },
+    {
+      "case_id": "amz-str-ts-001",
+      "repo": "strands-agents/samples",
+      "sha": "11dd549c26c964a707de8189b7974a39603f2605",
+      "surface": "strands-typescript",
+      "application_path": "typescript/02-deploy/01-agentcore",
+      "evidence_path": "src/agent.ts",
+      "validation_role": "expansion_validation",
+      "source_signal": "TypeScript Strands Agent deployed for AgentCore imports Agent, tool and BedrockModel from @strands-agents/sdk; validates the separate TypeScript adapter on real source."
+    },
+    {
+      "case_id": "amz-br-cfn-001",
+      "repo": "awslabs/amazon-bedrock-agent-samples",
+      "sha": "3e55140baa52555fdf73142abb04b4e1962be91f",
+      "surface": "bedrock-agent-cloudformation",
+      "application_path": "examples/agents/connected_house_agent",
+      "evidence_path": "template.yml",
+      "validation_role": "expansion_validation",
+      "source_signal": "CloudFormation application declares AWS::Bedrock::Agent and related execution infrastructure; validates managed-agent discovery and source-visible role/action-group authority."
+    },
+    {
+      "case_id": "amz-br-tf-001",
+      "repo": "aws-samples/intelligent-rag-bedrockagent-iac",
+      "sha": "bedb8a9a130a7115196e71b0f9cf62bc9c4a6230",
+      "surface": "bedrock-agent-terraform",
+      "application_path": ".",
+      "evidence_path": "modules/bedrock/agent/agent.tf",
+      "validation_role": "expansion_validation",
+      "source_signal": "Modular Terraform Bedrock Agent references an execution role whose inline policy is defined through aws_iam_role_policy plus data.aws_iam_policy_document; directly tests repository-level IAM authority correlation."
+    },
+    {
+      "case_id": "amz-br-tf-002",
+      "repo": "aws-samples/amazon-bedrock-multiagent-orchestrator-terraform",
+      "sha": "8285bfdb389927e61fd5ebe2e083d2da113abdbd",
+      "surface": "bedrock-agent-terraform",
+      "application_path": ".",
+      "evidence_path": "main.tf",
+      "validation_role": "external_holdout",
+      "source_signal": "Terraform creates one supervisor and a for_each set of child Bedrock Agents, then routes among them through Step Functions/Lambda. Expected inventory is multi-agent; delegation may remain partially resolved if orchestration cannot be statically joined."
+    },
+    {
+      "case_id": "amz-br-tf-003",
+      "repo": "aws-samples/sample-fraud-investigation-assistance-using-aws-bedrock-strandsagents-mcp",
+      "sha": "a56263e05fbb3d44e87627af34aa8bd71a24454f",
+      "surface": "bedrock-agent-terraform",
+      "application_path": "iac/roots/app",
+      "evidence_path": "orchestrator_agent.tf",
+      "validation_role": "expansion_validation",
+      "source_signal": "Real solution binds a managed Bedrock Agent action group to a Lambda-hosted Strands MCP client and knowledge-base/IAM infrastructure; validates action-group ownership and cross-stack hybrid authority."
+    },
+    {
+      "case_id": "amz-ac-json-001",
+      "repo": "aws-samples/sample-host-hermesagent-on-amazon-bedrock-agentcore",
+      "sha": "b9988e3ceaacf57da4305c7f8f32cedc3e3d80ce",
+      "surface": "agentcore-current-config",
+      "application_path": ".",
+      "evidence_path": "agentcore/agentcore.json",
+      "validation_role": "expansion_validation",
+      "source_signal": "Current AgentCore v1 project config declares a PUBLIC HTTP container runtime with explicit entrypoint/codeLocation. Validates post-migration agentcore/agentcore.json runtime discovery."
+    },
+    {
+      "case_id": "amz-ac-json-002",
+      "repo": "awslabs/agentcore-samples",
+      "sha": "c4dd9ebb142b6fe630f8bf719ccd86afeb084a2d",
+      "surface": "agentcore-current-config",
+      "application_path": "02-use-cases/data-analyst-conversational-assistant",
+      "evidence_path": "agentcore/agentcore.json",
+      "validation_role": "expansion_validation",
+      "source_signal": "Current AgentCore config includes runtime/memory plus DataAnalystToolsGateway with PostgreSQL Lambda-backed tools; validates gateway/target authority in a non-trivial first-party project."
+    },
+    {
+      "case_id": "amz-ac-json-003",
+      "repo": "twilio/twilio-agent-connect-aws",
+      "sha": "fbea687d73f1ab9021793e96e778c2373f3266ff",
+      "surface": "agentcore-current-config",
+      "application_path": "deploy/agentcore_aws_lambda",
+      "evidence_path": "cdk/agentcore/agentcore.json",
+      "validation_role": "external_holdout",
+      "source_signal": "Independent integration uses current AgentCore CodeZip runtime, PUBLIC HTTP, requestHeaderAllowlist and session storage. Tests current config generalization outside AWS sample repositories."
+    },
+    {
+      "case_id": "amz-ac-json-004",
+      "repo": "puria-izady/agentcore-stateful-mcp-meeting-scheduler",
+      "sha": "ed2a8b5cf0a3689433aef9c3f360b599f20527fc",
+      "surface": "agentcore-current-config",
+      "application_path": ".",
+      "evidence_path": "agentcore/agentcore.json",
+      "validation_role": "external_holdout",
+      "source_signal": "Independent current AgentCore project declares a CodeZip PYTHON_3_13 runtime using protocol MCP and PUBLIC networking for a stateful FastMCP meeting scheduler."
+    },
+    {
+      "case_id": "amz-ac-tf-001",
+      "repo": "awslabs/agentcore-samples",
+      "sha": "c4dd9ebb142b6fe630f8bf719ccd86afeb084a2d",
+      "surface": "agentcore-terraform",
+      "application_path": "04-infrastructure-as-code/terraform/mcp-server-agentcore-runtime",
+      "evidence_path": "main.tf",
+      "validation_role": "expansion_validation",
+      "source_signal": "Current Terraform AgentCore MCP runtime binds aws_bedrockagentcore_agent_runtime to an execution role and Cognito CUSTOM_JWT authorizer; validates runtime identity and authentication evidence."
+    },
+    {
+      "case_id": "amz-ac-tf-002",
+      "repo": "bhanumahesh1993/ai-agents-in-production",
+      "sha": "594badfb751b5dc9398471e91c4d9313d7509542",
+      "surface": "agentcore-terraform",
+      "application_path": "artifacts/ch22-clouds/iac/aws",
+      "evidence_path": "main.tf",
+      "validation_role": "external_holdout",
+      "source_signal": "Independent Terraform uses aws_bedrockagentcore_runtime for a support agent rather than the newer provider spelling seen in first-party samples; deliberately tests resource-name/schema drift and conservative unresolved handling."
+    }
+  ]
+}
