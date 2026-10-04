@@ -445,16 +445,14 @@ def _tool_relationship(
         },
         dimensions=dimensions,
         unresolved=tuple(sorted(set(unresolved))),
-        evidence=tuple(
-            [
-                *_adg_evidence(
-                    graph,
-                    agent=agent.name,
-                    target_kind="tool",
-                    target_name=tool.name,
-                ),
-                *_repository_effect_evidence(tool),
-            ]
+        evidence=(
+            *_adg_evidence(
+                graph,
+                agent=agent.name,
+                target_kind="tool",
+                target_name=tool.name,
+            ),
+            *_repository_effect_evidence(tool),
         ),
         location=_location(tool.location),
     )
