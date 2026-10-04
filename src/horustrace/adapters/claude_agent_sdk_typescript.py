@@ -553,19 +553,42 @@ def scan_claude_agent_sdk_typescript_file(path: Path) -> Graph:
 
         mcp_body = _object_segment(body, "mcpServers")
         if mcp_body is not None:
+            configured: list[tuple[str, str]] = []
+            consumed: list[tuple[int, int]] = []
             for match in re.finditer(
                 r"([A-Za-z_$][\w$]*|[\"'][^\"']+[\"'])\s*:\s*([A-Za-z_$][\w$]*)",
                 mcp_body,
             ):
-                configured_name = match.group(1).strip("\"'")
-                ref = match.group(2)
+                configured.append((match.group(1).strip("\"'"), match.group(2)))
+                consumed.append(match.span())
+            remainder = mcp_body
+            for pair_start, pair_end in reversed(consumed):
+                remainder = (
+                    remainder[:pair_start]
+                    + " " * (pair_end - pair_start)
+                    + remainder[pair_end:]
+                )
+            for raw in remainder.split(","):
+                ref = raw.strip()
+                if re.fullmatch(r"[A-Za-z_$][\w$]*", ref):
+                    configured.append((ref, ref))
+
+            for configured_name, ref in configured:
                 if ref not in sdk_servers:
                     continue
                 server = deepcopy(sdk_servers[ref])
                 server.name = configured_name
                 prefix = f"mcp__{configured_name}"
-                auto = [rule for rule in allowed if rule == prefix or rule.startswith(prefix + "__")]
-                denied_rules = [rule for rule in denied if rule == prefix or rule.startswith(prefix + "__")]
+                auto = [
+                    rule
+                    for rule in allowed
+                    if rule == prefix or rule.startswith(prefix + "__")
+                ]
+                denied_rules = [
+                    rule
+                    for rule in denied
+                    if rule == prefix or rule.startswith(prefix + "__")
+                ]
                 if auto:
                     server.metadata["auto_approved_tool_rules"] = auto
                     server.metadata["conditional_approval"] = True
