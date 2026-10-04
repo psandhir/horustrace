@@ -170,6 +170,13 @@ def _binding_evidence(
                 or "McpClient.CreateAsync" in source
                 or "McpClient.create" in source
             )
+            and (
+                "File.OpenRead" in source
+                or "File.ReadAllText" in source
+                or "JsonSerializer.Deserialize" in source
+                or "json.load(" in source
+                or "json.loads(" in source
+            )
         ):
             marker = "agent365_direct_manifest_mcp_binding"
 
