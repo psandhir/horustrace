@@ -269,3 +269,54 @@ def send_email(to: str, body: str) -> None:
         evidence.startswith("smtp:")
         for evidence in email.metadata.get("repository_effect_evidence", [])
     )
+
+
+
+def test_imported_delegation_survives_narrowed_scan_root(tmp_path: Path) -> None:
+    _write(tmp_path / "src" / "__init__.py", "")
+    _write(tmp_path / "src" / "agents" / "__init__.py", "")
+    _write(
+        tmp_path / "src" / "agents" / "sub_agent.py",
+        """
+from pydantic_ai import Agent
+
+sub_agent = Agent("openai:gpt-5.2")
+""",
+    )
+    _write(
+        tmp_path / "src" / "agents" / "main_agent.py",
+        """
+import asyncio
+
+from pydantic_ai import Agent
+
+from src.agents.sub_agent import sub_agent
+
+
+main_agent = Agent("openai:gpt-5.2")
+
+
+@main_agent.tool_plain
+async def spawn_sub_agents(prompts: list[str]) -> str:
+    async def run_one(prompt: str) -> str:
+        with sub_agent.parallel_tool_call_execution_mode("sequential"):
+            result = await asyncio.wait_for(
+                sub_agent.run(prompt),
+                timeout=30,
+            )
+        return result.output
+
+    return "\\n".join(await asyncio.gather(*(run_one(item) for item in prompts)))
+""",
+    )
+
+    graph, _ = scan(tmp_path / "src" / "agents")
+    main = next(item for item in graph.agents if item.name == "main_agent")
+    spawn = next(item for item in main.tools if item.name == "spawn_sub_agents")
+
+    assert "agent.delegate" in spawn.capabilities
+    assert spawn.metadata["delegate_target"] == "sub_agent"
+    assert (
+        spawn.metadata["delegation_basis"]
+        == "repository_imported_pydantic_agent_run"
+    )
