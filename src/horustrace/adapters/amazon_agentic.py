@@ -269,9 +269,8 @@ def _vended_tool_imports(tree: ast.AST, path: Path) -> dict[str, Tool]:
             continue
         module = node.module or ""
         if not (
-            module.startswith("strands.vended_tools")
-            or module == "strands_tools"
-            or module.startswith("strands_tools.")
+            module == "strands_tools"
+            or module.startswith(("strands.vended_tools", "strands_tools."))
         ):
             continue
         for alias in node.names:
