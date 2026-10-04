@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "study": "claude-sdk-generalization-12",
+  "status": "frozen_before_horustrace_execution",
+  "locked_at": "2026-10-04",
+  "scanner_baseline": "18caca37b992402351b3c53d93d47c783f218d82",
+  "selection": {
+    "target_cases": 12,
+    "unique_repositories": 12,
+    "method": "Source-only selection from public Claude Agent SDK Python repositories after PR #352 merged. HorusTrace output from this cohort was not used to select cases. One Anthropic workshop case is a reference conformance sentinel; eleven independent repositories test generalisation across direct construction, helper-returned options, class attributes, dynamic kwargs, typed MCP config, multi-agent delegation, hooks, and wrapper abstractions.",
+    "horustrace_output_used_for_selection": false,
+    "score_dimensions": [
+      "agent_root_detection",
+      "tool_authority",
+      "mcp_binding",
+      "delegation",
+      "hook_and_approval_posture",
+      "effective_authority"
+    ],
+    "interpretation": "A coarse source-truth semantic holdout. Required feature checks are structural expectations, not a precision/recall accuracy score."
+  },
+  "cases": [
+    {
+      "case_id": "claude-ref-001",
+      "repo": "anthropics/agent-sdk-workshop",
+      "sha": "a273fbe2b3776d84cf29f025927d71dcc0982c9f",
+      "surface": "official-reference-helper-options",
+      "application_path": "01-guided-demo",
+      "evidence_path": "agent.py",
+      "validation_role": "reference_sentinel",
+      "source_signal": "Official workshop builds ClaudeAgentOptions in build_options(), then passes the returned object to ClaudeSDKClient. Depending on toggles it attaches in-process SDK MCP servers, AgentDefinition subagents, hooks and bypassPermissions.",
+      "required": {"root": true, "mcp": true, "delegation": true, "hooks": true, "permission_mode_any": ["bypassPermissions"], "min_tools": 1}
+    },
+    {
+      "case_id": "claude-ext-001",
+      "repo": "AutoForgeAI/autoforge",
+      "sha": "427c228ed1e15c5d9f5be4b8b15539034ce6c878",
+      "surface": "client-factory-inline-options",
+      "application_path": ".",
+      "evidence_path": "client.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Client factory returns ClaudeSDKClient with inline ClaudeAgentOptions, built-in and MCP tool approval lists, multiple MCP servers and security hooks.",
+      "required": {"root": true, "mcp": true, "hooks": true, "min_tools": 1}
+    },
+    {
+      "case_id": "claude-ext-002",
+      "repo": "leonvanzyl/autonomous-coding",
+      "sha": "1690a61a22facfbd2fcbe99eac46d4b459f123b1",
+      "surface": "client-factory-inline-mcp",
+      "application_path": ".",
+      "evidence_path": "client.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Small autonomous coding client returns ClaudeSDKClient configured with inline ClaudeAgentOptions, Playwright/features MCP servers, tool lists and a Bash security hook.",
+      "required": {"root": true, "mcp": true, "hooks": true, "min_tools": 1}
+    },
+    {
+      "case_id": "claude-ext-003",
+      "repo": "fulcrumresearch/quibbler",
+      "sha": "960089e24833007de410c97f02fdecf8fdd863d9",
+      "surface": "local-options-async-with-client",
+      "application_path": "quibbler",
+      "evidence_path": "agent.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Method-local ClaudeAgentOptions enables Read/Write with acceptEdits and is consumed by ClaudeSDKClient in an async-with expression.",
+      "required": {"root": true, "permission_mode_any": ["acceptEdits"], "min_tools": 2}
+    },
+    {
+      "case_id": "claude-ext-004",
+      "repo": "huggingface/ai-deadlines",
+      "sha": "f9642a13bf765a05c627b35586f852602d2dd022",
+      "surface": "kwargs-dynamic-query",
+      "application_path": "agents",
+      "evidence_path": "agent.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Production-shaped helper assembles an options_kwargs dictionary with hooks, tool budgets and optional MCP servers, then calls query() with ClaudeAgentOptions(**options_kwargs).",
+      "required": {"root": true}
+    },
+    {
+      "case_id": "claude-ext-005",
+      "repo": "LainNet-42/polymarket-auto-trading-agent",
+      "sha": "2d44e5627c74bbe74ecb4182cdbc867d619355b0",
+      "surface": "query-stdio-mcp",
+      "application_path": "agent",
+      "evidence_path": "scheduler.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Query-based trading agent uses explicit ClaudeAgentOptions with bypassPermissions, built-ins plus MCP approvals, and a stdio Polymarket MCP server.",
+      "required": {"root": true, "mcp": true, "permission_mode_any": ["bypassPermissions"], "min_tools": 1}
+    },
+    {
+      "case_id": "claude-ext-006",
+      "repo": "NielsRogge/tutorials",
+      "sha": "3a162451d806ed672060d4b11e43dc22fa8a1138",
+      "surface": "typed-mcp-inline-subagents",
+      "application_path": "deepseekv3.2-mongodb",
+      "evidence_path": "main.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Direct query() example with three inline AgentDefinition subagents, bypassPermissions and a typed McpStdioServerConfig MongoDB server.",
+      "required": {"root": true, "mcp": true, "delegation": true, "permission_mode_any": ["bypassPermissions"]}
+    },
+    {
+      "case_id": "claude-ext-007",
+      "repo": "juntoku9/claude-for-crypto-research",
+      "sha": "90c999985d95d75ffa81ff6ca93454110364fc4b",
+      "surface": "multiagent-hooks-async-with",
+      "application_path": "research_agent",
+      "evidence_path": "agent.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Interactive multi-agent research app defines two AgentDefinition subagents, Pre/PostToolUse hooks, Task approval and bypassPermissions before consuming options through ClaudeSDKClient async-with.",
+      "required": {"root": true, "delegation": true, "hooks": true, "permission_mode_any": ["bypassPermissions"], "min_tools": 1}
+    },
+    {
+      "case_id": "claude-ext-008",
+      "repo": "kpolley/easy-agents",
+      "sha": "ec977a5a27fb78a3d3af9ad9a1903e61fd23bfba",
+      "surface": "options-on-instance-attribute",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Agent class stores ClaudeAgentOptions on self, dynamically selects several stdio/http MCP servers, uses bypassPermissions, and later passes the attribute to query().",
+      "required": {"root": true, "mcp": true, "permission_mode_any": ["bypassPermissions"]}
+    },
+    {
+      "case_id": "claude-ext-009",
+      "repo": "ThomazRossito/data-agents",
+      "sha": "9cb586eb3dbf101a81a1422240de36e168bf2fb8",
+      "surface": "dynamic-registry-supervisor",
+      "application_path": ".",
+      "evidence_path": "agents/supervisor.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Large supervisor builds ClaudeAgentOptions in a helper from dynamically loaded AgentDefinition registry entries, credential-aware MCP registry and multiple audit/security hooks, then uses the options across client/query entry points.",
+      "required": {"root": true, "mcp": true, "delegation": true, "hooks": true}
+    },
+    {
+      "case_id": "claude-ext-010",
+      "repo": "RevoltSecurities/RAI",
+      "sha": "6e8ae8a584e7172e9d8d51b83df515ac7e915cba",
+      "surface": "framework-wrapper-builder",
+      "application_path": "src/rai",
+      "evidence_path": "engine/claude_sdk/options.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Framework wrapper constructs opts = ClaudeAgentOptions with default bypassPermissions, dynamically loaded MCP/subagents/hooks, and later passes the returned object through RunnableClaudeAgent to ClaudeSDKClient.",
+      "required": {"root": true, "permission_mode_any": ["bypassPermissions"]}
+    },
+    {
+      "case_id": "claude-ext-011",
+      "repo": "Cranot/roam-code",
+      "sha": "4856519f0ae0b97949cb7ea961c501bbbb9e34b7",
+      "surface": "method-returned-mode-options",
+      "application_path": "dev",
+      "evidence_path": "roam_agent.py",
+      "validation_role": "external_holdout",
+      "source_signal": "Mode.options() returns ClaudeAgentOptions; MCP modes add a stdio roam server and all modes use bypassPermissions. Call sites construct ClaudeSDKClient from mode.options(...) rather than a simple option variable.",
+      "required": {"root": true, "mcp": true, "permission_mode_any": ["bypassPermissions"]}
+    }
+  ]
+}
