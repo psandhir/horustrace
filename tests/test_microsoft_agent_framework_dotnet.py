@@ -1288,7 +1288,7 @@ static string GetWeather(string city) => "sunny";
 def test_dotnet_maf_cross_file_function_authority_is_resolved(
     tmp_path: Path,
 ) -> None:
-    write(
+    program = write(
         tmp_path,
         r"""
 using Microsoft.Agents.AI;
@@ -1324,6 +1324,7 @@ public class CurrencyConverterTool
         string fromCurrency,
         string toCurrency)
     {
+        // Documentation only: https://comment-only.example/v1/
         if (amount < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(amount));
@@ -1356,8 +1357,13 @@ public class CurrencyConverterTool
 
     for name in ("ConvertCurrency", "GetExchangeRate"):
         tool = tools[name]
+        assert tool.location is not None
+        assert tool.location.path == program
         assert {"data.read", "network.external"} <= tool.capabilities
         assert tool.metadata["repository_effect_resolved"] is True
+        assert tool.metadata["repository_effect_resolution"] == "resolved"
+        assert tool.metadata["repository_effect_partial"] is False
+        assert tool.metadata["repository_effect_unresolved_calls"] == []
         assert tool.metadata["method_source_resolved"] is True
         assert tool.metadata["repository_effect_sources"] == [
             "Tools/CurrencyConverterTool.cs"
@@ -1370,9 +1376,50 @@ public class CurrencyConverterTool
             not evidence.startswith("/")
             for evidence in tool.metadata["repository_effect_evidence"]
         )
+
+        network_evidence = tool.metadata[
+            "repository_effect_capability_evidence"
+        ]["network.external"]
+        assert network_evidence
+        assert all(
+            item["path"] == "Tools/CurrencyConverterTool.cs"
+            and item["kind"] == "csharp_effect"
+            and item["line"] > 1
+            for item in network_evidence
+        )
+
+        network_facts = [
+            fact
+            for fact in tool.provenance
+            if fact.fact == "capability=network.external"
+            and fact.origin == "observed"
+        ]
+        assert network_facts
+        assert all(
+            fact.location is not None
+            and fact.location.path.name == "CurrencyConverterTool.cs"
+            and fact.location.line > 1
+            for fact in network_facts
+        )
+
+        destination = next(
+            item
+            for item in tool.destinations
+            if item.target == "https://open.er-api.com/v6/"
+        )
+        assert destination.location is not None
+        assert destination.location.path.name == "CurrencyConverterTool.cs"
+        assert destination.location.line > 1
+        assert destination.metadata["source"] == "csharp_class_base_address"
         assert any(
-            destination.target == "https://open.er-api.com/v6/"
-            for destination in tool.destinations
+            fact.fact == "destination=https://open.er-api.com/v6/"
+            and fact.origin == "observed"
+            and fact.location == destination.location
+            for fact in destination.provenance
+        )
+        assert all(
+            item.target != "https://comment-only.example/v1/"
+            for item in tool.destinations
         )
 
 
@@ -1426,5 +1473,164 @@ public class Second
     tool = next(item for item in agent.tools if item.name == "Search")
 
     assert tool.metadata["method_source_resolved"] is False
-    assert "repository_effect_resolved" not in tool.metadata
+    assert tool.metadata["repository_effect_resolved"] is False
+    assert (
+        tool.metadata["repository_effect_resolution"]
+        == "ambiguous_method_reference"
+    )
     assert tool.destinations == []
+
+
+
+def test_dotnet_maf_qualified_overload_is_not_unioned(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r"""
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+AIAgent agent = chatClient.CreateAIAgent(
+    name: "OverloadAgent",
+    tools: [AIFunctionFactory.Create(OverloadedTool.Send)]);
+""",
+    )
+
+    (tmp_path / "OverloadedTool.cs").write_text(
+        r"""
+public class OverloadedTool
+{
+    public static async Task<string> Send(string value)
+    {
+        using var client = new HttpClient();
+        return await client.GetStringAsync("https://one.example/");
+    }
+
+    public static string Send(int value)
+    {
+        File.WriteAllText("output.txt", value.ToString());
+        return value.ToString();
+    }
+}
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item for item in graph.agents
+        if item.name == "OverloadAgent"
+    )
+    tool = next(item for item in agent.tools if item.name == "Send")
+
+    assert tool.metadata["repository_effect_resolved"] is False
+    assert tool.metadata["repository_effect_resolution"] == "ambiguous_overload"
+    assert tool.destinations == []
+    assert "network.external" not in tool.capabilities
+    assert "data.write" not in tool.capabilities
+
+
+def test_dotnet_maf_transitive_overload_marks_partial_resolution(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r"""
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+AIAgent agent = chatClient.CreateAIAgent(
+    name: "PartialAgent",
+    tools: [AIFunctionFactory.Create(OverloadedTool.Entry)]);
+""",
+    )
+
+    (tmp_path / "OverloadedTool.cs").write_text(
+        r"""
+public class OverloadedTool
+{
+    public static string Entry(string value)
+    {
+        return Send(value);
+    }
+
+    public static async Task<string> Send(string value)
+    {
+        using var client = new HttpClient();
+        return await client.GetStringAsync("https://one.example/");
+    }
+
+    public static string Send(int value)
+    {
+        File.WriteAllText("output.txt", value.ToString());
+        return value.ToString();
+    }
+}
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item for item in graph.agents
+        if item.name == "PartialAgent"
+    )
+    tool = next(item for item in agent.tools if item.name == "Entry")
+
+    assert tool.metadata["method_source_resolved"] is True
+    assert tool.metadata["repository_effect_resolved"] is False
+    assert tool.metadata["repository_effect_resolution"] == "partial"
+    assert tool.metadata["repository_effect_partial"] is True
+    assert tool.metadata["repository_effect_unresolved_calls"] == ["Send"]
+    assert tool.destinations == []
+    assert "network.external" not in tool.capabilities
+    assert "data.write" not in tool.capabilities
+
+
+def test_dotnet_maf_comment_only_effects_are_not_authority(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r"""
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+AIAgent agent = chatClient.CreateAIAgent(
+    name: "CommentAgent",
+    tools: [AIFunctionFactory.Create(CommentOnlyTool.Noop)]);
+""",
+    )
+
+    (tmp_path / "CommentOnlyTool.cs").write_text(
+        r"""
+public class CommentOnlyTool
+{
+    // BaseAddress = new Uri("https://comment-base.example/")
+    public static string Noop(string value)
+    {
+        // HttpClient.GetAsync("https://comment-call.example/");
+        return value;
+    }
+}
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item for item in graph.agents
+        if item.name == "CommentAgent"
+    )
+    tool = next(item for item in agent.tools if item.name == "Noop")
+
+    assert tool.metadata["method_source_resolved"] is True
+    assert tool.metadata["repository_effect_resolved"] is True
+    assert tool.metadata["repository_effect_resolution"] == "resolved"
+    assert tool.metadata["repository_effect_capabilities"] == []
+    assert tool.destinations == []
+    assert not any(
+        fact.fact.startswith("capability=")
+        for fact in tool.provenance
+    )
