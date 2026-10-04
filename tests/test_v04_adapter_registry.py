@@ -10,6 +10,7 @@ from horustrace.scanner import scan
 def test_framework_registry_has_stable_adapter_order() -> None:
     assert [adapter.name for adapter in PYTHON_FRAMEWORK_ADAPTERS] == [
         "google-adk",
+        "claude-agent-sdk",
         "langchain-tools",
         "custom-tool-registry",
         "openai-agents",
