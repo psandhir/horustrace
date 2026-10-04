@@ -90,6 +90,14 @@ def _call_leaf(node: ast.AST | None) -> str | None:
     return None
 
 
+def _unwrap_call(node: ast.AST | None) -> ast.Call | None:
+    if isinstance(node, ast.Call):
+        return node
+    if isinstance(node, ast.Await) and isinstance(node.value, ast.Call):
+        return node.value
+    return None
+
+
 def _literal_string(node: ast.AST | None) -> str | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
@@ -622,12 +630,23 @@ def _scan_python(path: Path, source: str) -> Graph:
             for target in node.targets:
                 if isinstance(target, ast.Name):
                     assignments[target.id] = node.value
-                    if isinstance(node.value, ast.Call):
-                        assigned_calls.append((target.id, node.value, node))
+                    call = _unwrap_call(node.value)
+                    if call is not None:
+                        assigned_calls.append((target.id, call, node))
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
             assignments[node.target.id] = node.value
-            if isinstance(node.value, ast.Call):
-                assigned_calls.append((node.target.id, node.value, node))
+            call = _unwrap_call(node.value)
+            if call is not None:
+                assigned_calls.append((node.target.id, call, node))
+        elif isinstance(node, ast.AsyncWith):
+            for item in node.items:
+                if not isinstance(item.optional_vars, ast.Name):
+                    continue
+                call = _unwrap_call(item.context_expr)
+                if call is None:
+                    continue
+                assignments[item.optional_vars.id] = item.context_expr
+                assigned_calls.append((item.optional_vars.id, call, item.context_expr))
 
     custom_tools = _python_custom_tools(path, tree)
 
@@ -1014,7 +1033,6 @@ def _csharp_session_custom_agents(
         if not name:
             continue
         tool_names = _csharp_collection(argument_value(body, "Tools"))
-        location = csharp_location(path, source, parent.location.line if False else parent.location.column)
         child = Agent(
             name=name,
             location=parent.location,
