@@ -12,7 +12,7 @@ def _skill(root: Path, name: str = "review", *, allowed_tools: str = "Read") -> 
         f"""---
 name: {name}
 description: Review repository changes safely.
-allowed-tools: {allowed_tools}
+allowed-tools: "{allowed_tools}"
 ---
 Read the repository and follow the review procedure.
 """,
@@ -36,13 +36,14 @@ def test_unbound_skill_is_inventory_not_authority(tmp_path: Path) -> None:
 def test_claude_agent_definition_binds_named_skill(tmp_path: Path) -> None:
     _skill(tmp_path / ".claude" / "skills", allowed_tools="*")
     (tmp_path / "agent.py").write_text(
-        """from claude_agent_sdk import AgentDefinition
+        """from claude_agent_sdk import AgentDefinition, ClaudeAgentOptions
 
 reviewer = AgentDefinition(
     description="Reviews changes",
     prompt="Review this repository",
     skills=["review"],
 )
+options = ClaudeAgentOptions(agents={"reviewer": reviewer})
 """,
         encoding="utf-8",
     )
@@ -157,4 +158,4 @@ def test_invalid_skill_manifest_is_reported_without_inventory(tmp_path: Path) ->
         item for item in graph.coverage.diagnostics
         if item.kind == "invalid_skill_manifest"
     )
-    assert diagnostic.code == "ARG-COV-022"
+    assert diagnostic.diagnostic_id == "ARG-COV-022"
