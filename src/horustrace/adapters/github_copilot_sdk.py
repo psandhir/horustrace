@@ -25,7 +25,6 @@ from horustrace.models import (
     Graph,
     Identity,
     MCPServer,
-    NetworkDestination,
     ResourceScope,
     SourceLocation,
     Tool,
