@@ -132,7 +132,7 @@ def _string_array(text: str, name: str) -> list[str] | None:
     # Return None for obviously dynamic entries rather than inventing a list.
     values = re.findall(r"[\"']([^\"']+)[\"']", body)
     stripped = re.sub(r"[\"'][^\"']+[\"']", "", body)
-    if stripped.strip().strip(","):
+    if re.sub(r"[\s,]", "", stripped):
         return None
     return values
 
