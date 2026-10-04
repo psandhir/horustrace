@@ -1,0 +1,54 @@
+name: Anthropic Depth Parity 15
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/anthropic-depth-parity-15
+    paths:
+      - ".github/workflows/anthropic-depth-parity-15.yml"
+      - "research/anthropic-depth-parity-15/**"
+      - "src/horustrace/adapters/claude_agent_sdk.py"
+      - "src/horustrace/scanner.py"
+      - "src/horustrace/effective_authority.py"
+      - "tests/test_claude_agent_sdk.py"
+  pull_request:
+    paths:
+      - ".github/workflows/anthropic-depth-parity-15.yml"
+      - "research/anthropic-depth-parity-15/**"
+      - "src/horustrace/adapters/claude_agent_sdk.py"
+      - "src/horustrace/scanner.py"
+      - "src/horustrace/effective_authority.py"
+      - "tests/test_claude_agent_sdk.py"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: anthropic-depth-parity-15-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+      - name: Run Anthropic depth-parity study
+        run: |
+          python research/anthropic-depth-parity-15/run.py
+          cat artifacts/anthropic-depth-parity-15/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload study result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anthropic-depth-parity-15
+          path: artifacts/anthropic-depth-parity-15/
+          if-no-files-found: error
+          retention-days: 30
