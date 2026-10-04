@@ -927,6 +927,81 @@ def _contains_conditional_approval(node: ast.FunctionDef | ast.AsyncFunctionDef)
     return False
 
 
+def _path_expr_static_prefix(expr: ast.AST | None) -> str:
+    if isinstance(expr, ast.Constant) and isinstance(expr.value, str):
+        return expr.value
+    if isinstance(expr, ast.JoinedStr):
+        return "".join(
+            part.value
+            for part in expr.values
+            if isinstance(part, ast.Constant) and isinstance(part.value, str)
+        )
+    return ""
+
+
+def _internal_generated_artifact_write(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> bool:
+    """Detect scratch-file writes that are immediately consumed as generated output."""
+    path_assignments: dict[str, ast.AST] = {}
+    written_paths: set[str] = set()
+    read_paths: set[str] = set()
+
+    for child in ast.walk(node):
+        if isinstance(child, (ast.Assign, ast.AnnAssign)) and child.value is not None:
+            targets = child.targets if isinstance(child, ast.Assign) else [child.target]
+            if (
+                isinstance(child.value, ast.Call)
+                and _call_name(child.value.func) == "Path"
+                and child.value.args
+            ):
+                for target in targets:
+                    if isinstance(target, ast.Name):
+                        path_assignments[target.id] = child.value.args[0]
+
+        if not isinstance(child, ast.Call) or not isinstance(child.func, ast.Attribute):
+            continue
+        receiver = child.func.value
+        if child.func.attr in {"read_bytes", "read_text"} and isinstance(receiver, ast.Name):
+            read_paths.add(receiver.id)
+        if child.func.attr in {"write_bytes", "write_text"} and isinstance(receiver, ast.Name):
+            written_paths.add(receiver.id)
+        if child.func.attr == "save" and child.args and isinstance(child.args[0], ast.Name):
+            written_paths.add(child.args[0].id)
+
+    for name in written_paths & read_paths:
+        prefix = _path_expr_static_prefix(path_assignments.get(name)).replace("\\", "/")
+        if prefix.startswith(".") and "/" in prefix:
+            return True
+    return False
+
+
+def _conditional_tool_guard(
+    expr: ast.AST | None,
+    assignments: dict[str, ast.AST],
+) -> dict[str, str] | None:
+    """Return source-visible conditional approval metadata for ToolGuard."""
+    if isinstance(expr, ast.Name):
+        expr = assignments.get(expr.id)
+    if expr is None:
+        return None
+    for child in ast.walk(expr):
+        if not isinstance(child, ast.Call) or _call_name(child.func) != "ToolGuard":
+            continue
+        approval_expr = _kw(child, "require_approval")
+        if approval_expr is None:
+            continue
+        try:
+            policy = ast.unparse(approval_expr)
+        except Exception:
+            policy = "dynamic"
+        return {
+            "tool_control_mechanism": "pydantic_tool_guard",
+            "tool_control_policy_callable": policy,
+        }
+    return None
+
+
 def _tool_from_function(
     path: Path,
     node: ast.FunctionDef | ast.AsyncFunctionDef,
@@ -964,6 +1039,14 @@ def _tool_from_function(
     )
     if _contains_conditional_approval(node):
         tool.metadata["conditional_approval"] = True
+    if "data.write" in capabilities and _internal_generated_artifact_write(node):
+        tool.metadata.update(
+            {
+                "agent_internal_artifact": True,
+                "generated_artifact": True,
+                "mutation_semantics": "agent_internal_artifact",
+            }
+        )
     if "process.execute" in capabilities and _restricted_in_process_eval(node):
         tool.metadata.update(
             {
@@ -3169,6 +3252,13 @@ def scan_python_file(path: Path) -> Graph:
                             if isinstance(element, ast.Call)
                             else _call_name(element) or "dynamic"
                         )
+        conditional_tool_guard = _conditional_tool_guard(
+            capabilities_expr,
+            assignments,
+        )
+        if conditional_tool_guard is not None:
+            agent.metadata.update(conditional_tool_guard)
+            agent.metadata["tool_control_conditional"] = True
         if safety_capabilities:
             agent.metadata["safety_capabilities"] = sorted(set(safety_capabilities))
         if unmodeled_capabilities:
