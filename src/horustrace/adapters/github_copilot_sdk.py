@@ -1166,6 +1166,124 @@ def _csharp_collection(value: str | None) -> list[str] | None:
     return strings if strings else []
 
 
+def _csharp_call_argument(
+    expression: str,
+    method_name: str,
+    index: int = 0,
+) -> str | None:
+    masked = mask_non_code(expression)
+    match = re.search(
+        rf"\.{re.escape(method_name)}\s*\(",
+        masked,
+    )
+    if not match:
+        return None
+    start = masked.find("(", match.start())
+    if start < 0:
+        return None
+    end = balanced_end(masked, start, "(", ")")
+    if end is None:
+        return None
+    body = expression[start + 1:end]
+    body_masked = masked[start + 1:end]
+    parts: list[str] = []
+    offset = 0
+    paren = bracket = brace = 0
+    for pos, char in enumerate(body_masked):
+        if char == "(":
+            paren += 1
+        elif char == ")":
+            paren = max(0, paren - 1)
+        elif char == "[":
+            bracket += 1
+        elif char == "]":
+            bracket = max(0, bracket - 1)
+        elif char == "{":
+            brace += 1
+        elif char == "}":
+            brace = max(0, brace - 1)
+        elif char == "," and paren == bracket == brace == 0:
+            parts.append(body[offset:pos].strip())
+            offset = pos + 1
+    parts.append(body[offset:].strip())
+    return parts[index] if index < len(parts) and parts[index] else None
+
+
+def _csharp_initializer_body(expression: str) -> tuple[str, int] | None:
+    masked = mask_non_code(expression)
+    brace = masked.find("{")
+    if brace < 0:
+        return None
+    end = balanced_end(masked, brace, "{", "}")
+    if end is None:
+        return None
+    return expression[brace + 1:end], brace + 1
+
+
+def _csharp_session_config(
+    expression: str,
+    known_assignments: dict,
+) -> tuple[str, int] | None:
+    argument = _csharp_call_argument(expression, "CreateSessionAsync", 0)
+    if not argument:
+        return None
+    candidate = argument.strip()
+    assignment = None
+    if re.fullmatch(r"[A-Za-z_]\w*", candidate):
+        assignment = known_assignments.get(candidate)
+        if assignment is None:
+            return None
+        candidate = assignment.expression
+    if (
+        "SessionConfig" not in candidate
+        and not (
+            assignment is not None
+            and (assignment.declared_type or "").endswith("SessionConfig")
+        )
+    ):
+        return None
+    body = _csharp_initializer_body(candidate)
+    if body is None:
+        return None
+    return body
+
+
+def _csharp_inline_tool_factories(
+    value: str | None,
+    location: SourceLocation,
+) -> list[Tool]:
+    if not value:
+        return []
+    result: list[Tool] = []
+    seen: set[str] = set()
+    for match in re.finditer(
+        r"\b([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\.CreateTool\s*\(",
+        value,
+    ):
+        owner = match.group(1)
+        name = owner.rsplit(".", 1)[-1]
+        if name in seen:
+            continue
+        seen.add(name)
+        result.append(
+            Tool(
+                name=name,
+                kind="function",
+                capabilities=set(),
+                location=location,
+                metadata={
+                    "framework": FRAMEWORK,
+                    "binding_origin": "CreateTool",
+                    "factory_reference": owner,
+                    "placeholder": True,
+                    "authority_binding": True,
+                    "authority_binding_basis": "source_factory_reference",
+                },
+            )
+        )
+    return result
+
+
 def _csharp_initializer_entries(value: str, type_name: str) -> list[tuple[str, str, int]]:
     result: list[tuple[str, str, int]] = []
     pattern = re.compile(
@@ -1389,22 +1507,16 @@ def _scan_csharp(path: Path, source: str) -> Graph:
 
     for name, assignment in known.items():
         expression = assignment.expression
-        match = re.search(
-            r"\b([A-Za-z_]\w*)\.CreateSessionAsync\s*\(",
+        match = re.match(
+            r"\s*(?:await\s+)?([A-Za-z_]\w*)\.CreateSessionAsync\s*\(",
             expression,
         )
         if not match or (clients and match.group(1) not in clients):
             continue
-        config_start = expression.find("new SessionConfig")
-        if config_start < 0:
+        resolved_config = _csharp_session_config(expression, known)
+        if resolved_config is None:
             continue
-        brace = expression.find("{", config_start)
-        if brace < 0:
-            continue
-        end = balanced_end(mask_non_code(expression), brace, "{", "}")
-        if end is None:
-            continue
-        config = expression[brace + 1:end]
+        config, config_relative_offset = resolved_config
         location = csharp_location(path, source, assignment.offset)
 
         approve_all = "PermissionHandler.ApproveAll" in config
@@ -1436,9 +1548,31 @@ def _scan_csharp(path: Path, source: str) -> Graph:
             agent.tools.append(builtin)
 
         tools_value = argument_value(config, "Tools")
+        bound_custom_tools = 0
         for ref in refs(tools_value or ""):
             if ref in custom_tools:
                 agent.tools.append(deepcopy(custom_tools[ref]))
+                bound_custom_tools += 1
+        inline_tools = _csharp_inline_tool_factories(tools_value, location)
+        agent.tools.extend(inline_tools)
+        bound_custom_tools += len(inline_tools)
+        if tools_value and bound_custom_tools == 0:
+            agent.tools.append(
+                Tool(
+                    name="copilot-custom-tools",
+                    kind="dynamic_tool_reference",
+                    capabilities=set(),
+                    location=location,
+                    metadata={
+                        "framework": FRAMEWORK,
+                        "placeholder": True,
+                        "authority_binding": True,
+                        "authority_binding_basis": "session_config_tools_expression",
+                        "dynamic_tool_catalogue": True,
+                        "tools_expression": tools_value,
+                    },
+                )
+            )
 
         disabled = set(
             _csharp_collection(argument_value(config, "DisabledMcpServers")) or []
@@ -1449,7 +1583,7 @@ def _scan_csharp(path: Path, source: str) -> Graph:
                 path,
                 source,
                 config,
-                base_offset=assignment.offset + brace + 1,
+                base_offset=assignment.offset + config_relative_offset,
             )
             if server.name not in disabled
         )
