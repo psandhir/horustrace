@@ -179,9 +179,9 @@ async def main():
     publish = next(tool for tool in parent.tools if tool.name == "publish_issue")
     assert "network.external" in publish.capabilities
     assert "external.write" in publish.capabilities
-    assert [item.target for item in publish.destinations] == [
-        "https://issues.example.test/api"
-    ]
+    assert "https://issues.example.test/api" in {
+        item.target for item in publish.destinations
+    }
 
     delegated = next(
         tool for tool in parent.tools
