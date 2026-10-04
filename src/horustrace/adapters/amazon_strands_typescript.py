@@ -84,7 +84,7 @@ def _balanced(
 def _named_imports(source: str, module: str) -> dict[str, str]:
     result: dict[str, str] = {}
     pattern = re.compile(
-        r"import\s*\{(?P<body>.*?)\}\s*from\s*[\"']"
+        r"import\s*\{(?P<body>[^}]*)\}\s*from\s*[\"']"
         + re.escape(module)
         + r"[\"']",
         re.DOTALL,
@@ -268,7 +268,7 @@ def _tool_bindings(
 def _vended_tools(path: Path, source: str) -> dict[str, Tool]:
     result: dict[str, Tool] = {}
     pattern = re.compile(
-        r"import\s*\{(?P<body>.*?)\}\s*from\s*([\"'])"
+        r"import\s*\{(?P<body>[^}]*)\}\s*from\s*([\"'])"
         r"(?P<module>@strands-agents/sdk/vended-tools/[^\"']+)\2",
         re.DOTALL,
     )
