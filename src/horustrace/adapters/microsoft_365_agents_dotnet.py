@@ -4,7 +4,14 @@ import re
 from pathlib import Path
 
 from horustrace.adapters.csharp_source import location, mask_non_code
-from horustrace.models import (\n    Agent,\n    Graph,\n    Identity,\n    InputSource,\n    NetworkDestination,\n    Tool,\n)
+from horustrace.models import (
+    Agent,
+    Graph,
+    Identity,
+    InputSource,
+    NetworkDestination,
+    Tool,
+)
 
 FRAMEWORK = "microsoft-365-agents-sdk-dotnet"
 
