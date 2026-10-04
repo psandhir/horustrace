@@ -320,3 +320,92 @@ async def spawn_sub_agents(prompts: list[str]) -> str:
         spawn.metadata["delegation_basis"]
         == "repository_imported_pydantic_agent_run"
     )
+
+
+
+def test_conditional_toolguard_qualifies_approval_gap_findings(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "agent.py",
+        """
+from pydantic_ai import Agent
+from pydantic_ai_shields import ToolGuard
+
+
+class Settings:
+    guardrails_enabled = True
+
+    def require_approval(self, tool_name: str) -> bool:
+        return tool_name.startswith("update")
+
+
+settings = Settings()
+
+agent = Agent(
+    "openai:gpt-5.2",
+    capabilities=[
+        *(
+            [ToolGuard(require_approval=settings.require_approval)]
+            if settings.guardrails_enabled
+            else []
+        ),
+    ],
+)
+
+
+@agent.tool_plain
+def update_record(record_id: str, value: str) -> None:
+    database.update(record_id, value)
+""",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tool = next(item for item in agent.tools if item.name == "update_record")
+    relationship = next(
+        item
+        for item in effective_authority_relationships(graph)
+        if item.agent == "agent" and item.target_name == "update_record"
+    )
+
+    assert agent.metadata["tool_control_conditional"] is True
+    assert agent.metadata["tool_control_mechanism"] == "pydantic_tool_guard"
+    assert relationship.dimensions["approval"] == "partially_resolved"
+    assert relationship.approval["conditional"] is True
+    assert "approval_condition" in relationship.unresolved
+    assert not any(
+        item.rule_id in {"AGT022", "AGT040"} and item.agent == "agent"
+        for item in findings
+    )
+    assert "data.write" in tool.capabilities
+
+
+def test_generated_preview_file_is_internal_artifact(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "agent.py",
+        """
+from pathlib import Path
+
+from pydantic_ai import Agent
+
+agent = Agent("openai:gpt-5.2")
+
+
+@agent.tool_plain
+def preview_click(file_name: str) -> bytes:
+    preview_path = Path(f".playwright-mcp/preview_{file_name}")
+    annotated.save(preview_path, format="PNG")
+    return preview_path.read_bytes()
+""",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tool = next(item for item in agent.tools if item.name == "preview_click")
+
+    assert "data.write" in tool.capabilities
+    assert tool.metadata["agent_internal_artifact"] is True
+    assert tool.metadata["generated_artifact"] is True
+    assert not any(
+        item.rule_id in {"AGT022", "AGT040", "CAP005"} and item.agent == "agent"
+        for item in findings
+    )
