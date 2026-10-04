@@ -6,7 +6,7 @@ on:
     branches:
       - fix/microsoft-expansion-p0-p1
     paths:
-      - ".github/workflows/microsoft-expansion-holdout-16.yml"
+      - ".github/workflows/microsoft-expansion-postfix-16.yml"
       - "research/microsoft-expansion-holdout-16/**"
 
 permissions:
