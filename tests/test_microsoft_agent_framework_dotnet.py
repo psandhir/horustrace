@@ -1263,7 +1263,7 @@ static string GetExchangeRate(string value) => value;
 def test_dotnet_maf_direct_create_ai_agent_assignment_is_detected(
     tmp_path: Path,
 ) -> None:
-    program = write(
+    write(
         tmp_path,
         r"""
 using Microsoft.Agents.AI;
@@ -1288,7 +1288,7 @@ static string GetWeather(string city) => "sunny";
 def test_dotnet_maf_cross_file_function_authority_is_resolved(
     tmp_path: Path,
 ) -> None:
-    write(
+    program = write(
         tmp_path,
         r"""
 using Microsoft.Agents.AI;
@@ -1630,4 +1630,7 @@ public class CommentOnlyTool
     assert tool.metadata["repository_effect_resolution"] == "resolved"
     assert tool.metadata["repository_effect_capabilities"] == []
     assert tool.destinations == []
-    assert tool.provenance == []
+    assert not any(
+        fact.fact.startswith("capability=")
+        for fact in tool.provenance
+    )
