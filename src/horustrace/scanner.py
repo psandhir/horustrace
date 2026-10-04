@@ -2640,9 +2640,16 @@ def scan(
                 ),
             )
 
-    if not (graph.agents or graph.all_tools() or graph.all_mcp_servers() or graph.identities):
+    if not (
+        graph.agents
+        or graph.all_tools()
+        or graph.all_skills()
+        or graph.all_mcp_servers()
+        or graph.identities
+    ):
         add_diagnostic(graph.coverage, ScanDiagnostic(
-            "no_targets", "No supported agent, tool, MCP server, or identity was discovered.",
+            "no_targets",
+            "No supported agent, skill, tool, MCP server, or identity was discovered.",
         ))
     unresolved_tools = sum(
         diagnostic.kind == "unresolved_tool"
@@ -2738,6 +2745,14 @@ def scan(
                 resolved_delegations / (resolved_delegations + unresolved_delegations)
                 if resolved_delegations + unresolved_delegations
                 else 1.0
+            ),
+        },
+        "skills": {
+            "bound": sum(len(agent.skills) for agent in graph.agents),
+            "unbound": len(graph.unbound_skills),
+            "unresolved_references": sum(
+                diagnostic.kind == "unresolved_skill"
+                for diagnostic in graph.coverage.diagnostics
             ),
         },
         "identities": {"discovered": len(graph.all_identities())},
