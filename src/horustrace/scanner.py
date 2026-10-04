@@ -2330,9 +2330,7 @@ def scan(
                 yaml.safe_load(text)
             elif candidate.suffix == ".py":
                 ast.parse(text)
-            elif is_amazon_strands_typescript_file(candidate):
-            _merge(graph, scan_amazon_strands_typescript_file(candidate), candidate)
-        elif candidate.suffix.lower() == ".ipynb":
+            elif candidate.suffix.lower() == ".ipynb":
                 notebook_source, _ = _notebook_python_source(text)
                 ast.parse(notebook_source)
         except (OSError, UnicodeDecodeError, SyntaxError, TypeError, ValueError, yaml.YAMLError) as exc:
@@ -2392,6 +2390,8 @@ def scan(
             _merge(graph, scan_amazon_agentic_python_file(candidate), candidate)
             _merge(graph, scan_github_copilot_sdk_file(candidate), candidate)
             diagnose_python(candidate, graph)
+        elif is_amazon_strands_typescript_file(candidate):
+            _merge(graph, scan_amazon_strands_typescript_file(candidate), candidate)
         elif candidate.suffix.lower() == ".ipynb":
             notebook_source, notebook_skips = _notebook_python_source(text)
             for item in notebook_skips:
