@@ -64,6 +64,7 @@ _SECURITY_RELEVANT_DEFAULT_TOOLS = (
     "WebFetch",
     "WebSearch",
     "Agent",
+    "Workflow",
 )
 
 
