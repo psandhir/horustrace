@@ -630,7 +630,7 @@ def _check_09(graph, findings, relationships):
         "local_vs_external": True,
         "scope_provenance": bool(
             orchestration
-            and orchestration.metadata.get("entry_point") in {"planner", ["planner"]}
+            and orchestration.metadata.get("entry_point") == "planner"
         ),
         "controls": bool(
             orchestration
