@@ -324,3 +324,163 @@ def test_effective_authority_exposes_agent_as_tool_binding_provenance(
     assert relationship["target"] == {"kind": "tool", "name": "web_search"}
     assert relationship["semantics"]["binding_origin"] == "agent_as_tool"
     assert relationship["semantics"]["delegate_target"] == "search_agent"
+
+
+
+def test_effective_authority_surfaces_csharp_repository_effect_evidence(
+    tmp_path: Path,
+) -> None:
+    binding = SourceLocation(tmp_path / "Program.cs", line=20, column=9)
+    implementation = SourceLocation(
+        tmp_path / "Tools" / "CurrencyConverterTool.cs",
+        line=43,
+        column=35,
+    )
+    destination_location = SourceLocation(
+        tmp_path / "Tools" / "CurrencyConverterTool.cs",
+        line=18,
+        column=39,
+    )
+    tool = Tool(
+        name="ConvertCurrency",
+        kind="function",
+        capabilities={"data.read", "network.external"},
+        destinations=[
+            NetworkDestination(
+                target="https://open.er-api.com/v6/",
+                restricted=True,
+                location=destination_location,
+                metadata={
+                    "source": "csharp_class_base_address",
+                    "repository_effect_summary": True,
+                    "source_symbol": (
+                        "CurrencyConverterTool.ConvertCurrency"
+                    ),
+                },
+            )
+        ],
+        location=binding,
+        metadata={
+            "framework": "microsoft-agent-framework-dotnet",
+            "binding_origin": "AIFunctionFactory.Create",
+            "repository_effect_resolution": "resolved",
+            "repository_effect_resolved": True,
+            "repository_effect_partial": False,
+            "repository_effect_unresolved_calls": [],
+            "repository_effect_sources": [
+                "Tools/CurrencyConverterTool.cs"
+            ],
+            "repository_effect_evidence_details": [
+                {
+                    "path": "Tools/CurrencyConverterTool.cs",
+                    "line": 34,
+                    "column": 5,
+                    "symbol": (
+                        "CurrencyConverterTool.ConvertCurrency"
+                    ),
+                    "kind": "csharp_method",
+                }
+            ],
+            "repository_effect_capability_evidence": {
+                "network.external": [
+                    {
+                        "path": "Tools/CurrencyConverterTool.cs",
+                        "line": implementation.line,
+                        "column": implementation.column,
+                        "symbol": (
+                            "CurrencyConverterTool.ConvertCurrency"
+                        ),
+                        "kind": "csharp_effect",
+                    }
+                ]
+            },
+        },
+    )
+    graph = Graph(
+        agents=[
+            Agent(
+                name="ItineraryPlannerAgent",
+                tools=[tool],
+                location=binding,
+            )
+        ]
+    )
+    graph.adg = build_adg(graph, tmp_path)
+
+    relationship = effective_authority_report(graph)["relationships"][0]
+
+    assert relationship["location"]["path"].endswith("Program.cs")
+    assert relationship["dimensions"]["source_effects"] == "resolved"
+    assert relationship["semantics"]["source_effect_resolution"] == "resolved"
+    assert relationship["semantics"]["source_effect_partial"] is False
+    assert relationship["semantics"]["source_effect_sources"] == [
+        "Tools/CurrencyConverterTool.cs"
+    ]
+
+    evidence = relationship["evidence"]
+    assert any(item["kind"] == "INVOKES" for item in evidence)
+    assert any(
+        item["kind"] == "SOURCE_METHOD"
+        and item["symbol"] == "CurrencyConverterTool.ConvertCurrency"
+        and item["location"]["path"] == "Tools/CurrencyConverterTool.cs"
+        and item["location"]["line"] == 34
+        for item in evidence
+    )
+    assert any(
+        item["kind"] == "SOURCE_EFFECT"
+        and item.get("effect") == "capability"
+        and item.get("capability") == "network.external"
+        and item["location"]["path"] == "Tools/CurrencyConverterTool.cs"
+        and item["location"]["line"] == 43
+        for item in evidence
+    )
+    assert any(
+        item["kind"] == "SOURCE_EFFECT"
+        and item.get("effect") == "destination"
+        and item.get("target") == "https://open.er-api.com/v6/"
+        and item["location"]["line"] == 18
+        for item in evidence
+    )
+
+
+def test_effective_authority_marks_partial_csharp_source_effects(
+    tmp_path: Path,
+) -> None:
+    location = SourceLocation(tmp_path / "Program.cs", line=10)
+    tool = Tool(
+        name="Entry",
+        kind="function",
+        capabilities={"data.read"},
+        location=location,
+        metadata={
+            "framework": "microsoft-agent-framework-dotnet",
+            "repository_effect_resolution": "partial",
+            "repository_effect_resolved": False,
+            "repository_effect_partial": True,
+            "repository_effect_unresolved_calls": ["Send"],
+            "repository_effect_sources": ["OverloadedTool.cs"],
+        },
+    )
+    graph = Graph(
+        agents=[
+            Agent(
+                name="PartialAgent",
+                tools=[tool],
+                location=location,
+            )
+        ]
+    )
+    graph.adg = build_adg(graph, tmp_path)
+
+    relationship = effective_authority_report(graph)["relationships"][0]
+
+    assert relationship["resolution"] == "partially_resolved"
+    assert relationship["dimensions"]["source_effects"] == (
+        "partially_resolved"
+    )
+    assert "source_effects" in relationship["unresolved"]
+    assert relationship["semantics"]["source_effect_resolution"] == "partial"
+    assert relationship["semantics"]["source_effect_partial"] is True
+    assert relationship["semantics"]["source_effect_unresolved_calls"] == [
+        "Send"
+    ]
