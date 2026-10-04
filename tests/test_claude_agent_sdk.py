@@ -401,3 +401,34 @@ async def run():
     root = next(agent for agent in graph.agents if agent.name == "options")
     assert root.metadata["permission_mode"] == "bypassPermissions"
     assert root.metadata["hook_events"] == ["PreToolUse"]
+
+
+
+def test_unbound_options_builder_preserves_dynamic_security_surface(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        """
+from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
+
+def build_options():
+    agents = load_agents()
+    mcp_registry = load_mcp_registry()
+    return ClaudeAgentOptions(
+        agents=agents,
+        mcp_servers=mcp_registry,
+        hooks={"PreToolUse": [HookMatcher(hooks=[])]},
+    )
+""",
+    )
+
+    graph = scan_python_file(path)
+    root = next(agent for agent in graph.agents if agent.name == "build_options")
+    assert root.metadata["option_builder_return"] is True
+    assert root.metadata["execution_binding_unresolved"] is True
+    assert root.metadata["dynamic_subagents"] is True
+    assert root.metadata["dynamic_mcp_servers"] is True
+    assert root.metadata["hook_events"] == ["PreToolUse"]
+    assert any(tool.kind == "delegated_agent" for tool in root.tools)
+    assert any(server.name == "<dynamic-mcp>" for server in root.mcp_servers)
