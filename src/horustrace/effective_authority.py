@@ -275,7 +275,13 @@ def _tool_relationship(
 ) -> EffectiveAuthorityRelationship:
     identity = _identity(graph, agent, tool.identity)
     inherited_control = agent.metadata.get("tool_control_enforcing") is True
-    conditional_approval = tool.metadata.get("conditional_approval") is True
+    conditional_agent_control = (
+        agent.metadata.get("tool_control_conditional") is True
+    )
+    conditional_approval = (
+        tool.metadata.get("conditional_approval") is True
+        or conditional_agent_control
+    )
     approval_resolved = tool.approval is not None or inherited_control
     dynamic_availability = (
         tool.metadata.get("availability_condition_unresolved") is True
@@ -366,7 +372,7 @@ def _tool_relationship(
                 tool.metadata.get("approval_mechanism")
                 or (
                     agent.metadata.get("tool_control_mechanism")
-                    if inherited_control
+                    if inherited_control or conditional_agent_control
                     else None
                 )
             ),
@@ -375,8 +381,9 @@ def _tool_relationship(
                     "conditional": True,
                     "scope": tool.metadata.get("approval_scope"),
                     "policy": tool.metadata.get("approval_policy"),
-                    "policy_callable": tool.metadata.get(
-                        "approval_policy_callable"
+                    "policy_callable": (
+                        tool.metadata.get("approval_policy_callable")
+                        or agent.metadata.get("tool_control_policy_callable")
                     ),
                 }
                 if conditional_approval
