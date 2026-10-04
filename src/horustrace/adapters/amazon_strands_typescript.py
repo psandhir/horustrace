@@ -282,7 +282,7 @@ def _mcp_server(
         url_match = _URL_RE.search(body)
         if url_match:
             url = url_match.group(0)
-    authenticated = True if re.search(r"\\b(headers|authorization|token)\\b", body, re.I) else None
+    authenticated = True if re.search(r"\\b(headers|authorization|token)\\b", body, re.IGNORECASE) else None
     metadata = {
         "framework": FRAMEWORK,
         "language": "typescript",
