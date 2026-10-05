@@ -45,8 +45,12 @@ def test_owasp_summary_distinguishes_findings_no_findings_and_not_assessed(
     assert "PATH007" in _category(report, "ASI06")["mapped_rules"]
     assert _category(report, "ASI08")["status"] == "not_assessed"
     assert _category(report, "ASI08")["runtime_status"] == "not_assessed"
-    assert _category(report, "ASI09")["status"] == "not_assessed"
-    assert _category(report, "ASI10")["status"] == "not_assessed"
+    assert _category(report, "ASI09")["status"] == "no_mapped_findings"
+    assert _category(report, "ASI09")["runtime_status"] == "no_mapped_findings"
+    assert "SKL020" in _category(report, "ASI09")["mapped_rules"]
+    assert _category(report, "ASI10")["status"] == "no_mapped_findings"
+    assert _category(report, "ASI10")["runtime_status"] == "no_mapped_findings"
+    assert "SKL021" in _category(report, "ASI10")["mapped_rules"]
 
 
 def test_owasp_summary_breaks_down_runtime_and_non_runtime_findings() -> None:
@@ -123,15 +127,15 @@ def test_owasp_summary_marks_non_runtime_only_category_without_hiding_findings()
 def test_owasp_summary_treats_fully_disabled_category_as_not_assessed() -> None:
     report = build_owasp_agentic_summary(
         [],
-        disabled_rules=["AGT050", "AGT051"],
+        disabled_rules=["AGT050", "AGT051", "SKL029"],
     )
     asi04 = _category(report, "ASI04")
 
     assert asi04["status"] == "not_assessed"
     assert asi04["runtime_status"] == "not_assessed"
     assert asi04["mapped_rules"] == []
-    assert asi04["disabled_mapped_rules"] == ["AGT050", "AGT051"]
-    assert asi04["available_mapped_rules"] == ["AGT050", "AGT051"]
+    assert asi04["disabled_mapped_rules"] == ["AGT050", "AGT051", "SKL029"]
+    assert asi04["available_mapped_rules"] == ["AGT050", "AGT051", "SKL029"]
 
 
 def test_scan_json_includes_owasp_summary(tmp_path: Path, capsys) -> None:
