@@ -14,7 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      MODEL: gpt-6.1-sol
+      COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -26,18 +28,29 @@ jobs:
           ruff check scripts/skill_llm_calibration_study.py tests/test_skill_llm_calibration_study.py
           pytest -q tests/test_skill_llm_calibration_study.py tests/test_skill_llm_semantics.py
           python scripts/skill_llm_calibration_study.py --validate-only
-      - name: Verify OpenAI API credential
+      - name: Select semantic provider
+        shell: bash
         run: |
-          if [[ -z "$OPENAI_API_KEY" ]]; then
-            echo "::error::OPENAI_API_KEY repository secret is required for Skill LLM calibration."
-            exit 1
+          if [[ -n "$OPENAI_API_KEY" ]]; then
+            echo "STUDY_PROVIDER=openai" >> "$GITHUB_ENV"
+            echo "STUDY_MODEL=gpt-6.1-sol" >> "$GITHUB_ENV"
+            echo "Using OpenAI Responses API with gpt-6.1-sol"
+          else
+            echo "STUDY_PROVIDER=copilot" >> "$GITHUB_ENV"
+            echo "STUDY_MODEL=gpt-6-sol" >> "$GITHUB_ENV"
+            echo "OPENAI_API_KEY unavailable; using Copilot CLI with gpt-6-sol"
           fi
+      - name: Install Copilot CLI fallback
+        if: env.OPENAI_API_KEY == ''
+        run: |
+          npm install -g @github/copilot
+          copilot --version
       - name: Run locked Skill semantic calibration
         run: |
           mkdir -p results .study-work
           python scripts/skill_llm_calibration_study.py \
-            --provider openai \
-            --model "$MODEL" \
+            --provider "$STUDY_PROVIDER" \
+            --model "$STUDY_MODEL" \
             --workspace .study-work \
             --cache .cache/skill-llm-calibration-v1.json \
             --output-json results/skill-llm-calibration-v1.json \
