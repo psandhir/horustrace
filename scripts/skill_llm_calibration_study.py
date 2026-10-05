@@ -177,7 +177,7 @@ def _concept_map(semantics: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return result
 
 
-def _division(numerator: int | float, denominator: int | float) -> float:
+def _division(numerator: float, denominator: float) -> float:
     return float(numerator / denominator) if denominator else 0.0
 
 
