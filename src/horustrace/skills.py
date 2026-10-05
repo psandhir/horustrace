@@ -166,7 +166,9 @@ def scan_skill_file(path: Path) -> Graph:
         "has_scripts": bool(scripts),
         "script_count": len(scripts),
         "reference_count": len(references),
+        "reference_files": references,
         "asset_count": len(assets),
+        "asset_files": assets,
         "broad_tool_surface": broad_tool_surface,
     }
     for key in ("license", "compatibility", "metadata"):
