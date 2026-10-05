@@ -20,10 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      SCANNER_SHA: 1a18f809e3556f4423ebfb3fe054063ced0ecb8a
+      SCANNER_SHA: 575338ed68501c15b4691365fb2ad335a88dfe16
       SOURCE_ROOT: research/real-world-agent-security-2026
       STUDY_ROOT: /tmp/adk-pydantic-regression-71
-      OUT_DIR: research/adk-pydantic-regression-71-current-main
+      OUT_DIR: research/adk-pydantic-regression-71-candidate
 
     steps:
       - name: Check out regression harness
@@ -90,7 +90,7 @@ jobs:
           print("  tier-c:", len(sliced["tier_c_case_ids"]))
           PY
 
-      - name: Install exact current-main scanner
+      - name: Install exact candidate scanner
         shell: bash
         run: |
           set -euo pipefail
@@ -105,7 +105,7 @@ jobs:
           "$VENV/bin/pip" install --disable-pip-version-check "$SRC"
           "$VENV/bin/horustrace" --version
 
-      - name: Execute current main against frozen 71
+      - name: Execute candidate against frozen 71
         shell: bash
         run: |
           set -euo pipefail
@@ -306,10 +306,10 @@ jobs:
           else:
               lines.append("No TP-loss/FN-increase regression candidates on complete locked references.")
 
-          lines += ["", "## Review-only deltas from incomplete references", ""]
+          lines += ["", "## Review-only deltas from incomplete or adjudicated references", ""]
           lines.append(
               "These are visible for investigation but do not count as strict regression failures "
-              "because the original source reference explicitly did not claim completeness."
+              "because the historical reference is incomplete or has an explicit source adjudication override."
           )
           if review_only_regressions:
               lines += [
@@ -354,7 +354,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: adk-pydantic-frozen-71-current-main
-          path: research/adk-pydantic-regression-71-current-main/
+          name: adk-pydantic-frozen-71-candidate
+          path: research/adk-pydantic-regression-71-candidate/
           if-no-files-found: error
           retention-days: 30
