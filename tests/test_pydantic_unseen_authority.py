@@ -269,3 +269,55 @@ def send_email(to: str, body: str) -> None:
         evidence.startswith("smtp:")
         for evidence in email.metadata.get("repository_effect_evidence", [])
     )
+
+
+def test_pydantic_factory_instances_keep_post_construction_tool_bindings(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "agent.py",
+        """
+import requests
+from pydantic_ai import Agent
+
+
+def _build_agent(custom: bool) -> Agent:
+    return Agent(
+        "openai:gpt-5.2",
+        instructions="custom" if custom else "default",
+    )
+
+
+_agent = _build_agent(False)
+_agent_custom = _build_agent(True)
+
+
+def _scrape_tool(url: str) -> str:
+    response = requests.get(
+        "https://proxy.example.test/browser",
+        params={"url": url},
+        timeout=10,
+    )
+    return response.text
+
+
+_agent.tool(_scrape_tool)
+_agent_custom.tool(_scrape_tool)
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agents = {
+        item.name: item
+        for item in graph.agents
+        if item.metadata.get("framework") == "pydantic-ai"
+    }
+
+    assert {"_agent", "_agent_custom"} <= set(agents)
+    assert "_build_agent" not in agents
+    for name in ("_agent", "_agent_custom"):
+        agent = agents[name]
+        tool = next(item for item in agent.tools if item.name == "_scrape_tool")
+        assert "network.external" in tool.capabilities
+        assert agent.metadata["factory_function"] == "_build_agent"
+        assert agent.metadata["factory_instance"] is True
