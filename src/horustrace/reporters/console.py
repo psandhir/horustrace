@@ -47,6 +47,11 @@ def render(
         f"Target:        {root}",
         f"Agents:        {len(graph.agents)}",
         f"Tools:         {len(graph.all_tools())}",
+        (
+            f"Skills:        {len(graph.all_skills())} "
+            f"(bound={sum(len(agent.skills) for agent in graph.agents)}, "
+            f"unbound={len(graph.unbound_skills)})"
+        ),
         f"MCP servers:   {len(graph.all_mcp_servers())}",
         f"Identities:    {len(graph.all_identities())}",
         f"Flows:         {len(graph.flow_paths)}",
