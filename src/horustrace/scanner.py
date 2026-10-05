@@ -48,6 +48,7 @@ from horustrace.adapters.microsoft_foundry import scan_foundry_config
 from horustrace.adapters.registry import detect_python_frameworks, scan_python_file
 from horustrace.adapters.repository_adk import enrich_repository_graph
 from horustrace.adg import build_adg
+from horustrace.adk_skill_semantics import enrich_adk_skill_authority
 from horustrace.amazon_repository_authority import enrich_amazon_repository_authority
 from horustrace.analysis import build_attack_paths
 from horustrace.authority_source import (
@@ -2604,6 +2605,7 @@ def scan(
         approved_python_paths,
     )
     bind_discovered_skills(graph, root if root.is_dir() else root.parent)
+    enrich_adk_skill_authority(graph)
     diagnose_dynamic_constructs(graph)
     for agent in graph.agents:
         if agent.metadata.get("dynamic_control_flow"):
