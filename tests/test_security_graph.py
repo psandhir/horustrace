@@ -76,3 +76,37 @@ def test_security_graph_cli_writes_json(tmp_path: Path) -> None:
     assert document["model"] == AGENT_SECURITY_GRAPH_MODEL
     assert document["root"] == "."
     assert document["digest"].startswith("sha256:")
+
+
+def test_security_graph_does_not_count_delegation_projection_as_tool(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from google.adk.agents import LlmAgent, SequentialAgent
+
+writer = LlmAgent(name="writer", model="gemini-flash-latest")
+formatter = LlmAgent(name="formatter", model="gemini-flash-latest")
+root_agent = SequentialAgent(
+    name="pipeline",
+    sub_agents=[writer, formatter],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    document = build_agent_security_graph(graph, tmp_path).as_dict()
+    nodes = document["topology"]["nodes"]
+
+    assert not any(
+        node["kind"] == "tool"
+        and node["attributes"].get("tool_kind") == "delegated_agent"
+        for node in nodes
+    )
+    delegation_nodes = {
+        node["attributes"].get("tool_name")
+        for node in nodes
+        if node["kind"] == "delegation"
+    }
+    assert {"delegate:writer", "delegate:formatter"} <= delegation_nodes
