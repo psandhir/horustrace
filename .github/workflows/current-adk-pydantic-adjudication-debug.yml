@@ -1,0 +1,62 @@
+name: Current ADK Pydantic Adjudication Debug
+
+on:
+  push:
+    branches:
+      - research/adk-pydantic-current-20-20261005
+    paths:
+      - ".github/workflows/current-adk-pydantic-adjudication-debug.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install frozen scanner
+        run: python -m pip install "git+https://github.com/psandhir/horustrace.git@eacfd1cdab06939e5fae5f65cd2536e5855ac33f"
+      - name: Generate targeted graphs
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=research/adk-pydantic-current-20/debug
+          mkdir -p "$OUT"
+          python - <<'PY'
+          import json, subprocess, tempfile
+          from pathlib import Path
+          cases=[
+            ("rw-004","JoanMarinPages/agentGemini","0160690bb47cca17e70ceb8486209d7b1cacaf76","agent.py"),
+            ("rw-021","proflead/how-to-build-ai-agent","6dba7692cf4fa2c41944c6b327af2be78b1ab793","agent.py"),
+            ("rw-027","google/pubmed-rag","909b6e280b0f78ebc32fe4756513c859fe078491","agents/pipelines/full_review/agent.py"),
+            ("rw-033","moonpy-a11y/agent_payments","b08e4bec80ea2f8a3664d670bc6fc52b8a50d1ae","agent.py"),
+            ("rw-038","elitepunith/apdm-agent","c2f30462bc8663bec5c4046dc62006f52889c19a","agent.py"),
+            ("rw-155","shotgun-sh/shotgun","4d344d5a46aafc815de441ff670d4131187f33e6","src/shotgun/agents/router/router.py"),
+            ("rw-161","mars-mx/portfolio","6e6871b85fb0d4d051c2043bd0daa4911676e4d3","backend/app/agent/assistant.py"),
+            ("rw-170","Croups/smart-web-scraper","a157701a22ae1853a00156b2364830130958c82d","scraping_agent.py"),
+          ]
+          out=Path("research/adk-pydantic-current-20/debug")
+          for cid,repo,sha,app in cases:
+            with tempfile.TemporaryDirectory() as td:
+              root=Path(td)/cid
+              subprocess.run(["git","init","-q",str(root)],check=True)
+              subprocess.run(["git","-C",str(root),"remote","add","origin",f"https://github.com/{repo}.git"],check=True)
+              subprocess.run(["git","-C",str(root),"fetch","--quiet","--depth=1","origin",sha],check=True)
+              subprocess.run(["git","-C",str(root),"checkout","--quiet","--detach","FETCH_HEAD"],check=True)
+              appp=root/app
+              scope=appp if appp.is_dir() else appp.parent
+              cp=subprocess.run(["horustrace","security-graph",str(scope)],text=True,capture_output=True)
+              (out/f"{cid}.json").write_text(cp.stdout if cp.stdout else json.dumps({"error":cp.stderr,"returncode":cp.returncode},indent=2))
+          PY
+      - name: Commit debug graphs
+        run: |
+          git config user.name "horustrace-study-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add research/adk-pydantic-current-20/debug
+          git commit -m "research: add targeted ADK/Pydantic adjudication graphs"
+          git push origin HEAD:research/adk-pydantic-current-20-20261005
