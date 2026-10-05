@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 from itertools import pairwise
 from pathlib import Path
@@ -24,9 +25,11 @@ from horustrace.models import (
     MCPServer,
     NetworkDestination,
     ResourceScope,
+    Skill,
     SourceLocation,
     Tool,
 )
+from horustrace.skills import instruction_capability_signals
 
 AGENT_TYPES = {"Agent", "LlmAgent", "SequentialAgent", "ParallelAgent", "LoopAgent", "Workflow", "RemoteA2aAgent"}
 WORKFLOW_TYPES = {"SequentialAgent", "ParallelAgent", "LoopAgent", "Workflow"}
@@ -206,6 +209,359 @@ def _list_strings(node: ast.AST | None) -> list[str]:
     if isinstance(value, str):
         return [value]
     return []
+
+
+def _path_expr_string(
+    node: ast.AST | None,
+    values: dict[str, ast.AST] | None = None,
+) -> str | None:
+    """Resolve a source-visible repository-relative path expression."""
+    values = values or {}
+    if node is None:
+        return None
+    if isinstance(node, ast.Name):
+        if node.id == "__file__":
+            return "__file__"
+        if node.id in values:
+            return _path_expr_string(values[node.id], values)
+        return None
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Attribute) and node.attr == "parent":
+        base = _path_expr_string(node.value, values)
+        if base == "__file__":
+            return "."
+        if base:
+            return Path(base).parent.as_posix()
+        return None
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        left = _path_expr_string(node.left, values)
+        right = _path_expr_string(node.right, values)
+        if left is None or right is None:
+            return None
+        if left == "__file__":
+            return None
+        return (Path(left) / right).as_posix()
+    if isinstance(node, ast.Call):
+        called = _dotted_name(node.func) or _call_name(node.func) or ""
+        if called.rsplit(".", 1)[-1] in {"Path", "PurePath"}:
+            if not node.args:
+                return "."
+            return _path_expr_string(node.args[0], values)
+        if called.endswith(".join") or called == "join":
+            parts = [_path_expr_string(item, values) for item in node.args]
+            if parts and all(part is not None for part in parts):
+                return Path(str(parts[0])).joinpath(
+                    *(str(part) for part in parts[1:])
+                ).as_posix()
+        if (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr in {"resolve", "absolute"}
+        ):
+            return _path_expr_string(node.func.value, values)
+    return None
+
+
+def _inline_adk_skill(
+    path: Path,
+    call: ast.Call,
+    calls: dict[str, ast.Call],
+) -> Skill | None:
+    if (_call_name(call.func) or "") != "Skill":
+        return None
+    frontmatter_node = _kw(call, "frontmatter")
+    if frontmatter_node is None and call.args:
+        frontmatter_node = call.args[0]
+    frontmatter = _resolve_call(frontmatter_node, calls)
+    if frontmatter is None or (_call_name(frontmatter.func) or "") != "Frontmatter":
+        return None
+
+    name = _string(_kw(frontmatter, "name"))
+    description = _string(_kw(frontmatter, "description"))
+    if not name or not description:
+        return None
+
+    raw_metadata = _literal(_kw(frontmatter, "metadata"))
+    metadata_map = raw_metadata if isinstance(raw_metadata, dict) else {}
+    instructions = _string(_kw(call, "instructions")) or ""
+    scripts: list[str] = []
+    inline_scripts: dict[str, str] = {}
+
+    resources = _resolve_call(_kw(call, "resources"), calls)
+    if resources is not None and (_call_name(resources.func) or "") == "Resources":
+        scripts_node = _kw(resources, "scripts")
+        if isinstance(scripts_node, ast.Dict):
+            for key_node, value_node in zip(scripts_node.keys, scripts_node.values):
+                script_name = _string(key_node)
+                if not script_name:
+                    continue
+                script_source = _string(value_node)
+                if isinstance(value_node, ast.Call):
+                    script_source = (
+                        _string(_kw(value_node, "src"))
+                        or _string(value_node.args[0] if value_node.args else None)
+                    )
+                relative = (
+                    script_name
+                    if script_name.startswith("scripts/")
+                    else f"scripts/{script_name}"
+                )
+                scripts.append(relative)
+                if script_source is not None:
+                    inline_scripts[relative] = script_source
+
+    metadata: dict[str, Any] = {
+        "framework": "google-adk",
+        "inline_skill": True,
+        "binding_state": "bound",
+        "binding_origin": "adk_inline_skilltoolset",
+        "instructions_sha256": hashlib.sha256(
+            instructions.encode("utf-8")
+        ).hexdigest(),
+        "instructions_length": len(instructions),
+        "declared_instruction_capabilities": sorted(
+            instruction_capability_signals(instructions)
+        ),
+        "content_included": False,
+        "has_scripts": bool(scripts),
+        "script_count": len(scripts),
+        "metadata": metadata_map,
+    }
+    if inline_scripts:
+        metadata["inline_scripts"] = inline_scripts
+
+    return Skill(
+        name=name,
+        description=description,
+        source="inline",
+        scripts=scripts,
+        location=_location(path, call),
+        metadata=metadata,
+    )
+
+
+def _tool_semantics_doc(tool: Tool) -> dict[str, Any]:
+    return {
+        "name": tool.name,
+        "kind": tool.kind,
+        "capabilities": sorted(tool.capabilities),
+        "approval": tool.approval,
+        "guardrails": tool.guardrails,
+        "resources": [
+            {
+                "kind": item.kind,
+                "selector": item.selector,
+                "access": sorted(item.access),
+                "classification": item.classification,
+            }
+            for item in tool.resources
+        ],
+        "destinations": [
+            {
+                "target": item.target,
+                "direction": item.direction,
+                "restricted": item.restricted,
+            }
+            for item in tool.destinations
+        ],
+        "metadata": {
+            key: tool.metadata.get(key)
+            for key in (
+                "sandboxed",
+                "executor_kind",
+                "network_scope",
+                "approval_mechanism",
+            )
+            if key in tool.metadata
+        },
+    }
+
+
+def _adk_skill_toolset_spec(
+    path: Path,
+    call: ast.Call,
+    alias: str,
+    tools: dict[str, Tool],
+    calls: dict[str, ast.Call],
+    sequences: dict[str, list[ast.AST]],
+    functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+    values: dict[str, ast.AST],
+) -> tuple[dict[str, Any], list[Skill]]:
+    """Normalize one ADK SkillToolset without treating it as a normal tool."""
+    source_paths: list[str] = []
+    inline_skills: list[Skill] = []
+    dynamic_skills = False
+
+    skills_node = _arg(call, 0, "skills")
+    if skills_node is not None:
+        for element in _resolve_sequence(skills_node, sequences):
+            skill_call = (
+                calls.get(element.id)
+                if isinstance(element, ast.Name)
+                else element
+                if isinstance(element, ast.Call)
+                else None
+            )
+            if skill_call is None:
+                dynamic_skills = True
+                continue
+            skill_call_name = _call_name(skill_call.func) or ""
+            if skill_call_name == "load_skill_from_dir":
+                source_node = _arg(skill_call, 0, "skill_dir")
+                source = _path_expr_string(source_node, values)
+                if source and source != "__file__":
+                    if source not in source_paths:
+                        source_paths.append(source)
+                else:
+                    dynamic_skills = True
+                continue
+            if skill_call_name == "Skill":
+                inline = _inline_adk_skill(path, skill_call, calls)
+                if inline is not None:
+                    inline_skills.append(inline)
+                else:
+                    dynamic_skills = True
+                continue
+            dynamic_skills = True
+
+    additional_tools: list[dict[str, Any]] = []
+    unresolved_additional_tools: list[str] = []
+    for element in _resolve_sequence(_kw(call, "additional_tools"), sequences):
+        candidate: Tool | None = None
+        candidate_name = _call_name(element) or ""
+        if isinstance(element, ast.Name):
+            candidate_name = element.id
+            candidate = tools.get(element.id)
+            if candidate is None and element.id in functions:
+                candidate = _plain_function_tool(path, functions[element.id])
+            if candidate is None and element.id in calls:
+                nested = calls[element.id]
+                if (_call_name(nested.func) or "") != "SkillToolset":
+                    candidate = _tool_from_call(
+                        path,
+                        nested,
+                        element.id,
+                        calls,
+                        functions,
+                        values,
+                    )
+        elif isinstance(element, ast.Call):
+            candidate_name = _call_name(element.func) or "additional_tool"
+            if candidate_name != "SkillToolset":
+                candidate = _tool_from_call(
+                    path,
+                    element,
+                    candidate_name,
+                    calls,
+                    functions,
+                    values,
+                )
+        if candidate is not None:
+            additional_tools.append(_tool_semantics_doc(candidate))
+        elif candidate_name:
+            unresolved_additional_tools.append(candidate_name)
+
+    script_execution: dict[str, Any] = {"available": False}
+    executor_node = _kw(call, "code_executor")
+    executor_call = _resolve_call(executor_node, calls)
+    if executor_call is not None:
+        executor = _tool_from_call(
+            path,
+            executor_call,
+            _call_name(executor_call.func) or "skill_code_executor",
+            calls,
+            functions,
+            values,
+        )
+        if executor is not None and executor.kind == "adk_code_executor":
+            script_execution = {
+                "available": True,
+                "source": "skilltoolset_code_executor",
+                "executor": executor.metadata.get("code_executor") or executor.name,
+                "sandboxed": executor.metadata.get("sandboxed"),
+                "executor_kind": executor.metadata.get("executor_kind"),
+                "capabilities": sorted(executor.capabilities),
+                "sandbox_network_disabled": executor.metadata.get(
+                    "sandbox_network_disabled"
+                ),
+                "sandbox_filesystem_constrained": executor.metadata.get(
+                    "sandbox_filesystem_constrained"
+                ),
+            }
+
+    environment_node = _kw(call, "environment")
+    environment_call = _resolve_call(environment_node, calls)
+    if environment_node is not None:
+        environment_name = (
+            _call_name(environment_call.func)
+            if environment_call is not None
+            else _call_name(environment_node)
+            or "dynamic_environment"
+        )
+        script_execution = {
+            "available": True,
+            "source": "skilltoolset_environment",
+            "executor": environment_name,
+            "sandboxed": None,
+            "executor_kind": "adk_environment",
+            "capabilities": ["process.execute"],
+        }
+
+    registry_node = _kw(call, "registry")
+    spec: dict[str, Any] = {
+        "alias": alias,
+        "source_paths": source_paths,
+        "skill_names": [skill.name for skill in inline_skills],
+        "dynamic_skills": dynamic_skills,
+        "registry": registry_node is not None,
+        "additional_tools": additional_tools,
+        "unresolved_additional_tools": sorted(set(unresolved_additional_tools)),
+        "script_execution": script_execution,
+        "save_output_artifacts": _bool(_kw(call, "save_output_artifacts")),
+        "script_timeout": _literal(_kw(call, "script_timeout")),
+    }
+    return spec, inline_skills
+
+
+def _apply_adk_skill_toolset(
+    agent: Agent,
+    spec: dict[str, Any],
+    inline_skills: list[Skill],
+) -> None:
+    agent.metadata.setdefault("adk_skill_toolsets", []).append(spec)
+
+    source_paths = spec.get("source_paths")
+    if isinstance(source_paths, list) and source_paths:
+        existing = list(agent.metadata.get("skill_source_paths") or [])
+        agent.metadata["skill_source_paths"] = list(
+            dict.fromkeys([*existing, *source_paths])
+        )
+
+    if spec.get("dynamic_skills") is True:
+        agent.metadata["dynamic_skill_sources"] = True
+
+    if spec.get("registry") is True:
+        remote = list(agent.metadata.get("remote_skill_sources") or [])
+        remote.append(
+            {
+                "provider": "google-adk",
+                "source": "SkillRegistry",
+                "binding": spec.get("alias"),
+            }
+        )
+        agent.metadata["remote_skill_sources"] = remote
+
+    existing = {
+        (skill.name, skill.location.line if skill.location else 0)
+        for skill in agent.skills
+    }
+    for skill in inline_skills:
+        key = (skill.name, skill.location.line if skill.location else 0)
+        if key in existing:
+            continue
+        skill.metadata["bound_agent"] = agent.name
+        agent.skills.append(skill)
+        existing.add(key)
 
 
 def _fixed_url_origin(node: ast.AST | None) -> str | None:
@@ -1212,6 +1568,9 @@ def _tool_from_call(
 ) -> Tool | None:
     name = _call_name(call.func) or ""
 
+    if name == "SkillToolset":
+        return None
+
     if name in {"FunctionTool", "LongRunningFunctionTool", "AuthenticatedFunctionTool"}:
         func_node = _arg(call, 0, "func")
         func_name = _call_name(func_node) or alias
@@ -1690,9 +2049,11 @@ def _agent_from_call(
     calls: dict[str, ast.Call],
     sequences: dict[str, list[ast.AST]],
     functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+    values: dict[str, ast.AST] | None = None,
     custom_agent_classes: dict[str, ast.ClassDef] | None = None,
 ) -> Agent | None:
     agent_type = _call_name(call.func) or ""
+    values = values or {}
     custom_agent_classes = custom_agent_classes or {}
     custom_base_agent = agent_type in custom_agent_classes
     if agent_type not in AGENT_TYPES and not custom_base_agent:
@@ -1817,9 +2178,23 @@ def _agent_from_call(
                 _apply_retrieval_network_semantics(tool, element.id)
                 agent.tools.append(tool)
             elif element.id in calls:
+                source_call = calls[element.id]
+                if (_call_name(source_call.func) or "") == "SkillToolset":
+                    spec, inline_skills = _adk_skill_toolset_spec(
+                        path,
+                        source_call,
+                        element.id,
+                        tools,
+                        calls,
+                        sequences,
+                        functions,
+                        values,
+                    )
+                    _apply_adk_skill_toolset(agent, spec, inline_skills)
+                    continue
                 direct_mcp = _mcp_from_toolset(
                     path,
-                    calls[element.id],
+                    source_call,
                     element.id,
                     calls,
                 )
@@ -1848,6 +2223,19 @@ def _agent_from_call(
                 if unresolved_binding:
                     agent.tools.append(unresolved_binding)
         elif isinstance(element, ast.Call):
+            if (_call_name(element.func) or "") == "SkillToolset":
+                spec, inline_skills = _adk_skill_toolset_spec(
+                    path,
+                    element,
+                    "SkillToolset",
+                    tools,
+                    calls,
+                    sequences,
+                    functions,
+                    values,
+                )
+                _apply_adk_skill_toolset(agent, spec, inline_skills)
+                continue
             direct_mcp = _mcp_from_toolset(path, element, _call_name(element.func) or "mcp", calls)
             if direct_mcp:
                 agent.mcp_servers.append(direct_mcp)
@@ -2215,6 +2603,7 @@ def scan_python_file(path: Path) -> Graph:
             visible_calls,
             visible_sequences,
             functions,
+            visible_values,
             custom_agent_classes,
         )
         if agent:
