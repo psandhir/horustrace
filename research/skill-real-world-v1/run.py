@@ -220,6 +220,38 @@ def _scan_target(
             item["code"] == "unresolved_skill" for item in diagnostics
         )
 
+    if target_id == "google-adk-skills-agent":
+        checks["requested_additional_tools_resolved"] = not any(
+            item["code"] == "unresolved_skill"
+            and isinstance(item.get("details"), dict)
+            and item["details"].get("source")
+            == "google-adk-adk_additional_tools"
+            for item in diagnostics
+        )
+    elif target_id == "google-adk-local-env-skill-toolset":
+        checks["local_environment_unsandboxed"] = bool(bound) and all(
+            isinstance(item.get("adk_script_execution"), dict)
+            and item["adk_script_execution"].get("state") == "enabled"
+            and item["adk_script_execution"].get("sandboxed") is False
+            for item in bound
+        )
+    elif target_id == "google-adk-e2b-env-skill-toolset":
+        checks["e2b_environment_sandboxed"] = bool(bound) and all(
+            isinstance(item.get("adk_script_execution"), dict)
+            and item["adk_script_execution"].get("state") == "enabled"
+            and item["adk_script_execution"].get("sandboxed") is True
+            for item in bound
+        )
+    elif target_id == "google-adk-skills-agent-gcs":
+        checks["gcs_catalogue_provenance"] = any(
+            item["code"] == "unresolved_skill"
+            and isinstance(item.get("details"), dict)
+            and isinstance(item["details"].get("source"), dict)
+            and item["details"]["source"].get("source")
+            == "Google Cloud Storage Skill catalogue"
+            for item in diagnostics
+        )
+
     return {
         "id": target_id,
         "kind": kind,
