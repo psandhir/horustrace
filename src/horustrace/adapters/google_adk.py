@@ -681,6 +681,8 @@ def is_google_adk_file(path: Path) -> bool:
 
 def _infer_function_capabilities(
     node: ast.FunctionDef | ast.AsyncFunctionDef,
+    *,
+    operation_name: str | None = None,
 ) -> tuple[set[str], list[NetworkDestination]]:
     name_capabilities = set(infer_capabilities(node.name))
     caps: set[str] = set()
@@ -866,7 +868,7 @@ def _infer_function_capabilities(
             caps.update(
                 http_mutation_capabilities(
                     child,
-                    function_name=node.name,
+                    function_name=operation_name or node.name,
                 )
             )
 
@@ -2008,6 +2010,11 @@ def _custom_tool_from_call(
     if class_node is None:
         return None
 
+    runtime_name = _custom_tool_runtime_name(
+        call,
+        alias,
+        custom_tool_classes,
+    )
     capabilities: set[str] = set()
     destinations: list[NetworkDestination] = []
     seen_destinations: set[tuple[str, bool, str]] = set()
@@ -2016,7 +2023,10 @@ def _custom_tool_from_call(
             continue
         if method.name not in {"run", "run_async", "invoke"}:
             continue
-        inferred, method_destinations = _infer_function_capabilities(method)
+        inferred, method_destinations = _infer_function_capabilities(
+            method,
+            operation_name=runtime_name,
+        )
         capabilities.update(inferred)
         for destination in method_destinations:
             key = (
@@ -2029,11 +2039,6 @@ def _custom_tool_from_call(
             seen_destinations.add(key)
             destinations.append(destination)
 
-    runtime_name = _custom_tool_runtime_name(
-        call,
-        alias,
-        custom_tool_classes,
-    )
     return Tool(
         name=runtime_name,
         kind="adk_custom_tool",
