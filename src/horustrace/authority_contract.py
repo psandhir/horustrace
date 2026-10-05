@@ -367,6 +367,35 @@ def _approval_results(
     ]
 
 
+def _skill_results(
+    relationship: EffectiveAuthorityRelationship,
+    contract: AuthorityContract,
+) -> list[AuthorityContractResult]:
+    """Evaluate only the source-proven Skill binding dimension.
+
+    A SKILL.md allowed-tools declaration is intentionally not promoted into
+    effective capabilities. Dynamic/remote catalogues remain unresolved when a
+    contract constrains the Skill surface.
+    """
+    if relationship.target_kind == "skill":
+        return _evaluate_string_dimension(
+            relationship,
+            contract,
+            dimension="skills",
+            observed=[relationship.target_name],
+            evidence_status="resolved",
+        )
+    if relationship.target_kind == "skill_catalogue":
+        return _evaluate_string_dimension(
+            relationship,
+            contract,
+            dimension="skills",
+            observed=None,
+            evidence_status="unknown",
+        )
+    return []
+
+
 def _mcp_server_results(
     relationship: EffectiveAuthorityRelationship,
     contract: AuthorityContract,
@@ -485,6 +514,18 @@ def evaluate_relationship(
     contract: AuthorityContract,
 ) -> list[AuthorityContractResult]:
     results: list[AuthorityContractResult] = []
+    if relationship.target_kind in {"skill", "skill_catalogue"}:
+        results.extend(_skill_results(relationship, contract))
+        return sorted(
+            results,
+            key=lambda item: (
+                item.status,
+                item.clause,
+                item.reason,
+                item.result_id,
+            ),
+        )
+
 
     results.extend(
         _evaluate_string_dimension(
