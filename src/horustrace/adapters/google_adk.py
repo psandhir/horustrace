@@ -390,6 +390,7 @@ def _adk_skill_toolset_spec(
     """Normalize one ADK SkillToolset without treating it as a normal tool."""
     source_paths: list[str] = []
     inline_skills: list[Skill] = []
+    remote_sources: list[dict[str, Any]] = []
     dynamic_skills = False
 
     skills_node = _arg(call, 0, "skills")
@@ -406,14 +407,31 @@ def _adk_skill_toolset_spec(
                 dynamic_skills = True
                 continue
             skill_call_name = _call_name(skill_call.func) or ""
-            if skill_call_name == "load_skill_from_dir":
+            if skill_call_name in {"load_skill_from_dir", "load_skills_from_dir"}:
                 source_node = _arg(skill_call, 0, "skill_dir")
+                if skill_call_name == "load_skills_from_dir":
+                    source_node = _arg(skill_call, 0, "skills_dir")
                 source = _path_expr_string(source_node, values)
                 if source and source != "__file__":
                     if source not in source_paths:
                         source_paths.append(source)
                 else:
                     dynamic_skills = True
+                continue
+            if skill_call_name == "load_skill_from_gcs_dir":
+                bucket_node = _kw(skill_call, "bucket_name")
+                prefix_node = _kw(skill_call, "skills_base_path")
+                bucket = _path_expr_string(bucket_node, values)
+                prefix = _path_expr_string(prefix_node, values)
+                remote_sources.append(
+                    {
+                        "provider": "google-adk",
+                        "source": "Google Cloud Storage Skill catalogue",
+                        "bucket": bucket or "<dynamic-bucket>",
+                        "prefix": prefix or "<dynamic-prefix>",
+                        "binding": alias,
+                    }
+                )
                 continue
             if skill_call_name == "Skill":
                 inline = _inline_adk_skill(path, skill_call, calls)
@@ -498,12 +516,22 @@ def _adk_skill_toolset_spec(
             else _call_name(environment_node)
             or "dynamic_environment"
         )
+        environment_leaf = (environment_name or "").rsplit(".", 1)[-1]
+        if environment_leaf == "LocalEnvironment":
+            sandboxed: bool | None = False
+            executor_kind = "local_environment"
+        elif environment_leaf == "E2BEnvironment":
+            sandboxed = True
+            executor_kind = "remote_sandbox_environment"
+        else:
+            sandboxed = None
+            executor_kind = "adk_environment"
         script_execution = {
             "available": True,
             "source": "skilltoolset_environment",
             "executor": environment_name,
-            "sandboxed": None,
-            "executor_kind": "adk_environment",
+            "sandboxed": sandboxed,
+            "executor_kind": executor_kind,
             "capabilities": ["process.execute"],
         }
 
@@ -514,6 +542,7 @@ def _adk_skill_toolset_spec(
         "skill_names": [skill.name for skill in inline_skills],
         "dynamic_skills": dynamic_skills,
         "registry": registry_node is not None,
+        "remote_sources": remote_sources,
         "additional_tools": additional_tools,
         "unresolved_additional_tools": sorted(set(unresolved_additional_tools)),
         "script_execution": script_execution,
@@ -540,8 +569,8 @@ def _apply_adk_skill_toolset(
     if spec.get("dynamic_skills") is True:
         agent.metadata["dynamic_skill_sources"] = True
 
+    remote = list(agent.metadata.get("remote_skill_sources") or [])
     if spec.get("registry") is True:
-        remote = list(agent.metadata.get("remote_skill_sources") or [])
         remote.append(
             {
                 "provider": "google-adk",
@@ -549,7 +578,21 @@ def _apply_adk_skill_toolset(
                 "binding": spec.get("alias"),
             }
         )
-        agent.metadata["remote_skill_sources"] = remote
+    configured_remote = spec.get("remote_sources")
+    if isinstance(configured_remote, list):
+        remote.extend(
+            item for item in configured_remote if isinstance(item, dict)
+        )
+    if remote:
+        unique_remote: list[dict[str, Any]] = []
+        seen_remote: set[str] = set()
+        for item in remote:
+            key = repr(sorted(item.items()))
+            if key in seen_remote:
+                continue
+            seen_remote.add(key)
+            unique_remote.append(item)
+        agent.metadata["remote_skill_sources"] = unique_remote
 
     existing = {
         (skill.name, skill.location.line if skill.location else 0)
@@ -2451,17 +2494,27 @@ def scan_python_file(path: Path) -> Graph:
             continue
         if not isinstance(node.func.value, ast.Name):
             continue
-        sequence = sequences.get(node.func.value.id)
+        alias = node.func.value.id
+        sequence = sequences.get(alias)
         if sequence is None:
             continue
+        scope = _lexical_scope(tree, node)
+        scoped_sequence = scoped_sequences.get(scope, {}).get(alias)
+        targets = [sequence]
+        if scoped_sequence is not None and scoped_sequence is not sequence:
+            targets.append(scoped_sequence)
         if node.func.attr == "append" and len(node.args) == 1:
-            sequence.append(node.args[0])
+            for target in targets:
+                target.append(node.args[0])
         elif node.func.attr == "extend" and len(node.args) == 1:
             arg = node.args[0]
+            additions: list[ast.AST] = []
             if isinstance(arg, (ast.List, ast.Tuple, ast.Set)):
-                sequence.extend(arg.elts)
+                additions = list(arg.elts)
             elif isinstance(arg, ast.Name) and arg.id in sequences:
-                sequence.extend(sequences[arg.id])
+                additions = list(sequences[arg.id])
+            for target in targets:
+                target.extend(additions)
 
     # Build lexical-scope views so repeated aliases inside separate functions
     # resolve to the construction visible in that function rather than the last
