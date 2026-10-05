@@ -1,0 +1,62 @@
+name: Debug Fresh008 Pydantic Miss
+
+on:
+  push:
+    branches:
+      - fix/adk-pydantic-p0-p1-study
+    paths:
+      - ".github/workflows/debug-fresh008-pydantic.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    env:
+      SCANNER_SHA: e0639c218867d3f2f4adc315831c48f4a7f59e68
+      TARGET_SHA: decb6d85be0afe5bf08d222b519b33cf15e45064
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install scanner and target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone -q --no-checkout https://github.com/gtsbahamas/text-moderation.git /tmp/target
+          git -C /tmp/target fetch -q --depth=1 origin "$TARGET_SHA"
+          git -C /tmp/target checkout -q --detach FETCH_HEAD
+          git init -q /tmp/scanner
+          git -C /tmp/scanner remote add origin https://github.com/psandhir/horustrace.git
+          git -C /tmp/scanner fetch -q --depth=1 origin "$SCANNER_SHA"
+          git -C /tmp/scanner checkout -q --detach FETCH_HEAD
+          python -m venv /tmp/v
+          /tmp/v/bin/pip install -q /tmp/scanner
+      - name: Probe adapter and full scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p research/truly-fresh-adk-pydantic-holdout-10/debug
+          /tmp/v/bin/python - <<'PY' > research/truly-fresh-adk-pydantic-holdout-10/debug/fresh-008-adapter.txt
+          from pathlib import Path
+          from horustrace.adapters.pydantic_ai import is_pydantic_ai_file, scan_python_file
+          from horustrace.adapters.registry import detect_python_frameworks
+          p=Path("/tmp/target/agent.py")
+          print("is_pydantic_ai_file", is_pydantic_ai_file(p))
+          print("frameworks", detect_python_frameworks(p))
+          g=scan_python_file(p)
+          print("adapter_agents", [(a.name,[t.name for t in a.tools]) for a in g.agents])
+          print("adapter_diagnostics", [(d.kind,d.message) for d in g.coverage.diagnostics])
+          PY
+          /tmp/v/bin/horustrace scan /tmp/target --format json > research/truly-fresh-adk-pydantic-holdout-10/debug/fresh-008-root.json || true
+          /tmp/v/bin/horustrace scan /tmp/target/agent.py --format json > research/truly-fresh-adk-pydantic-holdout-10/debug/fresh-008-file.json || true
+      - name: Commit debug
+        shell: bash
+        run: |
+          git config user.name horustrace-study-bot
+          git config user.email actions@users.noreply.github.com
+          git add research/truly-fresh-adk-pydantic-holdout-10/debug
+          git commit -m "research: debug fresh Pydantic holdout miss"
+          git push origin HEAD:fix/adk-pydantic-p0-p1-study
