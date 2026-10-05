@@ -1,0 +1,433 @@
+name: ADK Pydantic Extra 39 Regression
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/adk-pydantic-extra-39-regression.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        include:
+          - case_id: "hold-adk-001"
+            repo: "AbiramiSukumaran/adk-renovation-single-agent"
+            sha: "f1b779be5d1d49093b46102a8440d26830efa07d"
+            framework: "google-adk"
+            scope: "."
+            cohort: "unseen-v2"
+          - case_id: "hold-adk-002"
+            repo: "amiitt001/adk-hiring-agent"
+            sha: "7232ba30820c0370634b97142b0bb72c32d9d065"
+            framework: "google-adk"
+            scope: "."
+            cohort: "unseen-v2"
+          - case_id: "hold-adk-003"
+            repo: "Quantum-Cipher/MCP-GCP-governance-protocol"
+            sha: "ff3864266f752c572393584721d70059955b33c2"
+            framework: "google-adk"
+            scope: "."
+            cohort: "unseen-v2"
+          - case_id: "hold-adk-004"
+            repo: "Suvam-paul145/student-doubt-classifer-agent"
+            sha: "d9463f6209e7a9c9e04310805e8222158ca89fc8"
+            framework: "google-adk"
+            scope: "."
+            cohort: "unseen-v2"
+          - case_id: "hold-adk-005"
+            repo: "amachwe/test_openapi_agent"
+            sha: "053380f1b793d5d8e0b31a6fa47898b590bb6a22"
+            framework: "google-adk"
+            scope: "."
+            cohort: "unseen-v2"
+          - case_id: "hold-pyd-001"
+            repo: "mindeye33/speedagent"
+            sha: "cc42c792ffac8e3c6ee7679dd3eff6f2f84d7c59"
+            framework: "pydantic-ai"
+            scope: "."
+            cohort: "unseen-v2"
+          - case_id: "hold-pyd-002"
+            repo: "newsbubbles/youtube-manager-mcp"
+            sha: "b429601aa96fa4497084e43863a288c6353de59e"
+            framework: "pydantic-ai"
+            scope: "."
+            cohort: "unseen-v2"
+          - case_id: "hold-pyd-003"
+            repo: "gtsbahamas/text-moderation"
+            sha: "decb6d85be0afe5bf08d222b519b33cf15e45064"
+            framework: "pydantic-ai"
+            scope: "."
+            cohort: "unseen-v2"
+          - case_id: "hold-pyd-004"
+            repo: "ArhamMirza/AI-Budget-CSV-Manager"
+            sha: "44dc9e7df8c007d813d88810ec6e347086527b66"
+            framework: "pydantic-ai"
+            scope: "."
+            cohort: "unseen-v2"
+          - case_id: "hold-pyd-005"
+            repo: "rawheel/PydanticAi-MultiModal"
+            sha: "65e7450fab5c0df06ed7f6216b99e2becd8e92b9"
+            framework: "pydantic-ai"
+            scope: "."
+            cohort: "unseen-v2"
+          - case_id: "ho-001"
+            repo: "arjunprabhulal/adk-mcp-gemma3"
+            sha: "e487feaffeb9b53d49733af985a88a1924781e5f"
+            framework: "google-adk"
+            scope: "."
+            cohort: "framework-holdout"
+          - case_id: "ho-002"
+            repo: "kweinmeister/agentic-trading"
+            sha: "9e4046b1144e44785ccaa7ce35a4491f86d79e80"
+            framework: "google-adk"
+            scope: "."
+            cohort: "framework-holdout"
+          - case_id: "ho-003"
+            repo: "mongodb-developer/MongoDB-ADK-Agents"
+            sha: "aafaefdb16230ed1c24ca6ae5605360befafaab2"
+            framework: "google-adk"
+            scope: "."
+            cohort: "framework-holdout"
+          - case_id: "ho-004"
+            repo: "langchain-ai/google-adk-realtime-deepagents-example"
+            sha: "b94966176abdddea652589d9cf8a59c00be26c8a"
+            framework: "google-adk"
+            scope: "."
+            cohort: "framework-holdout"
+          - case_id: "ho-005"
+            repo: "box-community/google-adk-box-agent"
+            sha: "c35dc3d306a7baa3629fd7c72c37e1791cda1e9e"
+            framework: "google-adk"
+            scope: "."
+            cohort: "framework-holdout"
+          - case_id: "ho-006"
+            repo: "coleam00/MongoDB-RAG-Agent"
+            sha: "b048eeab220e43b2b8f8c97508e4d6d2c134a468"
+            framework: "pydantic-ai"
+            scope: "."
+            cohort: "framework-holdout"
+          - case_id: "ho-007"
+            repo: "coleam00/human-in-the-loop-rag-agent"
+            sha: "b5f6158cacc0c52a1585429de3751a31f551d333"
+            framework: "pydantic-ai"
+            scope: "."
+            cohort: "framework-holdout"
+          - case_id: "ho-008"
+            repo: "slack-samples/bolt-python-starter-agent"
+            sha: "01fc89f9059348af2d172f8ea1dc62bffd008611"
+            framework: "pydantic-ai"
+            scope: "."
+            cohort: "framework-holdout"
+          - case_id: "ho-009"
+            repo: "vstorm-co/pydantic-ai-backend"
+            sha: "8ac7b678b633aa51c054a884ce27d31b130b8110"
+            framework: "pydantic-ai"
+            scope: "."
+            cohort: "framework-holdout"
+          - case_id: "ho-010"
+            repo: "vstorm-co/subagents-pydantic-ai"
+            sha: "bb8c400732ad515a1e2bfc554ee2dcf7500b2ef9"
+            framework: "pydantic-ai"
+            scope: "."
+            cohort: "framework-holdout"
+          - case_id: "gadk-hold-001"
+            repo: "google/mcp-security"
+            sha: "9885ec6856ec72333091cf1a3b2ac1bb26abe149"
+            framework: "google-adk"
+            scope: "run-with-google-adk"
+            cohort: "adk-unseen"
+          - case_id: "gadk-hold-002"
+            repo: "GoogleCloudPlatform/race-condition"
+            sha: "26efc1b4674344d6303ee4226ec3204c08733fec"
+            framework: "google-adk"
+            scope: "agents/planner"
+            cohort: "adk-unseen"
+          - case_id: "gadk-hold-003"
+            repo: "kweinmeister/agentic-trading"
+            sha: "a8ae98dee650c8402c16b54b79aca86e8d930a3f"
+            framework: "google-adk"
+            scope: "riskguard"
+            cohort: "adk-unseen"
+          - case_id: "gadk-hold-004"
+            repo: "seehiong/adk-web-multi-agent"
+            sha: "144ce2d3edb427c9addaef1fdc8f3372f04c8d45"
+            framework: "google-adk"
+            scope: "agents"
+            cohort: "adk-unseen"
+          - case_id: "gadk-hold-006"
+            repo: "GoogleCloudPlatform/generative-ai"
+            sha: "eb477e2e7da6b5a68f9d687683d1214eaf2d1684"
+            framework: "google-adk"
+            scope: "agents/adk/new-hire-onboarding"
+            cohort: "adk-unseen"
+          - case_id: "gadk-hold-008"
+            repo: "RHEcosystemAppEng/google-lightspeed-agent"
+            sha: "1483d23f89eaa3195cdfb7fa23a4baee2a6399f6"
+            framework: "google-adk"
+            scope: "src/lightspeed_agent"
+            cohort: "adk-unseen"
+          - case_id: "gadk-hold-009"
+            repo: "lavinigam-gcp/build-with-adk"
+            sha: "e3f55ff1c348a686cd665211dd43815ca5feffe0"
+            framework: "google-adk"
+            scope: "adk-iterative-refinement"
+            cohort: "adk-unseen"
+          - case_id: "gadk-hold-010"
+            repo: "mayurnimavatg/project-horizon"
+            sha: "cca6ce64bb92602690f328c914e326c4ec1ed21e"
+            framework: "google-adk"
+            scope: "host_agent"
+            cohort: "adk-unseen"
+          - case_id: "pyd-hold-001"
+            repo: "PrefectHQ/marvin"
+            sha: "db665c58fa503e6328f83c81cac20dedd037a274"
+            framework: "pydantic-ai"
+            scope: "src/marvin"
+            cohort: "pyd-unseen"
+          - case_id: "pyd-hold-002"
+            repo: "rice-awa/MCBE-AI-Agent"
+            sha: "b29fd30131e86d2b26ab877a625b64600bfaa5e2"
+            framework: "pydantic-ai"
+            scope: "services/agent"
+            cohort: "pyd-unseen"
+          - case_id: "pyd-hold-003"
+            repo: "hamza-mughal1/AIBA"
+            sha: "3c3e8dffd6d986022d4c43e83a9cc04002338593"
+            framework: "pydantic-ai"
+            scope: "src/agents"
+            cohort: "pyd-unseen"
+          - case_id: "pyd-hold-005"
+            repo: "lucklove/agentic"
+            sha: "a94db77ed2836f0fd28af4bf739345501550b692"
+            framework: "pydantic-ai"
+            scope: "."
+            cohort: "pyd-unseen"
+          - case_id: "pyd-hold-006"
+            repo: "jiviny/Daytona-Integration-with-Pydantic-AI"
+            sha: "9d5aa49c7465bd00077fd636d0d0659067e7b131"
+            framework: "pydantic-ai"
+            scope: "src/pydantic_ai_daytona"
+            cohort: "pyd-unseen"
+          - case_id: "pyd-hold-007"
+            repo: "zby/llm-do"
+            sha: "d86c686813ec569f1d688ee6948919ff6d0022bb"
+            framework: "pydantic-ai"
+            scope: "llm_do"
+            cohort: "pyd-unseen"
+          - case_id: "pyd-hold-008"
+            repo: "datalayer/mcp-compose"
+            sha: "692ccb6e7a52a9b074124883b2dc6f0d957d0887"
+            framework: "pydantic-ai"
+            scope: "examples/ui"
+            cohort: "pyd-unseen"
+          - case_id: "fresh-002"
+            repo: "AbiramiSukumaran/renovation-agent-adk-mcp-toolbox"
+            sha: "8c0aed21d68d865254b65e667b764fc31af25781"
+            framework: "google-adk"
+            scope: "agent.py"
+            cohort: "strict-fresh"
+          - case_id: "fresh-004"
+            repo: "pruthvikrishnang/customer-support-agent"
+            sha: "493a0dc06e4f45ca6471a7d6e376fbf555b8bdd1"
+            framework: "google-adk"
+            scope: "app/agent.py"
+            cohort: "strict-fresh"
+          - case_id: "fresh-005"
+            repo: "GothiProCoder/Multi-Agent-System-Google-ADK"
+            sha: "713cd35bf3759becc84ef6bf8958953df3d3f272"
+            framework: "google-adk"
+            scope: "agent.py"
+            cohort: "strict-fresh"
+          - case_id: "fresh-009"
+            repo: "newsbubbles/pharmiq"
+            sha: "c69949739647a47ec8339b473bdf578c8cf8bfd9"
+            framework: "pydantic-ai"
+            scope: "agent.py"
+            cohort: "strict-fresh"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install exact current scanner
+        run: python -m pip install -e .
+      - name: Scan pinned historical target
+        env:
+          CASE_ID: ${{ matrix.case_id }}
+          REPO: ${{ matrix.repo }}
+          TARGET_SHA: ${{ matrix.sha }}
+          FRAMEWORK: ${{ matrix.framework }}
+          SCOPE: ${{ matrix.scope }}
+          COHORT: ${{ matrix.cohort }}
+        run: |
+          set -euo pipefail
+          ROOT="/tmp/target"
+          git init -q "$ROOT"
+          git -C "$ROOT" remote add origin "https://github.com/$REPO.git"
+          git -C "$ROOT" fetch --quiet --depth=1 --filter=blob:none origin "$TARGET_SHA"
+          git -C "$ROOT" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "$ROOT" rev-parse HEAD)" = "$TARGET_SHA"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from horustrace.config import load_config
+          from horustrace.effective_authority import effective_authority_relationships
+          from horustrace.scanner import scan
+
+          root=Path("/tmp/target")
+          rel=os.environ["SCOPE"]
+          chosen=root if rel=="." else root/rel
+          if not chosen.exists():
+              raise SystemExit(f"scope missing: {rel}")
+          scan_scope=chosen if chosen.is_dir() else chosen.parent
+          graph, findings=scan(scan_scope, config=load_config(scan_scope))
+
+          relationships=[]
+          for item in effective_authority_relationships(graph):
+              relationships.append({
+                  "agent": item.agent,
+                  "target_kind": item.target_kind,
+                  "target_name": item.target_name,
+                  "resolution": item.resolution,
+                  "capabilities": sorted(item.capabilities),
+              })
+
+          row={
+              "case_id":os.environ["CASE_ID"],
+              "repo":os.environ["REPO"],
+              "sha":os.environ["TARGET_SHA"],
+              "framework":os.environ["FRAMEWORK"],
+              "scope":rel,
+              "cohort":os.environ["COHORT"],
+              "scan_scope":str(scan_scope.relative_to(root)) if scan_scope != root else ".",
+              "agents":[{
+                  "name":a.name,
+                  "framework":a.metadata.get("framework"),
+                  "runtime_viability":a.metadata.get("runtime_viability"),
+                  "tools":[{
+                      "name":t.name,
+                      "kind":t.kind,
+                      "capabilities":sorted(t.capabilities),
+                      "approval":t.approval,
+                      "metadata":t.metadata,
+                  } for t in a.tools],
+                  "mcp_servers":[{
+                      "name":m.name,
+                      "transport":m.transport,
+                      "url":m.url,
+                      "metadata":m.metadata,
+                  } for m in a.mcp_servers],
+              } for a in graph.agents],
+              "unbound_mcp_servers":[{
+                  "name":m.name,
+                  "transport":m.transport,
+                  "url":m.url,
+                  "metadata":m.metadata,
+              } for m in graph.unbound_mcp_servers],
+              "relationships":relationships,
+              "findings":[f.as_dict() for f in findings],
+              "attack_paths":[{
+                  "path_id":p.path_id,
+                  "title":p.title,
+                  "agent":p.agent,
+                  "nodes":p.nodes,
+                  "severity":p.severity.label(),
+                  "metadata":p.metadata,
+              } for p in graph.attack_paths],
+              "diagnostics":[d.as_dict() for d in graph.coverage.diagnostics],
+          }
+          row["counts"]={
+              "agents":len(row["agents"]),
+              "tools":sum(len(a["tools"]) for a in row["agents"]),
+              "bound_mcp":sum(len(a["mcp_servers"]) for a in row["agents"]),
+              "unbound_mcp":len(row["unbound_mcp_servers"]),
+              "relationships":len(row["relationships"]),
+              "findings":len(row["findings"]),
+              "attack_paths":len(row["attack_paths"]),
+          }
+          out=Path("artifacts")/os.environ["CASE_ID"]
+          out.mkdir(parents=True,exist_ok=True)
+          (out/"result.json").write_text(json.dumps(row,indent=2,default=str)+"\n")
+          print(json.dumps(row["counts"],indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: extra39-${{ matrix.case_id }}
+          path: artifacts/${{ matrix.case_id }}/
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    if: always()
+    needs: scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: extra39-*
+          path: downloaded
+      - name: Aggregate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          rows=[]
+          for p in sorted(Path("downloaded").rglob("result.json")):
+              rows.append(json.loads(p.read_text()))
+          rows.sort(key=lambda r:r["case_id"])
+          summary={
+              "scanner_sha":"1a18f809e3556f4423ebfb3fe054063ced0ecb8a",
+              "requested":39,
+              "completed":len(rows),
+              "by_framework":{},
+              "by_cohort":{},
+              "zero_agent_cases":[],
+              "rows":rows,
+          }
+          for row in rows:
+              fw=summary["by_framework"].setdefault(row["framework"],{"cases":0,"agents":0,"tools":0,"mcp":0,"relationships":0,"findings":0,"paths":0})
+              co=summary["by_cohort"].setdefault(row["cohort"],{"cases":0,"agents":0,"tools":0,"mcp":0,"relationships":0,"findings":0,"paths":0})
+              for target in (fw,co):
+                  target["cases"]+=1
+                  target["agents"]+=row["counts"]["agents"]
+                  target["tools"]+=row["counts"]["tools"]
+                  target["mcp"]+=row["counts"]["bound_mcp"]+row["counts"]["unbound_mcp"]
+                  target["relationships"]+=row["counts"]["relationships"]
+                  target["findings"]+=row["counts"]["findings"]
+                  target["paths"]+=row["counts"]["attack_paths"]
+              if row["counts"]["agents"]==0:
+                  summary["zero_agent_cases"].append(row["case_id"])
+          Path("aggregate").mkdir()
+          Path("aggregate/summary.json").write_text(json.dumps(summary,indent=2,default=str)+"\n")
+          lines=["# ADK + Pydantic extra 39 historical regression","",
+                 f"- Completed: **{len(rows)}/39**",
+                 f"- Zero-agent cases: **{len(summary['zero_agent_cases'])}**",
+                 f"- Zero-agent IDs: {', '.join(summary['zero_agent_cases']) or 'none'}","",
+                 "| Cohort | Cases | Agents | Tools | MCP | Authority rels | Findings | Paths |",
+                 "|---|---:|---:|---:|---:|---:|---:|---:|"]
+          for name,x in sorted(summary["by_cohort"].items()):
+              lines.append(f"| {name} | {x['cases']} | {x['agents']} | {x['tools']} | {x['mcp']} | {x['relationships']} | {x['findings']} | {x['paths']} |")
+          lines += ["","| Case | Framework | Cohort | Agents | Tools | MCP | Rels | Findings | Paths |",
+                    "|---|---|---|---:|---:|---:|---:|---:|---:|"]
+          for r in rows:
+              c=r["counts"]
+              lines.append(f"| {r['case_id']} | {r['framework']} | {r['cohort']} | {c['agents']} | {c['tools']} | {c['bound_mcp']+c['unbound_mcp']} | {c['relationships']} | {c['findings']} | {c['attack_paths']} |")
+          Path("aggregate/summary.md").write_text("\n".join(lines)+"\n")
+          print("\n".join(lines))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adk-pydantic-extra-39-summary
+          path: aggregate/
+          if-no-files-found: error
+          retention-days: 30
