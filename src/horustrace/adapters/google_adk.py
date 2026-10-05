@@ -1515,19 +1515,170 @@ def _before_tool_control_state(
 
 
 def _custom_base_agent_classes(tree: ast.AST) -> dict[str, ast.ClassDef]:
-    """Return source-defined ADK BaseAgent subclasses without executing them."""
+    """Return source-defined ADK agent subclasses without executing them."""
+    classes = {
+        node.name: node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ClassDef)
+    }
     result: dict[str, ast.ClassDef] = {}
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ClassDef):
-            continue
-        inherits_base_agent = any(
-            (_call_name(base) == "BaseAgent")
-            or ((_dotted_name(base) or "").endswith(".BaseAgent"))
-            for base in node.bases
-        )
-        if inherits_base_agent:
-            result[node.name] = node
+    changed = True
+    while changed:
+        changed = False
+        known_bases = {"BaseAgent", *AGENT_TYPES, *result.keys()}
+        for name, node in classes.items():
+            if name in result:
+                continue
+            base_names = {
+                (_call_name(base) or (_dotted_name(base) or "").rsplit(".", 1)[-1])
+                for base in node.bases
+            }
+            if base_names & known_bases:
+                result[name] = node
+                changed = True
     return result
+
+
+def _custom_class_init(
+    class_node: ast.ClassDef,
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    return next(
+        (
+            node
+            for node in class_node.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == "__init__"
+        ),
+        None,
+    )
+
+
+def _custom_constructor_bindings(
+    call: ast.Call,
+    init: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> dict[str, ast.AST]:
+    positional = [*init.args.posonlyargs, *init.args.args]
+    if positional and positional[0].arg in {"self", "cls"}:
+        positional = positional[1:]
+    bindings: dict[str, ast.AST] = {}
+
+    defaults = list(init.args.defaults)
+    if defaults:
+        for param, default in zip(positional[-len(defaults):], defaults):
+            bindings[param.arg] = default
+    for param, value in zip(positional, call.args):
+        bindings[param.arg] = value
+
+    for param, default in zip(init.args.kwonlyargs, init.args.kw_defaults):
+        if default is not None:
+            bindings[param.arg] = default
+    for keyword in call.keywords:
+        if keyword.arg is not None:
+            bindings[keyword.arg] = keyword.value
+    return bindings
+
+
+def _custom_bound_expr(
+    node: ast.AST | None,
+    bindings: dict[str, ast.AST],
+) -> ast.AST | None:
+    seen: set[str] = set()
+    while isinstance(node, ast.Name) and node.id in bindings and node.id not in seen:
+        seen.add(node.id)
+        node = bindings[node.id]
+    return node
+
+
+def _custom_super_init_calls(
+    init: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> list[ast.Call]:
+    result: list[ast.Call] = []
+    for node in ast.walk(init):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr != "__init__" or not isinstance(node.func.value, ast.Call):
+            continue
+        if _call_name(node.func.value.func) == "super":
+            result.append(node)
+    return result
+
+
+def _custom_agent_runtime_name(
+    call: ast.Call,
+    alias: str,
+    custom_agent_classes: dict[str, ast.ClassDef],
+) -> str:
+    explicit = _string(_kw(call, "name"))
+    if explicit:
+        return explicit
+    class_node = custom_agent_classes.get(_call_name(call.func) or "")
+    if class_node is None:
+        return alias
+    init = _custom_class_init(class_node)
+    if init is None:
+        return alias
+    bindings = _custom_constructor_bindings(call, init)
+    for super_call in _custom_super_init_calls(init):
+        runtime_name = _string(
+            _custom_bound_expr(_kw(super_call, "name"), bindings)
+        )
+        if runtime_name:
+            return runtime_name
+    return alias
+
+
+def _custom_agent_delegates(
+    call: ast.Call,
+    calls: dict[str, ast.Call],
+    custom_agent_classes: dict[str, ast.ClassDef],
+) -> list[str]:
+    class_node = custom_agent_classes.get(_call_name(call.func) or "")
+    if class_node is None:
+        return []
+    init = _custom_class_init(class_node)
+    if init is None:
+        return []
+
+    bindings = _custom_constructor_bindings(call, init)
+    local_sequences: dict[str, list[ast.AST]] = {}
+    for node in ast.walk(init):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        alias = next((item.id for item in targets if isinstance(item, ast.Name)), None)
+        if alias and isinstance(node.value, (ast.List, ast.Tuple, ast.Set)):
+            local_sequences[alias] = list(node.value.elts)
+
+    def target_name(expr: ast.AST) -> str | None:
+        resolved = expr
+        if isinstance(expr, ast.Name) and expr.id in bindings:
+            resolved = _custom_bound_expr(expr, bindings) or expr
+        if isinstance(resolved, ast.Name) and resolved.id in calls:
+            child_call = calls[resolved.id]
+            child_type = _call_name(child_call.func) or ""
+            if child_type in AGENT_TYPES or child_type in custom_agent_classes:
+                if child_type in custom_agent_classes:
+                    return _custom_agent_runtime_name(
+                        child_call, resolved.id, custom_agent_classes
+                    )
+                return _string(_kw(child_call, "name")) or resolved.id
+        if isinstance(resolved, ast.Call):
+            child_type = _call_name(resolved.func) or ""
+            if child_type in custom_agent_classes:
+                return _custom_agent_runtime_name(
+                    resolved, child_type, custom_agent_classes
+                )
+            if child_type in AGENT_TYPES:
+                return _string(_kw(resolved, "name")) or child_type
+        return _call_name(resolved)
+
+    delegates: list[str] = []
+    for super_call in _custom_super_init_calls(init):
+        for child in _resolve_sequence(_kw(super_call, "sub_agents"), local_sequences):
+            target = target_name(child)
+            if target and target not in delegates:
+                delegates.append(target)
+    return delegates
 
 
 def _agent_from_call(
@@ -1546,7 +1697,11 @@ def _agent_from_call(
     custom_base_agent = agent_type in custom_agent_classes
     if agent_type not in AGENT_TYPES and not custom_base_agent:
         return None
-    name = _string(_kw(call, "name")) or alias
+    name = (
+        _custom_agent_runtime_name(call, alias, custom_agent_classes)
+        if custom_base_agent
+        else (_string(_kw(call, "name")) or alias)
+    )
     metadata: dict[str, Any] = {
         "framework": "google-adk",
         "agent_type": agent_type,
@@ -1743,12 +1898,21 @@ def _agent_from_call(
         target = _call_name(element)
         if isinstance(element, ast.Name) and element.id in calls:
             target_call = calls[element.id]
-            if (_call_name(target_call.func) or "") in AGENT_TYPES:
+            target_type = _call_name(target_call.func) or ""
+            if target_type in custom_agent_classes:
+                target = _custom_agent_runtime_name(
+                    target_call, element.id, custom_agent_classes
+                )
+            elif target_type in AGENT_TYPES:
                 target = _string(_kw(target_call, "name")) or target
         if isinstance(element, ast.Call):
             target = _string(_kw(element, "name")) or _call_name(element.func)
         if target:
             delegates.append(target)
+    if custom_base_agent:
+        delegates.extend(
+            _custom_agent_delegates(call, calls, custom_agent_classes)
+        )
     for tool in agent.tools:
         target = tool.metadata.get("delegate_target")
         if isinstance(target, str):
