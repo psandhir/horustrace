@@ -1,0 +1,210 @@
+name: Fresh ADK Pydantic Holdout 10
+
+on:
+  push:
+    branches:
+      - fix/adk-pydantic-p0-p1-study
+    paths:
+      - ".github/workflows/fresh-adk-pydantic-holdout-10.yml"
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: fresh-adk-pydantic-holdout-10-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      SCANNER_SHA: e0639c218867d3f2f4adc315831c48f4a7f59e68
+      OUT_DIR: research/fresh-adk-pydantic-holdout-10
+
+    steps:
+      - name: Check out validation branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Freeze unseen 10-repo holdout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, shutil
+          from pathlib import Path
+
+          selected = [
+              "rw-008","rw-028","rw-034","rw-023","rw-026",
+              "rw-172","rw-174","rw-177","rw-156","rw-167",
+          ]
+          root = Path("research/real-world-agent-security-2026")
+          cohort = json.loads((root / "cohort.json").read_text())
+          by_id = {case["case_id"]: case for case in cohort["cases"]}
+          cases = [by_id[case_id] for case_id in selected]
+
+          assert sum(c["framework_stratum"] == "google-adk" for c in cases) == 5
+          assert sum(c["framework_stratum"] == "pydantic-ai" for c in cases) == 5
+          assert all(c["previously_studied"] is False for c in cases)
+
+          study = Path("/tmp/fresh-adk-pydantic-holdout-10")
+          (study / "ground-truth").mkdir(parents=True, exist_ok=True)
+          for case in cases:
+              src = root / case["ground_truth"]
+              dst = study / case["ground_truth"]
+              dst.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(src, dst)
+
+          sliced = dict(cohort)
+          sliced["cases"] = cases
+          sliced["tier_b_case_ids"] = [
+              case_id for case_id in cohort.get("tier_b_case_ids", [])
+              if case_id in selected
+          ]
+          sliced["tier_c_case_ids"] = [
+              case_id for case_id in cohort.get("tier_c_case_ids", [])
+              if case_id in selected
+          ]
+          sliced["study_slice"] = {
+              "name": "fresh-adk-pydantic-holdout-10",
+              "scanner_sha": "e0639c218867d3f2f4adc315831c48f4a7f59e68",
+              "selection": (
+                  "Fresh holdout after P0/P1 fixes: excludes repositories used in "
+                  "committed HorusScan studies plus the frozen 20 rerun; selects "
+                  "5 Google ADK + 5 Pydantic AI with three Tier-B authority-rich "
+                  "and two ordinary cases per framework."
+              ),
+              "selected_case_ids": selected,
+          }
+          (study / "cohort.json").write_text(json.dumps(sliced, indent=2) + "\n")
+          out = Path("research/fresh-adk-pydantic-holdout-10")
+          out.mkdir(parents=True, exist_ok=True)
+          (out / "selected-cases.json").write_text(
+              json.dumps([
+                  {
+                      "case_id": c["case_id"],
+                      "repo": c["repo"],
+                      "sha": c["sha"],
+                      "framework": c["framework_stratum"],
+                      "application_path": c["application_path"],
+                      "tier_b": c["case_id"] in set(sliced["tier_b_case_ids"]),
+                  }
+                  for c in cases
+              ], indent=2) + "\n"
+          )
+          PY
+
+      - name: Install exact P0-P1 scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=/tmp/horustrace-holdout-src
+          VENV=/tmp/horustrace-holdout-venv
+          git init -q "$SRC"
+          git -C "$SRC" remote add origin https://github.com/psandhir/horustrace.git
+          git -C "$SRC" fetch --quiet --depth=1 origin "$SCANNER_SHA"
+          git -C "$SRC" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "$SRC" rev-parse HEAD)" = "$SCANNER_SHA"
+          python -m venv "$VENV"
+          "$VENV/bin/pip" install --disable-pip-version-check "$SRC"
+          "$VENV/bin/horustrace" --version
+
+      - name: Scan and score unseen holdout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_security_execute.py \
+            --root /tmp/fresh-adk-pydantic-holdout-10 \
+            --mode postfix \
+            --scanner /tmp/horustrace-holdout-venv/bin/horustrace \
+            --scanner-sha "$SCANNER_SHA" \
+            --workers 8 \
+            --output-json "$OUT_DIR/result.json" \
+            --output-markdown "$OUT_DIR/result.md"
+
+      - name: Build holdout scorecard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          out = Path("research/fresh-adk-pydantic-holdout-10")
+          d = json.loads((out / "result.json").read_text())
+
+          def pct(value):
+              return "n/a" if value is None else f"{100*value:.1f}%"
+
+          lines = [
+              "# Fresh ADK + Pydantic AI holdout 10",
+              "",
+              f"- Scanner SHA: `{d['scanner_sha']}`",
+              f"- Successful scans: **{d['summary']['successful_cases']}/10**",
+              f"- Failed scans: **{d['summary']['failed_cases']}**",
+              f"- Analysis incomplete: **{d['summary']['analysis_incomplete_cases']}**",
+              f"- Findings: **{d['summary']['findings']}**",
+              f"- Attack paths: **{d['summary']['attack_paths']}**",
+              "",
+              "| Framework | Agent P/R | Tool P/R | MCP P/R | Authority P/R | Findings | Paths |",
+              "|---|---:|---:|---:|---:|---:|---:|",
+          ]
+          for fw in ("google-adk", "pydantic-ai"):
+              x = d["per_framework"][fw]
+              lines.append(
+                  f"| {fw} | {pct(x['agent_entities']['precision'])}/{pct(x['agent_entities']['recall'])} | "
+                  f"{pct(x['tools']['precision'])}/{pct(x['tools']['recall'])} | "
+                  f"{pct(x['mcp_servers']['precision'])}/{pct(x['mcp_servers']['recall'])} | "
+                  f"{pct(x['effective_authority']['precision'])}/{pct(x['effective_authority']['recall'])} | "
+                  f"{x['findings']} | {x['attack_paths']} |"
+              )
+
+          lines += [
+              "",
+              "## Per-case deltas against locked reference",
+              "",
+              "| Case | Framework | Agent FN/FP | Tool FN/FP | MCP FN/FP | Delegation FN/FP | Authority FN/FP | Findings | Paths |",
+              "|---|---|---:|---:|---:|---:|---:|---:|---:|",
+          ]
+          for c in d["cases"]:
+              cmp = c.get("comparisons") or {}
+              def ff(name):
+                  item = cmp.get(name) or {}
+                  return f"{item.get('fn',0)}/{item.get('fp',0)}"
+              obs = c.get("observed") or {}
+              lines.append(
+                  f"| {c['case_id']} | {c['framework']} | {ff('agent_entities')} | "
+                  f"{ff('tools')} | {ff('mcp_servers')} | {ff('delegation_edges')} | "
+                  f"{ff('effective_authority')} | {obs.get('findings',0)} | {obs.get('attack_paths',0)} |"
+              )
+          (out / "HOLDOUT_REPORT.md").write_text("\n".join(lines) + "\n")
+          print("\n".join(lines))
+          PY
+          cat "$OUT_DIR/HOLDOUT_REPORT.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload holdout artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fresh-adk-pydantic-holdout-10
+          path: research/fresh-adk-pydantic-holdout-10/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit holdout results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "horustrace-study-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add "$OUT_DIR"
+          git commit -m "research: record fresh ADK/Pydantic holdout 10"
+          git push origin HEAD:fix/adk-pydantic-p0-p1-study
