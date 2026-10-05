@@ -1,0 +1,306 @@
+name: ADK Pydantic Frozen 71 Regression
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/adk-pydantic-regression-71.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: adk-pydantic-regression-71-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      SCANNER_SHA: 1a18f809e3556f4423ebfb3fe054063ced0ecb8a
+      SOURCE_ROOT: research/real-world-agent-security-2026
+      STUDY_ROOT: /tmp/adk-pydantic-regression-71
+      OUT_DIR: research/adk-pydantic-regression-71-current-main
+
+    steps:
+      - name: Check out regression harness
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build frozen ADK and Pydantic 71-case slice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import shutil
+          from pathlib import Path
+
+          source = Path(os.environ["SOURCE_ROOT"])
+          root = Path(os.environ["STUDY_ROOT"])
+          root.mkdir(parents=True, exist_ok=True)
+          (root / "ground-truth").mkdir(parents=True, exist_ok=True)
+
+          cohort = json.loads((source / "cohort.json").read_text())
+          frameworks = {"google-adk", "pydantic-ai"}
+          cases = [c for c in cohort["cases"] if c["framework_stratum"] in frameworks]
+          assert len(cases) == 71, len(cases)
+          assert sum(c["framework_stratum"] == "google-adk" for c in cases) == 37
+          assert sum(c["framework_stratum"] == "pydantic-ai" for c in cases) == 34
+
+          selected = {c["case_id"] for c in cases}
+          sliced = dict(cohort)
+          sliced["cases"] = cases
+          sliced["target_unique_repositories"] = 71
+          sliced["tier_b_case_ids"] = [
+              case_id for case_id in cohort.get("tier_b_case_ids", [])
+              if case_id in selected
+          ]
+          sliced["tier_c_case_ids"] = [
+              case_id for case_id in cohort.get("tier_c_case_ids", [])
+              if case_id in selected
+          ]
+          sliced["regression_slice"] = {
+              "name": "adk-pydantic-frozen-71",
+              "frameworks": ["google-adk", "pydantic-ai"],
+              "scanner_sha": os.environ["SCANNER_SHA"],
+              "source_cohort": "real-world-agent-security-2026 frozen 180",
+          }
+          (root / "cohort.json").write_text(json.dumps(sliced, indent=2) + "\n")
+
+          for case in cases:
+              src = source / case["ground_truth"]
+              dst = root / case["ground_truth"]
+              dst.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(src, dst)
+
+          print("Frozen regression slice:")
+          print("  total:", len(cases))
+          print("  google-adk:", sum(c["framework_stratum"] == "google-adk" for c in cases))
+          print("  pydantic-ai:", sum(c["framework_stratum"] == "pydantic-ai" for c in cases))
+          print("  tier-b:", len(sliced["tier_b_case_ids"]))
+          print("  tier-c:", len(sliced["tier_c_case_ids"]))
+          PY
+
+      - name: Install exact current-main scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=/tmp/horustrace-regression-src
+          VENV=/tmp/horustrace-regression-venv
+          git init -q "$SRC"
+          git -C "$SRC" remote add origin https://github.com/psandhir/horustrace.git
+          git -C "$SRC" fetch --quiet --depth=1 origin "$SCANNER_SHA"
+          git -C "$SRC" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "$SRC" rev-parse HEAD)" = "$SCANNER_SHA"
+          python -m venv "$VENV"
+          "$VENV/bin/pip" install --disable-pip-version-check "$SRC"
+          "$VENV/bin/horustrace" --version
+
+      - name: Execute current main against frozen 71
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT_DIR"
+          python scripts/real_world_agent_security_execute.py \
+            --root "$STUDY_ROOT" \
+            --mode postfix \
+            --scanner /tmp/horustrace-regression-venv/bin/horustrace \
+            --scanner-sha "$SCANNER_SHA" \
+            --workers 8 \
+            --output-json "$OUT_DIR/result.json" \
+            --output-markdown "$OUT_DIR/result.md"
+
+      - name: Compare against original frozen baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from collections import defaultdict
+          from pathlib import Path
+
+          source = Path(os.environ["SOURCE_ROOT"])
+          out = Path(os.environ["OUT_DIR"])
+          current = json.loads((out / "result.json").read_text())
+          baseline = json.loads((source / "results/frozen-baseline.json").read_text())
+
+          frameworks = {"google-adk", "pydantic-ai"}
+          base_cases = {
+              c["case_id"]: c for c in baseline["cases"]
+              if c.get("framework") in frameworks
+          }
+          cur_cases = {
+              c["case_id"]: c for c in current["cases"]
+              if c.get("framework") in frameworks
+          }
+          assert len(base_cases) == 71, len(base_cases)
+          assert len(cur_cases) == 71, len(cur_cases)
+
+          def metric(case, dim, field):
+              item = (case.get("comparisons") or {}).get(dim) or {}
+              value = item.get(field)
+              return value if isinstance(value, int) else 0
+
+          dims = sorted({
+              dim
+              for case in [*base_cases.values(), *cur_cases.values()]
+              for dim, value in (case.get("comparisons") or {}).items()
+              if isinstance(value, dict)
+              and any(k in value for k in ("tp", "fn", "fp"))
+          })
+
+          aggregates = {}
+          for dim in dims:
+              aggregates[dim] = {}
+              for label, cases in (("baseline", base_cases), ("current", cur_cases)):
+                  aggregates[dim][label] = {
+                      field: sum(metric(c, dim, field) for c in cases.values())
+                      for field in ("tp", "fn", "fp", "truth", "predicted")
+                  }
+
+          regressions = []
+          improvements = []
+          neutral_changes = []
+          for case_id in sorted(cur_cases):
+              old = base_cases[case_id]
+              new = cur_cases[case_id]
+              for dim in dims:
+                  old_tp, new_tp = metric(old, dim, "tp"), metric(new, dim, "tp")
+                  old_fn, new_fn = metric(old, dim, "fn"), metric(new, dim, "fn")
+                  old_fp, new_fp = metric(old, dim, "fp"), metric(new, dim, "fp")
+                  row = {
+                      "case_id": case_id,
+                      "framework": new.get("framework"),
+                      "dimension": dim,
+                      "baseline": {"tp": old_tp, "fn": old_fn, "fp": old_fp},
+                      "current": {"tp": new_tp, "fn": new_fn, "fp": new_fp},
+                  }
+                  if new_fn > old_fn or new_tp < old_tp:
+                      regressions.append(row)
+                  elif new_fn < old_fn or new_tp > old_tp or new_fp < old_fp:
+                      improvements.append(row)
+                  elif new_fp > old_fp:
+                      neutral_changes.append(row)
+
+          scan_failures = [
+              {
+                  "case_id": c["case_id"],
+                  "framework": c.get("framework"),
+                  "error": c.get("error"),
+              }
+              for c in current["cases"]
+              if c.get("status") not in {None, "ok", "success"}
+              and c.get("error")
+          ]
+
+          def observed_count(case, key):
+              obs = case.get("observed") or {}
+              value = obs.get(key)
+              return value if isinstance(value, int) else 0
+
+          finding_delta = sum(observed_count(c, "findings") for c in cur_cases.values()) - sum(
+              observed_count(c, "findings") for c in base_cases.values()
+          )
+          path_delta = sum(observed_count(c, "attack_paths") for c in cur_cases.values()) - sum(
+              observed_count(c, "attack_paths") for c in base_cases.values()
+          )
+
+          report = {
+              "scanner_sha": os.environ["SCANNER_SHA"],
+              "cases": 71,
+              "framework_counts": {"google-adk": 37, "pydantic-ai": 34},
+              "current_summary": current.get("summary"),
+              "current_per_framework": current.get("per_framework"),
+              "aggregate_comparison": aggregates,
+              "regressions": regressions,
+              "improvements": improvements,
+              "new_fp_only_changes": neutral_changes,
+              "scan_failures": scan_failures,
+              "finding_delta_vs_frozen_baseline": finding_delta,
+              "attack_path_delta_vs_frozen_baseline": path_delta,
+          }
+          (out / "regression-delta.json").write_text(
+              json.dumps(report, indent=2, sort_keys=True) + "\n"
+          )
+
+          lines = [
+              "# ADK + Pydantic frozen-71 regression",
+              "",
+              f"- Scanner SHA: `{report['scanner_sha']}`",
+              "- Frozen repos: **71** (37 Google ADK + 34 Pydantic AI)",
+              f"- Structural regressions vs original frozen baseline: **{len(regressions)}**",
+              f"- Structural improvements vs original frozen baseline: **{len(improvements)}**",
+              f"- Scan failures: **{len(scan_failures)}**",
+              f"- Finding-count delta vs original baseline: **{finding_delta:+d}**",
+              f"- Attack-path delta vs original baseline: **{path_delta:+d}**",
+              "",
+              "## Aggregate locked-truth metrics",
+              "",
+              "| Dimension | Baseline TP/FN/FP | Current TP/FN/FP | Delta FN | Delta FP |",
+              "|---|---:|---:|---:|---:|",
+          ]
+          for dim in dims:
+              old = aggregates[dim]["baseline"]
+              new = aggregates[dim]["current"]
+              lines.append(
+                  f"| {dim} | {old['tp']}/{old['fn']}/{old['fp']} | "
+                  f"{new['tp']}/{new['fn']}/{new['fp']} | "
+                  f"{new['fn']-old['fn']:+d} | {new['fp']-old['fp']:+d} |"
+              )
+
+          lines += ["", "## Regression candidates", ""]
+          if regressions:
+              lines += [
+                  "| Case | Framework | Dimension | Baseline TP/FN/FP | Current TP/FN/FP |",
+                  "|---|---|---|---:|---:|",
+              ]
+              for row in regressions:
+                  old, new = row["baseline"], row["current"]
+                  lines.append(
+                      f"| {row['case_id']} | {row['framework']} | {row['dimension']} | "
+                      f"{old['tp']}/{old['fn']}/{old['fp']} | "
+                      f"{new['tp']}/{new['fn']}/{new['fp']} |"
+                  )
+          else:
+              lines.append("No TP-loss/FN-increase regression candidates.")
+
+          lines += ["", "## Current framework scorecard", ""]
+          for fw in ("google-adk", "pydantic-ai"):
+              data = (current.get("per_framework") or {}).get(fw) or {}
+              lines.append(f"### {fw}")
+              lines.append("")
+              lines.append(f"- Findings: **{data.get('findings', 0)}**")
+              lines.append(f"- Attack paths: **{data.get('attack_paths', 0)}**")
+              for dim in ("agent_entities", "tools", "mcp_servers", "delegation_edges", "effective_authority"):
+                  item = data.get(dim) or {}
+                  if item:
+                      p = item.get("precision")
+                      r = item.get("recall")
+                      ps = "n/a" if p is None else f"{100*p:.1f}%"
+                      rs = "n/a" if r is None else f"{100*r:.1f}%"
+                      lines.append(f"- {dim}: precision **{ps}**, recall **{rs}**")
+              lines.append("")
+
+          (out / "REGRESSION_REPORT.md").write_text("\n".join(lines) + "\n")
+          print("\n".join(lines))
+          PY
+          cat "$OUT_DIR/REGRESSION_REPORT.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload regression artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: adk-pydantic-frozen-71-current-main
+          path: research/adk-pydantic-regression-71-current-main/
+          if-no-files-found: error
+          retention-days: 30
