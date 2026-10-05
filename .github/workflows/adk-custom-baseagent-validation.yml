@@ -48,7 +48,11 @@ jobs:
               adg=data.get("adg") or {}
               nodes=adg.get("nodes") or []
               edges=adg.get("edges") or []
-              names={n.get("node_id"): n.get("name") for n in nodes if n.get("kind")=="agent"}
+              names={
+                  n.get("node_id"): n.get("name")
+                  for n in nodes
+                  if "agent" in str(n.get("kind") or "").lower()
+              }
               delegations=sorted({
                   (names[e.get("source")], names[e.get("target")])
                   for e in edges
