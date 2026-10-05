@@ -696,6 +696,95 @@ def _imported_symbol(
     return direct, remote
 
 
+def _enclosing_function(
+    info: ModuleInfo,
+    node: ast.AST,
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    line = getattr(node, "lineno", 0) or 0
+    candidates = [
+        func
+        for func in info.functions.values()
+        if getattr(func, "lineno", 0) <= line <= getattr(func, "end_lineno", 0)
+    ]
+    if not candidates:
+        return None
+    candidates.sort(
+        key=lambda func: (
+            getattr(func, "end_lineno", 0) - getattr(func, "lineno", 0)
+        )
+    )
+    return candidates[0]
+
+
+def _function_calls(
+    func: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> dict[str, ast.Call]:
+    result: dict[str, ast.Call] = {}
+    for node in ast.walk(func):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
+            continue
+        if not isinstance(node.value, ast.Call):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        for target in targets:
+            if isinstance(target, ast.Name):
+                result[target.id] = node.value
+    return result
+
+
+def _local_imported_symbol(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    symbol: str,
+    node: ast.AST,
+) -> tuple[ModuleInfo, str] | None:
+    func = _enclosing_function(info, node)
+    if func is None:
+        return None
+    for item in ast.walk(func):
+        if isinstance(item, ast.ImportFrom):
+            module_name = _relative(
+                info.module,
+                item.level,
+                item.module,
+                current_is_package=False,
+            )
+            for imported in item.names:
+                if imported.name == "*":
+                    continue
+                local_name = imported.asname or imported.name
+                if local_name != symbol:
+                    continue
+                target = _find_module(modules, module_name)
+                if target is None:
+                    target = _find_module(
+                        modules, f"{module_name}.{imported.name}"
+                    )
+                if target is not None:
+                    return target, imported.name
+        elif isinstance(item, ast.Import):
+            for imported in item.names:
+                local_name = imported.asname or imported.name.split(".")[0]
+                if local_name != symbol:
+                    continue
+                target = _find_module(modules, imported.name)
+                if target is not None:
+                    return target, ""
+    return None
+
+
+def _symbol_import(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    symbol: str,
+    node: ast.AST,
+) -> tuple[ModuleInfo, str] | None:
+    return (
+        _imported_symbol(modules, info, symbol)
+        or _local_imported_symbol(modules, info, symbol, node)
+    )
+
+
 _ADK_AGENT_BASE_TYPES = set(AGENT_TYPES) | {"BaseAgent"}
 
 
@@ -747,7 +836,7 @@ def _custom_agent_class_for_call(
         local = info.classes.get(leaf)
         if local is not None and _class_inherits_adk_agent(modules, info, local):
             return info, leaf, local
-        imported = _imported_symbol(modules, info, leaf)
+        imported = _symbol_import(modules, info, leaf, call)
         if imported:
             target, symbol = imported
             imported_class = target.classes.get(symbol)
@@ -757,7 +846,7 @@ def _custom_agent_class_for_call(
                 return target, symbol, imported_class
 
     if isinstance(call.func, ast.Attribute) and isinstance(call.func.value, ast.Name):
-        imported = _imported_symbol(modules, info, call.func.value.id)
+        imported = _symbol_import(modules, info, call.func.value.id, call)
         if imported:
             target, remote = imported
             nested = (
@@ -868,6 +957,10 @@ def _resolve_agent_expr_name(
 ) -> str | None:
     if isinstance(expr, ast.Name):
         call = info.calls.get(expr.id)
+        if call is None:
+            func = _enclosing_function(info, expr)
+            if func is not None:
+                call = _function_calls(func).get(expr.id)
         if call is not None:
             call_type = _name(call.func) or ""
             if call_type in AGENT_TYPES:
@@ -877,7 +970,7 @@ def _resolve_agent_expr_name(
                 return _custom_agent_runtime_name(
                     modules, info, call, expr.id, custom_ref
                 )
-        imported = _imported_symbol(modules, info, expr.id)
+        imported = _symbol_import(modules, info, expr.id, expr)
         if imported:
             target, symbol = imported
             call = target.calls.get(symbol)
