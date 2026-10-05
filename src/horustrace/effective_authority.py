@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from horustrace.models import Agent, Graph, Identity, MCPServer, ResourceScope, Tool
+from horustrace.models import Agent, Graph, Identity, MCPServer, ResourceScope, Skill, Tool
 
 EFFECTIVE_AUTHORITY_SCHEMA_VERSION = 1
 
@@ -109,6 +109,41 @@ def _adg_evidence(
         )
     return sorted(result, key=lambda item: item["edge_id"])
 
+
+
+
+def _skill_adg_evidence(
+    graph: Graph,
+    *,
+    agent: str,
+    skill: str,
+) -> list[dict[str, Any]]:
+    """Return source-proven ADG binding evidence for one Agent Skill."""
+    if graph.adg is None:
+        return []
+    result: list[dict[str, Any]] = []
+    nodes = {node.node_id: node for node in graph.adg.nodes}
+    for edge in graph.adg.edges:
+        if edge.kind != "USES_SKILL":
+            continue
+        source = nodes.get(edge.source)
+        target = nodes.get(edge.target)
+        if source is None or target is None:
+            continue
+        if source.kind != "agent" or source.name != agent:
+            continue
+        if target.kind != "skill" or target.name != skill:
+            continue
+        result.append(
+            {
+                "edge_id": edge.edge_id,
+                "kind": edge.kind,
+                "source": edge.source,
+                "target": edge.target,
+                "location": edge.location,
+            }
+        )
+    return sorted(result, key=lambda item: item["edge_id"])
 
 
 
@@ -681,6 +716,120 @@ def _mcp_relationship(
     )
 
 
+def _skill_relationship(
+    graph: Graph,
+    agent: Agent,
+    skill: Skill,
+) -> EffectiveAuthorityRelationship:
+    """Expose a source-proven Skill binding without promoting declarations to authority."""
+    capability_status = "resolved" if skill.capabilities else "unknown"
+    resource_status = "resolved" if skill.resources else "unknown"
+    destination_status = "resolved" if skill.destinations else "unknown"
+    unresolved: list[str] = []
+    if skill.allowed_tools and not skill.capabilities:
+        unresolved.append("skill_effective_capabilities")
+    if skill.resources:
+        resource_status = "resolved"
+    if skill.destinations:
+        destination_status = "resolved"
+
+    return EffectiveAuthorityRelationship(
+        relationship_id=_stable_relationship_id(agent.name, "skill", skill.name),
+        agent=agent.name,
+        agent_instance_key=_agent_instance_key(agent),
+        target_kind="skill",
+        target_name=skill.name,
+        capabilities=tuple(sorted(skill.capabilities)),
+        identity=None,
+        approval={},
+        tool_scope=None,
+        resources=tuple(_resource(resource) for resource in skill.resources),
+        destinations=tuple(
+            {
+                "target": destination.target,
+                "direction": destination.direction,
+                "restricted": destination.restricted,
+                "metadata": dict(destination.metadata),
+                "location": _location(destination.location),
+            }
+            for destination in skill.destinations
+        ),
+        semantics={
+            "binding_origin": skill.metadata.get("binding_origin"),
+            "binding_source_path": skill.metadata.get("binding_source_path"),
+            "source": skill.source,
+            "instructions_sha256": skill.metadata.get("instructions_sha256"),
+            "declared_allowed_tools": sorted(skill.allowed_tools),
+            "declared_tool_authority_promoted": False,
+            "has_scripts": skill.metadata.get("has_scripts"),
+            "script_count": skill.metadata.get("script_count"),
+        },
+        dimensions={
+            "target": "resolved",
+            "skills": "resolved",
+            "capabilities": capability_status,
+            "resources": resource_status,
+            "destinations": destination_status,
+        },
+        unresolved=tuple(sorted(set(unresolved))),
+        evidence=tuple(
+            _skill_adg_evidence(graph, agent=agent.name, skill=skill.name)
+        ),
+        location=_location(skill.location),
+    )
+
+
+def _skill_catalogue_relationships(
+    agent: Agent,
+) -> list[EffectiveAuthorityRelationship]:
+    """Represent source-proven but non-enumerable Skill catalogues as unresolved."""
+    result: list[EffectiveAuthorityRelationship] = []
+
+    def add(name: str, semantics: dict[str, Any]) -> None:
+        result.append(
+            EffectiveAuthorityRelationship(
+                relationship_id=_stable_relationship_id(
+                    agent.name, "skill_catalogue", name
+                ),
+                agent=agent.name,
+                agent_instance_key=_agent_instance_key(agent),
+                target_kind="skill_catalogue",
+                target_name=name,
+                capabilities=(),
+                identity=None,
+                approval={},
+                tool_scope=None,
+                resources=(),
+                destinations=(),
+                semantics=semantics,
+                dimensions={"target": "resolved", "skills": "unknown"},
+                unresolved=("skills",),
+                evidence=(),
+                location=_location(agent.location),
+            )
+        )
+
+    if agent.metadata.get("dynamic_skill_sources") is True:
+        add(
+            "<dynamic-skill-catalogue>",
+            {"catalogue_resolution": "dynamic", "enumerated": False},
+        )
+
+    remote_sources = agent.metadata.get("remote_skill_sources")
+    if isinstance(remote_sources, list):
+        for index, source in enumerate(remote_sources, start=1):
+            detail = dict(source) if isinstance(source, dict) else {"source": str(source)}
+            add(
+                f"<remote-skill-catalogue:{index}>",
+                {
+                    "catalogue_resolution": "remote",
+                    "enumerated": False,
+                    "source": detail,
+                },
+            )
+    return result
+
+
 def _delegation_relationship(
     graph: Graph,
     agent: Agent,
@@ -731,6 +880,9 @@ def effective_authority_relationships(
                 result.append(_delegation_relationship(graph, agent, tool))
                 continue
             result.append(_tool_relationship(graph, agent, tool))
+        for skill in agent.skills:
+            result.append(_skill_relationship(graph, agent, skill))
+        result.extend(_skill_catalogue_relationships(agent))
         for server in agent.mcp_servers:
             result.append(_mcp_relationship(graph, agent, server))
     return sorted(
@@ -752,7 +904,7 @@ def effective_authority_report(graph: Graph) -> dict[str, Any]:
     }
     target_counts = {
         kind: sum(item.target_kind == kind for item in relationships)
-        for kind in ("tool", "mcp_server", "delegation")
+        for kind in ("tool", "mcp_server", "delegation", "skill", "skill_catalogue")
     }
     return {
         "schema_version": EFFECTIVE_AUTHORITY_SCHEMA_VERSION,
@@ -762,6 +914,8 @@ def effective_authority_report(graph: Graph) -> dict[str, Any]:
             "tool_relationships": target_counts["tool"],
             "mcp_relationships": target_counts["mcp_server"],
             "delegation_relationships": target_counts["delegation"],
+            "skill_relationships": target_counts["skill"],
+            "unresolved_skill_catalogues": target_counts["skill_catalogue"],
             "fully_resolved_relationships": resolution_counts["fully_resolved"],
             "partially_resolved_relationships": resolution_counts["partially_resolved"],
             "unknown_relationships": resolution_counts["unknown"],
@@ -795,6 +949,8 @@ def render_effective_authority_console(graph: Graph, root: Path) -> str:
         f"Relationships:                {summary['relationships']}",
         f"Tool relationships:           {summary['tool_relationships']}",
         f"MCP relationships:            {summary['mcp_relationships']}",
+        f"Skill relationships:          {summary['skill_relationships']}",
+        f"Unresolved skill catalogues:  {summary['unresolved_skill_catalogues']}",
         f"Fully resolved:               {summary['fully_resolved_relationships']}",
         f"Partially resolved:           {summary['partially_resolved_relationships']}",
         f"Unknown:                      {summary['unknown_relationships']}",
