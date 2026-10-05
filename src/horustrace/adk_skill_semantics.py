@@ -143,20 +143,23 @@ def _analyze_python_script(
             capabilities.add("destructive.write")
 
         target = _literal_string(node.args[0] if node.args else None)
-        if target and target.startswith(("http://", "https://")):
-            if target not in seen_destinations:
-                destinations.append(
-                    NetworkDestination(
-                        target=target,
-                        restricted=True,
-                        location=location,
-                        metadata={
-                            "source": "adk_skill_script_literal",
-                            "network_scope": "fixed_literal_destination",
-                        },
-                    )
+        if (
+            target
+            and target.startswith(("http://", "https://"))
+            and target not in seen_destinations
+        ):
+            destinations.append(
+                NetworkDestination(
+                    target=target,
+                    restricted=True,
+                    location=location,
+                    metadata={
+                        "source": "adk_skill_script_literal",
+                        "network_scope": "fixed_literal_destination",
+                    },
                 )
-                seen_destinations.add(target)
+            )
+            seen_destinations.add(target)
 
     return capabilities, destinations
 
