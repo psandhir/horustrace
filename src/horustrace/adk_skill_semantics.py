@@ -344,6 +344,7 @@ def enrich_adk_skill_authority(graph: Graph) -> None:
 
             observed_caps: set[str] = set()
             observed_destinations: list[str] = []
+            observed_destination_objects: list[NetworkDestination] = []
             unsupported_scripts: list[str] = []
             for script in scripts:
                 if not script.endswith(".py"):
@@ -356,11 +357,7 @@ def enrich_adk_skill_authority(graph: Graph) -> None:
                 capabilities, destinations = _analyze_python_script(source, location)
                 observed_caps.update(capabilities)
                 for destination in destinations:
-                    if not any(
-                        item.target == destination.target
-                        for item in skill.destinations
-                    ):
-                        skill.destinations.append(destination)
+                    observed_destination_objects.append(destination)
                     observed_destinations.append(destination.target)
 
             if observed_caps:
@@ -394,6 +391,12 @@ def enrich_adk_skill_authority(graph: Graph) -> None:
                 # remain observable intent/effect evidence, not host authority.
                 if executor.get("sandboxed") is False:
                     skill.capabilities.update(observed_caps)
+                    for destination in observed_destination_objects:
+                        if not any(
+                            item.target == destination.target
+                            for item in skill.destinations
+                        ):
+                            skill.destinations.append(destination)
             elif scripts:
                 skill.metadata["adk_script_execution"] = {
                     "available": False,
