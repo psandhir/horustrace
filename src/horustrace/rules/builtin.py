@@ -15,6 +15,7 @@ from horustrace.heuristics import (
     role_looks_admin,
 )
 from horustrace.models import Finding, Graph, Identity, NetworkDestination, Severity, SourceLocation
+from horustrace.skill_llm_semantics import confident_skill_concept
 
 
 def _is_loopback_url(url: str) -> bool:
@@ -25,6 +26,42 @@ def _is_loopback_url(url: str) -> bool:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
         return False
+
+
+_SKILL_PRIVILEGED_CAPABILITIES = {
+    "agent.delegate",
+    "data.write",
+    "destructive.write",
+    "external.write",
+    "identity.admin",
+    "mcp.remote",
+    "network.external",
+    "process.execute",
+    "provider.code.execute",
+    "secrets.read",
+}
+
+
+def _skill_semantic_evidence(
+    concept: dict[str, object],
+    capabilities: set[str],
+) -> list[str]:
+    evidence = [
+        f"semantic_concept={concept.get('concept')}",
+        f"semantic_confidence={float(concept.get('confidence') or 0):.2f}",
+        "effective_capabilities=" + ",".join(sorted(capabilities)),
+    ]
+    target = str(concept.get("target") or "").strip()
+    if target:
+        evidence.append("semantic_target=" + target[:240])
+    raw = concept.get("evidence")
+    if isinstance(raw, list):
+        evidence.extend(
+            "semantic_evidence=" + str(item)[:300]
+            for item in raw[:2]
+            if str(item).strip()
+        )
+    return evidence
 
 
 def _destination_is_broad_or_dynamic(destination: NetworkDestination) -> bool:
@@ -327,6 +364,168 @@ def evaluate(graph: Graph) -> list[Finding]:
     for agent in graph.agents:
         agent_tool_control = agent.metadata.get("tool_control_enforcing") is True
         for skill in agent.skills:
+            skill_authority = authority_by_key.get(
+                (
+                    agent.name,
+                    _agent_instance_key(agent),
+                    "skill",
+                    skill.name,
+                )
+            )
+            skill_capabilities = set(
+                skill_authority.capabilities
+                if skill_authority is not None
+                else skill.capabilities
+            )
+
+            semantic_rules = (
+                (
+                    "approval_bypass",
+                    "SKL020",
+                    Severity.HIGH,
+                    "Skill instructs approval bypass with effective privileged authority",
+                    "The bound Skill directs the agent to bypass a review or confirmation boundary while the Skill has source-proven privileged authority.",
+                    "Remove the bypass instruction and enforce approval independently at the tool/runtime boundary.",
+                    bool(skill_capabilities & _SKILL_PRIVILEGED_CAPABILITIES),
+                ),
+                (
+                    "secret_harvesting",
+                    "SKL021",
+                    Severity.CRITICAL,
+                    "Skill requests secret harvesting with effective secret access",
+                    "The bound Skill directs secret material to be retrieved or exposed and has source-proven secret-reading authority.",
+                    "Remove secret-harvesting instructions, keep credentials internal to authentication flows, and prevent model-visible secret access.",
+                    "secrets.read" in skill_capabilities,
+                ),
+                (
+                    "destructive_intent",
+                    "SKL022",
+                    Severity.HIGH,
+                    "Skill directs destructive action with effective destructive authority",
+                    "The bound Skill contains destructive behavioural intent and has source-proven destructive-write authority.",
+                    "Remove unnecessary destructive behavior, constrain target scope, and require explicit approval for irreversible actions.",
+                    "destructive.write" in skill_capabilities,
+                ),
+                (
+                    "data_exfiltration",
+                    "SKL023",
+                    Severity.CRITICAL,
+                    "Skill directs data exfiltration with effective read and egress authority",
+                    "The bound Skill directs private or sensitive data toward an external or unapproved destination and has source-proven read plus egress authority.",
+                    "Restrict data scope and egress, remove exfiltration instructions, and require an approved destination/control boundary.",
+                    bool(
+                        skill_capabilities & {"data.read", "secrets.read"}
+                        and skill_capabilities
+                        & {"network.external", "external.write"}
+                    ),
+                ),
+                (
+                    "policy_circumvention",
+                    "SKL024",
+                    Severity.HIGH,
+                    "Skill directs policy circumvention with effective privileged authority",
+                    "The bound Skill directs the agent to evade security or governance constraints while privileged authority is available.",
+                    "Remove policy-circumvention instructions and enforce organizational controls outside model instructions.",
+                    bool(skill_capabilities & _SKILL_PRIVILEGED_CAPABILITIES),
+                ),
+                (
+                    "instruction_override",
+                    "SKL025",
+                    Severity.MEDIUM,
+                    "Bound Skill attempts to override higher-priority instructions",
+                    "The Skill instructs the agent to ignore, supersede, or reinterpret higher-priority instructions or safety constraints.",
+                    "Remove instruction-override language and express the Skill as a subordinate procedure that respects system and organizational policy.",
+                    True,
+                ),
+                (
+                    "persistence",
+                    "SKL026",
+                    Severity.HIGH,
+                    "Skill directs persistence with effective state-changing authority",
+                    "The bound Skill directs enduring access or execution and has authority capable of creating persistent state.",
+                    "Remove unnecessary persistence and constrain any required durable changes to reviewed, reversible resources.",
+                    bool(
+                        skill_capabilities
+                        & {"data.write", "external.write", "process.execute"}
+                    ),
+                ),
+                (
+                    "stealth_behavior",
+                    "SKL027",
+                    Severity.HIGH,
+                    "Skill directs stealth behaviour with effective privileged authority",
+                    "The bound Skill directs concealment from users, operators, auditors, or logs while privileged authority is available.",
+                    "Remove concealment instructions and require transparent logging, user disclosure, and review for privileged actions.",
+                    bool(skill_capabilities & _SKILL_PRIVILEGED_CAPABILITIES),
+                ),
+                (
+                    "unnecessary_privilege",
+                    "SKL028",
+                    Severity.MEDIUM,
+                    "Skill requests unnecessary privilege that is effectively available",
+                    "The Skill requests broader authority than its stated task and the runtime provides source-proven privileged capability.",
+                    "Reduce the Skill and runtime to the minimum tools, permissions, and capabilities required for the stated workflow.",
+                    bool(skill_capabilities & _SKILL_PRIVILEGED_CAPABILITIES),
+                ),
+                (
+                    "untrusted_external_instructions",
+                    "SKL029",
+                    Severity.HIGH,
+                    "Skill follows untrusted external instructions with effective network authority",
+                    "The bound Skill directs the agent to fetch and follow mutable external instructions or code and has source-proven outbound authority.",
+                    "Pin and review instruction content locally or verify immutable signed content before use; do not execute mutable remote instructions directly.",
+                    "network.external" in skill_capabilities,
+                ),
+                (
+                    "cross_trust_boundary_data_movement",
+                    "SKL030",
+                    Severity.HIGH,
+                    "Skill directs cross-trust data movement with effective read and egress authority",
+                    "The bound Skill directs data across a material trust boundary and has source-proven read plus outbound authority.",
+                    "Constrain source data and destinations, apply DLP/approval controls, and document the intended trust-boundary transfer.",
+                    bool(
+                        skill_capabilities & {"data.read", "secrets.read"}
+                        and skill_capabilities
+                        & {"network.external", "external.write"}
+                    ),
+                ),
+            )
+            for (
+                concept_name,
+                rule_id,
+                severity,
+                title,
+                description,
+                remediation,
+                authority_matches,
+            ) in semantic_rules:
+                if not authority_matches:
+                    continue
+                concept = confident_skill_concept(skill, concept_name)
+                if concept is None:
+                    continue
+                findings.append(
+                    Finding(
+                        rule_id,
+                        severity,
+                        title,
+                        description,
+                        remediation,
+                        layer=2,
+                        location=skill.location or agent.location,
+                        agent=agent.name,
+                        evidence=_skill_semantic_evidence(
+                            concept,
+                            skill_capabilities,
+                        ),
+                        authority_relationship_id=(
+                            skill_authority.relationship_id
+                            if skill_authority is not None
+                            else None
+                        ),
+                    )
+                )
+
             if skill.metadata.get("broad_tool_surface") is True:
                 findings.append(
                     Finding(
