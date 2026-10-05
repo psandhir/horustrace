@@ -137,6 +137,7 @@ def _authority_scope(raw: object) -> AuthorityScope:
         permissions=set(_strings(raw.get("permissions"))),
         oauth_scopes=set(_strings(raw.get("oauth_scopes"))),
         mcp_servers=set(_strings(raw.get("mcp_servers"))),
+        skills=set(_strings(raw.get("skills"))),
     )
 
 
@@ -165,6 +166,7 @@ def _authority_contract(
             "permissions",
             "oauth_scopes",
             "mcp_servers",
+            "skills",
         ):
             if dimension not in scope:
                 continue
