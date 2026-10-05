@@ -1473,6 +1473,7 @@ def _merge_agent(existing: Agent, incoming: Agent) -> None:
         or p.allowed_destinations
         or p.require_approval_for
         or p.max_privileged_capabilities is not None
+        or p.authority is not None
     ):
         existing.policy = p
     existing.provenance.extend(
