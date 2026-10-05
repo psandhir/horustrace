@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "study": "skill-llm-calibration-v2",
+  "run_kind": "in_chat_consistency_check",
+  "run_date": "2026-10-05",
+  "model": "GPT-5.6 Sol",
+  "prompt_version": "skill-security-semantics-v1",
+  "external_llm_calls": 0,
+  "api_credentials_used": false,
+  "independent_holdout": false,
+  "methodology": {
+    "note": "v2 is derived from v1 adjudication. Forty-two unchanged cases reuse their v1 semantic decisions; only the two rewritten cases were re-adjudicated in chat.",
+    "rewritten_cases": {
+      "sub-instruction-override": {
+        "predicted_present": [
+          {
+            "concept": "instruction_override",
+            "confidence": 0.96
+          }
+        ]
+      },
+      "neg-anonymized-boundary": {
+        "predicted_present": []
+      }
+    }
+  },
+  "threshold_scores": {
+    "0.65": {
+      "exact_cases": 44,
+      "cases": 44,
+      "tp": 56,
+      "fp": 0,
+      "fn": 0,
+      "tn": 472,
+      "micro_precision": 1,
+      "micro_recall": 1,
+      "micro_f1": 1,
+      "macro_f1": 1
+    },
+    "0.75": {
+      "exact_cases": 44,
+      "cases": 44,
+      "tp": 56,
+      "fp": 0,
+      "fn": 0,
+      "tn": 472,
+      "micro_precision": 1,
+      "micro_recall": 1,
+      "micro_f1": 1,
+      "macro_f1": 1
+    },
+    "0.85": {
+      "exact_cases": 44,
+      "cases": 44,
+      "tp": 56,
+      "fp": 0,
+      "fn": 0,
+      "tn": 472,
+      "micro_precision": 1,
+      "micro_recall": 1,
+      "micro_f1": 1,
+      "macro_f1": 1
+    }
+  },
+  "conclusion": "v2 is internally consistent with the production taxonomy. The perfect score is not a generalization metric because the corpus was corrected using v1 adjudication."
+}
