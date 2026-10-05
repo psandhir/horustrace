@@ -169,6 +169,7 @@ jobs:
                   }
 
           regressions = []
+          review_only_regressions = []
           improvements = []
           neutral_changes = []
           for case_id in sorted(cur_cases):
@@ -178,15 +179,21 @@ jobs:
                   old_tp, new_tp = metric(old, dim, "tp"), metric(new, dim, "tp")
                   old_fn, new_fn = metric(old, dim, "fn"), metric(new, dim, "fn")
                   old_fp, new_fp = metric(old, dim, "fp"), metric(new, dim, "fp")
+                  old_comparison = (old.get("comparisons") or {}).get(dim) or {}
+                  reference_complete = old_comparison.get("precision_eligible") is True
                   row = {
                       "case_id": case_id,
                       "framework": new.get("framework"),
                       "dimension": dim,
+                      "reference_complete": reference_complete,
                       "baseline": {"tp": old_tp, "fn": old_fn, "fp": old_fp},
                       "current": {"tp": new_tp, "fn": new_fn, "fp": new_fp},
                   }
                   if new_fn > old_fn or new_tp < old_tp:
-                      regressions.append(row)
+                      if reference_complete:
+                          regressions.append(row)
+                      else:
+                          review_only_regressions.append(row)
                   elif new_fn < old_fn or new_tp > old_tp or new_fp < old_fp:
                       improvements.append(row)
                   elif new_fp > old_fp:
@@ -223,6 +230,7 @@ jobs:
               "current_per_framework": current.get("per_framework"),
               "aggregate_comparison": aggregates,
               "regressions": regressions,
+              "review_only_regressions": review_only_regressions,
               "improvements": improvements,
               "new_fp_only_changes": neutral_changes,
               "scan_failures": scan_failures,
@@ -238,7 +246,8 @@ jobs:
               "",
               f"- Scanner SHA: `{report['scanner_sha']}`",
               "- Frozen repos: **71** (37 Google ADK + 34 Pydantic AI)",
-              f"- Structural regressions vs original frozen baseline: **{len(regressions)}**",
+              f"- Strict structural regressions (complete locked reference): **{len(regressions)}**",
+              f"- Review-only deltas (incomplete historical reference): **{len(review_only_regressions)}**",
               f"- Structural improvements vs original frozen baseline: **{len(improvements)}**",
               f"- Scan failures: **{len(scan_failures)}**",
               f"- Finding-count delta vs original baseline: **{finding_delta:+d}**",
@@ -272,7 +281,29 @@ jobs:
                       f"{new['tp']}/{new['fn']}/{new['fp']} |"
                   )
           else:
-              lines.append("No TP-loss/FN-increase regression candidates.")
+              lines.append("No TP-loss/FN-increase regression candidates on complete locked references.")
+
+          lines += ["", "## Review-only deltas from incomplete references", ""]
+          lines.append(
+              "These are visible for investigation but do not count as strict regression failures "
+              "because the original source reference explicitly did not claim completeness."
+          )
+          if review_only_regressions:
+              lines += [
+                  "",
+                  "| Case | Framework | Dimension | Baseline TP/FN/FP | Current TP/FN/FP |",
+                  "|---|---|---|---:|---:|",
+              ]
+              for row in review_only_regressions:
+                  old, new = row["baseline"], row["current"]
+                  lines.append(
+                      f"| {row['case_id']} | {row['framework']} | {row['dimension']} | "
+                      f"{old['tp']}/{old['fn']}/{old['fp']} | "
+                      f"{new['tp']}/{new['fn']}/{new['fp']} |"
+                  )
+          else:
+              lines.append("")
+              lines.append("No incomplete-reference recall deltas.")
 
           lines += ["", "## Current framework scorecard", ""]
           for fw in ("google-adk", "pydantic-ai"):
