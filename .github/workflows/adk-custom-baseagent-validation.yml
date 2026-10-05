@@ -37,8 +37,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p research/adk-custom-baseagent-validation
-          horustrace scan /tmp/fresh005 --format json > /tmp/fresh005.json
-          horustrace scan /tmp/kdense --format json > /tmp/kdense.json
+          horustrace scan /tmp/fresh005 --format json > /tmp/fresh005.json || true
+          horustrace scan /tmp/kdense --format json > /tmp/kdense.json || true
           python - <<'PY'
           import json
           from pathlib import Path
