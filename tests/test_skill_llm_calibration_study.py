@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from horustrace.skill_llm_semantics import SKILL_SECURITY_CONCEPTS
