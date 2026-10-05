@@ -386,10 +386,13 @@ def _adk_skill_toolset_spec(
     sequences: dict[str, list[ast.AST]],
     functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
     values: dict[str, ast.AST],
+    custom_tool_classes: dict[str, ast.ClassDef] | None = None,
 ) -> tuple[dict[str, Any], list[Skill]]:
     """Normalize one ADK SkillToolset without treating it as a normal tool."""
+    custom_tool_classes = custom_tool_classes or {}
     source_paths: list[str] = []
     inline_skills: list[Skill] = []
+    remote_sources: list[dict[str, Any]] = []
     dynamic_skills = False
 
     skills_node = _arg(call, 0, "skills")
@@ -406,14 +409,31 @@ def _adk_skill_toolset_spec(
                 dynamic_skills = True
                 continue
             skill_call_name = _call_name(skill_call.func) or ""
-            if skill_call_name == "load_skill_from_dir":
+            if skill_call_name in {"load_skill_from_dir", "load_skills_from_dir"}:
                 source_node = _arg(skill_call, 0, "skill_dir")
+                if skill_call_name == "load_skills_from_dir":
+                    source_node = _arg(skill_call, 0, "skills_dir")
                 source = _path_expr_string(source_node, values)
                 if source and source != "__file__":
                     if source not in source_paths:
                         source_paths.append(source)
                 else:
                     dynamic_skills = True
+                continue
+            if skill_call_name == "load_skill_from_gcs_dir":
+                bucket_node = _kw(skill_call, "bucket_name")
+                prefix_node = _kw(skill_call, "skills_base_path")
+                bucket = _path_expr_string(bucket_node, values)
+                prefix = _path_expr_string(prefix_node, values)
+                remote_sources.append(
+                    {
+                        "provider": "google-adk",
+                        "source": "Google Cloud Storage Skill catalogue",
+                        "bucket": bucket or "<dynamic-bucket>",
+                        "prefix": prefix or "<dynamic-prefix>",
+                        "binding": alias,
+                    }
+                )
                 continue
             if skill_call_name == "Skill":
                 inline = _inline_adk_skill(path, skill_call, calls)
@@ -431,23 +451,43 @@ def _adk_skill_toolset_spec(
         candidate_name = _call_name(element) or ""
         if isinstance(element, ast.Name):
             candidate_name = element.id
-            candidate = tools.get(element.id)
+            nested = calls.get(element.id)
+            nested_name = _call_name(nested.func) if nested is not None else None
+            if nested is not None and nested_name in custom_tool_classes:
+                candidate = _custom_tool_from_call(
+                    path,
+                    nested,
+                    element.id,
+                    custom_tool_classes,
+                )
+            if candidate is None:
+                candidate = tools.get(element.id)
             if candidate is None and element.id in functions:
                 candidate = _plain_function_tool(path, functions[element.id])
-            if candidate is None and element.id in calls:
-                nested = calls[element.id]
-                if (_call_name(nested.func) or "") != "SkillToolset":
-                    candidate = _tool_from_call(
-                        path,
-                        nested,
-                        element.id,
-                        calls,
-                        functions,
-                        values,
-                    )
+            if (
+                candidate is None
+                and nested is not None
+                and nested_name != "SkillToolset"
+            ):
+                candidate = _tool_from_call(
+                    path,
+                    nested,
+                    element.id,
+                    calls,
+                    functions,
+                    values,
+                    custom_tool_classes,
+                )
         elif isinstance(element, ast.Call):
             candidate_name = _call_name(element.func) or "additional_tool"
-            if candidate_name != "SkillToolset":
+            if candidate_name in custom_tool_classes:
+                candidate = _custom_tool_from_call(
+                    path,
+                    element,
+                    candidate_name,
+                    custom_tool_classes,
+                )
+            elif candidate_name != "SkillToolset":
                 candidate = _tool_from_call(
                     path,
                     element,
@@ -455,6 +495,7 @@ def _adk_skill_toolset_spec(
                     calls,
                     functions,
                     values,
+                    custom_tool_classes,
                 )
         if candidate is not None:
             additional_tools.append(_tool_semantics_doc(candidate))
@@ -498,12 +539,22 @@ def _adk_skill_toolset_spec(
             else _call_name(environment_node)
             or "dynamic_environment"
         )
+        environment_leaf = (environment_name or "").rsplit(".", 1)[-1]
+        if environment_leaf == "LocalEnvironment":
+            sandboxed: bool | None = False
+            executor_kind = "local_environment"
+        elif environment_leaf == "E2BEnvironment":
+            sandboxed = True
+            executor_kind = "remote_sandbox_environment"
+        else:
+            sandboxed = None
+            executor_kind = "adk_environment"
         script_execution = {
             "available": True,
             "source": "skilltoolset_environment",
             "executor": environment_name,
-            "sandboxed": None,
-            "executor_kind": "adk_environment",
+            "sandboxed": sandboxed,
+            "executor_kind": executor_kind,
             "capabilities": ["process.execute"],
         }
 
@@ -514,6 +565,7 @@ def _adk_skill_toolset_spec(
         "skill_names": [skill.name for skill in inline_skills],
         "dynamic_skills": dynamic_skills,
         "registry": registry_node is not None,
+        "remote_sources": remote_sources,
         "additional_tools": additional_tools,
         "unresolved_additional_tools": sorted(set(unresolved_additional_tools)),
         "script_execution": script_execution,
@@ -540,8 +592,8 @@ def _apply_adk_skill_toolset(
     if spec.get("dynamic_skills") is True:
         agent.metadata["dynamic_skill_sources"] = True
 
+    remote = list(agent.metadata.get("remote_skill_sources") or [])
     if spec.get("registry") is True:
-        remote = list(agent.metadata.get("remote_skill_sources") or [])
         remote.append(
             {
                 "provider": "google-adk",
@@ -549,7 +601,21 @@ def _apply_adk_skill_toolset(
                 "binding": spec.get("alias"),
             }
         )
-        agent.metadata["remote_skill_sources"] = remote
+    configured_remote = spec.get("remote_sources")
+    if isinstance(configured_remote, list):
+        remote.extend(
+            item for item in configured_remote if isinstance(item, dict)
+        )
+    if remote:
+        unique_remote: list[dict[str, Any]] = []
+        seen_remote: set[str] = set()
+        for item in remote:
+            key = repr(sorted(item.items()))
+            if key in seen_remote:
+                continue
+            seen_remote.add(key)
+            unique_remote.append(item)
+        agent.metadata["remote_skill_sources"] = unique_remote
 
     existing = {
         (skill.name, skill.location.line if skill.location else 0)
@@ -615,6 +681,8 @@ def is_google_adk_file(path: Path) -> bool:
 
 def _infer_function_capabilities(
     node: ast.FunctionDef | ast.AsyncFunctionDef,
+    *,
+    operation_name: str | None = None,
 ) -> tuple[set[str], list[NetworkDestination]]:
     name_capabilities = set(infer_capabilities(node.name))
     caps: set[str] = set()
@@ -800,7 +868,7 @@ def _infer_function_capabilities(
             caps.update(
                 http_mutation_capabilities(
                     child,
-                    function_name=node.name,
+                    function_name=operation_name or node.name,
                 )
             )
 
@@ -1565,8 +1633,20 @@ def _tool_from_call(
     calls: dict[str, ast.Call],
     functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
     values: dict[str, ast.AST] | None = None,
+    custom_tool_classes: dict[str, ast.ClassDef] | None = None,
 ) -> Tool | None:
     name = _call_name(call.func) or ""
+    custom_tool_classes = custom_tool_classes or {}
+
+    if name in custom_tool_classes:
+        custom = _custom_tool_from_call(
+            path,
+            call,
+            alias,
+            custom_tool_classes,
+        )
+        if custom is not None:
+            return custom
 
     if name == "SkillToolset":
         return None
@@ -1873,6 +1953,116 @@ def _before_tool_control_state(
     return "non_enforcing"
 
 
+def _custom_base_tool_classes(tree: ast.AST) -> dict[str, ast.ClassDef]:
+    """Return source-defined ADK BaseTool subclasses without executing them."""
+    classes = {
+        node.name: node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ClassDef)
+    }
+    result: dict[str, ast.ClassDef] = {}
+    changed = True
+    while changed:
+        changed = False
+        known_bases = {"BaseTool", *result.keys()}
+        for name, node in classes.items():
+            if name in result:
+                continue
+            base_names = {
+                (_call_name(base) or (_dotted_name(base) or "").rsplit(".", 1)[-1])
+                for base in node.bases
+            }
+            if base_names & known_bases:
+                result[name] = node
+                changed = True
+    return result
+
+
+def _custom_tool_runtime_name(
+    call: ast.Call,
+    alias: str,
+    custom_tool_classes: dict[str, ast.ClassDef],
+) -> str:
+    class_node = custom_tool_classes.get(_call_name(call.func) or "")
+    if class_node is None:
+        return alias
+    init = _custom_class_init(class_node)
+    if init is None:
+        return alias
+    bindings = _custom_constructor_bindings(call, init)
+    for super_call in _custom_super_init_calls(init):
+        runtime_name = _string(
+            _custom_bound_expr(_kw(super_call, "name"), bindings)
+        )
+        if runtime_name:
+            return runtime_name
+    return alias
+
+
+def _custom_tool_from_call(
+    path: Path,
+    call: ast.Call,
+    alias: str,
+    custom_tool_classes: dict[str, ast.ClassDef],
+) -> Tool | None:
+    class_name = _call_name(call.func) or ""
+    class_node = custom_tool_classes.get(class_name)
+    if class_node is None:
+        return None
+
+    runtime_name = _custom_tool_runtime_name(
+        call,
+        alias,
+        custom_tool_classes,
+    )
+    capabilities: set[str] = set()
+    destinations: list[NetworkDestination] = []
+    seen_destinations: set[tuple[str, bool, str]] = set()
+    for method in class_node.body:
+        if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if method.name not in {"run", "run_async", "invoke"}:
+            continue
+        inferred, method_destinations = _infer_function_capabilities(
+            method,
+            operation_name=runtime_name,
+        )
+        capabilities.update(inferred)
+        for destination in method_destinations:
+            key = (
+                destination.target,
+                destination.restricted,
+                str(destination.metadata.get("source") or ""),
+            )
+            if key in seen_destinations:
+                continue
+            seen_destinations.add(key)
+            destinations.append(destination)
+
+    return Tool(
+        name=runtime_name,
+        kind="adk_custom_tool",
+        capabilities=capabilities,
+        destinations=[
+            NetworkDestination(
+                target=item.target,
+                direction=item.direction,
+                restricted=item.restricted,
+                location=_location(path, call),
+                metadata=dict(item.metadata),
+            )
+            for item in destinations
+        ],
+        location=_location(path, call),
+        metadata={
+            "framework": "google-adk",
+            "custom_base_tool": True,
+            "custom_tool_class": class_name,
+            "source_alias": alias,
+        },
+    )
+
+
 def _custom_base_agent_classes(tree: ast.AST) -> dict[str, ast.ClassDef]:
     """Return source-defined ADK agent subclasses without executing them."""
     classes = {
@@ -2051,10 +2241,12 @@ def _agent_from_call(
     functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
     values: dict[str, ast.AST] | None = None,
     custom_agent_classes: dict[str, ast.ClassDef] | None = None,
+    custom_tool_classes: dict[str, ast.ClassDef] | None = None,
 ) -> Agent | None:
     agent_type = _call_name(call.func) or ""
     values = values or {}
     custom_agent_classes = custom_agent_classes or {}
+    custom_tool_classes = custom_tool_classes or {}
     custom_base_agent = agent_type in custom_agent_classes
     if agent_type not in AGENT_TYPES and not custom_base_agent:
         return None
@@ -2189,6 +2381,7 @@ def _agent_from_call(
                         sequences,
                         functions,
                         values,
+                        custom_tool_classes,
                     )
                     _apply_adk_skill_toolset(agent, spec, inline_skills)
                     continue
@@ -2207,6 +2400,8 @@ def _agent_from_call(
                         element.id,
                         calls,
                         functions,
+                        values,
+                        custom_tool_classes,
                     )
                     if direct:
                         agent.tools.append(direct)
@@ -2233,6 +2428,7 @@ def _agent_from_call(
                     sequences,
                     functions,
                     values,
+                    custom_tool_classes,
                 )
                 _apply_adk_skill_toolset(agent, spec, inline_skills)
                 continue
@@ -2240,7 +2436,15 @@ def _agent_from_call(
             if direct_mcp:
                 agent.mcp_servers.append(direct_mcp)
             else:
-                direct = _tool_from_call(path, element, _call_name(element.func) or "tool", calls, functions)
+                direct = _tool_from_call(
+                    path,
+                    element,
+                    _call_name(element.func) or "tool",
+                    calls,
+                    functions,
+                    values,
+                    custom_tool_classes,
+                )
                 if direct:
                     agent.tools.append(direct)
                 else:
@@ -2357,6 +2561,7 @@ def scan_python_file(path: Path) -> Graph:
     configuration_sources = _module_configuration_sources(tree)
     functions = {node.name: node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
     custom_agent_classes = _custom_base_agent_classes(tree)
+    custom_tool_classes = _custom_base_tool_classes(tree)
     imported_functions: dict[str, str] = {}
     for node in tree.body:
         if not isinstance(node, ast.ImportFrom) or not node.module:
@@ -2439,7 +2644,15 @@ def scan_python_file(path: Path) -> Graph:
                 identity = _identity_from_call(path, alias, value)
                 if identity:
                     identities[alias] = identity
-                tool = _tool_from_call(path, value, alias, calls, functions)
+                tool = _tool_from_call(
+                    path,
+                    value,
+                    alias,
+                    calls,
+                    functions,
+                    values,
+                    custom_tool_classes,
+                )
                 if tool:
                     tools[alias] = tool
                 if "plugin" in call_name.lower() and any(k in call_name.lower() for k in ("guard", "security", "safety", "defense", "threat", "policy")):
@@ -2451,17 +2664,27 @@ def scan_python_file(path: Path) -> Graph:
             continue
         if not isinstance(node.func.value, ast.Name):
             continue
-        sequence = sequences.get(node.func.value.id)
+        alias = node.func.value.id
+        sequence = sequences.get(alias)
         if sequence is None:
             continue
+        scope = _lexical_scope(tree, node)
+        scoped_sequence = scoped_sequences.get(scope, {}).get(alias)
+        targets = [sequence]
+        if scoped_sequence is not None and scoped_sequence is not sequence:
+            targets.append(scoped_sequence)
         if node.func.attr == "append" and len(node.args) == 1:
-            sequence.append(node.args[0])
+            for target in targets:
+                target.append(node.args[0])
         elif node.func.attr == "extend" and len(node.args) == 1:
             arg = node.args[0]
+            additions: list[ast.AST] = []
             if isinstance(arg, (ast.List, ast.Tuple, ast.Set)):
-                sequence.extend(arg.elts)
+                additions = list(arg.elts)
             elif isinstance(arg, ast.Name) and arg.id in sequences:
-                sequence.extend(sequences[arg.id])
+                additions = list(sequences[arg.id])
+            for target in targets:
+                target.extend(additions)
 
     # Build lexical-scope views so repeated aliases inside separate functions
     # resolve to the construction visible in that function rather than the last
@@ -2517,6 +2740,7 @@ def scan_python_file(path: Path) -> Graph:
                 visible_calls,
                 functions,
                 visible_values,
+                custom_tool_classes,
             )
             if tool:
                 filter_node = _kw(scoped_call, "tool_filter")
@@ -2545,7 +2769,15 @@ def scan_python_file(path: Path) -> Graph:
         mcp = _mcp_from_toolset(path, call, alias, calls)
         if mcp:
             mcp_servers[alias] = mcp
-        tool = _tool_from_call(path, call, alias, calls, functions, values)
+        tool = _tool_from_call(
+            path,
+            call,
+            alias,
+            calls,
+            functions,
+            values,
+            custom_tool_classes,
+        )
         if tool:
             tools[alias] = tool
 
@@ -2605,6 +2837,7 @@ def scan_python_file(path: Path) -> Graph:
             functions,
             visible_values,
             custom_agent_classes,
+            custom_tool_classes,
         )
         if agent:
             agents_by_alias[alias] = agent
