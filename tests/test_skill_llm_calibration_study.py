@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 
 from horustrace.skill_llm_semantics import SKILL_SECURITY_CONCEPTS
-from scripts.skill_llm_calibration_study import (
-    load_cohort,
-    score_results,
+
+_STUDY_PATH = Path("scripts/skill_llm_calibration_study.py")
+_SPEC = importlib.util.spec_from_file_location(
+    "skill_llm_calibration_study",
+    _STUDY_PATH,
 )
+assert _SPEC is not None and _SPEC.loader is not None
+_STUDY = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(_STUDY)
+load_cohort = _STUDY.load_cohort
+score_results = _STUDY.score_results
 
 
 def _semantics(
