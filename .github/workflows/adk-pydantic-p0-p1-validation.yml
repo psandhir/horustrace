@@ -1,5 +1,5 @@
 name: ADK Pydantic P0 P1 Validation
-# Validation includes expanded imported-delegation scoring.
+# Validation includes expanded imported-delegation scoring and provider-search provenance.
 
 on:
   push:
