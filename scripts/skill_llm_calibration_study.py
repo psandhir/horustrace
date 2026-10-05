@@ -145,9 +145,10 @@ def _materialize_case(root: Path, case: dict[str, Any]) -> tuple[Graph, Any]:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(str(text), encoding="utf-8")
 
-    skill = scan_skill_file(skill_path)
-    if skill is None:
+    parsed = scan_skill_file(skill_path)
+    if len(parsed.unbound_skills) != 1:
         raise StudyError(f"{case['case_id']}: synthetic Skill could not be parsed")
+    skill = parsed.unbound_skills[0]
     skill.metadata["binding_state"] = "bound"
     skill.metadata["binding_origin"] = "calibration_fixture"
     skill.metadata["bound_agent"] = f"calibration-{case['case_id']}"
