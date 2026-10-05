@@ -136,7 +136,7 @@ root_agent = Agent(name="coordinator", model="gemini-flash-latest", sub_agents=[
     delegated_node = next(
         node
         for node in graph.adg.nodes
-        if node.kind == "tool"
+        if node.kind == "delegation"
         and node.attributes.get("tool_name") == "delegate:privileged_child"
     )
     assert delegated_node.attributes["authority_binding"] == "delegation_projection"
