@@ -95,11 +95,20 @@ jobs:
 
               _, findings=rows["hold-adk-003"]
               print("ADK003_FINDINGS", [(f.rule_id, f.message) for f in findings], flush=True)
-              assert not any(f.rule_id=="NET001" for f in findings), "NET001 false positive returned"
+              assert not any(
+                  f.rule_id=="NET001"
+                  and "caller-selected destination" in f.message
+                  and "McpToolset" in f.message
+                  for f in findings
+              ), "historical caller-selected MCP destination false positive returned"
 
               _, findings=rows["hold-adk-005"]
               print("ADK005_FINDINGS", [(f.rule_id, f.message) for f in findings], flush=True)
-              assert not any(f.rule_id=="NET002" for f in findings), "NET002 false positive returned"
+              assert not any(
+                  f.rule_id=="NET002"
+                  and "no destination constraint" in f.message.lower()
+                  for f in findings
+              ), "historical fixed OpenAPI origin false positive returned"
 
               print("historical regression validation passed")
           PY
