@@ -394,6 +394,9 @@ def scan_manifest(path: Path) -> Graph:
             agent.policy = AgentPolicy(
                 required_capabilities=set(_strings(policy_raw.get("required") or policy_raw.get("required_capabilities"))),
                 denied_capabilities=set(_strings(policy_raw.get("deny") or policy_raw.get("denied_capabilities"))),
+                required_skills=set(_strings(policy_raw.get("required_skills"))),
+                allowed_skills=set(_strings(policy_raw.get("allowed_skills"))),
+                denied_skills=set(_strings(policy_raw.get("denied_skills"))),
                 allowed_resources=_strings(policy_raw.get("allowed_resources") or policy_raw.get("resources")),
                 allowed_destinations=_strings(policy_raw.get("allowed_destinations") or policy_raw.get("destinations")),
                 require_approval_for=set(_strings(policy_raw.get("require_approval_for"))),
