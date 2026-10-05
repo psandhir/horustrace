@@ -1,0 +1,38 @@
+name: Real-world Agent Skills v1
+
+on:
+  push:
+    branches:
+      - study/skill-real-world-v1
+    paths:
+      - ".github/workflows/skill-real-world-v1.yml"
+      - "research/skill-real-world-v1/**"
+      - "src/horustrace/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install HorusScan
+        run: python -m pip install -e .
+      - name: Run real-world Skills study
+        run: |
+          python research/skill-real-world-v1/run.py
+          cat artifacts/skill-real-world-v1/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload study results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: skill-real-world-v1-${{ github.sha }}
+          path: artifacts/skill-real-world-v1/
+          if-no-files-found: error
+          retention-days: 30
