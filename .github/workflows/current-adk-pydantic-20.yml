@@ -1,0 +1,251 @@
+name: Current ADK Pydantic 20 Study
+
+on:
+  push:
+    branches:
+      - research/adk-pydantic-current-20-20261005
+    paths:
+      - ".github/workflows/current-adk-pydantic-20.yml"
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: current-adk-pydantic-20-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      SCANNER_SHA: eacfd1cdab06939e5fae5f65cd2536e5855ac33f
+      OUT_DIR: research/adk-pydantic-current-20
+    steps:
+      - name: Check out study branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build locked 20-repo study slice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, shutil
+          from pathlib import Path
+
+          selected = [
+              "rw-004","rw-005","rw-007","rw-009","rw-010",
+              "rw-017","rw-021","rw-027","rw-033","rw-038",
+              "rw-147","rw-149","rw-150","rw-153","rw-155",
+              "rw-160","rw-161","rw-168","rw-170","rw-175",
+          ]
+          root = Path("research/real-world-agent-security-2026")
+          cohort = json.loads((root / "cohort.json").read_text())
+          by_id = {case["case_id"]: case for case in cohort["cases"]}
+          cases = [by_id[case_id] for case_id in selected]
+
+          assert sum(c["framework_stratum"] == "google-adk" for c in cases) == 10
+          assert sum(c["framework_stratum"] == "pydantic-ai" for c in cases) == 10
+          assert all(c["previously_studied"] is False for c in cases)
+
+          study = Path("/tmp/adk-pydantic-current-20")
+          (study / "ground-truth").mkdir(parents=True, exist_ok=True)
+          for case in cases:
+              src = root / case["ground_truth"]
+              dst = study / case["ground_truth"]
+              dst.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(src, dst)
+
+          sliced = dict(cohort)
+          sliced["cases"] = cases
+          sliced["tier_b_case_ids"] = [
+              case_id for case_id in cohort.get("tier_b_case_ids", [])
+              if case_id in selected
+          ]
+          sliced["tier_c_case_ids"] = [
+              case_id for case_id in cohort.get("tier_c_case_ids", [])
+              if case_id in selected
+          ]
+          sliced["study_slice"] = {
+              "name": "current-adk-pydantic-20",
+              "scanner_sha": "eacfd1cdab06939e5fae5f65cd2536e5855ac33f",
+              "selection": "10 Google ADK + 10 Pydantic AI; five Tier-B authority-rich and five ordinary cases per framework where available; locked exact-SHA ground truth reused",
+              "selected_case_ids": selected,
+          }
+          (study / "cohort.json").write_text(json.dumps(sliced, indent=2) + "\n")
+          Path("selected-cases.json").write_text(
+              json.dumps(
+                  [
+                      {
+                          "case_id": c["case_id"],
+                          "repo": c["repo"],
+                          "sha": c["sha"],
+                          "framework": c["framework_stratum"],
+                          "tier_b": c["case_id"] in set(sliced["tier_b_case_ids"]),
+                      }
+                      for c in cases
+                  ],
+                  indent=2,
+              ) + "\n"
+          )
+          PY
+
+      - name: Install exact current-main scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=/tmp/horustrace-current-src
+          VENV=/tmp/horustrace-current-venv
+          git init -q "$SRC"
+          git -C "$SRC" remote add origin https://github.com/psandhir/horustrace.git
+          git -C "$SRC" fetch --quiet --depth=1 origin "$SCANNER_SHA"
+          git -C "$SRC" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "$SRC" rev-parse HEAD)" = "$SCANNER_SHA"
+          python -m venv "$VENV"
+          "$VENV/bin/pip" install --disable-pip-version-check "$SRC"
+          "$VENV/bin/horustrace" --version
+
+      - name: Scan and score 20 repositories
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT_DIR"
+          python scripts/real_world_agent_security_execute.py \
+            --root /tmp/adk-pydantic-current-20 \
+            --mode postfix \
+            --scanner /tmp/horustrace-current-venv/bin/horustrace \
+            --scanner-sha "$SCANNER_SHA" \
+            --workers 8 \
+            --output-json "$OUT_DIR/result.json" \
+            --output-markdown "$OUT_DIR/result.md"
+          cp selected-cases.json "$OUT_DIR/selected-cases.json"
+
+      - name: Build focused study report
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          out = Path("research/adk-pydantic-current-20")
+          report = json.loads((out / "result.json").read_text())
+
+          def pct(v):
+              return "n/a" if v is None else f"{100*v:.1f}%"
+
+          lines = [
+              "# Current Google ADK + Pydantic AI 20-repository study",
+              "",
+              f"- Scanner SHA: `{report['scanner_sha']}`",
+              f"- Successful scans: **{report['summary']['successful_cases']}/20**",
+              f"- Failed scans: **{report['summary']['failed_cases']}**",
+              f"- Analysis-incomplete: **{report['summary']['analysis_incomplete_cases']}**",
+              f"- Findings emitted: **{report['summary']['findings']}**",
+              f"- Attack paths emitted: **{report['summary']['attack_paths']}**",
+              "",
+              "## Framework scorecard",
+              "",
+              "| Framework | Agent precision | Agent recall | Tool precision | Tool recall | MCP precision | MCP recall | Authority precision | Authority recall | Findings | Paths |",
+              "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+          ]
+          for framework in ("google-adk", "pydantic-ai"):
+              f = report["per_framework"][framework]
+              lines.append(
+                  f"| {framework} | {pct(f['agent_entities']['precision'])} | {pct(f['agent_entities']['recall'])} | "
+                  f"{pct(f['tools']['precision'])} | {pct(f['tools']['recall'])} | "
+                  f"{pct(f['mcp_servers']['precision'])} | {pct(f['mcp_servers']['recall'])} | "
+                  f"{pct(f['effective_authority']['precision'])} | {pct(f['effective_authority']['recall'])} | "
+                  f"{f['findings']} | {f['attack_paths']} |"
+              )
+
+          lines += [
+              "",
+              "## Aggregate structural scorecard",
+              "",
+              "| Dimension | Precision | Recall | Truth | Predicted | TP | FP | FN |",
+              "|---|---:|---:|---:|---:|---:|---:|---:|",
+          ]
+          for key, label in [
+              ("agent_entities","Agents/workflows"),
+              ("tools","Tools"),
+              ("mcp_servers","MCP servers"),
+              ("delegation_edges","Delegation"),
+              ("effective_authority","Effective Authority"),
+          ]:
+              m = report["metrics"][key]
+              lines.append(
+                  f"| {label} | {pct(m['precision'])} | {pct(m['recall'])} | {m['truth']} | {m['predicted']} | "
+                  f"{m['tp']} | {m['fp']} | {m['fn']} |"
+              )
+
+          lines += [
+              "",
+              "## Per-case misses / extras",
+              "",
+              "| Case | Framework | Repo | Agent FN/FP | Tool FN/FP | MCP FN/FP | Authority FN/FP | Findings | Paths |",
+              "|---|---|---|---:|---:|---:|---:|---:|---:|",
+          ]
+          for c in report["cases"]:
+              if c.get("status") != "success":
+                  lines.append(f"| {c['case_id']} | {c['framework']} | {c['repo']} | error | error | error | error | - | - |")
+                  continue
+              cmp = c.get("comparisons") or {}
+              def ff(key):
+                  x = cmp.get(key) or {}
+                  return f"{x.get('fn',0)}/{x.get('fp',0)}"
+              obs = c.get("observed") or {}
+              lines.append(
+                  f"| {c['case_id']} | {c['framework']} | {c['repo']} | {ff('agent_entities')} | {ff('tools')} | "
+                  f"{ff('mcp_servers')} | {ff('effective_authority')} | {obs.get('findings',0)} | {obs.get('attack_paths',0)} |"
+              )
+
+          lines += [
+              "",
+              "## Findings profile",
+              "",
+              f"- By rule: `{json.dumps(report['findings']['by_rule'], sort_keys=True)}`",
+              f"- By severity: `{json.dumps(report['findings']['by_severity'], sort_keys=True)}`",
+              f"- By source context: `{json.dumps(report['findings']['by_source_context'], sort_keys=True)}`",
+              f"- OWASP Agentic mapping: `{json.dumps(report['findings']['by_owasp_agentic'], sort_keys=True)}`",
+              "",
+              "## Interpretation boundary",
+              "",
+              "These precision figures are only calculated where the locked source reference marks the dimension complete. Finding-level semantic precision is not inferred from structural ground truth; individual findings still require source adjudication before treating them as true/false positives.",
+              "",
+          ]
+          (out / "STUDY_REPORT.md").write_text("\n".join(lines))
+          print("\n".join(lines))
+          PY
+          cat "$OUT_DIR/STUDY_REPORT.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload study artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-adk-pydantic-20
+          path: research/adk-pydantic-current-20/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit study results to branch
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "horustrace-study-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add "$OUT_DIR"
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "research: record current ADK/Pydantic 20-repo study"
+          git push origin HEAD:research/adk-pydantic-current-20-20261005
