@@ -1051,6 +1051,40 @@ def _custom_agent_delegates(
             ):
                 attr_params[target.attr] = node.value.id
 
+    # Follow trivial property forwarding such as:
+    #   @property
+    #   def implementation_loop(self):
+    #       return self._implementation_loop
+    # This is common in custom ADK orchestrators that keep child agents in
+    # private attributes but expose them through read-only properties.
+    property_aliases: dict[str, str] = {}
+    for method in class_node.body:
+        if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        is_property = any(
+            (_name(decorator) or "") == "property"
+            for decorator in method.decorator_list
+        )
+        if not is_property:
+            continue
+        returned_attrs = {
+            node.value.attr
+            for node in ast.walk(method)
+            if isinstance(node, ast.Return)
+            and isinstance(node.value, ast.Attribute)
+            and isinstance(node.value.value, ast.Name)
+            and node.value.value.id == "self"
+        }
+        if len(returned_attrs) == 1:
+            property_aliases[method.name] = next(iter(returned_attrs))
+
+    def backing_attr(name: str) -> str:
+        seen: set[str] = set()
+        while name in property_aliases and name not in seen:
+            seen.add(name)
+            name = property_aliases[name]
+        return name
+
     invoked_attrs: set[str] = set()
     for method in class_node.body:
         if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -1066,7 +1100,7 @@ def _custom_agent_delegates(
                 and isinstance(receiver.value, ast.Name)
                 and receiver.value.id == "self"
             ):
-                invoked_attrs.add(receiver.attr)
+                invoked_attrs.add(backing_attr(receiver.attr))
 
     for attr in sorted(invoked_attrs):
         param = attr_params.get(attr)
