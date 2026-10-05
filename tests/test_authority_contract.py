@@ -57,6 +57,7 @@ agents:
             "permissions": ["tickets.read"],
             "oauth_scopes": ["issues:read"],
             "mcp_servers": ["github"],
+            "skills": [],
         },
         "deny": {
             "capabilities": ["destructive.write", "process.execute"],
@@ -67,6 +68,7 @@ agents:
             "permissions": ["iam.setPolicy"],
             "oauth_scopes": ["repo:admin"],
             "mcp_servers": ["filesystem"],
+            "skills": [],
         },
         "require_approval_for": ["external.write"],
         "mcp_tools": [
@@ -281,3 +283,32 @@ agent:
     assert location.path == manifest
     assert location.line == 8
     assert location.column == 23
+
+
+def test_authority_contract_v1_accepts_skill_dimension(tmp_path: Path) -> None:
+    manifest = tmp_path / "horustrace.manifest.yaml"
+    manifest.write_text(
+        """
+version: 1
+agents:
+  - name: reviewer
+    policy:
+      authority:
+        allow:
+          skills: [review]
+        deny:
+          skills: [deploy-prod]
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    contract = graph.agents[0].policy.authority
+
+    assert contract is not None
+    assert contract.allow.skills == {"review"}
+    assert contract.deny.skills == {"deploy-prod"}
+    assert contract.as_dict()["allow"]["skills"] == ["review"]
+    assert contract.as_dict()["deny"]["skills"] == ["deploy-prod"]
+    assert contract.clause_locations["allow.skills"].path == manifest
+    assert contract.clause_locations["deny.skills"].path == manifest
