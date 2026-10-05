@@ -1,0 +1,79 @@
+name: Validate Pydantic Dependency Regression
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/validate-pydantic-dependency-regression.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e ".[dev]"
+      - name: Validate historical regression cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess, tempfile
+          from pathlib import Path
+          from horustrace.config import load_config
+          from horustrace.scanner import scan
+
+          CASES = [
+              ("hold-pyd-004","ArhamMirza/AI-Budget-CSV-Manager","44dc9e7df8c007d813d88810ec6e347086527b66"),
+              ("hold-adk-003","Quantum-Cipher/MCP-GCP-governance-protocol","ff3864266f752c572393584721d70059955b33c2"),
+              ("hold-adk-005","amachwe/test_openapi_agent","053380f1b793d5d8e0b31a6fa47898b590bb6a22"),
+          ]
+
+          def clone(root, case_id, repo, sha):
+              target=root/case_id
+              target.mkdir()
+              for cmd in (
+                  ["git","init","-q",str(target)],
+                  ["git","-C",str(target),"remote","add","origin",f"https://github.com/{repo}.git"],
+                  ["git","-C",str(target),"fetch","--quiet","--depth=1","--filter=blob:none","origin",sha],
+                  ["git","-C",str(target),"checkout","--quiet","--detach","FETCH_HEAD"],
+              ):
+                  cp=subprocess.run(cmd,text=True,capture_output=True,timeout=240)
+                  if cp.returncode:
+                      raise RuntimeError((cp.stderr or cp.stdout)[-4000:])
+              return target
+
+          with tempfile.TemporaryDirectory(prefix="horustrace-deps-regression-") as tmp:
+              root=Path(tmp)
+              rows={}
+              for case_id, repo, sha in CASES:
+                  target=clone(root,case_id,repo,sha)
+                  graph, findings=scan(target,config=load_config(target))
+                  rows[case_id]=(graph,findings)
+
+              graph, findings=rows["hold-pyd-004"]
+              budget=next(a for a in graph.agents if a.name=="budget_agent")
+              tools={t.name:t for t in budget.tools}
+              assert "data.write" in tools["add_transaction"].capabilities, tools["add_transaction"].capabilities
+              assert "data.write" in tools["set_budget_limit"].capabilities, tools["set_budget_limit"].capabilities
+              assert any(
+                  f.rule_id in {"AGT022","AGT040"}
+                  and f.agent=="budget_agent"
+                  and "add_transaction" in f.message
+                  for f in findings
+              )
+
+              _, findings=rows["hold-adk-003"]
+              assert not any(f.rule_id=="NET001" for f in findings)
+
+              _, findings=rows["hold-adk-005"]
+              assert not any(f.rule_id=="NET002" for f in findings)
+
+              print("historical regression validation passed")
+          PY
