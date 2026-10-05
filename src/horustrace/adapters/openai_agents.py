@@ -25,7 +25,7 @@ _OPENAI_AGENT_EXPORTS = {
     "enable_verbose_stdout_logging", "ShellTool", "ApplyPatchTool",
     "HostedMCPTool", "WebSearchTool", "FileSearchTool",
     "CodeInterpreterTool", "ImageGenerationTool", "ComputerTool",
-    "ToolSearchTool",
+    "ToolSearchTool", "SandboxAgent",
 }
 
 
@@ -34,6 +34,7 @@ _OPENAI_AGENT_SUBMODULES = (
     "agents.tool",
     "agents.run_context",
     "agents.extensions",
+    "agents.sandbox",
     "agents.models",
     "agents.items",
     "agents.guardrail",
@@ -1403,8 +1404,56 @@ def scan_python_file(path: Path) -> Graph:
             )
         ]
 
+    def sandbox_skill_sources(node: ast.Call) -> tuple[list[str], list[dict[str, Any]], bool]:
+        capabilities = _kw(node, "capabilities")
+        if capabilities is None:
+            return [], [], False
+        local_paths: list[str] = []
+        remote_sources: list[dict[str, Any]] = []
+        unresolved = False
+        saw_skills = False
+        for child in ast.walk(capabilities):
+            if not isinstance(child, ast.Call) or _call_name(child.func) != "Skills":
+                continue
+            saw_skills = True
+            source = _kw(child, "from_") or _kw(child, "lazy_from")
+            if source is None:
+                unresolved = True
+                continue
+            found_source = False
+            for nested in ast.walk(source):
+                if not isinstance(nested, ast.Call):
+                    continue
+                called = _call_name(nested.func)
+                if called == "LocalDir":
+                    src_node = _kw(nested, "src") or (nested.args[0] if nested.args else None)
+                    src = _literal(src_node)
+                    if isinstance(src, str):
+                        local_paths.append(src)
+                        found_source = True
+                    else:
+                        unresolved = True
+                elif called == "GitRepo":
+                    repo_node = _kw(nested, "repo") or (nested.args[0] if nested.args else None)
+                    repo = _literal(repo_node)
+                    ref = _literal(_kw(nested, "ref"))
+                    remote_sources.append(
+                        {
+                            "kind": "git",
+                            "repo": repo if isinstance(repo, str) else None,
+                            "ref": ref if isinstance(ref, str) else None,
+                        }
+                    )
+                    found_source = True
+                    if not isinstance(repo, str):
+                        unresolved = True
+            if not found_source:
+                unresolved = True
+        return list(dict.fromkeys(local_paths)), remote_sources, unresolved and saw_skills
+
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Call) or _call_name(node.func) != "Agent":
+        agent_constructor = _call_name(node.func) if isinstance(node, ast.Call) else None
+        if not isinstance(node, ast.Call) or agent_constructor not in {"Agent", "SandboxAgent"}:
             continue
 
         name_node = _kw(node, "name")
@@ -1416,6 +1465,17 @@ def scan_python_file(path: Path) -> Graph:
             "framework": "openai-agents",
             "instance_key": f"{path.resolve()}:{getattr(node, 'lineno', 1)}",
         }
+        if agent_constructor == "SandboxAgent":
+            metadata["sandbox_agent"] = True
+            skill_paths, remote_skill_sources, unresolved_skill_sources = (
+                sandbox_skill_sources(node)
+            )
+            if skill_paths:
+                metadata["skill_source_paths"] = skill_paths
+            if remote_skill_sources:
+                metadata["remote_skill_sources"] = remote_skill_sources
+            if unresolved_skill_sources:
+                metadata["dynamic_skill_sources"] = True
         source_alias = agent_alias_by_line.get(getattr(node, "lineno", 1))
         if source_alias:
             metadata["source_alias"] = source_alias
