@@ -321,3 +321,41 @@ _agent_custom.tool(_scrape_tool)
         assert "network.external" in tool.capabilities
         assert agent.metadata["factory_function"] == "_build_agent"
         assert agent.metadata["factory_instance"] is True
+
+
+def test_conditional_pydantic_capability_is_typed_not_dynamic_placeholder(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "agent.py",
+        """
+from dataclasses import dataclass
+from pydantic_ai import Agent
+from pydantic_ai.capabilities import WebSearch
+
+
+@dataclass
+class Settings:
+    web_search: bool = True
+
+
+settings = Settings()
+
+agent = Agent(
+    "openai:gpt-5.2",
+    capabilities=[WebSearch()] if settings.web_search else [],
+)
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    web_search = next(item for item in agent.tools if item.name == "WebSearch")
+
+    assert web_search.kind == "web_search"
+    assert web_search.metadata["availability"] == "conditional"
+    assert web_search.metadata["availability_condition"] == "settings.web_search"
+    assert not any(
+        item.kind == "pydantic_dynamic_capabilities"
+        for item in agent.tools
+    )
