@@ -577,6 +577,7 @@ def _scan_strands_python(path: Path, tree: ast.AST) -> Graph:
     graph = Graph()
     imports_strands = False
     agent_symbols: set[str] = set()
+    harness_symbols: set[str] = set()
     mcp_symbols: set[str] = set()
     graph_builder_symbols: set[str] = set()
     swarm_symbols: set[str] = set()
@@ -584,12 +585,23 @@ def _scan_strands_python(path: Path, tree: ast.AST) -> Graph:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                if alias.name == "strands" or alias.name.startswith("strands."):
+                if (
+                    alias.name == "strands"
+                    or alias.name.startswith("strands.")
+                    or alias.name == "strands_harness"
+                    or alias.name.startswith("strands_harness.")
+                ):
                     imports_strands = True
         elif isinstance(node, ast.ImportFrom):
             module = node.module or ""
-            if module == "strands" or module.startswith("strands."):
+            if module in {"strands", "strands_harness"} or module.startswith(
+                ("strands.", "strands_harness.")
+            ):
                 imports_strands = True
+            if module == "strands_harness":
+                for alias in node.names:
+                    if alias.name == "create_harness":
+                        harness_symbols.add(alias.asname or alias.name)
             if module == "strands":
                 for alias in node.names:
                     if alias.name == "Agent":
@@ -630,7 +642,7 @@ def _scan_strands_python(path: Path, tree: ast.AST) -> Graph:
         leaf = _leaf(call.func)
         if leaf in mcp_symbols or leaf == "MCPClient":
             mcp_lookup[name] = _mcp_server_from_call(path, name, call)
-        if leaf in agent_symbols or leaf == "Agent":
+        if leaf in agent_symbols or leaf == "Agent" or leaf in harness_symbols or leaf == "create_harness":
             agent_calls.append((name, call, node))
         if leaf == "A2AClientToolProvider":
             a2a_lookup[name] = _a2a_provider_tool(
@@ -706,6 +718,23 @@ def _scan_strands_python(path: Path, tree: ast.AST) -> Graph:
                 **model_meta,
             },
         )
+        if _leaf(call.func) in harness_symbols or _leaf(call.func) == "create_harness":
+            agent.metadata["agent_type"] = "strands_harness"
+            skills_node = _keyword(call, "skills")
+            if skills_node is None:
+                agent.metadata["skill_source_paths"] = ["./.agent/skills"]
+            elif not (
+                isinstance(skills_node, ast.Constant) and skills_node.value is None
+            ):
+                raw_skills = _literal(skills_node)
+                if isinstance(raw_skills, str):
+                    agent.metadata["skill_source_paths"] = [raw_skills]
+                elif isinstance(raw_skills, (list, tuple)):
+                    agent.metadata["skill_source_paths"] = [
+                        str(item) for item in raw_skills if isinstance(item, str)
+                    ]
+                else:
+                    agent.metadata["dynamic_skill_sources"] = True
         system_prompt = _literal_string(_keyword(call, "system_prompt"))
         if system_prompt is not None:
             agent.metadata["system_prompt_declared"] = True
