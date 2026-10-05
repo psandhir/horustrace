@@ -511,6 +511,7 @@ class ModuleInfo:
     module: str
     tree: ast.Module
     functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = field(default_factory=dict)
+    classes: dict[str, ast.ClassDef] = field(default_factory=dict)
     calls: dict[str, ast.Call] = field(default_factory=dict)
     sequences: dict[str, list[ast.AST]] = field(default_factory=dict)
     assignments: dict[str, ast.AST] = field(default_factory=dict)
@@ -586,6 +587,8 @@ def _build(root: Path, path: Path) -> ModuleInfo | None:
     for node in statements:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             info.functions[node.name] = node
+        elif isinstance(node, ast.ClassDef):
+            info.classes[node.name] = node
         elif isinstance(node, ast.ImportFrom):
             module = _relative(
                 info.module,
@@ -691,6 +694,297 @@ def _imported_symbol(
         if chained:
             return chained
     return direct, remote
+
+
+_ADK_AGENT_BASE_TYPES = set(AGENT_TYPES) | {"BaseAgent"}
+
+
+def _class_inherits_adk_agent(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    class_node: ast.ClassDef,
+    visited: set[tuple[str, str]] | None = None,
+) -> bool:
+    """Return True when a repository-local class derives from an ADK agent type."""
+    visited = set() if visited is None else set(visited)
+    key = (info.module, class_node.name)
+    if key in visited:
+        return False
+    visited.add(key)
+
+    for base in class_node.bases:
+        base_name = _name(base) or ((_dotted(base) or "").rsplit(".", 1)[-1] or None)
+        if base_name in _ADK_AGENT_BASE_TYPES:
+            return True
+        if isinstance(base, ast.Name):
+            local = info.classes.get(base.id)
+            if local is not None and _class_inherits_adk_agent(
+                modules, info, local, visited
+            ):
+                return True
+            imported = _imported_symbol(modules, info, base.id)
+            if imported:
+                target, symbol = imported
+                imported_class = target.classes.get(symbol)
+                if imported_class is not None and _class_inherits_adk_agent(
+                    modules, target, imported_class, visited
+                ):
+                    return True
+    return False
+
+
+def _custom_agent_class_for_call(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    call: ast.Call,
+) -> tuple[ModuleInfo, str, ast.ClassDef] | None:
+    """Resolve a repository-local custom ADK agent constructor without imports."""
+    leaf = _name(call.func)
+    if not leaf or leaf in AGENT_TYPES:
+        return None
+
+    if isinstance(call.func, ast.Name):
+        local = info.classes.get(leaf)
+        if local is not None and _class_inherits_adk_agent(modules, info, local):
+            return info, leaf, local
+        imported = _imported_symbol(modules, info, leaf)
+        if imported:
+            target, symbol = imported
+            imported_class = target.classes.get(symbol)
+            if imported_class is not None and _class_inherits_adk_agent(
+                modules, target, imported_class
+            ):
+                return target, symbol, imported_class
+
+    if isinstance(call.func, ast.Attribute) and isinstance(call.func.value, ast.Name):
+        imported = _imported_symbol(modules, info, call.func.value.id)
+        if imported:
+            target, remote = imported
+            nested = (
+                _find_module(modules, f"{target.module}.{remote}")
+                if remote
+                else target
+            )
+            candidate = nested or target
+            imported_class = candidate.classes.get(call.func.attr)
+            if imported_class is not None and _class_inherits_adk_agent(
+                modules, candidate, imported_class
+            ):
+                return candidate, call.func.attr, imported_class
+    return None
+
+
+def _class_init(class_node: ast.ClassDef) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    return next(
+        (
+            node
+            for node in class_node.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == "__init__"
+        ),
+        None,
+    )
+
+
+def _constructor_bindings(
+    call: ast.Call,
+    init: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> dict[str, ast.AST]:
+    positional = [*init.args.posonlyargs, *init.args.args]
+    if positional and positional[0].arg in {"self", "cls"}:
+        positional = positional[1:]
+
+    bindings: dict[str, ast.AST] = {}
+    defaults = list(init.args.defaults)
+    if defaults:
+        for param, default in zip(positional[-len(defaults):], defaults):
+            bindings[param.arg] = default
+
+    for param, value in zip(positional, call.args):
+        bindings[param.arg] = value
+
+    for param, default in zip(init.args.kwonlyargs, init.args.kw_defaults):
+        if default is not None:
+            bindings[param.arg] = default
+
+    for keyword in call.keywords:
+        if keyword.arg is not None:
+            bindings[keyword.arg] = keyword.value
+    return bindings
+
+
+def _bound_expr(node: ast.AST | None, bindings: dict[str, ast.AST]) -> ast.AST | None:
+    seen: set[str] = set()
+    while isinstance(node, ast.Name) and node.id in bindings and node.id not in seen:
+        seen.add(node.id)
+        node = bindings[node.id]
+    return node
+
+
+def _super_init_calls(
+    init: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> list[ast.Call]:
+    result: list[ast.Call] = []
+    for node in ast.walk(init):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr != "__init__" or not isinstance(node.func.value, ast.Call):
+            continue
+        if _name(node.func.value.func) == "super":
+            result.append(node)
+    return result
+
+
+def _custom_agent_runtime_name(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    call: ast.Call,
+    alias: str,
+    custom_ref: tuple[ModuleInfo, str, ast.ClassDef] | None = None,
+) -> str:
+    explicit = _string(_kw(call, "name"))
+    if explicit:
+        return explicit
+    custom_ref = custom_ref or _custom_agent_class_for_call(modules, info, call)
+    if custom_ref is None:
+        return alias
+    _, _, class_node = custom_ref
+    init = _class_init(class_node)
+    if init is None:
+        return alias
+    bindings = _constructor_bindings(call, init)
+    for super_call in _super_init_calls(init):
+        name_expr = _bound_expr(_kw(super_call, "name"), bindings)
+        runtime_name = _string(name_expr)
+        if runtime_name:
+            return runtime_name
+    return alias
+
+
+def _resolve_agent_expr_name(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    expr: ast.AST,
+) -> str | None:
+    if isinstance(expr, ast.Name):
+        call = info.calls.get(expr.id)
+        if call is not None:
+            call_type = _name(call.func) or ""
+            if call_type in AGENT_TYPES:
+                return _string(_kw(call, "name")) or expr.id
+            custom_ref = _custom_agent_class_for_call(modules, info, call)
+            if custom_ref is not None:
+                return _custom_agent_runtime_name(
+                    modules, info, call, expr.id, custom_ref
+                )
+        imported = _imported_symbol(modules, info, expr.id)
+        if imported:
+            target, symbol = imported
+            call = target.calls.get(symbol)
+            if call is not None:
+                call_type = _name(call.func) or ""
+                if call_type in AGENT_TYPES:
+                    return _string(_kw(call, "name")) or expr.id
+                custom_ref = _custom_agent_class_for_call(modules, target, call)
+                if custom_ref is not None:
+                    return _custom_agent_runtime_name(
+                        modules, target, call, expr.id, custom_ref
+                    )
+        return expr.id
+
+    if isinstance(expr, ast.Call):
+        call_type = _name(expr.func) or ""
+        if call_type in AGENT_TYPES:
+            return _string(_kw(expr, "name")) or call_type
+        custom_ref = _custom_agent_class_for_call(modules, info, expr)
+        if custom_ref is not None:
+            return _custom_agent_runtime_name(
+                modules, info, expr, custom_ref[1], custom_ref
+            )
+    return None
+
+
+def _custom_agent_delegates(
+    modules: dict[str, ModuleInfo],
+    caller_info: ModuleInfo,
+    call: ast.Call,
+    custom_ref: tuple[ModuleInfo, str, ast.ClassDef],
+) -> list[str]:
+    """Resolve source-proven child agents held by a custom ADK agent constructor."""
+    class_info, _, class_node = custom_ref
+    init = _class_init(class_node)
+    if init is None:
+        return []
+
+    bindings = _constructor_bindings(call, init)
+    sequences = _function_sequences(init)
+    delegates: list[str] = []
+
+    def add_expr(expr: ast.AST) -> None:
+        owner_info = class_info
+        resolved = expr
+        if isinstance(expr, ast.Name) and expr.id in bindings:
+            resolved = _bound_expr(expr, bindings) or expr
+            owner_info = caller_info
+        target = _resolve_agent_expr_name(modules, owner_info, resolved)
+        if target and target not in delegates:
+            delegates.append(target)
+
+    for super_call in _super_init_calls(init):
+        for child in _resolve_repository_sequence(
+            modules,
+            class_info,
+            _kw(super_call, "sub_agents"),
+            sequences,
+        ):
+            add_expr(child)
+
+    # Custom orchestrators often retain constructor-provided agents on self and
+    # invoke them directly instead of passing them to BaseAgent.sub_agents.
+    # Only preserve a delegation when the stored attribute is later called
+    # through a known agent execution method.
+    attr_params: dict[str, str] = {}
+    for node in ast.walk(init):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        if not isinstance(node.value, ast.Name):
+            continue
+        for target in targets:
+            if (
+                isinstance(target, ast.Attribute)
+                and isinstance(target.value, ast.Name)
+                and target.value.id == "self"
+            ):
+                attr_params[target.attr] = node.value.id
+
+    invoked_attrs: set[str] = set()
+    for method in class_node.body:
+        if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for node in ast.walk(method):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                continue
+            if node.func.attr not in {"run_async", "run", "run_sync", "invoke"}:
+                continue
+            receiver = node.func.value
+            if (
+                isinstance(receiver, ast.Attribute)
+                and isinstance(receiver.value, ast.Name)
+                and receiver.value.id == "self"
+            ):
+                invoked_attrs.add(receiver.attr)
+
+    for attr in sorted(invoked_attrs):
+        param = attr_params.get(attr)
+        if not param or param not in bindings:
+            continue
+        resolved = _bound_expr(bindings[param], bindings) or bindings[param]
+        target = _resolve_agent_expr_name(modules, caller_info, resolved)
+        if target and target not in delegates:
+            delegates.append(target)
+
+    return delegates
 
 
 def _attribute_function(
