@@ -1,0 +1,199 @@
+{
+  "assertions": [
+    {
+      "assertion_id": "FRESH-006.A001",
+      "evidence": [
+        {
+          "line": 13,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "pydantic-ai",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-006.A002",
+      "evidence": [
+        {
+          "line": 13,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "python_tool",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-006.A003",
+      "evidence": [
+        {
+          "line": 28,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "bash",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-006.B001",
+      "evidence": [
+        {
+          "line": 13,
+          "path": "agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "python_tool"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "agent",
+      "tier": "B"
+    },
+    {
+      "assertion_id": "FRESH-006.B002",
+      "evidence": [
+        {
+          "line": 28,
+          "path": "agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "bash"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "agent",
+      "tier": "B"
+    }
+  ],
+  "case_id": "fresh-006",
+  "schema_version": 1,
+  "source_reference": {
+    "application_path": "agent.py",
+    "automated_reference": true,
+    "framework_stratum": "pydantic-ai",
+    "human_dual_review": false,
+    "method_version": "source-reference-v1",
+    "note": "Two independent automated source-review passes are used. This is not represented as human dual-review and is reported as a study limitation.",
+    "repo": "mindeye33/speedagent",
+    "sha": "cc42c792ffac8e3c6ee7679dd3eff6f2f84d7c59"
+  },
+  "study": "real-world-agent-security-2026",
+  "tier_a": {
+    "agent_roots": [
+      {
+        "kind": "Agent",
+        "line": 13,
+        "name": "agent",
+        "path": "agent.py",
+        "variable": "agent"
+      }
+    ],
+    "delegation_edges": [],
+    "frameworks": [
+      "pydantic-ai"
+    ],
+    "mcp_servers": [],
+    "reference_completeness": {
+      "agent_entities": true,
+      "delegation_edges": true,
+      "mcp_servers": true,
+      "tools": true
+    },
+    "source_files_reviewed": 1,
+    "tools": [
+      {
+        "kind": "agent_tool_reference",
+        "line": 13,
+        "name": "python_tool",
+        "owner": "agent",
+        "path": "agent.py"
+      },
+      {
+        "kind": "decorator:tool_plain",
+        "line": 28,
+        "name": "bash",
+        "owner": "agent",
+        "path": "agent.py"
+      }
+    ],
+    "unresolved": []
+  },
+  "tier_b": {
+    "attack_path_reference": {
+      "runtime_exploitability": "not_verified",
+      "source_supported_authority_pairs": [
+        {
+          "agent": "agent",
+          "target_kind": "tool",
+          "target_name": "python_tool"
+        },
+        {
+          "agent": "agent",
+          "target_kind": "tool",
+          "target_name": "bash"
+        }
+      ],
+      "structural_only": true
+    },
+    "authority_relationships": [
+      {
+        "agent": "agent",
+        "line": 13,
+        "path": "agent.py",
+        "target_kind": "tool",
+        "target_name": "python_tool"
+      },
+      {
+        "agent": "agent",
+        "line": 28,
+        "path": "agent.py",
+        "target_kind": "tool",
+        "target_name": "bash"
+      }
+    ],
+    "eligibility_signals": [
+      "process_execution",
+      "browser_or_web_access"
+    ],
+    "limitations": [
+      "reference evaluates static structural validity, not runtime exploitability",
+      "dynamic authority is unresolved unless explicit in pinned source"
+    ],
+    "review_method": "independent dual-pass source reference",
+    "security_relevant_signals": [
+      "browser_or_web_access",
+      "process_execution"
+    ]
+  },
+  "truth_lock": {
+    "horustrace_output_seen": false,
+    "locked_at": "2026-09-26",
+    "reviewed": true,
+    "reviewers": [
+      "independent-source-structural-pass-v1",
+      "independent-source-lexical-crosscheck-v1"
+    ]
+  }
+}

@@ -1,0 +1,595 @@
+{
+  "assertions": [
+    {
+      "assertion_id": "FRESH-009.A001",
+      "evidence": [
+        {
+          "line": 73,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "pydantic-ai",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A002",
+      "evidence": [
+        {
+          "line": 231,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_get_capability_statement",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A003",
+      "evidence": [
+        {
+          "line": 257,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_get_smart_configuration",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A004",
+      "evidence": [
+        {
+          "line": 283,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_exchange_code_for_token",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A005",
+      "evidence": [
+        {
+          "line": 311,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_refresh_token",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A006",
+      "evidence": [
+        {
+          "line": 338,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_get_patients",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A007",
+      "evidence": [
+        {
+          "line": 369,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_get_patient",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A008",
+      "evidence": [
+        {
+          "line": 396,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_create_patient",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A009",
+      "evidence": [
+        {
+          "line": 423,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_update_patient",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A010",
+      "evidence": [
+        {
+          "line": 451,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_get_encounters",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A011",
+      "evidence": [
+        {
+          "line": 482,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_get_encounter",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A012",
+      "evidence": [
+        {
+          "line": 509,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_create_encounter",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A013",
+      "evidence": [
+        {
+          "line": 536,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_get_observations",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A014",
+      "evidence": [
+        {
+          "line": 567,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_get_observation",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A015",
+      "evidence": [
+        {
+          "line": 594,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_create_observation",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A016",
+      "evidence": [
+        {
+          "line": 621,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_update_observation",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A017",
+      "evidence": [
+        {
+          "line": 649,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_get_medication_requests",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A018",
+      "evidence": [
+        {
+          "line": 680,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_get_medication_request",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A019",
+      "evidence": [
+        {
+          "line": 707,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_create_medication_request",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A020",
+      "evidence": [
+        {
+          "line": 734,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_get_allergy_intolerances",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A021",
+      "evidence": [
+        {
+          "line": 765,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_get_allergy_intolerance",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A022",
+      "evidence": [
+        {
+          "line": 792,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_create_allergy_intolerance",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-009.A023",
+      "evidence": [
+        {
+          "line": 819,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "cerner_execute_batch",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    }
+  ],
+  "case_id": "fresh-009",
+  "schema_version": 1,
+  "source_reference": {
+    "application_path": "agent.py",
+    "automated_reference": true,
+    "framework_stratum": "pydantic-ai",
+    "human_dual_review": false,
+    "method_version": "source-reference-v1",
+    "note": "Two independent automated source-review passes are used. This is not represented as human dual-review and is reported as a study limitation.",
+    "repo": "newsbubbles/pharmiq",
+    "sha": "c69949739647a47ec8339b473bdf578c8cf8bfd9"
+  },
+  "study": "real-world-agent-security-2026",
+  "tier_a": {
+    "agent_roots": [
+      {
+        "kind": "Agent",
+        "line": 73,
+        "name": "agent",
+        "path": "agent.py",
+        "variable": "agent"
+      }
+    ],
+    "delegation_edges": [],
+    "frameworks": [
+      "pydantic-ai"
+    ],
+    "mcp_servers": [],
+    "reference_completeness": {
+      "agent_entities": true,
+      "delegation_edges": true,
+      "mcp_servers": true,
+      "tools": true
+    },
+    "source_files_reviewed": 21,
+    "tools": [
+      {
+        "kind": "decorator:tool",
+        "line": 231,
+        "name": "cerner_get_capability_statement",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 257,
+        "name": "cerner_get_smart_configuration",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 283,
+        "name": "cerner_exchange_code_for_token",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 311,
+        "name": "cerner_refresh_token",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 338,
+        "name": "cerner_get_patients",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 369,
+        "name": "cerner_get_patient",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 396,
+        "name": "cerner_create_patient",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 423,
+        "name": "cerner_update_patient",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 451,
+        "name": "cerner_get_encounters",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 482,
+        "name": "cerner_get_encounter",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 509,
+        "name": "cerner_create_encounter",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 536,
+        "name": "cerner_get_observations",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 567,
+        "name": "cerner_get_observation",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 594,
+        "name": "cerner_create_observation",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 621,
+        "name": "cerner_update_observation",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 649,
+        "name": "cerner_get_medication_requests",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 680,
+        "name": "cerner_get_medication_request",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 707,
+        "name": "cerner_create_medication_request",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 734,
+        "name": "cerner_get_allergy_intolerances",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 765,
+        "name": "cerner_get_allergy_intolerance",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 792,
+        "name": "cerner_create_allergy_intolerance",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 819,
+        "name": "cerner_execute_batch",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      }
+    ],
+    "unresolved": []
+  },
+  "tier_b": {
+    "attack_path_reference": {
+      "runtime_exploitability": "not_verified",
+      "source_supported_authority_pairs": [],
+      "structural_only": true
+    },
+    "authority_relationships": [],
+    "eligibility_signals": [
+      "mcp_usage",
+      "external_write_or_network"
+    ],
+    "limitations": [
+      "reference evaluates static structural validity, not runtime exploitability",
+      "dynamic authority is unresolved unless explicit in pinned source"
+    ],
+    "review_method": "independent dual-pass source reference",
+    "security_relevant_signals": [
+      "external_write_or_network",
+      "mcp_usage"
+    ]
+  },
+  "truth_lock": {
+    "horustrace_output_seen": false,
+    "locked_at": "2026-09-26",
+    "reviewed": true,
+    "reviewers": [
+      "independent-source-structural-pass-v1",
+      "independent-source-lexical-crosscheck-v1"
+    ]
+  }
+}

@@ -1,0 +1,361 @@
+{
+  "assertions": [
+    {
+      "assertion_id": "FRESH-010.A001",
+      "evidence": [
+        {
+          "line": 43,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "pydantic-ai",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "budget_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-010.A002",
+      "evidence": [
+        {
+          "line": 112,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "add_transaction",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "budget_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-010.A003",
+      "evidence": [
+        {
+          "line": 145,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "set_budget_limit",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "budget_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-010.A004",
+      "evidence": [
+        {
+          "line": 247,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "get_budget_summary",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "budget_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-010.A005",
+      "evidence": [
+        {
+          "line": 376,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "delete_transaction",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "budget_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-010.A006",
+      "evidence": [
+        {
+          "line": 391,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "analyze_budget",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "budget_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-010.B001",
+      "evidence": [
+        {
+          "line": 112,
+          "path": "agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "add_transaction"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "budget_agent",
+      "tier": "B"
+    },
+    {
+      "assertion_id": "FRESH-010.B002",
+      "evidence": [
+        {
+          "line": 145,
+          "path": "agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "set_budget_limit"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "budget_agent",
+      "tier": "B"
+    },
+    {
+      "assertion_id": "FRESH-010.B003",
+      "evidence": [
+        {
+          "line": 247,
+          "path": "agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "get_budget_summary"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "budget_agent",
+      "tier": "B"
+    },
+    {
+      "assertion_id": "FRESH-010.B004",
+      "evidence": [
+        {
+          "line": 376,
+          "path": "agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "delete_transaction"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "budget_agent",
+      "tier": "B"
+    },
+    {
+      "assertion_id": "FRESH-010.B005",
+      "evidence": [
+        {
+          "line": 391,
+          "path": "agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "analyze_budget"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "budget_agent",
+      "tier": "B"
+    }
+  ],
+  "case_id": "fresh-010",
+  "schema_version": 1,
+  "source_reference": {
+    "application_path": "agent.py",
+    "automated_reference": true,
+    "framework_stratum": "pydantic-ai",
+    "human_dual_review": false,
+    "method_version": "source-reference-v1",
+    "note": "Two independent automated source-review passes are used. This is not represented as human dual-review and is reported as a study limitation.",
+    "repo": "ArhamMirza/AI-Budget-CSV-Manager",
+    "sha": "44dc9e7df8c007d813d88810ec6e347086527b66"
+  },
+  "study": "real-world-agent-security-2026",
+  "tier_a": {
+    "agent_roots": [
+      {
+        "kind": "Agent",
+        "line": 43,
+        "name": "budget_agent",
+        "path": "agent.py",
+        "variable": "budget_agent"
+      }
+    ],
+    "delegation_edges": [],
+    "frameworks": [
+      "pydantic-ai"
+    ],
+    "mcp_servers": [],
+    "reference_completeness": {
+      "agent_entities": true,
+      "delegation_edges": true,
+      "mcp_servers": true,
+      "tools": true
+    },
+    "source_files_reviewed": 4,
+    "tools": [
+      {
+        "kind": "decorator:tool",
+        "line": 112,
+        "name": "add_transaction",
+        "owner": "budget_agent",
+        "path": "agent.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 145,
+        "name": "set_budget_limit",
+        "owner": "budget_agent",
+        "path": "agent.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 247,
+        "name": "get_budget_summary",
+        "owner": "budget_agent",
+        "path": "agent.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 376,
+        "name": "delete_transaction",
+        "owner": "budget_agent",
+        "path": "agent.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 391,
+        "name": "analyze_budget",
+        "owner": "budget_agent",
+        "path": "agent.py"
+      }
+    ],
+    "unresolved": []
+  },
+  "tier_b": {
+    "attack_path_reference": {
+      "runtime_exploitability": "not_verified",
+      "source_supported_authority_pairs": [
+        {
+          "agent": "budget_agent",
+          "target_kind": "tool",
+          "target_name": "add_transaction"
+        },
+        {
+          "agent": "budget_agent",
+          "target_kind": "tool",
+          "target_name": "set_budget_limit"
+        },
+        {
+          "agent": "budget_agent",
+          "target_kind": "tool",
+          "target_name": "get_budget_summary"
+        },
+        {
+          "agent": "budget_agent",
+          "target_kind": "tool",
+          "target_name": "delete_transaction"
+        },
+        {
+          "agent": "budget_agent",
+          "target_kind": "tool",
+          "target_name": "analyze_budget"
+        }
+      ],
+      "structural_only": true
+    },
+    "authority_relationships": [
+      {
+        "agent": "budget_agent",
+        "line": 112,
+        "path": "agent.py",
+        "target_kind": "tool",
+        "target_name": "add_transaction"
+      },
+      {
+        "agent": "budget_agent",
+        "line": 145,
+        "path": "agent.py",
+        "target_kind": "tool",
+        "target_name": "set_budget_limit"
+      },
+      {
+        "agent": "budget_agent",
+        "line": 247,
+        "path": "agent.py",
+        "target_kind": "tool",
+        "target_name": "get_budget_summary"
+      },
+      {
+        "agent": "budget_agent",
+        "line": 376,
+        "path": "agent.py",
+        "target_kind": "tool",
+        "target_name": "delete_transaction"
+      },
+      {
+        "agent": "budget_agent",
+        "line": 391,
+        "path": "agent.py",
+        "target_kind": "tool",
+        "target_name": "analyze_budget"
+      }
+    ],
+    "eligibility_signals": [
+      "filesystem_write",
+      "state_mutation"
+    ],
+    "limitations": [
+      "reference evaluates static structural validity, not runtime exploitability",
+      "dynamic authority is unresolved unless explicit in pinned source"
+    ],
+    "review_method": "independent dual-pass source reference",
+    "security_relevant_signals": [
+      "filesystem_write",
+      "state_mutation"
+    ]
+  },
+  "truth_lock": {
+    "horustrace_output_seen": false,
+    "locked_at": "2026-09-26",
+    "reviewed": true,
+    "reviewers": [
+      "independent-source-structural-pass-v1",
+      "independent-source-lexical-crosscheck-v1"
+    ]
+  }
+}

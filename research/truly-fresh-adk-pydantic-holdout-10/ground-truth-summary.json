@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "study": "real-world-agent-security-2026",
+  "summary": {
+    "cases": 10,
+    "fetch_failures": 0,
+    "assertions": 88,
+    "explicit_agent_entities": 21,
+    "explicit_tools": 47,
+    "explicit_mcp_servers": 0,
+    "explicit_delegation_edges": 2,
+    "agent_complete_cases": 8
+  },
+  "cases": [
+    {
+      "case_id": "fresh-001",
+      "fetch_error": null,
+      "assertions": 3,
+      "agents": 1,
+      "tools": 1,
+      "mcp_servers": 0,
+      "delegation_edges": 0,
+      "complete_agents": true
+    },
+    {
+      "case_id": "fresh-002",
+      "fetch_error": null,
+      "assertions": 3,
+      "agents": 1,
+      "tools": 1,
+      "mcp_servers": 0,
+      "delegation_edges": 0,
+      "complete_agents": true
+    },
+    {
+      "case_id": "fresh-003",
+      "fetch_error": null,
+      "assertions": 16,
+      "agents": 6,
+      "tools": 5,
+      "mcp_servers": 0,
+      "delegation_edges": 0,
+      "complete_agents": true
+    },
+    {
+      "case_id": "fresh-004",
+      "fetch_error": null,
+      "assertions": 2,
+      "agents": 2,
+      "tools": 0,
+      "mcp_servers": 0,
+      "delegation_edges": 0,
+      "complete_agents": true
+    },
+    {
+      "case_id": "fresh-005",
+      "fetch_error": null,
+      "assertions": 16,
+      "agents": 6,
+      "tools": 4,
+      "mcp_servers": 0,
+      "delegation_edges": 2,
+      "complete_agents": false
+    },
+    {
+      "case_id": "fresh-006",
+      "fetch_error": null,
+      "assertions": 5,
+      "agents": 1,
+      "tools": 2,
+      "mcp_servers": 0,
+      "delegation_edges": 0,
+      "complete_agents": true
+    },
+    {
+      "case_id": "fresh-007",
+      "fetch_error": null,
+      "assertions": 6,
+      "agents": 1,
+      "tools": 5,
+      "mcp_servers": 0,
+      "delegation_edges": 0,
+      "complete_agents": true
+    },
+    {
+      "case_id": "fresh-008",
+      "fetch_error": null,
+      "assertions": 3,
+      "agents": 1,
+      "tools": 2,
+      "mcp_servers": 0,
+      "delegation_edges": 0,
+      "complete_agents": false
+    },
+    {
+      "case_id": "fresh-009",
+      "fetch_error": null,
+      "assertions": 23,
+      "agents": 1,
+      "tools": 22,
+      "mcp_servers": 0,
+      "delegation_edges": 0,
+      "complete_agents": true
+    },
+    {
+      "case_id": "fresh-010",
+      "fetch_error": null,
+      "assertions": 11,
+      "agents": 1,
+      "tools": 5,
+      "mcp_servers": 0,
+      "delegation_edges": 0,
+      "complete_agents": true
+    }
+  ]
+}

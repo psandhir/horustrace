@@ -1,0 +1,204 @@
+{
+  "assertions": [
+    {
+      "assertion_id": "FRESH-007.A001",
+      "evidence": [
+        {
+          "line": 69,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "pydantic-ai",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-007.A002",
+      "evidence": [
+        {
+          "line": 189,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "list_my_videos",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-007.A003",
+      "evidence": [
+        {
+          "line": 224,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "update_video_details",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-007.A004",
+      "evidence": [
+        {
+          "line": 268,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "search_videos",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-007.A005",
+      "evidence": [
+        {
+          "line": 327,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "get_video_details",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-007.A006",
+      "evidence": [
+        {
+          "line": 400,
+          "path": "mcp_server.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "delete_video",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "mcp",
+      "tier": "A"
+    }
+  ],
+  "case_id": "fresh-007",
+  "schema_version": 1,
+  "source_reference": {
+    "application_path": "agent.py",
+    "automated_reference": true,
+    "framework_stratum": "pydantic-ai",
+    "human_dual_review": false,
+    "method_version": "source-reference-v1",
+    "note": "Two independent automated source-review passes are used. This is not represented as human dual-review and is reported as a study limitation.",
+    "repo": "newsbubbles/youtube-manager-mcp",
+    "sha": "b429601aa96fa4497084e43863a288c6353de59e"
+  },
+  "study": "real-world-agent-security-2026",
+  "tier_a": {
+    "agent_roots": [
+      {
+        "kind": "Agent",
+        "line": 69,
+        "name": "agent",
+        "path": "agent.py",
+        "variable": "agent"
+      }
+    ],
+    "delegation_edges": [],
+    "frameworks": [
+      "pydantic-ai"
+    ],
+    "mcp_servers": [],
+    "reference_completeness": {
+      "agent_entities": true,
+      "delegation_edges": true,
+      "mcp_servers": true,
+      "tools": true
+    },
+    "source_files_reviewed": 6,
+    "tools": [
+      {
+        "kind": "decorator:tool",
+        "line": 189,
+        "name": "list_my_videos",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 224,
+        "name": "update_video_details",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 268,
+        "name": "search_videos",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 327,
+        "name": "get_video_details",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      },
+      {
+        "kind": "decorator:tool",
+        "line": 400,
+        "name": "delete_video",
+        "owner": "mcp",
+        "path": "mcp_server.py"
+      }
+    ],
+    "unresolved": []
+  },
+  "tier_b": {
+    "attack_path_reference": {
+      "runtime_exploitability": "not_verified",
+      "source_supported_authority_pairs": [],
+      "structural_only": true
+    },
+    "authority_relationships": [],
+    "eligibility_signals": [
+      "mcp_usage",
+      "external_write_or_network"
+    ],
+    "limitations": [
+      "reference evaluates static structural validity, not runtime exploitability",
+      "dynamic authority is unresolved unless explicit in pinned source"
+    ],
+    "review_method": "independent dual-pass source reference",
+    "security_relevant_signals": [
+      "external_write_or_network",
+      "mcp_usage"
+    ]
+  },
+  "truth_lock": {
+    "horustrace_output_seen": false,
+    "locked_at": "2026-09-26",
+    "reviewed": true,
+    "reviewers": [
+      "independent-source-structural-pass-v1",
+      "independent-source-lexical-crosscheck-v1"
+    ]
+  }
+}

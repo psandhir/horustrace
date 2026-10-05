@@ -1,0 +1,479 @@
+{
+  "assertions": [
+    {
+      "assertion_id": "FRESH-005.A001",
+      "evidence": [
+        {
+          "line": 78,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "MasterPlannerAgent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-005.A002",
+      "evidence": [
+        {
+          "line": 167,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "RootPlannerOrchestrator",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-005.A003",
+      "evidence": [
+        {
+          "line": 222,
+          "path": "sub_agents/launches_agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "launches_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-005.A004",
+      "evidence": [
+        {
+          "line": 167,
+          "path": "sub_agents/news_agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "news_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-005.A005",
+      "evidence": [
+        {
+          "line": 60,
+          "path": "sub_agents/summarizer_agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "summarizer_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-005.A006",
+      "evidence": [
+        {
+          "line": 104,
+          "path": "sub_agents/weather_agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "weather_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-005.A007",
+      "evidence": [
+        {
+          "line": 222,
+          "path": "sub_agents/launches_agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "fetch_launch_info",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "launches_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-005.A008",
+      "evidence": [
+        {
+          "line": 167,
+          "path": "sub_agents/news_agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "fetch_news_articles",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "news_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-005.A009",
+      "evidence": [
+        {
+          "line": 104,
+          "path": "sub_agents/weather_agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "fetch_weather_info",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "weather_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-005.A010",
+      "evidence": [
+        {
+          "line": 104,
+          "path": "sub_agents/weather_agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "get_current_date_tool",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "weather_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-005.A011",
+      "evidence": [
+        {
+          "line": 167,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit sub-agent/handoff relationship."
+        }
+      ],
+      "expected_state": "present",
+      "object": "MasterPlannerAgent",
+      "predicate": "delegates_to",
+      "rationale": "Independent source review found an explicit sub-agent/handoff relationship.",
+      "subject": "RootPlannerOrchestrator",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-005.A012",
+      "evidence": [
+        {
+          "line": 167,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit sub-agent/handoff relationship."
+        }
+      ],
+      "expected_state": "present",
+      "object": "orchestrator_agent",
+      "predicate": "delegates_to",
+      "rationale": "Independent source review found an explicit sub-agent/handoff relationship.",
+      "subject": "RootPlannerOrchestrator",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-005.B001",
+      "evidence": [
+        {
+          "line": 222,
+          "path": "sub_agents/launches_agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "fetch_launch_info"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "launches_agent",
+      "tier": "B"
+    },
+    {
+      "assertion_id": "FRESH-005.B002",
+      "evidence": [
+        {
+          "line": 167,
+          "path": "sub_agents/news_agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "fetch_news_articles"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "news_agent",
+      "tier": "B"
+    },
+    {
+      "assertion_id": "FRESH-005.B003",
+      "evidence": [
+        {
+          "line": 104,
+          "path": "sub_agents/weather_agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "fetch_weather_info"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "weather_agent",
+      "tier": "B"
+    },
+    {
+      "assertion_id": "FRESH-005.B004",
+      "evidence": [
+        {
+          "line": 104,
+          "path": "sub_agents/weather_agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "get_current_date_tool"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "weather_agent",
+      "tier": "B"
+    }
+  ],
+  "case_id": "fresh-005",
+  "schema_version": 1,
+  "source_reference": {
+    "application_path": "agent.py",
+    "automated_reference": true,
+    "framework_stratum": "google-adk",
+    "human_dual_review": false,
+    "method_version": "source-reference-v1",
+    "note": "Two independent automated source-review passes are used. This is not represented as human dual-review and is reported as a study limitation.",
+    "repo": "GothiProCoder/Multi-Agent-System-Google-ADK",
+    "sha": "713cd35bf3759becc84ef6bf8958953df3d3f272"
+  },
+  "study": "real-world-agent-security-2026",
+  "tier_a": {
+    "agent_roots": [
+      {
+        "aliases": [
+          "master_planner_agent"
+        ],
+        "kind": "LlmAgent",
+        "line": 78,
+        "name": "MasterPlannerAgent",
+        "path": "agent.py",
+        "variable": "master_planner_agent"
+      },
+      {
+        "aliases": [
+          "root_agent"
+        ],
+        "kind": "SequentialAgent",
+        "line": 167,
+        "name": "RootPlannerOrchestrator",
+        "path": "agent.py",
+        "variable": "root_agent"
+      },
+      {
+        "kind": "LlmAgent",
+        "line": 222,
+        "name": "launches_agent",
+        "path": "sub_agents/launches_agent.py",
+        "variable": "launches_agent"
+      },
+      {
+        "kind": "LlmAgent",
+        "line": 167,
+        "name": "news_agent",
+        "path": "sub_agents/news_agent.py",
+        "variable": "news_agent"
+      },
+      {
+        "kind": "LlmAgent",
+        "line": 60,
+        "name": "summarizer_agent",
+        "path": "sub_agents/summarizer_agent.py",
+        "variable": "summarizer_agent"
+      },
+      {
+        "kind": "LlmAgent",
+        "line": 104,
+        "name": "weather_agent",
+        "path": "sub_agents/weather_agent.py",
+        "variable": "weather_agent"
+      }
+    ],
+    "delegation_edges": [
+      {
+        "kind": "sub_agents",
+        "line": 167,
+        "path": "agent.py",
+        "source": "RootPlannerOrchestrator",
+        "source_variable": "root_agent",
+        "target": "MasterPlannerAgent",
+        "target_variable": "master_planner_agent"
+      },
+      {
+        "kind": "sub_agents",
+        "line": 167,
+        "path": "agent.py",
+        "source": "RootPlannerOrchestrator",
+        "source_variable": "root_agent",
+        "target": "orchestrator_agent",
+        "target_variable": "orchestrator_agent"
+      }
+    ],
+    "frameworks": [
+      "google-adk"
+    ],
+    "mcp_servers": [],
+    "reference_completeness": {
+      "agent_entities": false,
+      "delegation_edges": false,
+      "mcp_servers": false,
+      "tools": false
+    },
+    "source_files_reviewed": 7,
+    "tools": [
+      {
+        "kind": "agent_tool_reference",
+        "line": 222,
+        "name": "fetch_launch_info",
+        "owner": "launches_agent",
+        "path": "sub_agents/launches_agent.py"
+      },
+      {
+        "kind": "agent_tool_reference",
+        "line": 167,
+        "name": "fetch_news_articles",
+        "owner": "news_agent",
+        "path": "sub_agents/news_agent.py"
+      },
+      {
+        "kind": "agent_tool_reference",
+        "line": 104,
+        "name": "fetch_weather_info",
+        "owner": "weather_agent",
+        "path": "sub_agents/weather_agent.py"
+      },
+      {
+        "kind": "agent_tool_reference",
+        "line": 104,
+        "name": "get_current_date_tool",
+        "owner": "weather_agent",
+        "path": "sub_agents/weather_agent.py"
+      }
+    ],
+    "unresolved": [
+      "dynamic_source_constructs_detected"
+    ]
+  },
+  "tier_b": {
+    "attack_path_reference": {
+      "runtime_exploitability": "not_verified",
+      "source_supported_authority_pairs": [
+        {
+          "agent": "launches_agent",
+          "target_kind": "tool",
+          "target_name": "fetch_launch_info"
+        },
+        {
+          "agent": "news_agent",
+          "target_kind": "tool",
+          "target_name": "fetch_news_articles"
+        },
+        {
+          "agent": "weather_agent",
+          "target_kind": "tool",
+          "target_name": "fetch_weather_info"
+        },
+        {
+          "agent": "weather_agent",
+          "target_kind": "tool",
+          "target_name": "get_current_date_tool"
+        }
+      ],
+      "structural_only": true
+    },
+    "authority_relationships": [
+      {
+        "agent": "launches_agent",
+        "line": 222,
+        "path": "sub_agents/launches_agent.py",
+        "target_kind": "tool",
+        "target_name": "fetch_launch_info"
+      },
+      {
+        "agent": "news_agent",
+        "line": 167,
+        "path": "sub_agents/news_agent.py",
+        "target_kind": "tool",
+        "target_name": "fetch_news_articles"
+      },
+      {
+        "agent": "weather_agent",
+        "line": 104,
+        "path": "sub_agents/weather_agent.py",
+        "target_kind": "tool",
+        "target_name": "fetch_weather_info"
+      },
+      {
+        "agent": "weather_agent",
+        "line": 104,
+        "path": "sub_agents/weather_agent.py",
+        "target_kind": "tool",
+        "target_name": "get_current_date_tool"
+      }
+    ],
+    "eligibility_signals": [
+      "multiple_trust_boundaries"
+    ],
+    "limitations": [
+      "reference evaluates static structural validity, not runtime exploitability",
+      "dynamic authority is unresolved unless explicit in pinned source"
+    ],
+    "review_method": "independent dual-pass source reference",
+    "security_relevant_signals": [
+      "multiple_trust_boundaries"
+    ]
+  },
+  "truth_lock": {
+    "horustrace_output_seen": false,
+    "locked_at": "2026-09-26",
+    "reviewed": true,
+    "reviewers": [
+      "independent-source-structural-pass-v1",
+      "independent-source-lexical-crosscheck-v1"
+    ]
+  }
+}

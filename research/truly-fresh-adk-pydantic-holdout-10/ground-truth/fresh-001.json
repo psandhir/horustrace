@@ -1,0 +1,148 @@
+{
+  "assertions": [
+    {
+      "assertion_id": "FRESH-001.A001",
+      "evidence": [
+        {
+          "line": 217,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "proposal_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-001.A002",
+      "evidence": [
+        {
+          "line": 217,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "store_pdf",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "root_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-001.B001",
+      "evidence": [
+        {
+          "line": 217,
+          "path": "agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "store_pdf"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "proposal_agent",
+      "tier": "B"
+    }
+  ],
+  "case_id": "fresh-001",
+  "schema_version": 1,
+  "source_reference": {
+    "application_path": "agent.py",
+    "automated_reference": true,
+    "framework_stratum": "google-adk",
+    "human_dual_review": false,
+    "method_version": "source-reference-v1",
+    "note": "Two independent automated source-review passes are used. This is not represented as human dual-review and is reported as a study limitation.",
+    "repo": "AbiramiSukumaran/adk-renovation-single-agent",
+    "sha": "f1b779be5d1d49093b46102a8440d26830efa07d"
+  },
+  "study": "real-world-agent-security-2026",
+  "tier_a": {
+    "agent_roots": [
+      {
+        "aliases": [
+          "root_agent"
+        ],
+        "kind": "Agent",
+        "line": 217,
+        "name": "proposal_agent",
+        "path": "agent.py",
+        "variable": "root_agent"
+      }
+    ],
+    "delegation_edges": [],
+    "frameworks": [
+      "google-adk"
+    ],
+    "mcp_servers": [],
+    "reference_completeness": {
+      "agent_entities": true,
+      "delegation_edges": true,
+      "mcp_servers": true,
+      "tools": true
+    },
+    "source_files_reviewed": 2,
+    "tools": [
+      {
+        "kind": "agent_tool_reference",
+        "line": 217,
+        "name": "store_pdf",
+        "owner": "root_agent",
+        "path": "agent.py"
+      }
+    ],
+    "unresolved": []
+  },
+  "tier_b": {
+    "attack_path_reference": {
+      "runtime_exploitability": "not_verified",
+      "source_supported_authority_pairs": [
+        {
+          "agent": "proposal_agent",
+          "target_kind": "tool",
+          "target_name": "store_pdf"
+        }
+      ],
+      "structural_only": true
+    },
+    "authority_relationships": [
+      {
+        "agent": "proposal_agent",
+        "line": 217,
+        "path": "agent.py",
+        "target_kind": "tool",
+        "target_name": "store_pdf"
+      }
+    ],
+    "eligibility_signals": [
+      "external_write_or_network",
+      "state_mutation"
+    ],
+    "limitations": [
+      "reference evaluates static structural validity, not runtime exploitability",
+      "dynamic authority is unresolved unless explicit in pinned source"
+    ],
+    "review_method": "independent dual-pass source reference",
+    "security_relevant_signals": [
+      "external_write_or_network",
+      "state_mutation"
+    ]
+  },
+  "truth_lock": {
+    "horustrace_output_seen": false,
+    "locked_at": "2026-09-26",
+    "reviewed": true,
+    "reviewers": [
+      "independent-source-structural-pass-v1",
+      "independent-source-lexical-crosscheck-v1"
+    ]
+  }
+}

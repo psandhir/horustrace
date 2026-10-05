@@ -1,0 +1,112 @@
+{
+  "assertions": [
+    {
+      "assertion_id": "FRESH-004.A001",
+      "evidence": [
+        {
+          "line": 96,
+          "path": "app/agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "shipping_faq_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-004.A002",
+      "evidence": [
+        {
+          "line": 116,
+          "path": "app/agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "customer_support_workflow",
+      "tier": "A"
+    }
+  ],
+  "case_id": "fresh-004",
+  "schema_version": 1,
+  "source_reference": {
+    "application_path": "app/agent.py",
+    "automated_reference": true,
+    "framework_stratum": "google-adk",
+    "human_dual_review": false,
+    "method_version": "source-reference-v1",
+    "note": "Two independent automated source-review passes are used. This is not represented as human dual-review and is reported as a study limitation.",
+    "repo": "pruthvikrishnang/customer-support-agent",
+    "sha": "493a0dc06e4f45ca6471a7d6e376fbf555b8bdd1"
+  },
+  "study": "real-world-agent-security-2026",
+  "tier_a": {
+    "agent_roots": [
+      {
+        "kind": "LlmAgent",
+        "line": 96,
+        "name": "shipping_faq_agent",
+        "path": "app/agent.py",
+        "variable": "shipping_faq_agent"
+      },
+      {
+        "aliases": [
+          "root_agent"
+        ],
+        "kind": "Workflow",
+        "line": 116,
+        "name": "customer_support_workflow",
+        "path": "app/agent.py",
+        "variable": "root_agent"
+      }
+    ],
+    "delegation_edges": [],
+    "frameworks": [
+      "google-adk"
+    ],
+    "mcp_servers": [],
+    "reference_completeness": {
+      "agent_entities": true,
+      "delegation_edges": true,
+      "mcp_servers": true,
+      "tools": true
+    },
+    "source_files_reviewed": 5,
+    "tools": [],
+    "unresolved": []
+  },
+  "tier_b": {
+    "attack_path_reference": {
+      "runtime_exploitability": "not_verified",
+      "source_supported_authority_pairs": [],
+      "structural_only": true
+    },
+    "authority_relationships": [],
+    "eligibility_signals": [
+      "multiple_trust_boundaries"
+    ],
+    "limitations": [
+      "reference evaluates static structural validity, not runtime exploitability",
+      "dynamic authority is unresolved unless explicit in pinned source"
+    ],
+    "review_method": "independent dual-pass source reference",
+    "security_relevant_signals": [
+      "multiple_trust_boundaries"
+    ]
+  },
+  "truth_lock": {
+    "horustrace_output_seen": false,
+    "locked_at": "2026-09-26",
+    "reviewed": true,
+    "reviewers": [
+      "independent-source-structural-pass-v1",
+      "independent-source-lexical-crosscheck-v1"
+    ]
+  }
+}

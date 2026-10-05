@@ -1,0 +1,92 @@
+[
+  {
+    "case_id": "fresh-001",
+    "repo": "AbiramiSukumaran/adk-renovation-single-agent",
+    "sha": "f1b779be5d1d49093b46102a8440d26830efa07d",
+    "application_path": "agent.py",
+    "framework_stratum": "google-adk",
+    "previously_studied": false,
+    "ground_truth": "ground-truth/fresh-001.json"
+  },
+  {
+    "case_id": "fresh-002",
+    "repo": "AbiramiSukumaran/renovation-agent-adk-mcp-toolbox",
+    "sha": "8c0aed21d68d865254b65e667b764fc31af25781",
+    "application_path": "agent.py",
+    "framework_stratum": "google-adk",
+    "previously_studied": false,
+    "ground_truth": "ground-truth/fresh-002.json"
+  },
+  {
+    "case_id": "fresh-003",
+    "repo": "amiitt001/adk-hiring-agent",
+    "sha": "7232ba30820c0370634b97142b0bb72c32d9d065",
+    "application_path": "agent.py",
+    "framework_stratum": "google-adk",
+    "previously_studied": false,
+    "ground_truth": "ground-truth/fresh-003.json"
+  },
+  {
+    "case_id": "fresh-004",
+    "repo": "pruthvikrishnang/customer-support-agent",
+    "sha": "493a0dc06e4f45ca6471a7d6e376fbf555b8bdd1",
+    "application_path": "app/agent.py",
+    "framework_stratum": "google-adk",
+    "previously_studied": false,
+    "ground_truth": "ground-truth/fresh-004.json"
+  },
+  {
+    "case_id": "fresh-005",
+    "repo": "GothiProCoder/Multi-Agent-System-Google-ADK",
+    "sha": "713cd35bf3759becc84ef6bf8958953df3d3f272",
+    "application_path": "agent.py",
+    "framework_stratum": "google-adk",
+    "previously_studied": false,
+    "ground_truth": "ground-truth/fresh-005.json"
+  },
+  {
+    "case_id": "fresh-006",
+    "repo": "mindeye33/speedagent",
+    "sha": "cc42c792ffac8e3c6ee7679dd3eff6f2f84d7c59",
+    "application_path": "agent.py",
+    "framework_stratum": "pydantic-ai",
+    "previously_studied": false,
+    "ground_truth": "ground-truth/fresh-006.json"
+  },
+  {
+    "case_id": "fresh-007",
+    "repo": "newsbubbles/youtube-manager-mcp",
+    "sha": "b429601aa96fa4497084e43863a288c6353de59e",
+    "application_path": "agent.py",
+    "framework_stratum": "pydantic-ai",
+    "previously_studied": false,
+    "ground_truth": "ground-truth/fresh-007.json"
+  },
+  {
+    "case_id": "fresh-008",
+    "repo": "gtsbahamas/text-moderation",
+    "sha": "decb6d85be0afe5bf08d222b519b33cf15e45064",
+    "application_path": "agent.py",
+    "framework_stratum": "pydantic-ai",
+    "previously_studied": false,
+    "ground_truth": "ground-truth/fresh-008.json"
+  },
+  {
+    "case_id": "fresh-009",
+    "repo": "newsbubbles/pharmiq",
+    "sha": "c69949739647a47ec8339b473bdf578c8cf8bfd9",
+    "application_path": "agent.py",
+    "framework_stratum": "pydantic-ai",
+    "previously_studied": false,
+    "ground_truth": "ground-truth/fresh-009.json"
+  },
+  {
+    "case_id": "fresh-010",
+    "repo": "ArhamMirza/AI-Budget-CSV-Manager",
+    "sha": "44dc9e7df8c007d813d88810ec6e347086527b66",
+    "application_path": "agent.py",
+    "framework_stratum": "pydantic-ai",
+    "previously_studied": false,
+    "ground_truth": "ground-truth/fresh-010.json"
+  }
+]

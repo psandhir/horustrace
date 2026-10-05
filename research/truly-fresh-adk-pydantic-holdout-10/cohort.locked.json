@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "study": "truly-fresh-adk-pydantic-holdout-10",
+  "phase": "ground_truth_locked",
+  "scanner_freeze_sha": "e0639c218867d3f2f4adc315831c48f4a7f59e68",
+  "horustrace_results_used_for_selection": false,
+  "cohort_frozen": true,
+  "ground_truth_locked": true,
+  "cases": [
+    {
+      "case_id": "fresh-001",
+      "repo": "AbiramiSukumaran/adk-renovation-single-agent",
+      "sha": "f1b779be5d1d49093b46102a8440d26830efa07d",
+      "application_path": "agent.py",
+      "framework_stratum": "google-adk",
+      "previously_studied": false,
+      "ground_truth": "ground-truth/fresh-001.json"
+    },
+    {
+      "case_id": "fresh-002",
+      "repo": "AbiramiSukumaran/renovation-agent-adk-mcp-toolbox",
+      "sha": "8c0aed21d68d865254b65e667b764fc31af25781",
+      "application_path": "agent.py",
+      "framework_stratum": "google-adk",
+      "previously_studied": false,
+      "ground_truth": "ground-truth/fresh-002.json"
+    },
+    {
+      "case_id": "fresh-003",
+      "repo": "amiitt001/adk-hiring-agent",
+      "sha": "7232ba30820c0370634b97142b0bb72c32d9d065",
+      "application_path": "agent.py",
+      "framework_stratum": "google-adk",
+      "previously_studied": false,
+      "ground_truth": "ground-truth/fresh-003.json"
+    },
+    {
+      "case_id": "fresh-004",
+      "repo": "pruthvikrishnang/customer-support-agent",
+      "sha": "493a0dc06e4f45ca6471a7d6e376fbf555b8bdd1",
+      "application_path": "app/agent.py",
+      "framework_stratum": "google-adk",
+      "previously_studied": false,
+      "ground_truth": "ground-truth/fresh-004.json"
+    },
+    {
+      "case_id": "fresh-005",
+      "repo": "GothiProCoder/Multi-Agent-System-Google-ADK",
+      "sha": "713cd35bf3759becc84ef6bf8958953df3d3f272",
+      "application_path": "agent.py",
+      "framework_stratum": "google-adk",
+      "previously_studied": false,
+      "ground_truth": "ground-truth/fresh-005.json"
+    },
+    {
+      "case_id": "fresh-006",
+      "repo": "mindeye33/speedagent",
+      "sha": "cc42c792ffac8e3c6ee7679dd3eff6f2f84d7c59",
+      "application_path": "agent.py",
+      "framework_stratum": "pydantic-ai",
+      "previously_studied": false,
+      "ground_truth": "ground-truth/fresh-006.json"
+    },
+    {
+      "case_id": "fresh-007",
+      "repo": "newsbubbles/youtube-manager-mcp",
+      "sha": "b429601aa96fa4497084e43863a288c6353de59e",
+      "application_path": "agent.py",
+      "framework_stratum": "pydantic-ai",
+      "previously_studied": false,
+      "ground_truth": "ground-truth/fresh-007.json"
+    },
+    {
+      "case_id": "fresh-008",
+      "repo": "gtsbahamas/text-moderation",
+      "sha": "decb6d85be0afe5bf08d222b519b33cf15e45064",
+      "application_path": "agent.py",
+      "framework_stratum": "pydantic-ai",
+      "previously_studied": false,
+      "ground_truth": "ground-truth/fresh-008.json"
+    },
+    {
+      "case_id": "fresh-009",
+      "repo": "newsbubbles/pharmiq",
+      "sha": "c69949739647a47ec8339b473bdf578c8cf8bfd9",
+      "application_path": "agent.py",
+      "framework_stratum": "pydantic-ai",
+      "previously_studied": false,
+      "ground_truth": "ground-truth/fresh-009.json"
+    },
+    {
+      "case_id": "fresh-010",
+      "repo": "ArhamMirza/AI-Budget-CSV-Manager",
+      "sha": "44dc9e7df8c007d813d88810ec6e347086527b66",
+      "application_path": "agent.py",
+      "framework_stratum": "pydantic-ai",
+      "previously_studied": false,
+      "ground_truth": "ground-truth/fresh-010.json"
+    }
+  ],
+  "tier_b_case_ids": [
+    "fresh-001",
+    "fresh-002",
+    "fresh-003",
+    "fresh-004",
+    "fresh-005",
+    "fresh-006",
+    "fresh-007",
+    "fresh-008",
+    "fresh-009",
+    "fresh-010"
+  ],
+  "tier_c_case_ids": [],
+  "study_slice": {
+    "name": "truly-fresh-adk-pydantic-holdout-10",
+    "selection": "5 Google ADK + 5 native Pydantic AI repositories discovered live outside the entire prior frozen-180 corpus; exact SHAs frozen before HorusScan execution."
+  },
+  "ground_truth_reference": {
+    "method_version": "source-reference-v1",
+    "locked_at": "2026-09-26",
+    "automated_dual_pass": true,
+    "human_dual_review": false,
+    "summary": {
+      "cases": 10,
+      "fetch_failures": 0,
+      "assertions": 88,
+      "explicit_agent_entities": 21,
+      "explicit_tools": 47,
+      "explicit_mcp_servers": 0,
+      "explicit_delegation_edges": 2,
+      "agent_complete_cases": 8
+    },
+    "limitations": [
+      "automated source reference is not a substitute for independent human dual adjudication",
+      "precision is reported only where reference completeness is explicitly established",
+      "dynamic/runtime constructs remain unresolved"
+    ]
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "assertions": [
+    {
+      "assertion_id": "FRESH-002.A001",
+      "evidence": [
+        {
+          "line": 37,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "root_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-002.A002",
+      "evidence": [
+        {
+          "line": 37,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "get_order_status_by_name",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "root_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-002.B001",
+      "evidence": [
+        {
+          "line": 37,
+          "path": "agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "get_order_status_by_name"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "root_agent",
+      "tier": "B"
+    }
+  ],
+  "case_id": "fresh-002",
+  "schema_version": 1,
+  "source_reference": {
+    "application_path": "agent.py",
+    "automated_reference": true,
+    "framework_stratum": "google-adk",
+    "human_dual_review": false,
+    "method_version": "source-reference-v1",
+    "note": "Two independent automated source-review passes are used. This is not represented as human dual-review and is reported as a study limitation.",
+    "repo": "AbiramiSukumaran/renovation-agent-adk-mcp-toolbox",
+    "sha": "8c0aed21d68d865254b65e667b764fc31af25781"
+  },
+  "study": "real-world-agent-security-2026",
+  "tier_a": {
+    "agent_roots": [
+      {
+        "kind": "Agent",
+        "line": 37,
+        "name": "root_agent",
+        "path": "agent.py",
+        "variable": "root_agent"
+      }
+    ],
+    "delegation_edges": [],
+    "frameworks": [
+      "google-adk"
+    ],
+    "mcp_servers": [],
+    "reference_completeness": {
+      "agent_entities": true,
+      "delegation_edges": true,
+      "mcp_servers": true,
+      "tools": true
+    },
+    "source_files_reviewed": 1,
+    "tools": [
+      {
+        "kind": "agent_tool_reference",
+        "line": 37,
+        "name": "get_order_status_by_name",
+        "owner": "root_agent",
+        "path": "agent.py"
+      }
+    ],
+    "unresolved": []
+  },
+  "tier_b": {
+    "attack_path_reference": {
+      "runtime_exploitability": "not_verified",
+      "source_supported_authority_pairs": [
+        {
+          "agent": "root_agent",
+          "target_kind": "tool",
+          "target_name": "get_order_status_by_name"
+        }
+      ],
+      "structural_only": true
+    },
+    "authority_relationships": [
+      {
+        "agent": "root_agent",
+        "line": 37,
+        "path": "agent.py",
+        "target_kind": "tool",
+        "target_name": "get_order_status_by_name"
+      }
+    ],
+    "eligibility_signals": [
+      "external_write_or_network"
+    ],
+    "limitations": [
+      "reference evaluates static structural validity, not runtime exploitability",
+      "dynamic authority is unresolved unless explicit in pinned source"
+    ],
+    "review_method": "independent dual-pass source reference",
+    "security_relevant_signals": [
+      "external_write_or_network"
+    ]
+  },
+  "truth_lock": {
+    "horustrace_output_seen": false,
+    "locked_at": "2026-09-26",
+    "reviewed": true,
+    "reviewers": [
+      "independent-source-structural-pass-v1",
+      "independent-source-lexical-crosscheck-v1"
+    ]
+  }
+}

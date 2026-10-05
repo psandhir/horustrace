@@ -1,0 +1,492 @@
+{
+  "assertions": [
+    {
+      "assertion_id": "FRESH-003.A001",
+      "evidence": [
+        {
+          "line": 51,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "ConversationalHiringOrchestrator",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-003.A002",
+      "evidence": [
+        {
+          "line": 20,
+          "path": "tools_agents.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "RubricBuilder",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-003.A003",
+      "evidence": [
+        {
+          "line": 112,
+          "path": "tools_agents.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "ResumeReviewer",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-003.A004",
+      "evidence": [
+        {
+          "line": 384,
+          "path": "tools_agents.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "GitHubValidatorAgent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-003.A005",
+      "evidence": [
+        {
+          "line": 499,
+          "path": "tools_agents.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "GitHubReviewer",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-003.A006",
+      "evidence": [
+        {
+          "line": 678,
+          "path": "tools_agents.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "google-adk",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "VerdictSynthesizer",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-003.A007",
+      "evidence": [
+        {
+          "line": 51,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "github_eval_tool",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "root_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-003.A008",
+      "evidence": [
+        {
+          "line": 51,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "github_validate_tool",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "root_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-003.A009",
+      "evidence": [
+        {
+          "line": 51,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "resume_eval_tool",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "root_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-003.A010",
+      "evidence": [
+        {
+          "line": 51,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "rubric_tool",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "root_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-003.A011",
+      "evidence": [
+        {
+          "line": 51,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "verdict_tool",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "root_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-003.B001",
+      "evidence": [
+        {
+          "line": 51,
+          "path": "agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "github_eval_tool"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "ConversationalHiringOrchestrator",
+      "tier": "B"
+    },
+    {
+      "assertion_id": "FRESH-003.B002",
+      "evidence": [
+        {
+          "line": 51,
+          "path": "agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "github_validate_tool"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "ConversationalHiringOrchestrator",
+      "tier": "B"
+    },
+    {
+      "assertion_id": "FRESH-003.B003",
+      "evidence": [
+        {
+          "line": 51,
+          "path": "agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "resume_eval_tool"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "ConversationalHiringOrchestrator",
+      "tier": "B"
+    },
+    {
+      "assertion_id": "FRESH-003.B004",
+      "evidence": [
+        {
+          "line": 51,
+          "path": "agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "rubric_tool"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "ConversationalHiringOrchestrator",
+      "tier": "B"
+    },
+    {
+      "assertion_id": "FRESH-003.B005",
+      "evidence": [
+        {
+          "line": 51,
+          "path": "agent.py",
+          "rationale": "The tool is explicitly bound to the source-reviewed agent."
+        }
+      ],
+      "expected_state": "present",
+      "object": {
+        "kind": "tool",
+        "name": "verdict_tool"
+      },
+      "predicate": "can_invoke",
+      "rationale": "The tool is explicitly bound to the source-reviewed agent.",
+      "subject": "ConversationalHiringOrchestrator",
+      "tier": "B"
+    }
+  ],
+  "case_id": "fresh-003",
+  "schema_version": 1,
+  "source_reference": {
+    "application_path": "agent.py",
+    "automated_reference": true,
+    "framework_stratum": "google-adk",
+    "human_dual_review": false,
+    "method_version": "source-reference-v1",
+    "note": "Two independent automated source-review passes are used. This is not represented as human dual-review and is reported as a study limitation.",
+    "repo": "amiitt001/adk-hiring-agent",
+    "sha": "7232ba30820c0370634b97142b0bb72c32d9d065"
+  },
+  "study": "real-world-agent-security-2026",
+  "tier_a": {
+    "agent_roots": [
+      {
+        "aliases": [
+          "root_agent"
+        ],
+        "kind": "LlmAgent",
+        "line": 51,
+        "name": "ConversationalHiringOrchestrator",
+        "path": "agent.py",
+        "variable": "root_agent"
+      },
+      {
+        "aliases": [
+          "rubric_builder"
+        ],
+        "kind": "LlmAgent",
+        "line": 20,
+        "name": "RubricBuilder",
+        "path": "tools_agents.py",
+        "variable": "rubric_builder"
+      },
+      {
+        "aliases": [
+          "resume_reviewer"
+        ],
+        "kind": "LlmAgent",
+        "line": 112,
+        "name": "ResumeReviewer",
+        "path": "tools_agents.py",
+        "variable": "resume_reviewer"
+      },
+      {
+        "aliases": [
+          "github_validator_agent"
+        ],
+        "kind": "LlmAgent",
+        "line": 384,
+        "name": "GitHubValidatorAgent",
+        "path": "tools_agents.py",
+        "variable": "github_validator_agent"
+      },
+      {
+        "aliases": [
+          "github_reviewer"
+        ],
+        "kind": "LlmAgent",
+        "line": 499,
+        "name": "GitHubReviewer",
+        "path": "tools_agents.py",
+        "variable": "github_reviewer"
+      },
+      {
+        "aliases": [
+          "verdict_synthesizer"
+        ],
+        "kind": "LlmAgent",
+        "line": 678,
+        "name": "VerdictSynthesizer",
+        "path": "tools_agents.py",
+        "variable": "verdict_synthesizer"
+      }
+    ],
+    "delegation_edges": [],
+    "frameworks": [
+      "google-adk"
+    ],
+    "mcp_servers": [],
+    "reference_completeness": {
+      "agent_entities": true,
+      "delegation_edges": true,
+      "mcp_servers": true,
+      "tools": true
+    },
+    "source_files_reviewed": 4,
+    "tools": [
+      {
+        "kind": "agent_tool_reference",
+        "line": 51,
+        "name": "github_eval_tool",
+        "owner": "root_agent",
+        "path": "agent.py"
+      },
+      {
+        "kind": "agent_tool_reference",
+        "line": 51,
+        "name": "github_validate_tool",
+        "owner": "root_agent",
+        "path": "agent.py"
+      },
+      {
+        "kind": "agent_tool_reference",
+        "line": 51,
+        "name": "resume_eval_tool",
+        "owner": "root_agent",
+        "path": "agent.py"
+      },
+      {
+        "kind": "agent_tool_reference",
+        "line": 51,
+        "name": "rubric_tool",
+        "owner": "root_agent",
+        "path": "agent.py"
+      },
+      {
+        "kind": "agent_tool_reference",
+        "line": 51,
+        "name": "verdict_tool",
+        "owner": "root_agent",
+        "path": "agent.py"
+      }
+    ],
+    "unresolved": []
+  },
+  "tier_b": {
+    "attack_path_reference": {
+      "runtime_exploitability": "not_verified",
+      "source_supported_authority_pairs": [
+        {
+          "agent": "ConversationalHiringOrchestrator",
+          "target_kind": "tool",
+          "target_name": "github_eval_tool"
+        },
+        {
+          "agent": "ConversationalHiringOrchestrator",
+          "target_kind": "tool",
+          "target_name": "github_validate_tool"
+        },
+        {
+          "agent": "ConversationalHiringOrchestrator",
+          "target_kind": "tool",
+          "target_name": "resume_eval_tool"
+        },
+        {
+          "agent": "ConversationalHiringOrchestrator",
+          "target_kind": "tool",
+          "target_name": "rubric_tool"
+        },
+        {
+          "agent": "ConversationalHiringOrchestrator",
+          "target_kind": "tool",
+          "target_name": "verdict_tool"
+        }
+      ],
+      "structural_only": true
+    },
+    "authority_relationships": [
+      {
+        "agent": "ConversationalHiringOrchestrator",
+        "line": 51,
+        "path": "agent.py",
+        "target_kind": "tool",
+        "target_name": "github_eval_tool"
+      },
+      {
+        "agent": "ConversationalHiringOrchestrator",
+        "line": 51,
+        "path": "agent.py",
+        "target_kind": "tool",
+        "target_name": "github_validate_tool"
+      },
+      {
+        "agent": "ConversationalHiringOrchestrator",
+        "line": 51,
+        "path": "agent.py",
+        "target_kind": "tool",
+        "target_name": "resume_eval_tool"
+      },
+      {
+        "agent": "ConversationalHiringOrchestrator",
+        "line": 51,
+        "path": "agent.py",
+        "target_kind": "tool",
+        "target_name": "rubric_tool"
+      },
+      {
+        "agent": "ConversationalHiringOrchestrator",
+        "line": 51,
+        "path": "agent.py",
+        "target_kind": "tool",
+        "target_name": "verdict_tool"
+      }
+    ],
+    "eligibility_signals": [
+      "multiple_trust_boundaries"
+    ],
+    "limitations": [
+      "reference evaluates static structural validity, not runtime exploitability",
+      "dynamic authority is unresolved unless explicit in pinned source"
+    ],
+    "review_method": "independent dual-pass source reference",
+    "security_relevant_signals": [
+      "multiple_trust_boundaries"
+    ]
+  },
+  "truth_lock": {
+    "horustrace_output_seen": false,
+    "locked_at": "2026-09-26",
+    "reviewed": true,
+    "reviewers": [
+      "independent-source-structural-pass-v1",
+      "independent-source-lexical-crosscheck-v1"
+    ]
+  }
+}

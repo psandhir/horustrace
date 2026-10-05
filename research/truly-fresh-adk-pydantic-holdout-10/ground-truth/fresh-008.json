@@ -1,0 +1,134 @@
+{
+  "assertions": [
+    {
+      "assertion_id": "FRESH-008.A001",
+      "evidence": [
+        {
+          "line": 39,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit agent/workflow construction."
+        }
+      ],
+      "expected_state": "present",
+      "object": "pydantic-ai",
+      "predicate": "explicit_agent_entity",
+      "rationale": "Independent source review found an explicit agent/workflow construction.",
+      "subject": "text_moderation_agent",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-008.A002",
+      "evidence": [
+        {
+          "line": 46,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "analyze_text",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "fresh-008",
+      "tier": "A"
+    },
+    {
+      "assertion_id": "FRESH-008.A003",
+      "evidence": [
+        {
+          "line": 84,
+          "path": "agent.py",
+          "rationale": "Independent source review found an explicit tool definition or bound tool reference."
+        }
+      ],
+      "expected_state": "present",
+      "object": "get_moderation_recommendation",
+      "predicate": "explicit_tool_reference",
+      "rationale": "Independent source review found an explicit tool definition or bound tool reference.",
+      "subject": "fresh-008",
+      "tier": "A"
+    }
+  ],
+  "case_id": "fresh-008",
+  "schema_version": 1,
+  "source_reference": {
+    "application_path": "agent.py",
+    "automated_reference": true,
+    "framework_stratum": "pydantic-ai",
+    "human_dual_review": false,
+    "method_version": "source-reference-v1",
+    "note": "Two independent automated source-review passes are used. This is not represented as human dual-review and is reported as a study limitation.",
+    "repo": "gtsbahamas/text-moderation",
+    "sha": "decb6d85be0afe5bf08d222b519b33cf15e45064"
+  },
+  "study": "real-world-agent-security-2026",
+  "tier_a": {
+    "agent_roots": [
+      {
+        "kind": "Agent",
+        "line": 39,
+        "name": "text_moderation_agent",
+        "path": "agent.py",
+        "variable": "text_moderation_agent"
+      }
+    ],
+    "delegation_edges": [],
+    "frameworks": [
+      "pydantic-ai"
+    ],
+    "mcp_servers": [],
+    "reference_completeness": {
+      "agent_entities": false,
+      "delegation_edges": false,
+      "mcp_servers": false,
+      "tools": false
+    },
+    "source_files_reviewed": 1,
+    "tools": [
+      {
+        "kind": "lexical:tool",
+        "line": 46,
+        "name": "analyze_text",
+        "path": "agent.py"
+      },
+      {
+        "kind": "lexical:tool",
+        "line": 84,
+        "name": "get_moderation_recommendation",
+        "path": "agent.py"
+      }
+    ],
+    "unresolved": [
+      "agent.py:python_ast_parse_failed",
+      "agent_ast_lexical_crosscheck_disagreement"
+    ]
+  },
+  "tier_b": {
+    "attack_path_reference": {
+      "runtime_exploitability": "not_verified",
+      "source_supported_authority_pairs": [],
+      "structural_only": true
+    },
+    "authority_relationships": [],
+    "eligibility_signals": [
+      "external_write_or_network"
+    ],
+    "limitations": [
+      "reference evaluates static structural validity, not runtime exploitability",
+      "dynamic authority is unresolved unless explicit in pinned source"
+    ],
+    "review_method": "independent dual-pass source reference",
+    "security_relevant_signals": [
+      "external_write_or_network"
+    ]
+  },
+  "truth_lock": {
+    "horustrace_output_seen": false,
+    "locked_at": "2026-09-26",
+    "reviewed": true,
+    "reviewers": [
+      "independent-source-structural-pass-v1",
+      "independent-source-lexical-crosscheck-v1"
+    ]
+  }
+}
