@@ -206,12 +206,13 @@ def _scan_target(
 
     checks: dict[str, bool] = {
         "scan_completed": True,
-        "skill_inventory_present": bool(bound or unbound),
         "semantic_findings_require_bound_skill": not semantic_findings or bool(bound),
     }
     if kind == "catalog":
+        checks["skill_inventory_present"] = bool(bound or unbound)
         checks["catalog_skills_discovered"] = bool(unbound or bound)
     elif kind == "bound_sample":
+        checks["skill_inventory_present"] = bool(bound or unbound)
         checks["bound_skill_discovered"] = bool(bound)
         checks["skill_authority_relationship_projected"] = bool(skill_relationships)
     elif kind == "dynamic_remote_sample":
