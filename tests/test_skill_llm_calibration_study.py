@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from horustrace.skill_llm_semantics import SKILL_SECURITY_CONCEPTS
 from scripts.skill_llm_calibration_study import (
     load_cohort,
     score_results,
 )
-from horustrace.skill_llm_semantics import SKILL_SECURITY_CONCEPTS
 
 
 def _semantics(
