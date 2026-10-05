@@ -2176,6 +2176,7 @@ def _agent_from_call(
             "agent_type": agent_type,
             "repository_resolved": True,
             "custom_base_agent": custom_ref is not None,
+            "source_alias": alias,
         },
     )
     if alias == "root_agent":
@@ -2423,6 +2424,42 @@ def enrich_repository_graph(
                         metadata={"inferred": True},
                     )
                 )
+
+    # File-level analysis can conservatively retain an unresolved source alias
+    # (for example `custom`) before repository enrichment resolves an imported
+    # custom agent to its runtime name (for example `imported_orchestrator`).
+    # Reconcile only globally unambiguous aliases so the normalized topology does
+    # not contain both the stale alias and the resolved runtime target.
+    alias_targets: dict[str, set[str]] = {}
+    for agent in graph.agents:
+        source_alias = agent.metadata.get("source_alias")
+        if (
+            isinstance(source_alias, str)
+            and source_alias
+            and source_alias != agent.name
+        ):
+            alias_targets.setdefault(source_alias, set()).add(agent.name)
+
+    unambiguous_aliases = {
+        alias: next(iter(targets))
+        for alias, targets in alias_targets.items()
+        if len(targets) == 1
+    }
+    if unambiguous_aliases:
+        for agent in graph.agents:
+            delegates = agent.metadata.get("delegates_to")
+            if not isinstance(delegates, list):
+                continue
+            normalized: list[str] = []
+            for target in delegates:
+                target_name = str(target)
+                target_name = unambiguous_aliases.get(target_name, target_name)
+                if target_name not in normalized:
+                    normalized.append(target_name)
+            if normalized:
+                agent.metadata["delegates_to"] = normalized
+            else:
+                agent.metadata.pop("delegates_to", None)
 
     resolved_keys = {(path.resolve(), line) for path, line in resolved_refs}
     graph.coverage.diagnostics = [
