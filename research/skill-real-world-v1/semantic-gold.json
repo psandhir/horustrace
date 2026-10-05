@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "study": "skill-real-world-v1",
+  "source_repo": "google/adk-python",
+  "source_sha": "ec7756b969bd2f3df64ffedde98e396ee6d5a589",
+  "prompt_version": "skill-security-semantics-v1",
+  "adjudication_model": "GPT-5.6 Sol in-chat",
+  "expected_semantic_concepts": [
+    {
+      "sample": "skills_agent",
+      "skill": "greeting-skill",
+      "expected_concepts": [],
+      "note": "Reads a local greeting reference and returns a greeting."
+    },
+    {
+      "sample": "skills_agent",
+      "skill": "weather-skill",
+      "expected_concepts": [],
+      "note": "Reads local weather reference, may run a humidity script and invoke the explicitly activated wind-speed tool; process/tool use is authority/action intent, not one of the 12 risky semantic concepts."
+    },
+    {
+      "sample": "skills_inject_state",
+      "skill": "code-review-skill",
+      "expected_concepts": [],
+      "note": "Uses injected session-state profile to tailor a benign code review."
+    },
+    {
+      "sample": "local_env_skill_toolset",
+      "skill": "text-skill",
+      "expected_concepts": [],
+      "note": "Runs a local shell formatting script; process execution alone is not a risky semantic concept."
+    },
+    {
+      "sample": "local_env_skill_toolset",
+      "skill": "calc-skill",
+      "expected_concepts": [],
+      "note": "Runs a local Python arithmetic script; process execution alone is not a risky semantic concept."
+    },
+    {
+      "sample": "e2b_env_skill_toolset",
+      "skill": "text-skill",
+      "expected_concepts": [],
+      "note": "Same benign formatting intent, executed in a remote E2B sandbox."
+    },
+    {
+      "sample": "e2b_env_skill_toolset",
+      "skill": "calc-skill",
+      "expected_concepts": [],
+      "note": "Same benign arithmetic intent, executed in a remote E2B sandbox."
+    }
+  ],
+  "dynamic_remote_expectation": {
+    "sample": "skills_agent_gcs",
+    "expected": "unresolved_skill",
+    "rationale": "Skills are enumerated and loaded dynamically from a GCS bucket, so repository source cannot enumerate the runtime catalogue."
+  },
+  "architectural_expectation": "Powerful execution authority must not itself create SKL020-SKL030 semantic findings. Semantic findings require a classified behavioral concept, while authority remains deterministic/source-proven."
+}
