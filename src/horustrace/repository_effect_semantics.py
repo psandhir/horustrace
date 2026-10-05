@@ -25,6 +25,7 @@ class _ModuleInfo:
     path: Path
     tree: ast.AST
     functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef]
+    classes: dict[str, ast.ClassDef]
     wrappers: dict[str, str]
     imports: dict[str, tuple[str, str]]
     module_aliases: dict[str, str]
@@ -168,6 +169,11 @@ def _build_modules(root: Path, python_paths: list[Path]) -> dict[str, _ModuleInf
             for node in ast.walk(tree)
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         }
+        classes = {
+            node.name: node
+            for node in getattr(tree, "body", [])
+            if isinstance(node, ast.ClassDef)
+        }
         wrappers: dict[str, str] = {}
         imports: dict[str, tuple[str, str]] = {}
         module_aliases: dict[str, str] = {}
@@ -237,6 +243,7 @@ def _build_modules(root: Path, python_paths: list[Path]) -> dict[str, _ModuleInf
             path=path,
             tree=tree,
             functions=functions,
+            classes=classes,
             wrappers=wrappers,
             imports=imports,
             module_aliases=module_aliases,
@@ -248,7 +255,236 @@ def _build_modules(root: Path, python_paths: list[Path]) -> dict[str, _ModuleInf
     return modules
 
 
+def _module_info_by_name(
+    modules: dict[str, _ModuleInfo],
+    module: str,
+) -> tuple[str, _ModuleInfo] | None:
+    """Resolve exact or uniquely suffix-qualified repository modules."""
+    if module in modules:
+        return module, modules[module]
+    matches = [
+        (name, info)
+        for name, info in modules.items()
+        if name.endswith(f".{module}") or module.endswith(f".{name}")
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _annotation_type_name(node: ast.AST | None) -> str | None:
+    """Return one concrete source-visible type name from a Python annotation."""
+    if node is None:
+        return None
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        dotted = _dotted(node)
+        return dotted.rsplit(".", 1)[-1] if dotted else node.attr
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value.rsplit(".", 1)[-1]
+    if isinstance(node, ast.Subscript):
+        value = _call_leaf(node.value) or ""
+        if value in {"Annotated", "Optional", "Required", "NotRequired"}:
+            target = node.slice
+            if isinstance(target, (ast.Tuple, ast.List)) and target.elts:
+                target = target.elts[0]
+            return _annotation_type_name(target)
+        return _annotation_type_name(node.slice)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        left = _annotation_type_name(node.left)
+        right = _annotation_type_name(node.right)
+        if left not in {None, "None", "NoneType"}:
+            return left
+        if right not in {None, "None", "NoneType"}:
+            return right
+    if isinstance(node, (ast.Tuple, ast.List)):
+        for item in node.elts:
+            value = _annotation_type_name(item)
+            if value not in {None, "None", "NoneType"}:
+                return value
+    return None
+
+
+def _resolve_class(
+    modules: dict[str, _ModuleInfo],
+    module: str,
+    info: _ModuleInfo,
+    class_name: str,
+) -> tuple[str, _ModuleInfo, ast.ClassDef] | None:
+    local = info.classes.get(class_name)
+    if local is not None:
+        return module, info, local
+
+    imported = info.imports.get(class_name)
+    if imported and imported[1]:
+        target = _module_info_by_name(modules, imported[0])
+        if target is not None:
+            target_name, target_info = target
+            cls = target_info.classes.get(imported[1])
+            if cls is not None:
+                return target_name, target_info, cls
+
+    matches = [
+        (name, candidate, cls)
+        for name, candidate in modules.items()
+        for cls_name, cls in candidate.classes.items()
+        if cls_name == class_name
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _run_context_dependency(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> tuple[str, str] | None:
+    for parameter in [
+        *function.args.posonlyargs,
+        *function.args.args,
+        *function.args.kwonlyargs,
+    ]:
+        annotation = parameter.annotation
+        if not isinstance(annotation, ast.Subscript):
+            continue
+        base = (_dotted(annotation.value) or _call_leaf(annotation.value) or "").rsplit(".", 1)[-1]
+        if base != "RunContext":
+            continue
+        dependency_type = _annotation_type_name(annotation.slice)
+        if dependency_type:
+            return parameter.arg, dependency_type
+    return None
+
+
+def _class_field_type(
+    cls: ast.ClassDef,
+    field_name: str,
+) -> str | None:
+    for statement in cls.body:
+        if (
+            isinstance(statement, ast.AnnAssign)
+            and isinstance(statement.target, ast.Name)
+            and statement.target.id == field_name
+        ):
+            return _annotation_type_name(statement.annotation)
+
+    init = next(
+        (
+            node
+            for node in cls.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == "__init__"
+        ),
+        None,
+    )
+    if init is None:
+        return None
+    for statement in ast.walk(init):
+        if isinstance(statement, ast.AnnAssign):
+            target = statement.target
+            if (
+                isinstance(target, ast.Attribute)
+                and isinstance(target.value, ast.Name)
+                and target.value.id == "self"
+                and target.attr == field_name
+            ):
+                value = _annotation_type_name(statement.annotation)
+                if value:
+                    return value
+        if isinstance(statement, (ast.Assign, ast.AnnAssign)) and statement.value is not None:
+            targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+            if not any(
+                isinstance(target, ast.Attribute)
+                and isinstance(target.value, ast.Name)
+                and target.value.id == "self"
+                and target.attr == field_name
+                for target in targets
+            ):
+                continue
+            if isinstance(statement.value, ast.Call):
+                value = _call_leaf(statement.value.func)
+                if value:
+                    return value
+    return None
+
+
+def _class_method_is_unambiguous(
+    info: _ModuleInfo,
+    cls: ast.ClassDef,
+    method_name: str,
+) -> bool:
+    method = next(
+        (
+            node
+            for node in cls.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == method_name
+        ),
+        None,
+    )
+    if method is None:
+        return False
+    matches = [
+        node
+        for node in ast.walk(info.tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == method_name
+    ]
+    return len(matches) == 1 and matches[0] is method and info.functions.get(method_name) is method
+
+
+def _pydantic_dependency_method_target(
+    modules: dict[str, _ModuleInfo],
+    module: str,
+    info: _ModuleInfo,
+    call: ast.Call,
+    *,
+    function_name: str | None,
+) -> tuple[str, str] | None:
+    """Resolve ctx.deps.<field>.<method>() through source-visible RunContext types."""
+    if not function_name:
+        return None
+    function = info.functions.get(function_name)
+    if function is None:
+        return None
+    dependency = _run_context_dependency(function)
+    if dependency is None:
+        return None
+
+    dotted = _dotted(call.func)
+    if not dotted:
+        return None
+    parts = dotted.split(".")
+    context_name, dependency_type = dependency
+    if len(parts) != 4 or parts[0] != context_name or parts[1] != "deps":
+        return None
+    field_name, method_name = parts[2], parts[3]
+
+    resolved_dependency = _resolve_class(
+        modules,
+        module,
+        info,
+        dependency_type,
+    )
+    if resolved_dependency is None:
+        return None
+    dependency_module, dependency_info, dependency_class = resolved_dependency
+    field_type = _class_field_type(dependency_class, field_name)
+    if not field_type:
+        return None
+
+    resolved_field = _resolve_class(
+        modules,
+        dependency_module,
+        dependency_info,
+        field_type,
+    )
+    if resolved_field is None:
+        return None
+    field_module, field_info, field_class = resolved_field
+    if not _class_method_is_unambiguous(field_info, field_class, method_name):
+        return None
+    return field_module, method_name
+
+
 def _call_target(
+    modules: dict[str, _ModuleInfo],
     module: str,
     info: _ModuleInfo,
     call: ast.Call,
@@ -291,6 +527,16 @@ def _call_target(
     imported_module = local_module_aliases.get(root) or info.module_aliases.get(root)
     if imported_module and rest and "." not in rest:
         return imported_module, rest
+
+    dependency_target = _pydantic_dependency_method_target(
+        modules,
+        module,
+        info,
+        call,
+        function_name=function_name,
+    )
+    if dependency_target is not None:
+        return dependency_target
     return None
 
 
@@ -1122,6 +1368,7 @@ def _summarize_function(
             ),
         )
         target = _call_target(
+            modules,
             module,
             info,
             call,
@@ -1181,6 +1428,7 @@ def _has_cross_module_call(
 
     for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
         target = _call_target(
+            modules,
             module,
             info,
             call,
