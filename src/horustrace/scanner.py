@@ -115,6 +115,7 @@ from horustrace.rules.builtin import evaluate
 from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
 from horustrace.runtime_viability import annotate_runtime_viability
 from horustrace.semantics import annotate_risk_semantics
+from horustrace.skills import SKILL_FILENAME, bind_discovered_skills, scan_skill_file
 from horustrace.source_context import classify_source_context, path_parts_match
 from horustrace.source_provenance import annotate_tool_source_provenance
 from horustrace.strands_repository import enrich_strands_repository_graph
@@ -1188,6 +1189,7 @@ def _is_microsoft_authority_json(path: Path) -> bool:
 def _is_supported_scan_candidate(path: Path) -> bool:
     return (
         path.suffix.lower() in {".py", ".ipynb", ".cs", ".tf", ".yaml", ".yml"}
+        or path.name == SKILL_FILENAME
         or is_amazon_strands_typescript_file(path)
         or is_claude_agent_sdk_typescript_file(path)
         or path.name
@@ -1344,6 +1346,7 @@ def _merge(target: Graph, source: Graph, path: Path) -> None:
         agent.tools = deepcopy(agent.tools)
     target.agents.extend(source.agents)
     target.unbound_tools.extend(source.unbound_tools)
+    target.unbound_skills.extend(source.unbound_skills)
     target.unbound_mcp_servers.extend(source.unbound_mcp_servers)
     target.identities.extend(source.identities)
     for diagnostic in source.coverage.diagnostics:
@@ -1410,6 +1413,22 @@ def _merge_agent(existing: Agent, incoming: Agent) -> None:
         else:
             _merge_tool(current, tool)
 
+    skill_keys = {
+        (
+            skill.name,
+            str(skill.location.path.resolve()) if skill.location else "",
+        )
+        for skill in existing.skills
+    }
+    for skill in incoming.skills:
+        key = (
+            skill.name,
+            str(skill.location.path.resolve()) if skill.location else "",
+        )
+        if key not in skill_keys:
+            existing.skills.append(skill)
+            skill_keys.add(key)
+
     source_keys = {
         (s.name, s.classification, s.capability, s.selector)
         for s in existing.data_sources
@@ -1447,6 +1466,9 @@ def _merge_agent(existing: Agent, incoming: Agent) -> None:
     if (
         p.required_capabilities
         or p.denied_capabilities
+        or p.required_skills
+        or p.allowed_skills
+        or p.denied_skills
         or p.allowed_resources
         or p.allowed_destinations
         or p.require_approval_for
@@ -1896,6 +1918,14 @@ def _remap_source_locations(graph: Graph, old_path: Path, new_path: Path) -> Non
         remap(agent.location)
         for tool in agent.tools:
             remap_tool(tool)
+        for skill in agent.skills:
+            remap(skill.location)
+            for resource in skill.resources:
+                remap(resource.location)
+            for destination in skill.destinations:
+                remap(destination.location)
+            for fact in skill.provenance:
+                remap(fact.location)
         for server in agent.mcp_servers:
             remap(server.location)
             for fact in server.provenance:
@@ -1918,6 +1948,14 @@ def _remap_source_locations(graph: Graph, old_path: Path, new_path: Path) -> Non
             remap(fact.location)
     for tool in graph.unbound_tools:
         remap_tool(tool)
+    for skill in graph.unbound_skills:
+        remap(skill.location)
+        for resource in skill.resources:
+            remap(resource.location)
+        for destination in skill.destinations:
+            remap(destination.location)
+        for fact in skill.provenance:
+            remap(fact.location)
     for server in graph.unbound_mcp_servers:
         remap(server.location)
     for identity in graph.identities:
@@ -2457,6 +2495,8 @@ def scan(
             _merge(graph, scan_agent365_config(candidate), candidate)
         elif candidate.name in MANIFEST_FILENAMES:
             _merge(graph, scan_manifest(candidate), candidate)
+        elif candidate.name == SKILL_FILENAME:
+            _merge(graph, scan_skill_file(candidate), candidate)
         elif candidate.suffix.lower() in {".yaml", ".yml"}:
             _merge(graph, scan_amazon_cloudformation_file(candidate), candidate)
             _merge(graph, scan_foundry_config(candidate), candidate)
@@ -2562,6 +2602,7 @@ def scan(
         root if root.is_dir() else root.parent,
         approved_python_paths,
     )
+    bind_discovered_skills(graph, root if root.is_dir() else root.parent)
     diagnose_dynamic_constructs(graph)
     for agent in graph.agents:
         if agent.metadata.get("dynamic_control_flow"):
@@ -2599,9 +2640,16 @@ def scan(
                 ),
             )
 
-    if not (graph.agents or graph.all_tools() or graph.all_mcp_servers() or graph.identities):
+    if not (
+        graph.agents
+        or graph.all_tools()
+        or graph.all_skills()
+        or graph.all_mcp_servers()
+        or graph.identities
+    ):
         add_diagnostic(graph.coverage, ScanDiagnostic(
-            "no_targets", "No supported agent, tool, MCP server, or identity was discovered.",
+            "no_targets",
+            "No supported agent, skill, tool, MCP server, or identity was discovered.",
         ))
     unresolved_tools = sum(
         diagnostic.kind == "unresolved_tool"
@@ -2697,6 +2745,14 @@ def scan(
                 resolved_delegations / (resolved_delegations + unresolved_delegations)
                 if resolved_delegations + unresolved_delegations
                 else 1.0
+            ),
+        },
+        "skills": {
+            "bound": sum(len(agent.skills) for agent in graph.agents),
+            "unbound": len(graph.unbound_skills),
+            "unresolved_references": sum(
+                diagnostic.kind == "unresolved_skill"
+                for diagnostic in graph.coverage.diagnostics
             ),
         },
         "identities": {"discovered": len(graph.all_identities())},
