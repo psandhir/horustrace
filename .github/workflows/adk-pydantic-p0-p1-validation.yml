@@ -1,0 +1,188 @@
+name: ADK Pydantic P0 P1 Validation
+
+on:
+  push:
+    branches:
+      - fix/adk-pydantic-p0-p1-study
+    paths:
+      - ".github/workflows/adk-pydantic-p0-p1-validation.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: adk-pydantic-p0-p1-validation
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out candidate branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Prepare exact frozen 20-repo slice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, shutil
+          from pathlib import Path
+
+          selected = [
+              "rw-004","rw-005","rw-007","rw-009","rw-010",
+              "rw-017","rw-021","rw-027","rw-033","rw-038",
+              "rw-147","rw-149","rw-150","rw-153","rw-155",
+              "rw-160","rw-161","rw-168","rw-170","rw-175",
+          ]
+          root = Path("research/real-world-agent-security-2026")
+          cohort = json.loads((root / "cohort.json").read_text())
+          by_id = {case["case_id"]: case for case in cohort["cases"]}
+          cases = [by_id[case_id] for case_id in selected]
+          assert sum(c["framework_stratum"] == "google-adk" for c in cases) == 10
+          assert sum(c["framework_stratum"] == "pydantic-ai" for c in cases) == 10
+
+          study = Path("/tmp/adk-pydantic-p0-p1")
+          (study / "ground-truth").mkdir(parents=True, exist_ok=True)
+          for case in cases:
+              src = root / case["ground_truth"]
+              dst = study / case["ground_truth"]
+              dst.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(src, dst)
+
+          sliced = dict(cohort)
+          sliced["cases"] = cases
+          sliced["tier_b_case_ids"] = [
+              case_id for case_id in cohort.get("tier_b_case_ids", [])
+              if case_id in selected
+          ]
+          sliced["tier_c_case_ids"] = [
+              case_id for case_id in cohort.get("tier_c_case_ids", [])
+              if case_id in selected
+          ]
+          (study / "cohort.json").write_text(json.dumps(sliced, indent=2) + "\n")
+          PY
+
+      - name: Install candidate scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv /tmp/horustrace-candidate
+          /tmp/horustrace-candidate/bin/pip install --disable-pip-version-check .
+          echo "SCANNER_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Run frozen 20-repo validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=research/adk-pydantic-p0-p1-validation
+          mkdir -p "$OUT"
+          python scripts/real_world_agent_security_execute.py \
+            --root /tmp/adk-pydantic-p0-p1 \
+            --mode postfix \
+            --scanner /tmp/horustrace-candidate/bin/horustrace \
+            --scanner-sha "$SCANNER_SHA" \
+            --workers 8 \
+            --output-json "$OUT/result.json" \
+            --output-markdown "$OUT/result.md"
+
+      - name: Compare with pre-fix 20-repo result
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin research/adk-pydantic-current-20-20261005
+          git show origin/research/adk-pydantic-current-20-20261005:research/adk-pydantic-current-20/result.json > /tmp/before.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          before = json.loads(Path("/tmp/before.json").read_text())
+          after = json.loads(Path("research/adk-pydantic-p0-p1-validation/result.json").read_text())
+
+          def pct(value):
+              return "n/a" if value is None else f"{100*value:.1f}%"
+
+          lines = [
+              "# ADK + Pydantic P0/P1 validation delta",
+              "",
+              f"- Before scanner: `{before['scanner_sha']}`",
+              f"- Candidate scanner: `{after['scanner_sha']}`",
+              f"- Successful scans: {after['summary']['successful_cases']}/20",
+              "",
+              "## Framework delta",
+              "",
+              "| Framework | Metric | Before | After |",
+              "|---|---|---:|---:|",
+          ]
+          for framework in ("google-adk", "pydantic-ai"):
+              b = before["per_framework"][framework]
+              a = after["per_framework"][framework]
+              for key, label in (
+                  ("agent_entities", "Agent precision / recall"),
+                  ("tools", "Tool precision / recall"),
+                  ("effective_authority", "Authority precision / recall"),
+              ):
+                  lines.append(
+                      f"| {framework} | {label} | "
+                      f"{pct(b[key]['precision'])} / {pct(b[key]['recall'])} | "
+                      f"{pct(a[key]['precision'])} / {pct(a[key]['recall'])} |"
+                  )
+              lines.append(
+                  f"| {framework} | Findings | {b['findings']} | {a['findings']} |"
+              )
+              lines.append(
+                  f"| {framework} | Attack paths | {b['attack_paths']} | {a['attack_paths']} |"
+              )
+
+          lines += [
+              "",
+              "## Aggregate delta",
+              "",
+              "| Metric | Before | After |",
+              "|---|---:|---:|",
+              f"| Findings | {before['summary']['findings']} | {after['summary']['findings']} |",
+              f"| Attack paths | {before['summary']['attack_paths']} | {after['summary']['attack_paths']} |",
+              f"| Analysis-incomplete cases | {before['summary']['analysis_incomplete_cases']} | {after['summary']['analysis_incomplete_cases']} |",
+              "",
+              "## Per-case finding delta",
+              "",
+              "| Case | Framework | Repo | Before | After | Delta |",
+              "|---|---|---|---:|---:|---:|",
+          ]
+          bcases = {c["case_id"]: c for c in before["cases"]}
+          for case in after["cases"]:
+              old = bcases[case["case_id"]]
+              bf = int((old.get("observed") or {}).get("findings", 0))
+              af = int((case.get("observed") or {}).get("findings", 0))
+              lines.append(
+                  f"| {case['case_id']} | {case['framework']} | {case['repo']} | "
+                  f"{bf} | {af} | {af-bf:+d} |"
+              )
+
+          Path("research/adk-pydantic-p0-p1-validation/DELTA.md").write_text(
+              "\n".join(lines) + "\n"
+          )
+          print("\n".join(lines))
+          PY
+          cat research/adk-pydantic-p0-p1-validation/DELTA.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit validation artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "horustrace-study-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add research/adk-pydantic-p0-p1-validation
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "research: record ADK/Pydantic P0-P1 validation"
+          git push origin HEAD:fix/adk-pydantic-p0-p1-study
