@@ -21,3 +21,14 @@ effective authority and does not use the LLM to emit HorusTrace findings.
 The runner reports per-concept and aggregate precision, recall, F1, exact-case
 accuracy, difficulty-stratum performance, confidence bins, and full FP/FN error
 details.
+
+## Execution status
+
+The corpus and harness are validated in CI. Live calibration requires either:
+
+- `OPENAI_API_KEY` as a repository Actions secret, or
+- `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` with GitHub Copilot Requests permission.
+
+The default GitHub Actions token is not sufficient for Copilot model requests.
+Until one of those credentials is configured, the workflow validates the locked
+study but skips live LLM scoring; no precision/recall figures are fabricated.
