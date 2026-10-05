@@ -1,4 +1,5 @@
 name: ADK Custom BaseAgent Validation
+# Re-run after property-forwarding support.
 
 on:
   push:
