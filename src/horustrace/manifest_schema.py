@@ -20,6 +20,7 @@ AUTHORITY_SCOPE = dict.fromkeys(
         'permissions',
         'oauth_scopes',
         'mcp_servers',
+        'skills',
     ),
     STRINGS,
 )
