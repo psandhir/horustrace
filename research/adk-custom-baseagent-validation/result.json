@@ -1,0 +1,128 @@
+{
+  "fresh005": {
+    "agents": [
+      "DynamicOrchestratorAgent",
+      "MasterPlannerAgent",
+      "RootPlannerOrchestrator",
+      "launches_agent",
+      "news_agent",
+      "summarizer_agent",
+      "weather_agent"
+    ],
+    "delegations": [
+      [
+        "DynamicOrchestratorAgent",
+        "launches_agent"
+      ],
+      [
+        "DynamicOrchestratorAgent",
+        "news_agent"
+      ],
+      [
+        "DynamicOrchestratorAgent",
+        "summarizer_agent"
+      ],
+      [
+        "DynamicOrchestratorAgent",
+        "weather_agent"
+      ],
+      [
+        "RootPlannerOrchestrator",
+        "DynamicOrchestratorAgent"
+      ],
+      [
+        "RootPlannerOrchestrator",
+        "MasterPlannerAgent"
+      ]
+    ],
+    "analysis_incomplete": false,
+    "findings": 7
+  },
+  "fresh005_missing_expected": [],
+  "kdense": {
+    "agents": [
+      "LoopDetectionAgent",
+      "agentic_data_scientist_workflow",
+      "claude_coding_agent",
+      "high_level_plan_parser",
+      "high_level_planning_loop",
+      "implementation_loop",
+      "options",
+      "plan_maker_agent",
+      "plan_reviewer_agent",
+      "review_agent",
+      "stage_orchestrator",
+      "stage_reflector",
+      "success_criteria_checker",
+      "summary_agent"
+    ],
+    "delegations": [
+      [
+        "agentic_data_scientist_workflow",
+        "high_level_plan_parser"
+      ],
+      [
+        "agentic_data_scientist_workflow",
+        "high_level_planning_loop"
+      ],
+      [
+        "agentic_data_scientist_workflow",
+        "stage_orchestrator"
+      ],
+      [
+        "agentic_data_scientist_workflow",
+        "summary_agent"
+      ],
+      [
+        "high_level_planning_loop",
+        "create_review_confirmation_agent"
+      ],
+      [
+        "high_level_planning_loop",
+        "plan_maker_agent"
+      ],
+      [
+        "high_level_planning_loop",
+        "plan_reviewer_agent"
+      ],
+      [
+        "implementation_loop",
+        "coding_agent"
+      ],
+      [
+        "implementation_loop",
+        "review_agent"
+      ],
+      [
+        "implementation_loop",
+        "review_confirmation"
+      ],
+      [
+        "stage_orchestrator",
+        "implementation_loop"
+      ],
+      [
+        "stage_orchestrator",
+        "stage_reflector"
+      ],
+      [
+        "stage_orchestrator",
+        "success_criteria_checker"
+      ]
+    ],
+    "analysis_incomplete": true,
+    "findings": 10
+  },
+  "kdense_missing_root_stage": false,
+  "kdense_stage_expected_targets": [
+    "implementation_loop",
+    "stage_reflector",
+    "success_criteria_checker"
+  ],
+  "kdense_stage_observed_targets": [
+    "implementation_loop",
+    "stage_reflector",
+    "success_criteria_checker"
+  ],
+  "kdense_stage_missing_targets": []
+}
