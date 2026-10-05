@@ -1,0 +1,142 @@
+[
+  {
+    "case_id": "rw-004",
+    "repo": "JoanMarinPages/agentGemini",
+    "sha": "0160690bb47cca17e70ceb8486209d7b1cacaf76",
+    "framework": "google-adk",
+    "tier_b": false
+  },
+  {
+    "case_id": "rw-005",
+    "repo": "Ojas-Patil26/VeriQ",
+    "sha": "067cb330ab943279b4b8ea13c91c9042bdd9f421",
+    "framework": "google-adk",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-007",
+    "repo": "joshnaim1/ocr-test",
+    "sha": "12a850dec83f04039862fb6ef03e0fc80c462bf3",
+    "framework": "google-adk",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-009",
+    "repo": "vivekcommit/Cloud_Architecture_Review",
+    "sha": "16ac50de750de9d4681a501f936184804a819754",
+    "framework": "google-adk",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-010",
+    "repo": "justsankalp/enterprise-rag-poc",
+    "sha": "194979df7146ad0fd90132c7aa71b659b9260660",
+    "framework": "google-adk",
+    "tier_b": false
+  },
+  {
+    "case_id": "rw-017",
+    "repo": "mxyhi/always-on-memory-agent",
+    "sha": "5a92fd6fa34baa2920ac5ec6b1e1ac4def940311",
+    "framework": "google-adk",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-021",
+    "repo": "proflead/how-to-build-ai-agent",
+    "sha": "6dba7692cf4fa2c41944c6b327af2be78b1ab793",
+    "framework": "google-adk",
+    "tier_b": false
+  },
+  {
+    "case_id": "rw-027",
+    "repo": "google/pubmed-rag",
+    "sha": "909b6e280b0f78ebc32fe4756513c859fe078491",
+    "framework": "google-adk",
+    "tier_b": false
+  },
+  {
+    "case_id": "rw-033",
+    "repo": "moonpy-a11y/agent_payments",
+    "sha": "b08e4bec80ea2f8a3664d670bc6fc52b8a50d1ae",
+    "framework": "google-adk",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-038",
+    "repo": "elitepunith/apdm-agent",
+    "sha": "c2f30462bc8663bec5c4046dc62006f52889c19a",
+    "framework": "google-adk",
+    "tier_b": false
+  },
+  {
+    "case_id": "rw-147",
+    "repo": "hope-tatenda-mutema/Pedantic-AI-Deep-Research-Agent",
+    "sha": "0369d0675851071e9f2da850951144e2bb022b3f",
+    "framework": "pydantic-ai",
+    "tier_b": false
+  },
+  {
+    "case_id": "rw-149",
+    "repo": "LeonieFreisinger/pydanticai-base-agent",
+    "sha": "0cf88a4caf2b5da29ff7af8364d4db14ac9e50b4",
+    "framework": "pydantic-ai",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-150",
+    "repo": "Amar-Ag/project-ideation-tool",
+    "sha": "169a9d50841de7cf05bfd5240f9509e0eccd5167",
+    "framework": "pydantic-ai",
+    "tier_b": false
+  },
+  {
+    "case_id": "rw-153",
+    "repo": "abhaybhargav/pydanticai-sec-research-assistant",
+    "sha": "26cb40a164787fb2b1b59f9630964f964a7ee64f",
+    "framework": "pydantic-ai",
+    "tier_b": false
+  },
+  {
+    "case_id": "rw-155",
+    "repo": "shotgun-sh/shotgun",
+    "sha": "4d344d5a46aafc815de441ff670d4131187f33e6",
+    "framework": "pydantic-ai",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-160",
+    "repo": "lladdy/progressive-disclosure-ai-assistant",
+    "sha": "6e46f905897f4d89ad7219041505b17e81f2114c",
+    "framework": "pydantic-ai",
+    "tier_b": false
+  },
+  {
+    "case_id": "rw-161",
+    "repo": "mars-mx/portfolio",
+    "sha": "6e6871b85fb0d4d051c2043bd0daa4911676e4d3",
+    "framework": "pydantic-ai",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-168",
+    "repo": "hypermemory-ai/openrouter_provider_validator",
+    "sha": "95eee5b0694ca7901526e6280f1a700760a7e7ba",
+    "framework": "pydantic-ai",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-170",
+    "repo": "Croups/smart-web-scraper",
+    "sha": "a157701a22ae1853a00156b2364830130958c82d",
+    "framework": "pydantic-ai",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-175",
+    "repo": "coleam00/orbit-support-agent",
+    "sha": "d03e6fabf801e3fb6aec9e2533064408ca24706c",
+    "framework": "pydantic-ai",
+    "tier_b": false
+  }
+]
