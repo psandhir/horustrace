@@ -1,4 +1,5 @@
 name: Unseen ADK Pydantic Holdout 10 v2
+# regression replay: 2026-10-05 current-main
 
 on:
   push:
