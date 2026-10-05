@@ -325,6 +325,25 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
             },
         )
 
+    for skill in graph.unbound_skills:
+        builder.node(
+            "skill",
+            skill.name,
+            location=skill.location,
+            framework=_framework(skill.metadata),
+            attributes={
+                "description": skill.description,
+                "source": skill.source,
+                "allowed_tools": sorted(skill.allowed_tools),
+                "scripts": list(skill.scripts),
+                "binding_state": "unbound",
+                "has_scripts": skill.metadata.get("has_scripts"),
+                "license": skill.metadata.get("license"),
+                "compatibility": skill.metadata.get("compatibility"),
+                "content_included": False,
+            },
+        )
+
     for server in graph.unbound_mcp_servers:
         if server.metadata.get("topology_visible_unbound") is not True:
             continue
@@ -467,6 +486,27 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                 destination_id,
                 location=destination.location,
             )
+
+        for skill in agent.skills:
+            skill_id = builder.node(
+                "skill",
+                skill.name,
+                location=skill.location,
+                framework=_framework(skill.metadata),
+                attributes={
+                    "description": skill.description,
+                    "source": skill.source,
+                    "allowed_tools": sorted(skill.allowed_tools),
+                    "scripts": list(skill.scripts),
+                    "binding_state": skill.metadata.get("binding_state") or "bound",
+                    "binding_origin": skill.metadata.get("binding_origin"),
+                    "has_scripts": skill.metadata.get("has_scripts"),
+                    "license": skill.metadata.get("license"),
+                    "compatibility": skill.metadata.get("compatibility"),
+                    "content_included": False,
+                },
+            )
+            builder.edge("USES_SKILL", agent_id, skill_id, location=skill.location)
 
         for server in agent.mcp_servers:
             server_id = builder.node(

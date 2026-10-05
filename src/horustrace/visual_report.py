@@ -282,6 +282,7 @@ def build_visual_report(
                 "location": _agent_location(agent, root),
                 "summary": {
                     "tools": len(agent.tools),
+                    "skills": len(agent.skills),
                     "mcp_servers": len(agent.mcp_servers),
                     "identities": len(identities),
                     "resources": len(resources),
@@ -302,6 +303,25 @@ def build_visual_report(
                 "severity": _severity_counts(
                     [item for item in findings if item.agent == agent.name]
                 ),
+                "skills": [
+                    {
+                        "name": skill.name,
+                        "description": skill.description,
+                        "allowed_tools": sorted(skill.allowed_tools),
+                        "scripts": list(skill.scripts),
+                        "location": (
+                            {
+                                "path": _relative_path(str(skill.location.path), root),
+                                "line": skill.location.line,
+                                "column": skill.location.column,
+                            }
+                            if skill.location
+                            else None
+                        ),
+                        "binding_origin": skill.metadata.get("binding_origin"),
+                    }
+                    for skill in sorted(agent.skills, key=lambda item: item.name)
+                ],
                 "resources": resources,
                 "destinations": destinations,
                 "identities": identities,
@@ -318,6 +338,69 @@ def build_visual_report(
             }
         )
 
+    skill_inventory: dict[tuple[str, str], dict[str, Any]] = {}
+    for agent in graph.agents:
+        for skill in agent.skills:
+            location = (
+                _relative_path(str(skill.location.path), root)
+                if skill.location
+                else ""
+            )
+            key = (skill.name, location)
+            item = skill_inventory.setdefault(
+                key,
+                {
+                    "name": skill.name,
+                    "description": skill.description,
+                    "location": (
+                        {
+                            "path": location,
+                            "line": skill.location.line,
+                            "column": skill.location.column,
+                        }
+                        if skill.location
+                        else None
+                    ),
+                    "allowed_tools": sorted(skill.allowed_tools),
+                    "scripts": list(skill.scripts),
+                    "bound_agents": [],
+                    "binding_state": "bound",
+                },
+            )
+            if agent.name not in item["bound_agents"]:
+                item["bound_agents"].append(agent.name)
+    for skill in graph.unbound_skills:
+        location = (
+            _relative_path(str(skill.location.path), root)
+            if skill.location
+            else ""
+        )
+        key = (skill.name, location)
+        skill_inventory.setdefault(
+            key,
+            {
+                "name": skill.name,
+                "description": skill.description,
+                "location": (
+                    {
+                        "path": location,
+                        "line": skill.location.line,
+                        "column": skill.location.column,
+                    }
+                    if skill.location
+                    else None
+                ),
+                "allowed_tools": sorted(skill.allowed_tools),
+                "scripts": list(skill.scripts),
+                "bound_agents": [],
+                "binding_state": "unbound",
+            },
+        )
+    skills = sorted(
+        skill_inventory.values(),
+        key=lambda item: (item["name"], (item.get("location") or {}).get("path", "")),
+    )
+
     owasp = build_owasp_agentic_summary(
         findings,
         disabled_rules=graph.configuration_audit.get("disabled_rules", []),
@@ -330,6 +413,9 @@ def build_visual_report(
         "summary": {
             "agents": len(graph.agents),
             "tools": len(graph.all_tools()),
+            "skills": len(graph.all_skills()),
+            "bound_skills": sum(len(agent.skills) for agent in graph.agents),
+            "unbound_skills": len(graph.unbound_skills),
             "mcp_servers": len(graph.all_mcp_servers()),
             "identities": len(graph.all_identities()),
             "resources": len(all_resources),
@@ -356,6 +442,7 @@ def build_visual_report(
             "analysis_incomplete": graph.coverage.incomplete,
         },
         "agents": agents,
+        "skills": skills,
         "findings": findings_docs,
         "assurance": assurance,
         "authority_contract": contract,
@@ -541,13 +628,13 @@ function renderDashboard(){{
  '<div class="cards">'+metric("Active findings",s.findings,(s.severity?.critical||s.severity?.high)?"high":"","Critical "+number(s.severity?.critical||0)+" · High "+number(s.severity?.high||0))+metric("Policy violations",s.policy_violations,s.policy_violations?"critical":"","policy:all","Configured HorusTrace policy rules")+metric("Contract violations",s.contract_violations,s.contract_violations?"critical":"","contracts:violation",number(s.contract_unresolved)+" unresolved checks")+metric("OWASP categories with findings",s.owasp_categories_with_findings,s.owasp_categories_with_findings?"warn":"","owasp:all",number(s.owasp_categories_not_assessed)+" not assessed")+metric("Agents",s.agents,"","agents:all",number(s.write_capable_relationships)+" write-capable relationships")+metric("Attack paths",s.attack_paths,"","attack:all","Static evidence; exploitability not verified")+'</div>'+
  sectionHead("Priority review queue","Agents ordered by static review priority.")+agentTable(attention)+
  '<div class="grid2"><div>'+sectionHead("Finding severity","Active findings by scanner severity.")+severityCards(s.severity,true)+'</div><div>'+sectionHead("Effective agency","Reconstructed authority and destination scope.")+'<div class="panel">'+drillList([drillRow("Authority relationships",s.authority_relationships,"agents:authority"),drillRow("Not fully resolved",s.authority_not_fully_resolved,"agents:unresolved","warn"),drillRow("Write-capable relationships",s.write_capable_relationships,"agents:write"),drillRow("Unique destinations",s.destinations,"agents:destinations")])+'</div></div></div>'+
- '<div class="grid2"><div>'+sectionHead("Environment inventory","Security-relevant components found in the scan.")+'<div class="cards">'+metric("Tools",s.tools,"","agents:tools")+metric("MCP servers",s.mcp_servers,"","agents:mcp")+metric("Identities",s.identities,"","agents:identities")+metric("Resources",s.resources,"","agents:resources")+'</div></div><div>'+sectionHead("Agent contracts","Declared authority compared with effective authority.")+'<div class="panel">'+drillList(['<div class="drill-row" style="cursor:default"><span>Overall status</span><span>'+badge(DATA.assurance.authority_contract.status)+'</span></div>',drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),drillRow("Violations",s.contract_violations,"contracts:violation","critical"),drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")])+'</div></div></div>';
+ '<div class="grid2"><div>'+sectionHead("Environment inventory","Security-relevant components found in the scan.")+'<div class="cards">'+metric("Tools",s.tools,"","agents:tools")+metric("Skills",s.skills,"","agents:skills",number(s.bound_skills)+" bound · "+number(s.unbound_skills)+" unbound")+metric("MCP servers",s.mcp_servers,"","agents:mcp")+metric("Identities",s.identities,"","agents:identities")+metric("Resources",s.resources,"","agents:resources")+'</div></div><div>'+sectionHead("Agent contracts","Declared authority compared with effective authority.")+'<div class="panel">'+drillList(['<div class="drill-row" style="cursor:default"><span>Overall status</span><span>'+badge(DATA.assurance.authority_contract.status)+'</span></div>',drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),drillRow("Violations",s.contract_violations,"contracts:violation","critical"),drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")])+'</div></div></div>';
  bindDashboardDrill(root);bindAgentRows(root);
 }}
 
 function drillLabel(kind,value){{
  const labels={{
-  "agents:all":"All agents","agents:tools":"Agents with tools","agents:mcp":"Agents with MCP servers",
+  "agents:all":"All agents","agents:tools":"Agents with tools","agents:skills":"Agents with bound skills","agents:mcp":"Agents with MCP servers",
   "agents:identities":"Agents with resolved identities","agents:resources":"Agents reaching resources",
   "agents:authority":"Agents with effective authority","agents:unresolved":"Agents with unresolved authority",
   "agents:write":"Agents with write-capable authority","agents:destinations":"Agents with external destinations",
@@ -589,7 +676,7 @@ function agentMatchesFilter(a,mode){{
  if(mode==="attention")return a.summary.findings>0||a.summary.attack_paths>0||a.summary.contract_violations>0||a.summary.contract_unresolved>0;
  if(mode==="attack")return a.summary.attack_paths>0;
  if(mode==="contract")return a.summary.contract_violations>0||a.summary.contract_unresolved>0;
- if(mode==="tools")return a.summary.tools>0;if(mode==="mcp")return a.summary.mcp_servers>0;if(mode==="identities")return a.summary.identities>0;if(mode==="resources")return a.summary.resources>0;if(mode==="authority")return a.summary.authority_relationships>0;
+ if(mode==="tools")return a.summary.tools>0;if(mode==="skills")return a.summary.skills>0;if(mode==="mcp")return a.summary.mcp_servers>0;if(mode==="identities")return a.summary.identities>0;if(mode==="resources")return a.summary.resources>0;if(mode==="authority")return a.summary.authority_relationships>0;
  if(mode==="unresolved")return (a.effective_authority||[]).some(r=>r.resolution!=="fully_resolved");if(mode==="write")return a.summary.write_capable_relationships>0;if(mode==="destinations")return a.summary.destinations>0;return true;
 }}
 
@@ -600,7 +687,7 @@ function renderAgents(mode="all"){{
  const banner=mode==="all"?"":'<div class="filter-banner"><span>'+esc(drillLabel("agents",mode))+' · '+number(scoped.length)+' agents</span><button class="back" id="clear-agent-filter">Clear filter</button></div>';
  root.innerHTML=pageHead("Inventory","Agents","Review effective agency, attack paths, findings and Authority Contract posture for each discovered agent.")+banner+'<div class="toolbar"><div class="toolbar-left"><div class="filter-chips">'+chips+'</div></div><div class="toolbar-right"><input id="agent-search" class="search" aria-label="Search agents" placeholder="Search agents, frameworks, identities or resources"></div></div><div class="muted small" id="agent-count">'+number(scoped.length)+' agents</div><div id="agent-table">'+agentTable(scoped)+'</div>';
  bindAgentRows(root);root.querySelectorAll("[data-agent-filter]").forEach(btn=>btn.addEventListener("click",()=>renderAgents(btn.dataset.agentFilter)));if(mode!=="all")root.querySelector("#clear-agent-filter").addEventListener("click",()=>renderAgents("all"));
- root.querySelector("#agent-search").addEventListener("input",e=>{{const q=e.target.value.trim().toLowerCase();const items=scoped.filter(a=>JSON.stringify([a.name,a.framework,a.location,a.resources,a.identities,a.destinations,a.findings]).toLowerCase().includes(q));root.querySelector("#agent-count").textContent=number(items.length)+" agents";root.querySelector("#agent-table").innerHTML=agentTable(items);bindAgentRows(root);}});
+ root.querySelector("#agent-search").addEventListener("input",e=>{{const q=e.target.value.trim().toLowerCase();const items=scoped.filter(a=>JSON.stringify([a.name,a.framework,a.location,a.skills,a.resources,a.identities,a.destinations,a.findings]).toLowerCase().includes(q));root.querySelector("#agent-count").textContent=number(items.length)+" agents";root.querySelector("#agent-table").innerHTML=agentTable(items);bindAgentRows(root);}});
 }}
 
 function contractItem(item){{
@@ -611,8 +698,8 @@ function contractItem(item){{
 }}
 function renderAgentOverview(a){{
  const state=agentAttention(a);
- return '<div class="cards">'+metric("Tools",a.summary.tools)+metric("MCP servers",a.summary.mcp_servers)+metric("Authority paths",a.summary.authority_relationships)+metric("Resources",a.summary.resources)+metric("Write-capable",a.summary.write_capable_relationships)+metric("Findings",a.summary.findings)+'</div>'+
- '<div class="grid2"><div>'+sectionHead("Effective scope","Resolved identity, resource and destination scope.")+'<div class="panel"><div class="kv"><div>Review signal</div><div>'+state+'</div><div>Identities</div><div>'+esc(a.identities.join(", ")||"unresolved / none")+'</div><div>Resources</div><div>'+esc(a.resources.join(", ")||"unresolved / none")+'</div><div>Destinations</div><div>'+esc(a.destinations.join(", ")||"unresolved / none")+'</div></div></div></div>'+
+ return '<div class="cards">'+metric("Tools",a.summary.tools)+metric("Skills",a.summary.skills)+metric("MCP servers",a.summary.mcp_servers)+metric("Authority paths",a.summary.authority_relationships)+metric("Resources",a.summary.resources)+metric("Write-capable",a.summary.write_capable_relationships)+metric("Findings",a.summary.findings)+'</div>'+
+ '<div class="grid2"><div>'+sectionHead("Effective scope","Resolved skill, identity, resource and destination scope.")+'<div class="panel"><div class="kv"><div>Review signal</div><div>'+state+'</div><div>Skills</div><div>'+esc((a.skills||[]).map(s=>s.name).join(", ")||"none")+'</div><div>Identities</div><div>'+esc(a.identities.join(", ")||"unresolved / none")+'</div><div>Resources</div><div>'+esc(a.resources.join(", ")||"unresolved / none")+'</div><div>Destinations</div><div>'+esc(a.destinations.join(", ")||"unresolved / none")+'</div></div></div></div>'+
  '<div>'+sectionHead("Contract posture","Declared contract versus reconstructed authority.")+'<div class="panel"><div class="kv"><div>Status</div><div>'+badge(a.summary.contract_status)+'</div><div>Violations</div><div>'+number(a.summary.contract_violations)+'</div><div>Unresolved</div><div>'+number(a.summary.contract_unresolved)+'</div><div>Attack paths</div><div>'+number(a.summary.attack_paths)+'</div></div></div></div></div>'+
  sectionHead("Finding severity","Scanner findings attributed to this agent.")+severityCards(a.severity);
 }}
@@ -832,9 +919,12 @@ function renderContracts(mode="all"){{
 
 function renderEvidence(){{
  const c=DATA.coverage,diags=c.diagnostics||[],considered=Number(c.files_considered||0),scanned=Number(c.files_scanned||0),pct=considered?Math.max(0,Math.min(100,Math.round(scanned/considered*100))):0;
+ const skills=DATA.skills||[];
+ const skillRows=skills.map(s=>'<tr><td><div class="row-title">'+esc(s.name)+'</div><div class="row-sub">'+loc(s.location)+'</div></td><td>'+badge(s.binding_state)+'</td><td>'+esc((s.bound_agents||[]).join(", ")||"—")+'</td><td>'+esc((s.allowed_tools||[]).join(", ")||"—")+'</td><td>'+number((s.scripts||[]).length)+'</td></tr>').join("");
  document.getElementById("evidence").innerHTML=pageHead("Trust & provenance","Scan evidence","Coverage, diagnostics and report provenance used to qualify the assessment.",badge(c.incomplete?"unresolved":"compliant"))+
  '<div class="cards">'+metric("Files considered",c.files_considered)+metric("Files scanned",c.files_scanned)+metric("Files skipped",c.files_skipped)+metric("Files failed",c.files_failed,c.files_failed?"high":"")+'</div>'+
  sectionHead("Coverage status","Use coverage gaps to qualify confidence in scanner conclusions.")+'<div class="panel"><div class="kv"><div>Status</div><div>'+badge(c.incomplete?"unresolved":"compliant")+'</div><div>Scan completion</div><div>'+number(pct)+'%<div class="coverage-track"><div class="coverage-fill" style="width:'+pct+'%"></div></div></div><div>ASG digest</div><div><code>'+esc(DATA.security_graph.digest)+'</code></div><div>Suppressed findings</div><div>'+number(DATA.suppressed_findings.length)+'</div><div>Report model</div><div><code>'+esc(DATA.model)+' / schema '+esc(DATA.schema_version)+'</code></div></div></div>'+
+ sectionHead("Skill inventory","Portable agent skills discovered in the repository. Unbound means discovered but not source-proven as available to an agent.")+(skillRows?'<div class="panel flush table-wrap"><table><thead><tr><th>Skill</th><th>Binding</th><th>Agents</th><th>Allowed tools</th><th>Scripts</th></tr></thead><tbody>'+skillRows+'</tbody></table></div>':'<div class="empty">No Agent Skills were discovered.</div>')+
  sectionHead("Diagnostics","Coverage or parsing conditions that may affect completeness.")+(diags.length?diags.map(d=>'<div class="finding" data-sev="medium"><div class="finding-title"><strong>'+esc(d.diagnostic_id||d.code)+'</strong><span class="badge medium">diagnostic</span></div><p>'+esc(d.message)+'</p><div class="muted small">'+loc(d.location)+'</div></div>').join(""):'<div class="empty">No detected coverage diagnostics.</div>');
 }}
 

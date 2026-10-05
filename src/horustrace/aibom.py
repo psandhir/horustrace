@@ -12,6 +12,7 @@ AIBOM_KINDS = {
     "agent",
     "model",
     "prompt",
+    "skill",
     "tool",
     "mcp_server",
     "memory",

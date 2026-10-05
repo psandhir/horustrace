@@ -39,6 +39,9 @@ def annotate(graph: Graph, path) -> None:
 
     for tool in graph.all_tools():
         tool_facts(tool)
+    for skill in graph.all_skills():
+        facts(skill, skill.name, [f'allowed_tool={value}' for value in sorted(skill.allowed_tools)])
+        facts(skill, skill.name, [f'script={value}' for value in sorted(skill.scripts)])
     for server in graph.all_mcp_servers():
         facts(server, server.name, [f'transport={server.transport}',
                                    f'authentication_configuration={server.authenticated}',
@@ -68,6 +71,9 @@ def annotate(graph: Graph, path) -> None:
         policy = agent.policy
         values = [f'required={c}' for c in sorted(policy.required_capabilities)]
         values += [f'denied={c}' for c in sorted(policy.denied_capabilities)]
+        values += [f'required_skill={s}' for s in sorted(policy.required_skills)]
+        values += [f'allowed_skill={s}' for s in sorted(policy.allowed_skills)]
+        values += [f'denied_skill={s}' for s in sorted(policy.denied_skills)]
         values += [f'approval_required_for={c}' for c in sorted(policy.require_approval_for)]
         values += [f'allowed_resource={v}' for v in policy.allowed_resources]
         values += [f'allowed_destination={v}' for v in policy.allowed_destinations]
@@ -77,7 +83,7 @@ def annotate(graph: Graph, path) -> None:
 
 
 def context(agent):
-    entities = [agent, agent.policy, *agent.tools, *agent.mcp_servers,
+    entities = [agent, agent.policy, *agent.tools, *agent.skills, *agent.mcp_servers,
                 *agent.identities, *agent.inputs, *agent.data_sources, *agent.network]
     for tool in agent.tools:
         entities.extend([*tool.resources, *tool.destinations])
@@ -98,14 +104,19 @@ def attach_findings(graph, findings):
         agent = by_name.get(finding.agent)
         if agent:
             if finding.layer in {1, 3}:
-                entities = [*agent.tools, *agent.mcp_servers, *agent.identities]
+                entities = [*agent.tools, *agent.skills, *agent.mcp_servers, *agent.identities]
                 selected = [entity for entity in entities if entity.location == finding.location]
                 finding.provenance = ([fact for entity in selected for fact in entity.provenance]
                                       if selected else list(agent.provenance))
             else:
                 finding.provenance = context(agent)
         else:
-            entities = [*graph.all_tools(), *graph.all_mcp_servers(), *graph.all_identities()]
+            entities = [
+                *graph.all_tools(),
+                *graph.all_skills(),
+                *graph.all_mcp_servers(),
+                *graph.all_identities(),
+            ]
             finding.provenance = [fact for entity in entities if entity.location == finding.location
                                   for fact in entity.provenance]
         attack_path = None
