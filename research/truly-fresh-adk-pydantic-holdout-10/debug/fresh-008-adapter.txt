@@ -1,0 +1,4 @@
+is_pydantic_ai_file False
+frameworks []
+adapter_agents []
+adapter_diagnostics []

@@ -1,0 +1,744 @@
+{
+  "version": "0.9.0",
+  "coverage": {
+    "files_considered": 1,
+    "files_scanned": 0,
+    "files_skipped": 0,
+    "files_failed": 1,
+    "incomplete": true,
+    "resolution": {
+      "tools": {
+        "resolved_entities": 0,
+        "unresolved_references": 0,
+        "ratio": 1.0
+      },
+      "delegations": {
+        "resolved": 0,
+        "unresolved": 0,
+        "ratio": 1.0
+      },
+      "identities": {
+        "discovered": 0
+      },
+      "external_helpers_unresolved": 0,
+      "flows": {
+        "supported_paths": 0,
+        "agent_mapped": 0,
+        "agent_attribution_gaps": 0,
+        "execution_contexts": {
+          "agent_tool": 0,
+          "cli": 0,
+          "test": 0,
+          "example": 0,
+          "tutorial": 0,
+          "notebook": 0,
+          "template-generated": 0,
+          "application_support": 0,
+          "runtime": 0,
+          "unknown": 0
+        },
+        "agent_reachability": {
+          "proven_agent_reachable": 0,
+          "proven_non_agent": 0,
+          "unknown": 0
+        },
+        "unknown_reachability_by_basis": {}
+      },
+      "mcp": {
+        "bound": 0,
+        "unbound": 0,
+        "unresolved_references": 0,
+        "unresolved_agent_references": 0,
+        "unbound_by_reason": {},
+        "unresolved_by_reason": {},
+        "unresolved_by_resolution_class": {}
+      }
+    },
+    "diagnostics": [
+      {
+        "code": "parse_error",
+        "diagnostic_id": "ARG-COV-001",
+        "kind": "parse_error",
+        "incomplete": true,
+        "message": "File could not be parsed; analysis was skipped: SyntaxError: '{' was never closed (<unknown>, line 112)",
+        "details": {
+          "exception_type": "SyntaxError",
+          "reason": "'{' was never closed (<unknown>, line 112)",
+          "file_type": ".py"
+        },
+        "location": {
+          "path": "/tmp/target/agent.py",
+          "line": 112,
+          "column": 1
+        }
+      },
+      {
+        "code": "no_targets",
+        "diagnostic_id": "ARG-COV-009",
+        "kind": "no_targets",
+        "incomplete": true,
+        "message": "No supported agent, tool, MCP server, or identity was discovered.",
+        "details": {},
+        "location": null
+      }
+    ]
+  },
+  "control_observations": [],
+  "mcp_authority": {
+    "schema_version": 2,
+    "summary": {
+      "mcp_servers": 0,
+      "bound_relationships": 0,
+      "unbound_servers": 0,
+      "unresolved_references": 0,
+      "unresolved_agent_references": 0,
+      "unbound_by_reason": {},
+      "unresolved_by_reason": {},
+      "unresolved_by_resolution_class": {},
+      "fully_resolved_relationships": 0,
+      "explicit_tool_scopes": 0,
+      "identity_bound_relationships": 0,
+      "fixed_destination_relationships": 0
+    },
+    "authorities": [],
+    "unbound": []
+  },
+  "effective_authority": {
+    "schema_version": 1,
+    "runtime_effectiveness": "not_verified",
+    "summary": {
+      "relationships": 0,
+      "tool_relationships": 0,
+      "mcp_relationships": 0,
+      "delegation_relationships": 0,
+      "fully_resolved_relationships": 0,
+      "partially_resolved_relationships": 0,
+      "unknown_relationships": 0,
+      "relationships_with_identity": 0,
+      "relationships_with_approval_evidence": 0,
+      "relationships_with_destination_evidence": 0,
+      "relationships_with_resource_evidence": 0
+    },
+    "relationships": []
+  },
+  "authority_resolution": {
+    "schema_version": 1,
+    "relationships": 0,
+    "fully_resolved_relationships": 0,
+    "partially_resolved_relationships": 0,
+    "unknown_relationships": 0,
+    "unresolved_relationships": 0,
+    "fully_resolved_ratio": 1.0,
+    "unresolved_dimensions": {},
+    "runtime_effectiveness": "not_verified"
+  },
+  "assurance": {
+    "schema_version": 1,
+    "model": "horustrace.assurance",
+    "security": {
+      "status": "no_findings",
+      "findings": 0,
+      "severity": {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "info": 0
+      },
+      "affected_agents": []
+    },
+    "organization_policy": {
+      "scope": "configured_horustrace_policy_rules",
+      "status": "no_violations",
+      "violations": 0,
+      "severity": {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "info": 0
+      },
+      "rule_ids": [],
+      "affected_agents": []
+    },
+    "authority_contract": {
+      "status": "not_declared",
+      "agents_with_contract": 0,
+      "relationships_evaluated": 0,
+      "compliant_relationships": 0,
+      "violation_relationships": 0,
+      "unresolved_relationships": 0,
+      "violations": 0,
+      "unresolved": 0
+    },
+    "owasp_agentic": {
+      "standard": "OWASP Top 10 for Agentic Applications 2026",
+      "status": "no_mapped_findings",
+      "categories": 10,
+      "categories_with_mapped_detectors": 7,
+      "categories_with_findings": 0,
+      "categories_with_runtime_findings": 0,
+      "categories_not_assessed": 3,
+      "mapped_findings": 0,
+      "runtime_mapped_findings": 0
+    }
+  },
+  "authority_contract": {
+    "schema_version": 1,
+    "runtime_effectiveness": "not_verified",
+    "summary": {
+      "agents_with_contract": 0,
+      "relationships_evaluated": 0,
+      "compliant_relationships": 0,
+      "violation_relationships": 0,
+      "unresolved_relationships": 0,
+      "violations": 0,
+      "unresolved": 0
+    },
+    "relationships": [],
+    "violations": [],
+    "unresolved": []
+  },
+  "owasp_agentic": {
+    "standard": "OWASP Top 10 for Agentic Applications 2026",
+    "semantics": {
+      "finding": "One or more mapped HorusTrace rules fired.",
+      "no_mapped_findings": "HorusTrace has one or more mapped detectors, but none fired in this scan. This is not a claim of complete OWASP coverage or runtime safety.",
+      "not_assessed": "HorusTrace currently has no enabled mapped detector for this category.",
+      "runtime_finding": "One or more mapped findings are classified as runtime application source.",
+      "no_runtime_findings": "Mapped findings fired, but none are classified as runtime application source. Unknown source context is reported separately and is not treated as non-runtime."
+    },
+    "summary": {
+      "categories": 10,
+      "categories_with_mapped_detectors": 7,
+      "categories_with_findings": 0,
+      "categories_with_runtime_findings": 0,
+      "categories_with_only_non_runtime_or_unknown_findings": 0,
+      "categories_not_assessed": 3,
+      "mapped_findings": 0,
+      "runtime_mapped_findings": 0
+    },
+    "categories": [
+      {
+        "id": "ASI01",
+        "title": "Agent Goal Hijack",
+        "status": "no_mapped_findings",
+        "runtime_status": "no_mapped_findings",
+        "mapped_rules": [
+          "IDN005",
+          "PATH001",
+          "PATH002",
+          "PATH004",
+          "PATH005",
+          "PATH006",
+          "PATH008",
+          "PATH009",
+          "PATH010",
+          "PATH011",
+          "PATH012",
+          "PATH014",
+          "PATH015"
+        ],
+        "disabled_mapped_rules": [],
+        "available_mapped_rules": [
+          "IDN005",
+          "PATH001",
+          "PATH002",
+          "PATH004",
+          "PATH005",
+          "PATH006",
+          "PATH008",
+          "PATH009",
+          "PATH010",
+          "PATH011",
+          "PATH012",
+          "PATH014",
+          "PATH015"
+        ],
+        "finding_count": 0,
+        "runtime_finding_count": 0,
+        "non_runtime_finding_count": 0,
+        "unknown_source_context_finding_count": 0,
+        "source_contexts": {
+          "runtime": 0,
+          "cli": 0,
+          "application-support": 0,
+          "test": 0,
+          "example": 0,
+          "tutorial": 0,
+          "notebook": 0,
+          "template-generated": 0,
+          "unknown": 0
+        },
+        "highest_severity": null,
+        "finding_rule_ids": [],
+        "runtime_finding_rule_ids": [],
+        "affected_agents": [],
+        "runtime_affected_agents": []
+      },
+      {
+        "id": "ASI02",
+        "title": "Tool Misuse & Exploitation",
+        "status": "no_mapped_findings",
+        "runtime_status": "no_mapped_findings",
+        "mapped_rules": [
+          "ADK001",
+          "ADK005",
+          "ADK006",
+          "ADK007",
+          "AGT021",
+          "AGT022",
+          "AGT023",
+          "AGT032",
+          "AGT040",
+          "AGT052",
+          "AGT053",
+          "AGT054",
+          "CAP001",
+          "CAP002",
+          "CAP003",
+          "CAP005",
+          "CAP006",
+          "IDN005",
+          "NET004",
+          "PATH002",
+          "PATH006",
+          "PATH008",
+          "PATH009",
+          "PATH010",
+          "PATH011",
+          "PATH012",
+          "PATH013",
+          "PATH014",
+          "PATH015"
+        ],
+        "disabled_mapped_rules": [],
+        "available_mapped_rules": [
+          "ADK001",
+          "ADK005",
+          "ADK006",
+          "ADK007",
+          "AGT021",
+          "AGT022",
+          "AGT023",
+          "AGT032",
+          "AGT040",
+          "AGT052",
+          "AGT053",
+          "AGT054",
+          "CAP001",
+          "CAP002",
+          "CAP003",
+          "CAP005",
+          "CAP006",
+          "IDN005",
+          "NET004",
+          "PATH002",
+          "PATH006",
+          "PATH008",
+          "PATH009",
+          "PATH010",
+          "PATH011",
+          "PATH012",
+          "PATH013",
+          "PATH014",
+          "PATH015"
+        ],
+        "finding_count": 0,
+        "runtime_finding_count": 0,
+        "non_runtime_finding_count": 0,
+        "unknown_source_context_finding_count": 0,
+        "source_contexts": {
+          "runtime": 0,
+          "cli": 0,
+          "application-support": 0,
+          "test": 0,
+          "example": 0,
+          "tutorial": 0,
+          "notebook": 0,
+          "template-generated": 0,
+          "unknown": 0
+        },
+        "highest_severity": null,
+        "finding_rule_ids": [],
+        "runtime_finding_rule_ids": [],
+        "affected_agents": [],
+        "runtime_affected_agents": []
+      },
+      {
+        "id": "ASI03",
+        "title": "Identity & Privilege Abuse",
+        "status": "no_mapped_findings",
+        "runtime_status": "no_mapped_findings",
+        "mapped_rules": [
+          "AGT051",
+          "IDN001",
+          "IDN002",
+          "IDN003",
+          "IDN004",
+          "IDN005",
+          "PATH014",
+          "PATH015"
+        ],
+        "disabled_mapped_rules": [],
+        "available_mapped_rules": [
+          "AGT051",
+          "IDN001",
+          "IDN002",
+          "IDN003",
+          "IDN004",
+          "IDN005",
+          "PATH014",
+          "PATH015"
+        ],
+        "finding_count": 0,
+        "runtime_finding_count": 0,
+        "non_runtime_finding_count": 0,
+        "unknown_source_context_finding_count": 0,
+        "source_contexts": {
+          "runtime": 0,
+          "cli": 0,
+          "application-support": 0,
+          "test": 0,
+          "example": 0,
+          "tutorial": 0,
+          "notebook": 0,
+          "template-generated": 0,
+          "unknown": 0
+        },
+        "highest_severity": null,
+        "finding_rule_ids": [],
+        "runtime_finding_rule_ids": [],
+        "affected_agents": [],
+        "runtime_affected_agents": []
+      },
+      {
+        "id": "ASI04",
+        "title": "Agentic Supply Chain Vulnerabilities",
+        "status": "no_mapped_findings",
+        "runtime_status": "no_mapped_findings",
+        "mapped_rules": [
+          "AGT050",
+          "AGT051"
+        ],
+        "disabled_mapped_rules": [],
+        "available_mapped_rules": [
+          "AGT050",
+          "AGT051"
+        ],
+        "finding_count": 0,
+        "runtime_finding_count": 0,
+        "non_runtime_finding_count": 0,
+        "unknown_source_context_finding_count": 0,
+        "source_contexts": {
+          "runtime": 0,
+          "cli": 0,
+          "application-support": 0,
+          "test": 0,
+          "example": 0,
+          "tutorial": 0,
+          "notebook": 0,
+          "template-generated": 0,
+          "unknown": 0
+        },
+        "highest_severity": null,
+        "finding_rule_ids": [],
+        "runtime_finding_rule_ids": [],
+        "affected_agents": [],
+        "runtime_affected_agents": []
+      },
+      {
+        "id": "ASI05",
+        "title": "Unexpected Code Execution (RCE)",
+        "status": "no_mapped_findings",
+        "runtime_status": "no_mapped_findings",
+        "mapped_rules": [
+          "ADK002",
+          "ADK003",
+          "ADK004",
+          "ADK012",
+          "AGT020",
+          "PATH001",
+          "PATH004"
+        ],
+        "disabled_mapped_rules": [],
+        "available_mapped_rules": [
+          "ADK002",
+          "ADK003",
+          "ADK004",
+          "ADK012",
+          "AGT020",
+          "PATH001",
+          "PATH004"
+        ],
+        "finding_count": 0,
+        "runtime_finding_count": 0,
+        "non_runtime_finding_count": 0,
+        "unknown_source_context_finding_count": 0,
+        "source_contexts": {
+          "runtime": 0,
+          "cli": 0,
+          "application-support": 0,
+          "test": 0,
+          "example": 0,
+          "tutorial": 0,
+          "notebook": 0,
+          "template-generated": 0,
+          "unknown": 0
+        },
+        "highest_severity": null,
+        "finding_rule_ids": [],
+        "runtime_finding_rule_ids": [],
+        "affected_agents": [],
+        "runtime_affected_agents": []
+      },
+      {
+        "id": "ASI06",
+        "title": "Memory & Context Poisoning",
+        "status": "no_mapped_findings",
+        "runtime_status": "no_mapped_findings",
+        "mapped_rules": [
+          "PATH007",
+          "PATH012"
+        ],
+        "disabled_mapped_rules": [],
+        "available_mapped_rules": [
+          "PATH007",
+          "PATH012"
+        ],
+        "finding_count": 0,
+        "runtime_finding_count": 0,
+        "non_runtime_finding_count": 0,
+        "unknown_source_context_finding_count": 0,
+        "source_contexts": {
+          "runtime": 0,
+          "cli": 0,
+          "application-support": 0,
+          "test": 0,
+          "example": 0,
+          "tutorial": 0,
+          "notebook": 0,
+          "template-generated": 0,
+          "unknown": 0
+        },
+        "highest_severity": null,
+        "finding_rule_ids": [],
+        "runtime_finding_rule_ids": [],
+        "affected_agents": [],
+        "runtime_affected_agents": []
+      },
+      {
+        "id": "ASI07",
+        "title": "Insecure Inter-Agent Communication",
+        "status": "no_mapped_findings",
+        "runtime_status": "no_mapped_findings",
+        "mapped_rules": [
+          "ADK009",
+          "ADK010",
+          "ADK011",
+          "AGT030",
+          "AGT031",
+          "PATH008",
+          "PATH009"
+        ],
+        "disabled_mapped_rules": [],
+        "available_mapped_rules": [
+          "ADK009",
+          "ADK010",
+          "ADK011",
+          "AGT030",
+          "AGT031",
+          "PATH008",
+          "PATH009"
+        ],
+        "finding_count": 0,
+        "runtime_finding_count": 0,
+        "non_runtime_finding_count": 0,
+        "unknown_source_context_finding_count": 0,
+        "source_contexts": {
+          "runtime": 0,
+          "cli": 0,
+          "application-support": 0,
+          "test": 0,
+          "example": 0,
+          "tutorial": 0,
+          "notebook": 0,
+          "template-generated": 0,
+          "unknown": 0
+        },
+        "highest_severity": null,
+        "finding_rule_ids": [],
+        "runtime_finding_rule_ids": [],
+        "affected_agents": [],
+        "runtime_affected_agents": []
+      },
+      {
+        "id": "ASI08",
+        "title": "Cascading Failures",
+        "status": "not_assessed",
+        "runtime_status": "not_assessed",
+        "mapped_rules": [],
+        "disabled_mapped_rules": [],
+        "available_mapped_rules": [],
+        "finding_count": 0,
+        "runtime_finding_count": 0,
+        "non_runtime_finding_count": 0,
+        "unknown_source_context_finding_count": 0,
+        "source_contexts": {
+          "runtime": 0,
+          "cli": 0,
+          "application-support": 0,
+          "test": 0,
+          "example": 0,
+          "tutorial": 0,
+          "notebook": 0,
+          "template-generated": 0,
+          "unknown": 0
+        },
+        "highest_severity": null,
+        "finding_rule_ids": [],
+        "runtime_finding_rule_ids": [],
+        "affected_agents": [],
+        "runtime_affected_agents": []
+      },
+      {
+        "id": "ASI09",
+        "title": "Human-Agent Trust Exploitation",
+        "status": "not_assessed",
+        "runtime_status": "not_assessed",
+        "mapped_rules": [],
+        "disabled_mapped_rules": [],
+        "available_mapped_rules": [],
+        "finding_count": 0,
+        "runtime_finding_count": 0,
+        "non_runtime_finding_count": 0,
+        "unknown_source_context_finding_count": 0,
+        "source_contexts": {
+          "runtime": 0,
+          "cli": 0,
+          "application-support": 0,
+          "test": 0,
+          "example": 0,
+          "tutorial": 0,
+          "notebook": 0,
+          "template-generated": 0,
+          "unknown": 0
+        },
+        "highest_severity": null,
+        "finding_rule_ids": [],
+        "runtime_finding_rule_ids": [],
+        "affected_agents": [],
+        "runtime_affected_agents": []
+      },
+      {
+        "id": "ASI10",
+        "title": "Rogue Agents",
+        "status": "not_assessed",
+        "runtime_status": "not_assessed",
+        "mapped_rules": [],
+        "disabled_mapped_rules": [],
+        "available_mapped_rules": [],
+        "finding_count": 0,
+        "runtime_finding_count": 0,
+        "non_runtime_finding_count": 0,
+        "unknown_source_context_finding_count": 0,
+        "source_contexts": {
+          "runtime": 0,
+          "cli": 0,
+          "application-support": 0,
+          "test": 0,
+          "example": 0,
+          "tutorial": 0,
+          "notebook": 0,
+          "template-generated": 0,
+          "unknown": 0
+        },
+        "highest_severity": null,
+        "finding_rule_ids": [],
+        "runtime_finding_rule_ids": [],
+        "affected_agents": [],
+        "runtime_affected_agents": []
+      }
+    ]
+  },
+  "configuration": {
+    "path": null,
+    "repository": {
+      "strict": false
+    },
+    "cli_overrides": {
+      "strict": false,
+      "exclude_source_contexts": []
+    },
+    "effective": {
+      "strict": false,
+      "exclude_source_contexts": []
+    },
+    "disabled_rules": [],
+    "rule_overrides": {}
+  },
+  "suppressions": {
+    "suppressed_findings": [],
+    "diagnostics": []
+  },
+  "summary": {
+    "agents": 0,
+    "tools": 0,
+    "mcp_servers": 0,
+    "identities": 0,
+    "flow_paths": 0,
+    "flow_execution_contexts": {
+      "agent_tool": 0,
+      "cli": 0,
+      "test": 0,
+      "example": 0,
+      "tutorial": 0,
+      "notebook": 0,
+      "template-generated": 0,
+      "application_support": 0,
+      "runtime": 0,
+      "unknown": 0
+    },
+    "flow_agent_reachability": {
+      "proven_agent_reachable": 0,
+      "proven_non_agent": 0,
+      "unknown": 0
+    },
+    "flow_agent_attribution_gaps": 0,
+    "attack_paths": 0,
+    "adg_nodes": 0,
+    "adg_edges": 0,
+    "findings": 0,
+    "policy_violations": 0,
+    "owasp_categories_with_findings": 0,
+    "owasp_categories_not_assessed": 3,
+    "authority_contract_violations": 0,
+    "authority_contract_unresolved": 0,
+    "authority_contract_relationships": 0,
+    "suppressed_findings": 0,
+    "findings_by_source_context": {},
+    "findings_by_source_context_before_filter": {},
+    "excluded_findings": 0,
+    "excluded_findings_by_source_context": {},
+    "findings_by_layer": {
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0
+    }
+  },
+  "flow_paths": [],
+  "adg": {
+    "schema_version": 1,
+    "digest": "sha256:836eff8d90f4d1160a3b4e6a6c19bf6d5ecba2de977dcf008ebc523a82660381",
+    "summary": {
+      "nodes": 0,
+      "edges": 0,
+      "node_kinds": {},
+      "edge_kinds": {}
+    }
+  },
+  "attack_paths": [],
+  "findings": []
+}
