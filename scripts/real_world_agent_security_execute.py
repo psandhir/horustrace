@@ -75,11 +75,11 @@ def _expand_sparse_python_imports(
         for line in listed.stdout.splitlines()
         if line.strip()
     }
-    selected = {
-        initial_pattern.split("/", 1)[0]
-        if "/" in initial_pattern
-        else initial_pattern
-    }
+    # Track the exact sparse selection, not only its top-level prefix.
+    # Otherwise selecting "agents/pipelines/full_review" incorrectly marks the
+    # whole "agents" tree as already present and prevents import closure from
+    # adding repository-local modules such as agents.catalog.*.
+    selected = {initial_pattern}
     added: list[str] = []
 
     for _ in range(MAX_SPARSE_IMPORT_ROUNDS):
@@ -566,21 +566,32 @@ def _primary_agent_names(primary_nodes: list[dict[str, Any]]) -> set[str]:
 
 
 def _finding_key(item: dict[str, Any]) -> tuple[str, ...]:
-    fingerprint = item.get("fingerprint")
-    if fingerprint:
-        return ("fingerprint", str(fingerprint))
+    """Return a scope-independent semantic key for merged scan findings.
+
+    Fingerprints may differ when the same source is scanned once from an
+    application subdirectory and again from the expanded repository root.
+    Deduplication therefore uses the actual finding semantics and source
+    location instead of the scan-scope-dependent fingerprint.
+    """
     location_value = item.get("location")
-    location_key = (
-        json.dumps(location_value, sort_keys=True)
-        if isinstance(location_value, dict)
-        else ""
-    )
+    if isinstance(location_value, dict):
+        location_key = (
+            str(location_value.get("path") or ""),
+            str(location_value.get("line") or ""),
+            str(location_value.get("column") or ""),
+        )
+    else:
+        location_key = ("", "", "")
+    evidence = item.get("evidence")
+    evidence_key = tuple(str(value) for value in evidence) if isinstance(evidence, list) else ()
     return (
         "semantic",
         str(item.get("rule_id") or ""),
         norm(item.get("agent")),
         str(item.get("title") or ""),
-        location_key,
+        str(item.get("message") or ""),
+        *location_key,
+        *evidence_key,
     )
 
 
