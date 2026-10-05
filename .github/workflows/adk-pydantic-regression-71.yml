@@ -139,6 +139,16 @@ jobs:
               c["case_id"]: c for c in baseline["cases"]
               if c.get("framework") in frameworks
           }
+
+          override_path = source / "adjudication-notes" / "regression-reference-overrides.json"
+          override_doc = json.loads(override_path.read_text()) if override_path.exists() else {"overrides": []}
+          review_overrides = {
+              (item["case_id"], dimension): item
+              for item in override_doc.get("overrides", [])
+              for dimension in item.get("dimensions", [])
+              if item.get("classification") == "review_only_reference_defect"
+          }
+
           cur_cases = {
               c["case_id"]: c for c in current["cases"]
               if c.get("framework") in frameworks
@@ -180,12 +190,23 @@ jobs:
                   old_fn, new_fn = metric(old, dim, "fn"), metric(new, dim, "fn")
                   old_fp, new_fp = metric(old, dim, "fp"), metric(new, dim, "fp")
                   old_comparison = (old.get("comparisons") or {}).get(dim) or {}
-                  reference_complete = old_comparison.get("precision_eligible") is True
+                  override = review_overrides.get((case_id, dim))
+                  reference_complete = (
+                      old_comparison.get("precision_eligible") is True
+                      and override is None
+                  )
                   row = {
                       "case_id": case_id,
                       "framework": new.get("framework"),
                       "dimension": dim,
                       "reference_complete": reference_complete,
+                      "review_reason": (
+                          override.get("reason")
+                          if override is not None
+                          else "historical source reference did not claim completeness"
+                          if old_comparison.get("precision_eligible") is not True
+                          else None
+                      ),
                       "baseline": {"tp": old_tp, "fn": old_fn, "fp": old_fp},
                       "current": {"tp": new_tp, "fn": new_fn, "fp": new_fp},
                   }
@@ -280,6 +301,8 @@ jobs:
                       f"{old['tp']}/{old['fn']}/{old['fp']} | "
                       f"{new['tp']}/{new['fn']}/{new['fp']} |"
                   )
+                  if row.get("review_reason"):
+                      lines.append(f"  - Review reason: {row['review_reason']}")
           else:
               lines.append("No TP-loss/FN-increase regression candidates on complete locked references.")
 
