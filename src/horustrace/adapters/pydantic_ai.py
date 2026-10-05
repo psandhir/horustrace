@@ -3114,6 +3114,22 @@ def scan_python_file(path: Path) -> Graph:
         unmodeled_capabilities: list[str] = []
         if capabilities_expr is not None:
             elements = _resolve_sequence(capabilities_expr, sequences)
+            conditional_capabilities = False
+            conditional_expression: str | None = None
+            if elements is None and isinstance(capabilities_expr, ast.IfExp):
+                body = _resolve_sequence(capabilities_expr.body, sequences)
+                orelse = _resolve_sequence(capabilities_expr.orelse, sequences)
+                if body is not None and orelse is not None:
+                    conditional_capabilities = True
+                    conditional_expression = ast.unparse(capabilities_expr.test)
+                    elements = []
+                    seen_elements: set[str] = set()
+                    for element in [*body, *orelse]:
+                        key = ast.dump(element, include_attributes=False)
+                        if key in seen_elements:
+                            continue
+                        seen_elements.add(key)
+                        elements.append(element)
             if elements is None:
                 agent.metadata["dynamic_tools"] = True
                 _merge_tool(
@@ -3176,6 +3192,9 @@ def scan_python_file(path: Path) -> Graph:
                         assignments,
                     )
                     if tool is not None:
+                        if conditional_capabilities:
+                            tool.metadata["availability"] = "conditional"
+                            tool.metadata["availability_condition"] = conditional_expression
                         _merge_tool(agent.tools, tool)
                         if tool.kind in {
                             "web_search",
@@ -3192,6 +3211,9 @@ def scan_python_file(path: Path) -> Graph:
                                 )
                             )
                     elif server is not None:
+                        if conditional_capabilities:
+                            server.metadata["availability"] = "conditional"
+                            server.metadata["availability_condition"] = conditional_expression
                         agent.mcp_servers.append(server)
                     elif control is not None:
                         safety_capabilities.append(control)
