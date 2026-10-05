@@ -359,3 +359,31 @@ agent = Agent(
         item.kind == "pydantic_dynamic_capabilities"
         for item in agent.tools
     )
+
+
+def test_unresolved_dynamic_capabilities_use_capability_topology_node(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "agent.py",
+        """
+from pydantic_ai import Agent
+
+
+def build_agent(capabilities):
+    return Agent(
+        "openai:gpt-5.2",
+        capabilities=capabilities,
+    )
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    assert graph.adg is not None
+    dynamic_nodes = [
+        node
+        for node in graph.adg.nodes
+        if node.attributes.get("tool_kind") == "pydantic_dynamic_capabilities"
+    ]
+    assert len(dynamic_nodes) == 1
+    assert dynamic_nodes[0].kind == "capability"
