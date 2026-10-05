@@ -1916,3 +1916,73 @@ slack_agent = Agent(
     assert slack_server.authenticated is True
     assert slack_server.metadata["read_only"] is True
     assert slack.metadata["read_only_integrations"] == ["slack"]
+
+def test_pydantic_runcontext_dependency_methods_propagate_concrete_repository_effects(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "storage.py").write_text(
+        """
+class CSVStore:
+    def __init__(self, path: str):
+        self.path = path
+
+    def add_transaction(self, value: str) -> str:
+        with open(self.path, "a", encoding="utf-8") as handle:
+            handle.write(value + "\\n")
+        return value
+
+    def update_budget_limits(self, value: str) -> str:
+        with open(self.path, "w", encoding="utf-8") as handle:
+            handle.write(value)
+        return value
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent, RunContext
+from storage import CSVStore
+
+class BudgetContext:
+    csv_manager: CSVStore
+
+agent = Agent(
+    "openai:gpt-5.2",
+    deps_type=BudgetContext,
+)
+
+@agent.tool
+async def add_transaction(ctx: RunContext[BudgetContext], value: str) -> str:
+    return ctx.deps.csv_manager.add_transaction(value)
+
+@agent.tool
+async def set_budget_limit(ctx: RunContext[BudgetContext], value: str) -> str:
+    return ctx.deps.csv_manager.update_budget_limits(value)
+
+@agent.tool_plain
+def add_numbers(a: int, b: int) -> int:
+    return a + b
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tools = {item.name: item for item in agent.tools}
+
+    assert "data.write" in tools["add_transaction"].capabilities
+    assert "data.write" in tools["set_budget_limit"].capabilities
+    assert tools["add_transaction"].metadata["repository_effect_enriched"] is True
+    assert "file:write" in tools["add_transaction"].metadata[
+        "repository_effect_evidence"
+    ]
+    assert "data.write" not in tools["add_numbers"].capabilities
+    assert "destructive.write" not in tools["add_numbers"].capabilities
+
+    assert any(
+        finding.rule_id in {"AGT022", "AGT040"}
+        and finding.agent == "agent"
+        and "add_transaction" in finding.message
+        for finding in findings
+    )
+
