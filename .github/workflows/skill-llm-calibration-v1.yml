@@ -61,12 +61,25 @@ jobs:
             --output-json results/skill-llm-calibration-v1.json \
             --output-markdown results/skill-llm-calibration-v1.md \
             > /tmp/skill-llm-calibration-v1.json
-      - name: Publish calibration summary to job log
+      - name: Publish calibration summary
         if: always()
         run: |
           if [[ -f results/skill-llm-calibration-v1.md ]]; then
             cat results/skill-llm-calibration-v1.md
+            cat results/skill-llm-calibration-v1.md >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${LLM_AVAILABLE:-false}" != "true" ]]; then
             echo "Calibration corpus/harness validation passed."
             echo "Live LLM scoring was skipped because no supported repository credential is configured."
+            {
+              echo "## Agent Skill LLM calibration v1"
+              echo
+              echo "Corpus/harness validation passed. Live LLM scoring was skipped because no supported repository credential is configured."
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
+      - name: Upload calibration results
+        if: always() && hashFiles('results/skill-llm-calibration-v1.json') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: skill-llm-calibration-v1-${{ github.sha }}
+          path: results/
+          if-no-files-found: error
