@@ -1,6 +1,6 @@
 # HorusTrace Real-World Agent Security 2026 — Frozen Baseline
 
-- Frozen scanner SHA: \`2f89da39067f9c774ce4a7d96b1afb87c070c4ee\`
+- Frozen scanner SHA: \`a9c91721a13e506360913b4a3c85b461ea241832\`
 - Cohort: 20 exact-SHA repositories
 - Successful scans: 20
 - Execution/fetch failures: 0
@@ -15,7 +15,7 @@
 | Agent/workflow entities | 0.875 | 0.974 | 38 | 43 |
 | Tools | 0.660 | 0.756 | 90 | 103 |
 | MCP servers | 0.500 | 1.000 | 1 | 5 |
-| Delegation edges | 1.000 | 0.870 | 23 | 20 |
+| Delegation edges | 0.500 | 0.870 | 23 | 23 |
 | Explicit effective authority | 0.348 | 0.774 | 31 | 73 |
 
 \* Precision is computed only on cases where the independent reference explicitly marks the relevant dimension complete. Extra predictions on incomplete cases remain unadjudicated, not false positives.

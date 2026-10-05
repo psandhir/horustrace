@@ -1,7 +1,7 @@
 # ADK + Pydantic P0/P1 validation delta
 
 - Before scanner: `eacfd1cdab06939e5fae5f65cd2536e5855ac33f`
-- Candidate scanner: `2f89da39067f9c774ce4a7d96b1afb87c070c4ee`
+- Candidate scanner: `a9c91721a13e506360913b4a3c85b461ea241832`
 - Successful scans: 20/20
 
 ## Framework delta
