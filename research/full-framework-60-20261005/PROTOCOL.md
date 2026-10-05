@@ -16,7 +16,7 @@ This is a full security-analysis study, not a Skill-only study and not a detecto
 ## Frozen baseline
 
 - cohort lock: 2026-10-05
-- scanner baseline: `76351e075807e66b248d341198c6057bf6c7f1bc` (current main after PR #390)
+- scanner baseline: `bf02b7e831973ff733b6fab369094ce784e1a1bd` (current main after PR #390)
 - 60 unique repositories
 - exact upstream commit SHA per repository
 - 10 repositories per framework family
