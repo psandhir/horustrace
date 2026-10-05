@@ -37,37 +37,28 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p research/adk-custom-baseagent-validation
-          horustrace scan /tmp/fresh005 --format json > /tmp/fresh005.json || true
-          horustrace scan /tmp/kdense --format json > /tmp/kdense.json || true
           python - <<'PY'
           import json
           from pathlib import Path
+          from horustrace.scanner import scan
 
-          def topology(path):
-              data=json.loads(Path(path).read_text())
-              adg=data.get("adg") or {}
-              nodes=adg.get("nodes") or []
-              edges=adg.get("edges") or []
-              names={
-                  n.get("id"): n.get("name")
-                  for n in nodes
-                  if "agent" in str(n.get("kind") or "").lower()
-              }
-              delegations=sorted({
-                  (names[e.get("source")], names[e.get("target")])
-                  for e in edges
-                  if e.get("kind")=="DELEGATES_TO"
-                  and e.get("source") in names
-                  and e.get("target") in names
+          def topology(root):
+              graph, findings = scan(Path(root))
+              agents = sorted({agent.name for agent in graph.agents})
+              delegations = sorted({
+                  (agent.name, target)
+                  for agent in graph.agents
+                  for target in (agent.metadata.get("delegates_to") or [])
               })
               return {
-                  "agents": sorted(set(names.values())),
+                  "agents": agents,
                   "delegations": [list(x) for x in delegations],
-                  "analysis_incomplete": (data.get("coverage") or {}).get("incomplete"),
+                  "analysis_incomplete": graph.coverage.incomplete,
+                  "findings": len(findings),
               }
 
-          fresh=topology("/tmp/fresh005.json")
-          kdense=topology("/tmp/kdense.json")
+          fresh=topology("/tmp/fresh005")
+          kdense=topology("/tmp/kdense")
           expected_fresh=[
               ["DynamicOrchestratorAgent","launches_agent"],
               ["DynamicOrchestratorAgent","news_agent"],
