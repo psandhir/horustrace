@@ -1,0 +1,51 @@
+name: Skill LLM Calibration v1
+
+on:
+  push:
+    branches:
+      - study/skill-llm-calibration-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  calibrate:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      MODEL: gpt-6.1-sol
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e '.[dev]'
+      - name: Validate study harness
+        run: |
+          ruff check scripts/skill_llm_calibration_study.py tests/test_skill_llm_calibration_study.py
+          pytest -q tests/test_skill_llm_calibration_study.py tests/test_skill_llm_semantics.py
+          python scripts/skill_llm_calibration_study.py --validate-only
+      - name: Verify OpenAI API credential
+        run: |
+          if [[ -z "$OPENAI_API_KEY" ]]; then
+            echo "::error::OPENAI_API_KEY repository secret is required for Skill LLM calibration."
+            exit 1
+          fi
+      - name: Run locked Skill semantic calibration
+        run: |
+          mkdir -p results .study-work
+          python scripts/skill_llm_calibration_study.py \
+            --provider openai \
+            --model "$MODEL" \
+            --workspace .study-work \
+            --cache .cache/skill-llm-calibration-v1.json \
+            --output-json results/skill-llm-calibration-v1.json \
+            --output-markdown results/skill-llm-calibration-v1.md \
+            > /tmp/skill-llm-calibration-v1.json
+      - name: Publish calibration summary to job log
+        if: always()
+        run: |
+          if [[ -f results/skill-llm-calibration-v1.md ]]; then
+            cat results/skill-llm-calibration-v1.md
+          fi
