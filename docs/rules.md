@@ -50,6 +50,17 @@ metadata will become available through the CLI in WP02.
 - `SKL010` — source-proven bound skill falls outside the declared skill allowlist.
 - `SKL011` — policy-required skill is not source-proven as bound.
 - `SKL012` — source-proven bound skill is explicitly denied by policy.
+- `SKL020` — LLM-classified approval-bypass intent aligns with effective privileged Skill authority.
+- `SKL021` — LLM-classified secret-harvesting intent aligns with effective secret-reading authority.
+- `SKL022` — LLM-classified destructive intent aligns with effective destructive-write authority.
+- `SKL023` — LLM-classified exfiltration intent aligns with effective read plus egress authority.
+- `SKL024` — LLM-classified policy-circumvention intent aligns with effective privileged authority.
+- `SKL025` — a source-proven bound Skill attempts to override higher-priority instructions or safety constraints.
+- `SKL026` — LLM-classified persistence intent aligns with effective state-changing/execution authority.
+- `SKL027` — LLM-classified stealth/concealment intent aligns with effective privileged authority.
+- `SKL028` — LLM-classified unnecessary-privilege intent aligns with privileged authority actually available to the Skill.
+- `SKL029` — a Skill directs mutable/untrusted external instructions and has effective outbound network authority.
+- `SKL030` — LLM-classified cross-trust data movement aligns with effective read plus egress authority.
 
 ## Layer 3 — Identity & permissions
 
@@ -92,7 +103,11 @@ metadata will become available through the CLI in WP02.
 ## Interpreting evidence
 
 Rule IDs and severities describe configuration risks and potential impact, not
-proof of exploitability. Reports distinguish observed configuration, manifest
+proof of exploitability. Skill semantic rules use bounded LLM classification as
+intent evidence only; the LLM does not grant capabilities or emit findings, and
+SKL020-SKL030 are deterministically correlated with source-proven Skill binding
+and effective authority (except SKL025, where the bound instruction override is
+the security-relevant behavior itself). Reports distinguish observed configuration, manifest
 assertions, and inferred facts. PATH findings are potential capability combinations;
 no executable data-flow trace or successful attack is established. Callback,
 plugin, sandbox and approval observations do not verify runtime effectiveness.
