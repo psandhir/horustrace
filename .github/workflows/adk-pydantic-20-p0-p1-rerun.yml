@@ -1,0 +1,168 @@
+name: ADK Pydantic 20 P0-P1 Rerun
+
+on:
+  push:
+    branches:
+      - fix/adk-pydantic-p0-p1-study
+    paths:
+      - ".github/workflows/adk-pydantic-20-p0-p1-rerun.yml"
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: adk-pydantic-20-p0-p1-rerun-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      SCANNER_SHA: 37b433a1141fdc398ec2a003eaa8c394896d70a0
+      OUT_DIR: research/adk-pydantic-current-20-rerun-p0-p1
+
+    steps:
+      - name: Check out fix branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build identical frozen 20-repo slice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, shutil
+          from pathlib import Path
+
+          selected = [
+              "rw-004","rw-005","rw-007","rw-009","rw-010",
+              "rw-017","rw-021","rw-027","rw-033","rw-038",
+              "rw-147","rw-149","rw-150","rw-153","rw-155",
+              "rw-160","rw-161","rw-168","rw-170","rw-175",
+          ]
+          source = Path("research/real-world-agent-security-2026")
+          cohort = json.loads((source / "cohort.json").read_text())
+          by_id = {case["case_id"]: case for case in cohort["cases"]}
+          cases = [by_id[case_id] for case_id in selected]
+
+          assert sum(c["framework_stratum"] == "google-adk" for c in cases) == 10
+          assert sum(c["framework_stratum"] == "pydantic-ai" for c in cases) == 10
+
+          study = Path("/tmp/adk-pydantic-current-20")
+          (study / "ground-truth").mkdir(parents=True, exist_ok=True)
+          for case in cases:
+              src = source / case["ground_truth"]
+              dst = study / case["ground_truth"]
+              dst.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(src, dst)
+
+          sliced = dict(cohort)
+          sliced["cases"] = cases
+          sliced["tier_b_case_ids"] = [
+              case_id for case_id in cohort.get("tier_b_case_ids", [])
+              if case_id in selected
+          ]
+          sliced["tier_c_case_ids"] = [
+              case_id for case_id in cohort.get("tier_c_case_ids", [])
+              if case_id in selected
+          ]
+          sliced["study_slice"] = {
+              "name": "current-adk-pydantic-20-rerun-p0-p1",
+              "scanner_sha": "37b433a1141fdc398ec2a003eaa8c394896d70a0",
+              "baseline_scanner_sha": "eacfd1cdab06939e5fae5f65cd2536e5855ac33f",
+              "selected_case_ids": selected,
+          }
+          (study / "cohort.json").write_text(json.dumps(sliced, indent=2) + "\n")
+          PY
+
+      - name: Install exact PR scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=/tmp/horustrace-rerun-src
+          VENV=/tmp/horustrace-rerun-venv
+          git init -q "$SRC"
+          git -C "$SRC" remote add origin https://github.com/psandhir/horustrace.git
+          git -C "$SRC" fetch --quiet --depth=1 origin "$SCANNER_SHA"
+          git -C "$SRC" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "$SRC" rev-parse HEAD)" = "$SCANNER_SHA"
+          python -m venv "$VENV"
+          "$VENV/bin/pip" install --disable-pip-version-check "$SRC"
+          "$VENV/bin/horustrace" --version
+
+      - name: Scan and score identical 20 repositories
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT_DIR"
+          python scripts/real_world_agent_security_execute.py \
+            --root /tmp/adk-pydantic-current-20 \
+            --mode postfix \
+            --scanner /tmp/horustrace-rerun-venv/bin/horustrace \
+            --scanner-sha "$SCANNER_SHA" \
+            --workers 8 \
+            --output-json "$OUT_DIR/result.json" \
+            --output-markdown "$OUT_DIR/result.md"
+
+      - name: Write compact scorecard
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          out = Path("research/adk-pydantic-current-20-rerun-p0-p1")
+          d = json.loads((out / "result.json").read_text())
+          lines = [
+              "# ADK + Pydantic AI P0/P1 rerun",
+              "",
+              f"- Scanner: `{d['scanner_sha']}`",
+              f"- Successful: **{d['summary']['successful_cases']}/20**",
+              f"- Analysis incomplete: **{d['summary']['analysis_incomplete_cases']}**",
+              f"- Findings: **{d['summary']['findings']}**",
+              f"- Attack paths: **{d['summary']['attack_paths']}**",
+              "",
+              "| Framework | Agent P/R | Tool P/R | Authority P/R | Findings | Paths |",
+              "|---|---:|---:|---:|---:|---:|",
+          ]
+          def pct(v):
+              return "n/a" if v is None else f"{100*v:.1f}%"
+          for fw in ("google-adk","pydantic-ai"):
+              x=d["per_framework"][fw]
+              lines.append(
+                  f"| {fw} | {pct(x['agent_entities']['precision'])}/{pct(x['agent_entities']['recall'])} | "
+                  f"{pct(x['tools']['precision'])}/{pct(x['tools']['recall'])} | "
+                  f"{pct(x['effective_authority']['precision'])}/{pct(x['effective_authority']['recall'])} | "
+                  f"{x['findings']} | {x['attack_paths']} |"
+              )
+          (out / "RERUN_REPORT.md").write_text("\n".join(lines)+"\n")
+          print("\n".join(lines))
+          PY
+          cat "$OUT_DIR/RERUN_REPORT.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload rerun artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: adk-pydantic-20-p0-p1-rerun
+          path: research/adk-pydantic-current-20-rerun-p0-p1/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit rerun results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "horustrace-study-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add "$OUT_DIR"
+          git commit -m "research: record ADK/Pydantic P0-P1 rerun"
+          git push origin HEAD:fix/adk-pydantic-p0-p1-study
