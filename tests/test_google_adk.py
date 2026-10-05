@@ -1549,3 +1549,71 @@ root_agent = Agent(
     assert "external.write" not in tool.capabilities
     assert "destructive.write" not in tool.capabilities
     assert tool.metadata["openapi_methods"] == ["GET"]
+
+
+def test_adk_repository_resolves_imported_sub_agents_across_packages(
+    tmp_path: Path,
+) -> None:
+    catalog = tmp_path / "agents" / "catalog"
+    pipeline = tmp_path / "agents" / "pipelines" / "full_review"
+    catalog.mkdir(parents=True)
+    pipeline.mkdir(parents=True)
+    (tmp_path / "agents" / "__init__.py").write_text("", encoding="utf-8")
+    (catalog / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "agents" / "pipelines" / "__init__.py").write_text("", encoding="utf-8")
+    (pipeline / "__init__.py").write_text("", encoding="utf-8")
+
+    for filename, alias, runtime_name in (
+        ("clinical_librarian.py", "librarian_agent", "librarian_agent"),
+        ("evidence_analyst.py", "analyst_agent", "analyst_agent"),
+        ("reporter.py", "reporter_agent", "reporter_agent"),
+    ):
+        (catalog / filename).write_text(
+            f"""from google.adk.agents import LlmAgent\n\n{alias} = LlmAgent(name=\"{runtime_name}\", model=\"gemini-flash-latest\")\n""",
+            encoding="utf-8",
+        )
+
+    (pipeline / "agent.py").write_text(
+        """
+from google.adk.agents import SequentialAgent
+from agents.catalog.clinical_librarian import librarian_agent
+from agents.catalog.evidence_analyst import analyst_agent
+from agents.catalog.reporter import reporter_agent
+
+root_agent = SequentialAgent(
+    name="pubmed_full_review",
+    sub_agents=[librarian_agent, analyst_agent, reporter_agent],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    root = next(item for item in graph.agents if item.name == "pubmed_full_review")
+    assert set(root.metadata.get("delegates_to") or []) == {
+        "librarian_agent",
+        "analyst_agent",
+        "reporter_agent",
+    }
+    assert graph.adg is not None
+    root_node = next(
+        node for node in graph.adg.nodes
+        if node.kind == "agent" and node.name == "pubmed_full_review"
+    )
+    targets = {
+        node.node_id: node.name
+        for node in graph.adg.nodes
+        if node.kind == "agent"
+    }
+    delegated = {
+        targets[edge.target]
+        for edge in graph.adg.edges
+        if edge.kind == "DELEGATES_TO"
+        and edge.source == root_node.node_id
+        and edge.target in targets
+    }
+    assert delegated == {
+        "librarian_agent",
+        "analyst_agent",
+        "reporter_agent",
+    }
