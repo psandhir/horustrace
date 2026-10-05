@@ -22,6 +22,7 @@ metadata will become available through the CLI in WP02.
 - `AGT052` — MCP configuration explicitly enables a broad/unrestricted tool surface.
 - `AGT053` — bound MCP server exposes privileged in-repo tools without approval/guardrail controls.
 - `AGT054` — source-bound dynamic remote MCP catalogue is callable without a per-call approval boundary.
+- `SKL001` — bound Agent Skill declares wildcard or unrestricted `allowed-tools`.
 
 ### Google ADK
 
@@ -46,6 +47,9 @@ metadata will become available through the CLI in WP02.
 - `CAP004` — command execution combined with external network access.
 - `CAP005` — combined data read and state-change authority.
 - `CAP006` — policy-required approval is not configured on every relevant tool.
+- `SKL010` — source-proven bound skill falls outside the declared skill allowlist.
+- `SKL011` — policy-required skill is not source-proven as bound.
+- `SKL012` — source-proven bound skill is explicitly denied by policy.
 
 ## Layer 3 — Identity & permissions
 
