@@ -28,7 +28,7 @@ from horustrace.models import (
 )
 
 _FRAMEWORK_PREFIX = "agent_framework"
-_AGENT_TYPES = {"Agent", "ChatAgent", "FoundryAgent"}
+_AGENT_TYPES = {"Agent", "ChatAgent", "FoundryAgent", "create_harness_agent"}
 
 _MCP_TYPES = {
     "MCPStdioTool": "stdio",
@@ -129,6 +129,77 @@ def _expr(node: ast.AST | None) -> str | None:
         return ast.unparse(node)
     except (AttributeError, ValueError):
         return _dotted(node) or _call_name(node)
+
+
+def _static_skill_path(
+    node: ast.AST | None,
+    path: Path,
+    variables: dict[str, ast.AST],
+    seen: set[str] | None = None,
+) -> str | None:
+    if node is None:
+        return None
+    seen = set() if seen is None else seen
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Name):
+        if node.id == "__file__":
+            return str(path)
+        if node.id in seen or node.id not in variables:
+            return None
+        return _static_skill_path(variables[node.id], path, variables, seen | {node.id})
+    if isinstance(node, ast.Call):
+        called = _call_name(node.func)
+        if called == "Path" and node.args:
+            return _static_skill_path(node.args[0], path, variables, seen)
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "resolve":
+            return _static_skill_path(node.func.value, path, variables, seen)
+    if isinstance(node, ast.Attribute) and node.attr == "parent":
+        base = _static_skill_path(node.value, path, variables, seen)
+        return str(Path(base).parent) if base else None
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        left = _static_skill_path(node.left, path, variables, seen)
+        right = _static_skill_path(node.right, path, variables, seen)
+        if left and right:
+            return str(Path(left) / right)
+    return None
+
+
+def _skill_paths_from_node(
+    node: ast.AST | None,
+    path: Path,
+    variables: dict[str, ast.AST],
+) -> list[str]:
+    if node is None:
+        return []
+    if isinstance(node, ast.Name) and node.id in variables:
+        return _skill_paths_from_node(variables[node.id], path, variables)
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        result: list[str] = []
+        for item in node.elts:
+            result.extend(_skill_paths_from_node(item, path, variables))
+        return list(dict.fromkeys(result))
+    if not isinstance(node, ast.Call):
+        return []
+
+    dotted = _dotted(node.func) or ""
+    called = _call_name(node.func) or ""
+    if called == "from_paths" and "SkillsProvider" in dotted:
+        raw = _kw(node, "skill_paths") or (node.args[0] if node.args else None)
+        if isinstance(raw, (ast.List, ast.Tuple, ast.Set)):
+            candidates = list(raw.elts)
+        else:
+            candidates = [raw] if raw is not None else []
+        return [
+            value
+            for item in candidates
+            if (value := _static_skill_path(item, path, variables)) is not None
+        ]
+    if called == "FileSkillsSource":
+        raw = node.args[0] if node.args else _kw(node, "path")
+        value = _static_skill_path(raw, path, variables)
+        return [value] if value else []
+    return []
 
 
 def _target_names(node: ast.Assign | ast.AnnAssign) -> list[str]:
@@ -969,6 +1040,27 @@ def scan_python_file(path: Path) -> Graph:
                 "source_aliases": list(aliases),
             },
         )
+
+        skill_paths: list[str] = []
+        if _call_name(call.func) == "create_harness_agent":
+            raw_skill_paths = _kw(call, "skills_paths")
+            if isinstance(raw_skill_paths, (ast.List, ast.Tuple, ast.Set)):
+                skill_nodes = list(raw_skill_paths.elts)
+            else:
+                skill_nodes = [raw_skill_paths] if raw_skill_paths is not None else []
+            for skill_node in skill_nodes:
+                value = _static_skill_path(skill_node, path, variables)
+                if value:
+                    skill_paths.append(value)
+        context_providers = _kw(call, "context_providers")
+        if isinstance(context_providers, (ast.List, ast.Tuple, ast.Set)):
+            provider_nodes = list(context_providers.elts)
+        else:
+            provider_nodes = [context_providers] if context_providers is not None else []
+        for provider_node in provider_nodes:
+            skill_paths.extend(_skill_paths_from_node(provider_node, path, variables))
+        if skill_paths:
+            agent.metadata["skill_source_paths"] = list(dict.fromkeys(skill_paths))
 
         tools_node = _kw(call, "tools")
         if tools_node is not None:
