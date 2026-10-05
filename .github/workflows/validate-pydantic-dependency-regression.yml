@@ -60,20 +60,46 @@ jobs:
               graph, findings=rows["hold-pyd-004"]
               budget=next(a for a in graph.agents if a.name=="budget_agent")
               tools={t.name:t for t in budget.tools}
-              assert "data.write" in tools["add_transaction"].capabilities, tools["add_transaction"].capabilities
-              assert "data.write" in tools["set_budget_limit"].capabilities, tools["set_budget_limit"].capabilities
+              for name in ("add_transaction", "set_budget_limit", "get_budget_summary", "delete_transaction"):
+                  tool=tools[name]
+                  print(
+                      "PYD_TOOL",
+                      name,
+                      "caps=", sorted(tool.capabilities),
+                      "effect_source=", tool.metadata.get("repository_effect_source"),
+                      "effect_caps=", tool.metadata.get("repository_effect_capabilities"),
+                      "effect_evidence=", tool.metadata.get("repository_effect_evidence"),
+                      flush=True,
+                  )
+              print(
+                  "PYD_FINDINGS",
+                  [(f.rule_id, f.agent, f.message) for f in findings],
+                  flush=True,
+              )
+              assert "data.write" in tools["add_transaction"].capabilities, (
+                  "add_transaction missing data.write: "
+                  f"{sorted(tools['add_transaction'].capabilities)} / "
+                  f"{tools['add_transaction'].metadata}"
+              )
+              assert "data.write" in tools["set_budget_limit"].capabilities, (
+                  "set_budget_limit missing data.write: "
+                  f"{sorted(tools['set_budget_limit'].capabilities)} / "
+                  f"{tools['set_budget_limit'].metadata}"
+              )
               assert any(
                   f.rule_id in {"AGT022","AGT040"}
                   and f.agent=="budget_agent"
                   and "add_transaction" in f.message
                   for f in findings
-              )
+              ), "expected add_transaction approval/guardrail finding was not emitted"
 
               _, findings=rows["hold-adk-003"]
-              assert not any(f.rule_id=="NET001" for f in findings)
+              print("ADK003_FINDINGS", [(f.rule_id, f.message) for f in findings], flush=True)
+              assert not any(f.rule_id=="NET001" for f in findings), "NET001 false positive returned"
 
               _, findings=rows["hold-adk-005"]
-              assert not any(f.rule_id=="NET002" for f in findings)
+              print("ADK005_FINDINGS", [(f.rule_id, f.message) for f in findings], flush=True)
+              assert not any(f.rule_id=="NET002" for f in findings), "NET002 false positive returned"
 
               print("historical regression validation passed")
           PY
