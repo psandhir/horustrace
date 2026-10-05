@@ -1,0 +1,1843 @@
+{
+  "schema_version": 1,
+  "model": "horustrace.agent_security_graph",
+  "root": ".",
+  "summary": {
+    "topology_nodes": 17,
+    "topology_edges": 16,
+    "authority_relationships": 15,
+    "authority_relationships_not_fully_resolved": 15,
+    "flows": 0,
+    "attack_paths": 0,
+    "flow_agent_reachability": {
+      "proven_agent_reachable": 0,
+      "proven_non_agent": 0,
+      "unknown": 0
+    },
+    "analysis_incomplete": false
+  },
+  "topology": {
+    "schema_version": 1,
+    "root": ".",
+    "summary": {
+      "nodes": 17,
+      "edges": 16,
+      "node_kinds": {
+        "agent": 1,
+        "input": 1,
+        "tool": 15
+      },
+      "edge_kinds": {
+        "INVOKES": 15,
+        "RECEIVES_INPUT_FROM": 1
+      }
+    },
+    "nodes": [
+      {
+        "id": "adg-v1:18fa5a82cf296d9f3089",
+        "kind": "tool",
+        "name": "FunnelAgent:get_current_datetime_tool",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 110,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "get_current_datetime_tool",
+          "tool_kind": "adk_builtin",
+          "capabilities": [
+            "data.read"
+          ],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:1c127d4d2301dc9e67c0",
+        "kind": "tool",
+        "name": "FunnelAgent:update_user_profile_in_firestore_tool",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 105,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "update_user_profile_in_firestore_tool",
+          "tool_kind": "adk_builtin",
+          "capabilities": [
+            "data.write"
+          ],
+          "guardrails": false,
+          "mutation_semantics": "persistent_internal_write"
+        }
+      },
+      {
+        "id": "adg-v1:1e3442334ef64c5eda20",
+        "kind": "input",
+        "name": "FunnelAgent:user-or-remote-input",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 98,
+          "column": 16
+        },
+        "attributes": {
+          "trust": "untrusted",
+          "input_kind": "user"
+        }
+      },
+      {
+        "id": "adg-v1:25f7a200e0d186c2ba12",
+        "kind": "tool",
+        "name": "FunnelAgent:get_or_create_user_profile_from_firestore_tool",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 104,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "get_or_create_user_profile_from_firestore_tool",
+          "tool_kind": "adk_builtin",
+          "capabilities": [
+            "data.read",
+            "data.write"
+          ],
+          "guardrails": false,
+          "mutation_semantics": "persistent_internal_write"
+        }
+      },
+      {
+        "id": "adg-v1:5fa60d6babb5c26bbffa",
+        "kind": "tool",
+        "name": "FunnelAgent:determine_next_profile_question_tool",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 106,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "determine_next_profile_question_tool",
+          "tool_kind": "adk_builtin",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:6174ba8beaa4234fee9f",
+        "kind": "tool",
+        "name": "FunnelAgent:get_detailed_product_info_tool",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 109,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "get_detailed_product_info_tool",
+          "tool_kind": "adk_builtin",
+          "capabilities": [
+            "data.read"
+          ],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:6f1f16e92ecb8836f4c0",
+        "kind": "tool",
+        "name": "FunnelAgent:get_alternative_products_tool",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 117,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "get_alternative_products_tool",
+          "tool_kind": "adk_builtin",
+          "capabilities": [
+            "data.read"
+          ],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:7864eb95e202c220cba4",
+        "kind": "tool",
+        "name": "FunnelAgent:request_video_upload_link_tool",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 115,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "request_video_upload_link_tool",
+          "tool_kind": "adk_builtin",
+          "capabilities": [
+            "external.write",
+            "network.external"
+          ],
+          "guardrails": false,
+          "mutation_semantics": "external_side_effect",
+          "network_semantics": "arbitrary_egress"
+        }
+      },
+      {
+        "id": "adg-v1:795dce9251b4f172039c",
+        "kind": "tool",
+        "name": "FunnelAgent:search_external_products_tool",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 113,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "search_external_products_tool",
+          "tool_kind": "adk_builtin",
+          "capabilities": [
+            "data.read"
+          ],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:9f285202c371033b1f6a",
+        "kind": "tool",
+        "name": "FunnelAgent:get_catalog_level_options_tool",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 107,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "get_catalog_level_options_tool",
+          "tool_kind": "adk_builtin",
+          "capabilities": [
+            "data.read"
+          ],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:a0b6d23dea80902ecfe9",
+        "kind": "tool",
+        "name": "FunnelAgent:ask_pain_points_questions_tool",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 111,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "ask_pain_points_questions_tool",
+          "tool_kind": "adk_builtin",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:b1dbe54cd132da32998e",
+        "kind": "tool",
+        "name": "FunnelAgent:add_to_products_a_repasar_in_firestore_tool",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 114,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "add_to_products_a_repasar_in_firestore_tool",
+          "tool_kind": "adk_builtin",
+          "capabilities": [
+            "data.write"
+          ],
+          "guardrails": false,
+          "mutation_semantics": "persistent_internal_write"
+        }
+      },
+      {
+        "id": "adg-v1:c757e8430bb3da2b2d51",
+        "kind": "tool",
+        "name": "FunnelAgent:get_products_final_list_tool",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 108,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "get_products_final_list_tool",
+          "tool_kind": "adk_builtin",
+          "capabilities": [
+            "data.read"
+          ],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:c8c5a9b1a5e46c649d8a",
+        "kind": "tool",
+        "name": "FunnelAgent:prepare_selection_update_for_session_state",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 116,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "prepare_selection_update_for_session_state",
+          "tool_kind": "adk_builtin",
+          "capabilities": [
+            "data.write"
+          ],
+          "guardrails": false,
+          "mutation_semantics": "local_session_state_write"
+        }
+      },
+      {
+        "id": "adg-v1:e11756f5a47842f283a8",
+        "kind": "tool",
+        "name": "FunnelAgent:ask_contact_name_tool",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 103,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "ask_contact_name_tool",
+          "tool_kind": "adk_builtin",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:e3cb10d5e8261919dbb3",
+        "kind": "tool",
+        "name": "FunnelAgent:search_internal_products_by_embedding_tool",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 112,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "search_internal_products_by_embedding_tool",
+          "tool_kind": "adk_builtin",
+          "capabilities": [
+            "data.read"
+          ],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:e80666ecd92feb841617",
+        "kind": "agent",
+        "name": "FunnelAgent",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 98,
+          "column": 16
+        },
+        "attributes": {
+          "agent_type": "LlmAgent"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-v1:1404ca060a8784032249",
+        "kind": "INVOKES",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:6f1f16e92ecb8836f4c0",
+        "location": {
+          "path": "agent.py",
+          "line": 117,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:35982687ab95e72d8098",
+        "kind": "INVOKES",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:b1dbe54cd132da32998e",
+        "location": {
+          "path": "agent.py",
+          "line": 114,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:4688632d5306caf99acd",
+        "kind": "INVOKES",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:1c127d4d2301dc9e67c0",
+        "location": {
+          "path": "agent.py",
+          "line": 105,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:5222b10c8c3408aeddfd",
+        "kind": "INVOKES",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:795dce9251b4f172039c",
+        "location": {
+          "path": "agent.py",
+          "line": 113,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:55e8ed793b29de89240f",
+        "kind": "INVOKES",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:25f7a200e0d186c2ba12",
+        "location": {
+          "path": "agent.py",
+          "line": 104,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:6a0d08547feb368c419a",
+        "kind": "INVOKES",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:9f285202c371033b1f6a",
+        "location": {
+          "path": "agent.py",
+          "line": 107,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:7dc2446e69994b8f4751",
+        "kind": "INVOKES",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:18fa5a82cf296d9f3089",
+        "location": {
+          "path": "agent.py",
+          "line": 110,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:7f534e61ad74fc07d91d",
+        "kind": "INVOKES",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:6174ba8beaa4234fee9f",
+        "location": {
+          "path": "agent.py",
+          "line": 109,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:7ff8fd92b9fb89113407",
+        "kind": "INVOKES",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:c757e8430bb3da2b2d51",
+        "location": {
+          "path": "agent.py",
+          "line": 108,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:8a521cd084aa6cbb4e26",
+        "kind": "RECEIVES_INPUT_FROM",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:1e3442334ef64c5eda20",
+        "location": {
+          "path": "agent.py",
+          "line": 98,
+          "column": 16
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:ba8efcafa8f835186bf8",
+        "kind": "INVOKES",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:e11756f5a47842f283a8",
+        "location": {
+          "path": "agent.py",
+          "line": 103,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:babd8e273786d207bd22",
+        "kind": "INVOKES",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:a0b6d23dea80902ecfe9",
+        "location": {
+          "path": "agent.py",
+          "line": 111,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:dde318c9e1c7fa4b4e59",
+        "kind": "INVOKES",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:c8c5a9b1a5e46c649d8a",
+        "location": {
+          "path": "agent.py",
+          "line": 116,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:e4fe5ccb999401ce4fd3",
+        "kind": "INVOKES",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:e3cb10d5e8261919dbb3",
+        "location": {
+          "path": "agent.py",
+          "line": 112,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:e5d7c34a7e83bb816e65",
+        "kind": "INVOKES",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:5fa60d6babb5c26bbffa",
+        "location": {
+          "path": "agent.py",
+          "line": 106,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:f4ef136fd44d8099094c",
+        "kind": "INVOKES",
+        "source": "adg-v1:e80666ecd92feb841617",
+        "target": "adg-v1:7864eb95e202c220cba4",
+        "location": {
+          "path": "agent.py",
+          "line": 115,
+          "column": 9
+        },
+        "attributes": {}
+      }
+    ]
+  },
+  "effective_authority": {
+    "schema_version": 1,
+    "runtime_effectiveness": "not_verified",
+    "summary": {
+      "relationships": 15,
+      "tool_relationships": 15,
+      "mcp_relationships": 0,
+      "delegation_relationships": 0,
+      "fully_resolved_relationships": 0,
+      "partially_resolved_relationships": 15,
+      "unknown_relationships": 0,
+      "relationships_with_identity": 0,
+      "relationships_with_approval_evidence": 0,
+      "relationships_with_destination_evidence": 0,
+      "relationships_with_resource_evidence": 0
+    },
+    "relationships": [
+      {
+        "relationship_id": "authority-v1:2cd9d8d8d1ae09f3a2d6",
+        "agent": "FunnelAgent",
+        "target": {
+          "kind": "tool",
+          "name": "add_to_products_a_repasar_in_firestore_tool"
+        },
+        "capabilities": [
+          "data.write"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": "persistent_internal_write",
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:35982687ab95e72d8098",
+            "kind": "INVOKES",
+            "source": "adg-v1:e80666ecd92feb841617",
+            "target": "adg-v1:b1dbe54cd132da32998e",
+            "location": {
+              "path": "agent.py",
+              "line": 114,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 114,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:2ffe5f06026f78cb3e62",
+        "agent": "FunnelAgent",
+        "target": {
+          "kind": "tool",
+          "name": "ask_contact_name_tool"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:ba8efcafa8f835186bf8",
+            "kind": "INVOKES",
+            "source": "adg-v1:e80666ecd92feb841617",
+            "target": "adg-v1:e11756f5a47842f283a8",
+            "location": {
+              "path": "agent.py",
+              "line": 103,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 103,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:837a6766e310a31c117c",
+        "agent": "FunnelAgent",
+        "target": {
+          "kind": "tool",
+          "name": "ask_pain_points_questions_tool"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:babd8e273786d207bd22",
+            "kind": "INVOKES",
+            "source": "adg-v1:e80666ecd92feb841617",
+            "target": "adg-v1:a0b6d23dea80902ecfe9",
+            "location": {
+              "path": "agent.py",
+              "line": 111,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 111,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:20cf5e15c5ca6233f972",
+        "agent": "FunnelAgent",
+        "target": {
+          "kind": "tool",
+          "name": "determine_next_profile_question_tool"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:e5d7c34a7e83bb816e65",
+            "kind": "INVOKES",
+            "source": "adg-v1:e80666ecd92feb841617",
+            "target": "adg-v1:5fa60d6babb5c26bbffa",
+            "location": {
+              "path": "agent.py",
+              "line": 106,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 106,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:3a59987b2be743b34278",
+        "agent": "FunnelAgent",
+        "target": {
+          "kind": "tool",
+          "name": "get_alternative_products_tool"
+        },
+        "capabilities": [
+          "data.read"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:1404ca060a8784032249",
+            "kind": "INVOKES",
+            "source": "adg-v1:e80666ecd92feb841617",
+            "target": "adg-v1:6f1f16e92ecb8836f4c0",
+            "location": {
+              "path": "agent.py",
+              "line": 117,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 117,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:37dddeb2b156927723f9",
+        "agent": "FunnelAgent",
+        "target": {
+          "kind": "tool",
+          "name": "get_catalog_level_options_tool"
+        },
+        "capabilities": [
+          "data.read"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:6a0d08547feb368c419a",
+            "kind": "INVOKES",
+            "source": "adg-v1:e80666ecd92feb841617",
+            "target": "adg-v1:9f285202c371033b1f6a",
+            "location": {
+              "path": "agent.py",
+              "line": 107,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 107,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:5c8e8c92df6454bcb86c",
+        "agent": "FunnelAgent",
+        "target": {
+          "kind": "tool",
+          "name": "get_current_datetime_tool"
+        },
+        "capabilities": [
+          "data.read"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:7dc2446e69994b8f4751",
+            "kind": "INVOKES",
+            "source": "adg-v1:e80666ecd92feb841617",
+            "target": "adg-v1:18fa5a82cf296d9f3089",
+            "location": {
+              "path": "agent.py",
+              "line": 110,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 110,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:fd3b49d086d0b79de644",
+        "agent": "FunnelAgent",
+        "target": {
+          "kind": "tool",
+          "name": "get_detailed_product_info_tool"
+        },
+        "capabilities": [
+          "data.read"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:7f534e61ad74fc07d91d",
+            "kind": "INVOKES",
+            "source": "adg-v1:e80666ecd92feb841617",
+            "target": "adg-v1:6174ba8beaa4234fee9f",
+            "location": {
+              "path": "agent.py",
+              "line": 109,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 109,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:bcc1cc02bf5af6c558f8",
+        "agent": "FunnelAgent",
+        "target": {
+          "kind": "tool",
+          "name": "get_or_create_user_profile_from_firestore_tool"
+        },
+        "capabilities": [
+          "data.read",
+          "data.write"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": "persistent_internal_write",
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:55e8ed793b29de89240f",
+            "kind": "INVOKES",
+            "source": "adg-v1:e80666ecd92feb841617",
+            "target": "adg-v1:25f7a200e0d186c2ba12",
+            "location": {
+              "path": "agent.py",
+              "line": 104,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 104,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:b13ead3b1bb37347e632",
+        "agent": "FunnelAgent",
+        "target": {
+          "kind": "tool",
+          "name": "get_products_final_list_tool"
+        },
+        "capabilities": [
+          "data.read"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:7ff8fd92b9fb89113407",
+            "kind": "INVOKES",
+            "source": "adg-v1:e80666ecd92feb841617",
+            "target": "adg-v1:c757e8430bb3da2b2d51",
+            "location": {
+              "path": "agent.py",
+              "line": 108,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 108,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:5fa1594cd719e79f5d42",
+        "agent": "FunnelAgent",
+        "target": {
+          "kind": "tool",
+          "name": "prepare_selection_update_for_session_state"
+        },
+        "capabilities": [
+          "data.write"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": "local_session_state_write",
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:dde318c9e1c7fa4b4e59",
+            "kind": "INVOKES",
+            "source": "adg-v1:e80666ecd92feb841617",
+            "target": "adg-v1:c8c5a9b1a5e46c649d8a",
+            "location": {
+              "path": "agent.py",
+              "line": 116,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 116,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:450e4c2c16525528f81a",
+        "agent": "FunnelAgent",
+        "target": {
+          "kind": "tool",
+          "name": "request_video_upload_link_tool"
+        },
+        "capabilities": [
+          "external.write",
+          "network.external"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": "external_side_effect",
+          "network": "arbitrary_egress",
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:f4ef136fd44d8099094c",
+            "kind": "INVOKES",
+            "source": "adg-v1:e80666ecd92feb841617",
+            "target": "adg-v1:7864eb95e202c220cba4",
+            "location": {
+              "path": "agent.py",
+              "line": 115,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 115,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:6be6ab9417cbeedfc781",
+        "agent": "FunnelAgent",
+        "target": {
+          "kind": "tool",
+          "name": "search_external_products_tool"
+        },
+        "capabilities": [
+          "data.read"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:5222b10c8c3408aeddfd",
+            "kind": "INVOKES",
+            "source": "adg-v1:e80666ecd92feb841617",
+            "target": "adg-v1:795dce9251b4f172039c",
+            "location": {
+              "path": "agent.py",
+              "line": 113,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 113,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:abde7a096d4069c5037c",
+        "agent": "FunnelAgent",
+        "target": {
+          "kind": "tool",
+          "name": "search_internal_products_by_embedding_tool"
+        },
+        "capabilities": [
+          "data.read"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:e4fe5ccb999401ce4fd3",
+            "kind": "INVOKES",
+            "source": "adg-v1:e80666ecd92feb841617",
+            "target": "adg-v1:e3cb10d5e8261919dbb3",
+            "location": {
+              "path": "agent.py",
+              "line": 112,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 112,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:d3bbdf2c7f64a9f31137",
+        "agent": "FunnelAgent",
+        "target": {
+          "kind": "tool",
+          "name": "update_user_profile_in_firestore_tool"
+        },
+        "capabilities": [
+          "data.write"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": "persistent_internal_write",
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:4688632d5306caf99acd",
+            "kind": "INVOKES",
+            "source": "adg-v1:e80666ecd92feb841617",
+            "target": "adg-v1:1c127d4d2301dc9e67c0",
+            "location": {
+              "path": "agent.py",
+              "line": 105,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 105,
+          "column": 9
+        }
+      }
+    ]
+  },
+  "flows": [],
+  "attack_paths": [],
+  "resolution": {
+    "coverage_incomplete": false,
+    "coverage": {
+      "files_considered": 32,
+      "files_scanned": 17,
+      "files_skipped": 15,
+      "files_failed": 0,
+      "incomplete": false,
+      "resolution": {
+        "tools": {
+          "resolved_entities": 15,
+          "unresolved_references": 0,
+          "ratio": 1.0
+        },
+        "delegations": {
+          "resolved": 0,
+          "unresolved": 0,
+          "ratio": 1.0
+        },
+        "identities": {
+          "discovered": 0
+        },
+        "external_helpers_unresolved": 0,
+        "flows": {
+          "supported_paths": 0,
+          "agent_mapped": 0,
+          "agent_attribution_gaps": 0,
+          "execution_contexts": {
+            "agent_tool": 0,
+            "cli": 0,
+            "test": 0,
+            "example": 0,
+            "tutorial": 0,
+            "notebook": 0,
+            "template-generated": 0,
+            "application_support": 0,
+            "runtime": 0,
+            "unknown": 0
+          },
+          "agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "unknown_reachability_by_basis": {}
+        },
+        "mcp": {
+          "bound": 0,
+          "unbound": 0,
+          "unresolved_references": 0,
+          "unresolved_agent_references": 0,
+          "unbound_by_reason": {},
+          "unresolved_by_reason": {},
+          "unresolved_by_resolution_class": {}
+        }
+      },
+      "diagnostics": [
+        {
+          "code": "runtime_viability_blocker",
+          "diagnostic_id": "ARG-COV-020",
+          "kind": "runtime_viability_blocker",
+          "incomplete": false,
+          "message": "Pinned source contains a static initialization/import blocker; declared authority is retained but live runtime reachability is not proven.",
+          "details": {
+            "blockers": [
+              {
+                "kind": "missing_local_module",
+                "module": "tools",
+                "line": 8
+              },
+              {
+                "kind": "missing_local_module",
+                "module": "prompt",
+                "line": 9
+              }
+            ],
+            "affected_agents": [
+              "FunnelAgent"
+            ]
+          },
+          "location": {
+            "path": "agent.py",
+            "line": 8,
+            "column": 1
+          }
+        }
+      ]
+    }
+  },
+  "digest": "sha256:00fc8e2d2eb5c932f77823d16990c7199beae5785071f01f55dc2740acdd06ce"
+}

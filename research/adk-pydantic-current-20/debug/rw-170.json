@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "model": "horustrace.agent_security_graph",
+  "root": ".",
+  "summary": {
+    "topology_nodes": 2,
+    "topology_edges": 1,
+    "authority_relationships": 0,
+    "authority_relationships_not_fully_resolved": 0,
+    "flows": 0,
+    "attack_paths": 0,
+    "flow_agent_reachability": {
+      "proven_agent_reachable": 0,
+      "proven_non_agent": 0,
+      "unknown": 0
+    },
+    "analysis_incomplete": false
+  },
+  "topology": {
+    "schema_version": 1,
+    "root": ".",
+    "summary": {
+      "nodes": 2,
+      "edges": 1,
+      "node_kinds": {
+        "agent": 1,
+        "model": 1
+      },
+      "edge_kinds": {
+        "USES_MODEL": 1
+      }
+    },
+    "nodes": [
+      {
+        "id": "adg-v1:2c921368207a92af334f",
+        "kind": "model",
+        "name": "openai:gpt-5.3-mini",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "scraping_agent.py",
+          "line": 53,
+          "column": 12
+        },
+        "attributes": {}
+      },
+      {
+        "id": "adg-v1:c893e96ca409527900e5",
+        "kind": "agent",
+        "name": "_build_agent",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "scraping_agent.py",
+          "line": 53,
+          "column": 12
+        },
+        "attributes": {
+          "agent_type": "Agent"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-v1:7dc97d9536fbb909181f",
+        "kind": "USES_MODEL",
+        "source": "adg-v1:c893e96ca409527900e5",
+        "target": "adg-v1:2c921368207a92af334f",
+        "location": {
+          "path": "scraping_agent.py",
+          "line": 53,
+          "column": 12
+        },
+        "attributes": {}
+      }
+    ]
+  },
+  "effective_authority": {
+    "schema_version": 1,
+    "runtime_effectiveness": "not_verified",
+    "summary": {
+      "relationships": 0,
+      "tool_relationships": 0,
+      "mcp_relationships": 0,
+      "delegation_relationships": 0,
+      "fully_resolved_relationships": 0,
+      "partially_resolved_relationships": 0,
+      "unknown_relationships": 0,
+      "relationships_with_identity": 0,
+      "relationships_with_approval_evidence": 0,
+      "relationships_with_destination_evidence": 0,
+      "relationships_with_resource_evidence": 0
+    },
+    "relationships": []
+  },
+  "flows": [],
+  "attack_paths": [],
+  "resolution": {
+    "coverage_incomplete": false,
+    "coverage": {
+      "files_considered": 8,
+      "files_scanned": 3,
+      "files_skipped": 5,
+      "files_failed": 0,
+      "incomplete": false,
+      "resolution": {
+        "tools": {
+          "resolved_entities": 0,
+          "unresolved_references": 0,
+          "ratio": 1.0
+        },
+        "delegations": {
+          "resolved": 0,
+          "unresolved": 0,
+          "ratio": 1.0
+        },
+        "identities": {
+          "discovered": 0
+        },
+        "external_helpers_unresolved": 0,
+        "flows": {
+          "supported_paths": 0,
+          "agent_mapped": 0,
+          "agent_attribution_gaps": 0,
+          "execution_contexts": {
+            "agent_tool": 0,
+            "cli": 0,
+            "test": 0,
+            "example": 0,
+            "tutorial": 0,
+            "notebook": 0,
+            "template-generated": 0,
+            "application_support": 0,
+            "runtime": 0,
+            "unknown": 0
+          },
+          "agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "unknown_reachability_by_basis": {}
+        },
+        "mcp": {
+          "bound": 0,
+          "unbound": 0,
+          "unresolved_references": 0,
+          "unresolved_agent_references": 0,
+          "unbound_by_reason": {},
+          "unresolved_by_reason": {},
+          "unresolved_by_resolution_class": {}
+        }
+      },
+      "diagnostics": []
+    }
+  },
+  "digest": "sha256:5ced8f7fc00a52c2385c920e61ca7a9a6d991ccea891225606857d20678fbb4f"
+}

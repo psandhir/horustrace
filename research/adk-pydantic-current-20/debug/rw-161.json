@@ -1,0 +1,705 @@
+{
+  "schema_version": 1,
+  "model": "horustrace.agent_security_graph",
+  "root": ".",
+  "summary": {
+    "topology_nodes": 6,
+    "topology_edges": 5,
+    "authority_relationships": 5,
+    "authority_relationships_not_fully_resolved": 5,
+    "flows": 0,
+    "attack_paths": 0,
+    "flow_agent_reachability": {
+      "proven_agent_reachable": 0,
+      "proven_non_agent": 0,
+      "unknown": 0
+    },
+    "analysis_incomplete": true
+  },
+  "topology": {
+    "schema_version": 1,
+    "root": ".",
+    "summary": {
+      "nodes": 6,
+      "edges": 5,
+      "node_kinds": {
+        "agent": 1,
+        "tool": 5
+      },
+      "edge_kinds": {
+        "INVOKES": 5
+      }
+    },
+    "nodes": [
+      {
+        "id": "adg-v1:0b1c562a873c5770c629",
+        "kind": "tool",
+        "name": "agent:read_document",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "assistant.py",
+          "line": 149,
+          "column": 1
+        },
+        "attributes": {
+          "tool_name": "read_document",
+          "tool_kind": "function",
+          "capabilities": [
+            "data.read"
+          ],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:12cfbf58da7e5da77007",
+        "kind": "tool",
+        "name": "agent:dynamic-capabilities:agent",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "assistant.py",
+          "line": 61,
+          "column": 18
+        },
+        "attributes": {
+          "tool_name": "dynamic-capabilities:agent",
+          "tool_kind": "pydantic_dynamic_capabilities",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:42a17d2bad1a7af0357c",
+        "kind": "tool",
+        "name": "agent:offer_booking",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "assistant.py",
+          "line": 119,
+          "column": 5
+        },
+        "attributes": {
+          "tool_name": "offer_booking",
+          "tool_kind": "function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:a10d8c733d2b01815a6c",
+        "kind": "agent",
+        "name": "agent",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "assistant.py",
+          "line": 56,
+          "column": 9
+        },
+        "attributes": {
+          "agent_type": "Agent"
+        }
+      },
+      {
+        "id": "adg-v1:c93c9f27bf5fd2c79679",
+        "kind": "tool",
+        "name": "agent:search_knowledge",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "assistant.py",
+          "line": 77,
+          "column": 1
+        },
+        "attributes": {
+          "tool_name": "search_knowledge",
+          "tool_kind": "function",
+          "capabilities": [
+            "data.read"
+          ],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:e3ab90d4a251301de98c",
+        "kind": "tool",
+        "name": "agent:offer_profile_download",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "assistant.py",
+          "line": 93,
+          "column": 1
+        },
+        "attributes": {
+          "tool_name": "offer_profile_download",
+          "tool_kind": "function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-v1:0c679718cc836323ac92",
+        "kind": "INVOKES",
+        "source": "adg-v1:a10d8c733d2b01815a6c",
+        "target": "adg-v1:12cfbf58da7e5da77007",
+        "location": {
+          "path": "assistant.py",
+          "line": 61,
+          "column": 18
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:3511d5cf5a1eba538a17",
+        "kind": "INVOKES",
+        "source": "adg-v1:a10d8c733d2b01815a6c",
+        "target": "adg-v1:0b1c562a873c5770c629",
+        "location": {
+          "path": "assistant.py",
+          "line": 149,
+          "column": 1
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:3737e2a68de3ab57b782",
+        "kind": "INVOKES",
+        "source": "adg-v1:a10d8c733d2b01815a6c",
+        "target": "adg-v1:c93c9f27bf5fd2c79679",
+        "location": {
+          "path": "assistant.py",
+          "line": 77,
+          "column": 1
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:7953383e18fa308d979c",
+        "kind": "INVOKES",
+        "source": "adg-v1:a10d8c733d2b01815a6c",
+        "target": "adg-v1:e3ab90d4a251301de98c",
+        "location": {
+          "path": "assistant.py",
+          "line": 93,
+          "column": 1
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:94f052e22ba639c733c6",
+        "kind": "INVOKES",
+        "source": "adg-v1:a10d8c733d2b01815a6c",
+        "target": "adg-v1:42a17d2bad1a7af0357c",
+        "location": {
+          "path": "assistant.py",
+          "line": 119,
+          "column": 5
+        },
+        "attributes": {}
+      }
+    ]
+  },
+  "effective_authority": {
+    "schema_version": 1,
+    "runtime_effectiveness": "not_verified",
+    "summary": {
+      "relationships": 5,
+      "tool_relationships": 5,
+      "mcp_relationships": 0,
+      "delegation_relationships": 0,
+      "fully_resolved_relationships": 0,
+      "partially_resolved_relationships": 5,
+      "unknown_relationships": 0,
+      "relationships_with_identity": 0,
+      "relationships_with_approval_evidence": 0,
+      "relationships_with_destination_evidence": 0,
+      "relationships_with_resource_evidence": 0
+    },
+    "relationships": [
+      {
+        "relationship_id": "authority-v1:11d513a67d24ae474df9",
+        "agent": "agent",
+        "target": {
+          "kind": "tool",
+          "name": "dynamic-capabilities:agent"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "Agent.capabilities",
+          "delegate_target": null,
+          "dynamic_authority": true,
+          "tool_catalogue_unresolved": true,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:0c679718cc836323ac92",
+            "kind": "INVOKES",
+            "source": "adg-v1:a10d8c733d2b01815a6c",
+            "target": "adg-v1:12cfbf58da7e5da77007",
+            "location": {
+              "path": "assistant.py",
+              "line": 61,
+              "column": 18
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "assistant.py",
+          "line": 61,
+          "column": 18
+        }
+      },
+      {
+        "relationship_id": "authority-v1:df569efc749b0a096d97",
+        "agent": "agent",
+        "target": {
+          "kind": "tool",
+          "name": "offer_booking"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "@agent.tool_plain",
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:94f052e22ba639c733c6",
+            "kind": "INVOKES",
+            "source": "adg-v1:a10d8c733d2b01815a6c",
+            "target": "adg-v1:42a17d2bad1a7af0357c",
+            "location": {
+              "path": "assistant.py",
+              "line": 119,
+              "column": 5
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "assistant.py",
+          "line": 119,
+          "column": 5
+        }
+      },
+      {
+        "relationship_id": "authority-v1:8b7fb592bdc6a7fb4195",
+        "agent": "agent",
+        "target": {
+          "kind": "tool",
+          "name": "offer_profile_download"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "@agent.tool_plain",
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:7953383e18fa308d979c",
+            "kind": "INVOKES",
+            "source": "adg-v1:a10d8c733d2b01815a6c",
+            "target": "adg-v1:e3ab90d4a251301de98c",
+            "location": {
+              "path": "assistant.py",
+              "line": 93,
+              "column": 1
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "assistant.py",
+          "line": 93,
+          "column": 1
+        }
+      },
+      {
+        "relationship_id": "authority-v1:bf919cf52860cb44bb0f",
+        "agent": "agent",
+        "target": {
+          "kind": "tool",
+          "name": "read_document"
+        },
+        "capabilities": [
+          "data.read"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "@agent.tool_plain",
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:3511d5cf5a1eba538a17",
+            "kind": "INVOKES",
+            "source": "adg-v1:a10d8c733d2b01815a6c",
+            "target": "adg-v1:0b1c562a873c5770c629",
+            "location": {
+              "path": "assistant.py",
+              "line": 149,
+              "column": 1
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "assistant.py",
+          "line": 149,
+          "column": 1
+        }
+      },
+      {
+        "relationship_id": "authority-v1:560fc98d4d06639f452d",
+        "agent": "agent",
+        "target": {
+          "kind": "tool",
+          "name": "search_knowledge"
+        },
+        "capabilities": [
+          "data.read"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "@agent.tool_plain",
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:3737e2a68de3ab57b782",
+            "kind": "INVOKES",
+            "source": "adg-v1:a10d8c733d2b01815a6c",
+            "target": "adg-v1:c93c9f27bf5fd2c79679",
+            "location": {
+              "path": "assistant.py",
+              "line": 77,
+              "column": 1
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "assistant.py",
+          "line": 77,
+          "column": 1
+        }
+      }
+    ]
+  },
+  "flows": [],
+  "attack_paths": [],
+  "resolution": {
+    "coverage_incomplete": true,
+    "coverage": {
+      "files_considered": 4,
+      "files_scanned": 4,
+      "files_skipped": 0,
+      "files_failed": 0,
+      "incomplete": true,
+      "resolution": {
+        "tools": {
+          "resolved_entities": 5,
+          "unresolved_references": 0,
+          "ratio": 1.0
+        },
+        "delegations": {
+          "resolved": 0,
+          "unresolved": 0,
+          "ratio": 1.0
+        },
+        "identities": {
+          "discovered": 0
+        },
+        "external_helpers_unresolved": 0,
+        "flows": {
+          "supported_paths": 0,
+          "agent_mapped": 0,
+          "agent_attribution_gaps": 0,
+          "execution_contexts": {
+            "agent_tool": 0,
+            "cli": 0,
+            "test": 0,
+            "example": 0,
+            "tutorial": 0,
+            "notebook": 0,
+            "template-generated": 0,
+            "application_support": 0,
+            "runtime": 0,
+            "unknown": 0
+          },
+          "agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "unknown_reachability_by_basis": {}
+        },
+        "mcp": {
+          "bound": 0,
+          "unbound": 0,
+          "unresolved_references": 0,
+          "unresolved_agent_references": 0,
+          "unbound_by_reason": {},
+          "unresolved_by_reason": {},
+          "unresolved_by_resolution_class": {}
+        }
+      },
+      "diagnostics": [
+        {
+          "code": "dynamic_configuration",
+          "diagnostic_id": "ARG-COV-004",
+          "kind": "dynamic_configuration",
+          "incomplete": true,
+          "message": "Pydantic AI capability collection could not be statically resolved.",
+          "details": {
+            "framework": "pydantic-ai"
+          },
+          "location": {
+            "path": "assistant.py",
+            "line": 61,
+            "column": 18
+          }
+        },
+        {
+          "code": "dynamic_configuration",
+          "diagnostic_id": "ARG-COV-004",
+          "kind": "dynamic_configuration",
+          "incomplete": true,
+          "message": "Agent tool collection is created dynamically and could not be fully resolved.",
+          "details": {
+            "framework": "pydantic-ai"
+          },
+          "location": {
+            "path": "assistant.py",
+            "line": 56,
+            "column": 9
+          }
+        }
+      ]
+    }
+  },
+  "digest": "sha256:2babe7fa3dc4a1f7019915fa4061113357637b70cba03d7319185c3ce249f59a"
+}

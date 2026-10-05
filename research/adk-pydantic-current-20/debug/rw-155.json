@@ -1,0 +1,1379 @@
+{
+  "schema_version": 1,
+  "model": "horustrace.agent_security_graph",
+  "root": ".",
+  "summary": {
+    "topology_nodes": 12,
+    "topology_edges": 11,
+    "authority_relationships": 11,
+    "authority_relationships_not_fully_resolved": 11,
+    "flows": 0,
+    "attack_paths": 0,
+    "flow_agent_reachability": {
+      "proven_agent_reachable": 0,
+      "proven_non_agent": 0,
+      "unknown": 0
+    },
+    "analysis_incomplete": true
+  },
+  "topology": {
+    "schema_version": 1,
+    "root": ".",
+    "summary": {
+      "nodes": 12,
+      "edges": 11,
+      "node_kinds": {
+        "agent": 1,
+        "mcp_server": 1,
+        "tool": 10
+      },
+      "edge_kinds": {
+        "INVOKES": 11
+      }
+    },
+    "nodes": [
+      {
+        "id": "adg-v1:24b24694d05f3ec175fd",
+        "kind": "tool",
+        "name": "agent:remove_step",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "router.py",
+          "line": 151,
+          "column": 16
+        },
+        "attributes": {
+          "tool_name": "remove_step",
+          "tool_kind": "function",
+          "capabilities": [
+            "destructive.write"
+          ],
+          "guardrails": false,
+          "mutation_semantics": "destructive_write"
+        }
+      },
+      {
+        "id": "adg-v1:3feb3c314fdcc2f19f58",
+        "kind": "tool",
+        "name": "agent:create_plan",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "router.py",
+          "line": 148,
+          "column": 16
+        },
+        "attributes": {
+          "tool_name": "create_plan",
+          "tool_kind": "function",
+          "capabilities": [
+            "data.write"
+          ],
+          "guardrails": false,
+          "mutation_semantics": "internal_write_unspecified"
+        }
+      },
+      {
+        "id": "adg-v1:48b842aff2a73445eaff",
+        "kind": "tool",
+        "name": "agent:delegate_to_tasks",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "router.py",
+          "line": 130,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "delegate_to_tasks",
+          "tool_kind": "function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:7d6c2e33ec48764dac61",
+        "kind": "tool",
+        "name": "agent:add_step",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "router.py",
+          "line": 150,
+          "column": 16
+        },
+        "attributes": {
+          "tool_name": "add_step",
+          "tool_kind": "function",
+          "capabilities": [
+            "data.write"
+          ],
+          "guardrails": false,
+          "mutation_semantics": "internal_write_unspecified"
+        }
+      },
+      {
+        "id": "adg-v1:83c0549dab3c2aae33c7",
+        "kind": "tool",
+        "name": "agent:read_file",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "router.py",
+          "line": 154,
+          "column": 16
+        },
+        "attributes": {
+          "tool_name": "read_file",
+          "tool_kind": "function",
+          "capabilities": [
+            "data.read"
+          ],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:a7fb74fc0306ddd9e872",
+        "kind": "tool",
+        "name": "agent:delegate_to_research",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "router.py",
+          "line": 127,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "delegate_to_research",
+          "tool_kind": "function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:a85d396dae3e7f44c009",
+        "kind": "agent",
+        "name": "agent",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "router.py",
+          "line": 135,
+          "column": 47
+        },
+        "attributes": {
+          "agent_type": "Agent"
+        }
+      },
+      {
+        "id": "adg-v1:d77723c8579f85929e81",
+        "kind": "mcp_server",
+        "name": "agent:agent:configured-mcp",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "router.py",
+          "line": 85,
+          "column": 30
+        },
+        "attributes": {
+          "transport": "unknown",
+          "auth_mechanism": "unknown",
+          "allowed_tools": [],
+          "denied_tools": [],
+          "binding_origin": "pydantic_toolsets",
+          "effective_agent": "agent"
+        }
+      },
+      {
+        "id": "adg-v1:d8cac6cad172405a9196",
+        "kind": "tool",
+        "name": "agent:delegate_to_plan",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "router.py",
+          "line": 129,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "delegate_to_plan",
+          "tool_kind": "function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:dd298258a9c61add256e",
+        "kind": "tool",
+        "name": "agent:delegate_to_export",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "router.py",
+          "line": 131,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "delegate_to_export",
+          "tool_kind": "function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:df681a380fd5c7444670",
+        "kind": "tool",
+        "name": "agent:mark_step_done",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "router.py",
+          "line": 149,
+          "column": 16
+        },
+        "attributes": {
+          "tool_name": "mark_step_done",
+          "tool_kind": "function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:f50621da31a187938b53",
+        "kind": "tool",
+        "name": "agent:delegate_to_specification",
+        "framework": "pydantic-ai",
+        "location": {
+          "path": "router.py",
+          "line": 128,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "delegate_to_specification",
+          "tool_kind": "function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-v1:17372f40f6163ffe37f1",
+        "kind": "INVOKES",
+        "source": "adg-v1:a85d396dae3e7f44c009",
+        "target": "adg-v1:f50621da31a187938b53",
+        "location": {
+          "path": "router.py",
+          "line": 128,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:19b310988abc6b9c631a",
+        "kind": "INVOKES",
+        "source": "adg-v1:a85d396dae3e7f44c009",
+        "target": "adg-v1:d8cac6cad172405a9196",
+        "location": {
+          "path": "router.py",
+          "line": 129,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:2aeabe8d263716b96d08",
+        "kind": "INVOKES",
+        "source": "adg-v1:a85d396dae3e7f44c009",
+        "target": "adg-v1:3feb3c314fdcc2f19f58",
+        "location": {
+          "path": "router.py",
+          "line": 148,
+          "column": 16
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:31084857fa3fd79f7ea5",
+        "kind": "INVOKES",
+        "source": "adg-v1:a85d396dae3e7f44c009",
+        "target": "adg-v1:83c0549dab3c2aae33c7",
+        "location": {
+          "path": "router.py",
+          "line": 154,
+          "column": 16
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:558381a9eb6b5237172b",
+        "kind": "INVOKES",
+        "source": "adg-v1:a85d396dae3e7f44c009",
+        "target": "adg-v1:dd298258a9c61add256e",
+        "location": {
+          "path": "router.py",
+          "line": 131,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:588fa7017621e7a4fb33",
+        "kind": "INVOKES",
+        "source": "adg-v1:a85d396dae3e7f44c009",
+        "target": "adg-v1:24b24694d05f3ec175fd",
+        "location": {
+          "path": "router.py",
+          "line": 151,
+          "column": 16
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:6decf03e41f8771ebc40",
+        "kind": "INVOKES",
+        "source": "adg-v1:a85d396dae3e7f44c009",
+        "target": "adg-v1:a7fb74fc0306ddd9e872",
+        "location": {
+          "path": "router.py",
+          "line": 127,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:9f3da6d48506d92ff940",
+        "kind": "INVOKES",
+        "source": "adg-v1:a85d396dae3e7f44c009",
+        "target": "adg-v1:7d6c2e33ec48764dac61",
+        "location": {
+          "path": "router.py",
+          "line": 150,
+          "column": 16
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:b41e27de71de5af28304",
+        "kind": "INVOKES",
+        "source": "adg-v1:a85d396dae3e7f44c009",
+        "target": "adg-v1:48b842aff2a73445eaff",
+        "location": {
+          "path": "router.py",
+          "line": 130,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:ba825c0ffb637a3f1005",
+        "kind": "INVOKES",
+        "source": "adg-v1:a85d396dae3e7f44c009",
+        "target": "adg-v1:d77723c8579f85929e81",
+        "location": {
+          "path": "router.py",
+          "line": 85,
+          "column": 30
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:c327e61e67910ff4a279",
+        "kind": "INVOKES",
+        "source": "adg-v1:a85d396dae3e7f44c009",
+        "target": "adg-v1:df681a380fd5c7444670",
+        "location": {
+          "path": "router.py",
+          "line": 149,
+          "column": 16
+        },
+        "attributes": {}
+      }
+    ]
+  },
+  "effective_authority": {
+    "schema_version": 1,
+    "runtime_effectiveness": "not_verified",
+    "summary": {
+      "relationships": 11,
+      "tool_relationships": 10,
+      "mcp_relationships": 1,
+      "delegation_relationships": 0,
+      "fully_resolved_relationships": 0,
+      "partially_resolved_relationships": 11,
+      "unknown_relationships": 0,
+      "relationships_with_identity": 0,
+      "relationships_with_approval_evidence": 0,
+      "relationships_with_destination_evidence": 1,
+      "relationships_with_resource_evidence": 0
+    },
+    "relationships": [
+      {
+        "relationship_id": "authority-v1:025bda28fa064d64780d",
+        "agent": "agent",
+        "target": {
+          "kind": "mcp_server",
+          "name": "agent:configured-mcp"
+        },
+        "capabilities": [
+          "mcp.local"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "mechanism": null
+        },
+        "tool_scope": {
+          "scope": "unrestricted_or_unknown",
+          "allowed": [],
+          "denied": [],
+          "catalogue_known": false
+        },
+        "resources": [],
+        "destinations": [
+          {
+            "target": "<operator-configured-mcp>",
+            "direction": "outbound",
+            "restricted": true,
+            "kind": "operator_configured_remote_endpoint",
+            "configuration_source": null,
+            "location": {
+              "path": "router.py",
+              "line": 85,
+              "column": 30
+            }
+          }
+        ],
+        "semantics": {
+          "binding_origin": "pydantic_toolsets",
+          "transport": "unknown",
+          "network": null,
+          "dynamic_remote_mcp_catalogue": null,
+          "per_call_approval": null,
+          "tool_input_guardrails": [],
+          "tool_output_guardrails": [],
+          "authentication_state": "unknown",
+          "authentication_mechanism": "unknown",
+          "discovered_tools": []
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "resolved",
+          "tool_scope": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "identity",
+          "resources",
+          "tool_catalogue"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:ba825c0ffb637a3f1005",
+            "kind": "INVOKES",
+            "source": "adg-v1:a85d396dae3e7f44c009",
+            "target": "adg-v1:d77723c8579f85929e81",
+            "location": {
+              "path": "router.py",
+              "line": 85,
+              "column": 30
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "router.py",
+          "line": 85,
+          "column": 30
+        }
+      },
+      {
+        "relationship_id": "authority-v1:ba3ec9dc088803424571",
+        "agent": "agent",
+        "target": {
+          "kind": "tool",
+          "name": "add_step"
+        },
+        "capabilities": [
+          "data.write"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "agent.tool",
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": "internal_write_unspecified",
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:9f3da6d48506d92ff940",
+            "kind": "INVOKES",
+            "source": "adg-v1:a85d396dae3e7f44c009",
+            "target": "adg-v1:7d6c2e33ec48764dac61",
+            "location": {
+              "path": "router.py",
+              "line": 150,
+              "column": 16
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "router.py",
+          "line": 150,
+          "column": 16
+        }
+      },
+      {
+        "relationship_id": "authority-v1:3d1be7c7162ff73cedea",
+        "agent": "agent",
+        "target": {
+          "kind": "tool",
+          "name": "create_plan"
+        },
+        "capabilities": [
+          "data.write"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "agent.tool",
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": "internal_write_unspecified",
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:2aeabe8d263716b96d08",
+            "kind": "INVOKES",
+            "source": "adg-v1:a85d396dae3e7f44c009",
+            "target": "adg-v1:3feb3c314fdcc2f19f58",
+            "location": {
+              "path": "router.py",
+              "line": 148,
+              "column": 16
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "router.py",
+          "line": 148,
+          "column": 16
+        }
+      },
+      {
+        "relationship_id": "authority-v1:07fc4bdefe609ff1ee79",
+        "agent": "agent",
+        "target": {
+          "kind": "tool",
+          "name": "delegate_to_export"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "Tool",
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:558381a9eb6b5237172b",
+            "kind": "INVOKES",
+            "source": "adg-v1:a85d396dae3e7f44c009",
+            "target": "adg-v1:dd298258a9c61add256e",
+            "location": {
+              "path": "router.py",
+              "line": 131,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "router.py",
+          "line": 131,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:c58ed365fdf203d14a80",
+        "agent": "agent",
+        "target": {
+          "kind": "tool",
+          "name": "delegate_to_plan"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "Tool",
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:19b310988abc6b9c631a",
+            "kind": "INVOKES",
+            "source": "adg-v1:a85d396dae3e7f44c009",
+            "target": "adg-v1:d8cac6cad172405a9196",
+            "location": {
+              "path": "router.py",
+              "line": 129,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "router.py",
+          "line": 129,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:669d72c3878636b40ce8",
+        "agent": "agent",
+        "target": {
+          "kind": "tool",
+          "name": "delegate_to_research"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "Tool",
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:6decf03e41f8771ebc40",
+            "kind": "INVOKES",
+            "source": "adg-v1:a85d396dae3e7f44c009",
+            "target": "adg-v1:a7fb74fc0306ddd9e872",
+            "location": {
+              "path": "router.py",
+              "line": 127,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "router.py",
+          "line": 127,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:c12d7f051fe2b5358671",
+        "agent": "agent",
+        "target": {
+          "kind": "tool",
+          "name": "delegate_to_specification"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "Tool",
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:17372f40f6163ffe37f1",
+            "kind": "INVOKES",
+            "source": "adg-v1:a85d396dae3e7f44c009",
+            "target": "adg-v1:f50621da31a187938b53",
+            "location": {
+              "path": "router.py",
+              "line": 128,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "router.py",
+          "line": 128,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:28a9c0ca0d6a3482c851",
+        "agent": "agent",
+        "target": {
+          "kind": "tool",
+          "name": "delegate_to_tasks"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "Tool",
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:b41e27de71de5af28304",
+            "kind": "INVOKES",
+            "source": "adg-v1:a85d396dae3e7f44c009",
+            "target": "adg-v1:48b842aff2a73445eaff",
+            "location": {
+              "path": "router.py",
+              "line": 130,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "router.py",
+          "line": 130,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:69a3f1a34826170e3153",
+        "agent": "agent",
+        "target": {
+          "kind": "tool",
+          "name": "mark_step_done"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "agent.tool",
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:c327e61e67910ff4a279",
+            "kind": "INVOKES",
+            "source": "adg-v1:a85d396dae3e7f44c009",
+            "target": "adg-v1:df681a380fd5c7444670",
+            "location": {
+              "path": "router.py",
+              "line": 149,
+              "column": 16
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "router.py",
+          "line": 149,
+          "column": 16
+        }
+      },
+      {
+        "relationship_id": "authority-v1:c5b27fa154c351e3fc0b",
+        "agent": "agent",
+        "target": {
+          "kind": "tool",
+          "name": "read_file"
+        },
+        "capabilities": [
+          "data.read"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "agent.tool",
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:31084857fa3fd79f7ea5",
+            "kind": "INVOKES",
+            "source": "adg-v1:a85d396dae3e7f44c009",
+            "target": "adg-v1:83c0549dab3c2aae33c7",
+            "location": {
+              "path": "router.py",
+              "line": 154,
+              "column": 16
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "router.py",
+          "line": 154,
+          "column": 16
+        }
+      },
+      {
+        "relationship_id": "authority-v1:acf0bac049ad21cb3bac",
+        "agent": "agent",
+        "target": {
+          "kind": "tool",
+          "name": "remove_step"
+        },
+        "capabilities": [
+          "destructive.write"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "agent.tool",
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": "destructive_write",
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:588fa7017621e7a4fb33",
+            "kind": "INVOKES",
+            "source": "adg-v1:a85d396dae3e7f44c009",
+            "target": "adg-v1:24b24694d05f3ec175fd",
+            "location": {
+              "path": "router.py",
+              "line": 151,
+              "column": 16
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "router.py",
+          "line": 151,
+          "column": 16
+        }
+      }
+    ]
+  },
+  "flows": [],
+  "attack_paths": [],
+  "resolution": {
+    "coverage_incomplete": true,
+    "coverage": {
+      "files_considered": 6,
+      "files_scanned": 6,
+      "files_skipped": 0,
+      "files_failed": 0,
+      "incomplete": true,
+      "resolution": {
+        "tools": {
+          "resolved_entities": 11,
+          "unresolved_references": 0,
+          "ratio": 1.0
+        },
+        "delegations": {
+          "resolved": 0,
+          "unresolved": 0,
+          "ratio": 1.0
+        },
+        "identities": {
+          "discovered": 0
+        },
+        "external_helpers_unresolved": 1,
+        "flows": {
+          "supported_paths": 0,
+          "agent_mapped": 0,
+          "agent_attribution_gaps": 0,
+          "execution_contexts": {
+            "agent_tool": 0,
+            "cli": 0,
+            "test": 0,
+            "example": 0,
+            "tutorial": 0,
+            "notebook": 0,
+            "template-generated": 0,
+            "application_support": 0,
+            "runtime": 0,
+            "unknown": 0
+          },
+          "agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "unknown_reachability_by_basis": {}
+        },
+        "mcp": {
+          "bound": 1,
+          "unbound": 0,
+          "unresolved_references": 0,
+          "unresolved_agent_references": 0,
+          "unbound_by_reason": {},
+          "unresolved_by_reason": {},
+          "unresolved_by_resolution_class": {}
+        }
+      },
+      "diagnostics": [
+        {
+          "code": "dynamic_configuration",
+          "diagnostic_id": "ARG-COV-004",
+          "kind": "dynamic_configuration",
+          "incomplete": true,
+          "message": "Pydantic AI toolsets are configuration-derived; the MCP catalogue is bound but its concrete tools/transports are unresolved.",
+          "details": {
+            "framework": "pydantic-ai"
+          },
+          "location": {
+            "path": "router.py",
+            "line": 143,
+            "column": 18
+          }
+        },
+        {
+          "code": "dynamic_configuration",
+          "diagnostic_id": "ARG-COV-004",
+          "kind": "dynamic_configuration",
+          "incomplete": true,
+          "message": "Agent tool collection is created dynamically and could not be fully resolved.",
+          "details": {
+            "framework": "pydantic-ai"
+          },
+          "location": {
+            "path": "router.py",
+            "line": 135,
+            "column": 47
+          }
+        },
+        {
+          "code": "external_helper_semantics_unresolved",
+          "diagnostic_id": "ARG-COV-008",
+          "kind": "external_helper_semantics_unresolved",
+          "incomplete": true,
+          "message": "An agent tool references an imported or arbitrary helper whose semantics could not be resolved.",
+          "details": {},
+          "location": {
+            "path": "router.py",
+            "line": 135,
+            "column": 47
+          }
+        }
+      ]
+    }
+  },
+  "digest": "sha256:6a50e7c0efdf6c0ba4af6c0d21fdb3ee0dce5a6c88abed1c26910aff7a613af1"
+}

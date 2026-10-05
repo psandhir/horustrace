@@ -1,0 +1,801 @@
+{
+  "schema_version": 1,
+  "model": "horustrace.agent_security_graph",
+  "root": ".",
+  "summary": {
+    "topology_nodes": 10,
+    "topology_edges": 10,
+    "authority_relationships": 5,
+    "authority_relationships_not_fully_resolved": 5,
+    "flows": 0,
+    "attack_paths": 0,
+    "flow_agent_reachability": {
+      "proven_agent_reachable": 0,
+      "proven_non_agent": 0,
+      "unknown": 0
+    },
+    "analysis_incomplete": false
+  },
+  "topology": {
+    "schema_version": 1,
+    "root": ".",
+    "summary": {
+      "nodes": 10,
+      "edges": 10,
+      "node_kinds": {
+        "agent": 1,
+        "approval_control": 1,
+        "input": 1,
+        "model": 1,
+        "prompt": 1,
+        "tool": 5
+      },
+      "edge_kinds": {
+        "GUARDED_BY": 1,
+        "IMPLEMENTS_CONTROL": 1,
+        "INVOKES": 5,
+        "RECEIVES_INPUT_FROM": 1,
+        "USES_MODEL": 1,
+        "USES_PROMPT": 1
+      }
+    },
+    "nodes": [
+      {
+        "id": "adg-v1:0c46013a3010b8f7c925",
+        "kind": "model",
+        "name": "gemini-3.1-pro-preview",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 13,
+          "column": 14
+        },
+        "attributes": {}
+      },
+      {
+        "id": "adg-v1:21572d9cf9afb10fa1e3",
+        "kind": "agent",
+        "name": "cineagent",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 13,
+          "column": 14
+        },
+        "attributes": {
+          "agent_type": "Agent"
+        }
+      },
+      {
+        "id": "adg-v1:21fec377573b929df228",
+        "kind": "tool",
+        "name": "cineagent:search_movies",
+        "framework": "google-adk",
+        "location": {
+          "path": "tools.py",
+          "line": 146,
+          "column": 1
+        },
+        "attributes": {
+          "tool_name": "search_movies",
+          "tool_kind": "adk_function",
+          "capabilities": [
+            "data.read"
+          ],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:26842f35bd5f1fe7c970",
+        "kind": "tool",
+        "name": "cineagent:create_checkout",
+        "framework": "google-adk",
+        "location": {
+          "path": "tools.py",
+          "line": 192,
+          "column": 1
+        },
+        "attributes": {
+          "tool_name": "create_checkout",
+          "tool_kind": "adk_function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:49af295166b1f086ac9f",
+        "kind": "tool",
+        "name": "cineagent:complete_purchase",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 40,
+          "column": 9
+        },
+        "attributes": {
+          "tool_name": "complete_purchase",
+          "tool_kind": "adk_function",
+          "capabilities": [],
+          "approval": true,
+          "guardrails": true
+        }
+      },
+      {
+        "id": "adg-v1:7a73b55e932a2bb5e1b0",
+        "kind": "tool",
+        "name": "cineagent:get_movie_detail",
+        "framework": "google-adk",
+        "location": {
+          "path": "tools.py",
+          "line": 184,
+          "column": 1
+        },
+        "attributes": {
+          "tool_name": "get_movie_detail",
+          "tool_kind": "adk_function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:99b4249004b752f75265",
+        "kind": "prompt",
+        "name": "cineagent:system-prompt",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 13,
+          "column": 14
+        },
+        "attributes": {
+          "sha256": "11dfccdbd8c7cdbf1881c6dce3d2f12026728c208a4bfb6d47eb234f259a4f53",
+          "length": 697,
+          "content_included": false
+        }
+      },
+      {
+        "id": "adg-v1:d941764fdac80415bab4",
+        "kind": "tool",
+        "name": "cineagent:discover_theaters",
+        "framework": "google-adk",
+        "location": {
+          "path": "tools.py",
+          "line": 130,
+          "column": 1
+        },
+        "attributes": {
+          "tool_name": "discover_theaters",
+          "tool_kind": "adk_function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:f6a81e06168ebe11c427",
+        "kind": "approval_control",
+        "name": "cineagent:complete_purchase:approval",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 40,
+          "column": 9
+        },
+        "attributes": {
+          "mechanism": "explicit_approval",
+          "scope": "execution_gate",
+          "mandatory": true,
+          "protects_tool": "complete_purchase",
+          "source_level": "tool"
+        }
+      },
+      {
+        "id": "adg-v1:f7c6db39917eff74cf3b",
+        "kind": "input",
+        "name": "cineagent:user-or-remote-input",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 13,
+          "column": 14
+        },
+        "attributes": {
+          "trust": "untrusted",
+          "input_kind": "user"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-v1:07f42f6f6b2382a14b35",
+        "kind": "INVOKES",
+        "source": "adg-v1:21572d9cf9afb10fa1e3",
+        "target": "adg-v1:21fec377573b929df228",
+        "location": {
+          "path": "tools.py",
+          "line": 146,
+          "column": 1
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:16ff81e426ad7e06dedb",
+        "kind": "INVOKES",
+        "source": "adg-v1:21572d9cf9afb10fa1e3",
+        "target": "adg-v1:49af295166b1f086ac9f",
+        "location": {
+          "path": "agent.py",
+          "line": 40,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:29a1dfcf95455f71c688",
+        "kind": "IMPLEMENTS_CONTROL",
+        "source": "adg-v1:49af295166b1f086ac9f",
+        "target": "adg-v1:f6a81e06168ebe11c427",
+        "location": {
+          "path": "agent.py",
+          "line": 40,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:2afedb7ac1347214acfc",
+        "kind": "RECEIVES_INPUT_FROM",
+        "source": "adg-v1:21572d9cf9afb10fa1e3",
+        "target": "adg-v1:f7c6db39917eff74cf3b",
+        "location": {
+          "path": "agent.py",
+          "line": 13,
+          "column": 14
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:2f5ebe3ad1a1ab4a3168",
+        "kind": "INVOKES",
+        "source": "adg-v1:21572d9cf9afb10fa1e3",
+        "target": "adg-v1:d941764fdac80415bab4",
+        "location": {
+          "path": "tools.py",
+          "line": 130,
+          "column": 1
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:5db7146fe5f4d45bf10f",
+        "kind": "GUARDED_BY",
+        "source": "adg-v1:49af295166b1f086ac9f",
+        "target": "adg-v1:f6a81e06168ebe11c427",
+        "location": {
+          "path": "agent.py",
+          "line": 40,
+          "column": 9
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:5f574e24d5152e49cc82",
+        "kind": "USES_MODEL",
+        "source": "adg-v1:21572d9cf9afb10fa1e3",
+        "target": "adg-v1:0c46013a3010b8f7c925",
+        "location": {
+          "path": "agent.py",
+          "line": 13,
+          "column": 14
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:7de64c185be607dae2a7",
+        "kind": "USES_PROMPT",
+        "source": "adg-v1:21572d9cf9afb10fa1e3",
+        "target": "adg-v1:99b4249004b752f75265",
+        "location": {
+          "path": "agent.py",
+          "line": 13,
+          "column": 14
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:80b5355e82f23d61d1f1",
+        "kind": "INVOKES",
+        "source": "adg-v1:21572d9cf9afb10fa1e3",
+        "target": "adg-v1:26842f35bd5f1fe7c970",
+        "location": {
+          "path": "tools.py",
+          "line": 192,
+          "column": 1
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:cddb6215d5677b2fc2b7",
+        "kind": "INVOKES",
+        "source": "adg-v1:21572d9cf9afb10fa1e3",
+        "target": "adg-v1:7a73b55e932a2bb5e1b0",
+        "location": {
+          "path": "tools.py",
+          "line": 184,
+          "column": 1
+        },
+        "attributes": {}
+      }
+    ]
+  },
+  "effective_authority": {
+    "schema_version": 1,
+    "runtime_effectiveness": "not_verified",
+    "summary": {
+      "relationships": 5,
+      "tool_relationships": 5,
+      "mcp_relationships": 0,
+      "delegation_relationships": 0,
+      "fully_resolved_relationships": 0,
+      "partially_resolved_relationships": 5,
+      "unknown_relationships": 0,
+      "relationships_with_identity": 0,
+      "relationships_with_approval_evidence": 1,
+      "relationships_with_destination_evidence": 0,
+      "relationships_with_resource_evidence": 0
+    },
+    "relationships": [
+      {
+        "relationship_id": "authority-v1:6487719f95286a0927d3",
+        "agent": "cineagent",
+        "target": {
+          "kind": "tool",
+          "name": "complete_purchase"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": true,
+          "guardrails": true,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "resolved",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:16ff81e426ad7e06dedb",
+            "kind": "INVOKES",
+            "source": "adg-v1:21572d9cf9afb10fa1e3",
+            "target": "adg-v1:49af295166b1f086ac9f",
+            "location": {
+              "path": "agent.py",
+              "line": 40,
+              "column": 9
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 40,
+          "column": 9
+        }
+      },
+      {
+        "relationship_id": "authority-v1:632c82061d21a815791b",
+        "agent": "cineagent",
+        "target": {
+          "kind": "tool",
+          "name": "create_checkout"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:80b5355e82f23d61d1f1",
+            "kind": "INVOKES",
+            "source": "adg-v1:21572d9cf9afb10fa1e3",
+            "target": "adg-v1:26842f35bd5f1fe7c970",
+            "location": {
+              "path": "tools.py",
+              "line": 192,
+              "column": 1
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "tools.py",
+          "line": 192,
+          "column": 1
+        }
+      },
+      {
+        "relationship_id": "authority-v1:e70684f0d2df8adbd49e",
+        "agent": "cineagent",
+        "target": {
+          "kind": "tool",
+          "name": "discover_theaters"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:2f5ebe3ad1a1ab4a3168",
+            "kind": "INVOKES",
+            "source": "adg-v1:21572d9cf9afb10fa1e3",
+            "target": "adg-v1:d941764fdac80415bab4",
+            "location": {
+              "path": "tools.py",
+              "line": 130,
+              "column": 1
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "tools.py",
+          "line": 130,
+          "column": 1
+        }
+      },
+      {
+        "relationship_id": "authority-v1:e90ac328d08177503c69",
+        "agent": "cineagent",
+        "target": {
+          "kind": "tool",
+          "name": "get_movie_detail"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:cddb6215d5677b2fc2b7",
+            "kind": "INVOKES",
+            "source": "adg-v1:21572d9cf9afb10fa1e3",
+            "target": "adg-v1:7a73b55e932a2bb5e1b0",
+            "location": {
+              "path": "tools.py",
+              "line": 184,
+              "column": 1
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "tools.py",
+          "line": 184,
+          "column": 1
+        }
+      },
+      {
+        "relationship_id": "authority-v1:256438d8642592a04fec",
+        "agent": "cineagent",
+        "target": {
+          "kind": "tool",
+          "name": "search_movies"
+        },
+        "capabilities": [
+          "data.read"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:07f42f6f6b2382a14b35",
+            "kind": "INVOKES",
+            "source": "adg-v1:21572d9cf9afb10fa1e3",
+            "target": "adg-v1:21fec377573b929df228",
+            "location": {
+              "path": "tools.py",
+              "line": 146,
+              "column": 1
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "tools.py",
+          "line": 146,
+          "column": 1
+        }
+      }
+    ]
+  },
+  "flows": [],
+  "attack_paths": [],
+  "resolution": {
+    "coverage_incomplete": false,
+    "coverage": {
+      "files_considered": 10,
+      "files_scanned": 5,
+      "files_skipped": 5,
+      "files_failed": 0,
+      "incomplete": false,
+      "resolution": {
+        "tools": {
+          "resolved_entities": 5,
+          "unresolved_references": 0,
+          "ratio": 1.0
+        },
+        "delegations": {
+          "resolved": 0,
+          "unresolved": 0,
+          "ratio": 1.0
+        },
+        "identities": {
+          "discovered": 0
+        },
+        "external_helpers_unresolved": 0,
+        "flows": {
+          "supported_paths": 0,
+          "agent_mapped": 0,
+          "agent_attribution_gaps": 0,
+          "execution_contexts": {
+            "agent_tool": 0,
+            "cli": 0,
+            "test": 0,
+            "example": 0,
+            "tutorial": 0,
+            "notebook": 0,
+            "template-generated": 0,
+            "application_support": 0,
+            "runtime": 0,
+            "unknown": 0
+          },
+          "agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "unknown_reachability_by_basis": {}
+        },
+        "mcp": {
+          "bound": 0,
+          "unbound": 0,
+          "unresolved_references": 0,
+          "unresolved_agent_references": 0,
+          "unbound_by_reason": {},
+          "unresolved_by_reason": {},
+          "unresolved_by_resolution_class": {}
+        }
+      },
+      "diagnostics": []
+    }
+  },
+  "digest": "sha256:5ed666662a40ff84f02048f820903bdb7c30185f4575c97795cc881638157eb3"
+}

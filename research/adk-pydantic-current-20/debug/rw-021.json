@@ -1,0 +1,993 @@
+{
+  "schema_version": 1,
+  "model": "horustrace.agent_security_graph",
+  "root": ".",
+  "summary": {
+    "topology_nodes": 17,
+    "topology_edges": 13,
+    "authority_relationships": 6,
+    "authority_relationships_not_fully_resolved": 6,
+    "flows": 0,
+    "attack_paths": 0,
+    "flow_agent_reachability": {
+      "proven_agent_reachable": 0,
+      "proven_non_agent": 0,
+      "unknown": 0
+    },
+    "analysis_incomplete": false
+  },
+  "topology": {
+    "schema_version": 1,
+    "root": ".",
+    "summary": {
+      "nodes": 17,
+      "edges": 13,
+      "node_kinds": {
+        "agent": 4,
+        "input": 1,
+        "model": 3,
+        "prompt": 3,
+        "tool": 6
+      },
+      "edge_kinds": {
+        "DELEGATES_TO": 3,
+        "INVOKES": 3,
+        "RECEIVES_INPUT_FROM": 1,
+        "USES_MODEL": 3,
+        "USES_PROMPT": 3
+      }
+    },
+    "nodes": [
+      {
+        "id": "adg-v1:01a6ddb418965d1f5abc",
+        "kind": "tool",
+        "name": "ContentAssistant:delegate:WriterAgent",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 97,
+          "column": 14
+        },
+        "attributes": {
+          "tool_name": "delegate:WriterAgent",
+          "tool_kind": "delegated_agent",
+          "capabilities": [
+            "agent.delegate"
+          ],
+          "guardrails": false,
+          "authority_binding": "delegation_projection",
+          "authority_binding_basis": "adk_delegates_to"
+        }
+      },
+      {
+        "id": "adg-v1:13d4ebea0f6d32caff56",
+        "kind": "prompt",
+        "name": "FormatterAgent:system-prompt",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 81,
+          "column": 16
+        },
+        "attributes": {
+          "sha256": "099a7a94f5c1d4b79569bcffe53d1d0f8f48c7a9ab12627a8e8d909c384b7be7",
+          "length": 99,
+          "content_included": false
+        }
+      },
+      {
+        "id": "adg-v1:185532fe03a54772656a",
+        "kind": "agent",
+        "name": "IdeaAgent",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 57,
+          "column": 15
+        },
+        "attributes": {
+          "agent_type": "LlmAgent"
+        }
+      },
+      {
+        "id": "adg-v1:2113f3fd053793b25b33",
+        "kind": "input",
+        "name": "ContentAssistant:user-or-remote-input",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 97,
+          "column": 14
+        },
+        "attributes": {
+          "trust": "untrusted",
+          "input_kind": "user"
+        }
+      },
+      {
+        "id": "adg-v1:287f881e840af5bc0d09",
+        "kind": "agent",
+        "name": "FormatterAgent",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 81,
+          "column": 16
+        },
+        "attributes": {
+          "agent_type": "LlmAgent"
+        }
+      },
+      {
+        "id": "adg-v1:3895bd1f113f82d563a3",
+        "kind": "model",
+        "name": "gemini-2.0-flash",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 69,
+          "column": 15
+        },
+        "attributes": {}
+      },
+      {
+        "id": "adg-v1:45eaad58d1368928a0a7",
+        "kind": "agent",
+        "name": "ContentAssistant",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 97,
+          "column": 14
+        },
+        "attributes": {
+          "agent_type": "SequentialAgent",
+          "workflow": "SequentialAgent"
+        }
+      },
+      {
+        "id": "adg-v1:4ad6df965ca9983a227b",
+        "kind": "tool",
+        "name": "WriterAgent:write_content",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 34,
+          "column": 1
+        },
+        "attributes": {
+          "tool_name": "write_content",
+          "tool_kind": "adk_function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:7748ce53b02fa09892dd",
+        "kind": "agent",
+        "name": "WriterAgent",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 69,
+          "column": 15
+        },
+        "attributes": {
+          "agent_type": "LlmAgent"
+        }
+      },
+      {
+        "id": "adg-v1:7d6ab9defcf0b80e45d2",
+        "kind": "tool",
+        "name": "IdeaAgent:generate_ideas",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 25,
+          "column": 1
+        },
+        "attributes": {
+          "tool_name": "generate_ideas",
+          "tool_kind": "adk_function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:85bf817dbba11016a7c8",
+        "kind": "model",
+        "name": "gemini-2.0-flash",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 57,
+          "column": 15
+        },
+        "attributes": {}
+      },
+      {
+        "id": "adg-v1:93cf6db95767d09e08c0",
+        "kind": "prompt",
+        "name": "WriterAgent:system-prompt",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 69,
+          "column": 15
+        },
+        "attributes": {
+          "sha256": "27cc3fbee0b9f89e846db3dda94a8656a36b7101a6a8286fbf487833f6dc8b8b",
+          "length": 107,
+          "content_included": false
+        }
+      },
+      {
+        "id": "adg-v1:a8834be696e77c14f3a7",
+        "kind": "prompt",
+        "name": "IdeaAgent:system-prompt",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 57,
+          "column": 15
+        },
+        "attributes": {
+          "sha256": "f38e189e14ca23053f10f23579f5bf0791d7021d57655cf6de4c558edfa06d16",
+          "length": 93,
+          "content_included": false
+        }
+      },
+      {
+        "id": "adg-v1:c09b9895014ceb4a4bae",
+        "kind": "model",
+        "name": "gemini-2.0-flash",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 81,
+          "column": 16
+        },
+        "attributes": {}
+      },
+      {
+        "id": "adg-v1:da3d8b0efea3ab9d3055",
+        "kind": "tool",
+        "name": "ContentAssistant:delegate:IdeaAgent",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 97,
+          "column": 14
+        },
+        "attributes": {
+          "tool_name": "delegate:IdeaAgent",
+          "tool_kind": "delegated_agent",
+          "capabilities": [
+            "agent.delegate"
+          ],
+          "guardrails": false,
+          "authority_binding": "delegation_projection",
+          "authority_binding_basis": "adk_delegates_to"
+        }
+      },
+      {
+        "id": "adg-v1:e4e1f783edd5e9e2c123",
+        "kind": "tool",
+        "name": "FormatterAgent:format_draft",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 44,
+          "column": 1
+        },
+        "attributes": {
+          "tool_name": "format_draft",
+          "tool_kind": "adk_function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:ee35ff7ac1fbcd9074d2",
+        "kind": "tool",
+        "name": "ContentAssistant:delegate:FormatterAgent",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 97,
+          "column": 14
+        },
+        "attributes": {
+          "tool_name": "delegate:FormatterAgent",
+          "tool_kind": "delegated_agent",
+          "capabilities": [
+            "agent.delegate"
+          ],
+          "guardrails": false,
+          "authority_binding": "delegation_projection",
+          "authority_binding_basis": "adk_delegates_to"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-v1:0078d2222549ecf104ab",
+        "kind": "INVOKES",
+        "source": "adg-v1:7748ce53b02fa09892dd",
+        "target": "adg-v1:4ad6df965ca9983a227b",
+        "location": {
+          "path": "agent.py",
+          "line": 34,
+          "column": 1
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:02302a45258d7ea88cb4",
+        "kind": "USES_MODEL",
+        "source": "adg-v1:287f881e840af5bc0d09",
+        "target": "adg-v1:c09b9895014ceb4a4bae",
+        "location": {
+          "path": "agent.py",
+          "line": 81,
+          "column": 16
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:02a3a9f0f94539a81dea",
+        "kind": "INVOKES",
+        "source": "adg-v1:185532fe03a54772656a",
+        "target": "adg-v1:7d6ab9defcf0b80e45d2",
+        "location": {
+          "path": "agent.py",
+          "line": 25,
+          "column": 1
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:0bee51e660e57ea7cbef",
+        "kind": "USES_PROMPT",
+        "source": "adg-v1:185532fe03a54772656a",
+        "target": "adg-v1:a8834be696e77c14f3a7",
+        "location": {
+          "path": "agent.py",
+          "line": 57,
+          "column": 15
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:25023507a767b5b0fcfb",
+        "kind": "INVOKES",
+        "source": "adg-v1:287f881e840af5bc0d09",
+        "target": "adg-v1:e4e1f783edd5e9e2c123",
+        "location": {
+          "path": "agent.py",
+          "line": 44,
+          "column": 1
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:25127133aa7b6f19367e",
+        "kind": "USES_PROMPT",
+        "source": "adg-v1:287f881e840af5bc0d09",
+        "target": "adg-v1:13d4ebea0f6d32caff56",
+        "location": {
+          "path": "agent.py",
+          "line": 81,
+          "column": 16
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:3b6ad49f1090c0ea76be",
+        "kind": "DELEGATES_TO",
+        "source": "adg-v1:45eaad58d1368928a0a7",
+        "target": "adg-v1:287f881e840af5bc0d09",
+        "location": {
+          "path": "agent.py",
+          "line": 97,
+          "column": 14
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:64f825e5ad6b30c805f9",
+        "kind": "USES_PROMPT",
+        "source": "adg-v1:7748ce53b02fa09892dd",
+        "target": "adg-v1:93cf6db95767d09e08c0",
+        "location": {
+          "path": "agent.py",
+          "line": 69,
+          "column": 15
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:86a4af6514b81fd1d0fc",
+        "kind": "DELEGATES_TO",
+        "source": "adg-v1:45eaad58d1368928a0a7",
+        "target": "adg-v1:185532fe03a54772656a",
+        "location": {
+          "path": "agent.py",
+          "line": 97,
+          "column": 14
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:88487a386b28e7205329",
+        "kind": "USES_MODEL",
+        "source": "adg-v1:185532fe03a54772656a",
+        "target": "adg-v1:85bf817dbba11016a7c8",
+        "location": {
+          "path": "agent.py",
+          "line": 57,
+          "column": 15
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:8b0b823a89863464eb0e",
+        "kind": "USES_MODEL",
+        "source": "adg-v1:7748ce53b02fa09892dd",
+        "target": "adg-v1:3895bd1f113f82d563a3",
+        "location": {
+          "path": "agent.py",
+          "line": 69,
+          "column": 15
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:92548500743699fc51e8",
+        "kind": "DELEGATES_TO",
+        "source": "adg-v1:45eaad58d1368928a0a7",
+        "target": "adg-v1:7748ce53b02fa09892dd",
+        "location": {
+          "path": "agent.py",
+          "line": 97,
+          "column": 14
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:b9d713af4040ec39572f",
+        "kind": "RECEIVES_INPUT_FROM",
+        "source": "adg-v1:45eaad58d1368928a0a7",
+        "target": "adg-v1:2113f3fd053793b25b33",
+        "location": {
+          "path": "agent.py",
+          "line": 97,
+          "column": 14
+        },
+        "attributes": {}
+      }
+    ]
+  },
+  "effective_authority": {
+    "schema_version": 1,
+    "runtime_effectiveness": "not_verified",
+    "summary": {
+      "relationships": 6,
+      "tool_relationships": 3,
+      "mcp_relationships": 0,
+      "delegation_relationships": 3,
+      "fully_resolved_relationships": 0,
+      "partially_resolved_relationships": 6,
+      "unknown_relationships": 0,
+      "relationships_with_identity": 0,
+      "relationships_with_approval_evidence": 0,
+      "relationships_with_destination_evidence": 0,
+      "relationships_with_resource_evidence": 0
+    },
+    "relationships": [
+      {
+        "relationship_id": "authority-v1:625e6b837f59540c522f",
+        "agent": "ContentAssistant",
+        "target": {
+          "kind": "delegation",
+          "name": "FormatterAgent"
+        },
+        "capabilities": [
+          "agent.delegate"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "adk_delegates_to",
+          "delegate_target": "FormatterAgent",
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": "inherited",
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          },
+          "delegation_projection": true,
+          "transitive": true
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 97,
+          "column": 14
+        }
+      },
+      {
+        "relationship_id": "authority-v1:5e424a7163c68360d688",
+        "agent": "ContentAssistant",
+        "target": {
+          "kind": "delegation",
+          "name": "IdeaAgent"
+        },
+        "capabilities": [
+          "agent.delegate"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "adk_delegates_to",
+          "delegate_target": "IdeaAgent",
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": "inherited",
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          },
+          "delegation_projection": true,
+          "transitive": true
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 97,
+          "column": 14
+        }
+      },
+      {
+        "relationship_id": "authority-v1:e80670251ee8b752dd49",
+        "agent": "ContentAssistant",
+        "target": {
+          "kind": "delegation",
+          "name": "WriterAgent"
+        },
+        "capabilities": [
+          "agent.delegate"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": "adk_delegates_to",
+          "delegate_target": "WriterAgent",
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": "inherited",
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          },
+          "delegation_projection": true,
+          "transitive": true
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 97,
+          "column": 14
+        }
+      },
+      {
+        "relationship_id": "authority-v1:54d04e418cd663695564",
+        "agent": "FormatterAgent",
+        "target": {
+          "kind": "tool",
+          "name": "format_draft"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:25023507a767b5b0fcfb",
+            "kind": "INVOKES",
+            "source": "adg-v1:287f881e840af5bc0d09",
+            "target": "adg-v1:e4e1f783edd5e9e2c123",
+            "location": {
+              "path": "agent.py",
+              "line": 44,
+              "column": 1
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 44,
+          "column": 1
+        }
+      },
+      {
+        "relationship_id": "authority-v1:e712a8975ad95776882b",
+        "agent": "IdeaAgent",
+        "target": {
+          "kind": "tool",
+          "name": "generate_ideas"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:02a3a9f0f94539a81dea",
+            "kind": "INVOKES",
+            "source": "adg-v1:185532fe03a54772656a",
+            "target": "adg-v1:7d6ab9defcf0b80e45d2",
+            "location": {
+              "path": "agent.py",
+              "line": 25,
+              "column": 1
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 25,
+          "column": 1
+        }
+      },
+      {
+        "relationship_id": "authority-v1:fe3ad97e8284211ade92",
+        "agent": "WriterAgent",
+        "target": {
+          "kind": "tool",
+          "name": "write_content"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:0078d2222549ecf104ab",
+            "kind": "INVOKES",
+            "source": "adg-v1:7748ce53b02fa09892dd",
+            "target": "adg-v1:4ad6df965ca9983a227b",
+            "location": {
+              "path": "agent.py",
+              "line": 34,
+              "column": 1
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "agent.py",
+          "line": 34,
+          "column": 1
+        }
+      }
+    ]
+  },
+  "flows": [],
+  "attack_paths": [],
+  "resolution": {
+    "coverage_incomplete": false,
+    "coverage": {
+      "files_considered": 4,
+      "files_scanned": 2,
+      "files_skipped": 2,
+      "files_failed": 0,
+      "incomplete": false,
+      "resolution": {
+        "tools": {
+          "resolved_entities": 6,
+          "unresolved_references": 0,
+          "ratio": 1.0
+        },
+        "delegations": {
+          "resolved": 3,
+          "unresolved": 0,
+          "ratio": 1.0
+        },
+        "identities": {
+          "discovered": 0
+        },
+        "external_helpers_unresolved": 0,
+        "flows": {
+          "supported_paths": 0,
+          "agent_mapped": 0,
+          "agent_attribution_gaps": 0,
+          "execution_contexts": {
+            "agent_tool": 0,
+            "cli": 0,
+            "test": 0,
+            "example": 0,
+            "tutorial": 0,
+            "notebook": 0,
+            "template-generated": 0,
+            "application_support": 0,
+            "runtime": 0,
+            "unknown": 0
+          },
+          "agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "unknown_reachability_by_basis": {}
+        },
+        "mcp": {
+          "bound": 0,
+          "unbound": 0,
+          "unresolved_references": 0,
+          "unresolved_agent_references": 0,
+          "unbound_by_reason": {},
+          "unresolved_by_reason": {},
+          "unresolved_by_resolution_class": {}
+        }
+      },
+      "diagnostics": []
+    }
+  },
+  "digest": "sha256:d49bf54ddf8b53163b8f0fb9ae6be1c70cdeed01c537ae5817b47295b40c9f82"
+}

@@ -1,0 +1,654 @@
+{
+  "schema_version": 1,
+  "model": "horustrace.agent_security_graph",
+  "root": ".",
+  "summary": {
+    "topology_nodes": 7,
+    "topology_edges": 6,
+    "authority_relationships": 4,
+    "authority_relationships_not_fully_resolved": 4,
+    "flows": 0,
+    "attack_paths": 0,
+    "flow_agent_reachability": {
+      "proven_agent_reachable": 0,
+      "proven_non_agent": 0,
+      "unknown": 0
+    },
+    "analysis_incomplete": true
+  },
+  "topology": {
+    "schema_version": 1,
+    "root": ".",
+    "summary": {
+      "nodes": 7,
+      "edges": 6,
+      "node_kinds": {
+        "agent": 1,
+        "network_destination": 1,
+        "prompt": 1,
+        "tool": 4
+      },
+      "edge_kinds": {
+        "CONNECTS_TO": 1,
+        "INVOKES": 4,
+        "USES_PROMPT": 1
+      }
+    },
+    "nodes": [
+      {
+        "id": "adg-v1:3b43038e560ead00e83c",
+        "kind": "tool",
+        "name": "APDM:check_malware",
+        "framework": "google-adk",
+        "location": {
+          "path": "tools/malware_detector.py",
+          "line": 27,
+          "column": 25
+        },
+        "attributes": {
+          "tool_name": "check_malware",
+          "tool_kind": "adk_function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:497f4697ec309796b5a4",
+        "kind": "tool",
+        "name": "APDM:check_url",
+        "framework": "google-adk",
+        "location": {
+          "path": "tools/url_checker.py",
+          "line": 16,
+          "column": 20
+        },
+        "attributes": {
+          "tool_name": "check_url",
+          "tool_kind": "adk_function",
+          "capabilities": [
+            "data.read",
+            "network.external"
+          ],
+          "guardrails": false,
+          "network_semantics": "arbitrary_internet_retrieval"
+        }
+      },
+      {
+        "id": "adg-v1:5a811866c6cb029668ee",
+        "kind": "network_destination",
+        "name": "<dynamic-url>",
+        "framework": "google-adk",
+        "location": {
+          "path": "tools/url_checker.py",
+          "line": 16,
+          "column": 20
+        },
+        "attributes": {
+          "direction": "outbound",
+          "restricted": false,
+          "source": "dynamic_network_call"
+        }
+      },
+      {
+        "id": "adg-v1:947112847516700d1b6f",
+        "kind": "tool",
+        "name": "APDM:threat_score",
+        "framework": "google-adk",
+        "location": {
+          "path": "tools/threat_score.py",
+          "line": 16,
+          "column": 21
+        },
+        "attributes": {
+          "tool_name": "threat_score",
+          "tool_kind": "adk_function",
+          "capabilities": [
+            "data.read"
+          ],
+          "guardrails": false
+        }
+      },
+      {
+        "id": "adg-v1:c9adfdff00a0a8ab939c",
+        "kind": "prompt",
+        "name": "APDM:system-prompt",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 11,
+          "column": 21
+        },
+        "attributes": {
+          "sha256": "7dfd9660d9adae92f00ef9fdba2592e994c34dda916805c65072585c2e3562f1",
+          "length": 82,
+          "content_included": false
+        }
+      },
+      {
+        "id": "adg-v1:ef5f5f099ec1139e4f12",
+        "kind": "agent",
+        "name": "APDM",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 11,
+          "column": 21
+        },
+        "attributes": {
+          "agent_type": "Agent"
+        }
+      },
+      {
+        "id": "adg-v1:f1521562213fcb9a4af6",
+        "kind": "tool",
+        "name": "APDM:check_phishing",
+        "framework": "google-adk",
+        "location": {
+          "path": "tools/phishing_detector.py",
+          "line": 19,
+          "column": 26
+        },
+        "attributes": {
+          "tool_name": "check_phishing",
+          "tool_kind": "adk_function",
+          "capabilities": [],
+          "guardrails": false
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-v1:226ecc43c09059f3b5ff",
+        "kind": "INVOKES",
+        "source": "adg-v1:ef5f5f099ec1139e4f12",
+        "target": "adg-v1:3b43038e560ead00e83c",
+        "location": {
+          "path": "tools/malware_detector.py",
+          "line": 27,
+          "column": 25
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:235f4c7f3878ec300976",
+        "kind": "INVOKES",
+        "source": "adg-v1:ef5f5f099ec1139e4f12",
+        "target": "adg-v1:497f4697ec309796b5a4",
+        "location": {
+          "path": "tools/url_checker.py",
+          "line": 16,
+          "column": 20
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:4fe2fc8d11671d9a23ca",
+        "kind": "INVOKES",
+        "source": "adg-v1:ef5f5f099ec1139e4f12",
+        "target": "adg-v1:f1521562213fcb9a4af6",
+        "location": {
+          "path": "tools/phishing_detector.py",
+          "line": 19,
+          "column": 26
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:60d62e4002a1aa75375d",
+        "kind": "CONNECTS_TO",
+        "source": "adg-v1:497f4697ec309796b5a4",
+        "target": "adg-v1:5a811866c6cb029668ee",
+        "location": {
+          "path": "tools/url_checker.py",
+          "line": 16,
+          "column": 20
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:78d9a30861640c70a0e1",
+        "kind": "INVOKES",
+        "source": "adg-v1:ef5f5f099ec1139e4f12",
+        "target": "adg-v1:947112847516700d1b6f",
+        "location": {
+          "path": "tools/threat_score.py",
+          "line": 16,
+          "column": 21
+        },
+        "attributes": {}
+      },
+      {
+        "id": "edge-v1:a592f4986dbc18a6e119",
+        "kind": "USES_PROMPT",
+        "source": "adg-v1:ef5f5f099ec1139e4f12",
+        "target": "adg-v1:c9adfdff00a0a8ab939c",
+        "location": {
+          "path": "agent.py",
+          "line": 11,
+          "column": 21
+        },
+        "attributes": {}
+      }
+    ]
+  },
+  "effective_authority": {
+    "schema_version": 1,
+    "runtime_effectiveness": "not_verified",
+    "summary": {
+      "relationships": 4,
+      "tool_relationships": 4,
+      "mcp_relationships": 0,
+      "delegation_relationships": 0,
+      "fully_resolved_relationships": 0,
+      "partially_resolved_relationships": 4,
+      "unknown_relationships": 0,
+      "relationships_with_identity": 0,
+      "relationships_with_approval_evidence": 0,
+      "relationships_with_destination_evidence": 1,
+      "relationships_with_resource_evidence": 0
+    },
+    "relationships": [
+      {
+        "relationship_id": "authority-v1:03230a3c1edffeb4fbfb",
+        "agent": "APDM",
+        "target": {
+          "kind": "tool",
+          "name": "check_malware"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:226ecc43c09059f3b5ff",
+            "kind": "INVOKES",
+            "source": "adg-v1:ef5f5f099ec1139e4f12",
+            "target": "adg-v1:3b43038e560ead00e83c",
+            "location": {
+              "path": "tools/malware_detector.py",
+              "line": 27,
+              "column": 25
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "tools/malware_detector.py",
+          "line": 27,
+          "column": 25
+        }
+      },
+      {
+        "relationship_id": "authority-v1:6b85b4d6281f98f4dd32",
+        "agent": "APDM",
+        "target": {
+          "kind": "tool",
+          "name": "check_phishing"
+        },
+        "capabilities": [],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "unknown",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "capabilities",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:4fe2fc8d11671d9a23ca",
+            "kind": "INVOKES",
+            "source": "adg-v1:ef5f5f099ec1139e4f12",
+            "target": "adg-v1:f1521562213fcb9a4af6",
+            "location": {
+              "path": "tools/phishing_detector.py",
+              "line": 19,
+              "column": 26
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "tools/phishing_detector.py",
+          "line": 19,
+          "column": 26
+        }
+      },
+      {
+        "relationship_id": "authority-v1:ee2893ef37971e3d868a",
+        "agent": "APDM",
+        "target": {
+          "kind": "tool",
+          "name": "check_url"
+        },
+        "capabilities": [
+          "data.read",
+          "network.external"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [
+          {
+            "target": "<dynamic-url>",
+            "direction": "outbound",
+            "restricted": false,
+            "metadata": {
+              "source": "dynamic_network_call",
+              "network_scope": "dynamic_destination"
+            },
+            "location": null
+          }
+        ],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": "arbitrary_internet_retrieval",
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "resolved"
+        },
+        "unresolved": [
+          "approval",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:235f4c7f3878ec300976",
+            "kind": "INVOKES",
+            "source": "adg-v1:ef5f5f099ec1139e4f12",
+            "target": "adg-v1:497f4697ec309796b5a4",
+            "location": {
+              "path": "tools/url_checker.py",
+              "line": 16,
+              "column": 20
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "tools/url_checker.py",
+          "line": 16,
+          "column": 20
+        }
+      },
+      {
+        "relationship_id": "authority-v1:2bb72ebf2a8fe6f3beeb",
+        "agent": "APDM",
+        "target": {
+          "kind": "tool",
+          "name": "threat_score"
+        },
+        "capabilities": [
+          "data.read"
+        ],
+        "identity": null,
+        "approval": {
+          "required": null,
+          "guardrails": false,
+          "inherited_control": false,
+          "mechanism": null
+        },
+        "tool_scope": null,
+        "resources": [],
+        "destinations": [],
+        "semantics": {
+          "binding_origin": null,
+          "delegate_target": null,
+          "dynamic_authority": null,
+          "tool_catalogue_unresolved": null,
+          "capability_bundle": null,
+          "availability": null,
+          "availability_policy_callable": null,
+          "mutation": null,
+          "network": null,
+          "sensitive_write_domain": null,
+          "source_effect_resolution": null,
+          "source_effect_partial": false,
+          "source_effect_unresolved_calls": [],
+          "source_effect_sources": [],
+          "required_authority": {
+            "provider": null,
+            "roles": [],
+            "permissions": [],
+            "roles_complete": false,
+            "permissions_complete": false,
+            "evidence": []
+          }
+        },
+        "resolution": "partially_resolved",
+        "dimensions": {
+          "target": "resolved",
+          "capabilities": "resolved",
+          "identity": "unknown",
+          "approval": "unknown",
+          "resources": "unknown",
+          "destinations": "unknown"
+        },
+        "unresolved": [
+          "approval",
+          "destinations",
+          "identity",
+          "resources"
+        ],
+        "evidence": [
+          {
+            "edge_id": "edge-v1:78d9a30861640c70a0e1",
+            "kind": "INVOKES",
+            "source": "adg-v1:ef5f5f099ec1139e4f12",
+            "target": "adg-v1:947112847516700d1b6f",
+            "location": {
+              "path": "tools/threat_score.py",
+              "line": 16,
+              "column": 21
+            }
+          }
+        ],
+        "runtime_effectiveness": "not_verified",
+        "location": {
+          "path": "tools/threat_score.py",
+          "line": 16,
+          "column": 21
+        }
+      }
+    ]
+  },
+  "flows": [],
+  "attack_paths": [],
+  "resolution": {
+    "coverage_incomplete": true,
+    "coverage": {
+      "files_considered": 16,
+      "files_scanned": 9,
+      "files_skipped": 7,
+      "files_failed": 0,
+      "incomplete": true,
+      "resolution": {
+        "tools": {
+          "resolved_entities": 10,
+          "unresolved_references": 0,
+          "ratio": 1.0
+        },
+        "delegations": {
+          "resolved": 0,
+          "unresolved": 0,
+          "ratio": 1.0
+        },
+        "identities": {
+          "discovered": 0
+        },
+        "external_helpers_unresolved": 1,
+        "flows": {
+          "supported_paths": 0,
+          "agent_mapped": 0,
+          "agent_attribution_gaps": 0,
+          "execution_contexts": {
+            "agent_tool": 0,
+            "cli": 0,
+            "test": 0,
+            "example": 0,
+            "tutorial": 0,
+            "notebook": 0,
+            "template-generated": 0,
+            "application_support": 0,
+            "runtime": 0,
+            "unknown": 0
+          },
+          "agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "unknown_reachability_by_basis": {}
+        },
+        "mcp": {
+          "bound": 0,
+          "unbound": 0,
+          "unresolved_references": 0,
+          "unresolved_agent_references": 0,
+          "unbound_by_reason": {},
+          "unresolved_by_reason": {},
+          "unresolved_by_resolution_class": {}
+        }
+      },
+      "diagnostics": [
+        {
+          "code": "external_helper_semantics_unresolved",
+          "diagnostic_id": "ARG-COV-008",
+          "kind": "external_helper_semantics_unresolved",
+          "incomplete": true,
+          "message": "An agent tool references an imported or arbitrary helper whose semantics could not be resolved.",
+          "details": {},
+          "location": {
+            "path": "agent.py",
+            "line": 11,
+            "column": 21
+          }
+        }
+      ]
+    }
+  },
+  "digest": "sha256:529280ee55d80735f0d345b5ed586f2834dc3094d7232f6ac244547f65eabcc4"
+}

@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "model": "horustrace.agent_security_graph",
+  "root": ".",
+  "summary": {
+    "topology_nodes": 2,
+    "topology_edges": 1,
+    "authority_relationships": 0,
+    "authority_relationships_not_fully_resolved": 0,
+    "flows": 0,
+    "attack_paths": 0,
+    "flow_agent_reachability": {
+      "proven_agent_reachable": 0,
+      "proven_non_agent": 0,
+      "unknown": 0
+    },
+    "analysis_incomplete": true
+  },
+  "topology": {
+    "schema_version": 1,
+    "root": ".",
+    "summary": {
+      "nodes": 2,
+      "edges": 1,
+      "node_kinds": {
+        "agent": 1,
+        "input": 1
+      },
+      "edge_kinds": {
+        "RECEIVES_INPUT_FROM": 1
+      }
+    },
+    "nodes": [
+      {
+        "id": "adg-v1:04428bf92d3984f5795c",
+        "kind": "input",
+        "name": "pubmed_full_review:user-or-remote-input",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 35,
+          "column": 14
+        },
+        "attributes": {
+          "trust": "untrusted",
+          "input_kind": "user"
+        }
+      },
+      {
+        "id": "adg-v1:2e8034117e50f9282ca1",
+        "kind": "agent",
+        "name": "pubmed_full_review",
+        "framework": "google-adk",
+        "location": {
+          "path": "agent.py",
+          "line": 35,
+          "column": 14
+        },
+        "attributes": {
+          "agent_type": "SequentialAgent",
+          "workflow": "SequentialAgent"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-v1:a2b15b3c54b71c3fda46",
+        "kind": "RECEIVES_INPUT_FROM",
+        "source": "adg-v1:2e8034117e50f9282ca1",
+        "target": "adg-v1:04428bf92d3984f5795c",
+        "location": {
+          "path": "agent.py",
+          "line": 35,
+          "column": 14
+        },
+        "attributes": {}
+      }
+    ]
+  },
+  "effective_authority": {
+    "schema_version": 1,
+    "runtime_effectiveness": "not_verified",
+    "summary": {
+      "relationships": 0,
+      "tool_relationships": 0,
+      "mcp_relationships": 0,
+      "delegation_relationships": 0,
+      "fully_resolved_relationships": 0,
+      "partially_resolved_relationships": 0,
+      "unknown_relationships": 0,
+      "relationships_with_identity": 0,
+      "relationships_with_approval_evidence": 0,
+      "relationships_with_destination_evidence": 0,
+      "relationships_with_resource_evidence": 0
+    },
+    "relationships": []
+  },
+  "flows": [],
+  "attack_paths": [],
+  "resolution": {
+    "coverage_incomplete": true,
+    "coverage": {
+      "files_considered": 3,
+      "files_scanned": 2,
+      "files_skipped": 1,
+      "files_failed": 0,
+      "incomplete": true,
+      "resolution": {
+        "tools": {
+          "resolved_entities": 0,
+          "unresolved_references": 0,
+          "ratio": 1.0
+        },
+        "delegations": {
+          "resolved": 0,
+          "unresolved": 1,
+          "ratio": 0.0
+        },
+        "identities": {
+          "discovered": 0
+        },
+        "external_helpers_unresolved": 0,
+        "flows": {
+          "supported_paths": 0,
+          "agent_mapped": 0,
+          "agent_attribution_gaps": 0,
+          "execution_contexts": {
+            "agent_tool": 0,
+            "cli": 0,
+            "test": 0,
+            "example": 0,
+            "tutorial": 0,
+            "notebook": 0,
+            "template-generated": 0,
+            "application_support": 0,
+            "runtime": 0,
+            "unknown": 0
+          },
+          "agent_reachability": {
+            "proven_agent_reachable": 0,
+            "proven_non_agent": 0,
+            "unknown": 0
+          },
+          "unknown_reachability_by_basis": {}
+        },
+        "mcp": {
+          "bound": 0,
+          "unbound": 0,
+          "unresolved_references": 0,
+          "unresolved_agent_references": 0,
+          "unbound_by_reason": {},
+          "unresolved_by_reason": {},
+          "unresolved_by_resolution_class": {}
+        }
+      },
+      "diagnostics": [
+        {
+          "code": "unresolved_delegation",
+          "diagnostic_id": "ARG-COV-003",
+          "kind": "unresolved_delegation",
+          "incomplete": true,
+          "message": "Delegated agent could not be resolved.",
+          "details": {},
+          "location": {
+            "path": "agent.py",
+            "line": 35,
+            "column": 14
+          }
+        }
+      ]
+    }
+  },
+  "digest": "sha256:cb1ba343bfa107fada485e181842143878190d66acfdda53b90d18d8f601cfb0"
+}
