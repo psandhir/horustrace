@@ -16,7 +16,6 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -32,20 +31,26 @@ jobs:
         shell: bash
         run: |
           if [[ -n "$OPENAI_API_KEY" ]]; then
+            echo "LLM_AVAILABLE=true" >> "$GITHUB_ENV"
             echo "STUDY_PROVIDER=openai" >> "$GITHUB_ENV"
             echo "STUDY_MODEL=gpt-6.1-sol" >> "$GITHUB_ENV"
             echo "Using OpenAI Responses API with gpt-6.1-sol"
-          else
+          elif [[ -n "$COPILOT_GITHUB_TOKEN" || -n "$GH_TOKEN" ]]; then
+            echo "LLM_AVAILABLE=true" >> "$GITHUB_ENV"
             echo "STUDY_PROVIDER=copilot" >> "$GITHUB_ENV"
             echo "STUDY_MODEL=gpt-6-sol" >> "$GITHUB_ENV"
-            echo "OPENAI_API_KEY unavailable; using Copilot CLI with gpt-6-sol"
+            echo "Using Copilot CLI with gpt-6-sol"
+          else
+            echo "LLM_AVAILABLE=false" >> "$GITHUB_ENV"
+            echo "::warning::No LLM credential is configured. Add OPENAI_API_KEY, or COPILOT_GITHUB_TOKEN/GH_TOKEN with Copilot Requests permission, then rerun this workflow."
           fi
-      - name: Install Copilot CLI fallback
-        if: env.OPENAI_API_KEY == ''
+      - name: Install Copilot CLI
+        if: env.LLM_AVAILABLE == 'true' && env.STUDY_PROVIDER == 'copilot'
         run: |
           npm install -g @github/copilot
           copilot --version
       - name: Run locked Skill semantic calibration
+        if: env.LLM_AVAILABLE == 'true'
         run: |
           mkdir -p results .study-work
           python scripts/skill_llm_calibration_study.py \
@@ -61,4 +66,7 @@ jobs:
         run: |
           if [[ -f results/skill-llm-calibration-v1.md ]]; then
             cat results/skill-llm-calibration-v1.md
+          elif [[ "${LLM_AVAILABLE:-false}" != "true" ]]; then
+            echo "Calibration corpus/harness validation passed."
+            echo "Live LLM scoring was skipped because no supported repository credential is configured."
           fi
