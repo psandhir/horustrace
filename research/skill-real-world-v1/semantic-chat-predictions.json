@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "study": "skill-real-world-v1",
+  "run_date": "2026-10-05",
+  "model": "GPT-5.6 Sol",
+  "prompt_version": "skill-security-semantics-v1",
+  "external_llm_calls": 0,
+  "predictions": [
+    {
+      "sample": "skills_agent",
+      "skill": "greeting-skill",
+      "predicted_present": []
+    },
+    {
+      "sample": "skills_agent",
+      "skill": "weather-skill",
+      "predicted_present": []
+    },
+    {
+      "sample": "skills_inject_state",
+      "skill": "code-review-skill",
+      "predicted_present": []
+    },
+    {
+      "sample": "local_env_skill_toolset",
+      "skill": "text-skill",
+      "predicted_present": []
+    },
+    {
+      "sample": "local_env_skill_toolset",
+      "skill": "calc-skill",
+      "predicted_present": []
+    },
+    {
+      "sample": "e2b_env_skill_toolset",
+      "skill": "text-skill",
+      "predicted_present": []
+    },
+    {
+      "sample": "e2b_env_skill_toolset",
+      "skill": "calc-skill",
+      "predicted_present": []
+    }
+  ],
+  "conclusion": "All seven enumerable bound Skill instances are benign under the 12-concept semantic taxonomy. Script/tool execution should remain visible in Effective Skill Authority but should not create SKL020-SKL030 findings without risky semantic intent."
+}
