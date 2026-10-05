@@ -1946,19 +1946,22 @@ from storage import CSVStore
 class BudgetContext:
     csv_manager: CSVStore
 
+agent = Agent(
+    "openai:gpt-5.2",
+    deps_type=BudgetContext,
+)
+
+@agent.tool
 async def add_transaction(ctx: RunContext[BudgetContext], value: str) -> str:
     return ctx.deps.csv_manager.add_transaction(value)
 
+@agent.tool
 async def set_budget_limit(ctx: RunContext[BudgetContext], value: str) -> str:
     return ctx.deps.csv_manager.update_budget_limits(value)
 
+@agent.tool_plain
 def add_numbers(a: int, b: int) -> int:
     return a + b
-
-agent = Agent(
-    "openai:gpt-5.2",
-    tools=[add_transaction, set_budget_limit, add_numbers],
-)
 """,
         encoding="utf-8",
     )
