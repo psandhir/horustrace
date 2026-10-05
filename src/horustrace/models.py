@@ -142,6 +142,24 @@ class Tool:
 
 
 @dataclass(slots=True)
+class Skill:
+    """Portable agent skill discovered from a SKILL.md package or framework source."""
+
+    name: str
+    description: str = ""
+    kind: str = "agent_skill"
+    source: str = "filesystem"
+    capabilities: set[str] = field(default_factory=set)
+    allowed_tools: set[str] = field(default_factory=set)
+    scripts: list[str] = field(default_factory=list)
+    resources: list[ResourceScope] = field(default_factory=list)
+    destinations: list[NetworkDestination] = field(default_factory=list)
+    location: SourceLocation | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    provenance: list[EvidenceFact] = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class MCPServer:
     name: str
     transport: str
@@ -254,6 +272,9 @@ class AuthorityContract:
 class AgentPolicy:
     required_capabilities: set[str] = field(default_factory=set)
     denied_capabilities: set[str] = field(default_factory=set)
+    required_skills: set[str] = field(default_factory=set)
+    allowed_skills: set[str] = field(default_factory=set)
+    denied_skills: set[str] = field(default_factory=set)
     allowed_resources: list[str] = field(default_factory=list)
     allowed_destinations: list[str] = field(default_factory=list)
     require_approval_for: set[str] = field(default_factory=set)
@@ -267,6 +288,7 @@ class AgentPolicy:
 class Agent:
     name: str
     tools: list[Tool] = field(default_factory=list)
+    skills: list[Skill] = field(default_factory=list)
     mcp_servers: list[MCPServer] = field(default_factory=list)
     data_sources: list[DataSource] = field(default_factory=list)
     inputs: list[InputSource] = field(default_factory=list)
@@ -283,6 +305,8 @@ class Agent:
         result: set[str] = set()
         for tool in self.tools:
             result.update(tool.capabilities)
+        for skill in self.skills:
+            result.update(skill.capabilities)
         for source in self.data_sources:
             result.add(source.capability)
         for server in self.mcp_servers:
@@ -306,6 +330,8 @@ class Agent:
         )
         for tool in self.tools:
             resources.extend(tool.resources)
+        for skill in self.skills:
+            resources.extend(skill.resources)
         for server in self.mcp_servers:
             resources.extend(server.resources)
         return resources
@@ -316,9 +342,9 @@ class Agent:
         from horustrace.heuristics import SENSITIVE_CLASSES
 
         sources = [d for d in self.data_sources if d.classification in SENSITIVE_CLASSES]
-        for tool in self.tools:
-            for resource in tool.resources:
-                access = resource.access or tool.capabilities
+        for owner in [*self.tools, *self.skills]:
+            for resource in owner.resources:
+                access = resource.access or owner.capabilities
                 if resource.classification not in SENSITIVE_CLASSES:
                     continue
                 if not {"data.read", "secrets.read"} & access:
@@ -337,6 +363,8 @@ class Agent:
         destinations = list(self.network)
         for tool in self.tools:
             destinations.extend(tool.destinations)
+        for skill in self.skills:
+            destinations.extend(skill.destinations)
         for server in self.mcp_servers:
             if server.url:
                 destinations.append(
@@ -473,6 +501,8 @@ class ScanDiagnostic:
             "source_fragment": "ARG-COV-018",
             "unreadable_path": "ARG-COV-019",
             "runtime_viability_blocker": "ARG-COV-020",
+            "unresolved_skill": "ARG-COV-021",
+            "invalid_skill_manifest": "ARG-COV-022",
         }
         self.kind = self.kind or self.code
         self.diagnostic_id = self.diagnostic_id or mapping.get(self.kind, "ARG-COV-007")
@@ -512,6 +542,7 @@ class Graph:
     coverage: ScanCoverage = field(default_factory=ScanCoverage)
     agents: list[Agent] = field(default_factory=list)
     unbound_tools: list[Tool] = field(default_factory=list)
+    unbound_skills: list[Skill] = field(default_factory=list)
     unbound_mcp_servers: list[MCPServer] = field(default_factory=list)
     unresolved_mcp_references: list[MCPServer] = field(default_factory=list)
     identities: list[Identity] = field(default_factory=list)
@@ -527,6 +558,12 @@ class Graph:
         for agent in self.agents:
             tools.extend(agent.tools)
         return tools
+
+    def all_skills(self) -> list[Skill]:
+        skills = list(self.unbound_skills)
+        for agent in self.agents:
+            skills.extend(agent.skills)
+        return skills
 
     def all_mcp_servers(self) -> list[MCPServer]:
         servers = list(self.unbound_mcp_servers)
