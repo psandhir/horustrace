@@ -474,3 +474,95 @@ agent = Agent(name="ops", tools=[dangerous_tool])
         and finding.rule_id in {"AGT020", "AGT040", "CAP004"}
         for finding in findings
     )
+
+
+def test_read_only_json_rpc_post_does_not_imply_external_write(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "agent.py",
+        """
+import requests
+from pydantic_ai import Agent
+
+MCP_URL = "https://learn.microsoft.com/api/mcp"
+
+agent = Agent("openai:gpt-5.2")
+
+
+@agent.tool_plain
+def search_docs(query: str) -> dict:
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+            "name": "microsoft_docs_search",
+            "arguments": {"query": query},
+        },
+    }
+    return requests.post(MCP_URL, json=payload, timeout=10).json()
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tool = next(item for item in agent.tools if item.name == "search_docs")
+
+    assert "network.external" in tool.capabilities
+    assert "external.write" not in tool.capabilities
+    assert "data.write" not in tool.capabilities
+
+
+def test_sqlite_idempotent_schema_bootstrap_does_not_promote_read_helper_to_write(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "agent.py",
+        """
+import sqlite3
+from pydantic_ai import Agent
+
+agent = Agent("openai:gpt-5.2")
+
+
+def get_db():
+    db = sqlite3.connect("memory.db")
+    db.executescript(
+        '''
+        CREATE TABLE IF NOT EXISTS memories (
+            id INTEGER PRIMARY KEY,
+            summary TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS consolidations (
+            id INTEGER PRIMARY KEY,
+            summary TEXT NOT NULL
+        );
+        '''
+    )
+    return db
+
+
+@agent.tool_plain
+def read_all_memories():
+    db = get_db()
+    return db.execute("SELECT * FROM memories ORDER BY id DESC").fetchall()
+
+
+@agent.tool_plain
+def store_memory(summary: str):
+    db = get_db()
+    db.execute("INSERT INTO memories(summary) VALUES (?)", (summary,))
+    db.commit()
+    return "stored"
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    read_tool = next(item for item in agent.tools if item.name == "read_all_memories")
+    write_tool = next(item for item in agent.tools if item.name == "store_memory")
+
+    assert "data.read" in read_tool.capabilities
+    assert "data.write" not in read_tool.capabilities
+    assert "data.write" in write_tool.capabilities
