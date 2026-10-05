@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      SCANNER_SHA: f04f3bc10cf82f9d8d72bccf3f19fee6fdfbbebf
+      SCANNER_SHA: 575338ed68501c15b4691365fb2ad335a88dfe16
     strategy:
       fail-fast: false
       max-parallel: 8
@@ -397,7 +397,7 @@ jobs:
               rows.append(json.loads(p.read_text()))
           rows.sort(key=lambda r:r["case_id"])
           summary={
-              "scanner_sha":"f04f3bc10cf82f9d8d72bccf3f19fee6fdfbbebf",
+              "scanner_sha":"575338ed68501c15b4691365fb2ad335a88dfe16",
               "requested":39,
               "completed":len(rows),
               "by_framework":{},
