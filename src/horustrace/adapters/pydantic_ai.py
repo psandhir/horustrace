@@ -2299,21 +2299,37 @@ def _capability_from_expr(
                 return None, server, None
             if wrapped_name in _NATIVE_TOOL_CAPABILITIES:
                 kind, capabilities = _NATIVE_TOOL_CAPABILITIES[wrapped_name]
-                return (
-                    Tool(
-                        name=wrapped_name,
-                        kind=kind,
-                        capabilities=set(capabilities),
-                        location=_location(path, wrapped),
-                        metadata={
-                            "framework": "pydantic-ai",
-                            "native_tool": wrapped_name,
-                            "provider_managed": True,
-                        },
-                    ),
-                    None,
-                    None,
+                tool = Tool(
+                    name=wrapped_name,
+                    kind=kind,
+                    capabilities=set(capabilities),
+                    location=_location(path, wrapped),
+                    metadata={
+                        "framework": "pydantic-ai",
+                        "native_tool": wrapped_name,
+                        "provider_managed": True,
+                    },
                 )
+                if wrapped_name in {"WebSearchTool", "XSearchTool"}:
+                    provider = (
+                        "web-search"
+                        if wrapped_name == "WebSearchTool"
+                        else "x-search"
+                    )
+                    tool.destinations.append(
+                        NetworkDestination(
+                            target=f"<provider-managed:{provider}>",
+                            restricted=True,
+                            location=_location(path, wrapped),
+                            metadata={
+                                "source": "provider_managed_native_tool",
+                                "network_scope": "fixed_provider_network",
+                                "provider_managed": True,
+                            },
+                        )
+                    )
+                    tool.metadata["network_semantics"] = "fixed_provider_network"
+                return tool, None, None
         return None, None, None
     if name in _CONTROL_CAPABILITIES:
         return None, None, name
@@ -2341,6 +2357,21 @@ def _capability_from_expr(
         location=_location(path, expr),
         metadata={"framework": "pydantic-ai", "capability": name},
     )
+    if name in {"WebSearch", "XSearch"}:
+        provider = "web-search" if name == "WebSearch" else "x-search"
+        tool.destinations.append(
+            NetworkDestination(
+                target=f"<provider-managed:{provider}>",
+                restricted=True,
+                location=_location(path, expr),
+                metadata={
+                    "source": "provider_managed_capability",
+                    "network_scope": "fixed_provider_network",
+                    "provider_managed": True,
+                },
+            )
+        )
+        tool.metadata["network_semantics"] = "fixed_provider_network"
     if name == "ModalSandbox":
         tool.metadata["sandboxed"] = True
     if name == "FileSystem":
