@@ -81,8 +81,33 @@ def is_local_collection_mutation(call: ast.Call) -> bool:
     return isinstance(receiver, ast.Name)
 
 
+def _sql_statement_capabilities(statement: str) -> set[str]:
+    """Classify one literal SQL statement by material data effect."""
+    normalized = " ".join(statement.strip().split())
+    if not normalized:
+        return set()
+    upper = normalized.upper()
+    first = upper.split(None, 1)[0]
+
+    # Idempotent schema bootstrap is persistent initialization, but it does not
+    # grant the agent authority to mutate application data. Treating every
+    # CREATE TABLE IF NOT EXISTS as data.write caused read-only SQLite helpers
+    # to inherit write authority merely because their connection initializer
+    # ensured the schema existed.
+    if first == "CREATE" and " IF NOT EXISTS " in f" {upper} ":
+        return set()
+
+    if first in {"INSERT", "UPDATE", "REPLACE", "MERGE", "CREATE", "ALTER"}:
+        return {"data.write"}
+    if first in {"DELETE", "DROP", "TRUNCATE"}:
+        return {"data.write", "destructive.write"}
+    if first in {"SELECT", "WITH", "PRAGMA", "SHOW", "DESCRIBE", "EXPLAIN"}:
+        return {"data.read"}
+    return set()
+
+
 def sql_call_capabilities(call: ast.Call) -> set[str]:
-    """Infer SQL read/write semantics from a literal execute statement."""
+    """Infer SQL read/write semantics from literal execute statements."""
     leaf = (call_leaf(call.func) or "").lower()
     if leaf not in {"execute", "executemany", "executescript"} or not call.args:
         return set()
@@ -101,21 +126,43 @@ def sql_call_capabilities(call: ast.Call) -> set[str]:
 
     if not text:
         return set()
-    first = text.lstrip().split(None, 1)[0].upper() if text.lstrip() else ""
-    if first in {"INSERT", "UPDATE", "REPLACE", "MERGE", "CREATE", "ALTER"}:
-        return {"data.write"}
-    if first in {"DELETE", "DROP", "TRUNCATE"}:
-        return {"data.write", "destructive.write"}
-    if first in {"SELECT", "WITH", "PRAGMA", "SHOW", "DESCRIBE", "EXPLAIN"}:
-        return {"data.read"}
-    return set()
+
+    capabilities: set[str] = set()
+    statements = text.split(";") if leaf == "executescript" else [text]
+    for sql in statements:
+        capabilities.update(_sql_statement_capabilities(sql))
+    return capabilities
+
+
+def _literal_payload_tokens(call: ast.Call) -> set[str]:
+    """Extract operation-like literal strings from an inline HTTP payload."""
+    payloads = [
+        keyword.value
+        for keyword in call.keywords
+        if keyword.arg in {"json", "data"}
+    ]
+    tokens: set[str] = set()
+    for payload in payloads:
+        for node in ast.walk(payload):
+            if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
+                continue
+            normalized = (
+                node.value.lower()
+                .replace("-", "_")
+                .replace("/", "_")
+                .replace(".", "_")
+            )
+            tokens.update(part for part in normalized.split("_") if part)
+    return tokens
 
 
 def http_mutation_capabilities(call: ast.Call, *, function_name: str = "") -> set[str]:
-    """Infer outbound mutation only for concrete HTTP verb calls.
+    """Infer semantic outbound mutation independently from HTTP transport.
 
-    POST is suppressed for functions whose names are explicitly retrieval-like,
-    because many search/query APIs use POST as a read transport.
+    DELETE/PUT/PATCH remain strong mutation signals. POST is only considered a
+    write when the containing operation or an inline payload carries an
+    explicit mutation verb. This avoids treating read-only RPC/GraphQL/MCP
+    searches as writes simply because their wire protocol uses POST.
     """
     leaf = (call_leaf(call.func) or "").lower()
     if leaf == "delete":
@@ -125,23 +172,34 @@ def http_mutation_capabilities(call: ast.Call, *, function_name: str = "") -> se
     if leaf != "post":
         return set()
 
-    read_tokens = {
-        "get",
-        "list",
-        "search",
-        "read",
-        "fetch",
-        "query",
-        "lookup",
-        "retrieve",
-        "inspect",
+    write_tokens = {
+        "add",
+        "append",
+        "create",
+        "delete",
+        "enqueue",
+        "insert",
+        "mutate",
+        "notify",
+        "post",
+        "publish",
+        "remove",
+        "send",
+        "submit",
+        "trigger",
+        "update",
+        "upload",
+        "write",
     }
-    tokens = {
+    function_tokens = {
         token
         for token in function_name.lower().replace("-", "_").split("_")
         if token
     }
-    return set() if tokens & read_tokens else {"data.write", "external.write"}
+    payload_tokens = _literal_payload_tokens(call)
+    if function_tokens & write_tokens or payload_tokens & write_tokens:
+        return {"data.write", "external.write"}
+    return set()
 
 
 def executor_wrapped_callable(call: ast.Call) -> ast.AST | None:

@@ -269,3 +269,125 @@ def send_email(to: str, body: str) -> None:
         evidence.startswith("smtp:")
         for evidence in email.metadata.get("repository_effect_evidence", [])
     )
+
+
+def test_pydantic_factory_instances_keep_post_construction_tool_bindings(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "agent.py",
+        """
+import requests
+from pydantic_ai import Agent
+
+
+def _build_agent(custom: bool) -> Agent:
+    return Agent(
+        "openai:gpt-5.2",
+        instructions="custom" if custom else "default",
+    )
+
+
+_agent = _build_agent(False)
+_agent_custom = _build_agent(True)
+
+
+def _scrape_tool(url: str) -> str:
+    response = requests.get(
+        "https://proxy.example.test/browser",
+        params={"url": url},
+        timeout=10,
+    )
+    return response.text
+
+
+_agent.tool(_scrape_tool)
+_agent_custom.tool(_scrape_tool)
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agents = {
+        item.name: item
+        for item in graph.agents
+        if item.metadata.get("framework") == "pydantic-ai"
+    }
+
+    assert {"_agent", "_agent_custom"} <= set(agents)
+    assert "_build_agent" not in agents
+    for name in ("_agent", "_agent_custom"):
+        agent = agents[name]
+        tool = next(item for item in agent.tools if item.name == "_scrape_tool")
+        assert "network.external" in tool.capabilities
+        assert agent.metadata["factory_function"] == "_build_agent"
+        assert agent.metadata["factory_instance"] is True
+
+
+def test_conditional_pydantic_capability_is_typed_not_dynamic_placeholder(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "agent.py",
+        """
+from dataclasses import dataclass
+from pydantic_ai import Agent
+from pydantic_ai.capabilities import WebSearch
+
+
+@dataclass
+class Settings:
+    web_search: bool = True
+
+
+settings = Settings()
+
+agent = Agent(
+    "openai:gpt-5.2",
+    capabilities=[WebSearch()] if settings.web_search else [],
+)
+""",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    web_search = next(item for item in agent.tools if item.name == "WebSearch")
+
+    assert web_search.kind == "web_search"
+    assert web_search.metadata["availability"] == "conditional"
+    assert web_search.metadata["availability_condition"] == "settings.web_search"
+    assert web_search.metadata["network_semantics"] == "fixed_provider_network"
+    assert len(web_search.destinations) == 1
+    assert web_search.destinations[0].restricted is True
+    assert not any(
+        item.kind == "pydantic_dynamic_capabilities"
+        for item in agent.tools
+    )
+    assert not any(item.rule_id == "NET002" for item in findings)
+
+
+def test_unresolved_dynamic_capabilities_use_capability_topology_node(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "agent.py",
+        """
+from pydantic_ai import Agent
+
+
+def build_agent(capabilities):
+    return Agent(
+        "openai:gpt-5.2",
+        capabilities=capabilities,
+    )
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    assert graph.adg is not None
+    dynamic_nodes = [
+        node
+        for node in graph.adg.nodes
+        if node.attributes.get("tool_kind") == "pydantic_dynamic_capabilities"
+    ]
+    assert len(dynamic_nodes) == 1
+    assert dynamic_nodes[0].kind == "capability"

@@ -339,3 +339,42 @@ def test_postfix_attack_path_merge_keeps_primary_agents_and_deduplicates() -> No
     )
 
     assert [item["path_id"] for item in merged] == ["PATH002", "PATH014"]
+
+
+def test_expanded_imported_delegation_is_scored_for_primary_agent_only() -> None:
+    module = _module()
+    primary_nodes = [
+        {"id": "p-root", "kind": "agent", "name": "pubmed_full_review"},
+    ]
+    primary_edges = []
+    expanded_nodes = [
+        {"id": "e-root", "kind": "agent", "name": "pubmed_full_review"},
+        {"id": "e-lib", "kind": "agent", "name": "librarian_agent"},
+        {"id": "e-other", "kind": "agent", "name": "unrelated_parent"},
+        {"id": "e-child", "kind": "agent", "name": "unrelated_child"},
+    ]
+    expanded_edges = [
+        {
+            "kind": "DELEGATES_TO",
+            "source": "e-root",
+            "target": "e-lib",
+        },
+        {
+            "kind": "DELEGATES_TO",
+            "source": "e-other",
+            "target": "e-child",
+        },
+    ]
+
+    nodes, edges = module._delegation_topology_for_primary_agents(
+        primary_nodes,
+        primary_edges,
+        expanded_nodes,
+        expanded_edges,
+    )
+    by_id = {node["id"]: node for node in nodes}
+
+    assert [
+        (by_id[edge["source"]]["name"], by_id[edge["target"]]["name"])
+        for edge in edges
+    ] == [("pubmed_full_review", "librarian_agent")]

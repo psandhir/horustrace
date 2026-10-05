@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from horustrace.limits import MAX_ADG_EDGES, MAX_ADG_NODES, ScanLimitError
-from horustrace.models import Agent, FlowPath, Graph, SourceLocation
+from horustrace.models import Agent, FlowPath, Graph, SourceLocation, Tool
 
 ADG_SCHEMA_VERSION = 1
 
@@ -66,6 +66,18 @@ def _counts(values: list[str]) -> dict[str, int]:
     for value in values:
         result[value] = result.get(value, 0) + 1
     return dict(sorted(result.items()))
+
+
+def _tool_topology_kind(tool: Tool) -> str:
+    """Return the inventory node class for a bound authority object."""
+    if tool.kind == "delegated_agent":
+        return "delegation"
+    if (
+        tool.metadata.get("dynamic_authority") is True
+        and tool.metadata.get("authority_dimension") == "capabilities"
+    ):
+        return "capability"
+    return "tool"
 
 
 @dataclass(frozen=True, slots=True)
@@ -299,7 +311,7 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
         if tool.metadata.get("topology_visible_unbound") is not True:
             continue
         builder.node(
-            "tool",
+            _tool_topology_kind(tool),
             tool.name,
             location=tool.location,
             framework=_framework(tool.metadata),
@@ -558,7 +570,7 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
 
         for tool in agent.tools:
             tool_id = builder.node(
-                "tool",
+                _tool_topology_kind(tool),
                 f"{agent.name}:{tool.name}",
                 location=tool.location,
                 framework=_framework(tool.metadata) if tool.metadata else framework,
