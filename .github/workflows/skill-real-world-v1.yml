@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - study/skill-real-world-v1
+      - study/skill-real-world-v1-postfix
     paths:
       - ".github/workflows/skill-real-world-v1.yml"
       - "research/skill-real-world-v1/**"
