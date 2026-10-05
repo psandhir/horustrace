@@ -504,8 +504,8 @@ def _candidate_id(agent: Agent, skill: Skill) -> str:
         str(skill.location.path.resolve()) if skill.location is not None else ""
     )
     digest = str(skill.metadata.get("instructions_sha256") or "")
-    payload = "\0".join(
-        [PROMPT_VERSION, agent.name, skill.name, location, digest]
+    payload = (
+        f"{PROMPT_VERSION}\0{agent.name}\0{skill.name}\0{location}\0{digest}"
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:20]
 
@@ -798,14 +798,9 @@ def _cache_key(
     source_slice: str,
     config: LLMSemanticConfig,
 ) -> str:
-    payload = "\0".join(
-        [
-            PROMPT_VERSION,
-            config.provider.lower(),
-            config.model,
-            candidate.candidate_id,
-            source_slice,
-        ]
+    payload = (
+        f"{PROMPT_VERSION}\0{config.provider.lower()}\0{config.model}\0"
+        f"{candidate.candidate_id}\0{source_slice}"
     )
     return "skill:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
