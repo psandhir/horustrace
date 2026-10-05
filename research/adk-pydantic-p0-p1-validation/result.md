@@ -1,6 +1,6 @@
 # HorusTrace Real-World Agent Security 2026 — Frozen Baseline
 
-- Frozen scanner SHA: \`a9c91721a13e506360913b4a3c85b461ea241832\`
+- Frozen scanner SHA: \`85e009198895d25f878ce96d215c5d5b74148389\`
 - Cohort: 20 exact-SHA repositories
 - Successful scans: 20
 - Execution/fetch failures: 0
@@ -30,12 +30,12 @@
 
 ## Findings
 
-- Findings: 40
-- By severity: \`{"high": 7, "medium": 33}\`
-- By rule: \`{"ADK001": 4, "AGT021": 1, "AGT022": 4, "AGT040": 14, "AGT054": 1, "CAP005": 6, "NET001": 3, "NET002": 2, "PATH002": 2, "PATH010": 1, "PATH011": 2}\`
+- Findings: 39
+- By severity: \`{"high": 7, "medium": 32}\`
+- By rule: \`{"ADK001": 4, "AGT021": 1, "AGT022": 4, "AGT040": 14, "AGT054": 1, "CAP005": 6, "NET001": 3, "NET002": 1, "PATH002": 2, "PATH010": 1, "PATH011": 2}\`
 - By OWASP Agentic category: \`{"ASI01": 5, "ASI02": 35}\`
 - Runtime OWASP-mapped findings: \`{"ASI01": 5, "ASI02": 35}\`
-- By source context: \`{"runtime": 40}\`
+- By source context: \`{"runtime": 39}\`
 - Finding assertion precision/recall are not claimed from this automated reference.
 
 ## Tier C

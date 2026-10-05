@@ -1,7 +1,7 @@
 # ADK + Pydantic P0/P1 validation delta
 
 - Before scanner: `eacfd1cdab06939e5fae5f65cd2536e5855ac33f`
-- Candidate scanner: `a9c91721a13e506360913b4a3c85b461ea241832`
+- Candidate scanner: `85e009198895d25f878ce96d215c5d5b74148389`
 - Successful scans: 20/20
 
 ## Framework delta
@@ -16,14 +16,14 @@
 | pydantic-ai | Agent precision / recall | 83.3% / 100.0% | 71.4% / 100.0% |
 | pydantic-ai | Tool precision / recall | 52.2% / 100.0% | 48.0% / 100.0% |
 | pydantic-ai | Authority precision / recall | 25.0% / 100.0% | 22.2% / 100.0% |
-| pydantic-ai | Findings | 20 | 19 |
+| pydantic-ai | Findings | 20 | 18 |
 | pydantic-ai | Attack paths | 2 | 2 |
 
 ## Aggregate delta
 
 | Metric | Before | After |
 |---|---:|---:|
-| Findings | 67 | 40 |
+| Findings | 67 | 39 |
 | Attack paths | 7 | 5 |
 | Analysis-incomplete cases | 8 | 7 |
 
@@ -47,7 +47,7 @@
 | rw-153 | pydantic-ai | abhaybhargav/pydanticai-sec-research-assistant | 3 | 3 | +0 |
 | rw-155 | pydantic-ai | shotgun-sh/shotgun | 8 | 8 | +0 |
 | rw-160 | pydantic-ai | lladdy/progressive-disclosure-ai-assistant | 0 | 0 | +0 |
-| rw-161 | pydantic-ai | mars-mx/portfolio | 0 | 1 | +1 |
+| rw-161 | pydantic-ai | mars-mx/portfolio | 0 | 0 | +0 |
 | rw-168 | pydantic-ai | hypermemory-ai/openrouter_provider_validator | 0 | 0 | +0 |
 | rw-170 | pydantic-ai | Croups/smart-web-scraper | 0 | 0 | +0 |
 | rw-175 | pydantic-ai | coleam00/orbit-support-agent | 3 | 3 | +0 |

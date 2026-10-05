@@ -74,7 +74,7 @@
           "location": {
             "column": 16,
             "line": 98,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
           },
           "message": "ADK agent 'FunnelAgent' exposes privileged capabilities without a source-proven enforcing before-tool control or per-tool confirmation.",
           "provenance": [
@@ -83,7 +83,7 @@
               "location": {
                 "column": 16,
                 "line": 98,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "FunnelAgent"
@@ -121,7 +121,7 @@
           "location": {
             "column": 9,
             "line": 104,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
           },
           "message": "Privileged tool 'get_or_create_user_profile_from_firestore_tool' has no detected guardrail or approval configuration.",
           "provenance": [
@@ -130,7 +130,7 @@
               "location": {
                 "column": 9,
                 "line": 104,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_or_create_user_profile_from_firestore_tool"
@@ -140,7 +140,7 @@
               "location": {
                 "column": 9,
                 "line": 104,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_or_create_user_profile_from_firestore_tool"
@@ -150,7 +150,7 @@
               "location": {
                 "column": 9,
                 "line": 104,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_or_create_user_profile_from_firestore_tool"
@@ -160,7 +160,7 @@
               "location": {
                 "column": 9,
                 "line": 104,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_or_create_user_profile_from_firestore_tool"
@@ -198,7 +198,7 @@
           "location": {
             "column": 9,
             "line": 105,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
           },
           "message": "Privileged tool 'update_user_profile_in_firestore_tool' has no detected guardrail or approval configuration.",
           "provenance": [
@@ -207,7 +207,7 @@
               "location": {
                 "column": 9,
                 "line": 105,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "update_user_profile_in_firestore_tool"
@@ -217,7 +217,7 @@
               "location": {
                 "column": 9,
                 "line": 105,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "update_user_profile_in_firestore_tool"
@@ -227,7 +227,7 @@
               "location": {
                 "column": 9,
                 "line": 105,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "update_user_profile_in_firestore_tool"
@@ -265,7 +265,7 @@
           "location": {
             "column": 9,
             "line": 114,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
           },
           "message": "Privileged tool 'add_to_products_a_repasar_in_firestore_tool' has no detected guardrail or approval configuration.",
           "provenance": [
@@ -274,7 +274,7 @@
               "location": {
                 "column": 9,
                 "line": 114,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "add_to_products_a_repasar_in_firestore_tool"
@@ -284,7 +284,7 @@
               "location": {
                 "column": 9,
                 "line": 114,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "add_to_products_a_repasar_in_firestore_tool"
@@ -294,7 +294,7 @@
               "location": {
                 "column": 9,
                 "line": 114,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "add_to_products_a_repasar_in_firestore_tool"
@@ -332,7 +332,7 @@
           "location": {
             "column": 9,
             "line": 115,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
           },
           "message": "Privileged tool 'request_video_upload_link_tool' has no detected guardrail or approval configuration.",
           "provenance": [
@@ -341,7 +341,7 @@
               "location": {
                 "column": 9,
                 "line": 115,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "request_video_upload_link_tool"
@@ -351,7 +351,7 @@
               "location": {
                 "column": 9,
                 "line": 115,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "request_video_upload_link_tool"
@@ -361,7 +361,7 @@
               "location": {
                 "column": 9,
                 "line": 115,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "request_video_upload_link_tool"
@@ -371,7 +371,7 @@
               "location": {
                 "column": 9,
                 "line": 115,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "request_video_upload_link_tool"
@@ -409,7 +409,7 @@
           "location": {
             "column": 9,
             "line": 116,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
           },
           "message": "Privileged tool 'prepare_selection_update_for_session_state' has no detected guardrail or approval configuration.",
           "provenance": [
@@ -418,7 +418,7 @@
               "location": {
                 "column": 9,
                 "line": 116,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "prepare_selection_update_for_session_state"
@@ -428,7 +428,7 @@
               "location": {
                 "column": 9,
                 "line": 116,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "prepare_selection_update_for_session_state"
@@ -438,7 +438,7 @@
               "location": {
                 "column": 9,
                 "line": 116,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "prepare_selection_update_for_session_state"
@@ -486,7 +486,7 @@
           "location": {
             "column": 16,
             "line": 98,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
           },
           "message": "Agent 'FunnelAgent' can both read and modify data.",
           "provenance": [
@@ -495,7 +495,7 @@
               "location": {
                 "column": 16,
                 "line": 98,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "FunnelAgent"
@@ -505,7 +505,7 @@
               "location": {
                 "column": 9,
                 "line": 103,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "ask_contact_name_tool"
@@ -515,7 +515,7 @@
               "location": {
                 "column": 9,
                 "line": 103,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "ask_contact_name_tool"
@@ -525,7 +525,7 @@
               "location": {
                 "column": 9,
                 "line": 104,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_or_create_user_profile_from_firestore_tool"
@@ -535,7 +535,7 @@
               "location": {
                 "column": 9,
                 "line": 104,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_or_create_user_profile_from_firestore_tool"
@@ -545,7 +545,7 @@
               "location": {
                 "column": 9,
                 "line": 104,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_or_create_user_profile_from_firestore_tool"
@@ -555,7 +555,7 @@
               "location": {
                 "column": 9,
                 "line": 104,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_or_create_user_profile_from_firestore_tool"
@@ -565,7 +565,7 @@
               "location": {
                 "column": 9,
                 "line": 105,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "update_user_profile_in_firestore_tool"
@@ -575,7 +575,7 @@
               "location": {
                 "column": 9,
                 "line": 105,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "update_user_profile_in_firestore_tool"
@@ -585,7 +585,7 @@
               "location": {
                 "column": 9,
                 "line": 105,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "update_user_profile_in_firestore_tool"
@@ -595,7 +595,7 @@
               "location": {
                 "column": 9,
                 "line": 106,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "determine_next_profile_question_tool"
@@ -605,7 +605,7 @@
               "location": {
                 "column": 9,
                 "line": 106,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "determine_next_profile_question_tool"
@@ -615,7 +615,7 @@
               "location": {
                 "column": 9,
                 "line": 107,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_catalog_level_options_tool"
@@ -625,7 +625,7 @@
               "location": {
                 "column": 9,
                 "line": 107,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_catalog_level_options_tool"
@@ -635,7 +635,7 @@
               "location": {
                 "column": 9,
                 "line": 107,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_catalog_level_options_tool"
@@ -645,7 +645,7 @@
               "location": {
                 "column": 9,
                 "line": 108,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_products_final_list_tool"
@@ -655,7 +655,7 @@
               "location": {
                 "column": 9,
                 "line": 108,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_products_final_list_tool"
@@ -665,7 +665,7 @@
               "location": {
                 "column": 9,
                 "line": 108,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_products_final_list_tool"
@@ -675,7 +675,7 @@
               "location": {
                 "column": 9,
                 "line": 109,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_detailed_product_info_tool"
@@ -685,7 +685,7 @@
               "location": {
                 "column": 9,
                 "line": 109,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_detailed_product_info_tool"
@@ -695,7 +695,7 @@
               "location": {
                 "column": 9,
                 "line": 109,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_detailed_product_info_tool"
@@ -705,7 +705,7 @@
               "location": {
                 "column": 9,
                 "line": 110,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_current_datetime_tool"
@@ -715,7 +715,7 @@
               "location": {
                 "column": 9,
                 "line": 110,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_current_datetime_tool"
@@ -725,7 +725,7 @@
               "location": {
                 "column": 9,
                 "line": 110,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_current_datetime_tool"
@@ -735,7 +735,7 @@
               "location": {
                 "column": 9,
                 "line": 111,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "ask_pain_points_questions_tool"
@@ -745,7 +745,7 @@
               "location": {
                 "column": 9,
                 "line": 111,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "ask_pain_points_questions_tool"
@@ -755,7 +755,7 @@
               "location": {
                 "column": 9,
                 "line": 112,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "search_internal_products_by_embedding_tool"
@@ -765,7 +765,7 @@
               "location": {
                 "column": 9,
                 "line": 112,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "search_internal_products_by_embedding_tool"
@@ -775,7 +775,7 @@
               "location": {
                 "column": 9,
                 "line": 112,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "search_internal_products_by_embedding_tool"
@@ -785,7 +785,7 @@
               "location": {
                 "column": 9,
                 "line": 113,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "search_external_products_tool"
@@ -795,7 +795,7 @@
               "location": {
                 "column": 9,
                 "line": 113,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "search_external_products_tool"
@@ -805,7 +805,7 @@
               "location": {
                 "column": 9,
                 "line": 113,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "search_external_products_tool"
@@ -815,7 +815,7 @@
               "location": {
                 "column": 9,
                 "line": 114,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "add_to_products_a_repasar_in_firestore_tool"
@@ -825,7 +825,7 @@
               "location": {
                 "column": 9,
                 "line": 114,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "add_to_products_a_repasar_in_firestore_tool"
@@ -835,7 +835,7 @@
               "location": {
                 "column": 9,
                 "line": 114,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "add_to_products_a_repasar_in_firestore_tool"
@@ -845,7 +845,7 @@
               "location": {
                 "column": 9,
                 "line": 115,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "request_video_upload_link_tool"
@@ -855,7 +855,7 @@
               "location": {
                 "column": 9,
                 "line": 115,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "request_video_upload_link_tool"
@@ -865,7 +865,7 @@
               "location": {
                 "column": 9,
                 "line": 115,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "request_video_upload_link_tool"
@@ -875,7 +875,7 @@
               "location": {
                 "column": 9,
                 "line": 115,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "request_video_upload_link_tool"
@@ -885,7 +885,7 @@
               "location": {
                 "column": 9,
                 "line": 116,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "prepare_selection_update_for_session_state"
@@ -895,7 +895,7 @@
               "location": {
                 "column": 9,
                 "line": 116,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "prepare_selection_update_for_session_state"
@@ -905,7 +905,7 @@
               "location": {
                 "column": 9,
                 "line": 116,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "prepare_selection_update_for_session_state"
@@ -915,7 +915,7 @@
               "location": {
                 "column": 9,
                 "line": 117,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_alternative_products_tool"
@@ -925,7 +925,7 @@
               "location": {
                 "column": 9,
                 "line": 117,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_alternative_products_tool"
@@ -935,7 +935,7 @@
               "location": {
                 "column": 9,
                 "line": 117,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_alternative_products_tool"
@@ -972,7 +972,7 @@
           "location": {
             "column": 16,
             "line": 98,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
           },
           "message": "Agent 'FunnelAgent' has external network/write capability but no explicit destination allowlist was detected.",
           "provenance": [
@@ -981,7 +981,7 @@
               "location": {
                 "column": 16,
                 "line": 98,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "FunnelAgent"
@@ -991,7 +991,7 @@
               "location": {
                 "column": 9,
                 "line": 103,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "ask_contact_name_tool"
@@ -1001,7 +1001,7 @@
               "location": {
                 "column": 9,
                 "line": 103,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "ask_contact_name_tool"
@@ -1011,7 +1011,7 @@
               "location": {
                 "column": 9,
                 "line": 104,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_or_create_user_profile_from_firestore_tool"
@@ -1021,7 +1021,7 @@
               "location": {
                 "column": 9,
                 "line": 104,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_or_create_user_profile_from_firestore_tool"
@@ -1031,7 +1031,7 @@
               "location": {
                 "column": 9,
                 "line": 104,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_or_create_user_profile_from_firestore_tool"
@@ -1041,7 +1041,7 @@
               "location": {
                 "column": 9,
                 "line": 104,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_or_create_user_profile_from_firestore_tool"
@@ -1051,7 +1051,7 @@
               "location": {
                 "column": 9,
                 "line": 105,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "update_user_profile_in_firestore_tool"
@@ -1061,7 +1061,7 @@
               "location": {
                 "column": 9,
                 "line": 105,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "update_user_profile_in_firestore_tool"
@@ -1071,7 +1071,7 @@
               "location": {
                 "column": 9,
                 "line": 105,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "update_user_profile_in_firestore_tool"
@@ -1081,7 +1081,7 @@
               "location": {
                 "column": 9,
                 "line": 106,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "determine_next_profile_question_tool"
@@ -1091,7 +1091,7 @@
               "location": {
                 "column": 9,
                 "line": 106,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "determine_next_profile_question_tool"
@@ -1101,7 +1101,7 @@
               "location": {
                 "column": 9,
                 "line": 107,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_catalog_level_options_tool"
@@ -1111,7 +1111,7 @@
               "location": {
                 "column": 9,
                 "line": 107,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_catalog_level_options_tool"
@@ -1121,7 +1121,7 @@
               "location": {
                 "column": 9,
                 "line": 107,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_catalog_level_options_tool"
@@ -1131,7 +1131,7 @@
               "location": {
                 "column": 9,
                 "line": 108,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_products_final_list_tool"
@@ -1141,7 +1141,7 @@
               "location": {
                 "column": 9,
                 "line": 108,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_products_final_list_tool"
@@ -1151,7 +1151,7 @@
               "location": {
                 "column": 9,
                 "line": 108,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_products_final_list_tool"
@@ -1161,7 +1161,7 @@
               "location": {
                 "column": 9,
                 "line": 109,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_detailed_product_info_tool"
@@ -1171,7 +1171,7 @@
               "location": {
                 "column": 9,
                 "line": 109,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_detailed_product_info_tool"
@@ -1181,7 +1181,7 @@
               "location": {
                 "column": 9,
                 "line": 109,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_detailed_product_info_tool"
@@ -1191,7 +1191,7 @@
               "location": {
                 "column": 9,
                 "line": 110,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_current_datetime_tool"
@@ -1201,7 +1201,7 @@
               "location": {
                 "column": 9,
                 "line": 110,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_current_datetime_tool"
@@ -1211,7 +1211,7 @@
               "location": {
                 "column": 9,
                 "line": 110,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_current_datetime_tool"
@@ -1221,7 +1221,7 @@
               "location": {
                 "column": 9,
                 "line": 111,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "ask_pain_points_questions_tool"
@@ -1231,7 +1231,7 @@
               "location": {
                 "column": 9,
                 "line": 111,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "ask_pain_points_questions_tool"
@@ -1241,7 +1241,7 @@
               "location": {
                 "column": 9,
                 "line": 112,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "search_internal_products_by_embedding_tool"
@@ -1251,7 +1251,7 @@
               "location": {
                 "column": 9,
                 "line": 112,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "search_internal_products_by_embedding_tool"
@@ -1261,7 +1261,7 @@
               "location": {
                 "column": 9,
                 "line": 112,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "search_internal_products_by_embedding_tool"
@@ -1271,7 +1271,7 @@
               "location": {
                 "column": 9,
                 "line": 113,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "search_external_products_tool"
@@ -1281,7 +1281,7 @@
               "location": {
                 "column": 9,
                 "line": 113,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "search_external_products_tool"
@@ -1291,7 +1291,7 @@
               "location": {
                 "column": 9,
                 "line": 113,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "search_external_products_tool"
@@ -1301,7 +1301,7 @@
               "location": {
                 "column": 9,
                 "line": 114,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "add_to_products_a_repasar_in_firestore_tool"
@@ -1311,7 +1311,7 @@
               "location": {
                 "column": 9,
                 "line": 114,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "add_to_products_a_repasar_in_firestore_tool"
@@ -1321,7 +1321,7 @@
               "location": {
                 "column": 9,
                 "line": 114,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "add_to_products_a_repasar_in_firestore_tool"
@@ -1331,7 +1331,7 @@
               "location": {
                 "column": 9,
                 "line": 115,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "request_video_upload_link_tool"
@@ -1341,7 +1341,7 @@
               "location": {
                 "column": 9,
                 "line": 115,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "request_video_upload_link_tool"
@@ -1351,7 +1351,7 @@
               "location": {
                 "column": 9,
                 "line": 115,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "request_video_upload_link_tool"
@@ -1361,7 +1361,7 @@
               "location": {
                 "column": 9,
                 "line": 115,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "request_video_upload_link_tool"
@@ -1371,7 +1371,7 @@
               "location": {
                 "column": 9,
                 "line": 116,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "prepare_selection_update_for_session_state"
@@ -1381,7 +1381,7 @@
               "location": {
                 "column": 9,
                 "line": 116,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "prepare_selection_update_for_session_state"
@@ -1391,7 +1391,7 @@
               "location": {
                 "column": 9,
                 "line": 116,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "prepare_selection_update_for_session_state"
@@ -1401,7 +1401,7 @@
               "location": {
                 "column": 9,
                 "line": 117,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "inferred",
               "subject": "get_alternative_products_tool"
@@ -1411,7 +1411,7 @@
               "location": {
                 "column": 9,
                 "line": 117,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_alternative_products_tool"
@@ -1421,7 +1421,7 @@
               "location": {
                 "column": 9,
                 "line": 117,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-004/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-004/agent.py"
               },
               "origin": "observed",
               "subject": "get_alternative_products_tool"
@@ -1819,7 +1819,7 @@
           "location": {
             "column": 1,
             "line": 52,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-007/tools/document_ocr.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-007/tools/document_ocr.py"
           },
           "message": "Source analysis proves a model-selected file path reaches a local file-read sink and data derived from that read reaches an external service call without a detected path-containment boundary.",
           "provenance": [
@@ -1828,7 +1828,7 @@
               "location": {
                 "column": 14,
                 "line": 15,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-007/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-007/agent.py"
               },
               "origin": "observed",
               "subject": "document_processing_agent"
@@ -1838,7 +1838,7 @@
               "location": {
                 "column": 14,
                 "line": 15,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-007/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-007/agent.py"
               },
               "origin": "inferred",
               "subject": "user-or-remote-input"
@@ -1848,7 +1848,7 @@
               "location": {
                 "column": 14,
                 "line": 15,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-007/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-007/agent.py"
               },
               "origin": "inferred",
               "subject": "user-or-remote-input"
@@ -2500,7 +2500,7 @@
           "location": {
             "column": 20,
             "line": 505,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
           },
           "message": "Source analysis proves untrusted input reaches the agent runtime invocation, and the effective authority model binds a state-changing tool without a detected approval requirement. Runtime model selection is not verified.",
           "provenance": [
@@ -2509,7 +2509,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "memory_orchestrator"
@@ -2519,7 +2519,7 @@
               "location": {
                 "column": 1,
                 "line": 360,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "get_memory_stats"
@@ -2529,7 +2529,7 @@
               "location": {
                 "column": 1,
                 "line": 360,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "get_memory_stats"
@@ -2539,7 +2539,7 @@
               "location": {
                 "column": 1,
                 "line": 360,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "get_memory_stats"
@@ -2549,7 +2549,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -2559,7 +2559,7 @@
               "location": {
                 "column": 20,
                 "line": 449,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "ingest_agent"
@@ -2569,7 +2569,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_memory"
@@ -2579,7 +2579,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_memory"
@@ -2589,7 +2589,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_memory"
@@ -2599,7 +2599,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -2609,7 +2609,7 @@
               "location": {
                 "column": 25,
                 "line": 472,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "consolidate_agent"
@@ -2619,7 +2619,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_unconsolidated_memories"
@@ -2629,7 +2629,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_unconsolidated_memories"
@@ -2639,7 +2639,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_unconsolidated_memories"
@@ -2649,7 +2649,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -2659,7 +2659,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -2669,7 +2669,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -2679,7 +2679,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -2689,7 +2689,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -2699,7 +2699,7 @@
               "location": {
                 "column": 19,
                 "line": 489,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "query_agent"
@@ -2709,7 +2709,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_all_memories"
@@ -2719,7 +2719,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_all_memories"
@@ -2729,7 +2729,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_all_memories"
@@ -2739,7 +2739,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_consolidation_history"
@@ -2749,7 +2749,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_consolidation_history"
@@ -2759,7 +2759,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_consolidation_history"
@@ -2795,7 +2795,7 @@
           "location": {
             "column": 20,
             "line": 505,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
           },
           "message": "Source analysis proves untrusted input reaches the agent runtime invocation, and the effective authority model binds a state-changing tool without a detected approval requirement. Runtime model selection is not verified.",
           "provenance": [
@@ -2804,7 +2804,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "memory_orchestrator"
@@ -2814,7 +2814,7 @@
               "location": {
                 "column": 1,
                 "line": 360,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "get_memory_stats"
@@ -2824,7 +2824,7 @@
               "location": {
                 "column": 1,
                 "line": 360,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "get_memory_stats"
@@ -2834,7 +2834,7 @@
               "location": {
                 "column": 1,
                 "line": 360,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "get_memory_stats"
@@ -2844,7 +2844,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -2854,7 +2854,7 @@
               "location": {
                 "column": 20,
                 "line": 449,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "ingest_agent"
@@ -2864,7 +2864,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_memory"
@@ -2874,7 +2874,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_memory"
@@ -2884,7 +2884,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_memory"
@@ -2894,7 +2894,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -2904,7 +2904,7 @@
               "location": {
                 "column": 25,
                 "line": 472,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "consolidate_agent"
@@ -2914,7 +2914,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_unconsolidated_memories"
@@ -2924,7 +2924,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_unconsolidated_memories"
@@ -2934,7 +2934,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_unconsolidated_memories"
@@ -2944,7 +2944,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -2954,7 +2954,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -2964,7 +2964,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -2974,7 +2974,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -2984,7 +2984,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -2994,7 +2994,7 @@
               "location": {
                 "column": 19,
                 "line": 489,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "query_agent"
@@ -3004,7 +3004,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_all_memories"
@@ -3014,7 +3014,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_all_memories"
@@ -3024,7 +3024,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_all_memories"
@@ -3034,7 +3034,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_consolidation_history"
@@ -3044,7 +3044,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_consolidation_history"
@@ -3054,7 +3054,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_consolidation_history"
@@ -3088,7 +3088,7 @@
           "location": {
             "column": 25,
             "line": 472,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
           },
           "message": "ADK agent 'consolidate_agent' exposes privileged capabilities without a source-proven enforcing before-tool control or per-tool confirmation.",
           "provenance": [
@@ -3097,7 +3097,7 @@
               "location": {
                 "column": 25,
                 "line": 472,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "consolidate_agent"
@@ -3130,7 +3130,7 @@
           "location": {
             "column": 20,
             "line": 449,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
           },
           "message": "ADK agent 'ingest_agent' exposes privileged capabilities without a source-proven enforcing before-tool control or per-tool confirmation.",
           "provenance": [
@@ -3139,7 +3139,7 @@
               "location": {
                 "column": 20,
                 "line": 449,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "ingest_agent"
@@ -3172,7 +3172,7 @@
           "location": {
             "column": 20,
             "line": 505,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
           },
           "message": "ADK agent 'memory_orchestrator' exposes privileged capabilities without a source-proven enforcing before-tool control or per-tool confirmation.",
           "provenance": [
@@ -3181,7 +3181,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -3191,7 +3191,7 @@
               "location": {
                 "column": 20,
                 "line": 449,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "ingest_agent"
@@ -3201,7 +3201,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_memory"
@@ -3211,7 +3211,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_memory"
@@ -3221,7 +3221,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_memory"
@@ -3231,7 +3231,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -3241,7 +3241,7 @@
               "location": {
                 "column": 25,
                 "line": 472,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "consolidate_agent"
@@ -3251,7 +3251,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_unconsolidated_memories"
@@ -3261,7 +3261,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_unconsolidated_memories"
@@ -3271,7 +3271,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_unconsolidated_memories"
@@ -3281,7 +3281,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -3291,7 +3291,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -3301,7 +3301,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -3311,7 +3311,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -3321,7 +3321,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -3331,7 +3331,7 @@
               "location": {
                 "column": 19,
                 "line": 489,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "query_agent"
@@ -3341,7 +3341,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_all_memories"
@@ -3351,7 +3351,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_all_memories"
@@ -3361,7 +3361,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_all_memories"
@@ -3371,7 +3371,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_consolidation_history"
@@ -3381,7 +3381,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_consolidation_history"
@@ -3391,7 +3391,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_consolidation_history"
@@ -3426,7 +3426,7 @@
           "location": {
             "column": 1,
             "line": 300,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
           },
           "message": "Privileged tool 'store_consolidation' has no detected guardrail or approval configuration.",
           "provenance": [
@@ -3435,7 +3435,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -3445,7 +3445,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -3455,7 +3455,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -3465,7 +3465,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -3500,7 +3500,7 @@
           "location": {
             "column": 1,
             "line": 227,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
           },
           "message": "Privileged tool 'store_memory' has no detected guardrail or approval configuration.",
           "provenance": [
@@ -3509,7 +3509,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_memory"
@@ -3519,7 +3519,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_memory"
@@ -3529,7 +3529,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_memory"
@@ -3562,7 +3562,7 @@
           "location": {
             "column": 20,
             "line": 505,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
           },
           "message": "Privileged tool 'delegate:ingest_agent' has no detected guardrail or approval configuration.",
           "provenance": [
@@ -3571,7 +3571,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -3581,7 +3581,7 @@
               "location": {
                 "column": 20,
                 "line": 449,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "ingest_agent"
@@ -3591,7 +3591,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_memory"
@@ -3601,7 +3601,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_memory"
@@ -3611,7 +3611,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_memory"
@@ -3621,7 +3621,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -3631,7 +3631,7 @@
               "location": {
                 "column": 25,
                 "line": 472,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "consolidate_agent"
@@ -3641,7 +3641,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_unconsolidated_memories"
@@ -3651,7 +3651,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_unconsolidated_memories"
@@ -3661,7 +3661,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_unconsolidated_memories"
@@ -3671,7 +3671,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -3681,7 +3681,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -3691,7 +3691,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -3701,7 +3701,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -3711,7 +3711,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -3721,7 +3721,7 @@
               "location": {
                 "column": 19,
                 "line": 489,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "query_agent"
@@ -3731,7 +3731,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_all_memories"
@@ -3741,7 +3741,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_all_memories"
@@ -3751,7 +3751,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_all_memories"
@@ -3761,7 +3761,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_consolidation_history"
@@ -3771,7 +3771,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_consolidation_history"
@@ -3781,7 +3781,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_consolidation_history"
@@ -3814,7 +3814,7 @@
           "location": {
             "column": 20,
             "line": 505,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
           },
           "message": "Privileged tool 'delegate:consolidate_agent' has no detected guardrail or approval configuration.",
           "provenance": [
@@ -3823,7 +3823,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -3833,7 +3833,7 @@
               "location": {
                 "column": 20,
                 "line": 449,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "ingest_agent"
@@ -3843,7 +3843,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_memory"
@@ -3853,7 +3853,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_memory"
@@ -3863,7 +3863,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_memory"
@@ -3873,7 +3873,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -3883,7 +3883,7 @@
               "location": {
                 "column": 25,
                 "line": 472,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "consolidate_agent"
@@ -3893,7 +3893,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_unconsolidated_memories"
@@ -3903,7 +3903,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_unconsolidated_memories"
@@ -3913,7 +3913,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_unconsolidated_memories"
@@ -3923,7 +3923,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -3933,7 +3933,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -3943,7 +3943,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -3953,7 +3953,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -3963,7 +3963,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -3973,7 +3973,7 @@
               "location": {
                 "column": 19,
                 "line": 489,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "query_agent"
@@ -3983,7 +3983,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_all_memories"
@@ -3993,7 +3993,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_all_memories"
@@ -4003,7 +4003,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_all_memories"
@@ -4013,7 +4013,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_consolidation_history"
@@ -4023,7 +4023,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_consolidation_history"
@@ -4033,7 +4033,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_consolidation_history"
@@ -4069,7 +4069,7 @@
           "location": {
             "column": 25,
             "line": 472,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
           },
           "message": "Agent 'consolidate_agent' can both read and modify data.",
           "provenance": [
@@ -4078,7 +4078,7 @@
               "location": {
                 "column": 25,
                 "line": 472,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "consolidate_agent"
@@ -4088,7 +4088,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_unconsolidated_memories"
@@ -4098,7 +4098,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_unconsolidated_memories"
@@ -4108,7 +4108,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_unconsolidated_memories"
@@ -4118,7 +4118,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -4128,7 +4128,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -4138,7 +4138,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -4148,7 +4148,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -4186,7 +4186,7 @@
           "location": {
             "column": 20,
             "line": 505,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
           },
           "message": "Agent 'memory_orchestrator' can both read and modify data.",
           "provenance": [
@@ -4195,7 +4195,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "memory_orchestrator"
@@ -4205,7 +4205,7 @@
               "location": {
                 "column": 1,
                 "line": 360,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "get_memory_stats"
@@ -4215,7 +4215,7 @@
               "location": {
                 "column": 1,
                 "line": 360,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "get_memory_stats"
@@ -4225,7 +4225,7 @@
               "location": {
                 "column": 1,
                 "line": 360,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "get_memory_stats"
@@ -4235,7 +4235,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -4245,7 +4245,7 @@
               "location": {
                 "column": 20,
                 "line": 449,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "ingest_agent"
@@ -4255,7 +4255,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_memory"
@@ -4265,7 +4265,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_memory"
@@ -4275,7 +4275,7 @@
               "location": {
                 "column": 1,
                 "line": 227,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_memory"
@@ -4285,7 +4285,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -4295,7 +4295,7 @@
               "location": {
                 "column": 25,
                 "line": 472,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "consolidate_agent"
@@ -4305,7 +4305,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_unconsolidated_memories"
@@ -4315,7 +4315,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_unconsolidated_memories"
@@ -4325,7 +4325,7 @@
               "location": {
                 "column": 1,
                 "line": 278,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_unconsolidated_memories"
@@ -4335,7 +4335,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -4345,7 +4345,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "store_consolidation"
@@ -4355,7 +4355,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -4365,7 +4365,7 @@
               "location": {
                 "column": 1,
                 "line": 300,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "store_consolidation"
@@ -4375,7 +4375,7 @@
               "location": {
                 "column": 20,
                 "line": 505,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "memory_orchestrator"
@@ -4385,7 +4385,7 @@
               "location": {
                 "column": 19,
                 "line": 489,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "query_agent"
@@ -4395,7 +4395,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_all_memories"
@@ -4405,7 +4405,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_all_memories"
@@ -4415,7 +4415,7 @@
               "location": {
                 "column": 1,
                 "line": 255,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_all_memories"
@@ -4425,7 +4425,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "inferred",
               "subject": "read_consolidation_history"
@@ -4435,7 +4435,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_consolidation_history"
@@ -4445,7 +4445,7 @@
               "location": {
                 "column": 1,
                 "line": 348,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-017/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-017/agent.py"
               },
               "origin": "observed",
               "subject": "read_consolidation_history"
@@ -5019,7 +5019,7 @@
           "location": {
             "column": 21,
             "line": 11,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-038/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-038/agent.py"
           },
           "message": "Agent 'APDM' has broad destinations or no detected restriction for a possible outbound destination.",
           "provenance": [
@@ -5028,7 +5028,7 @@
               "location": {
                 "column": 21,
                 "line": 11,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-038/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-038/agent.py"
               },
               "origin": "observed",
               "subject": "APDM"
@@ -5189,7 +5189,7 @@
           "location": {
             "column": 9,
             "line": 105,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
           },
           "message": "Agent 'agent' can dereference provider search-result URLs without a detected destination restriction; the model influences the search terms but does not directly choose the final URL.",
           "provenance": [
@@ -5198,7 +5198,7 @@
               "location": {
                 "column": 9,
                 "line": 105,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "agent"
@@ -5208,7 +5208,7 @@
               "location": {
                 "column": 1,
                 "line": 121,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "inferred",
               "subject": "detect_query_type"
@@ -5218,7 +5218,7 @@
               "location": {
                 "column": 1,
                 "line": 121,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "detect_query_type"
@@ -5228,7 +5228,7 @@
               "location": {
                 "column": 1,
                 "line": 121,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "detect_query_type"
@@ -5238,7 +5238,7 @@
               "location": {
                 "column": 1,
                 "line": 133,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "inferred",
               "subject": "resolve_ticker"
@@ -5248,7 +5248,7 @@
               "location": {
                 "column": 1,
                 "line": 133,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "resolve_ticker"
@@ -5258,7 +5258,7 @@
               "location": {
                 "column": 1,
                 "line": 133,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "resolve_ticker"
@@ -5268,7 +5268,7 @@
               "location": {
                 "column": 1,
                 "line": 153,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "inferred",
               "subject": "initial_discovery_search"
@@ -5278,7 +5278,7 @@
               "location": {
                 "column": 1,
                 "line": 153,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "initial_discovery_search"
@@ -5288,7 +5288,7 @@
               "location": {
                 "column": 1,
                 "line": 153,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "initial_discovery_search"
@@ -5298,7 +5298,7 @@
               "location": {
                 "column": 1,
                 "line": 182,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "inferred",
               "subject": "deep_dive_search"
@@ -5308,7 +5308,7 @@
               "location": {
                 "column": 1,
                 "line": 182,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "inferred",
               "subject": "deep_dive_search"
@@ -5318,7 +5318,7 @@
               "location": {
                 "column": 1,
                 "line": 182,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "deep_dive_search"
@@ -5328,7 +5328,7 @@
               "location": {
                 "column": 1,
                 "line": 182,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "deep_dive_search"
@@ -5338,7 +5338,7 @@
               "location": {
                 "column": 1,
                 "line": 249,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "run_agent:prompt"
@@ -5348,7 +5348,7 @@
               "location": {
                 "column": 1,
                 "line": 249,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "run_agent:prompt"
@@ -5358,7 +5358,7 @@
               "location": {
                 "column": 19,
                 "line": 197,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "inferred",
               "subject": "deep_dive_search"
@@ -5391,7 +5391,7 @@
           "location": {
             "column": 1,
             "line": 182,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
           },
           "message": "Source analysis proves untrusted input reaches the agent runtime, model-selected search terms influence provider results, and a returned URL is dereferenced by a server-side HTTP helper without a detected destination restriction. The model does not directly select the final URL.",
           "provenance": [
@@ -5400,7 +5400,7 @@
               "location": {
                 "column": 9,
                 "line": 105,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "agent"
@@ -5410,7 +5410,7 @@
               "location": {
                 "column": 1,
                 "line": 121,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "inferred",
               "subject": "detect_query_type"
@@ -5420,7 +5420,7 @@
               "location": {
                 "column": 1,
                 "line": 121,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "detect_query_type"
@@ -5430,7 +5430,7 @@
               "location": {
                 "column": 1,
                 "line": 121,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "detect_query_type"
@@ -5440,7 +5440,7 @@
               "location": {
                 "column": 1,
                 "line": 133,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "inferred",
               "subject": "resolve_ticker"
@@ -5450,7 +5450,7 @@
               "location": {
                 "column": 1,
                 "line": 133,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "resolve_ticker"
@@ -5460,7 +5460,7 @@
               "location": {
                 "column": 1,
                 "line": 133,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "resolve_ticker"
@@ -5470,7 +5470,7 @@
               "location": {
                 "column": 1,
                 "line": 153,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "inferred",
               "subject": "initial_discovery_search"
@@ -5480,7 +5480,7 @@
               "location": {
                 "column": 1,
                 "line": 153,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "initial_discovery_search"
@@ -5490,7 +5490,7 @@
               "location": {
                 "column": 1,
                 "line": 153,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "initial_discovery_search"
@@ -5500,7 +5500,7 @@
               "location": {
                 "column": 1,
                 "line": 182,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "inferred",
               "subject": "deep_dive_search"
@@ -5510,7 +5510,7 @@
               "location": {
                 "column": 1,
                 "line": 182,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "inferred",
               "subject": "deep_dive_search"
@@ -5520,7 +5520,7 @@
               "location": {
                 "column": 1,
                 "line": 182,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "deep_dive_search"
@@ -5530,7 +5530,7 @@
               "location": {
                 "column": 1,
                 "line": 182,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "deep_dive_search"
@@ -5540,7 +5540,7 @@
               "location": {
                 "column": 1,
                 "line": 249,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "run_agent:prompt"
@@ -5550,7 +5550,7 @@
               "location": {
                 "column": 1,
                 "line": 249,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "observed",
               "subject": "run_agent:prompt"
@@ -5560,7 +5560,7 @@
               "location": {
                 "column": 19,
                 "line": 197,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-147/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-147/agent.py"
               },
               "origin": "inferred",
               "subject": "deep_dive_search"
@@ -5873,7 +5873,7 @@
           "location": {
             "column": 9,
             "line": 360,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
           },
           "message": "Agent 'agent' has broad destinations or no detected restriction for a possible outbound destination.",
           "provenance": [
@@ -5882,7 +5882,7 @@
               "location": {
                 "column": 9,
                 "line": 360,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "observed",
               "subject": "agent"
@@ -5892,7 +5892,7 @@
               "location": {
                 "column": 1,
                 "line": 402,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "observed",
               "subject": "research_domain"
@@ -5902,7 +5902,7 @@
               "location": {
                 "column": 1,
                 "line": 402,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "observed",
               "subject": "research_domain"
@@ -5912,7 +5912,7 @@
               "location": {
                 "column": 1,
                 "line": 425,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "inferred",
               "subject": "fetch_curriculum"
@@ -5922,7 +5922,7 @@
               "location": {
                 "column": 1,
                 "line": 425,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "inferred",
               "subject": "fetch_curriculum"
@@ -5932,7 +5932,7 @@
               "location": {
                 "column": 1,
                 "line": 425,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "observed",
               "subject": "fetch_curriculum"
@@ -5942,7 +5942,7 @@
               "location": {
                 "column": 1,
                 "line": 425,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "observed",
               "subject": "fetch_curriculum"
@@ -5952,7 +5952,7 @@
               "location": {
                 "column": 30,
                 "line": 438,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "inferred",
               "subject": "fetch_curriculum"
@@ -5985,7 +5985,7 @@
           "location": {
             "column": 1,
             "line": 425,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
           },
           "message": "Source analysis proves untrusted input reaches the agent runtime, and the effective tool accepts a model-selected URL that is passed to a direct server-side HTTP client without a detected destination restriction.",
           "provenance": [
@@ -5994,7 +5994,7 @@
               "location": {
                 "column": 9,
                 "line": 360,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "observed",
               "subject": "agent"
@@ -6004,7 +6004,7 @@
               "location": {
                 "column": 1,
                 "line": 402,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "observed",
               "subject": "research_domain"
@@ -6014,7 +6014,7 @@
               "location": {
                 "column": 1,
                 "line": 402,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "observed",
               "subject": "research_domain"
@@ -6024,7 +6024,7 @@
               "location": {
                 "column": 1,
                 "line": 425,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "inferred",
               "subject": "fetch_curriculum"
@@ -6034,7 +6034,7 @@
               "location": {
                 "column": 1,
                 "line": 425,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "inferred",
               "subject": "fetch_curriculum"
@@ -6044,7 +6044,7 @@
               "location": {
                 "column": 1,
                 "line": 425,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "observed",
               "subject": "fetch_curriculum"
@@ -6054,7 +6054,7 @@
               "location": {
                 "column": 1,
                 "line": 425,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "observed",
               "subject": "fetch_curriculum"
@@ -6064,7 +6064,7 @@
               "location": {
                 "column": 30,
                 "line": 438,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-150/src/agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-150/src/agent.py"
               },
               "origin": "inferred",
               "subject": "fetch_curriculum"
@@ -6236,7 +6236,7 @@
           "location": {
             "column": 1,
             "line": 57,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
           },
           "message": "Tool 'write_to_md_file' can modify state without explicit approval.",
           "provenance": [
@@ -6245,7 +6245,7 @@
               "location": {
                 "column": 1,
                 "line": 57,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "inferred",
               "subject": "write_to_md_file"
@@ -6255,7 +6255,7 @@
               "location": {
                 "column": 1,
                 "line": 57,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "inferred",
               "subject": "write_to_md_file"
@@ -6265,7 +6265,7 @@
               "location": {
                 "column": 1,
                 "line": 57,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "observed",
               "subject": "write_to_md_file"
@@ -6275,7 +6275,7 @@
               "location": {
                 "column": 1,
                 "line": 57,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "observed",
               "subject": "write_to_md_file"
@@ -6310,7 +6310,7 @@
           "location": {
             "column": 1,
             "line": 57,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
           },
           "message": "Privileged tool 'write_to_md_file' has no detected guardrail or approval configuration.",
           "provenance": [
@@ -6319,7 +6319,7 @@
               "location": {
                 "column": 1,
                 "line": 57,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "inferred",
               "subject": "write_to_md_file"
@@ -6329,7 +6329,7 @@
               "location": {
                 "column": 1,
                 "line": 57,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "inferred",
               "subject": "write_to_md_file"
@@ -6339,7 +6339,7 @@
               "location": {
                 "column": 1,
                 "line": 57,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "observed",
               "subject": "write_to_md_file"
@@ -6349,7 +6349,7 @@
               "location": {
                 "column": 1,
                 "line": 57,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "observed",
               "subject": "write_to_md_file"
@@ -6385,7 +6385,7 @@
           "location": {
             "column": 18,
             "line": 30,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
           },
           "message": "Agent 'research_agent' can both read and modify data.",
           "provenance": [
@@ -6394,7 +6394,7 @@
               "location": {
                 "column": 18,
                 "line": 30,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "observed",
               "subject": "research_agent"
@@ -6404,7 +6404,7 @@
               "location": {
                 "column": 1,
                 "line": 45,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "inferred",
               "subject": "search_in_tavily"
@@ -6414,7 +6414,7 @@
               "location": {
                 "column": 1,
                 "line": 45,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "observed",
               "subject": "search_in_tavily"
@@ -6424,7 +6424,7 @@
               "location": {
                 "column": 1,
                 "line": 45,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "observed",
               "subject": "search_in_tavily"
@@ -6434,7 +6434,7 @@
               "location": {
                 "column": 1,
                 "line": 57,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "inferred",
               "subject": "write_to_md_file"
@@ -6444,7 +6444,7 @@
               "location": {
                 "column": 1,
                 "line": 57,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "inferred",
               "subject": "write_to_md_file"
@@ -6454,7 +6454,7 @@
               "location": {
                 "column": 1,
                 "line": 57,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "observed",
               "subject": "write_to_md_file"
@@ -6464,7 +6464,7 @@
               "location": {
                 "column": 1,
                 "line": 57,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-153/research_agent.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-153/research_agent.py"
               },
               "origin": "observed",
               "subject": "write_to_md_file"
@@ -6709,7 +6709,7 @@
           "location": {
             "column": 16,
             "line": 151,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
           },
           "message": "Tool 'remove_step' appears able to perform destructive writes without approval.",
           "provenance": [
@@ -6718,7 +6718,7 @@
               "location": {
                 "column": 16,
                 "line": 151,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "inferred",
               "subject": "remove_step"
@@ -6728,7 +6728,7 @@
               "location": {
                 "column": 16,
                 "line": 151,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "remove_step"
@@ -6738,7 +6738,7 @@
               "location": {
                 "column": 16,
                 "line": 151,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "remove_step"
@@ -6772,7 +6772,7 @@
           "location": {
             "column": 16,
             "line": 148,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
           },
           "message": "Tool 'create_plan' can modify state without explicit approval.",
           "provenance": [
@@ -6781,7 +6781,7 @@
               "location": {
                 "column": 16,
                 "line": 148,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "inferred",
               "subject": "create_plan"
@@ -6791,7 +6791,7 @@
               "location": {
                 "column": 16,
                 "line": 148,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "create_plan"
@@ -6801,7 +6801,7 @@
               "location": {
                 "column": 16,
                 "line": 148,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "create_plan"
@@ -6835,7 +6835,7 @@
           "location": {
             "column": 16,
             "line": 150,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
           },
           "message": "Tool 'add_step' can modify state without explicit approval.",
           "provenance": [
@@ -6844,7 +6844,7 @@
               "location": {
                 "column": 16,
                 "line": 150,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "inferred",
               "subject": "add_step"
@@ -6854,7 +6854,7 @@
               "location": {
                 "column": 16,
                 "line": 150,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "add_step"
@@ -6864,7 +6864,7 @@
               "location": {
                 "column": 16,
                 "line": 150,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "add_step"
@@ -6899,7 +6899,7 @@
           "location": {
             "column": 16,
             "line": 148,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
           },
           "message": "Privileged tool 'create_plan' has no detected guardrail or approval configuration.",
           "provenance": [
@@ -6908,7 +6908,7 @@
               "location": {
                 "column": 16,
                 "line": 148,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "inferred",
               "subject": "create_plan"
@@ -6918,7 +6918,7 @@
               "location": {
                 "column": 16,
                 "line": 148,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "create_plan"
@@ -6928,7 +6928,7 @@
               "location": {
                 "column": 16,
                 "line": 148,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "create_plan"
@@ -6963,7 +6963,7 @@
           "location": {
             "column": 16,
             "line": 150,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
           },
           "message": "Privileged tool 'add_step' has no detected guardrail or approval configuration.",
           "provenance": [
@@ -6972,7 +6972,7 @@
               "location": {
                 "column": 16,
                 "line": 150,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "inferred",
               "subject": "add_step"
@@ -6982,7 +6982,7 @@
               "location": {
                 "column": 16,
                 "line": 150,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "add_step"
@@ -6992,7 +6992,7 @@
               "location": {
                 "column": 16,
                 "line": 150,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "add_step"
@@ -7027,7 +7027,7 @@
           "location": {
             "column": 16,
             "line": 151,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
           },
           "message": "Privileged tool 'remove_step' has no detected guardrail or approval configuration.",
           "provenance": [
@@ -7036,7 +7036,7 @@
               "location": {
                 "column": 16,
                 "line": 151,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "inferred",
               "subject": "remove_step"
@@ -7046,7 +7046,7 @@
               "location": {
                 "column": 16,
                 "line": 151,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "remove_step"
@@ -7056,7 +7056,7 @@
               "location": {
                 "column": 16,
                 "line": 151,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "remove_step"
@@ -7091,7 +7091,7 @@
           "location": {
             "column": 30,
             "line": 85,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
           },
           "message": "Agent 'agent' attaches MCP catalogue 'agent:configured-mcp' without a source-visible per-call approval boundary.",
           "provenance": [
@@ -7100,7 +7100,7 @@
               "location": {
                 "column": 30,
                 "line": 85,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "agent:configured-mcp"
@@ -7110,7 +7110,7 @@
               "location": {
                 "column": 30,
                 "line": 85,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "agent:configured-mcp"
@@ -7120,7 +7120,7 @@
               "location": {
                 "column": 30,
                 "line": 85,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "agent:configured-mcp"
@@ -7158,7 +7158,7 @@
           "location": {
             "column": 47,
             "line": 135,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
           },
           "message": "Agent 'agent' can both read and modify data.",
           "provenance": [
@@ -7167,7 +7167,7 @@
               "location": {
                 "column": 47,
                 "line": 135,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "agent"
@@ -7177,7 +7177,7 @@
               "location": {
                 "column": 9,
                 "line": 127,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "delegate_to_research"
@@ -7187,7 +7187,7 @@
               "location": {
                 "column": 9,
                 "line": 127,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "delegate_to_research"
@@ -7197,7 +7197,7 @@
               "location": {
                 "column": 9,
                 "line": 128,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "delegate_to_specification"
@@ -7207,7 +7207,7 @@
               "location": {
                 "column": 9,
                 "line": 128,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "delegate_to_specification"
@@ -7217,7 +7217,7 @@
               "location": {
                 "column": 9,
                 "line": 129,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "delegate_to_plan"
@@ -7227,7 +7227,7 @@
               "location": {
                 "column": 9,
                 "line": 129,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "delegate_to_plan"
@@ -7237,7 +7237,7 @@
               "location": {
                 "column": 9,
                 "line": 130,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "delegate_to_tasks"
@@ -7247,7 +7247,7 @@
               "location": {
                 "column": 9,
                 "line": 130,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "delegate_to_tasks"
@@ -7257,7 +7257,7 @@
               "location": {
                 "column": 9,
                 "line": 131,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "delegate_to_export"
@@ -7267,7 +7267,7 @@
               "location": {
                 "column": 9,
                 "line": 131,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "delegate_to_export"
@@ -7277,7 +7277,7 @@
               "location": {
                 "column": 16,
                 "line": 148,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "inferred",
               "subject": "create_plan"
@@ -7287,7 +7287,7 @@
               "location": {
                 "column": 16,
                 "line": 148,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "create_plan"
@@ -7297,7 +7297,7 @@
               "location": {
                 "column": 16,
                 "line": 148,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "create_plan"
@@ -7307,7 +7307,7 @@
               "location": {
                 "column": 16,
                 "line": 149,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "mark_step_done"
@@ -7317,7 +7317,7 @@
               "location": {
                 "column": 16,
                 "line": 149,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "mark_step_done"
@@ -7327,7 +7327,7 @@
               "location": {
                 "column": 16,
                 "line": 150,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "inferred",
               "subject": "add_step"
@@ -7337,7 +7337,7 @@
               "location": {
                 "column": 16,
                 "line": 150,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "add_step"
@@ -7347,7 +7347,7 @@
               "location": {
                 "column": 16,
                 "line": 150,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "add_step"
@@ -7357,7 +7357,7 @@
               "location": {
                 "column": 16,
                 "line": 151,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "inferred",
               "subject": "remove_step"
@@ -7367,7 +7367,7 @@
               "location": {
                 "column": 16,
                 "line": 151,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "remove_step"
@@ -7377,7 +7377,7 @@
               "location": {
                 "column": 16,
                 "line": 151,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "remove_step"
@@ -7387,7 +7387,7 @@
               "location": {
                 "column": 16,
                 "line": 154,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "inferred",
               "subject": "read_file"
@@ -7397,7 +7397,7 @@
               "location": {
                 "column": 16,
                 "line": 154,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "read_file"
@@ -7407,7 +7407,7 @@
               "location": {
                 "column": 16,
                 "line": 154,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "read_file"
@@ -7417,7 +7417,7 @@
               "location": {
                 "column": 30,
                 "line": 85,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "agent:configured-mcp"
@@ -7427,7 +7427,7 @@
               "location": {
                 "column": 30,
                 "line": 85,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "agent:configured-mcp"
@@ -7437,7 +7437,7 @@
               "location": {
                 "column": 30,
                 "line": 85,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-155/src/shotgun/agents/router/router.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-155/src/shotgun/agents/router/router.py"
               },
               "origin": "observed",
               "subject": "agent:configured-mcp"
@@ -7754,209 +7754,7 @@
           "unadjudicated_predicted": 0
         }
       },
-      "findings": [
-        {
-          "agent": "agent",
-          "assessment": "heuristic_risk",
-          "confidence": null,
-          "default_severity": "medium",
-          "evidence": [
-            "capabilities=network.external",
-            "authority_relationship=authority-v1:59c70a52e72a693537bb"
-          ],
-          "fingerprint": "arg-v1:3791f40d3f97208157da6dd9",
-          "layer": 4,
-          "limitations": [
-            "Runtime authorization and control effectiveness are not verified by this static scan."
-          ],
-          "location": {
-            "column": 9,
-            "line": 56,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-          },
-          "message": "Agent 'agent' has external network/write capability but no explicit destination allowlist was detected.",
-          "provenance": [
-            {
-              "fact": "agent_configuration_detected",
-              "location": {
-                "column": 9,
-                "line": 56,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "observed",
-              "subject": "agent"
-            },
-            {
-              "fact": "capability=data.read",
-              "location": {
-                "column": 1,
-                "line": 77,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "inferred",
-              "subject": "search_knowledge"
-            },
-            {
-              "fact": "approval_configuration=None",
-              "location": {
-                "column": 1,
-                "line": 77,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "observed",
-              "subject": "search_knowledge"
-            },
-            {
-              "fact": "guardrail_hook_detected=False",
-              "location": {
-                "column": 1,
-                "line": 77,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "observed",
-              "subject": "search_knowledge"
-            },
-            {
-              "fact": "approval_configuration=None",
-              "location": {
-                "column": 1,
-                "line": 93,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "observed",
-              "subject": "offer_profile_download"
-            },
-            {
-              "fact": "guardrail_hook_detected=False",
-              "location": {
-                "column": 1,
-                "line": 93,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "observed",
-              "subject": "offer_profile_download"
-            },
-            {
-              "fact": "capability=data.read",
-              "location": {
-                "column": 1,
-                "line": 149,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "inferred",
-              "subject": "read_document"
-            },
-            {
-              "fact": "approval_configuration=None",
-              "location": {
-                "column": 1,
-                "line": 149,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "observed",
-              "subject": "read_document"
-            },
-            {
-              "fact": "guardrail_hook_detected=False",
-              "location": {
-                "column": 1,
-                "line": 149,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "observed",
-              "subject": "read_document"
-            },
-            {
-              "fact": "approval_configuration=None",
-              "location": {
-                "column": 5,
-                "line": 119,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "observed",
-              "subject": "offer_booking"
-            },
-            {
-              "fact": "guardrail_hook_detected=False",
-              "location": {
-                "column": 5,
-                "line": 119,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "observed",
-              "subject": "offer_booking"
-            },
-            {
-              "fact": "capability=data.read",
-              "location": {
-                "column": 19,
-                "line": 61,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "observed",
-              "subject": "WebSearch"
-            },
-            {
-              "fact": "capability=network.external",
-              "location": {
-                "column": 19,
-                "line": 61,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "observed",
-              "subject": "WebSearch"
-            },
-            {
-              "fact": "approval_configuration=None",
-              "location": {
-                "column": 19,
-                "line": 61,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "observed",
-              "subject": "WebSearch"
-            },
-            {
-              "fact": "guardrail_hook_detected=False",
-              "location": {
-                "column": 19,
-                "line": 61,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "observed",
-              "subject": "WebSearch"
-            },
-            {
-              "fact": "input_trust=untrusted",
-              "location": {
-                "column": 19,
-                "line": 61,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "observed",
-              "subject": "WebSearch"
-            },
-            {
-              "fact": "input_kind=web",
-              "location": {
-                "column": 19,
-                "line": 61,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-161/backend/app/agent/assistant.py"
-              },
-              "origin": "observed",
-              "subject": "WebSearch"
-            }
-          ],
-          "recommendation": "Declare and enforce permitted destinations for outbound tools.",
-          "rule_id": "NET002",
-          "severity": "medium",
-          "source_context": "runtime",
-          "standards": {
-            "owasp_agentic": []
-          },
-          "title": "Outbound capability has no destination constraint"
-        }
-      ],
+      "findings": [],
       "framework": "pydantic-ai",
       "observed": {
         "analysis_incomplete": false,
@@ -7966,26 +7764,18 @@
         },
         "expanded_semantic_attack_paths": 0,
         "expanded_semantic_findings": 0,
-        "findings": 1,
-        "findings_by_confidence": {
-          "unknown": 1
-        },
+        "findings": 0,
+        "findings_by_confidence": {},
         "findings_by_owasp_agentic": {},
-        "findings_by_rule": {
-          "NET002": 1
-        },
-        "findings_by_severity": {
-          "medium": 1
-        },
-        "findings_by_source_context": {
-          "runtime": 1
-        },
+        "findings_by_rule": {},
+        "findings_by_severity": {},
+        "findings_by_source_context": {},
         "fully_resolved_on_dynamic_reference": 0,
         "runtime_findings_by_owasp_agentic": {},
         "semantic_scope": "primary_application",
         "summary": {
-          "adg_edges": 6,
-          "adg_nodes": 7,
+          "adg_edges": 7,
+          "adg_nodes": 8,
           "agents": 1,
           "attack_paths": 0,
           "authority_contract_relationships": 0,
@@ -7993,20 +7783,16 @@
           "authority_contract_violations": 0,
           "excluded_findings": 0,
           "excluded_findings_by_source_context": {},
-          "findings": 1,
+          "findings": 0,
           "findings_by_layer": {
             "1": 0,
             "2": 0,
             "3": 0,
-            "4": 1,
+            "4": 0,
             "5": 0
           },
-          "findings_by_source_context": {
-            "runtime": 1
-          },
-          "findings_by_source_context_before_filter": {
-            "runtime": 1
-          },
+          "findings_by_source_context": {},
+          "findings_by_source_context_before_filter": {},
           "flow_agent_attribution_gaps": 0,
           "flow_agent_reachability": {
             "proven_agent_reachable": 0,
@@ -8383,7 +8169,7 @@
           "location": {
             "column": 1,
             "line": 80,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
           },
           "message": "Tool 'create_ticket' can modify state without explicit approval.",
           "provenance": [
@@ -8392,7 +8178,7 @@
               "location": {
                 "column": 1,
                 "line": 80,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "inferred",
               "subject": "create_ticket"
@@ -8402,7 +8188,7 @@
               "location": {
                 "column": 1,
                 "line": 80,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "inferred",
               "subject": "create_ticket"
@@ -8412,7 +8198,7 @@
               "location": {
                 "column": 1,
                 "line": 80,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "observed",
               "subject": "create_ticket"
@@ -8422,7 +8208,7 @@
               "location": {
                 "column": 1,
                 "line": 80,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "observed",
               "subject": "create_ticket"
@@ -8457,7 +8243,7 @@
           "location": {
             "column": 1,
             "line": 80,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
           },
           "message": "Privileged tool 'create_ticket' has no detected guardrail or approval configuration.",
           "provenance": [
@@ -8466,7 +8252,7 @@
               "location": {
                 "column": 1,
                 "line": 80,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "inferred",
               "subject": "create_ticket"
@@ -8476,7 +8262,7 @@
               "location": {
                 "column": 1,
                 "line": 80,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "inferred",
               "subject": "create_ticket"
@@ -8486,7 +8272,7 @@
               "location": {
                 "column": 1,
                 "line": 80,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "observed",
               "subject": "create_ticket"
@@ -8496,7 +8282,7 @@
               "location": {
                 "column": 1,
                 "line": 80,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "observed",
               "subject": "create_ticket"
@@ -8532,7 +8318,7 @@
           "location": {
             "column": 17,
             "line": 101,
-            "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+            "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
           },
           "message": "Agent 'support_agent' can both read and modify data.",
           "provenance": [
@@ -8541,7 +8327,7 @@
               "location": {
                 "column": 17,
                 "line": 101,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "observed",
               "subject": "support_agent"
@@ -8551,7 +8337,7 @@
               "location": {
                 "column": 1,
                 "line": 64,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "inferred",
               "subject": "search_kb"
@@ -8561,7 +8347,7 @@
               "location": {
                 "column": 1,
                 "line": 64,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "observed",
               "subject": "search_kb"
@@ -8571,7 +8357,7 @@
               "location": {
                 "column": 1,
                 "line": 64,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "observed",
               "subject": "search_kb"
@@ -8581,7 +8367,7 @@
               "location": {
                 "column": 1,
                 "line": 80,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "inferred",
               "subject": "create_ticket"
@@ -8591,7 +8377,7 @@
               "location": {
                 "column": 1,
                 "line": 80,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "inferred",
               "subject": "create_ticket"
@@ -8601,7 +8387,7 @@
               "location": {
                 "column": 1,
                 "line": 80,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "observed",
               "subject": "create_ticket"
@@ -8611,7 +8397,7 @@
               "location": {
                 "column": 1,
                 "line": 80,
-                "path": "/tmp/horustrace-real-world-baseline-x0n9__2w/rw-175/agent_v1_style.py"
+                "path": "/tmp/horustrace-real-world-baseline-bsylyzwe/rw-175/agent_v1_style.py"
               },
               "origin": "observed",
               "subject": "create_ticket"
@@ -8727,7 +8513,7 @@
     "assertion_recall": null,
     "by_confidence": {
       "potential": 5,
-      "unknown": 35
+      "unknown": 34
     },
     "by_owasp_agentic": {
       "ASI01": 5,
@@ -8741,24 +8527,24 @@
       "AGT054": 1,
       "CAP005": 6,
       "NET001": 3,
-      "NET002": 2,
+      "NET002": 1,
       "PATH002": 2,
       "PATH010": 1,
       "PATH011": 2
     },
     "by_severity": {
       "high": 7,
-      "medium": 33
+      "medium": 32
     },
     "by_source_context": {
-      "runtime": 40
+      "runtime": 39
     },
     "reason": "source reference is not exhaustive enough to independently adjudicate all rule semantics",
     "runtime_by_owasp_agentic": {
       "ASI01": 5,
       "ASI02": 35
     },
-    "total": 40
+    "total": 39
   },
   "generalization": {
     "previously_studied_cases": 0,
@@ -8956,7 +8742,7 @@
         "truth": 4,
         "unadjudicated_predicted": 1
       },
-      "findings": 19,
+      "findings": 18,
       "mcp_servers": {
         "fn": 0,
         "fp": 1,
@@ -9005,14 +8791,14 @@
       "fetch_failures": 0
     }
   },
-  "scanner_sha": "a9c91721a13e506360913b4a3c85b461ea241832",
+  "scanner_sha": "85e009198895d25f878ce96d215c5d5b74148389",
   "schema_version": 1,
   "study": "real-world-agent-security-2026",
   "summary": {
     "analysis_incomplete_cases": 7,
     "attack_paths": 5,
     "failed_cases": 0,
-    "findings": 40,
+    "findings": 39,
     "successful_cases": 20
   },
   "thresholds": {
