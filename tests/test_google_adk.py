@@ -1437,8 +1437,12 @@ class StageOrchestrator(BaseAgent):
         super().__init__(name=name)
         self._worker = worker
 
+    @property
+    def worker(self):
+        return self._worker
+
     async def _run_async_impl(self, ctx):
-        async for event in self._worker.run_async(ctx):
+        async for event in self.worker.run_async(ctx):
             yield event
 """,
         encoding="utf-8",
