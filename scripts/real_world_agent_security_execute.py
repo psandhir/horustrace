@@ -534,6 +534,55 @@ def predicted_nodes_for_dimension(
     return [node for node in nodes if node.get("kind") in kinds[dimension]]
 
 
+def _delegation_topology_for_primary_agents(
+    primary_nodes: list[dict[str, Any]],
+    primary_edges: list[dict[str, Any]],
+    expanded_nodes: list[dict[str, Any]],
+    expanded_edges: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Merge imported delegation edges without expanding structural inventory.
+
+    The focused application scan remains authoritative for agent/tool inventory.
+    When bounded repository import expansion is available, however, explicit
+    DELEGATES_TO edges sourced from those primary agents are valid structural
+    relationships and should be scored rather than lost because the child agent
+    definition lives outside the initial application directory.
+    """
+    primary_agent_names = {
+        norm(node.get("name"))
+        for node in primary_nodes
+        if node.get("kind") == "agent" and node.get("name")
+    }
+    all_nodes = [*primary_nodes]
+    by_id = {str(node.get("id")): node for node in all_nodes}
+    for node in expanded_nodes:
+        node_id = str(node.get("id"))
+        if node_id not in by_id:
+            all_nodes.append(node)
+            by_id[node_id] = node
+
+    def pair(edge: dict[str, Any]) -> tuple[str, str] | None:
+        if edge.get("kind") != "DELEGATES_TO":
+            return None
+        source = by_id.get(str(edge.get("source")))
+        target = by_id.get(str(edge.get("target")))
+        if not source or not target:
+            return None
+        return norm(source.get("name")), norm(target.get("name"))
+
+    result = [
+        edge for edge in primary_edges if edge.get("kind") == "DELEGATES_TO"
+    ]
+    seen = {value for edge in result if (value := pair(edge)) is not None}
+    for edge in expanded_edges:
+        value = pair(edge)
+        if value is None or value[0] not in primary_agent_names or value in seen:
+            continue
+        result.append(edge)
+        seen.add(value)
+    return all_nodes, result
+
+
 def _authority_for_primary_agents(
     authority: dict[str, Any],
     primary_nodes: list[dict[str, Any]],
@@ -787,14 +836,37 @@ def scan_one(
             "unadjudicated_predicted": 0 if complete.get(dimension) else len(predicted) - len(matched_pred),
         }
 
-    nodes_by_id = {str(node.get("id")): node for node in nodes}
+    expanded_topology = (
+        authority_graph_doc.get("topology")
+        if include_authority_semantics
+        and authority_scope != scope
+        and isinstance(authority_graph_doc.get("topology"), dict)
+        else {}
+    )
+    expanded_nodes = (
+        expanded_topology.get("nodes")
+        if isinstance(expanded_topology.get("nodes"), list)
+        else []
+    )
+    expanded_edges = (
+        expanded_topology.get("edges")
+        if isinstance(expanded_topology.get("edges"), list)
+        else []
+    )
+    delegation_nodes, delegation_edges = _delegation_topology_for_primary_agents(
+        nodes,
+        edges,
+        expanded_nodes,
+        expanded_edges,
+    )
+    nodes_by_id = {str(node.get("id")): node for node in delegation_nodes}
     dtp, dfn, dfp = delegation_metrics(
         truth_a.get("delegation_edges") or [],
-        edges,
+        delegation_edges,
         nodes_by_id,
         truth_a.get("agent_roots") or [],
     )
-    predicted_delegations = sum(edge.get("kind") == "DELEGATES_TO" for edge in edges)
+    predicted_delegations = len(delegation_edges)
     comparisons["delegation_edges"] = {
         "truth": len(truth_a.get("delegation_edges") or []),
         "predicted": predicted_delegations,
