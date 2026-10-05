@@ -1341,6 +1341,133 @@ root_agent = AlphaBotAgent()
 
 
 
+def test_adk_custom_base_agent_composition_resolves_runtime_names(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        """
+from google.adk.agents import BaseAgent, LlmAgent, SequentialAgent
+
+child_agent = LlmAgent(name="child_agent", model="gemini-flash-latest")
+
+class CustomOrchestrator(BaseAgent):
+    def __init__(self, child, name="custom_orchestrator"):
+        children = [child]
+        super().__init__(name=name, sub_agents=children)
+
+    async def _run_async_impl(self, ctx):
+        async for event in self.sub_agents[0].run_async(ctx):
+            yield event
+
+orchestrator_agent = CustomOrchestrator(child_agent)
+root_agent = SequentialAgent(
+    name="root_workflow",
+    sub_agents=[orchestrator_agent],
+)
+""",
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    root = next(item for item in graph.agents if item.name == "root_workflow")
+    orchestrator = next(
+        item for item in graph.agents if item.name == "custom_orchestrator"
+    )
+
+    assert root.metadata.get("delegates_to") == ["custom_orchestrator"]
+    assert orchestrator.metadata.get("delegates_to") == ["child_agent"]
+
+
+def test_adk_repository_resolves_imported_custom_base_agent(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "orchestration"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "custom.py").write_text(
+        """
+from google.adk.agents import BaseAgent
+
+class ImportedOrchestrator(BaseAgent):
+    def __init__(self, child, name="imported_orchestrator"):
+        super().__init__(name=name, sub_agents=[child])
+
+    async def _run_async_impl(self, ctx):
+        async for event in self.sub_agents[0].run_async(ctx):
+            yield event
+""",
+        encoding="utf-8",
+    )
+    write(
+        tmp_path,
+        """
+from google.adk.agents import LlmAgent, SequentialAgent
+from orchestration.custom import ImportedOrchestrator
+
+worker = LlmAgent(name="worker", model="gemini-flash-latest")
+custom = ImportedOrchestrator(worker)
+root_agent = SequentialAgent(name="root", sub_agents=[custom])
+""",
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    root = next(item for item in graph.agents if item.name == "root")
+    custom = next(
+        item for item in graph.agents if item.name == "imported_orchestrator"
+    )
+
+    assert root.metadata.get("delegates_to") == ["imported_orchestrator"]
+    assert custom.metadata.get("delegates_to") == ["worker"]
+
+
+def test_adk_custom_base_agent_constructor_held_invocation_is_delegation(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "orchestration"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "custom.py").write_text(
+        """
+from google.adk.agents import BaseAgent
+
+class StageOrchestrator(BaseAgent):
+    def __init__(self, worker, name="stage_orchestrator"):
+        super().__init__(name=name)
+        self._worker = worker
+
+    async def _run_async_impl(self, ctx):
+        async for event in self._worker.run_async(ctx):
+            yield event
+""",
+        encoding="utf-8",
+    )
+    write(
+        tmp_path,
+        """
+from google.adk.agents import LlmAgent, SequentialAgent
+
+def create_agent():
+    from orchestration.custom import StageOrchestrator
+
+    worker = LlmAgent(name="worker", model="gemini-flash-latest")
+    stage = StageOrchestrator(worker)
+    return SequentialAgent(name="root", sub_agents=[stage])
+
+root_agent = create_agent()
+""",
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    root = next(item for item in graph.agents if item.name == "root")
+    stage = next(item for item in graph.agents if item.name == "stage_orchestrator")
+
+    assert "stage_orchestrator" in (root.metadata.get("delegates_to") or [])
+    assert stage.metadata.get("delegates_to") == ["worker"]
+
+
 def test_adk_env_configured_remote_mcp_is_not_caller_selected(
     tmp_path: Path,
 ) -> None:
