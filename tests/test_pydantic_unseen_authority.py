@@ -348,17 +348,21 @@ agent = Agent(
 """,
     )
 
-    graph, _ = scan(tmp_path)
+    graph, findings = scan(tmp_path)
     agent = next(item for item in graph.agents if item.name == "agent")
     web_search = next(item for item in agent.tools if item.name == "WebSearch")
 
     assert web_search.kind == "web_search"
     assert web_search.metadata["availability"] == "conditional"
     assert web_search.metadata["availability_condition"] == "settings.web_search"
+    assert web_search.metadata["network_semantics"] == "fixed_provider_network"
+    assert len(web_search.destinations) == 1
+    assert web_search.destinations[0].restricted is True
     assert not any(
         item.kind == "pydantic_dynamic_capabilities"
         for item in agent.tools
     )
+    assert not any(item.rule_id == "NET002" for item in findings)
 
 
 def test_unresolved_dynamic_capabilities_use_capability_topology_node(
