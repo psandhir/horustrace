@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "study": "skill-llm-unseen-holdout-v1",
+  "model": "GPT-5.6 Sol",
+  "prompt_version": "skill-security-semantics-v1",
+  "raw_frozen_gold": {
+    "cases": 48,
+    "labels": 576,
+    "exact_cases": 47,
+    "tp": 64,
+    "fp": 1,
+    "fn": 0,
+    "tn": 511,
+    "exact_case_accuracy": 0.9791666666666666,
+    "micro_precision": 0.9846153846153847,
+    "micro_recall": 1,
+    "micro_f1": 0.9922480620155039,
+    "macro_f1": 0.9924242424242425
+  },
+  "thresholds": {
+    "0.65": "identical",
+    "0.75": "recommended production threshold; identical on this cohort",
+    "0.85": "identical"
+  },
+  "sole_mismatch": {
+    "case_id": "h47-silent-system-override",
+    "raw_false_positive": "policy_circumvention",
+    "confidence": 0.95,
+    "adjudication": "Prompt-consistent overlap: evading system-level confirmation/disclosure before state change is a governance/control circumvention. Frozen gold is preserved unchanged."
+  },
+  "by_stratum": {
+    "focused_positive": {
+      "cases": 12,
+      "exact_cases": 12
+    },
+    "subtle_positive": {
+      "cases": 12,
+      "exact_cases": 12
+    },
+    "hard_negative": {
+      "cases": 12,
+      "exact_cases": 12
+    },
+    "multi_label": {
+      "cases": 12,
+      "exact_cases": 11
+    }
+  },
+  "conclusion": "Fresh precommitted synthetic holdout materially supports semantic generalization, with no false negatives and one prompt-consistent overlap omitted from frozen gold. Next validate on real-world public Skill packages."
+}
