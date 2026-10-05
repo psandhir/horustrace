@@ -281,3 +281,173 @@ root_agent = Agent(name="registry-user", tools=[skill_tools])
     )
     report = effective_authority_report(graph)
     assert report["summary"]["unresolved_skill_catalogues"] == 1
+
+
+def test_adk_load_skills_from_dir_binds_literal_directory_with_local_environment(
+    tmp_path: Path,
+) -> None:
+    calc = _write_skill(
+        tmp_path / "skills",
+        name="calc",
+        instructions="Run the calculation script.",
+    )
+    scripts = calc / "scripts"
+    scripts.mkdir()
+    (scripts / "calculate.py").write_text(
+        """
+import requests
+requests.post("https://math.example.test/result", json={"value": 3})
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+import pathlib
+
+from google.adk import Agent
+from google.adk.environment import LocalEnvironment
+from google.adk.skills import load_skills_from_dir
+from google.adk.tools.skill_toolset import SkillToolset
+
+skills = load_skills_from_dir(pathlib.Path(__file__).parent / "skills")
+skill_toolset = SkillToolset(
+    skills=skills,
+    environment=LocalEnvironment(),
+)
+root_agent = Agent(name="local-skills", tools=[skill_toolset])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "local-skills")
+    skill = next(item for item in agent.skills if item.name == "calc")
+
+    assert graph.unbound_skills == []
+    assert agent.metadata["skill_source_paths"] == ["skills"]
+    assert agent.metadata.get("dynamic_skill_sources") is not True
+    assert skill.metadata["binding_source_path"] == "skills"
+    assert skill.metadata["adk_script_execution"]["state"] == "enabled"
+    assert skill.metadata["adk_script_execution"]["sandboxed"] is False
+    assert (
+        skill.metadata["adk_script_execution"]["executor_kind"]
+        == "local_environment"
+    )
+    assert {"process.execute", "network.external", "external.write"} <= skill.capabilities
+    assert [item.target for item in skill.destinations] == [
+        "https://math.example.test/result"
+    ]
+
+
+def test_adk_load_skills_from_dir_binds_e2b_environment_as_sandboxed(
+    tmp_path: Path,
+) -> None:
+    calc = _write_skill(
+        tmp_path / "skills",
+        name="calc",
+        instructions="Run the calculation script.",
+    )
+    scripts = calc / "scripts"
+    scripts.mkdir()
+    (scripts / "calculate.py").write_text(
+        """
+import requests
+requests.post("https://math.example.test/result", json={"value": 3})
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+import pathlib
+
+from google.adk import Agent
+from google.adk.integrations.e2b import E2BEnvironment
+from google.adk.skills import load_skills_from_dir
+from google.adk.tools.skill_toolset import SkillToolset
+
+skills = load_skills_from_dir(pathlib.Path(__file__).parent / "skills")
+skill_toolset = SkillToolset(
+    skills=skills,
+    environment=E2BEnvironment(),
+)
+root_agent = Agent(name="sandboxed-skills", tools=[skill_toolset])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "sandboxed-skills")
+    skill = next(item for item in agent.skills if item.name == "calc")
+
+    assert graph.unbound_skills == []
+    assert skill.metadata["adk_script_execution"]["state"] == "enabled"
+    assert skill.metadata["adk_script_execution"]["sandboxed"] is True
+    assert (
+        skill.metadata["adk_script_execution"]["executor_kind"]
+        == "remote_sandbox_environment"
+    )
+    assert "process.execute" in skill.capabilities
+    assert "network.external" not in skill.capabilities
+    assert skill.destinations == []
+    assert "network.external" in skill.metadata["adk_script_observed_capabilities"]
+    assert skill.metadata["adk_script_observed_destinations"] == [
+        "https://math.example.test/result"
+    ]
+
+
+def test_adk_gcs_loaded_skill_collection_is_remote_unresolved_catalogue(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from google.adk import Agent
+from google.adk.skills import list_skills_in_gcs_dir
+from google.adk.skills import load_skill_from_gcs_dir
+from google.adk.tools.skill_toolset import SkillToolset
+
+BUCKET_NAME = "sample-skills"
+SKILLS_PREFIX = "static-skills"
+
+skills = []
+available_skills = list_skills_in_gcs_dir(
+    bucket_name=BUCKET_NAME,
+    skills_base_path=SKILLS_PREFIX,
+)
+for skill_id in available_skills.keys():
+    skills.append(
+        load_skill_from_gcs_dir(
+            bucket_name=BUCKET_NAME,
+            skills_base_path=SKILLS_PREFIX,
+            skill_id=skill_id,
+        )
+    )
+
+skill_toolset = SkillToolset(skills=skills)
+root_agent = Agent(name="gcs-skills", tools=[skill_toolset])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "gcs-skills")
+
+    assert agent.skills == []
+    assert graph.unbound_skills == []
+    assert agent.metadata.get("dynamic_skill_sources") is not True
+    assert agent.metadata["remote_skill_sources"] == [
+        {
+            "provider": "google-adk",
+            "source": "Google Cloud Storage Skill catalogue",
+            "bucket": "sample-skills",
+            "prefix": "static-skills",
+            "binding": "skill_toolset",
+        }
+    ]
+    assert any(
+        item.kind == "unresolved_skill"
+        and item.details.get("source", {}).get("source")
+        == "Google Cloud Storage Skill catalogue"
+        for item in graph.coverage.diagnostics
+    )
+    report = effective_authority_report(graph)
+    assert report["summary"]["unresolved_skill_catalogues"] == 1
