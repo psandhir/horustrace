@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "purpose": "Regression-gate adjudications that preserve the immutable frozen truth while preventing known reference defects from being treated as product regressions.",
+  "overrides": [
+    {
+      "case_id": "rw-004",
+      "dimensions": ["agent_entities", "tools"],
+      "classification": "review_only_reference_defect",
+      "reason": "The additional locked reference entity comes from agentGemini/agent.py importing Agent from google.genai.adk. The pinned project declares google-genai rather than google-adk, while its own README documents the canonical Google ADK import as google.adk.agents.LlmAgent. Current official Google ADK Python 2.x uses google.adk / google.adk.agents. Do not add scanner support for this noncanonical namespace solely to satisfy the historical automated reference.",
+      "source_evidence": [
+        "JoanMarinPages/agentGemini@0160690bb47cca17e70ceb8486209d7b1cacaf76:agentGemini/agent.py",
+        "JoanMarinPages/agentGemini@0160690bb47cca17e70ceb8486209d7b1cacaf76:requirements.txt",
+        "JoanMarinPages/agentGemini@0160690bb47cca17e70ceb8486209d7b1cacaf76:README.md"
+      ]
+    }
+  ]
+}
