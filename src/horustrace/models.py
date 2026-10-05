@@ -200,6 +200,7 @@ class AuthorityScope:
     permissions: set[str] = field(default_factory=set)
     oauth_scopes: set[str] = field(default_factory=set)
     mcp_servers: set[str] = field(default_factory=set)
+    skills: set[str] = field(default_factory=set)
 
     def as_dict(self) -> dict[str, list[str]]:
         return {
@@ -211,6 +212,7 @@ class AuthorityScope:
             "permissions": sorted(self.permissions),
             "oauth_scopes": sorted(self.oauth_scopes),
             "mcp_servers": sorted(self.mcp_servers),
+            "skills": sorted(self.skills),
         }
 
 
