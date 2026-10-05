@@ -39,7 +39,9 @@ The scanner is **static-first and local-first**. It does not import target Pytho
 
 ## Authority policy and pull-request enforcement
 
-v0.6 adds a repository-local **Authority Contract** under `policy.authority`. A contract can constrain capabilities, identities, IAM roles/permissions, OAuth scopes, resources, destinations, MCP servers and per-server MCP tool scope, and can require approval for selected capabilities.
+v0.6 adds a repository-local **Authority Contract** under `policy.authority`. A contract can constrain capabilities, identities, IAM roles/permissions, OAuth scopes, resources, destinations, MCP servers, Agent Skills and per-server MCP tool scope, and can require approval for selected capabilities.
+
+For Agent Skills, only source-proven bindings are evaluated. A Skill's `allowed-tools` declaration is recorded as requested/pre-approved surface and is not promoted into effective agent capability without supporting source evidence.
 
 Contract evaluation produces three explicit outcomes:
 
