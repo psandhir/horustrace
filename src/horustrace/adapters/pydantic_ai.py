@@ -2299,21 +2299,37 @@ def _capability_from_expr(
                 return None, server, None
             if wrapped_name in _NATIVE_TOOL_CAPABILITIES:
                 kind, capabilities = _NATIVE_TOOL_CAPABILITIES[wrapped_name]
-                return (
-                    Tool(
-                        name=wrapped_name,
-                        kind=kind,
-                        capabilities=set(capabilities),
-                        location=_location(path, wrapped),
-                        metadata={
-                            "framework": "pydantic-ai",
-                            "native_tool": wrapped_name,
-                            "provider_managed": True,
-                        },
-                    ),
-                    None,
-                    None,
+                tool = Tool(
+                    name=wrapped_name,
+                    kind=kind,
+                    capabilities=set(capabilities),
+                    location=_location(path, wrapped),
+                    metadata={
+                        "framework": "pydantic-ai",
+                        "native_tool": wrapped_name,
+                        "provider_managed": True,
+                    },
                 )
+                if wrapped_name in {"WebSearchTool", "XSearchTool"}:
+                    provider = (
+                        "web-search"
+                        if wrapped_name == "WebSearchTool"
+                        else "x-search"
+                    )
+                    tool.destinations.append(
+                        NetworkDestination(
+                            target=f"<provider-managed:{provider}>",
+                            restricted=True,
+                            location=_location(path, wrapped),
+                            metadata={
+                                "source": "provider_managed_native_tool",
+                                "network_scope": "fixed_provider_network",
+                                "provider_managed": True,
+                            },
+                        )
+                    )
+                    tool.metadata["network_semantics"] = "fixed_provider_network"
+                return tool, None, None
         return None, None, None
     if name in _CONTROL_CAPABILITIES:
         return None, None, name
@@ -2341,6 +2357,21 @@ def _capability_from_expr(
         location=_location(path, expr),
         metadata={"framework": "pydantic-ai", "capability": name},
     )
+    if name in {"WebSearch", "XSearch"}:
+        provider = "web-search" if name == "WebSearch" else "x-search"
+        tool.destinations.append(
+            NetworkDestination(
+                target=f"<provider-managed:{provider}>",
+                restricted=True,
+                location=_location(path, expr),
+                metadata={
+                    "source": "provider_managed_capability",
+                    "network_scope": "fixed_provider_network",
+                    "provider_managed": True,
+                },
+            )
+        )
+        tool.metadata["network_semantics"] = "fixed_provider_network"
     if name == "ModalSandbox":
         tool.metadata["sandboxed"] = True
     if name == "FileSystem":
@@ -2777,6 +2808,8 @@ def scan_python_file(path: Path) -> Graph:
     imports: dict[str, str] = {}
     agent_calls: dict[str, ast.Call] = {}
     factory_agent_aliases: set[str] = set()
+    factory_alias_sources: dict[str, str] = {}
+    factory_returns: dict[str, ast.Call] = {}
     declared_mcp_servers: dict[str, MCPServer] = {}
 
     for node in ast.walk(tree):
@@ -2839,11 +2872,34 @@ def scan_python_file(path: Path) -> Graph:
         visitor.visit(function)
         if len(visitor.calls) != 1:
             continue
-        alias = function.name
-        if alias in agent_calls:
+        factory_returns[function.name] = visitor.calls[0]
+
+    # Materialize source-visible factory instances. Assignment from a local
+    # factory proves a concrete agent instance, and later agent.tool(...)
+    # registrations must bind to that instance rather than to a synthetic
+    # factory-level agent.
+    instantiated_factories: set[str] = set()
+    for alias, value in list(assignments.items()):
+        if not isinstance(value, ast.Call):
             continue
-        agent_calls[alias] = visitor.calls[0]
+        factory_name = _call_name(value.func) or ""
+        returned = factory_returns.get(factory_name)
+        if returned is None:
+            continue
+        agent_calls[alias] = returned
         factory_agent_aliases.add(alias)
+        factory_alias_sources[alias] = factory_name
+        instantiated_factories.add(factory_name)
+
+    # Preserve a factory-level construction only when the source exposes no
+    # concrete assignment from that factory. This keeps discovery for pure
+    # factory modules without double-counting every factory plus its instances.
+    for factory_name, returned in factory_returns.items():
+        if factory_name in instantiated_factories or factory_name in agent_calls:
+            continue
+        agent_calls[factory_name] = returned
+        factory_agent_aliases.add(factory_name)
+        factory_alias_sources[factory_name] = factory_name
 
     decorated_toolsets: dict[str, list[Tool]] = {}
     added_toolsets: dict[str, list[Tool]] = {}
@@ -2919,9 +2975,16 @@ def scan_python_file(path: Path) -> Graph:
                 "instance_key": f"{path.resolve()}:{call.lineno}:{alias}",
                 **(
                     {
-                        "factory_function": alias,
+                        "factory_function": factory_alias_sources.get(alias, alias),
                         "factory_return": True,
-                        "binding_origin": "direct_factory_return",
+                        "factory_instance": (
+                            factory_alias_sources.get(alias, alias) != alias
+                        ),
+                        "binding_origin": (
+                            "factory_assignment"
+                            if factory_alias_sources.get(alias, alias) != alias
+                            else "direct_factory_return"
+                        ),
                     }
                     if alias in factory_agent_aliases
                     else {}
@@ -3082,6 +3145,22 @@ def scan_python_file(path: Path) -> Graph:
         unmodeled_capabilities: list[str] = []
         if capabilities_expr is not None:
             elements = _resolve_sequence(capabilities_expr, sequences)
+            conditional_capabilities = False
+            conditional_expression: str | None = None
+            if elements is None and isinstance(capabilities_expr, ast.IfExp):
+                body = _resolve_sequence(capabilities_expr.body, sequences)
+                orelse = _resolve_sequence(capabilities_expr.orelse, sequences)
+                if body is not None and orelse is not None:
+                    conditional_capabilities = True
+                    conditional_expression = ast.unparse(capabilities_expr.test)
+                    elements = []
+                    seen_elements: set[str] = set()
+                    for element in [*body, *orelse]:
+                        key = ast.dump(element, include_attributes=False)
+                        if key in seen_elements:
+                            continue
+                        seen_elements.add(key)
+                        elements.append(element)
             if elements is None:
                 agent.metadata["dynamic_tools"] = True
                 _merge_tool(
@@ -3144,6 +3223,9 @@ def scan_python_file(path: Path) -> Graph:
                         assignments,
                     )
                     if tool is not None:
+                        if conditional_capabilities:
+                            tool.metadata["availability"] = "conditional"
+                            tool.metadata["availability_condition"] = conditional_expression
                         _merge_tool(agent.tools, tool)
                         if tool.kind in {
                             "web_search",
@@ -3160,6 +3242,9 @@ def scan_python_file(path: Path) -> Graph:
                                 )
                             )
                     elif server is not None:
+                        if conditional_capabilities:
+                            server.metadata["availability"] = "conditional"
+                            server.metadata["availability_condition"] = conditional_expression
                         agent.mcp_servers.append(server)
                     elif control is not None:
                         safety_capabilities.append(control)
