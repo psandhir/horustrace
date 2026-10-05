@@ -763,6 +763,9 @@ def _skill_relationship(
             "declared_tool_authority_promoted": False,
             "has_scripts": skill.metadata.get("has_scripts"),
             "script_count": skill.metadata.get("script_count"),
+            "llm_security_semantics": skill.metadata.get(
+                "llm_security_semantics"
+            ),
         },
         dimensions={
             "target": "resolved",

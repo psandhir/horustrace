@@ -116,6 +116,7 @@ from horustrace.rules.builtin import evaluate
 from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
 from horustrace.runtime_viability import annotate_runtime_viability
 from horustrace.semantics import annotate_risk_semantics
+from horustrace.skill_llm_semantics import enrich_skill_llm_semantics
 from horustrace.skills import SKILL_FILENAME, bind_discovered_skills, scan_skill_file
 from horustrace.source_context import classify_source_context, path_parts_match
 from horustrace.source_provenance import annotate_tool_source_provenance
@@ -2287,6 +2288,7 @@ def scan(
     containment_root = canonical_root(root)
     graph = Graph()
     llm_semantic_stats: dict[str, object] | None = None
+    skill_llm_semantic_stats: dict[str, object] | None = None
 
     if root.is_file():
         candidates = [root]
@@ -2606,6 +2608,12 @@ def scan(
     )
     bind_discovered_skills(graph, root if root.is_dir() else root.parent)
     enrich_adk_skill_authority(graph)
+    if llm_semantic_config is not None:
+        skill_llm_semantic_stats = enrich_skill_llm_semantics(
+            graph,
+            root if root.is_dir() else root.parent,
+            llm_semantic_config,
+        )
     diagnose_dynamic_constructs(graph)
     for agent in graph.agents:
         if agent.metadata.get("dynamic_control_flow"):
@@ -2804,6 +2812,8 @@ def scan(
         graph.coverage.resolution["authority_source"] = authority_enrichment.as_dict()
     if llm_semantic_stats is not None:
         graph.coverage.resolution["semantic_llm"] = llm_semantic_stats
+    if skill_llm_semantic_stats is not None:
+        graph.coverage.resolution["skill_semantic_llm"] = skill_llm_semantic_stats
 
     annotate_risk_semantics(graph)
     graph.attack_paths = build_attack_paths(graph)
