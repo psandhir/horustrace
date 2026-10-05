@@ -45,6 +45,41 @@ def _allowed_tools(raw: object) -> set[str]:
     return set()
 
 
+def instruction_capability_signals(text: str) -> set[str]:
+    """Return conservative intent signals from Skill instructions.
+
+    These are declaration/intent signals only. They are never promoted to
+    effective authority unless a framework binding proves the corresponding
+    runtime tool or script execution surface.
+    """
+    normalized = " ".join(text.lower().split())
+    signals: set[str] = set()
+    if any(token in normalized for token in (
+        "run the script", "execute the script", "run a command", "execute a command",
+        "shell command", "bash ", "powershell", "terminal command",
+    )):
+        signals.add("process.execute")
+    if any(token in normalized for token in (
+        "http://", "https://", "curl ", "wget ", "download ", "call the api",
+        "send a request", "fetch from",
+    )):
+        signals.add("network.external")
+    if any(token in normalized for token in (
+        "api key", "access token", "secret", "credential", "environment variable",
+        "os.environ", ".env",
+    )):
+        signals.add("secrets.read")
+    if any(token in normalized for token in (
+        "write ", "create ", "update ", "upload ", "modify ", "save ",
+    )):
+        signals.add("data.write")
+    if any(token in normalized for token in (
+        "delete ", "remove ", "destroy ", "drop ", "purge ",
+    )):
+        signals.update({"data.write", "destructive.write"})
+    return signals
+
+
 def _support_files(skill_root: Path, directory: str) -> list[str]:
     base = skill_root / directory
     if not base.is_dir():
@@ -124,6 +159,9 @@ def scan_skill_file(path: Path) -> Graph:
         "name_conforms": bool(_SKILL_NAME.fullmatch(name)),
         "instructions_sha256": hashlib.sha256(body.encode("utf-8")).hexdigest(),
         "instructions_length": len(body),
+        "declared_instruction_capabilities": sorted(
+            instruction_capability_signals(body)
+        ),
         "content_included": False,
         "has_scripts": bool(scripts),
         "script_count": len(scripts),
