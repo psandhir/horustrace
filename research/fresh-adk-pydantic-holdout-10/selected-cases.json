@@ -1,0 +1,82 @@
+[
+  {
+    "case_id": "rw-008",
+    "repo": "aayushprsingh/track1-zoo-agent",
+    "sha": "152f7f5fcefa1301c653ca10bacb4a4c93ae8edc",
+    "framework": "google-adk",
+    "application_path": "agent.py",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-028",
+    "repo": "AhmadK-it/research_assistant",
+    "sha": "923bf68dde7186f7ecff050cc3513550b5f68b0d",
+    "framework": "google-adk",
+    "application_path": "agent.py",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-034",
+    "repo": "salomonerobert/adk-design-agent",
+    "sha": "b3aba77570f3891f836ac031257fe25872fc4000",
+    "framework": "google-adk",
+    "application_path": "agent.py",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-023",
+    "repo": "K-Dense-AI/agentic-data-scientist",
+    "sha": "702dee9dfb9e5165ce51b52ad7b7885948df7cd1",
+    "framework": "google-adk",
+    "application_path": "src/agentic_data_scientist/agents/adk/agent.py",
+    "tier_b": false
+  },
+  {
+    "case_id": "rw-026",
+    "repo": "devchilll/scope",
+    "sha": "8a6e5f0b3a48bf2724d53c77e11507bea4e2ac8e",
+    "framework": "google-adk",
+    "application_path": "scope/agent.py",
+    "tier_b": false
+  },
+  {
+    "case_id": "rw-172",
+    "repo": "Krishnanand2517/rag-doc-agent",
+    "sha": "a56e3f85e5738f3865efc90e7212f8bd4e98dfa8",
+    "framework": "pydantic-ai",
+    "application_path": "agent.py",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-174",
+    "repo": "Unfold-Security/pydantic-collab",
+    "sha": "b35097cb7cb5f39cc3d098f51d819c1cfe3a0266",
+    "framework": "pydantic-ai",
+    "application_path": "examples/12_data_analysis_pipeline.py",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-177",
+    "repo": "JUN176/exp-agent",
+    "sha": "e20250253039d4148ab8caca293a4cfef0f214af",
+    "framework": "pydantic-ai",
+    "application_path": "agent.py",
+    "tier_b": true
+  },
+  {
+    "case_id": "rw-156",
+    "repo": "Alejandro-Candela/agentic-rag-knowledge-graph",
+    "sha": "53a1d4b1cb8029edbc35b5e554ab9c0806a2fc85",
+    "framework": "pydantic-ai",
+    "application_path": "agent/agent.py",
+    "tier_b": false
+  },
+  {
+    "case_id": "rw-167",
+    "repo": "coleam00/second-brain-research-dashboard",
+    "sha": "908fb63f99a9aaf60b60dd3ea719dbf48822ea0e",
+    "framework": "pydantic-ai",
+    "application_path": "agent/agent.py",
+    "tier_b": false
+  }
+]
