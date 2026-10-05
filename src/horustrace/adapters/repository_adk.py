@@ -2018,16 +2018,8 @@ def _resolve_tools(
 def _resolve_agent_name(
     modules: dict[str, ModuleInfo], info: ModuleInfo, child: ast.Name
 ) -> str:
-    child_call = info.calls.get(child.id)
-    if child_call and (_name(child_call.func) or "") in AGENT_TYPES:
-        return _string(_kw(child_call, "name")) or child.id
-    imported = _imported_symbol(modules, info, child.id)
-    if imported:
-        target, symbol = imported
-        call = target.calls.get(symbol)
-        if call and (_name(call.func) or "") in AGENT_TYPES:
-            return _string(_kw(call, "name")) or child.id
-    return child.id
+    resolved = _resolve_agent_expr_name(modules, info, child)
+    return resolved or child.id
 
 
 def _agent_from_call(
@@ -2036,8 +2028,13 @@ def _agent_from_call(
     call: ast.Call,
     alias: str,
     sequences: dict[str, list[ast.AST]] | None = None,
+    custom_ref: tuple[ModuleInfo, str, ast.ClassDef] | None = None,
 ) -> tuple[Agent, list[Identity], set[tuple[Path, int]]]:
-    runtime_name = _string(_kw(call, "name")) or alias
+    runtime_name = (
+        _custom_agent_runtime_name(modules, info, call, alias, custom_ref)
+        if custom_ref is not None
+        else (_string(_kw(call, "name")) or alias)
+    )
     tools, mcp_servers, identities, resolved_refs = _resolve_tools(
         modules, info, _kw(call, "tools"), sequences
     )
@@ -2051,6 +2048,7 @@ def _agent_from_call(
             "framework": "google-adk",
             "agent_type": agent_type,
             "repository_resolved": True,
+            "custom_base_agent": custom_ref is not None,
         },
     )
     if alias == "root_agent":
@@ -2078,10 +2076,11 @@ def _agent_from_call(
     for child in _resolve_repository_sequence(
         modules, info, _kw(call, "sub_agents"), sequences
     ):
-        if isinstance(child, ast.Name):
-            delegates.append(_resolve_agent_name(modules, info, child))
-        elif isinstance(child, ast.Call) and (_name(child.func) or "") in AGENT_TYPES:
-            delegates.append(_string(_kw(child, "name")) or (_name(child.func) or "agent"))
+        target = _resolve_agent_expr_name(modules, info, child)
+        if target:
+            delegates.append(target)
+    if custom_ref is not None:
+        delegates.extend(_custom_agent_delegates(modules, info, call, custom_ref))
     if delegates:
         agent.metadata["delegates_to"] = list(dict.fromkeys(delegates))
     return agent, identities, resolved_refs
@@ -2217,9 +2216,19 @@ def enrich_repository_graph(
             continue
         functions = list(info.functions.values())
         for call in [node for node in ast.walk(info.tree) if isinstance(node, ast.Call)]:
-            if (_name(call.func) or "") not in AGENT_TYPES:
+            call_type = _name(call.func) or ""
+            custom_ref = _custom_agent_class_for_call(modules, info, call)
+            if call_type not in AGENT_TYPES and custom_ref is None:
                 continue
-            runtime_name = _string(_kw(call, "name"))
+            alias = next(
+                (name for name, assigned in info.calls.items() if assigned is call),
+                call_type or "agent",
+            )
+            runtime_name = (
+                _custom_agent_runtime_name(modules, info, call, alias, custom_ref)
+                if custom_ref is not None
+                else _string(_kw(call, "name"))
+            )
             if not runtime_name:
                 continue
             enclosing = [
@@ -2229,7 +2238,12 @@ def enrich_repository_graph(
             enclosing.sort(key=lambda func: getattr(func, "end_lineno", 0) - getattr(func, "lineno", 0))
             sequences = _function_sequences(enclosing[0]) if enclosing else info.sequences
             incoming, identities, refs = _agent_from_call(
-                modules, info, call, runtime_name, sequences
+                modules,
+                info,
+                call,
+                alias,
+                sequences,
+                custom_ref,
             )
             resolved_refs.update(refs)
             current = existing.get(incoming.name)
@@ -2259,9 +2273,18 @@ def enrich_repository_graph(
             if not isinstance(node.value, ast.Name):
                 continue
             referenced = info.calls.get(node.value.id)
-            if referenced is None or (_name(referenced.func) or "") not in AGENT_TYPES:
+            if referenced is None:
                 continue
-            runtime_name = _string(_kw(referenced, "name")) or node.value.id
+            custom_ref = _custom_agent_class_for_call(modules, info, referenced)
+            if (_name(referenced.func) or "") not in AGENT_TYPES and custom_ref is None:
+                continue
+            runtime_name = (
+                _custom_agent_runtime_name(
+                    modules, info, referenced, node.value.id, custom_ref
+                )
+                if custom_ref is not None
+                else (_string(_kw(referenced, "name")) or node.value.id)
+            )
             agent = existing.get(runtime_name)
             if agent is not None and not any(item.trust == "untrusted" for item in agent.inputs):
                 agent.inputs.append(
