@@ -3,7 +3,7 @@
   "study": "full-framework-60-20261005",
   "status": "frozen_before_current_main_execution",
   "locked_at": "2026-10-05",
-  "scanner_baseline": "76351e075807e66b248d341198c6057bf6c7f1bc",
+  "scanner_baseline": "bf02b7e831973ff733b6fab369094ce784e1a1bd",
   "selection": {
     "target_repositories": 60,
     "unique_repositories": 60,
