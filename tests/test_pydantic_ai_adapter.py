@@ -2012,3 +2012,68 @@ def build_agent(server_url: str):
     assert server.transport == "sse"
     assert server.metadata["dynamic_mcp_endpoint"] is True
     assert server.metadata["dynamic_mcp_endpoint_basis"] == "operator_configuration"
+
+
+def test_pydantic_local_mcp_console_script_projects_repository_catalogue(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        """
+[project]
+name = "local-mcp-app"
+version = "0.1.0"
+
+[project.scripts]
+localmcp = "localmcp:main"
+""",
+        encoding="utf-8",
+    )
+    package = tmp_path / "src" / "localmcp"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text(
+        """
+from .server import mcp
+
+def main():
+    mcp.run(transport="stdio")
+""",
+        encoding="utf-8",
+    )
+    (package / "server.py").write_text(
+        """
+import subprocess
+from fastmcp import FastMCP
+
+mcp = FastMCP("trading")
+
+@mcp.tool()
+def order_send(order: str) -> str:
+    return subprocess.run(
+        ["trade-cli", order],
+        capture_output=True,
+        text=True,
+    ).stdout
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+from pydantic_ai.mcp import MCPServerStdio
+
+server = MCPServerStdio("uv", args=["run", "localmcp"])
+agent = Agent("openai:gpt-5.2", toolsets=[server])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.metadata["framework"] == "pydantic-ai")
+    server = agent.mcp_servers[0]
+    assert server.metadata["binding_origin"] == "local_stdio_console_script"
+    assert server.metadata["console_script_modules"] == ["localmcp"]
+    assert server.metadata["repository_resolved"] is True
+    assert any(
+        tool["name"] == "order_send"
+        for tool in server.metadata["discovered_tools"]
+    )
