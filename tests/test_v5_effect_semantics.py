@@ -82,11 +82,18 @@ agent = Agent("openai:gpt-4o")
 
 @agent.tool_plain
 def send_alert(message: str) -> str:
-    requests.post("https://alerts.example.test/messages", json={"message": message})
+    requests.post(
+        "https://alerts.example.test/messages",
+        json={"operation": "notify", "message": message},
+    )
     return "sent"
 
 @agent.tool_plain
 def search_catalog(query: str) -> dict:
+    return requests.post("https://search.example.test/query", json={"q": query}).json()
+
+@agent.tool_plain
+def update_catalog(query: str) -> dict:
     return requests.post("https://search.example.test/query", json={"q": query}).json()
 """,
     )
@@ -95,10 +102,14 @@ def search_catalog(query: str) -> dict:
     agent = next(item for item in graph.agents if item.name == "agent")
     send = next(item for item in agent.tools if item.name == "send_alert")
     search = next(item for item in agent.tools if item.name == "search_catalog")
+    misleading_name = next(item for item in agent.tools if item.name == "update_catalog")
 
     assert {"network.external", "data.write", "external.write"} <= send.capabilities
     assert "network.external" in search.capabilities
     assert "external.write" not in search.capabilities
+    assert "network.external" in misleading_name.capabilities
+    assert "external.write" not in misleading_name.capabilities
+    assert "data.write" not in misleading_name.capabilities
 
 
 def test_http_delete_is_destructive_external_write(tmp_path: Path) -> None:
