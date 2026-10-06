@@ -1,0 +1,109 @@
+name: FF60 Anthropic 06 Control Closure
+
+on:
+  push:
+    branches:
+      - study/ff60-anthropic-06-control-closure-20261006
+    paths:
+      - ".github/workflows/ff60-anthropic-06-control-closure-20261006.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  closure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+      - name: Run frozen case
+        run: |
+          python research/full-framework-60-20261005/run_case.py \
+            --case-id ff60-anthropic-06 \
+            --output-dir artifacts
+      - name: Assert control semantics
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          result = json.loads(
+              Path("artifacts/ff60-anthropic-06/result.json").read_text()
+          )
+          controlled = {
+              agent["name"]
+              for agent in result["agent_inventory"]
+              if agent.get("metadata", {}).get("tool_control_enforcing") is True
+          }
+          assert controlled, "no source-proven enforcing Claude controls recovered"
+
+          for agent in result["agent_inventory"]:
+              if agent["name"] not in controlled:
+                  continue
+              metadata = agent.get("metadata", {})
+              assert metadata.get("tool_control_state") == "enforcing"
+              assert metadata.get("tool_control_mechanism")
+              assert (
+                  metadata.get("can_use_tool_configured") is True
+                  or metadata.get("pre_tool_use_guard") is True
+              )
+
+          relationships = [
+              rel
+              for rel in result["authority_relationships"]
+              if rel["agent"] in controlled
+              and rel["target"]["kind"] == "tool"
+          ]
+          assert relationships, "no effective-authority tool relationships for controlled agents"
+          assert all(
+              rel["dimensions"].get("approval") == "resolved"
+              and rel["approval"].get("inherited_control") is True
+              and rel["approval"].get("mechanism")
+              for rel in relationships
+          ), "controlled tool authority did not inherit source-proven control"
+
+          agt040 = [
+              finding
+              for finding in result["findings"]
+              if finding["rule_id"] == "AGT040"
+              and finding.get("agent") in controlled
+          ]
+          assert not agt040, f"AGT040 remains on controlled Claude tools: {agt040}"
+
+          # Runtime control is not equivalent to human approval. Keep AGT020
+          # independently evaluable rather than globally suppressing it.
+          agt020 = [
+              finding
+              for finding in result["findings"]
+              if finding["rule_id"] == "AGT020"
+              and finding.get("agent") in controlled
+          ]
+          assert agt020, "expected independent process-approval findings were over-suppressed"
+
+          summary = {
+              "scanner_revision": "586d95c66c8fe3e98e86b8f2aeb4601feddf4b8b",
+              "controlled_agents": sorted(controlled),
+              "counts": result["counts"],
+              "agt020_controlled": len(agt020),
+              "agt040_controlled": len(agt040),
+              "status": "PASS",
+          }
+          Path("closure-summary.json").write_text(
+              json.dumps(summary, indent=2) + "\n"
+          )
+          print(json.dumps(summary, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ff60-anthropic-06-control-closure
+          path: |
+            artifacts/ff60-anthropic-06/
+            closure-summary.json
+          if-no-files-found: error
+          retention-days: 30
