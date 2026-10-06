@@ -5,7 +5,6 @@ from urllib.parse import urlparse
 
 from horustrace.models import Graph, NetworkDestination, ResourceScope
 
-
 CONSTRAINED_NETWORK_SCOPES = frozenset({
     "fixed_literal_destination",
     "fixed_managed_service",
