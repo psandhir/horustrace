@@ -37,7 +37,7 @@ def load_post(path: Path) -> dict[str, dict]:
     return rows
 
 
-def aggregate_cases(rows: dict[str, dict], *, baseline: bool) -> dict[str, dict]:
+def aggregate_cases(rows: dict[str, dict]) -> dict[str, dict]:
     out = defaultdict(lambda: {key: 0 for key in COUNT_KEYS})
     out_zero = defaultdict(list)
     for case_id, item in rows.items():
@@ -112,13 +112,14 @@ def main() -> int:
     parser.add_argument("--baseline", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--scanner-revision", required=True)
+    parser.add_argument("--harness-revision", required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
 
     baseline = load_baseline(args.baseline)
     post = load_post(args.input)
-    baseline_agg = aggregate_cases(baseline, baseline=True)
-    post_agg = aggregate_cases(post, baseline=False)
+    baseline_agg = aggregate_cases(baseline)
+    post_agg = aggregate_cases(post)
 
     changed_cases = []
     for case_id in sorted(set(baseline) | set(post)):
@@ -168,6 +169,7 @@ def main() -> int:
         "frozen_cohort": "full-framework-60-20261005",
         "baseline_scanner_revision": "bf02b7e831973ff733b6fab369094ce784e1a1bd",
         "post_scanner_revision": args.scanner_revision,
+        "study_harness_revision": args.harness_revision,
         "baseline_cases": len(baseline),
         "post_cases": len(post),
         "missing_cases": sorted(set(baseline) - set(post)),
@@ -187,6 +189,7 @@ def main() -> int:
         "",
         f"- baseline scanner: `{report['baseline_scanner_revision']}`",
         f"- post scanner: `{args.scanner_revision}`",
+        f"- study harness: `{args.harness_revision}`",
         f"- frozen cases present: **{len(post)}/{len(baseline)}**",
         f"- cases with count-level changes: **{len(changed_cases)}**",
         f"- core fully-resolved ratio: **{metrics['core_fully_resolved_ratio']:.1%}**",
