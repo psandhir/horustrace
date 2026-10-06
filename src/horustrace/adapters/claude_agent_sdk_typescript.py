@@ -19,7 +19,10 @@ FRAMEWORK = "claude-agent-sdk"
 _SDK = "@anthropic-ai/claude-agent-sdk"
 _EXTENSIONS = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
 _URL_RE = re.compile(r"https?://[^\s\"')\]\}<>]+")
-_BINDING_RE = re.compile(r"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*")
+_BINDING_RE = re.compile(
+    r"\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)"
+    r"(?:\\s*:\\s*[^=\\n]+)?\\s*=\\s*"
+)
 
 _BUILTINS: dict[str, tuple[str, set[str]]] = {
     "Read": ("filesystem_read", {"data.read"}),
@@ -201,6 +204,114 @@ def _function_return_object(source: str, name: str) -> str | None:
     return returned[0] if returned else None
 
 
+def _string_array_expression(
+    expression: str,
+    arrays: dict[str, list[str]],
+) -> list[str] | None:
+    current = expression.strip()
+    alias = re.fullmatch(r"([A-Za-z_$][\\w$]*)", current)
+    if alias:
+        return list(arrays[alias.group(1)]) if alias.group(1) in arrays else None
+    start = current.find("[")
+    if start < 0:
+        return None
+    segment = _balanced(current, start, "[", "]")
+    if segment is None:
+        return None
+    body, _ = segment
+    values: list[str] = []
+    cursor = 0
+    token = re.compile(
+        r"\\s*(?:([\"'])(.*?)\\1|\\.\\.\\.([A-Za-z_$][\\w$]*))\\s*(?:,|$)",
+        re.DOTALL,
+    )
+    while cursor < len(body):
+        match = token.match(body, cursor)
+        if not match:
+            if not body[cursor:].strip():
+                break
+            return None
+        if match.group(2) is not None:
+            values.append(match.group(2))
+        else:
+            ref = match.group(3)
+            if ref not in arrays:
+                return None
+            values.extend(arrays[ref])
+        cursor = match.end()
+    return values
+
+
+def _exported_string_arrays(source: str) -> dict[str, list[str]]:
+    result: dict[str, list[str]] = {}
+    pattern = re.compile(
+        r"\\b(?:export\\s+)?const\\s+([A-Za-z_$][\\w$]*)"
+        r"(?:\\s*:\\s*[^=\\n]+)?\\s*=\\s*"
+    )
+    for match in pattern.finditer(source):
+        tail = source[match.end():]
+        start = tail.find("[")
+        if start < 0 or tail[:start].strip():
+            continue
+        absolute = match.end() + start
+        segment = _balanced(source, absolute, "[", "]")
+        if segment is None:
+            continue
+        body, end = segment
+        expression = source[absolute:end]
+        values = _string_array_expression(expression, result)
+        if values is not None:
+            result[match.group(1)] = values
+    return result
+
+
+def _imported_string_arrays(path: Path, source: str) -> dict[str, list[str]]:
+    result: dict[str, list[str]] = {}
+    pattern = re.compile(
+        r"import\\s*\\{(?P<body>[^}]*)\\}\\s*from\\s*"
+        r"(?P<quote>[\"'])(?P<specifier>[^\"']+)(?P=quote)",
+        re.DOTALL,
+    )
+    cache: dict[Path, dict[str, list[str]]] = {}
+    for match in pattern.finditer(source):
+        imported_path = _resolve_typescript_import(path, match.group("specifier"))
+        if imported_path is None:
+            continue
+        exported = cache.get(imported_path)
+        if exported is None:
+            try:
+                imported_source = imported_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            exported = _exported_string_arrays(imported_source)
+            cache[imported_path] = exported
+        for raw in match.group("body").split(","):
+            item = raw.strip()
+            if not item or item.startswith("type "):
+                continue
+            parts = re.split(r"\\s+as\\s+", item)
+            imported = parts[0].strip()
+            local = parts[-1].strip()
+            if imported in exported:
+                result[local] = list(exported[imported])
+    return result
+
+
+def _expand_string_array_constants(
+    body: str,
+    arrays: dict[str, list[str]],
+) -> str:
+    current = body
+    for name, values in arrays.items():
+        literal = "[" + ", ".join(repr(value) for value in values) + "]"
+        current = re.sub(
+            rf"\\b(allowedTools|disallowedTools|deny)\\s*:\\s*{re.escape(name)}\\b",
+            lambda match: f"{match.group(1)}: {literal}",
+            current,
+        )
+    return current
+
+
 def _imported_option_builders(path: Path, source: str) -> dict[str, str]:
     result: dict[str, str] = {}
     pattern = re.compile(
@@ -231,7 +342,9 @@ def _imported_option_builders(path: Path, source: str) -> dict[str, str]:
                 continue
             returned = _function_return_object(imported_source, imported)
             if returned is not None:
-                result[local] = returned
+                arrays = _exported_string_arrays(imported_source)
+                arrays.update(_imported_string_arrays(imported_path, imported_source))
+                result[local] = _expand_string_array_constants(returned, arrays)
     return result
 
 
@@ -662,8 +775,20 @@ def scan_claude_agent_sdk_typescript_file(path: Path) -> Graph:
         allowed_present = _has_property(body, "allowedTools")
         allowed_resolved = _string_array(body, "allowedTools")
         denied_resolved = _string_array(body, "disallowedTools")
+        settings_body = _object_segment(body, "settings")
+        permissions_body = (
+            _object_segment(settings_body, "permissions")
+            if settings_body is not None
+            else None
+        )
+        settings_denied = (
+            _string_array(permissions_body, "deny")
+            if permissions_body is not None
+            else None
+        )
         allowed = allowed_resolved or []
         denied = denied_resolved or []
+        effective_denied = list(dict.fromkeys(denied + (settings_denied or [])))
 
         if tool_names is not None:
             agent.metadata["tool_surface"] = "explicit"
@@ -699,11 +824,28 @@ def scan_claude_agent_sdk_typescript_file(path: Path) -> Graph:
             agent.metadata["dynamic_disallowed_tools"] = True
         agent.metadata["allowed_tools_auto_approve"] = allowed
         agent.metadata["disallowed_tools"] = denied
+        if settings_denied is not None:
+            agent.metadata["settings_deny_rules"] = settings_denied
+        can_use_tool = _has_property(body, "canUseTool")
+        hooks_body = _object_segment(body, "hooks")
+        pre_tool_use_guard = hooks_body is not None and _has_property(
+            hooks_body, "PreToolUse"
+        )
+        if can_use_tool:
+            agent.metadata["can_use_tool_configured"] = True
+            agent.metadata["enforcing_tool_control"] = True
+        if pre_tool_use_guard:
+            agent.metadata["pre_tool_use_guard"] = True
+            agent.metadata["enforcing_tool_control"] = True
         permission = _string_property(body, "permissionMode")
         if permission:
             agent.metadata["permission_mode"] = permission
 
-        bare_denied = {value for value in denied if "(" not in value and ")" not in value}
+        bare_denied = {
+            value
+            for value in effective_denied
+            if "(" not in value and ")" not in value
+        }
         agent.tools = [tool for tool in agent.tools if tool.name not in bare_denied]
         for tool in agent.tools:
             if tool.name in allowed:
@@ -713,6 +855,15 @@ def scan_claude_agent_sdk_typescript_file(path: Path) -> Graph:
             if permission == "bypassPermissions" and tool.approval is None:
                 tool.approval = False
                 tool.metadata["approval_basis"] = "permissionMode_bypassPermissions"
+            scoped_denies = [
+                rule
+                for rule in effective_denied
+                if rule.startswith(f"{tool.name}(") and rule.endswith(")")
+            ]
+            if scoped_denies:
+                tool.metadata["scoped_deny_rules"] = scoped_denies
+            if can_use_tool or pre_tool_use_guard:
+                tool.metadata["runtime_controlled"] = True
 
         cwd = _string_property(body, "cwd")
         add_dirs = _string_array(body, "addDirs") or []
