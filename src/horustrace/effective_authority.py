@@ -13,6 +13,11 @@ from pathlib import Path
 from typing import Any
 
 from horustrace.models import Agent, Graph, Identity, MCPServer, ResourceScope, Skill, Tool
+from horustrace.semantic_contract import (
+    source_context,
+    tool_control_enforcing,
+    tool_control_mechanism,
+)
 
 EFFECTIVE_AUTHORITY_SCHEMA_VERSION = 1
 
@@ -376,7 +381,7 @@ def _tool_relationship(
     tool: Tool,
 ) -> EffectiveAuthorityRelationship:
     identity = _identity(graph, agent, tool.identity)
-    inherited_control = agent.metadata.get("tool_control_enforcing") is True
+    inherited_control = tool_control_enforcing(agent.metadata)
     conditional_approval = tool.metadata.get("conditional_approval") is True
     approval_resolved = tool.approval is not None or inherited_control
     dynamic_availability = (
@@ -459,7 +464,7 @@ def _tool_relationship(
         relationship_id=_stable_relationship_id(agent.name, "tool", tool.name),
         agent=agent.name,
         agent_instance_key=_agent_instance_key(agent),
-        source_context=str(agent.metadata.get("source_context") or "unknown"),
+        source_context=source_context(agent.metadata),
         target_kind="tool",
         target_name=tool.name,
         capabilities=tuple(sorted(tool.capabilities)),
@@ -471,7 +476,7 @@ def _tool_relationship(
             "mechanism": (
                 tool.metadata.get("approval_mechanism")
                 or (
-                    agent.metadata.get("tool_control_mechanism")
+                    tool_control_mechanism(agent.metadata)
                     if inherited_control
                     else None
                 )
