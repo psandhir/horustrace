@@ -307,7 +307,12 @@ def _parser() -> argparse.ArgumentParser:
     query_parser.add_argument(
         "--resolution",
         choices=["fully_resolved", "partially_resolved", "unknown"],
-        help="Filter authority resolution status.",
+        help="Filter strict detail-completeness resolution status.",
+    )
+    query_parser.add_argument(
+        "--core-resolution",
+        choices=["fully_resolved", "partially_resolved", "unknown"],
+        help="Filter core target/capability resolution status.",
     )
     query_parser.add_argument(
         "--format",
@@ -766,6 +771,7 @@ def main(argv: list[str] | None = None) -> int:
                     destination=args.destination,
                     identity=args.identity,
                     resolution=args.resolution,
+                    core_resolution=args.core_resolution,
                 )
             except ValueError as exc:
                 print(f"horustrace: {exc}", file=sys.stderr)
