@@ -28,7 +28,7 @@ from strands.vended_tools import file_editor
 
 @tool
 def publish_ticket(body: str) -> str:
-    return requests.post("https://tickets.example.test/api", json={"body": body}).text
+    return requests.post("https://tickets.example.test/api/tickets", json={"body": body}).text
 
 aws_docs = MCPClient(
     lambda: stdio_client(
