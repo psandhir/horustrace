@@ -20,7 +20,47 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install -e '.[dev]'
       - run: ruff check src tests benchmarks scripts/deployment_authority_study.py
-      - run: pytest -q
+      - name: Run tests
+        if: matrix.python-version == '3.11'
+        run: pytest -q
+      - name: Run tests with branch coverage
+        if: matrix.python-version == '3.12'
+        run: >-
+          pytest -q
+          --cov=horustrace
+          --cov-branch
+          --cov-report=term-missing
+          --cov-report=xml:coverage.xml
+          --cov-report=json:coverage.json
+      - name: Publish coverage summary
+        if: matrix.python-version == '3.12'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          with open("coverage.json", encoding="utf-8") as handle:
+              totals = json.load(handle)["totals"]
+          lines = [
+              "## Branch coverage baseline",
+              "",
+              f"- Lines: {totals['percent_covered_display']}%",
+              f"- Statements: {totals['covered_lines']}/{totals['num_statements']}",
+              f"- Branches: {totals['covered_branches']}/{totals['num_branches']}",
+              f"- Missing branches: {totals['missing_branches']}",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("\n".join(lines) + "\n")
+          PY
+      - name: Upload coverage report
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-coverage-${{ github.sha }}
+          path: |
+            coverage.xml
+            coverage.json
       - run: python scripts/deployment_authority_study.py --validate-only
       - run: horustrace benchmark benchmarks/cases.yaml
 

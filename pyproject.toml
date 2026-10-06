@@ -31,7 +31,7 @@ Issues = "https://github.com/psandhir/horustrace/issues"
 Security = "https://github.com/psandhir/horustrace/security/policy"
 
 [project.optional-dependencies]
-dev = ["pytest>=8.3,<9", "ruff>=0.12,<1"]
+dev = ["pytest>=8.3,<9", "pytest-cov>=5,<8", "ruff>=0.12,<1"]
 
 [project.scripts]
 horustrace = "horustrace.cli:main"
@@ -46,3 +46,11 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.coverage.run]
+branch = true
+source = ["horustrace"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
