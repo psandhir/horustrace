@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import ast
+import re
+from urllib.parse import urlparse
 
 _COLLECTION_MUTATION_METHODS = {
     "append",
@@ -156,14 +158,47 @@ def _literal_payload_tokens(call: ast.Call) -> set[str]:
     return tokens
 
 
+def _literal_http_target_tokens(call: ast.Call) -> set[str]:
+    """Extract effect-bearing tokens from a source-visible HTTP target path."""
+    leaf = (call_leaf(call.func) or "").lower()
+    target = (
+        call.args[1]
+        if leaf == "request" and len(call.args) > 1
+        else call.args[0]
+        if call.args
+        else next(
+            (
+                keyword.value
+                for keyword in call.keywords
+                if keyword.arg in {"url", "uri", "endpoint"}
+            ),
+            None,
+        )
+    )
+    text: str | None = None
+    if isinstance(target, ast.Constant) and isinstance(target.value, str):
+        text = target.value
+    elif isinstance(target, ast.JoinedStr):
+        text = "".join(
+            value.value
+            for value in target.values
+            if isinstance(value, ast.Constant) and isinstance(value.value, str)
+        )
+    if not text or not text.startswith(("http://", "https://")):
+        return set()
+    path = urlparse(text).path.lower()
+    return {token for token in re.split(r"[^a-z0-9]+", path) if token}
+
+
 def http_mutation_capabilities(call: ast.Call, *, function_name: str = "") -> set[str]:
     """Infer semantic outbound mutation independently from HTTP transport.
 
     DELETE/PUT/PATCH remain strong mutation signals. POST is only considered a
-    write when the containing operation or an inline payload carries an
-    explicit mutation verb. This avoids treating read-only RPC/GraphQL/MCP
-    searches as writes simply because their wire protocol uses POST.
+    write when the source-visible request body or endpoint carries an explicit
+    mutation verb. The containing Python function name is deliberately ignored:
+    business/action names are discovery hints, not proof of an external effect.
     """
+    del function_name  # Backward-compatible parameter; names are not effect evidence.
     leaf = (call_leaf(call.func) or "").lower()
     if leaf == "delete":
         return {"data.write", "external.write", "destructive.write"}
@@ -191,13 +226,9 @@ def http_mutation_capabilities(call: ast.Call, *, function_name: str = "") -> se
         "upload",
         "write",
     }
-    function_tokens = {
-        token
-        for token in function_name.lower().replace("-", "_").split("_")
-        if token
-    }
     payload_tokens = _literal_payload_tokens(call)
-    if function_tokens & write_tokens or payload_tokens & write_tokens:
+    target_tokens = _literal_http_target_tokens(call)
+    if payload_tokens & write_tokens or target_tokens & write_tokens:
         return {"data.write", "external.write"}
     return set()
 
