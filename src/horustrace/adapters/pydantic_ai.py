@@ -1301,6 +1301,8 @@ def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer |
         if name == "MCPCapability"
         else "MCPServerStdio"
         if isinstance(name, str) and name.endswith("MCPServerStdio")
+        else "MCPServerSSE"
+        if isinstance(name, str) and name.endswith("MCPServerSSE")
         else "MCPServerStreamableHTTP"
         if isinstance(name, str)
         and name.endswith(("MCPServerStreamableHTTP", "MCPServerHTTP"))
@@ -1311,6 +1313,7 @@ def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer |
         "MCP",
         "MCPServerTool",
         "MCPServerStdio",
+        "MCPServerSSE",
         "MCPServerStreamableHTTP",
     }:
         return None
@@ -1353,7 +1356,9 @@ def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer |
     if isinstance(endpoint, str) and endpoint.startswith(("http://", "https://")):
         parsed = urlparse(endpoint)
         transport = (
-            "streamable-http"
+            "sse"
+            if canonical_name == "MCPServerSSE"
+            else "streamable-http"
             if canonical_name == "MCPServerStreamableHTTP"
             else "sse"
             if parsed.path.rstrip("/").endswith("/sse")
@@ -1386,10 +1391,14 @@ def _mcp_server_from_call(path: Path, call: ast.Call, alias: str) -> MCPServer |
             metadata=metadata,
         )
 
-    if canonical_name == "MCPServerStreamableHTTP":
+    if canonical_name in {"MCPServerSSE", "MCPServerStreamableHTTP"}:
         return MCPServer(
             name=alias,
-            transport="streamable-http",
+            transport=(
+                "sse"
+                if canonical_name == "MCPServerSSE"
+                else "streamable-http"
+            ),
             location=_location(path, call),
             metadata={
                 **metadata,
