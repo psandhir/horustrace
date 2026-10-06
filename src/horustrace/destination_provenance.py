@@ -196,8 +196,6 @@ def normalize_destination_resource_provenance(graph: Graph) -> None:
     for agent in graph.agents:
         for destination in agent.network:
             _normalize_destination(destination)
-        for resource in agent.resources:
-            _normalize_resource(resource)
         for tool in agent.tools:
             for destination in tool.destinations:
                 _normalize_destination(destination)
