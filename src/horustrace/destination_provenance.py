@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 from horustrace.models import Graph, NetworkDestination, ResourceScope
 
 
-_CONSTRAINED_NETWORK_SCOPES = {
+CONSTRAINED_NETWORK_SCOPES = frozenset({
     "fixed_literal_destination",
     "fixed_managed_service",
     "fixed_provider_network",
@@ -15,7 +15,19 @@ _CONSTRAINED_NETWORK_SCOPES = {
     "operator_configured_destination",
     "explicit_destination",
     "environment_allowlist",
-}
+})
+
+
+def destination_constraint_is_bounded(destination: NetworkDestination) -> bool:
+    metadata = destination.metadata
+    return (
+        destination.restricted
+        and (
+            metadata.get("constraint_state") == "bounded"
+            or str(metadata.get("network_scope") or "") in CONSTRAINED_NETWORK_SCOPES
+            or str(metadata.get("source") or "") in {"literal_url", "fixed_url_origin"}
+        )
+    )
 
 
 def _host_from_target(target: str) -> str | None:
