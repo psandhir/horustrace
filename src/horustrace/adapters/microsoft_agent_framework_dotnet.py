@@ -1606,6 +1606,28 @@ def _bind_per_run_authority(
         invocation = source[match.start():end + 1]
         invocation_refs = refs(invocation)
 
+        if _expression_has_runtime_input(invocation, known):
+            basis = "source_bound_runtime_ingress"
+            if not any(
+                item.metadata.get("basis") == basis
+                and item.metadata.get("runtime_method") == match.group(2)
+                for item in agent.inputs
+            ):
+                agent.inputs.append(
+                    InputSource(
+                        name=f"{alias}.{match.group(2)}:external-input",
+                        trust="untrusted",
+                        kind="user",
+                        location=location(path, source, match.start()),
+                        metadata={
+                            "basis": basis,
+                            "runtime_invocation_proven": True,
+                            "ingress_framework": "dotnet_runtime",
+                            "runtime_method": match.group(2),
+                        },
+                    )
+                )
+
         for option_name in invocation_refs & run_options.keys():
             tools, servers = run_options[option_name]
             agent.tools.extend(deepcopy(tools))
@@ -2152,6 +2174,31 @@ def scan_dotnet_file(path: Path) -> Graph:
                 },
             )
             graph.agents.append(workflow_agent)
+
+        runtime_input_offset = _workflow_runtime_input_offset(
+            source,
+            workflow_alias,
+            known,
+        )
+        if runtime_input_offset is not None and not any(
+            input_source.metadata.get("basis") == "source_bound_runtime_ingress"
+            for input_source in workflow_agent.inputs
+        ):
+            workflow_agent.inputs.append(
+                InputSource(
+                    name=f"{workflow_alias}:external-input",
+                    trust="untrusted",
+                    kind="user",
+                    location=location(path, source, runtime_input_offset),
+                    metadata={
+                        "basis": "source_bound_runtime_ingress",
+                        "runtime_invocation_proven": True,
+                        "ingress_framework": "dotnet_workflow_runtime",
+                        "runtime_method": "InProcessExecution",
+                    },
+                )
+            )
+
         workflow_agent.tools.extend(_workflow_delegation_tools(
             path,
             source,
