@@ -257,7 +257,7 @@ def _exported_string_arrays(source: str) -> dict[str, list[str]]:
         segment = _balanced(source, absolute, "[", "]")
         if segment is None:
             continue
-        body, end = segment
+        _body, end = segment
         expression = source[absolute:end]
         values = _string_array_expression(expression, result)
         if values is not None:
@@ -306,7 +306,7 @@ def _expand_string_array_constants(
         literal = "[" + ", ".join(repr(value) for value in values) + "]"
         current = re.sub(
             rf"\\b(allowedTools|disallowedTools|deny)\\s*:\\s*{re.escape(name)}\\b",
-            lambda match: f"{match.group(1)}: {literal}",
+            lambda match, replacement=literal: f"{match.group(1)}: {replacement}",
             current,
         )
     return current
