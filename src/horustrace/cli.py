@@ -158,7 +158,8 @@ def _parser() -> argparse.ArgumentParser:
         metavar="N",
         help=(
             "Return exit code 1 when more than N effective-authority relationships "
-            "are partially resolved or unknown."
+            "have unresolved detail dimensions. Core resolution does not weaken "
+            "this strict completeness gate."
         ),
     )
     scan_parser.add_argument(
@@ -425,8 +426,8 @@ def _parser() -> argparse.ArgumentParser:
         "--fail-on-authority-regression",
         action="store_true",
         help=(
-            "Return exit code 1 when the head revision has more unresolved "
-            "effective-authority relationships than the base revision."
+            "Return exit code 1 when the head revision has more relationships "
+            "with unresolved detail dimensions than the base revision."
         ),
     )
     diff_parser.add_argument(
