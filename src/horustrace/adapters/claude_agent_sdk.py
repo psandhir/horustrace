@@ -304,6 +304,12 @@ def _list_nodes(
         return _list_nodes(current.left, sequences, values) + _list_nodes(
             current.right, sequences, values
         )
+    if isinstance(current, ast.Call):
+        called = _call_name(current.func)
+        if called:
+            builder_key = f"__return__:{called}"
+            if builder_key in sequences:
+                return list(sequences[builder_key])
     key = _expr_key(current)
     if key:
         return list(sequences.get(key, []))
@@ -331,6 +337,70 @@ def _string_list(
             return None
         resolved.append(value)
     return resolved
+
+
+def _sequence_builder_elements(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> list[ast.AST] | None:
+    """Summarise simple repository-local list builders conservatively.
+
+    This covers the common allowed_tools pattern: initialise a literal list,
+    conditionally append/extend literal entries, and return the list. Conditional
+    additions are retained as a possible surface instead of falling back to the
+    much broader runtime default.
+    """
+    local: dict[str, list[ast.AST]] = {}
+    for child in ast.walk(node):
+        if isinstance(child, (ast.Assign, ast.AnnAssign)) and child.value is not None:
+            targets = child.targets if isinstance(child, ast.Assign) else [child.target]
+            if isinstance(child.value, (ast.List, ast.Tuple, ast.Set)):
+                for target in targets:
+                    if isinstance(target, ast.Name):
+                        local[target.id] = list(child.value.elts)
+
+    for child in ast.walk(node):
+        if not isinstance(child, ast.Expr) or not isinstance(child.value, ast.Call):
+            continue
+        call = child.value
+        if not isinstance(call.func, ast.Attribute) or not isinstance(call.func.value, ast.Name):
+            continue
+        target = call.func.value.id
+        if target not in local:
+            continue
+        if call.func.attr == "append" and len(call.args) == 1:
+            local[target].append(call.args[0])
+        elif call.func.attr == "extend" and len(call.args) == 1:
+            extra = call.args[0]
+            if isinstance(extra, (ast.List, ast.Tuple, ast.Set)):
+                local[target].extend(extra.elts)
+
+    candidates: list[ast.AST] = []
+    saw_return = False
+    for child in ast.walk(node):
+        if not isinstance(child, ast.Return):
+            continue
+        saw_return = True
+        value = child.value
+        if isinstance(value, (ast.List, ast.Tuple, ast.Set)):
+            candidates.extend(value.elts)
+        elif isinstance(value, ast.Name) and value.id in local:
+            candidates.extend(local[value.id])
+        else:
+            return None
+
+    if not saw_return:
+        return None
+    deduped: list[ast.AST] = []
+    seen: set[str] = set()
+    for item in candidates:
+        try:
+            key = ast.dump(item, include_attributes=False)
+        except TypeError:
+            key = repr(item)
+        if key not in seen:
+            seen.add(key)
+            deduped.append(item)
+    return deduped
 
 
 def _expr_reference(node: ast.AST | None) -> str | None:
@@ -966,8 +1036,24 @@ def _option_agent(
 
     allowed_node = _kw(call, "allowed_tools", dicts, values)
     denied_node = _kw(call, "disallowed_tools", dicts, values)
-    allowed = _string_list(allowed_node, sequences, values) or []
-    denied = _string_list(denied_node, sequences, values) or []
+    allowed_resolved = _string_list(allowed_node, sequences, values)
+    denied_resolved = _string_list(denied_node, sequences, values)
+    allowed = allowed_resolved or []
+    denied = denied_resolved or []
+
+    if default_surface and allowed_node is not None and allowed_resolved is not None:
+        permitted_builtins = {
+            item
+            for item in allowed_resolved
+            if not item.startswith("mcp__")
+        }
+        agent.tools = [
+            tool for tool in agent.tools if tool.name in permitted_builtins
+        ]
+        agent.metadata["tool_surface"] = "restricted_default"
+        agent.metadata["tool_surface_restricted_by_allowed_tools"] = True
+        agent.metadata["explicit_allowed_tool_surface"] = list(allowed_resolved)
+
     permission_mode = _resolved_literal(
         _kw(call, "permission_mode", dicts, values),
         values,
@@ -981,9 +1067,9 @@ def _option_agent(
         _resolve_node(_kw(call, "can_use_tool", dicts, values), values),
         hooks_node,
     )
-    if allowed_node is not None and not allowed:
+    if allowed_node is not None and allowed_resolved is None:
         agent.metadata["dynamic_allowed_tools"] = True
-    if denied_node is not None and not denied:
+    if denied_node is not None and denied_resolved is None:
         agent.metadata["dynamic_disallowed_tools"] = True
 
     strict_mcp = _resolved_literal(
@@ -1344,6 +1430,12 @@ def scan_python_file(path: Path) -> Graph:
                 node._horustrace_expanded_kwargs_complete = True  # type: ignore[attr-defined]
 
     _record_container_mutations(tree, sequences, dicts, values)
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        elements = _sequence_builder_elements(node)
+        if elements is not None:
+            sequences[f"__return__:{node.name}"] = elements
 
     # Second pass re-resolves subagents now that SDK MCP declarations are known.
     for node in ast.walk(tree):
