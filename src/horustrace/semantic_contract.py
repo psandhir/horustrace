@@ -82,6 +82,17 @@ def tool_control_mechanism(metadata: Mapping[str, Any]) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
+def set_source_context(metadata: MutableMapping[str, Any], value: str) -> None:
+    if value not in SOURCE_CONTEXTS:
+        raise ValueError(f"invalid source context: {value!r}")
+    metadata[_key(AgentSemanticKey.SOURCE_CONTEXT)] = value
+
+
+def source_context(metadata: Mapping[str, Any]) -> str:
+    value = metadata.get(_key(AgentSemanticKey.SOURCE_CONTEXT))
+    return value if value in SOURCE_CONTEXTS else "unknown"
+
+
 def validate_agent_semantics(agent: Agent) -> list[str]:
     errors: list[str] = []
     metadata = agent.metadata
