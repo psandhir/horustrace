@@ -175,6 +175,7 @@ def _literal_http_target_tokens(call: ast.Call) -> set[str]:
             None,
         )
     )
+    target = _resolved_expr(target, context)
     text: str | None = None
     if isinstance(target, ast.Constant) and isinstance(target.value, str):
         text = target.value
@@ -184,13 +185,26 @@ def _literal_http_target_tokens(call: ast.Call) -> set[str]:
             for value in target.values
             if isinstance(value, ast.Constant) and isinstance(value.value, str)
         )
-    if not text or not text.startswith(("http://", "https://")):
+    elif target is not None:
+        literal_parts = [
+            child.value
+            for child in ast.walk(target)
+            if isinstance(child, ast.Constant) and isinstance(child.value, str)
+        ]
+        if literal_parts:
+            text = "".join(literal_parts)
+    if not text:
         return set()
-    path = urlparse(text).path.lower()
+    path = urlparse(text).path.lower() if "://" in text else text.lower()
     return {token for token in re.split(r"[^a-z0-9]+", path) if token}
 
 
-def http_mutation_capabilities(call: ast.Call, *, function_name: str = "") -> set[str]:
+def http_mutation_capabilities(
+    call: ast.Call,
+    *,
+    function_name: str = "",
+    context: ast.AST | None = None,
+) -> set[str]:
     """Infer semantic outbound mutation independently from HTTP transport.
 
     DELETE/PUT/PATCH remain strong mutation signals. POST is only considered a
@@ -226,9 +240,33 @@ def http_mutation_capabilities(call: ast.Call, *, function_name: str = "") -> se
         "upload",
         "write",
     }
-    payload_tokens = _literal_payload_tokens(call)
-    target_tokens = _literal_http_target_tokens(call)
+    payload_tokens = _literal_payload_tokens(call, context)
+    target_tokens = _literal_http_target_tokens(call, context)
+    read_tokens = {
+        "fetch",
+        "find",
+        "get",
+        "invoke",
+        "invocation",
+        "invocations",
+        "list",
+        "lookup",
+        "query",
+        "read",
+        "retrieve",
+        "search",
+    }
+    if payload_tokens & read_tokens:
+        return set()
     if payload_tokens & write_tokens or target_tokens & write_tokens:
+        return {"data.write", "external.write"}
+    # A POST to a concrete REST-style resource collection is source-visible
+    # creation/mutation evidence. Known query/RPC endpoint tokens remain
+    # network-only even though their wire transport is POST.
+    semantic_target_tokens = {
+        token for token in target_tokens if token not in {"api", "v1", "v2", "v3", "json"}
+    }
+    if semantic_target_tokens and not semantic_target_tokens & read_tokens:
         return {"data.write", "external.write"}
     return set()
 
