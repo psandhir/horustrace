@@ -367,6 +367,7 @@ def _function_capabilities(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[
             http_mutation = http_mutation_capabilities(
                 child,
                 function_name=node.name,
+                context=node,
             )
             capabilities.update(http_mutation)
             if "data.write" in http_mutation:

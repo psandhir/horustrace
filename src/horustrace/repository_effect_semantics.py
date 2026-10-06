@@ -147,6 +147,49 @@ def _merge_effect(target: _FunctionEffect, source: _FunctionEffect) -> None:
             seen.add(key)
 
 
+def _transitive_effect_for_call(
+    source: _FunctionEffect,
+    target_symbol: str,
+    call: ast.Call,
+) -> _FunctionEffect:
+    """Return the authority that may flow through one repository-local call.
+
+    Source-fixed prerequisite/control helpers can execute implementation-detail
+    subprocesses (for example mounting a workspace) without granting each caller
+    arbitrary process-execution authority. Keep their other material effects,
+    but do not leak process.execute through an argument-free setup/control call.
+    """
+    result = _FunctionEffect(
+        capabilities=set(source.capabilities),
+        destinations=list(source.destinations),
+        evidence=set(source.evidence),
+    )
+    normalized = target_symbol.lower()
+    control_helper = normalized.startswith(
+        (
+            "_ensure",
+            "ensure_",
+            "_validate",
+            "validate_",
+            "_check",
+            "check_",
+            "_safe",
+            "safe_",
+        )
+    )
+    if (
+        control_helper
+        and not call.args
+        and not call.keywords
+        and "process.execute" in result.capabilities
+    ):
+        result.capabilities.discard("process.execute")
+        result.evidence = {
+            item for item in result.evidence if not item.startswith("process:")
+        }
+    return result
+
+
 def _build_modules(root: Path, python_paths: list[Path]) -> dict[str, _ModuleInfo]:
     modules: dict[str, _ModuleInfo] = {}
     path_to_module: dict[Path, str] = {}
@@ -719,7 +762,7 @@ def _operator_configured_destinations(
 
     destinations: list[NetworkDestination] = []
     seen: set[str] = set()
-    for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
+    for call in (node for node in _function_scope_nodes(function) if isinstance(node, ast.Call)):
         called = (_dotted(call.func) or _call_leaf(call.func) or "").lower()
         if not (
             called.startswith(("requests.", "httpx.", "aiohttp."))
@@ -1085,7 +1128,11 @@ def _direct_effect(
     ):
         result.capabilities.add("network.external")
         result.capabilities.update(
-            http_mutation_capabilities(call, function_name=function_name)
+            http_mutation_capabilities(
+                call,
+                function_name=function_name,
+                context=info.functions.get(function_name),
+            )
         )
         result.evidence.add(f"http:{dotted}")
         target_expr = (
@@ -1357,7 +1404,7 @@ def _summarize_function(
     next_stack = set(stack)
     next_stack.add(key)
 
-    for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
+    for call in (node for node in _function_scope_nodes(function) if isinstance(node, ast.Call)):
         _merge_effect(
             result,
             _direct_effect(
@@ -1379,14 +1426,19 @@ def _summarize_function(
         target_module, target_symbol = target
         if target_module not in modules:
             continue
+        target_effect = _summarize_function(
+            modules,
+            target_module,
+            target_symbol,
+            cache,
+            next_stack,
+        )
         _merge_effect(
             result,
-            _summarize_function(
-                modules,
-                target_module,
+            _transitive_effect_for_call(
+                target_effect,
                 target_symbol,
-                cache,
-                next_stack,
+                call,
             ),
         )
 
@@ -1426,7 +1478,7 @@ def _has_cross_module_call(
     if info is None or function is None:
         return False
 
-    for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
+    for call in (node for node in _function_scope_nodes(function) if isinstance(node, ast.Call)):
         target = _call_target(
             modules,
             module,
@@ -1460,7 +1512,7 @@ def _direct_function_effect(
         return _FunctionEffect()
 
     result = _FunctionEffect()
-    for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
+    for call in (node for node in _function_scope_nodes(function) if isinstance(node, ast.Call)):
         _merge_effect(
             result,
             _direct_effect(

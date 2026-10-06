@@ -566,3 +566,81 @@ def store_memory(summary: str):
     assert "data.read" in read_tool.capabilities
     assert "data.write" not in read_tool.capabilities
     assert "data.write" in write_tool.capabilities
+
+
+def test_fixed_workspace_setup_does_not_leak_process_authority_to_file_tools(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "agent.py",
+        """
+import subprocess
+from pathlib import Path
+from agents import Agent, function_tool
+
+WORKDIR = Path("./workspace").resolve()
+_MOUNTED = False
+
+
+def _ensure_workspace() -> None:
+    global _MOUNTED
+    if _MOUNTED:
+        return
+    command = ["trunks", "mount", "--path", str(WORKDIR)]
+    subprocess.run(command, check=True)
+    _MOUNTED = True
+
+
+def _safe_path(path: str) -> Path:
+    _ensure_workspace()
+    target = (WORKDIR / path).resolve()
+    if target != WORKDIR and WORKDIR not in target.parents:
+        raise ValueError("path escapes workspace")
+    return target
+
+
+@function_tool
+def list_files(path: str = ".") -> list[str]:
+    return sorted(item.name for item in _safe_path(path).iterdir())
+
+
+@function_tool
+def read(path: str) -> str:
+    return _safe_path(path).read_text(encoding="utf-8")
+
+
+@function_tool
+def write(path: str, content: str) -> str:
+    target = _safe_path(path)
+    target.write_text(content, encoding="utf-8")
+    return "ok"
+
+
+@function_tool
+def shell(command: str) -> str:
+    _ensure_workspace()
+    return subprocess.run(
+        command,
+        cwd=WORKDIR,
+        shell=True,
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout
+
+
+agent = Agent(
+    name="trunks-pr-agent",
+    tools=[list_files, read, write, shell],
+)
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "trunks-pr-agent")
+    tools = {item.name: item for item in agent.tools}
+
+    assert "process.execute" not in tools["list_files"].capabilities
+    assert "process.execute" not in tools["read"].capabilities
+    assert "process.execute" not in tools["write"].capabilities
+    assert "process.execute" in tools["shell"].capabilities
