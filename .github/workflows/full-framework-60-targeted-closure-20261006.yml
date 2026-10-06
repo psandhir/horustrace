@@ -1,0 +1,196 @@
+name: Full Framework 60 Targeted Closure
+
+on:
+  push:
+    branches:
+      - study/full-framework-60-targeted-closure-20261006
+    paths:
+      - ".github/workflows/full-framework-60-targeted-closure-20261006.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: full-framework-60-targeted-closure-20261006
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: ${{ matrix.case_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        case_id:
+          - ff60-anthropic-06
+          - ff60-anthropic-07
+          - ff60-anthropic-09
+          - ff60-amazon-10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+      - name: Generate frozen-case evidence bundle
+        run: |
+          python research/full-framework-60-20261005/run_case.py \
+            --case-id "${{ matrix.case_id }}" \
+            --output-dir artifacts
+      - name: Upload case bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ff60-targeted-case-${{ matrix.case_id }}
+          path: artifacts/${{ matrix.case_id }}/
+          if-no-files-found: error
+          retention-days: 30
+
+  adjudicate:
+    name: Adjudicate targeted residuals
+    if: always()
+    needs: scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ff60-targeted-case-*
+          path: downloaded
+          merge-multiple: false
+      - name: Assert residual closure
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          results = {}
+          errors = []
+          for path in Path("downloaded").rglob("error.json"):
+              errors.append(json.loads(path.read_text()))
+          assert not errors, f"case execution errors: {errors}"
+
+          for path in Path("downloaded").rglob("result.json"):
+              item = json.loads(path.read_text())
+              results[item["case_id"]] = item
+
+          expected = {
+              "ff60-anthropic-06",
+              "ff60-anthropic-07",
+              "ff60-anthropic-09",
+              "ff60-amazon-10",
+          }
+          assert set(results) == expected, (set(results), expected)
+
+          def agents(case):
+              return results[case]["agent_inventory"]
+
+          # ff60-anthropic-07: explicit allow surface survives builder + object spread.
+          a07 = agents("ff60-anthropic-07")
+          allowed = {"Read", "Write", "Edit", "Glob", "Grep", "Bash"}
+          restricted = [
+              agent for agent in a07
+              if set(agent.get("metadata", {}).get("explicit_allowed_tool_surface") or []) == allowed
+          ]
+          assert restricted, "anthropic-07: explicit allowed surface not recovered"
+          assert any(
+              {tool["name"] for tool in agent.get("tools", [])} == allowed
+              for agent in restricted
+          ), "anthropic-07: projected tool surface widened beyond explicit allowlist"
+
+          # ff60-anthropic-06: source-proven deny/callback/hook controls remove unsupported tools.
+          a06 = agents("ff60-anthropic-06")
+          controlled = [
+              agent for agent in a06
+              if agent.get("metadata", {}).get("can_use_tool_configured") is True
+              and agent.get("metadata", {}).get("pre_tool_use_guard") is True
+          ]
+          assert controlled, "anthropic-06: enforcing controls not recovered"
+          forbidden = {"Write", "Edit", "NotebookEdit", "WebFetch", "WebSearch"}
+          assert any(
+              forbidden.issubset(set(agent.get("metadata", {}).get("settings_deny_rules") or []))
+              and forbidden.isdisjoint({tool["name"] for tool in agent.get("tools", [])})
+              and any(
+                  tool["name"] == "Bash"
+                  and "Bash(git push:*)" in set(tool.get("metadata", {}).get("scoped_deny_rules") or [])
+                  for tool in agent.get("tools", [])
+              )
+              for agent in controlled
+          ), "anthropic-06: deny semantics not applied to effective surface"
+
+          # ff60-anthropic-09: discovered but non-enumerable Managed Agent catalogue
+          # must be first-class unresolved authority, never invented capabilities.
+          a09 = results["ff60-anthropic-09"]
+          dynamic_tools = [
+              tool
+              for agent in a09["agent_inventory"]
+              for tool in agent.get("tools", [])
+              if tool.get("kind") == "dynamic_tool_collection"
+              and tool.get("name") == "<dynamic-managed-tool-catalogue>"
+          ]
+          assert dynamic_tools, "anthropic-09: dynamic managed catalogue relationship missing"
+          assert all(not tool.get("capabilities") for tool in dynamic_tools)
+          rels = [
+              rel for rel in a09.get("authority_relationships", [])
+              if rel.get("target") == {
+                  "kind": "tool",
+                  "name": "<dynamic-managed-tool-catalogue>",
+              }
+          ]
+          assert rels, "anthropic-09: effective-authority relationship missing"
+          assert any(
+              rel.get("semantics", {}).get("tool_catalogue_unresolved") is True
+              and "tool_catalogue" in set(rel.get("unresolved") or [])
+              and "capabilities" in set(rel.get("unresolved") or [])
+              for rel in rels
+          ), "anthropic-09: unresolved catalogue semantics not explicit"
+
+          # ff60-amazon-10: authority comes from literal MCP operation, propagates
+          # to local callers, and is absent from the instruction-only helper.
+          amazon = results["ff60-amazon-10"]
+          tools = {
+              tool["name"]: tool
+              for agent in amazon["agent_inventory"]
+              for tool in agent.get("tools", [])
+          }
+          for name in ("create_branch_simple", "create_optimization_pull_request"):
+              assert name in tools, f"amazon-10: missing {name}"
+              assert "external.write" in set(tools[name].get("capabilities") or []), (
+                  f"amazon-10: {name} missing external.write"
+              )
+              assert "mcp-tool:create_branch" in set(
+                  tools[name].get("metadata", {}).get("repository_effect_evidence") or []
+              ), f"amazon-10: {name} missing MCP mutation evidence"
+
+          instruction_only = tools.get("update_iac_via_github")
+          assert instruction_only is not None, "amazon-10: missing instruction-only helper"
+          assert "external.write" not in set(instruction_only.get("capabilities") or [])
+          assert "data.write" not in set(instruction_only.get("capabilities") or [])
+
+          summary = {
+              case: results[case]["counts"]
+              for case in sorted(results)
+          }
+          Path("targeted-summary.json").write_text(
+              json.dumps(summary, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps({"status": "PASS", "cases": summary}, indent=2))
+          PY
+      - name: Publish summary
+        if: success()
+        run: |
+          echo "## Targeted residual closure: PASS" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo 'All four frozen residual cases passed source-semantic assertions.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Scanner source revision: 12eaa37055dbd7d3e6ae0cf2b8787ebabf50838c' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-framework-60-targeted-closure-summary
+          path: targeted-summary.json
+          if-no-files-found: warn
+          retention-days: 30
