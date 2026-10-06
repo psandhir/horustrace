@@ -410,6 +410,10 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
     }
 
     for agent in graph.agents:
+        if is_non_runtime_source_context(
+            str(agent.metadata.get("source_context") or "unknown")
+        ):
+            continue
         untrusted = [
             item
             for item in agent.inputs
