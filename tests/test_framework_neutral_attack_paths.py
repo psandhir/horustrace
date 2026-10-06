@@ -239,3 +239,94 @@ await agent.RunAsync(prompt);
         item.path_id == "PATH001" and item.agent == "OpsAgent"
         for item in graph.attack_paths
     )
+
+
+
+def test_microsoft_python_cli_input_binds_to_agent_attack_path(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import subprocess
+from agent_framework import Agent, tool
+
+@tool(approval_mode="never_require")
+def run_command(command: str):
+    return subprocess.run(command, shell=True)
+
+agent = Agent(client=client, name="OpsAgent", tools=[run_command])
+
+def main():
+    prompt = input("> ")
+    agent.run(prompt)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "OpsAgent")
+    ingress = next(
+        item
+        for item in agent.inputs
+        if item.metadata.get("basis") == "source_bound_runtime_ingress"
+    )
+
+    assert ingress.metadata["ingress_framework"] == "cli"
+    assert ingress.metadata["runtime_invocation_proven"] is True
+
+    tool = next(item for item in agent.tools if item.name == "run_command")
+    assert "process.execute" in tool.capabilities
+
+    paths = [
+        item
+        for item in graph.attack_paths
+        if item.path_id == "PATH001" and item.agent == "OpsAgent"
+    ]
+    assert paths
+    assert any(
+        (
+            item.metadata.get("basis") == "source_bound_ingress_authority"
+            and item.metadata.get("target_kind") == "tool"
+        )
+        or (
+            item.metadata.get("basis") == "static_dataflow"
+            and item.metadata.get("sink_kind") == "process_execute"
+        )
+        for item in paths
+    )
+
+
+def test_microsoft_python_constant_runtime_input_does_not_become_untrusted(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import subprocess
+from agent_framework import Agent, tool
+
+@tool(approval_mode="never_require")
+def run_command(command: str):
+    return subprocess.run(command, shell=True)
+
+agent = Agent(client=client, name="OpsAgent", tools=[run_command])
+
+def main():
+    prompt = "fixed health check"
+    agent.run(prompt)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "OpsAgent")
+
+    assert not any(
+        item.metadata.get("basis") == "source_bound_runtime_ingress"
+        for item in agent.inputs
+    )
+    assert not any(
+        item.path_id == "PATH001"
+        and item.agent == "OpsAgent"
+        and item.metadata.get("basis") == "source_bound_ingress_authority"
+        for item in graph.attack_paths
+    )
