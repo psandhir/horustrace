@@ -6,7 +6,6 @@ from horustrace.effective_authority import effective_authority_report
 from horustrace.scanner import scan
 from horustrace.semantic_contract import validate_graph_semantics
 
-
 FRAMEWORK_CASES = (
     (
         "google-adk",
