@@ -517,6 +517,11 @@ def test_effective_authority_marks_partial_csharp_source_effects(
     relationship = effective_authority_report(graph)["relationships"][0]
 
     assert relationship["resolution"] == "partially_resolved"
+    assert relationship["core_resolution"] == "partially_resolved"
+    assert relationship["core_dimensions"]["source_effects"] == (
+        "partially_resolved"
+    )
+    assert relationship["core_unresolved"] == ["source_effects"]
     assert relationship["dimensions"]["source_effects"] == (
         "partially_resolved"
     )
