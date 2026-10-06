@@ -869,6 +869,7 @@ def _infer_function_capabilities(
                 http_mutation_capabilities(
                     child,
                     function_name=operation_name or node.name,
+                    context=node,
                 )
             )
 
