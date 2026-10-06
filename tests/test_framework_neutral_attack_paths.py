@@ -36,7 +36,7 @@ def lambda_handler(event, context):
     agent = next(
         item
         for item in graph.agents
-        if item.metadata.get("framework") == "strands"
+        if item.metadata.get("framework") == "strands-agents"
         and item.name == "agent"
     )
     ingress = next(
@@ -91,7 +91,7 @@ def lambda_handler(event, context):
     agent = next(
         item
         for item in graph.agents
-        if item.metadata.get("framework") == "strands"
+        if item.metadata.get("framework") == "strands-agents"
         and item.name == "agent"
     )
 
