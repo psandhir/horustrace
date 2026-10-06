@@ -238,3 +238,131 @@ async function run() {
     assert "process.execute" in next(
         tool for tool in agent.tools if tool.name == "Bash"
     ).capabilities
+
+
+def test_claude_typescript_composed_builder_constraints_survive_typed_spread(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path,
+        """
+export function makeQueryOptions() {
+  return {
+    allowedTools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"] as string[],
+    permissionMode: "bypassPermissions" as const,
+  };
+}
+""",
+        "client.ts",
+    )
+    path = _write(
+        tmp_path,
+        """
+import { query, type Options } from "@anthropic-ai/claude-agent-sdk";
+import { makeQueryOptions } from "./client.js";
+
+const options: Options = makeQueryOptions();
+const optionsWithAbort: Options = {
+  ...options,
+  abortController: controller,
+};
+
+async function run() {
+  for await (const message of query({ prompt: "inspect", options: optionsWithAbort })) {
+    console.log(message);
+  }
+}
+""",
+        "agent.ts",
+    )
+
+    graph = scan_claude_agent_sdk_typescript_file(path)
+    agent = next(item for item in graph.agents if item.name == "optionsWithAbort")
+
+    assert {tool.name for tool in agent.tools} == {
+        "Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash",
+    }
+    assert agent.metadata["tool_surface"] == "restricted_default"
+    assert agent.metadata["explicit_allowed_tool_surface"] == [
+        "Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash",
+    ]
+
+
+def test_claude_typescript_imported_deny_controls_are_enforced(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path,
+        """
+export const REVIEW_DISALLOWED_TOOLS = [
+  "Write", "Edit", "NotebookEdit", "WebFetch", "WebSearch"
+];
+
+export const REVIEW_DENY_RULES = [
+  ...REVIEW_DISALLOWED_TOOLS,
+  "Bash(git push:*)",
+  "Bash(git commit:*)",
+];
+""",
+        "readonly.ts",
+    )
+    _write(
+        tmp_path,
+        """
+import type { Options } from "@anthropic-ai/claude-agent-sdk";
+import { REVIEW_DENY_RULES, REVIEW_DISALLOWED_TOOLS } from "./readonly.js";
+
+export function buildReviewOptions(): Options {
+  return {
+    permissionMode: "default",
+    canUseTool: makeReviewCanUseTool(),
+    hooks: { PreToolUse: [{ hooks: [makeReviewGuardHook()] }] },
+    disallowedTools: REVIEW_DISALLOWED_TOOLS,
+    settings: { permissions: { deny: REVIEW_DENY_RULES } },
+  };
+}
+""",
+        "options.ts",
+    )
+    path = _write(
+        tmp_path,
+        """
+import { query } from "@anthropic-ai/claude-agent-sdk";
+import { buildReviewOptions } from "./options.js";
+
+async function run() {
+  for await (const message of query({
+    prompt: "review",
+    options: buildReviewOptions(),
+  })) {
+    console.log(message);
+  }
+}
+""",
+        "agent.ts",
+    )
+
+    graph = scan_claude_agent_sdk_typescript_file(path)
+    agent = next(item for item in graph.agents if item.name.startswith("buildReviewOptions@"))
+
+    names = {tool.name for tool in agent.tools}
+    assert {"Write", "Edit", "NotebookEdit", "WebFetch", "WebSearch"}.isdisjoint(names)
+    assert {"Read", "Glob", "Grep", "Bash"} <= names
+    assert agent.metadata["can_use_tool_configured"] is True
+    assert agent.metadata["pre_tool_use_guard"] is True
+    assert agent.metadata["enforcing_tool_control"] is True
+    assert "Write" in agent.metadata["settings_deny_rules"]
+
+    bash = next(tool for tool in agent.tools if tool.name == "Bash")
+    assert bash.metadata["runtime_controlled"] is True
+    assert "Bash(git push:*)" in bash.metadata["scoped_deny_rules"]
