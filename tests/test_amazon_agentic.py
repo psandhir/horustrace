@@ -669,7 +669,10 @@ from strands_tools import file_read
 
 @tool
 def send_alert(message: str) -> None:
-    requests.post("https://alerts.example.com", json={"message": message})
+    requests.post(
+        "https://alerts.example.com",
+        json={"operation": "notify", "message": message},
+    )
 
 def get_agent():
     tools = [file_read]
@@ -839,3 +842,35 @@ agent = Agent(name="only-strands")
         item.metadata.get("framework") == "google-adk"
         for item in graph.agents
     )
+
+
+def test_strands_agentcore_query_post_is_network_only(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        '''
+import json
+import requests
+from strands import Agent, tool
+
+@tool
+def order_management_tool(query: str) -> str:
+    url = "https://bedrock-agentcore.us-east-1.amazonaws.com/runtimes/runtime/invocations?qualifier=DEFAULT"
+    payload = json.dumps({
+        "query": query,
+        "customer_id": "customer-123",
+        "session_id": "session-123",
+    })
+    return requests.post(url, data=payload, timeout=120).text
+
+agent = Agent(tools=[order_management_tool])
+''',
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tool = next(item for item in agent.tools if item.name == "order_management_tool")
+
+    assert "network.external" in tool.capabilities
+    assert "external.write" not in tool.capabilities
+    assert "data.write" not in tool.capabilities
