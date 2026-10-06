@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from horustrace.effective_authority import effective_authority_report
 from horustrace.adapters.anthropic_managed_agents import (
     is_anthropic_managed_agents_file,
     scan_anthropic_managed_agents_file,
 )
+from horustrace.effective_authority import effective_authority_report
 from horustrace.scanner import scan
 
 
