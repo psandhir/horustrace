@@ -121,3 +121,120 @@ async function run() {
         destination.target == "<model-selected-url>"
         for destination in reviewer.effective_destinations
     )
+
+
+def test_claude_typescript_preset_projects_material_builtin_authority(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        """
+import { query } from "@anthropic-ai/claude-agent-sdk";
+
+async function run() {
+  for await (const message of query({
+    prompt: "inspect",
+    options: {
+      tools: { type: "preset", preset: "claude_code" },
+      permissionMode: "default",
+    },
+  })) {
+    console.log(message);
+  }
+}
+""",
+    )
+
+    graph = scan_claude_agent_sdk_typescript_file(path)
+    agent = next(item for item in graph.agents if item.metadata.get("language") == "typescript")
+
+    assert agent.metadata["tool_surface"] == "preset:claude_code"
+    names = {tool.name for tool in agent.tools}
+    assert {"Read", "Write", "Bash", "WebFetch", "WebSearch"} <= names
+    assert "process.execute" in next(
+        tool for tool in agent.tools if tool.name == "Bash"
+    ).capabilities
+
+
+def test_claude_typescript_allowed_tools_restrict_implicit_default(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        """
+import { query } from "@anthropic-ai/claude-agent-sdk";
+
+const options = {
+  allowedTools: ["Read", "Write"],
+  permissionMode: "bypassPermissions",
+};
+
+async function run() {
+  for await (const message of query({ prompt: "inspect", options })) {
+    console.log(message);
+  }
+}
+""",
+    )
+
+    graph = scan_claude_agent_sdk_typescript_file(path)
+    agent = next(item for item in graph.agents if item.name == "options")
+
+    assert {tool.name for tool in agent.tools} == {"Read", "Write"}
+    assert agent.metadata["tool_surface"] == "restricted_default"
+    assert agent.metadata["tool_surface_restricted_by_allowed_tools"] is True
+
+
+def test_claude_typescript_imported_option_builder_is_resolved(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path,
+        """
+export function makeQueryOptions(opts: { cwd?: string }) {
+  return {
+    allowedTools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"] as string[],
+    permissionMode: "bypassPermissions" as const,
+    cwd: opts.cwd,
+  };
+}
+""",
+        "client.ts",
+    )
+    path = _write(
+        tmp_path,
+        """
+import { query } from "@anthropic-ai/claude-agent-sdk";
+import { makeQueryOptions } from "./client.js";
+
+const options = makeQueryOptions({ cwd: "/workspace" });
+const optionsWithAbort = {
+  ...options,
+  abortController: controller,
+};
+
+async function run() {
+  for await (const message of query({ prompt: "inspect", options: optionsWithAbort })) {
+    console.log(message);
+  }
+}
+""",
+        "agent.ts",
+    )
+
+    graph = scan_claude_agent_sdk_typescript_file(path)
+    agent = next(item for item in graph.agents if item.name == "optionsWithAbort")
+
+    assert {tool.name for tool in agent.tools} == {
+        "Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash",
+    }
+    assert agent.metadata["permission_mode"] == "bypassPermissions"
+    assert agent.metadata["tool_surface"] == "restricted_default"
+    assert "process.execute" in next(
+        tool for tool in agent.tools if tool.name == "Bash"
+    ).capabilities
