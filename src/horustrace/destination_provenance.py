@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ipaddress import ip_address
+import ipaddress
 from urllib.parse import urlparse
 
 from horustrace.models import Graph, NetworkDestination, ResourceScope
@@ -45,7 +45,7 @@ def _is_local_host(host: str | None) -> bool:
     if lowered == "localhost" or lowered.endswith(".localhost"):
         return True
     try:
-        return ip_address(lowered).is_loopback
+        return ipaddress.ip_address(lowered).is_loopback
     except ValueError:
         return False
 
