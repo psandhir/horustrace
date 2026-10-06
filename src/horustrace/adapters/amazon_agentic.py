@@ -9,7 +9,8 @@ from typing import Any
 
 import yaml
 
-from horustrace.heuristics import infer_capabilities
+from horustrace.effect_semantics import http_mutation_capabilities, sql_call_capabilities
+from horustrace.heuristics import corroborate_name_inferred_authority, infer_capabilities
 from horustrace.models import (
     Agent,
     DataSource,
@@ -71,6 +72,20 @@ def _leaf(node: ast.AST | None) -> str | None:
         return node.id
     if isinstance(node, ast.Attribute):
         return node.attr
+    return None
+
+
+def _dotted(node: ast.AST | None) -> str | None:
+    if node is None:
+        return None
+    parts: list[str] = []
+    current = node
+    while isinstance(current, ast.Attribute):
+        parts.append(current.attr)
+        current = current.value
+    if isinstance(current, ast.Name):
+        parts.append(current.id)
+        return ".".join(reversed(parts))
     return None
 
 
@@ -163,42 +178,76 @@ def _attach_literal_resources(tool: Tool, text: str) -> None:
 
 
 def _python_effect_capabilities(node: ast.AST) -> set[str]:
-    text = ast.unparse(node).lower()
-    capabilities = set(infer_capabilities(getattr(node, "name", "")))
-    if any(
-        marker in text
-        for marker in ("subprocess.", "os.system(", "os.popen(", "create_subprocess")
-    ):
-        capabilities.add("process.execute")
-    if any(
-        marker in text
-        for marker in (
-            "requests.",
-            "httpx.",
-            "aiohttp.",
-            "urllib.request",
-            "socket.",
-        )
-    ):
-        capabilities.add("network.external")
-    if any(
-        marker in text
-        for marker in (".post(", ".put(", ".patch(", "send_message", "send_email")
-    ):
-        capabilities.update({"data.write", "external.write"})
-    if any(marker in text for marker in (".delete(", "os.remove(", "os.unlink(", "shutil.rmtree(")):
-        capabilities.update({"data.write", "destructive.write"})
-    if any(marker in text for marker in ("get_secret_value", "secretsmanager", "secretclient")):
-        capabilities.add("secrets.read")
-    if any(marker in text for marker in ("get_object", "download_file", "query(", "scan(")):
-        capabilities.add("data.read")
-    if any(marker in text for marker in ("put_object", "upload_file", "put_item", "update_item")):
-        capabilities.add("data.write")
-    if "delete_item" in text or "delete_object" in text:
-        capabilities.update({"data.write", "destructive.write"})
-    if "boto3.client(" in text or "boto3.resource(" in text:
-        capabilities.add("network.external")
-    return capabilities
+    """Infer source-visible effects without promoting transport or business names."""
+    name_capabilities = set(infer_capabilities(getattr(node, "name", "")))
+    body_capabilities: set[str] = set()
+
+    for child in ast.walk(node):
+        if not isinstance(child, ast.Call):
+            continue
+        called = (_dotted(child.func) or _leaf(child.func) or "").lower()
+        leaf = (_leaf(child.func) or "").lower()
+
+        sql_capabilities = sql_call_capabilities(child)
+        body_capabilities.update(sql_capabilities)
+
+        if (
+            called in {
+                "exec",
+                "eval",
+                "compile",
+                "builtins.exec",
+                "builtins.eval",
+                "builtins.compile",
+                "os.system",
+                "os.popen",
+            }
+            or called.startswith("subprocess.")
+            or "create_subprocess_" in called
+        ):
+            body_capabilities.add("process.execute")
+
+        if (
+            called.startswith(("requests.", "httpx.", "aiohttp."))
+            or "urllib.request" in called
+        ):
+            body_capabilities.add("network.external")
+            body_capabilities.update(http_mutation_capabilities(child))
+        elif called.startswith("socket."):
+            body_capabilities.add("network.external")
+
+        if called in {"os.remove", "os.unlink", "shutil.rmtree"}:
+            body_capabilities.update({"data.write", "destructive.write"})
+
+        if (
+            "secretmanager" in called
+            or "secretclient" in called
+            or leaf == "get_secret_value"
+        ):
+            body_capabilities.add("secrets.read")
+
+        if leaf in {"get_object", "download_file", "query", "scan"}:
+            body_capabilities.add("data.read")
+        if leaf in {"put_object", "upload_file", "put_item", "update_item"}:
+            body_capabilities.add("data.write")
+        if leaf in {"delete_item", "delete_object"}:
+            body_capabilities.update({"data.write", "destructive.write"})
+
+        # Provider API operations are concrete body-level effects, unlike an
+        # arbitrary helper/function name such as "send_alert".
+        if leaf in {"send_message", "send_email", "publish"}:
+            body_capabilities.update(
+                {"data.write", "external.write", "network.external"}
+            )
+
+        if called in {"boto3.client", "boto3.resource"}:
+            body_capabilities.add("network.external")
+
+    corroborated, _ = corroborate_name_inferred_authority(
+        name_capabilities,
+        body_capabilities,
+    )
+    return body_capabilities | corroborated
 
 
 def _custom_tools(path: Path, tree: ast.AST) -> dict[str, Tool]:
