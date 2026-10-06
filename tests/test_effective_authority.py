@@ -178,7 +178,6 @@ def test_effective_authority_keeps_missing_dimensions_explicit(tmp_path: Path) -
     assert relationship["runtime_effectiveness"] == "not_verified"
 
 
-
 def test_effective_authority_mcp_core_requires_tool_scope(tmp_path: Path) -> None:
     location = SourceLocation(tmp_path / "agent.py", line=5)
     server = MCPServer(
