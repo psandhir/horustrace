@@ -1037,6 +1037,7 @@ def _harness_builtin_tools(
 
 
 _WORKFLOW_MARKERS = (
+    "WorkflowBuilder(",
     "BuildSequential(",
     "BuildConcurrent(",
     "CreateHandoffBuilderWith(",
@@ -1069,6 +1070,58 @@ def _workflow_participants(
     return result
 
 
+def _workflow_edges(
+    expression: str,
+    agent_aliases: dict[str, Agent],
+) -> list[dict[str, str]]:
+    """Recover source-visible fluent WorkflowBuilder edges without execution."""
+    result: list[dict[str, str]] = []
+    for match in re.finditer(
+        r"\.AddEdge\s*\(\s*([A-Za-z_]\w*)\s*,\s*([A-Za-z_]\w*)",
+        expression,
+    ):
+        source_alias, target_alias = match.groups()
+        if source_alias not in agent_aliases or target_alias not in agent_aliases:
+            continue
+        edge = {"source": source_alias, "target": target_alias}
+        if edge not in result:
+            result.append(edge)
+    return result
+
+
+def _workflow_kind_from_edges(edges: list[dict[str, str]]) -> str:
+    """Classify a proven linear fluent edge chain as sequential."""
+    if not edges:
+        return "workflow"
+    outgoing: dict[str, int] = {}
+    incoming: dict[str, int] = {}
+    nodes: set[str] = set()
+    for edge in edges:
+        source_alias = edge["source"]
+        target_alias = edge["target"]
+        nodes.update({source_alias, target_alias})
+        outgoing[source_alias] = outgoing.get(source_alias, 0) + 1
+        incoming[target_alias] = incoming.get(target_alias, 0) + 1
+    if (
+        len(edges) == len(nodes) - 1
+        and max(outgoing.values(), default=0) <= 1
+        and max(incoming.values(), default=0) <= 1
+    ):
+        return "sequential"
+    return "workflow"
+
+
+def _workflow_is_executed(source: str, alias: str) -> bool:
+    escaped = re.escape(alias)
+    return any(
+        re.search(pattern, source) is not None
+        for pattern in (
+            rf"\b(?:RunStreamingAsync|RunAsync|Run)\s*\(\s*{escaped}\b",
+            rf"\b{escaped}\.(?:RunStreamingAsync|RunAsync|Run)\s*\(",
+        )
+    )
+
+
 def _workflow_definitions(
     source: str,
     known: dict[str, CSharpAssignment],
@@ -1079,13 +1132,18 @@ def _workflow_definitions(
 
     for name, item in known.items():
         if any(marker in item.expression for marker in _WORKFLOW_MARKERS):
-            kind = _workflow_kind(item.expression) or "workflow"
+            edges = _workflow_edges(item.expression, agent_aliases)
+            kind = (
+                _workflow_kind(item.expression)
+                or _workflow_kind_from_edges(edges)
+            )
             builders[name] = {
                 "kind": kind,
                 "participants": _workflow_participants(
                     item.expression,
                     agent_aliases,
                 ),
+                "workflow_edges": edges,
                 "source_alias": name,
             }
 
@@ -1116,12 +1174,17 @@ def _workflow_definitions(
             item.expression,
         )
         if direct:
+            edges = _workflow_edges(item.expression, agent_aliases)
             workflows[name] = dict(builders.get(name, {
-                "kind": _workflow_kind(item.expression) or "workflow",
+                "kind": (
+                    _workflow_kind(item.expression)
+                    or _workflow_kind_from_edges(edges)
+                ),
                 "participants": _workflow_participants(
                     item.expression,
                     agent_aliases,
                 ),
+                "workflow_edges": edges,
                 "source_alias": name,
             }))
         elif builder_match and builder_match.group(1) in builders:
@@ -1994,7 +2057,51 @@ def scan_dotnet_file(path: Path) -> Graph:
     # source-proven participant agents.
     workflows = _workflow_definitions(source, known, aliases)
 
-    for item, agent in zip(agent_items, graph.agents):
+    # A workflow executed directly through InProcessExecution is itself an
+    # authority-bearing orchestration surface even when it is never wrapped by
+    # AddAsAIAgent(). Preserve its topology and participant delegation.
+    for workflow_alias, definition in workflows.items():
+        if not _workflow_is_executed(source, workflow_alias):
+            continue
+        item = known.get(workflow_alias)
+        if item is None:
+            continue
+        workflow_agent = next(
+            (
+                candidate
+                for candidate in graph.agents
+                if candidate.name == workflow_alias
+                and candidate.metadata.get("agent_type") == "Workflow"
+            ),
+            None,
+        )
+        if workflow_agent is None:
+            workflow_agent = Agent(
+                name=workflow_alias,
+                location=location(path, source, item.offset),
+                metadata={
+                    "framework": FRAMEWORK,
+                    "language": "csharp",
+                    "agent_type": "Workflow",
+                    "multiagent_type": "workflow",
+                    "repository_resolved": True,
+                    "workflow_kind": definition.get("kind"),
+                    "workflow_edges": definition.get("workflow_edges") or [],
+                    "workflow_source_alias": workflow_alias,
+                },
+            )
+            graph.agents.append(workflow_agent)
+        workflow_agent.tools.extend(_workflow_delegation_tools(
+            path,
+            source,
+            definition,
+            offset=item.offset,
+            agent_aliases=aliases,
+        ))
+        workflow_agent.tools = _dedupe_tools(workflow_agent.tools)
+        aliases.setdefault(workflow_alias, workflow_agent)
+
+    for item, agent in zip(agent_items, graph.agents[:len(agent_items)]):
         for ref in refs(item.expression):
             definition = workflows.get(ref)
             if definition is None:
