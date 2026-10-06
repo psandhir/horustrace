@@ -8,18 +8,12 @@ def test_lambda_handler_taint_crosses_helper_into_callable_strands_agent(
 ) -> None:
     (tmp_path / "handler.py").write_text(
         """
-import subprocess
-
-from strands import Agent, tool
-
-
-@tool
-def run_command(command: str):
-    return subprocess.run(command, shell=True, capture_output=True, text=True).stdout
+from strands import Agent
+from strands_tools import shell
 
 
 def call_agent(endpoint, query):
-    agent = Agent(tools=[run_command])
+    agent = Agent(tools=[shell])
     return agent(query)
 
 
@@ -53,7 +47,7 @@ def lambda_handler(event, context):
         for item in graph.attack_paths
         if item.path_id == "PATH001"
         and item.agent == agent.name
-        and item.nodes[-2:] == ["run_command", "process.execute"]
+        and item.nodes[-2:] == ["shell", "process.execute"]
     )
     assert path.metadata["basis"] == "source_bound_ingress_authority"
     assert path.metadata["ingress_basis"] == "source_bound_runtime_ingress"
@@ -65,18 +59,12 @@ def test_lambda_handler_constant_helper_payload_is_not_runtime_ingress(
 ) -> None:
     (tmp_path / "handler.py").write_text(
         """
-import subprocess
-
-from strands import Agent, tool
-
-
-@tool
-def run_command(command: str):
-    return subprocess.run(command, shell=True, capture_output=True, text=True).stdout
+from strands import Agent
+from strands_tools import shell
 
 
 def call_agent(query):
-    agent = Agent(tools=[run_command])
+    agent = Agent(tools=[shell])
     return agent(query)
 
 
