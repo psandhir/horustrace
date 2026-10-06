@@ -38,7 +38,8 @@ def test_owasp_summary_distinguishes_findings_no_findings_and_not_assessed(
 
     assert report["standard"] == "OWASP Top 10 for Agentic Applications 2026"
     assert _category(report, "ASI05")["status"] == "finding"
-    assert _category(report, "ASI05")["runtime_status"] == "no_runtime_findings"
+    assert _category(report, "ASI05")["runtime_status"] == "finding"
+    assert _category(report, "ASI05")["source_contexts"]["runtime"] > 0
     assert "AGT020" in _category(report, "ASI05")["finding_rule_ids"]
     assert _category(report, "ASI06")["status"] == "no_mapped_findings"
     assert _category(report, "ASI06")["runtime_status"] == "no_mapped_findings"
@@ -180,5 +181,6 @@ def test_sarif_run_properties_include_owasp_summary(tmp_path: Path, capsys) -> N
     report = sarif["runs"][0]["properties"]["owasp_agentic"]
 
     assert _category(report, "ASI05")["status"] == "finding"
-    assert _category(report, "ASI05")["runtime_status"] == "no_runtime_findings"
+    assert _category(report, "ASI05")["runtime_status"] == "finding"
+    assert _category(report, "ASI05")["source_contexts"]["runtime"] > 0
     assert _category(report, "ASI08")["status"] == "not_assessed"
