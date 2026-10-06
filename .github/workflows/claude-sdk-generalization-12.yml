@@ -9,15 +9,19 @@ on:
       - ".github/workflows/claude-sdk-generalization-12.yml"
       - "research/claude-sdk-generalization-12/**"
       - "src/horustrace/adapters/claude_agent_sdk.py"
+      - "src/horustrace/adapters/claude_agent_sdk_typescript.py"
       - "src/horustrace/effective_authority.py"
       - "src/horustrace/scanner.py"
+      - "tests/test_claude_agent_sdk_typescript.py"
   pull_request:
     paths:
       - ".github/workflows/claude-sdk-generalization-12.yml"
       - "research/claude-sdk-generalization-12/**"
       - "src/horustrace/adapters/claude_agent_sdk.py"
+      - "src/horustrace/adapters/claude_agent_sdk_typescript.py"
       - "src/horustrace/effective_authority.py"
       - "src/horustrace/scanner.py"
+      - "tests/test_claude_agent_sdk_typescript.py"
 
 permissions:
   contents: read

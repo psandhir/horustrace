@@ -4,6 +4,8 @@ from horustrace.adapters.claude_agent_sdk_typescript import (
     is_claude_agent_sdk_typescript_file,
     scan_claude_agent_sdk_typescript_file,
 )
+from horustrace.effective_authority import effective_authority_report
+from horustrace.rules.builtin import evaluate
 from horustrace.scanner import scan
 
 
@@ -364,9 +366,30 @@ async function run() {
     assert {"Read", "Glob", "Grep", "Bash"} <= names
     assert agent.metadata["can_use_tool_configured"] is True
     assert agent.metadata["pre_tool_use_guard"] is True
+    assert agent.metadata["tool_control_state"] == "enforcing"
+    assert agent.metadata["tool_control_enforcing"] is True
+    assert agent.metadata["tool_control_mechanism"] == (
+        "claude_canUseTool+claude_PreToolUse"
+    )
     assert agent.metadata["enforcing_tool_control"] is True
     assert "Write" in agent.metadata["settings_deny_rules"]
 
     bash = next(tool for tool in agent.tools if tool.name == "Bash")
     assert bash.metadata["runtime_controlled"] is True
     assert "Bash(git push:*)" in bash.metadata["scoped_deny_rules"]
+
+    report = effective_authority_report(graph)
+    bash_authority = next(
+        item
+        for item in report["relationships"]
+        if item["target"] == {"kind": "tool", "name": "Bash"}
+    )
+    assert bash_authority["dimensions"]["approval"] == "resolved"
+    assert bash_authority["approval"]["inherited_control"] is True
+    assert bash_authority["approval"]["mechanism"] == (
+        "claude_canUseTool+claude_PreToolUse"
+    )
+    assert "approval" not in bash_authority["unresolved"]
+
+    finding_ids = {item.rule_id for item in evaluate(graph)}
+    assert "AGT040" not in finding_ids

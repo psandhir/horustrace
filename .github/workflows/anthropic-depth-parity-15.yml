@@ -9,17 +9,21 @@ on:
       - ".github/workflows/anthropic-depth-parity-15.yml"
       - "research/anthropic-depth-parity-15/**"
       - "src/horustrace/adapters/claude_agent_sdk.py"
+      - "src/horustrace/adapters/claude_agent_sdk_typescript.py"
       - "src/horustrace/scanner.py"
       - "src/horustrace/effective_authority.py"
       - "tests/test_claude_agent_sdk.py"
+      - "tests/test_claude_agent_sdk_typescript.py"
   pull_request:
     paths:
       - ".github/workflows/anthropic-depth-parity-15.yml"
       - "research/anthropic-depth-parity-15/**"
       - "src/horustrace/adapters/claude_agent_sdk.py"
+      - "src/horustrace/adapters/claude_agent_sdk_typescript.py"
       - "src/horustrace/scanner.py"
       - "src/horustrace/effective_authority.py"
       - "tests/test_claude_agent_sdk.py"
+      - "tests/test_claude_agent_sdk_typescript.py"
 
 permissions:
   contents: read
