@@ -3,6 +3,10 @@ from __future__ import annotations
 import ipaddress
 from urllib.parse import urlparse
 
+from horustrace.destination_provenance import (
+    CONSTRAINED_NETWORK_SCOPES,
+    destination_constraint_is_bounded,
+)
 from horustrace.effective_authority import effective_authority_relationships
 from horustrace.heuristics import (
     BROAD_OAUTH_SCOPES,
@@ -65,22 +69,20 @@ def _skill_semantic_evidence(
 
 
 def _destination_is_broad_or_dynamic(destination: NetworkDestination) -> bool:
+    # Runtime/environment constraints can bound a model-selected URL without
+    # turning the model-selected expression into a fixed endpoint.
+    if destination_constraint_is_bounded(destination):
+        return False
     if destination_is_broad(destination.target) or destination.target.startswith("<dynamic"):
         return True
 
     source = str(destination.metadata.get("source") or "")
     scope = str(destination.metadata.get("network_scope") or "")
-    if source == "literal_url" or scope in {
-        "fixed_literal_destination",
-        "fixed_managed_service",
-        "explicit_destination",
-    }:
-        return False
     if source == "dynamic_network_call" or scope == "dynamic_destination":
         return True
 
     # A bare unrestricted destination from policy/config remains broad unless
-    # stronger provenance shows it is only an observed fixed literal.
+    # stronger provenance proves a bounded destination.
     return not destination.restricted
 
 
@@ -812,7 +814,7 @@ def evaluate(graph: Graph) -> list[Finding]:
             server_authority = mcp_authority_by_object.get(id(server))
             if (
                 server.metadata.get("dynamic_mcp_endpoint_basis")
-                != "operator_configuration"
+                not in {"operator_configuration", "environment_allowlist"}
             ):
                 findings.append(
                     Finding(
@@ -1396,12 +1398,7 @@ def evaluate(graph: Graph) -> list[Finding]:
             tool
             for tool in network_outbound_tools
             if tool.metadata.get("network_scope")
-            not in {
-                "fixed_managed_service",
-                "fixed_provider_network",
-                "operator_configured_destination",
-                "explicit_destination",
-            }
+            not in CONSTRAINED_NETWORK_SCOPES
             and _llm_network_gap_is_actionable(tool)
         ]
         if explicit_broad_destinations:
@@ -1458,11 +1455,7 @@ def evaluate(graph: Graph) -> list[Finding]:
                 for item in outbound_authorities
                 if item.dimensions.get("destinations") != "resolved"
                 and item.semantics.get("network")
-                not in {
-                    "fixed_managed_service",
-                    "fixed_provider_network",
-                    "operator_configured_destination",
-                }
+                not in CONSTRAINED_NETWORK_SCOPES
                 and (
                     item.target_kind != "tool"
                     or item.target_name not in network_tools_by_name

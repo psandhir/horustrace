@@ -546,6 +546,15 @@ def _mcp_relationship(
         server.metadata.get("dynamic_mcp_endpoint_basis")
         == "operator_configuration"
     )
+    environment_allowed_hosts = [
+        str(item)
+        for item in server.metadata.get("environment_allowed_hosts") or []
+        if isinstance(item, str) and item
+    ]
+    environment_bounded_remote = bool(
+        environment_allowed_hosts
+        and server.metadata.get("network_scope") == "environment_allowlist"
+    )
     dynamic_remote = bool(
         server.metadata.get("dynamic_mcp_endpoint")
         and server.transport in {"http", "sse", "streamable-http", "streamable_http"}
@@ -565,7 +574,12 @@ def _mcp_relationship(
         "resources": "resolved" if server.resources else "unknown",
         "destinations": (
             "resolved"
-            if server.url or server.command or operator_configured_remote
+            if (
+                server.url
+                or server.command
+                or operator_configured_remote
+                or environment_bounded_remote
+            )
             else "unknown"
         ),
         "tool_scope": tool_scope_status,
@@ -578,7 +592,12 @@ def _mcp_relationship(
         unresolved.append("approval")
     if not server.resources:
         unresolved.append("resources")
-    if not server.url and not server.command and not operator_configured_remote:
+    if (
+        not server.url
+        and not server.command
+        and not operator_configured_remote
+        and not environment_bounded_remote
+    ):
         unresolved.append("destinations")
 
     identity_doc = None
@@ -619,6 +638,18 @@ def _mcp_relationship(
                 ),
                 "location": _location(server.location),
             }
+        )
+    elif environment_bounded_remote:
+        destinations.extend(
+            {
+                "target": target,
+                "direction": "outbound",
+                "restricted": True,
+                "kind": "environment_allowed_host",
+                "constraint_basis": "managed_environment_allowed_hosts",
+                "location": _location(server.location),
+            }
+            for target in environment_allowed_hosts
         )
     elif server.command:
         destinations.append(

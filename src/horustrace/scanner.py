@@ -62,6 +62,7 @@ from horustrace.authority_source import (
 from horustrace.config import ScanConfig
 from horustrace.config import apply as apply_config
 from horustrace.coverage import add_diagnostic, diagnose_dynamic_constructs, diagnose_python
+from horustrace.destination_provenance import normalize_destination_resource_provenance
 from horustrace.entrypoint_provenance import annotate_flow_entrypoints
 from horustrace.flow import analyze_repository_flows
 from horustrace.heuristics import PRIVILEGED_CAPABILITIES
@@ -2614,6 +2615,7 @@ def scan(
         root if root.is_dir() else root.parent,
         approved_python_paths,
     )
+    normalize_destination_resource_provenance(graph)
     if llm_semantic_config is not None:
         llm_semantic_stats = enrich_llm_semantics(
             graph,
