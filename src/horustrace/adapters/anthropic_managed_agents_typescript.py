@@ -244,6 +244,7 @@ def _apply_builder(
         return
 
     constants = _string_constants(builder_source)
+    body_offset = builder_source.find(body)
     agent.metadata["agent_builder"] = builder_name
     agent.metadata["agent_builder_source"] = str(builder_path)
 
@@ -287,7 +288,7 @@ def _apply_builder(
         )
         if url is None and url_expr:
             server.metadata["mcp_url_expression"] = url_expr
-        prefix = builder_source[max(0, offset - 300) : offset]
+        prefix = body[max(0, offset - 300) : offset]
         if re.search(r"\bif\s*\(", prefix):
             server.metadata["conditional"] = True
         servers[name] = server
