@@ -54,8 +54,7 @@ def _normalize_destination(destination: NetworkDestination) -> None:
     source = str(metadata.get("source") or "")
     scope = str(metadata.get("network_scope") or "")
 
-    if source in {"literal_url", "fixed_url_origin"} or scope in {
-        "fixed_literal_destination",
+    if source == "fixed_url_origin" or scope in {
         "fixed_managed_service",
         "fixed_provider_network",
         "fixed_domain_allowlist",
@@ -66,11 +65,53 @@ def _normalize_destination(destination: NetworkDestination) -> None:
         metadata.setdefault("destination_constraint_basis", source or scope)
 
     host = _host_from_target(destination.target)
-    if _is_local_host(host):
-        destination.restricted = True
+    if destination.restricted and _is_local_host(host):
         metadata["network_scope"] = "fixed_local_service"
         metadata.setdefault("destination_constraint_basis", "fixed_local_endpoint")
         metadata["local_service"] = True
+
+
+def _dynamic_destination_evidence(destination: NetworkDestination) -> bool:
+    metadata = destination.metadata
+    return (
+        str(metadata.get("source") or "") in {
+            "dynamic_network_call",
+            "model_selected_url_argument",
+        }
+        or str(metadata.get("network_scope") or "") in {
+            "dynamic_destination",
+            "dynamic_search_results",
+            "search_result_derived_destination",
+        }
+        or destination.target.startswith(("<dynamic", "<model-selected"))
+    )
+
+
+def _normalize_owner_destinations(
+    destinations: list[NetworkDestination],
+) -> None:
+    for destination in destinations:
+        _normalize_destination(destination)
+
+    # A literal observed on one branch of a caller/model-selected expression
+    # does not constrain the other branch. Only promote literal evidence to a
+    # fixed boundary when the owner has no source-visible dynamic destination.
+    if any(_dynamic_destination_evidence(item) for item in destinations):
+        return
+
+    for destination in destinations:
+        metadata = destination.metadata
+        source = str(metadata.get("source") or "")
+        scope = str(metadata.get("network_scope") or "")
+        if source != "literal_url" and scope != "fixed_literal_destination":
+            continue
+        if _host_from_target(destination.target) is None:
+            continue
+        destination.restricted = True
+        metadata.setdefault("destination_constraint_basis", "fixed_literal_endpoint")
+        if _is_local_host(_host_from_target(destination.target)):
+            metadata["network_scope"] = "fixed_local_service"
+            metadata["local_service"] = True
 
 
 def _normalize_resource(resource: ResourceScope) -> None:
@@ -202,16 +243,13 @@ def normalize_destination_resource_provenance(graph: Graph) -> None:
     explicit managed-runtime host allowlist.
     """
     for agent in graph.agents:
-        for destination in agent.network:
-            _normalize_destination(destination)
+        _normalize_owner_destinations(agent.network)
         for tool in agent.tools:
-            for destination in tool.destinations:
-                _normalize_destination(destination)
+            _normalize_owner_destinations(tool.destinations)
             for resource in tool.resources:
                 _normalize_resource(resource)
         for skill in agent.skills:
-            for destination in skill.destinations:
-                _normalize_destination(destination)
+            _normalize_owner_destinations(skill.destinations)
             for resource in skill.resources:
                 _normalize_resource(resource)
         for server in agent.mcp_servers:
@@ -220,8 +258,7 @@ def normalize_destination_resource_provenance(graph: Graph) -> None:
         _apply_environment_constraint(agent)
 
     for tool in graph.unbound_tools:
-        for destination in tool.destinations:
-            _normalize_destination(destination)
+        _normalize_owner_destinations(tool.destinations)
         for resource in tool.resources:
             _normalize_resource(resource)
     for server in graph.unbound_mcp_servers:
