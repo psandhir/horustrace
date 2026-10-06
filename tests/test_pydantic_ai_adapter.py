@@ -1986,3 +1986,29 @@ def add_numbers(a: int, b: int) -> int:
         for finding in findings
     )
 
+
+
+def test_pydantic_ai_dynamic_sse_toolset_is_preserved(tmp_path: Path) -> None:
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+from pydantic_ai import Agent
+from pydantic_ai.mcp import MCPServerSSE
+
+def build_agent(server_url: str):
+    client = MCPServerSSE(
+        url=server_url,
+        headers={"X-User-ID": "session"},
+    )
+    return Agent("openai:gpt-5.2", toolsets=[client])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.metadata["framework"] == "pydantic-ai")
+    assert len(agent.mcp_servers) == 1
+    server = agent.mcp_servers[0]
+    assert server.transport == "sse"
+    assert server.metadata["dynamic_mcp_endpoint"] is True
+    assert server.metadata["dynamic_mcp_endpoint_basis"] == "operator_configuration"
