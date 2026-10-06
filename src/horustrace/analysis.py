@@ -493,19 +493,33 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 and _llm_synthetic_approval_gap_is_proven(tool)
                 and ("PATH001", agent.name) not in supported_rule_agents
             ):
+                ingress = (
+                    runtime_bound_untrusted[0]
+                    if runtime_bound_untrusted
+                    else untrusted[0]
+                )
+                basis = (
+                    "source_bound_ingress_authority"
+                    if runtime_bound_untrusted
+                    else "capability_cooccurrence"
+                )
                 paths.append(
                     AttackPath(
                         path_id="PATH001",
                         title="Potential untrusted-input path to command execution",
                         agent=agent.name,
-                        nodes=[untrusted[0].name, agent.name, tool.name, "process.execute"],
+                        nodes=[ingress.name, agent.name, tool.name, "process.execute"],
                         severity=Severity.CRITICAL,
                         rationale=(
                             "The normalized agent model combines untrusted input and "
                             "process-execution capability without a detected approval requirement."
                         ),
                         location=tool.location or agent.location,
-                        metadata=_path_metadata(basis="capability_cooccurrence"),
+                        metadata={
+                            **_path_metadata(basis=basis),
+                            "ingress_basis": ingress.metadata.get("basis"),
+                            "target_kind": "tool",
+                        },
                     )
                 )
 
@@ -557,19 +571,38 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
                 and tool.approval is not True
                 and _llm_synthetic_approval_gap_is_proven(tool)
             ):
+                ingress = (
+                    runtime_bound_untrusted[0]
+                    if runtime_bound_untrusted
+                    else untrusted[0]
+                )
+                basis = (
+                    "source_bound_ingress_authority"
+                    if runtime_bound_untrusted
+                    else "capability_cooccurrence"
+                )
                 paths.append(
                     AttackPath(
                         path_id="PATH002",
                         title="Potential untrusted-input path to destructive action",
                         agent=agent.name,
-                        nodes=[untrusted[0].name, agent.name, tool.name, "destructive.write"],
+                        nodes=[
+                            ingress.name,
+                            agent.name,
+                            tool.name,
+                            "destructive.write",
+                        ],
                         severity=Severity.HIGH,
                         rationale=(
                             "The normalized agent model combines untrusted input and "
                             "destructive-write capability without a detected approval requirement."
                         ),
                         location=tool.location or agent.location,
-                        metadata=_path_metadata(basis="capability_cooccurrence"),
+                        metadata={
+                            **_path_metadata(basis=basis),
+                            "ingress_basis": ingress.metadata.get("basis"),
+                            "target_kind": "tool",
+                        },
                     )
                 )
 
