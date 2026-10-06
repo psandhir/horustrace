@@ -136,29 +136,67 @@ def sql_call_capabilities(call: ast.Call) -> set[str]:
     return capabilities
 
 
-def _literal_payload_tokens(call: ast.Call) -> set[str]:
-    """Extract operation-like literal strings from an inline HTTP payload."""
-    payloads = [
-        keyword.value
-        for keyword in call.keywords
-        if keyword.arg in {"json", "data"}
-    ]
+def _assigned_value(
+    context: ast.AST | None,
+    name: str,
+) -> ast.AST | None:
+    if context is None:
+        return None
+    for child in ast.walk(context):
+        if isinstance(child, ast.Assign):
+            if any(
+                isinstance(target, ast.Name) and target.id == name
+                for target in child.targets
+            ):
+                return child.value
+        elif isinstance(child, ast.AnnAssign):
+            if isinstance(child.target, ast.Name) and child.target.id == name:
+                return child.value
+    return None
+
+
+def _resolved_expr(
+    node: ast.AST | None,
+    context: ast.AST | None,
+) -> ast.AST | None:
+    if isinstance(node, ast.Name):
+        return _assigned_value(context, node.id) or node
+    return node
+
+
+def _string_tokens(node: ast.AST | None) -> set[str]:
+    if node is None:
+        return set()
     tokens: set[str] = set()
-    for payload in payloads:
-        for node in ast.walk(payload):
-            if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
-                continue
-            normalized = (
-                node.value.lower()
-                .replace("-", "_")
-                .replace("/", "_")
-                .replace(".", "_")
-            )
-            tokens.update(part for part in normalized.split("_") if part)
+    for child in ast.walk(node):
+        if not isinstance(child, ast.Constant) or not isinstance(child.value, str):
+            continue
+        normalized = re.sub(r"[^a-z0-9]+", "_", child.value.lower())
+        tokens.update(part for part in normalized.split("_") if part)
     return tokens
 
 
-def _literal_http_target_tokens(call: ast.Call) -> set[str]:
+def _literal_payload_tokens(
+    call: ast.Call,
+    context: ast.AST | None = None,
+) -> set[str]:
+    """Extract operation-like strings from source-visible HTTP payloads."""
+    tokens: set[str] = set()
+    for keyword in call.keywords:
+        if keyword.arg not in {"json", "data"}:
+            continue
+        value = _resolved_expr(keyword.value, context)
+        if isinstance(value, ast.Call) and value.args:
+            # Preserve payload semantics through wrappers such as json.dumps.
+            value = _resolved_expr(value.args[0], context)
+        tokens.update(_string_tokens(value))
+    return tokens
+
+
+def _literal_http_target_tokens(
+    call: ast.Call,
+    context: ast.AST | None = None,
+) -> set[str]:
     """Extract effect-bearing tokens from a source-visible HTTP target path."""
     leaf = (call_leaf(call.func) or "").lower()
     target = (
