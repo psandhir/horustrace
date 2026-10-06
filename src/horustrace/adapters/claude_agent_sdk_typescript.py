@@ -20,8 +20,8 @@ _SDK = "@anthropic-ai/claude-agent-sdk"
 _EXTENSIONS = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
 _URL_RE = re.compile(r"https?://[^\s\"')\]\}<>]+")
 _BINDING_RE = re.compile(
-    r"\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)"
-    r"(?:\\s*:\\s*[^=\\n]+)?\\s*=\\s*"
+    r"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)"
+    r"(?:\s*:\s*[^=\n]+)?\s*=\s*"
 )
 
 _BUILTINS: dict[str, tuple[str, set[str]]] = {
@@ -209,7 +209,7 @@ def _string_array_expression(
     arrays: dict[str, list[str]],
 ) -> list[str] | None:
     current = expression.strip()
-    alias = re.fullmatch(r"([A-Za-z_$][\\w$]*)", current)
+    alias = re.fullmatch(r"([A-Za-z_$][\w$]*)", current)
     if alias:
         return list(arrays[alias.group(1)]) if alias.group(1) in arrays else None
     start = current.find("[")
@@ -222,7 +222,7 @@ def _string_array_expression(
     values: list[str] = []
     cursor = 0
     token = re.compile(
-        r"\\s*(?:([\"'])(.*?)\\1|\\.\\.\\.([A-Za-z_$][\\w$]*))\\s*(?:,|$)",
+        r"\s*(?:([\"'])(.*?)\1|\.\.\.([A-Za-z_$][\w$]*))\s*(?:,|$)",
         re.DOTALL,
     )
     while cursor < len(body):
@@ -245,8 +245,8 @@ def _string_array_expression(
 def _exported_string_arrays(source: str) -> dict[str, list[str]]:
     result: dict[str, list[str]] = {}
     pattern = re.compile(
-        r"\\b(?:export\\s+)?const\\s+([A-Za-z_$][\\w$]*)"
-        r"(?:\\s*:\\s*[^=\\n]+)?\\s*=\\s*"
+        r"\b(?:export\s+)?const\s+([A-Za-z_$][\w$]*)"
+        r"(?:\s*:\s*[^=\n]+)?\s*=\s*"
     )
     for match in pattern.finditer(source):
         tail = source[match.end():]
@@ -268,7 +268,7 @@ def _exported_string_arrays(source: str) -> dict[str, list[str]]:
 def _imported_string_arrays(path: Path, source: str) -> dict[str, list[str]]:
     result: dict[str, list[str]] = {}
     pattern = re.compile(
-        r"import\\s*\\{(?P<body>[^}]*)\\}\\s*from\\s*"
+        r"import\s*\{(?P<body>[^}]*)\}\s*from\s*"
         r"(?P<quote>[\"'])(?P<specifier>[^\"']+)(?P=quote)",
         re.DOTALL,
     )
@@ -289,7 +289,7 @@ def _imported_string_arrays(path: Path, source: str) -> dict[str, list[str]]:
             item = raw.strip()
             if not item or item.startswith("type "):
                 continue
-            parts = re.split(r"\\s+as\\s+", item)
+            parts = re.split(r"\s+as\s+", item)
             imported = parts[0].strip()
             local = parts[-1].strip()
             if imported in exported:
@@ -305,7 +305,7 @@ def _expand_string_array_constants(
     for name, values in arrays.items():
         literal = "[" + ", ".join(repr(value) for value in values) + "]"
         current = re.sub(
-            rf"\\b(allowedTools|disallowedTools|deny)\\s*:\\s*{re.escape(name)}\\b",
+            rf"\b(allowedTools|disallowedTools|deny)\s*:\s*{re.escape(name)}\b",
             lambda match, replacement=literal: f"{match.group(1)}: {replacement}",
             current,
         )
