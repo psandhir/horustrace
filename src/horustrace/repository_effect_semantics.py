@@ -1128,7 +1128,11 @@ def _direct_effect(
     ):
         result.capabilities.add("network.external")
         result.capabilities.update(
-            http_mutation_capabilities(call, function_name=function_name)
+            http_mutation_capabilities(
+                call,
+                function_name=function_name,
+                context=info.functions.get(function_name),
+            )
         )
         result.evidence.add(f"http:{dotted}")
         target_expr = (
