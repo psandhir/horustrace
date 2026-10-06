@@ -246,7 +246,11 @@ def test_claude_typescript_composed_builder_constraints_survive_typed_spread(
     _write(
         tmp_path,
         """
-export function makeQueryOptions() {
+export function makeQueryOptions(opts: {
+  role: string;
+  // The SDK constrains the agent's final response to valid structured output.
+  outputSchema?: unknown;
+}) {
   return {
     allowedTools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"] as string[],
     permissionMode: "bypassPermissions" as const,
@@ -261,7 +265,7 @@ export function makeQueryOptions() {
 import { query, type Options } from "@anthropic-ai/claude-agent-sdk";
 import { makeQueryOptions } from "./client.js";
 
-const options: Options = makeQueryOptions();
+const options: Options = makeQueryOptions({ role: "generator" });
 const optionsWithAbort: Options = {
   ...options,
   abortController: controller,
