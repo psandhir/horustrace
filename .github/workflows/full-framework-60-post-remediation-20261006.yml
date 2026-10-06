@@ -2,11 +2,24 @@ name: Full Framework 60 Post Remediation
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
   push:
     branches:
-      - study/full-framework-60-post-remediation-20261006
+      - main
     paths:
       - ".github/workflows/full-framework-60-post-remediation-20261006.yml"
+      - "src/horustrace/adapters/**"
+      - "src/horustrace/analysis.py"
+      - "src/horustrace/destination_provenance.py"
+      - "src/horustrace/effective_authority.py"
+      - "src/horustrace/repository_effect_semantics.py"
+      - "src/horustrace/rules/**"
+      - "src/horustrace/runtime_ingress.py"
+      - "src/horustrace/scanner.py"
+      - "src/horustrace/semantic_contract.py"
+      - "src/horustrace/skill_llm_semantics.py"
+      - "src/horustrace/skills.py"
       - "research/full-framework-60-20261005/**"
       - "research/full-framework-60-post-remediation-20261006/**"
 
@@ -24,7 +37,7 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Verify frozen cohort
         run: |
           expected="1ea88dbb611cb7c0a81d5b8717553ef539cbdd49"
@@ -73,8 +86,8 @@ jobs:
         case_id: ${{ fromJson(needs.prepare.outputs.matrix) }}
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - name: Install HorusTrace
@@ -86,7 +99,7 @@ jobs:
             --output-dir artifacts
       - name: Upload case bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ff60-post-case-${{ matrix.case_id }}
           path: artifacts/${{ matrix.case_id }}/
@@ -99,8 +112,8 @@ jobs:
     needs: scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: ff60-post-case-*
           path: downloaded
@@ -116,12 +129,13 @@ jobs:
             --input downloaded \
             --baseline research/full-framework-60-post-remediation-20261006/baseline.csv \
             --output comparison \
-            --scanner-revision 487bc856d26d072d2c0cc07489ec54cfdd477a7c \
-            --harness-revision "$GITHUB_SHA"
+            --scanner-revision "$GITHUB_SHA" \
+            --harness-revision "$GITHUB_SHA" \
+            --gate-baseline research/full-framework-60-post-remediation-20261006/closure-baseline.json
           cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
           printf '\n' >> "$GITHUB_STEP_SUMMARY"
           cat comparison/comparison.md >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: full-framework-60-post-remediation-summary
           path: |
