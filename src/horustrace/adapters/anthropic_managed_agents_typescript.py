@@ -277,7 +277,11 @@ def _apply_builder(
             transport="http",
             url=url,
             authenticated=None,
-            location=_location(\n                builder_path,\n                builder_source,\n                max(0, body_offset) + offset,\n            ),
+            location=_location(
+                builder_path,
+                builder_source,
+                max(0, body_offset) + offset,
+            ),
             metadata={
                 "framework": FRAMEWORK,
                 "language": "typescript",
