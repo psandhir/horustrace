@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 
 from horustrace.effective_authority import effective_authority_report
-from horustrace.scanner import scan
 from horustrace.semantic_contract import validate_graph_semantics
+from horustrace.scanner import scan
 
 
 FRAMEWORK_CASES = (
