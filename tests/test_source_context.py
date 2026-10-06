@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 
 from horustrace.cli import main
+from horustrace.effective_authority import effective_authority_report
+from horustrace.scanner import scan
 from horustrace.source_context import (
     classify_source_context,
     is_non_runtime_source_context,
@@ -18,11 +20,93 @@ def test_source_context_classification() -> None:
         == "application-support"
     )
     assert classify_source_context(Path("backend/tests/test_agent.py")) == "test"
+    assert classify_source_context(Path("autogen/adapter.test.py")) == "test"
+    assert (
+        classify_source_context(Path("claude/commerce/sdk_conformance.py"))
+        == "test"
+    )
+    assert (
+        classify_source_context(Path("interchange/conformance/vectors.json"))
+        == "test"
+    )
+    assert classify_source_context(Path("adapter.spec.mjs")) == "test"
     assert classify_source_context(Path("examples/demo_agent.py")) == "example"
-    assert classify_source_context(Path("adk_training/lesson_01/agent.py")) == "tutorial"
+    assert (
+        classify_source_context(Path("openai-agents/example_openai_agents.py"))
+        == "example"
+    )
+    assert classify_source_context(Path("ag-ui/tool.example.json")) == "example"
+    assert (
+        classify_source_context(Path("adk_training/lesson_01/agent.py"))
+        == "tutorial"
+    )
     assert classify_source_context(Path("notebooks/risky.ipynb")) == "notebook"
-    assert classify_source_context(Path("templates/agent.py")) == "template-generated"
+    assert (
+        classify_source_context(Path("templates/agent.py"))
+        == "template-generated"
+    )
+    assert (
+        classify_source_context(Path("schema.generated.json"))
+        == "template-generated"
+    )
     assert classify_source_context(None) == "unknown"
+
+
+def test_source_context_is_scoped_to_scan_root() -> None:
+    root = Path("/tmp/test_fixture_checkout")
+    runtime = root / "src" / "agent.py"
+
+    assert classify_source_context(runtime) == "test"
+    assert classify_source_context(runtime, root=root) == "runtime"
+
+
+def test_non_runtime_agent_authority_is_not_promoted_to_live_attack_path(
+    tmp_path: Path,
+) -> None:
+    conformance = tmp_path / "openai-agents" / "conformance"
+    conformance.mkdir(parents=True)
+    (conformance / "agent.py").write_text(
+        """
+from agents import Agent, Runner, function_tool
+from fastapi import WebSocket
+
+@function_tool
+def clear_history():
+    return None
+
+agent = Agent(name="ConformanceAgent", tools=[clear_history])
+
+async def websocket_handler(user_input: str, websocket: WebSocket):
+    return Runner.run_streamed(agent, input=user_input)
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "ConformanceAgent")
+
+    assert agent.metadata["source_context"] == "test"
+    assert any(item.agent == "ConformanceAgent" for item in findings)
+    assert all(
+        item.source_context == "test"
+        for item in findings
+        if item.agent == "ConformanceAgent"
+    )
+    assert not any(
+        item.agent == "ConformanceAgent"
+        for item in graph.attack_paths
+    )
+
+    authority = effective_authority_report(graph)
+    relationships = [
+        item
+        for item in authority["relationships"]
+        if item["agent"] == "ConformanceAgent"
+    ]
+    assert relationships
+    assert all(item["source_context"] == "test" for item in relationships)
+    assert authority["summary"]["runtime_relationships"] == 0
+    assert authority["summary"]["non_runtime_relationships"] >= 1
 
 
 def test_non_runtime_source_contexts_include_operational_support() -> None:

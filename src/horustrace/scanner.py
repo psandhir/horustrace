@@ -164,6 +164,58 @@ _NON_AGENT_FLOW_CONTEXTS = {
 }
 
 
+def _annotate_authority_source_contexts(graph: Graph, root: Path) -> None:
+    """Attach scan-root-relative source context to normalized agents."""
+    for agent in graph.agents:
+        path = agent.location.path if agent.location is not None else None
+        agent.metadata["source_context"] = classify_source_context(path, root=root)
+
+
+def _finding_source_context(graph: Graph, finding: object, root: Path) -> str:
+    """Prefer the authority-bearing agent context over an incidental evidence path."""
+    location = getattr(finding, "location", None)
+    location_path = (
+        location.path.resolve()
+        if location is not None
+        else None
+    )
+    agent_name = getattr(finding, "agent", None)
+    candidates = [
+        agent
+        for agent in graph.agents
+        if agent.name == agent_name
+    ]
+
+    if len(candidates) > 1 and location_path is not None:
+        matched = []
+        for agent in candidates:
+            related_locations = [
+                agent.location,
+                *(tool.location for tool in agent.tools),
+                *(server.location for server in agent.mcp_servers),
+            ]
+            if any(
+                item is not None
+                and item.path.resolve() == location_path
+                for item in related_locations
+            ):
+                matched.append(agent)
+        if len(matched) == 1:
+            candidates = matched
+
+    contexts = {
+        str(agent.metadata.get("source_context") or "unknown")
+        for agent in candidates
+    }
+    if len(contexts) == 1:
+        return next(iter(contexts))
+
+    return classify_source_context(
+        location.path if location is not None else None,
+        root=root,
+    )
+
+
 def _flow_function_paths(flow: FlowPath, root: Path) -> list[Path]:
     paths: list[Path] = []
     for step in flow.steps:
@@ -2842,6 +2894,7 @@ def scan(
     if skill_llm_semantic_stats is not None:
         graph.coverage.resolution["skill_semantic_llm"] = skill_llm_semantic_stats
 
+    _annotate_authority_source_contexts(graph, analysis_root)
     annotate_risk_semantics(graph)
     graph.attack_paths = build_attack_paths(graph)
     for attack_path in graph.attack_paths:
@@ -2906,8 +2959,10 @@ def scan(
                 )
             )
     for finding in findings:
-        finding.source_context = classify_source_context(
-            finding.location.path if finding.location else None
+        finding.source_context = _finding_source_context(
+            graph,
+            finding,
+            analysis_root,
         )
     attach_findings(graph, findings)
     findings, disabled_rules = apply_config(config or ScanConfig(), findings)

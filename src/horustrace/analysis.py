@@ -13,6 +13,7 @@ from horustrace.models import (
     Severity,
     Tool,
 )
+from horustrace.source_context import is_non_runtime_source_context
 
 _UNTRUSTED_FLOW_SOURCES = {
     "user_input",
@@ -242,6 +243,10 @@ def _resolve_delegated_agent(graph: Graph, target: str) -> object | None:
 def _delegated_paths(graph: Graph) -> list[AttackPath]:
     paths: list[AttackPath] = []
     for agent in graph.agents:
+        if is_non_runtime_source_context(
+            str(agent.metadata.get("source_context") or "unknown")
+        ):
+            continue
         untrusted = [
             item
             for item in agent.inputs
@@ -405,6 +410,10 @@ def build_attack_paths(graph: Graph) -> list[AttackPath]:
     }
 
     for agent in graph.agents:
+        if is_non_runtime_source_context(
+            str(agent.metadata.get("source_context") or "unknown")
+        ):
+            continue
         untrusted = [
             item
             for item in agent.inputs
