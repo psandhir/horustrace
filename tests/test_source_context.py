@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from horustrace.cli import main
+from horustrace.effective_authority import effective_authority_report
 from horustrace.scanner import scan
 from horustrace.source_context import (
     classify_source_context,
@@ -95,6 +96,17 @@ async def websocket_handler(user_input: str, websocket: WebSocket):
         item.agent == "ConformanceAgent"
         for item in graph.attack_paths
     )
+
+    authority = effective_authority_report(graph)
+    relationships = [
+        item
+        for item in authority["relationships"]
+        if item["agent"] == "ConformanceAgent"
+    ]
+    assert relationships
+    assert all(item["source_context"] == "test" for item in relationships)
+    assert authority["summary"]["runtime_relationships"] == 0
+    assert authority["summary"]["non_runtime_relationships"] >= 1
 
 
 def test_non_runtime_source_contexts_include_operational_support() -> None:
