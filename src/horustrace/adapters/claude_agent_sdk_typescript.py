@@ -357,7 +357,8 @@ def _binding_builder_objects(
         return result
     names = "|".join(re.escape(name) for name in sorted(builders))
     pattern = re.compile(
-        rf"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*"
+        rf"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)"
+        rf"(?:\s*:\s*[^=\n]+)?\s*=\s*"
         rf"({names})\s*\(",
     )
     for match in pattern.finditer(source):
