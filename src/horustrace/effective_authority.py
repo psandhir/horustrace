@@ -407,6 +407,9 @@ def _tool_relationship(
     }
     if dynamic_availability:
         dimensions["availability"] = "partially_resolved"
+    if tool.metadata.get("tool_catalogue_unresolved") is True:
+        dimensions["tool_scope"] = "unknown"
+        unresolved.append("tool_catalogue")
     if source_effect_status is not None:
         dimensions["source_effects"] = source_effect_status
     if not tool.capabilities:
