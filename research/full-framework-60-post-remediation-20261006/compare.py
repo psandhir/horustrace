@@ -113,11 +113,13 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--scanner-revision", required=True)
     parser.add_argument("--harness-revision", required=True)
+    parser.add_argument("--gate-baseline", type=Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
 
     baseline = load_baseline(args.baseline)
     post = load_post(args.input)
+    gate_doc = json.loads(args.gate_baseline.read_text(encoding="utf-8"))
     baseline_agg = aggregate_cases(baseline)
     post_agg = aggregate_cases(post)
 
@@ -163,6 +165,73 @@ def main() -> int:
         )
 
     metrics = relationship_metrics(post)
+
+    gate = gate_doc["gate"]
+    post_totals = {
+        key: sum(int((item.get("counts") or {}).get(key) or 0) for item in post.values())
+        for key in COUNT_KEYS
+    }
+    zero_agent_cases = sorted(
+        case_id
+        for case_id, item in post.items()
+        if int((item.get("counts") or {}).get("agents") or 0) == 0
+    )
+    core_unknown = int(metrics["core_resolution"].get("unknown", 0))
+    gate_failures: list[str] = []
+
+    expected_cases = int(gate["expected_cases"])
+    missing_cases = sorted(set(baseline) - set(post))
+    if len(post) != expected_cases:
+        gate_failures.append(
+            f"frozen cases present {len(post)}/{expected_cases}"
+        )
+    if len(missing_cases) > int(gate["max_missing_cases"]):
+        gate_failures.append(
+            f"missing cases {len(missing_cases)} > {gate['max_missing_cases']}: "
+            + ", ".join(missing_cases)
+        )
+    if len(zero_agent_cases) > int(gate["max_zero_agent_cases"]):
+        gate_failures.append(
+            f"zero-agent cases {len(zero_agent_cases)} > "
+            f"{gate['max_zero_agent_cases']}: "
+            + ", ".join(zero_agent_cases)
+        )
+    if core_unknown > int(gate["max_core_unknown"]):
+        gate_failures.append(
+            f"core-unknown authority {core_unknown} > {gate['max_core_unknown']}"
+        )
+    if post_totals["agents"] < int(gate["min_total_agents"]):
+        gate_failures.append(
+            f"agents {post_totals['agents']} < {gate['min_total_agents']}"
+        )
+    if post_totals["authority_relationships"] < int(
+        gate["min_total_authority_relationships"]
+    ):
+        gate_failures.append(
+            "authority relationships "
+            f"{post_totals['authority_relationships']} < "
+            f"{gate['min_total_authority_relationships']}"
+        )
+    if metrics["core_fully_resolved_ratio"] < float(
+        gate["min_core_fully_resolved_ratio"]
+    ):
+        gate_failures.append(
+            "core fully-resolved ratio "
+            f"{metrics['core_fully_resolved_ratio']:.3f} < "
+            f"{float(gate['min_core_fully_resolved_ratio']):.3f}"
+        )
+
+    post_by_framework = aggregate_cases(post)
+    for framework, minimums in gate["framework_minimums"].items():
+        observed = post_by_framework.get(framework, {})
+        for key in ("agents", "authority_relationships"):
+            minimum = int(minimums[key])
+            actual = int(observed.get(key) or 0)
+            if actual < minimum:
+                gate_failures.append(
+                    f"{framework} {key} {actual} < {minimum}"
+                )
+
     report = {
         "schema_version": 1,
         "study": "full-framework-60-post-remediation-20261006",
@@ -178,6 +247,13 @@ def main() -> int:
         "framework_delta": framework_delta,
         "changed_cases": changed_cases,
         "post_resolution_metrics": metrics,
+        "regression_gate": {
+            "baseline": gate_doc,
+            "post_totals": post_totals,
+            "zero_agent_cases": zero_agent_cases,
+            "failures": gate_failures,
+            "passed": not gate_failures,
+        },
     }
     (args.output / "comparison.json").write_text(
         json.dumps(report, indent=2) + "\n",
@@ -193,6 +269,16 @@ def main() -> int:
         f"- frozen cases present: **{len(post)}/{len(baseline)}**",
         f"- cases with count-level changes: **{len(changed_cases)}**",
         f"- core fully-resolved ratio: **{metrics['core_fully_resolved_ratio']:.1%}**",
+        f"- regression gate: **{'PASS' if not gate_failures else 'FAIL'}**",
+        "",
+        "## Regression gate",
+        "",
+    ]
+    if gate_failures:
+        lines.extend(f"- FAIL: {failure}" for failure in gate_failures)
+    else:
+        lines.append("- all frozen-cohort guardrails passed")
+    lines += [
         "",
         "## Framework deltas",
         "",
@@ -242,7 +328,7 @@ def main() -> int:
         "\n".join(lines) + "\n",
         encoding="utf-8",
     )
-    return 0
+    return 1 if gate_failures else 0
 
 
 if __name__ == "__main__":

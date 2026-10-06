@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "source": "reports/full-framework-60-final-closure-20261006.md",
+  "frozen_cohort_blob": "1ea88dbb611cb7c0a81d5b8717553ef539cbdd49",
+  "reference": {
+    "cases": 60,
+    "agents": 250,
+    "authority_relationships": 606,
+    "core_fully_resolved": 479,
+    "core_partially_resolved": 127,
+    "core_unknown": 0,
+    "core_fully_resolved_ratio": 0.790429
+  },
+  "gate": {
+    "expected_cases": 60,
+    "max_missing_cases": 0,
+    "max_zero_agent_cases": 0,
+    "max_core_unknown": 0,
+    "min_total_agents": 200,
+    "min_total_authority_relationships": 484,
+    "min_core_fully_resolved_ratio": 0.75,
+    "framework_minimums": {
+      "amazon": {"agents": 22, "authority_relationships": 115},
+      "anthropic": {"agents": 24, "authority_relationships": 116},
+      "google-adk": {"agents": 59, "authority_relationships": 81},
+      "microsoft": {"agents": 16, "authority_relationships": 30},
+      "openai-agents": {"agents": 65, "authority_relationships": 114},
+      "pydantic-ai": {"agents": 11, "authority_relationships": 27}
+    }
+  }
+}
