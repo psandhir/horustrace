@@ -758,6 +758,360 @@ def _callback_runtime_invocation(
     return agent
 
 
+
+def _local_agent_receivers(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    path: Path,
+    agents_by_path: dict[Path, list[Agent]],
+) -> dict[str, list[Agent]]:
+    """Return normalized agents whose construction is source-local to a function."""
+    result: dict[str, list[Agent]] = {}
+    start = getattr(function, "lineno", 0) or 0
+    end = getattr(function, "end_lineno", start) or start
+    for agent in agents_by_path.get(path.resolve(), []):
+        if agent.location is None or not start <= agent.location.line <= end:
+            continue
+        aliases = {
+            agent.name,
+            str(agent.metadata.get("source_alias") or ""),
+        }
+        aliases.discard("")
+        for alias in aliases:
+            result.setdefault(alias, []).append(agent)
+    return result
+
+
+def _local_runtime_invocations(
+    node: ast.Call,
+    local_receivers: dict[str, list[Agent]],
+    tainted: set[str],
+) -> list[Agent]:
+    values = [*node.args, *(keyword.value for keyword in node.keywords)]
+    if not any(_expr_tainted(value, tainted) for value in values):
+        return []
+
+    if isinstance(node.func, ast.Name):
+        return list(local_receivers.get(node.func.id, []))
+
+    if (
+        isinstance(node.func, ast.Attribute)
+        and node.func.attr in _RUNTIME_METHODS
+        and isinstance(node.func.value, ast.Name)
+    ):
+        return list(local_receivers.get(node.func.value.id, []))
+    return []
+
+
+def _sdk_entrypoint_runtime_invocations(
+    node: ast.Call,
+    local_receivers: dict[str, list[Agent]],
+    tainted: set[str],
+) -> list[Agent]:
+    """Resolve function-style SDK entrypoints whose options identify the agent."""
+    if isinstance(node.func, ast.Attribute) or _call_name(node.func) != "query":
+        return []
+
+    options = next(
+        (keyword.value for keyword in node.keywords if keyword.arg == "options"),
+        None,
+    )
+    if not isinstance(options, ast.Name):
+        return []
+
+    prompt = next(
+        (
+            keyword.value
+            for keyword in node.keywords
+            if keyword.arg in {"prompt", "input", "user_prompt"}
+        ),
+        node.args[0] if node.args else None,
+    )
+    if not _expr_tainted(prompt, tainted):
+        return []
+
+    return [
+        agent
+        for agent in local_receivers.get(options.id, [])
+        if agent.metadata.get("sdk_entrypoint") is True
+        and agent.metadata.get("framework") == "claude-agent-sdk"
+    ]
+
+
+def _cli_ingress_names(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> set[str]:
+    result: set[str] = set()
+    for node in ast.walk(function):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = node.value
+        if not isinstance(value, ast.Call):
+            continue
+
+        is_parse_args = (
+            isinstance(value.func, ast.Attribute)
+            and value.func.attr in {"parse_args", "parse_known_args"}
+        )
+        is_input = isinstance(value.func, ast.Name) and value.func.id == "input"
+        if not (is_parse_args or is_input):
+            continue
+
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        for target in targets:
+            result.update(_target_names(target))
+    return result
+
+
+def _ingress_kind(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    imports: dict[str, str],
+    registered: set[str],
+) -> str | None:
+    framework = _decorator_kind(function, imports)
+    if framework is None and function.name in registered:
+        framework = "aiohttp"
+    if framework is None and function.name == "lambda_handler":
+        parameters = _parameter_annotations(function)
+        if parameters:
+            framework = "aws_lambda"
+    if framework is None and _cli_ingress_names(function):
+        framework = "cli"
+    return framework
+
+
+def _initial_ingress_names(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    imports: dict[str, str],
+    framework: str,
+) -> set[str]:
+    if framework == "aws_lambda":
+        parameters = _parameter_annotations(function)
+        return {parameters[0][0]} if parameters else set()
+    if framework == "cli":
+        return _cli_ingress_names(function)
+
+    result = {name for name, _ in _parameter_annotations(function)}
+    result.update(_global_ingress_names(imports, framework))
+    return result
+
+
+def _function_parameters(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> list[str]:
+    return [name for name, _ in _parameter_annotations(function)]
+
+
+def _call_argument_for_parameter(
+    call: ast.Call,
+    parameters: list[str],
+    parameter: str,
+) -> ast.AST | None:
+    for keyword in call.keywords:
+        if keyword.arg == parameter:
+            return keyword.value
+    try:
+        index = parameters.index(parameter)
+    except ValueError:
+        return None
+    return call.args[index] if index < len(call.args) else None
+
+
+def _runtime_targets_for_call(
+    node: ast.Call,
+    receivers: dict[str, Agent],
+    local_receivers: dict[str, list[Agent]],
+    tainted: set[str],
+) -> list[Agent]:
+    result: dict[int, Agent] = {}
+    direct = _direct_runtime_invocation(node, receivers, tainted)
+    if direct is not None:
+        result[id(direct)] = direct
+    callback = _callback_runtime_invocation(node, receivers, tainted)
+    if callback is not None:
+        result[id(callback)] = callback
+    for agent in _local_runtime_invocations(node, local_receivers, tainted):
+        result[id(agent)] = agent
+    for agent in _sdk_entrypoint_runtime_invocations(
+        node,
+        local_receivers,
+        tainted,
+    ):
+        result[id(agent)] = agent
+    return list(result.values())
+
+
+def _direct_helper_summaries(
+    graph: Graph,
+    modules: dict[Path, tuple[str, ast.Module, dict[str, str]]],
+    receiver_targets: dict[str, Agent],
+    compiled_targets: dict[str, Agent],
+) -> tuple[
+    dict[str, dict[int, tuple[Agent, set[str]]]],
+    dict[str, list[str]],
+]:
+    """Summarize which function parameters reach normalized agent runtimes."""
+    agents_by_path: dict[Path, list[Agent]] = {}
+    for agent in graph.agents:
+        if agent.location is not None:
+            agents_by_path.setdefault(agent.location.path.resolve(), []).append(agent)
+
+    summaries: dict[str, dict[int, tuple[Agent, set[str]]]] = {}
+    parameters_by_function: dict[str, list[str]] = {}
+
+    for path, (module, tree, imports) in modules.items():
+        for function in getattr(tree, "body", []):
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            key = f"{module}.{function.name}" if module else function.name
+            parameters = _function_parameters(function)
+            parameters_by_function[key] = parameters
+            if not parameters:
+                continue
+
+            receivers = _handler_receivers(
+                function,
+                tree,
+                module,
+                imports,
+                receiver_targets,
+                compiled_targets,
+            )
+            local_receivers = _local_agent_receivers(
+                function,
+                path,
+                agents_by_path,
+            )
+
+            for parameter in parameters:
+                tainted = _propagate_taint(function, {parameter})
+                for node in ast.walk(function):
+                    if not isinstance(node, ast.Call):
+                        continue
+                    for agent in _runtime_targets_for_call(
+                        node,
+                        receivers,
+                        local_receivers,
+                        tainted,
+                    ):
+                        by_agent = summaries.setdefault(key, {})
+                        existing = by_agent.get(id(agent))
+                        if existing is None:
+                            by_agent[id(agent)] = (agent, {parameter})
+                        else:
+                            existing[1].add(parameter)
+
+    return summaries, parameters_by_function
+
+
+def _helper_key_for_call(
+    call: ast.Call,
+    module: str,
+    imports: dict[str, str],
+    summaries: dict[str, dict[int, tuple[Agent, set[str]]]],
+) -> str | None:
+    called = _dotted(call.func) or _call_name(call.func) or ""
+    if not called:
+        return None
+    resolved = _resolve_symbol(module, imports, called)
+    if resolved in summaries:
+        return resolved
+
+    matches = [key for key in summaries if _matches_key(resolved, key)]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _propagate_helper_summaries(
+    modules: dict[Path, tuple[str, ast.Module, dict[str, str]]],
+    summaries: dict[str, dict[int, tuple[Agent, set[str]]]],
+    parameters_by_function: dict[str, list[str]],
+) -> None:
+    """Bounded fixed point for repository-local helper-to-helper argument flow."""
+    for _ in range(8):
+        changed = False
+        for module, tree, imports in modules.values():
+            for function in getattr(tree, "body", []):
+                if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                caller_key = (
+                    f"{module}.{function.name}" if module else function.name
+                )
+                caller_parameters = parameters_by_function.get(caller_key, [])
+                if not caller_parameters:
+                    continue
+
+                for parameter in caller_parameters:
+                    tainted = _propagate_taint(function, {parameter})
+                    for call in (
+                        node for node in ast.walk(function)
+                        if isinstance(node, ast.Call)
+                    ):
+                        callee_key = _helper_key_for_call(
+                            call,
+                            module,
+                            imports,
+                            summaries,
+                        )
+                        if callee_key is None or callee_key == caller_key:
+                            continue
+                        callee_parameters = parameters_by_function.get(
+                            callee_key,
+                            [],
+                        )
+                        for agent, consumed in summaries.get(
+                            callee_key,
+                            {},
+                        ).values():
+                            reaches = any(
+                                _expr_tainted(
+                                    _call_argument_for_parameter(
+                                        call,
+                                        callee_parameters,
+                                        name,
+                                    ),
+                                    tainted,
+                                )
+                                for name in consumed
+                            )
+                            if not reaches:
+                                continue
+                            by_agent = summaries.setdefault(caller_key, {})
+                            existing = by_agent.get(id(agent))
+                            if existing is None:
+                                by_agent[id(agent)] = (agent, {parameter})
+                                changed = True
+                            elif parameter not in existing[1]:
+                                existing[1].add(parameter)
+                                changed = True
+        if not changed:
+            break
+
+
+def _helper_runtime_invocations(
+    node: ast.Call,
+    module: str,
+    imports: dict[str, str],
+    tainted: set[str],
+    summaries: dict[str, dict[int, tuple[Agent, set[str]]]],
+    parameters_by_function: dict[str, list[str]],
+) -> list[Agent]:
+    key = _helper_key_for_call(node, module, imports, summaries)
+    if key is None:
+        return []
+
+    parameters = parameters_by_function.get(key, [])
+    result: dict[int, Agent] = {}
+    for agent, consumed in summaries.get(key, {}).values():
+        if any(
+            _expr_tainted(
+                _call_argument_for_parameter(node, parameters, parameter),
+                tainted,
+            )
+            for parameter in consumed
+        ):
+            result[id(agent)] = agent
+    return list(result.values())
+
+
 def enrich_runtime_ingress_inputs(
     graph: Graph,
     root: Path,
