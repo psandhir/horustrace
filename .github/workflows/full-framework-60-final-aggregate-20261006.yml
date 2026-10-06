@@ -1,0 +1,58 @@
+name: Full Framework 60 Final Aggregate
+
+on:
+  push:
+    branches:
+      - study/full-framework-60-final-aggregate-20261006
+    paths:
+      - ".github/workflows/full-framework-60-final-aggregate-20261006.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  aggregate:
+    name: Aggregate final frozen cohort
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ff60-final-case-*
+          path: downloaded
+          merge-multiple: false
+          run-id: 37503766621
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify 60 case bundles
+        run: |
+          count="$(find downloaded -name result.json -type f | wc -l | tr -d ' ')"
+          echo "result_count=$count"
+          test "$count" = "60"
+          error_count="$(find downloaded -name error.json -type f | wc -l | tr -d ' ')"
+          echo "error_count=$error_count"
+          test "$error_count" = "0"
+      - name: Aggregate metrics
+        run: |
+          python research/full-framework-60-20261005/aggregate.py \
+            --input downloaded \
+            --output aggregate
+      - name: Compare with exact post-remediation baseline
+        run: |
+          python research/full-framework-60-post-remediation-20261006/compare.py \
+            --input downloaded \
+            --baseline research/full-framework-60-post-remediation-20261006/baseline.csv \
+            --output comparison \
+            --scanner-revision f95ed3d5b43a3eee11f7cc716ff824d72c6bb828 \
+            --harness-revision cbab65745167f345c5cc9bbc1ee4078d51a78bfa
+          cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
+          printf '\n' >> "$GITHUB_STEP_SUMMARY"
+          cat comparison/comparison.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: full-framework-60-final-closure-summary
+          path: |
+            aggregate/
+            comparison/
+          if-no-files-found: error
+          retention-days: 30
