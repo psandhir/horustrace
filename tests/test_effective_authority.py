@@ -157,6 +157,13 @@ def test_effective_authority_keeps_missing_dimensions_explicit(tmp_path: Path) -
     relationship = effective_authority_report(graph)["relationships"][0]
 
     assert relationship["resolution"] == "partially_resolved"
+    assert relationship["detail_resolution"] == "partially_resolved"
+    assert relationship["core_resolution"] == "fully_resolved"
+    assert relationship["core_dimensions"] == {
+        "target": "resolved",
+        "capabilities": "resolved",
+    }
+    assert relationship["core_unresolved"] == []
     assert relationship["identity"] is None
     assert relationship["resources"] == []
     assert relationship["destinations"] == []
@@ -171,12 +178,47 @@ def test_effective_authority_keeps_missing_dimensions_explicit(tmp_path: Path) -
     assert relationship["runtime_effectiveness"] == "not_verified"
 
 
+def test_effective_authority_mcp_core_requires_tool_scope(tmp_path: Path) -> None:
+    location = SourceLocation(tmp_path / "agent.py", line=5)
+    server = MCPServer(
+        name="dynamic",
+        transport="streamable_http",
+        url="https://mcp.example.test",
+        location=location,
+    )
+    graph = Graph(
+        agents=[
+            Agent(
+                name="mcp-agent",
+                mcp_servers=[server],
+                location=location,
+            )
+        ]
+    )
+    graph.adg = build_adg(graph, tmp_path)
+
+    relationship = effective_authority_report(graph)["relationships"][0]
+
+    assert relationship["target"] == {
+        "kind": "mcp_server",
+        "name": "dynamic",
+    }
+    assert relationship["core_resolution"] == "partially_resolved"
+    assert relationship["core_dimensions"]["target"] == "resolved"
+    assert relationship["core_dimensions"]["capabilities"] == "resolved"
+    assert relationship["core_dimensions"]["tool_scope"] == "unknown"
+    assert relationship["core_unresolved"] == ["tool_scope"]
+
 def test_effective_authority_report_summary_counts_relationship_types(tmp_path: Path) -> None:
     report = effective_authority_report(_graph(tmp_path))
 
     assert report["schema_version"] == 1
     assert report["runtime_effectiveness"] == "not_verified"
     assert report["summary"]["relationships"] == 2
+    assert report["summary"]["core_fully_resolved_relationships"] == 2
+    assert report["summary"]["core_partially_resolved_relationships"] == 0
+    assert report["summary"]["core_unknown_relationships"] == 0
+    assert report["summary"]["core_fully_resolved_ratio"] == 1.0
     assert report["summary"]["tool_relationships"] == 1
     assert report["summary"]["mcp_relationships"] == 1
     assert report["summary"]["relationships_with_identity"] == 2
@@ -475,6 +517,11 @@ def test_effective_authority_marks_partial_csharp_source_effects(
     relationship = effective_authority_report(graph)["relationships"][0]
 
     assert relationship["resolution"] == "partially_resolved"
+    assert relationship["core_resolution"] == "partially_resolved"
+    assert relationship["core_dimensions"]["source_effects"] == (
+        "partially_resolved"
+    )
+    assert relationship["core_unresolved"] == ["source_effects"]
     assert relationship["dimensions"]["source_effects"] == (
         "partially_resolved"
     )

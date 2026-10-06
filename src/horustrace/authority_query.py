@@ -76,6 +76,7 @@ def _relationship_matches(
     destination: str | None,
     identity: str | None,
     resolution: str | None,
+    core_resolution: str | None,
 ) -> bool:
     if capability is not None and not any(
         _matches(item, capability) for item in relationship.capabilities
@@ -98,7 +99,12 @@ def _relationship_matches(
     )
     if identity is not None and not _matches(identity_name, identity):
         return False
-    return resolution is None or relationship.resolution == resolution
+    if resolution is not None and relationship.resolution != resolution:
+        return False
+    return (
+        core_resolution is None
+        or relationship.core_resolution == core_resolution
+    )
 
 
 def query_effective_authority(
@@ -111,12 +117,22 @@ def query_effective_authority(
     destination: str | None = None,
     identity: str | None = None,
     resolution: str | None = None,
+    core_resolution: str | None = None,
 ) -> dict[str, Any]:
     """Query effective authority, including explicitly delegated reachability."""
-    if not any((capability, target, destination, identity, resolution)):
+    if not any(
+        (
+            capability,
+            target,
+            destination,
+            identity,
+            resolution,
+            core_resolution,
+        )
+    ):
         raise ValueError(
             "authority query requires at least one of: capability, target, "
-            "destination, identity, resolution"
+            "destination, identity, resolution, core_resolution"
         )
 
     paths = _delegation_paths(graph)
@@ -129,6 +145,7 @@ def query_effective_authority(
             destination=destination,
             identity=identity,
             resolution=resolution,
+            core_resolution=core_resolution,
         ):
             continue
 
@@ -175,6 +192,7 @@ def query_effective_authority(
             "destination": destination,
             "identity": identity,
             "resolution": resolution,
+            "core_resolution": core_resolution,
         },
         "summary": {
             "matches": len(results),
@@ -203,7 +221,8 @@ def render_authority_query_console(report: dict[str, Any]) -> str:
         target = relationship["target"]
         lines.append(
             f"{item['agent']} -> {target['kind']}:{target['name']} "
-            f"[{relationship['resolution']}]"
+            f"[CORE={relationship['core_resolution']}; "
+            f"DETAIL={relationship['detail_resolution']}]"
         )
         if item["delegated"]:
             lines.append(
@@ -223,9 +242,16 @@ def render_authority_query_console(report: dict[str, Any]) -> str:
         ]
         if destinations:
             lines.append("  destinations: " + ", ".join(destinations))
+        core_unresolved = relationship.get("core_unresolved") or []
+        if core_unresolved:
+            lines.append(
+                "  core unresolved: " + ", ".join(core_unresolved)
+            )
         unresolved = relationship.get("unresolved") or []
         if unresolved:
-            lines.append("  unresolved: " + ", ".join(unresolved))
+            lines.append(
+                "  detail unresolved: " + ", ".join(unresolved)
+            )
         location = relationship.get("location") or {}
         if location.get("path"):
             suffix = f":{location.get('line')}" if location.get("line") else ""

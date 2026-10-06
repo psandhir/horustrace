@@ -66,6 +66,27 @@ def test_query_filters_destination_and_agent(tmp_path: Path) -> None:
     assert report["results"][0]["agent"] == "orchestrator"
 
 
+
+def test_query_filters_core_resolution_separately_from_detail(
+    tmp_path: Path,
+) -> None:
+    report = query_effective_authority(
+        _graph(tmp_path),
+        tmp_path,
+        core_resolution="fully_resolved",
+    )
+
+    assert report["summary"]["matches"] == 2
+    assert report["query"]["core_resolution"] == "fully_resolved"
+    assert all(
+        item["relationship"]["core_resolution"] == "fully_resolved"
+        for item in report["results"]
+    )
+    assert all(
+        item["relationship"]["detail_resolution"] == "partially_resolved"
+        for item in report["results"]
+    )
+
 def test_query_does_not_infer_ambiguous_delegation(tmp_path: Path) -> None:
     graph = _graph(tmp_path)
     graph.agents.append(Agent(name="worker"))
@@ -101,4 +122,6 @@ def test_query_console_explains_delegation_and_runtime_limit(tmp_path: Path) -> 
 
     assert "delegation: orchestrator -> worker" in rendered
     assert "capabilities: external.write, network.external" in rendered
+    assert "CORE=fully_resolved; DETAIL=partially_resolved" in rendered
+    assert "detail unresolved:" in rendered
     assert "runtime effectiveness: not_verified" in rendered
