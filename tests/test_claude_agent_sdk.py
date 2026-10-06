@@ -575,3 +575,96 @@ async def run():
     assert observer.metadata["tool_control_enforcing"] is False
     assert guarded.metadata["tool_control_state"] == "enforcing"
     assert guarded.metadata["tool_control_enforcing"] is True
+
+
+def test_allowed_tools_restrict_runtime_default_projection(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        """
+from claude_agent_sdk import ClaudeAgentOptions, query
+
+options = ClaudeAgentOptions(
+    allowed_tools=["Read", "Write"],
+    permission_mode="acceptEdits",
+)
+
+async def run():
+    async for _ in query(prompt="inspect", options=options):
+        pass
+""",
+    )
+
+    graph = scan_python_file(path)
+    agent = next(item for item in graph.agents if item.name == "options")
+
+    assert {tool.name for tool in agent.tools} == {"Read", "Write"}
+    assert agent.metadata["tool_surface"] == "restricted_default"
+    assert agent.metadata["tool_surface_restricted_by_allowed_tools"] is True
+    assert "dynamic_allowed_tools" not in agent.metadata
+
+
+def test_explicit_empty_allowed_tools_disable_runtime_default_projection(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        """
+from claude_agent_sdk import ClaudeAgentOptions, query
+
+options = ClaudeAgentOptions(
+    allowed_tools=[],
+    permission_mode="bypassPermissions",
+)
+
+async def run():
+    async for _ in query(prompt="summarize only", options=options):
+        pass
+""",
+    )
+
+    graph = scan_python_file(path)
+    agent = next(item for item in graph.agents if item.name == "options")
+
+    assert agent.tools == []
+    assert agent.metadata["tool_surface"] == "restricted_default"
+    assert agent.metadata["explicit_allowed_tool_surface"] == []
+    assert "dynamic_allowed_tools" not in agent.metadata
+
+
+def test_local_allowed_tools_builder_constrains_default_surface(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        """
+from claude_agent_sdk import ClaudeAgentOptions, query
+
+ENABLE_WEB = True
+
+def _build_allowed_tools() -> list[str]:
+    tools = ["Read", "Edit", "Bash"]
+    if ENABLE_WEB:
+        tools.append("WebSearch")
+    return tools
+
+options = ClaudeAgentOptions(
+    allowed_tools=_build_allowed_tools(),
+    permission_mode="bypassPermissions",
+)
+
+async def run():
+    async for _ in query(prompt="inspect", options=options):
+        pass
+""",
+    )
+
+    graph = scan_python_file(path)
+    agent = next(item for item in graph.agents if item.name == "options")
+
+    assert {tool.name for tool in agent.tools} == {
+        "Read",
+        "Edit",
+        "Bash",
+        "WebSearch",
+    }
+    assert "Write" not in {tool.name for tool in agent.tools}
+    assert agent.metadata["tool_surface"] == "restricted_default"
+    assert "dynamic_allowed_tools" not in agent.metadata

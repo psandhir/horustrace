@@ -163,3 +163,92 @@ session = client.beta.sessions.create(
     assert partner.approval is True
     assert partner.metadata["session_scoped_auth"] is True
     assert partner.metadata["vault_ids_available"] == ["vault_partner"]
+
+
+def test_managed_agent_preserves_dynamic_allowed_hosts_and_mcp_endpoint(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        """
+import os
+from anthropic import Anthropic
+
+DASHCLAW_URL = os.environ.get("DASHCLAW_URL", "http://localhost:3000")
+client = Anthropic()
+
+agent = client.beta.agents.create(
+    name="governed",
+    model="claude-sonnet-4-6",
+    tools=[{"type": "agent_toolset_20260401"}],
+    mcp_servers=[
+        {
+            "type": "url",
+            "url": f"{DASHCLAW_URL}/api/mcp",
+            "name": "dashclaw",
+        }
+    ],
+)
+environment = client.beta.environments.create(
+    name="restricted",
+    config={
+        "type": "cloud",
+        "networking": {
+            "type": "limited",
+            "allowed_hosts": [
+                DASHCLAW_URL.replace("http://", "").replace("https://", "")
+            ],
+            "allow_mcp_servers": True,
+        },
+    },
+)
+session = client.beta.sessions.create(
+    agent=agent.id,
+    environment_id=environment.id,
+)
+""",
+    )
+
+    graph = scan_anthropic_managed_agents_file(path)
+    agent = next(item for item in graph.agents if item.name == "governed")
+
+    assert agent.metadata["environment_type"] == "cloud"
+    assert agent.metadata["networking_type"] == "limited"
+    assert agent.metadata["allowed_hosts"] == ["<configured-host:DASHCLAW_URL>"]
+    assert agent.metadata["allowed_hosts_dynamic"] is True
+    assert agent.metadata["allowed_host_sources"] == ["DASHCLAW_URL"]
+    assert agent.metadata["allow_mcp_servers"] is True
+
+    server = next(item for item in agent.mcp_servers if item.name == "dashclaw")
+    assert server.metadata["dynamic_mcp_endpoint"] is True
+    assert server.metadata["mcp_url_source"] == "DASHCLAW_URL"
+    assert "DASHCLAW_URL" in server.metadata["mcp_url_expression"]
+
+
+def test_managed_agent_awaited_construction_is_discovered(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        """
+from anthropic import AsyncAnthropic
+
+client = AsyncAnthropic()
+
+async def create():
+    environment = await client.beta.environments.create(
+        name="cloud",
+        config={"type": "cloud"},
+    )
+    agent = await client.beta.agents.create(
+        name="awaited-managed-agent",
+        model="claude-sonnet-4-6",
+        tools=list(load_tools()),
+    )
+    await start(agent.id, environment.id)
+""",
+    )
+
+    graph = scan_anthropic_managed_agents_file(path)
+
+    agent = next(item for item in graph.agents if item.name == "awaited-managed-agent")
+    assert agent.metadata["managed_runtime"] is True
+    assert agent.metadata["model"] == "claude-sonnet-4-6"

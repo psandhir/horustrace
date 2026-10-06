@@ -66,6 +66,48 @@ def _kw(call: ast.Call, name: str) -> ast.AST | None:
     return next((item.value for item in call.keywords if item.arg == name), None)
 
 
+def _dict_nodes(node: ast.AST | None) -> dict[str, ast.AST]:
+    if not isinstance(node, ast.Dict):
+        return {}
+    result: dict[str, ast.AST] = {}
+    for key, value in zip(node.keys, node.values):
+        literal = _literal(key)
+        if isinstance(literal, str):
+            result[literal] = value
+    return result
+
+
+def _expr_text(node: ast.AST | None) -> str | None:
+    if node is None:
+        return None
+    try:
+        return ast.unparse(node)
+    except (AttributeError, ValueError):
+        return _dotted(node)
+
+
+def _expression_root_name(node: ast.AST | None) -> str | None:
+    current = node
+    while isinstance(current, ast.Call) and isinstance(current.func, ast.Attribute):
+        current = current.func.value
+    while isinstance(current, ast.Attribute):
+        current = current.value
+    if isinstance(current, ast.Name):
+        return current.id
+    if node is not None:
+        for child in ast.walk(node):
+            if isinstance(child, ast.Name):
+                return child.id
+    return None
+
+
+def _assigned_call(node: ast.Assign | ast.AnnAssign) -> ast.Call | None:
+    value: ast.AST = node.value
+    while isinstance(value, ast.Await):
+        value = value.value
+    return value if isinstance(value, ast.Call) else None
+
+
 def _assignment_names(node: ast.Assign | ast.AnnAssign) -> list[str]:
     targets = node.targets if isinstance(node, ast.Assign) else [node.target]
     return [target.id for target in targets if isinstance(target, ast.Name)]
@@ -175,30 +217,62 @@ def _managed_builtin(
 
 
 def _mcp_servers(path: Path, call: ast.Call) -> dict[str, MCPServer]:
-    raw = _literal(_kw(call, "mcp_servers"))
-    if not isinstance(raw, list):
+    node = _kw(call, "mcp_servers")
+    raw = _literal(node)
+    entries: list[tuple[dict[str, Any] | None, dict[str, ast.AST] | None]] = []
+    if isinstance(raw, list):
+        entries.extend(
+            (item, None)
+            for item in raw
+            if isinstance(item, dict)
+        )
+    elif isinstance(node, (ast.List, ast.Tuple)):
+        entries.extend(
+            (None, _dict_nodes(item))
+            for item in node.elts
+            if isinstance(item, ast.Dict)
+        )
+    else:
         return {}
+
     result: dict[str, MCPServer] = {}
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-        name = item.get("name")
+    for literal_item, ast_item in entries:
+        if literal_item is not None:
+            name = literal_item.get("name")
+            url = literal_item.get("url")
+            type_value = literal_item.get("type")
+            url_expression = None
+        else:
+            assert ast_item is not None
+            name = _literal(ast_item.get("name"))
+            url = _literal(ast_item.get("url"))
+            type_value = _literal(ast_item.get("type"))
+            url_expression = _expr_text(ast_item.get("url"))
+
         if not isinstance(name, str) or not name:
             continue
-        url = item.get("url")
-        transport = "http" if item.get("type") == "url" else str(item.get("type") or "unknown")
+        transport = "http" if type_value == "url" else str(type_value or "unknown")
+        dynamic_url = not isinstance(url, str)
+        metadata: dict[str, Any] = {
+            "framework": FRAMEWORK,
+            "managed_mcp": True,
+            "configuration_source": "agents.create.mcp_servers",
+            "dynamic_mcp_endpoint": dynamic_url,
+        }
+        if dynamic_url and url_expression:
+            metadata["mcp_url_expression"] = url_expression
+            root_name = _expression_root_name(
+                ast_item.get("url") if ast_item is not None else None
+            )
+            if root_name:
+                metadata["mcp_url_source"] = root_name
         result[name] = MCPServer(
             name=name,
             transport=transport,
             url=url if isinstance(url, str) else None,
             authenticated=None,
             location=_location(path, call),
-            metadata={
-                "framework": FRAMEWORK,
-                "managed_mcp": True,
-                "configuration_source": "agents.create.mcp_servers",
-                "dynamic_mcp_endpoint": not isinstance(url, str),
-            },
+            metadata=metadata,
         )
     return result
 
@@ -405,25 +479,68 @@ def _agent_from_call(
 
 
 def _environment_from_call(call: ast.Call) -> dict[str, Any]:
-    raw = _literal(_kw(call, "config"))
-    if not isinstance(raw, dict):
+    config_node = _kw(call, "config")
+    raw = _literal(config_node)
+    if isinstance(raw, dict):
+        result: dict[str, Any] = {}
+        env_type = raw.get("type")
+        if isinstance(env_type, str):
+            result["environment_type"] = env_type
+        networking = raw.get("networking")
+        if isinstance(networking, dict):
+            if isinstance(networking.get("type"), str):
+                result["networking_type"] = networking["type"]
+            allowed = networking.get("allowed_hosts")
+            if isinstance(allowed, list):
+                result["allowed_hosts"] = [
+                    str(item) for item in allowed if isinstance(item, str)
+                ]
+            for key in ("allow_mcp_servers", "allow_package_managers"):
+                if isinstance(networking.get(key), bool):
+                    result[key] = networking[key]
+        return result
+
+    config = _dict_nodes(config_node)
+    if not config:
         return {"environment_config_dynamic": True}
-    result: dict[str, Any] = {}
-    env_type = raw.get("type")
+
+    result = {"environment_config_partially_resolved": True}
+    env_type = _literal(config.get("type"))
     if isinstance(env_type, str):
         result["environment_type"] = env_type
-    networking = raw.get("networking")
-    if isinstance(networking, dict):
-        if isinstance(networking.get("type"), str):
-            result["networking_type"] = networking["type"]
-        allowed = networking.get("allowed_hosts")
-        if isinstance(allowed, list):
-            result["allowed_hosts"] = [
-                str(item) for item in allowed if isinstance(item, str)
-            ]
+
+    networking = _dict_nodes(config.get("networking"))
+    if networking:
+        network_type = _literal(networking.get("type"))
+        if isinstance(network_type, str):
+            result["networking_type"] = network_type
+
+        allowed_node = networking.get("allowed_hosts")
+        if isinstance(allowed_node, (ast.List, ast.Tuple)):
+            allowed_hosts: list[str] = []
+            allowed_sources: list[str] = []
+            for item in allowed_node.elts:
+                literal = _literal(item)
+                if isinstance(literal, str):
+                    allowed_hosts.append(literal)
+                    continue
+                root = _expression_root_name(item)
+                if root:
+                    allowed_hosts.append(f"<configured-host:{root}>")
+                    allowed_sources.append(root)
+                else:
+                    expression = _expr_text(item)
+                    if expression:
+                        allowed_hosts.append(f"<dynamic-host:{expression}>")
+            result["allowed_hosts"] = allowed_hosts
+            if allowed_sources:
+                result["allowed_hosts_dynamic"] = True
+                result["allowed_host_sources"] = sorted(set(allowed_sources))
+
         for key in ("allow_mcp_servers", "allow_package_managers"):
-            if isinstance(networking.get(key), bool):
-                result[key] = networking[key]
+            value = _literal(networking.get(key))
+            if isinstance(value, bool):
+                result[key] = value
     return result
 
 
@@ -462,16 +579,17 @@ def scan_anthropic_managed_agents_file(path: Path) -> Graph:
     for node in ast.walk(tree):
         if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
             continue
-        if not isinstance(node.value, ast.Call):
+        call = _assigned_call(node)
+        if call is None:
             continue
-        dotted = _dotted(node.value.func) or ""
+        dotted = _dotted(call.func) or ""
         names = _assignment_names(node)
         for name in names:
             if dotted.endswith(".beta.agents.create"):
-                agent, _ = _agent_from_call(path, name, node.value)
+                agent, _ = _agent_from_call(path, name, call)
                 agents_by_alias[name] = agent
             elif dotted.endswith(".beta.environments.create"):
-                environments[name] = _environment_from_call(node.value)
+                environments[name] = _environment_from_call(call)
 
     # Sessions bind persisted agents to an execution environment and vault
     # configuration. Correlate source aliases without assuming runtime IDs.

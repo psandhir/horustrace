@@ -39,6 +39,9 @@ _BUILTINS: dict[str, tuple[str, set[str]]] = {
 }
 
 
+_DEFAULT_TOOLS = tuple(_BUILTINS)
+
+
 def _location(path: Path, source: str, offset: int) -> SourceLocation:
     line = source.count("\n", 0, max(0, offset)) + 1
     last = source.rfind("\n", 0, max(0, offset))
@@ -146,6 +149,129 @@ def _object_segment(text: str, name: str) -> str | None:
         return None
     segment = _balanced(text, start, "{", "}")
     return segment[0] if segment else None
+
+
+def _has_property(text: str, name: str) -> bool:
+    return re.search(rf"\b{re.escape(name)}\s*:", text) is not None
+
+
+def _resolve_typescript_import(path: Path, specifier: str) -> Path | None:
+    if not specifier.startswith("."):
+        return None
+    candidate = (path.parent / specifier).resolve()
+    candidates = [candidate]
+    if candidate.suffix in {".js", ".mjs", ".cjs"}:
+        candidates.extend(
+            candidate.with_suffix(suffix)
+            for suffix in (".ts", ".tsx")
+        )
+    elif not candidate.suffix:
+        candidates.extend(
+            candidate.with_suffix(suffix)
+            for suffix in (".ts", ".tsx", ".js", ".mjs", ".cjs")
+        )
+        candidates.extend(
+            candidate / f"index{suffix}"
+            for suffix in (".ts", ".tsx", ".js")
+        )
+    return next((item for item in candidates if item.is_file()), None)
+
+
+def _function_return_object(source: str, name: str) -> str | None:
+    match = re.search(
+        rf"\b(?:export\s+)?(?:async\s+)?function\s+{re.escape(name)}\s*\(",
+        source,
+    )
+    if not match:
+        return None
+    args_start = source.find("(", match.start())
+    args = _balanced(source, args_start, "(", ")")
+    if args is None:
+        return None
+    body_start = source.find("{", args[1])
+    body_segment = _balanced(source, body_start, "{", "}")
+    if body_segment is None:
+        return None
+    body, _ = body_segment
+    return_match = re.search(r"\breturn\s*\{", body)
+    if not return_match:
+        return None
+    object_start = body.find("{", return_match.start())
+    returned = _balanced(body, object_start, "{", "}")
+    return returned[0] if returned else None
+
+
+def _imported_option_builders(path: Path, source: str) -> dict[str, str]:
+    result: dict[str, str] = {}
+    pattern = re.compile(
+        r"import\s*\{(?P<body>[^}]*)\}\s*from\s*"
+        r"(?P<quote>[\"'])(?P<specifier>[^\"']+)(?P=quote)",
+        re.DOTALL,
+    )
+    cache: dict[Path, str] = {}
+    for match in pattern.finditer(source):
+        imported_path = _resolve_typescript_import(path, match.group("specifier"))
+        if imported_path is None:
+            continue
+        imported_source = cache.get(imported_path)
+        if imported_source is None:
+            try:
+                imported_source = imported_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            cache[imported_path] = imported_source
+        for raw in match.group("body").split(","):
+            item = raw.strip()
+            if not item or item.startswith("type "):
+                continue
+            parts = re.split(r"\s+as\s+", item)
+            imported = parts[0].strip()
+            local = parts[-1].strip()
+            if not imported or not local:
+                continue
+            returned = _function_return_object(imported_source, imported)
+            if returned is not None:
+                result[local] = returned
+    return result
+
+
+def _binding_builder_objects(
+    source: str,
+    builders: dict[str, str],
+) -> dict[str, tuple[str, int]]:
+    result: dict[str, tuple[str, int]] = {}
+    if not builders:
+        return result
+    names = "|".join(re.escape(name) for name in sorted(builders))
+    pattern = re.compile(
+        rf"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*"
+        rf"({names})\s*\(",
+    )
+    for match in pattern.finditer(source):
+        result[match.group(1)] = (builders[match.group(2)], match.start())
+    return result
+
+
+def _expand_object_spreads(
+    body: str,
+    objects: dict[str, tuple[str, int]],
+) -> str:
+    current = body
+    seen: set[str] = set()
+    for _ in range(6):
+        changed = False
+        for match in list(re.finditer(r"\.\.\.([A-Za-z_$][\w$]*)", current)):
+            ref = match.group(1)
+            if ref not in objects or ref in seen:
+                continue
+            seen.add(ref)
+            replacement = objects[ref][0]
+            current = current[:match.start()] + replacement + current[match.end():]
+            changed = True
+            break
+        if not changed:
+            break
+    return current
 
 
 def _binding_objects(source: str) -> dict[str, tuple[str, int]]:
@@ -380,6 +506,7 @@ def _options_for_queries(
     source: str,
     query_symbols: set[str],
     objects: dict[str, tuple[str, int]],
+    builders: dict[str, str],
 ) -> list[tuple[str, str, int]]:
     result: list[tuple[str, str, int]] = []
     seen: set[str] = set()
@@ -394,10 +521,21 @@ def _options_for_queries(
         if segment is None:
             continue
         body, _ = segment
+        builder_match = re.search(
+            r"\boptions\s*:\s*([A-Za-z_$][\w$]*)\s*\(",
+            body,
+        )
+        if builder_match and builder_match.group(1) in builders:
+            builder = builder_match.group(1)
+            name = f"{builder}@{source.count(chr(10), 0, match.start()) + 1}"
+            result.append((name, builders[builder], match.start()))
+            continue
         outer_options = _object_segment(body, "options")
         if outer_options is not None:
             name = f"claude-query@{source.count(chr(10), 0, match.start()) + 1}"
-            result.append((name, outer_options, match.start()))
+            result.append(
+                (name, _expand_object_spreads(outer_options, objects), match.start())
+            )
             continue
         ref_match = re.search(r"\boptions\s*:\s*([A-Za-z_$][\w$]*)", body)
         if ref_match and ref_match.group(1) in objects:
@@ -406,7 +544,7 @@ def _options_for_queries(
                 continue
             seen.add(ref)
             option_body, offset = objects[ref]
-            result.append((ref, option_body, offset))
+            result.append((ref, _expand_object_spreads(option_body, objects), offset))
     # Preserve option objects even when passed through a local wrapper.
     for name, (body, offset) in objects.items():
         if name == "options" and name not in seen:
@@ -488,11 +626,18 @@ def scan_claude_agent_sdk_typescript_file(path: Path) -> Graph:
         local for local, imported in imports.items() if imported == "createSdkMcpServer"
     }
 
+    builders = _imported_option_builders(path, source)
     objects = _binding_objects(source)
+    objects.update(_binding_builder_objects(source, builders))
     custom_tools = _tool_bindings(path, source, tool_symbols)
     sdk_servers = _sdk_mcp_servers(path, source, server_symbols, custom_tools)
 
-    for name, body, offset in _options_for_queries(source, query_symbols, objects):
+    for name, body, offset in _options_for_queries(
+        source,
+        query_symbols,
+        objects,
+        builders,
+    ):
         agent = Agent(
             name=name,
             location=_location(path, source, offset),
@@ -505,15 +650,53 @@ def scan_claude_agent_sdk_typescript_file(path: Path) -> Graph:
         )
 
         tool_names = _string_array(body, "tools")
-        if tool_names is None:
-            agent.metadata["dynamic_tools"] = True
-            agent.metadata["tool_surface"] = "dynamic"
-        else:
+        tools_present = _has_property(body, "tools")
+        tools_object = _object_segment(body, "tools")
+        preset = (
+            tools_object is not None
+            and _string_property(tools_object, "type") == "preset"
+            and _string_property(tools_object, "preset") == "claude_code"
+        )
+        default_surface = not tools_present or preset
+
+        allowed_present = _has_property(body, "allowedTools")
+        allowed_resolved = _string_array(body, "allowedTools")
+        denied_resolved = _string_array(body, "disallowedTools")
+        allowed = allowed_resolved or []
+        denied = denied_resolved or []
+
+        if tool_names is not None:
+            agent.metadata["tool_surface"] = "explicit"
             for tool_name in tool_names:
                 agent.tools.append(_builtin(path, source, offset, tool_name))
+        elif default_surface:
+            projected = list(_DEFAULT_TOOLS)
+            if allowed_present and allowed_resolved is not None:
+                projected = [
+                    tool_name
+                    for tool_name in projected
+                    if tool_name in allowed_resolved
+                ]
+                agent.metadata["tool_surface"] = "restricted_default"
+                agent.metadata["tool_surface_restricted_by_allowed_tools"] = True
+                agent.metadata["explicit_allowed_tool_surface"] = list(allowed_resolved)
+            else:
+                agent.metadata["tool_surface"] = (
+                    "preset:claude_code" if preset else "runtime_default"
+                )
+            agent.metadata["default_tool_surface_projection"] = (
+                "security_relevant_builtins"
+            )
+            for tool_name in projected:
+                agent.tools.append(_builtin(path, source, offset, tool_name))
+        else:
+            agent.metadata["dynamic_tools"] = True
+            agent.metadata["tool_surface"] = "dynamic"
 
-        allowed = _string_array(body, "allowedTools") or []
-        denied = _string_array(body, "disallowedTools") or []
+        if allowed_present and allowed_resolved is None:
+            agent.metadata["dynamic_allowed_tools"] = True
+        if _has_property(body, "disallowedTools") and denied_resolved is None:
+            agent.metadata["dynamic_disallowed_tools"] = True
         agent.metadata["allowed_tools_auto_approve"] = allowed
         agent.metadata["disallowed_tools"] = denied
         permission = _string_property(body, "permissionMode")

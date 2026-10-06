@@ -24,6 +24,10 @@ from horustrace.adapters.amazon_strands_typescript import (
 from horustrace.adapters.anthropic_managed_agents import (
     scan_anthropic_managed_agents_file,
 )
+from horustrace.adapters.anthropic_managed_agents_typescript import (
+    is_anthropic_managed_agents_typescript_file,
+    scan_anthropic_managed_agents_typescript_file,
+)
 from horustrace.adapters.claude_agent_sdk_typescript import (
     is_claude_agent_sdk_typescript_file,
     scan_claude_agent_sdk_typescript_file,
@@ -1194,6 +1198,7 @@ def _is_supported_scan_candidate(path: Path) -> bool:
         or path.name == SKILL_FILENAME
         or is_amazon_strands_typescript_file(path)
         or is_claude_agent_sdk_typescript_file(path)
+        or is_anthropic_managed_agents_typescript_file(path)
         or path.name
         in (
             MCP_FILENAMES
@@ -2446,11 +2451,18 @@ def scan(
         elif (
             is_amazon_strands_typescript_file(candidate)
             or is_claude_agent_sdk_typescript_file(candidate)
+            or is_anthropic_managed_agents_typescript_file(candidate)
         ):
             if is_amazon_strands_typescript_file(candidate):
                 _merge(graph, scan_amazon_strands_typescript_file(candidate), candidate)
             if is_claude_agent_sdk_typescript_file(candidate):
                 _merge(graph, scan_claude_agent_sdk_typescript_file(candidate), candidate)
+            if is_anthropic_managed_agents_typescript_file(candidate):
+                _merge(
+                    graph,
+                    scan_anthropic_managed_agents_typescript_file(candidate),
+                    candidate,
+                )
         elif candidate.suffix.lower() == ".ipynb":
             notebook_source, notebook_skips = _notebook_python_source(text)
             for item in notebook_skips:
