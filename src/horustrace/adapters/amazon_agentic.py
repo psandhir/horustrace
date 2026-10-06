@@ -22,6 +22,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
+from horustrace.semantic_contract import set_tool_control
 
 STRANDS_FRAMEWORK = "strands-agents"
 BEDROCK_FRAMEWORK = "amazon-bedrock-agents"
@@ -804,8 +805,7 @@ def _scan_strands_python(path: Path, tree: ast.AST) -> Graph:
         if hook_names:
             agent.metadata["hooks"] = hook_names
             agent.metadata["hook_control_state"] = hook_state
-            agent.metadata["tool_control_state"] = hook_state
-            agent.metadata["tool_control_enforcing"] = hook_state == "enforcing"
+            set_tool_control(agent.metadata, hook_state)
 
         raw_tools[name] = _tool_expressions(_keyword(call, "tools"))
         agents[name] = agent
@@ -883,8 +883,7 @@ def _scan_strands_python(path: Path, tree: ast.AST) -> Graph:
         if hook_names:
             orchestrator.metadata["hooks"] = hook_names
             orchestrator.metadata["hook_control_state"] = hook_state
-            orchestrator.metadata["tool_control_state"] = hook_state
-            orchestrator.metadata["tool_control_enforcing"] = hook_state == "enforcing"
+            set_tool_control(orchestrator.metadata, hook_state)
         delegates: list[str] = []
         for node_id, ref in spec["nodes"].items():
             child = agents.get(ref)
