@@ -269,10 +269,14 @@ def _core_dimension_names(
     target_kind: str,
     dimensions: dict[str, str],
 ) -> tuple[str, ...]:
-    configured = _CORE_DIMENSIONS_BY_TARGET.get(
-        target_kind,
-        ("target", "capabilities"),
+    configured = list(
+        _CORE_DIMENSIONS_BY_TARGET.get(
+            target_kind,
+            ("target", "capabilities"),
+        )
     )
+    if target_kind == "tool" and "source_effects" in dimensions:
+        configured.append("source_effects")
     return tuple(name for name in configured if name in dimensions)
 
 
