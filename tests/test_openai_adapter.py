@@ -1231,3 +1231,48 @@ triage = Agent(
 
     assert delegated == {"Refund", "Sales"}
     assert report["summary"]["delegation_relationships"] >= 2
+
+
+def test_openai_repository_decorated_tool_factory_preserves_shell_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "wrappers.py").write_text(
+        """
+import subprocess
+from agents import Agent, function_tool
+
+def _make_terminal():
+    @function_tool
+    def terminal(command: str) -> str:
+        return subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    return terminal
+
+default_agent = Agent(name="DefaultShell", tools=[_make_terminal()])
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "app.py").write_text(
+        """
+from agents import Agent
+from wrappers import _make_terminal
+
+app_agent = Agent(name="AppShell", tools=[_make_terminal()])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    default_agent = next(item for item in graph.agents if item.name == "DefaultShell")
+    app_agent = next(item for item in graph.agents if item.name == "AppShell")
+
+    default_terminal = next(tool for tool in default_agent.tools if tool.name == "terminal")
+    app_terminal = next(tool for tool in app_agent.tools if tool.name == "terminal")
+    assert "process.execute" in default_terminal.capabilities
+    assert "process.execute" in app_terminal.capabilities
+    assert app_terminal.metadata["repository_resolved"] is True
+    assert app_terminal.metadata["source_factory"] == "_make_terminal"
