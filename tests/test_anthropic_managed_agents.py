@@ -4,6 +4,7 @@ from horustrace.adapters.anthropic_managed_agents import (
     is_anthropic_managed_agents_file,
     scan_anthropic_managed_agents_file,
 )
+from horustrace.effective_authority import effective_authority_report
 from horustrace.scanner import scan
 
 
@@ -252,3 +253,88 @@ async def create():
     agent = next(item for item in graph.agents if item.name == "awaited-managed-agent")
     assert agent.metadata["managed_runtime"] is True
     assert agent.metadata["model"] == "claude-sonnet-4-6"
+
+
+
+def test_managed_agent_dynamic_tools_become_unresolved_authority(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        """
+from anthropic import AsyncAnthropic
+
+client = AsyncAnthropic()
+
+class Harness:
+    def __init__(self, params):
+        self.params = params
+
+    async def create(self):
+        agent = await client.beta.agents.create(
+            name="search-evals-suite",
+            model="claude-sonnet-4-6",
+            tools=list(self.params.tools),
+        )
+        return agent
+""",
+    )
+
+    graph = scan_anthropic_managed_agents_file(path)
+    agent = next(item for item in graph.agents if item.name == "search-evals-suite")
+    catalogue = next(
+        item for item in agent.tools if item.kind == "dynamic_tool_collection"
+    )
+
+    assert catalogue.name == "<dynamic-managed-tool-catalogue>"
+    assert catalogue.capabilities == set()
+    assert catalogue.metadata["dynamic_bound_collection"] is True
+    assert catalogue.metadata["tool_catalogue_unresolved"] is True
+    assert catalogue.metadata["binding_expression"] == "list(self.params.tools)"
+    assert agent.metadata["dynamic_tool_catalogue"] is True
+
+    report = effective_authority_report(graph)
+    relationship = next(
+        item
+        for item in report["relationships"]
+        if item["agent"] == "search-evals-suite"
+        and item["target"] == {
+            "kind": "tool",
+            "name": "<dynamic-managed-tool-catalogue>",
+        }
+    )
+
+    assert relationship["capabilities"] == []
+    assert relationship["semantics"]["tool_catalogue_unresolved"] is True
+    assert relationship["dimensions"]["tool_scope"] == "unknown"
+    assert "tool_catalogue" in relationship["unresolved"]
+    assert "capabilities" in relationship["unresolved"]
+    assert relationship["core_resolution"] == "partially_resolved"
+    assert relationship["core_unresolved"] == ["capabilities"]
+
+
+def test_managed_agent_literal_toolset_does_not_add_dynamic_catalogue(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        """
+from anthropic import Anthropic
+
+client = Anthropic()
+agent = client.beta.agents.create(
+    name="literal-tools",
+    model="claude-sonnet-4-6",
+    tools=[{"type": "agent_toolset_20260401"}],
+)
+""",
+    )
+
+    graph = scan_anthropic_managed_agents_file(path)
+    agent = next(item for item in graph.agents if item.name == "literal-tools")
+
+    assert any(tool.name == "bash" for tool in agent.tools)
+    assert not any(
+        tool.kind == "dynamic_tool_collection" for tool in agent.tools
+    )
+    assert "dynamic_tool_catalogue" not in agent.metadata

@@ -355,6 +355,37 @@ def _toolsets(
     return tools
 
 
+def _dynamic_tool_catalogue(
+    path: Path,
+    call: ast.Call,
+) -> Tool | None:
+    """Represent a source-proven Managed Agent tool catalogue we cannot enumerate."""
+    tools_node = _kw(call, "tools")
+    if tools_node is None:
+        return None
+    if isinstance(_literal(tools_node), list):
+        return None
+
+    expression = _expr_text(tools_node)
+    return Tool(
+        name="<dynamic-managed-tool-catalogue>",
+        kind="dynamic_tool_collection",
+        capabilities=set(),
+        location=_location(path, tools_node),
+        metadata={
+            "framework": FRAMEWORK,
+            "managed_tool_catalogue": True,
+            "dynamic_bound_collection": True,
+            "dynamic_authority": True,
+            "tool_catalogue_unresolved": True,
+            "authority_binding": "managed_agent_tools",
+            "authority_binding_basis": "managed_agent_tools_expression",
+            "binding_expression": expression,
+            "execution_boundary": "server-managed",
+        },
+    )
+
+
 def _multiagent_tools(
     path: Path,
     call: ast.Call,
@@ -467,6 +498,13 @@ def _agent_from_call(
 
     server_lookup = _mcp_servers(path, call)
     agent.tools.extend(_toolsets(path, call, server_lookup))
+    dynamic_catalogue = _dynamic_tool_catalogue(path, call)
+    if dynamic_catalogue is not None:
+        agent.tools.append(dynamic_catalogue)
+        agent.metadata["dynamic_tool_catalogue"] = True
+        agent.metadata["dynamic_tool_catalogue_expression"] = (
+            dynamic_catalogue.metadata.get("binding_expression")
+        )
     agent.mcp_servers.extend(deepcopy(server) for server in server_lookup.values())
     agent.tools.extend(_multiagent_tools(path, call, agent))
 
