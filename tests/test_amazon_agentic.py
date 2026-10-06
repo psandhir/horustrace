@@ -67,7 +67,7 @@ root = Agent(
     assert "network.external" in publish.capabilities
     assert "external.write" in publish.capabilities
     assert [item.target for item in publish.destinations] == [
-        "https://tickets.example.test/api"
+        "https://tickets.example.test/api/tickets"
     ]
 
     delegated = next(item for item in root.tools if item.kind == "delegated_agent")
