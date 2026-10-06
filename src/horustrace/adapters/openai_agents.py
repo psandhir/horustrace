@@ -1351,6 +1351,54 @@ def scan_python_file(path: Path) -> Graph:
                 candidates.append((line, assignment.value))
         return max(candidates, key=lambda item: item[0])[1] if candidates else None
 
+    def local_factory_tools(expr: ast.AST | None) -> list[Tool]:
+        """Resolve a local factory that returns a nested decorated function tool."""
+        if not isinstance(expr, ast.Call):
+            return []
+        factory_name = _call_name(expr.func)
+        if not factory_name:
+            return []
+        candidates = [function for function in functions if function.name == factory_name]
+        if len(candidates) != 1:
+            return []
+        factory = candidates[0]
+        nested_tools: dict[str, Tool] = {}
+        for child in ast.walk(factory):
+            if (
+                child is factory
+                or not isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+            ):
+                continue
+            tool = _decorated_function_tool(
+                path,
+                child,
+                imports,
+                external_clients,
+            )
+            if tool is not None:
+                tool.metadata.update(
+                    {
+                        "binding_origin": "repository_tool_factory",
+                        "source_factory": factory_name,
+                        "repository_resolved": True,
+                    }
+                )
+                nested_tools[child.name] = tool
+
+        returned: list[Tool] = []
+        for child in ast.walk(factory):
+            if not isinstance(child, ast.Return):
+                continue
+            value = child.value
+            if isinstance(value, ast.Name) and value.id in nested_tools:
+                returned.append(nested_tools[value.id])
+        unique: dict[tuple[str, int], Tool] = {}
+        for tool in returned:
+            line = tool.location.line if tool.location is not None else 0
+            unique[(tool.name, line)] = tool
+        return list(unique.values())
+
+
     def dynamic_collection_tools(node: ast.AST, expr: ast.AST | None) -> list[Tool]:
         """Normalize source-bound tool collection expressions without inventing members."""
         alias = expr.id if isinstance(expr, ast.Name) else "dynamic_tools"
@@ -1381,6 +1429,9 @@ def scan_python_file(path: Path) -> Graph:
             return []
         if not isinstance(value, ast.Call):
             return []
+        factory_tools = local_factory_tools(value)
+        if factory_tools:
+            return factory_tools
         called = _dotted_name(value.func) or _call_name(value.func) or ""
         if "tool" not in called.lower():
             return []
@@ -1555,6 +1606,33 @@ def scan_python_file(path: Path) -> Graph:
                 )
                 if direct_tool:
                     agent.tools.append(direct_tool)
+                    continue
+
+                factory_tools = local_factory_tools(element)
+                if factory_tools:
+                    agent.tools.extend(factory_tools)
+                    continue
+
+                if isinstance(element.func, ast.Name) and element.func.id in imports:
+                    factory_symbol = import_symbols.get(
+                        element.func.id,
+                        element.func.id,
+                    )
+                    agent.tools.append(
+                        Tool(
+                            name=factory_symbol,
+                            kind="imported_tool_factory_ref",
+                            capabilities=set(),
+                            location=_location(path, element),
+                            metadata={
+                                "framework": "openai-agents",
+                                "import_module": imports[element.func.id],
+                                "factory_symbol": factory_symbol,
+                                "placeholder": True,
+                                "binding_origin": "repository_tool_factory_import",
+                            },
+                        )
+                    )
 
         mcp_servers_expr = _kw(node, "mcp_servers")
         mcp_server_elements = _resolve_sequence(mcp_servers_expr, sequences)

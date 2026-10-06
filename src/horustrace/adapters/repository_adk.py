@@ -19,6 +19,7 @@ from horustrace.models import (
     Graph,
     Identity,
     InputSource,
+    MCPServer,
     NetworkDestination,
     ResourceScope,
     SourceLocation,
@@ -1780,8 +1781,9 @@ def _resolve_repository_sequence(
     """Resolve only statically proven repository-local sequence composition.
 
     This deliberately supports literal sequence containers, unpacking, addition,
-    local aliases, and imported aliases. It does not execute comprehensions,
-    function calls, arbitrary operators, or target imports.
+    local aliases, imported aliases, and the element templates of comprehensions.
+    Comprehensions are never executed and their cardinality remains unresolved;
+    only source-visible possible members are projected.
     """
     if expr is None:
         return []
@@ -1797,6 +1799,13 @@ def _resolve_repository_sequence(
                 )
             )
         return result
+
+    if isinstance(expr, (ast.ListComp, ast.SetComp, ast.GeneratorExp)):
+        # Preserve the source-visible member template without evaluating the
+        # comprehension or claiming that any particular runtime element exists.
+        return _resolve_repository_sequence(
+            modules, info, expr.elt, sequences, visited
+        )
 
     if isinstance(expr, ast.Starred):
         return _resolve_repository_sequence(
@@ -1923,6 +1932,49 @@ def _simple_factory(func: ast.FunctionDef | ast.AsyncFunctionDef | None) -> ast.
     return calls[0] if len(calls) == 1 else None
 
 
+def _dynamic_mcp_factory_server(
+    info: ModuleInfo,
+    func: ast.FunctionDef | ast.AsyncFunctionDef,
+    alias: str,
+) -> MCPServer | None:
+    """Represent repository-local MCP factories without inventing runtime members.
+
+    This is intentionally a source-summary fallback used only when a helper
+    function visibly reaches MCP construction/registry APIs but cannot be reduced
+    to one concrete returned constructor.  It preserves the authority boundary
+    while leaving endpoint and tool catalogue dimensions unresolved.
+    """
+
+    mcp_calls: list[str] = []
+    for node in ast.walk(func):
+        if not isinstance(node, ast.Call):
+            continue
+        called = ast.unparse(node.func)
+        lowered = called.lower()
+        if "mcp" in lowered or "get_adk_toolset" in lowered:
+            mcp_calls.append(called)
+    if not mcp_calls:
+        return None
+
+    return MCPServer(
+        name=alias,
+        transport="unknown",
+        location=_loc(info.path, func),
+        metadata={
+            "framework": "google-adk",
+            "binding_origin": "repository_mcp_factory",
+            "repository_resolved": True,
+            "dynamic_bound_collection": True,
+            "tool_catalogue_unresolved": True,
+            "configuration_dependent": True,
+            "dynamic_mcp_endpoint": True,
+            "dynamic_mcp_endpoint_basis": "operator_configuration",
+            "source_function": func.name,
+            "catalogue_sources": sorted(set(mcp_calls)),
+        },
+    )
+
+
 def _resolve_tools(
     modules: dict[str, ModuleInfo],
     info: ModuleInfo,
@@ -1968,6 +2020,9 @@ def _resolve_tools(
                                 ast.List,
                                 ast.Tuple,
                                 ast.Set,
+                                ast.ListComp,
+                                ast.SetComp,
+                                ast.GeneratorExp,
                                 ast.Starred,
                                 ast.IfExp,
                                 ast.BinOp,
@@ -2092,6 +2147,16 @@ def _resolve_tools(
                         tools.append(tool)
                         resolved_refs.add((info.path, item.lineno))
                         continue
+
+                dynamic_mcp = _dynamic_mcp_factory_server(
+                    target,
+                    factory,
+                    _name(item.func) or factory.name,
+                )
+                if dynamic_mcp is not None:
+                    mcp_servers.append(dynamic_mcp)
+                    resolved_refs.add((info.path, item.lineno))
+                    continue
 
             alias = _name(item.func) or "tool"
             mcp = _mcp_from_repository_toolset(info, item, alias)

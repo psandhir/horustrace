@@ -1634,3 +1634,39 @@ public class CommentOnlyTool
         fact.fact.startswith("capability=")
         for fact in tool.provenance
     )
+
+
+def test_dotnet_maf_fluent_workflow_builder_preserves_topology(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        r"""
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Workflows;
+
+AIAgent salesagent = chatClient.AsAIAgent(name: "Sales");
+AIAgent priceagent = chatClient.AsAIAgent(name: "Price");
+AIAgent quoteagent = chatClient.AsAIAgent(name: "Quote");
+
+var workflow = new WorkflowBuilder(salesagent)
+    .AddEdge(salesagent, priceagent)
+    .AddEdge(priceagent, quoteagent)
+    .Build();
+
+StreamingRun run = await InProcessExecution.RunStreamingAsync(workflow, userMessage);
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    workflow = next(item for item in graph.agents if item.name == "workflow")
+    assert workflow.metadata["agent_type"] == "Workflow"
+    assert workflow.metadata["workflow_kind"] == "sequential"
+    assert workflow.metadata["workflow_edges"] == [
+        {"source": "salesagent", "target": "priceagent"},
+        {"source": "priceagent", "target": "quoteagent"},
+    ]
+    delegated = [tool for tool in workflow.tools if tool.kind == "delegated_agent"]
+    assert {tool.metadata["delegate_target"] for tool in delegated} == {
+        "salesagent",
+        "priceagent",
+        "quoteagent",
+    }

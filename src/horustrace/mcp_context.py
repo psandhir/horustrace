@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tomllib
 from copy import deepcopy
 from pathlib import Path
 from urllib.parse import urlparse
@@ -308,6 +309,91 @@ def _local_stdio_script_candidates(
     return candidates
 
 
+def _local_stdio_console_modules(
+    server: MCPServer,
+    root: Path,
+) -> set[str]:
+    """Resolve repository console-script entrypoints named by a stdio command.
+
+    This handles common launchers such as uv run <script> without executing
+    packaging metadata. Only pyproject files on the client declaration's
+    ancestor chain are considered.
+    """
+    if server.transport != "stdio" or server.location is None:
+        return set()
+
+    tokens = {
+        token
+        for token in [server.command, *server.args]
+        if isinstance(token, str) and token and not token.startswith("-")
+    }
+    tokens.update(Path(token).name for token in list(tokens))
+    if not tokens:
+        return set()
+
+    root = root.resolve()
+    current = server.location.path.resolve().parent
+    pyprojects: list[Path] = []
+    while True:
+        try:
+            current.relative_to(root)
+        except ValueError:
+            break
+        candidate = current / "pyproject.toml"
+        if candidate.is_file():
+            pyprojects.append(candidate)
+        if current == root:
+            break
+        current = current.parent
+
+    modules: set[str] = set()
+    for pyproject in pyprojects:
+        try:
+            document = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+            continue
+
+        script_maps: list[dict] = []
+        project = document.get("project")
+        if isinstance(project, dict) and isinstance(project.get("scripts"), dict):
+            script_maps.append(project["scripts"])
+        tool = document.get("tool")
+        poetry = tool.get("poetry") if isinstance(tool, dict) else None
+        if isinstance(poetry, dict) and isinstance(poetry.get("scripts"), dict):
+            script_maps.append(poetry["scripts"])
+
+        for scripts in script_maps:
+            for script_name, target in scripts.items():
+                if script_name not in tokens or not isinstance(target, str):
+                    continue
+                module = target.split(":", 1)[0].strip()
+                if module:
+                    modules.add(module)
+    return modules
+
+
+def _implementation_matches_module(
+    path: Path,
+    root: Path,
+    module: str,
+) -> bool:
+    """Match a discovered implementation path to a packaging module target."""
+    try:
+        relative = path.resolve().relative_to(root.resolve()).with_suffix("")
+    except ValueError:
+        return False
+    parts = list(relative.parts)
+    if parts and parts[-1] == "__init__":
+        parts.pop()
+    wanted = [part for part in module.split(".") if part]
+    if not wanted:
+        return False
+    return any(
+        parts[index:index + len(wanted)] == wanted
+        for index in range(len(parts) - len(wanted) + 1)
+    )
+
+
 def resolve_local_stdio_implementations(graph: Graph, root: Path) -> None:
     """Bind a local stdio client declaration to its in-repo MCP implementation.
 
@@ -343,8 +429,6 @@ def resolve_local_stdio_implementations(graph: Graph, root: Path) -> None:
     for agent in graph.agents:
         for server in agent.mcp_servers:
             script_candidates = _local_stdio_script_candidates(server, root)
-            if not script_candidates:
-                continue
             matches = [
                 implementation
                 for candidate_path in script_candidates
@@ -353,6 +437,28 @@ def resolve_local_stdio_implementations(graph: Graph, root: Path) -> None:
                     [],
                 )
             ]
+            binding_origin = "local_stdio_script"
+            console_modules: set[str] = set()
+            if not matches:
+                console_modules = _local_stdio_console_modules(server, root)
+                if console_modules:
+                    matches = [
+                        implementation
+                        for implementation_path, implementations in implementations_by_path.items()
+                        if any(
+                            _implementation_matches_module(
+                                implementation_path,
+                                root,
+                                module,
+                            )
+                            for module in console_modules
+                        )
+                        for implementation in implementations
+                    ]
+                    binding_origin = "local_stdio_console_script"
+            if not script_candidates and not console_modules:
+                continue
+            matches = list({id(item): item for item in matches}.values())
             if len(matches) != 1:
                 if len(matches) > 1:
                     server.metadata["local_stdio_resolution"] = "ambiguous"
@@ -379,7 +485,7 @@ def resolve_local_stdio_implementations(graph: Graph, root: Path) -> None:
             server.metadata.update(
                 {
                     "repository_resolved": True,
-                    "binding_origin": "local_stdio_script",
+                    "binding_origin": binding_origin,
                     "implementation_name": implementation.name,
                     "implementation_path": implementation.location.path.resolve().as_posix(),
                     "implementation_line": implementation.location.line,
@@ -387,6 +493,8 @@ def resolve_local_stdio_implementations(graph: Graph, root: Path) -> None:
                     "implementation_source": implementation.metadata.get("source"),
                 }
             )
+            if console_modules:
+                server.metadata["console_script_modules"] = sorted(console_modules)
             if server.authenticated is None and implementation.authenticated is not None:
                 server.authenticated = implementation.authenticated
             if server.approval is None and implementation.approval is not None:
@@ -410,7 +518,7 @@ def resolve_local_stdio_implementations(graph: Graph, root: Path) -> None:
                     ):
                         continue
                     tool.metadata["binding_state"] = "bound_via_mcp"
-                    tool.metadata["authority_binding_basis"] = "local_stdio_script"
+                    tool.metadata["authority_binding_basis"] = binding_origin
                     bound_servers = tool.metadata.setdefault(
                         "bound_mcp_servers",
                         [],

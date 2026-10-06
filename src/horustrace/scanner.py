@@ -1983,20 +1983,32 @@ def _remap_flow_locations(graph: Graph, path_map: dict[Path, Path]) -> None:
 
 
 def _resolve_imported_tool_placeholders(graph: Graph) -> None:
-    """Resolve imported tool references against concrete tools found in the repository."""
+    """Resolve imported tool references/factories against repository evidence."""
     concrete: dict[str, list[Tool]] = {}
+    concrete_factories: dict[str, list[Tool]] = {}
     for tool in graph.all_tools():
-        if not tool.metadata.get("placeholder"):
-            concrete.setdefault(tool.name, []).append(tool)
+        if tool.metadata.get("placeholder"):
+            continue
+        concrete.setdefault(tool.name, []).append(tool)
+        source_factory = tool.metadata.get("source_factory")
+        if isinstance(source_factory, str):
+            concrete_factories.setdefault(source_factory, []).append(tool)
 
     for agent in graph.agents:
         unresolved: list[str] = []
         for tool in agent.tools:
             if not tool.metadata.get("placeholder"):
                 continue
-            matches = concrete.get(tool.name, [])
+            factory_symbol = tool.metadata.get("factory_symbol")
+            matches = (
+                concrete_factories.get(factory_symbol, [])
+                if isinstance(factory_symbol, str)
+                else concrete.get(tool.name, [])
+            )
             if len(matches) == 1:
                 source = matches[0]
+                if isinstance(factory_symbol, str):
+                    tool.name = source.name
                 tool.kind = source.kind
                 tool.location = source.location or tool.location
                 tool.capabilities = set(source.capabilities)
@@ -2014,6 +2026,7 @@ def _resolve_imported_tool_placeholders(graph: Graph) -> None:
                         "authority_binding_basis",
                         "tool_node",
                         "import_module",
+                        "factory_symbol",
                     }
                 }
                 tool.metadata = {
