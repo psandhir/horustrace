@@ -9,7 +9,7 @@ from horustrace.adapters.registry import (
     detect_python_frameworks,
 )
 from horustrace.cli import main
-from horustrace.models import Graph
+from horustrace.models import Agent, Graph
 
 
 def _never_detects(_path):
@@ -28,6 +28,7 @@ def test_builtin_adapters_conform_to_contract_v1() -> None:
     ]
     assert all(item["contract_version"] == 1 for item in catalogue)
     assert all(item["output"] == "horustrace.models.Graph" for item in catalogue)
+    assert all(item["semantic_contract_version"] == 1 for item in catalogue)
     assert all(item["target_code_execution"] is False for item in catalogue)
 
 
@@ -70,3 +71,22 @@ workflow.add_node("transform", lambda state: state)
     )
 
     assert "langgraph" not in detect_python_frameworks(source)
+
+
+def test_adapter_semantic_contract_rejects_noncanonical_control_metadata() -> None:
+    adapter = PythonFrameworkAdapter(
+        "test-adapter",
+        _never_detects,
+        _empty_scan,
+    )
+    graph = Graph(
+        agents=[
+            Agent(
+                name="broken",
+                metadata={"enforcing_tool_control": True},
+            )
+        ]
+    )
+
+    with pytest.raises(ValueError, match="enforcing_tool_control"):
+        adapter.validate_graph(graph)

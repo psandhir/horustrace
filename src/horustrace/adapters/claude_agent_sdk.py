@@ -22,6 +22,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
+from horustrace.semantic_contract import ToolControlState, set_tool_control
 
 FRAMEWORK = "claude-agent-sdk"
 
@@ -1335,13 +1336,11 @@ def _annotate_control_states(
             if name in functions
         ]
         if "enforcing" in states:
-            agent.metadata["tool_control_state"] = "enforcing"
-            agent.metadata["tool_control_enforcing"] = True
+            set_tool_control(agent.metadata, ToolControlState.ENFORCING)
         elif states and all(state == "non_enforcing" for state in states):
-            agent.metadata["tool_control_state"] = "non_enforcing"
-            agent.metadata["tool_control_enforcing"] = False
+            set_tool_control(agent.metadata, ToolControlState.NON_ENFORCING)
         elif callbacks:
-            agent.metadata["tool_control_state"] = "unresolved"
+            set_tool_control(agent.metadata, ToolControlState.UNRESOLVED)
 
 
 def scan_python_file(path: Path) -> Graph:

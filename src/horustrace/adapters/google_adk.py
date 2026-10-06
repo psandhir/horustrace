@@ -29,6 +29,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
+from horustrace.semantic_contract import set_tool_control
 from horustrace.skills import instruction_capability_signals
 
 AGENT_TYPES = {"Agent", "LlmAgent", "SequentialAgent", "ParallelAgent", "LoopAgent", "Workflow", "RemoteA2aAgent"}
@@ -2286,9 +2287,11 @@ def _agent_from_call(
         metadata["callbacks"] = callbacks
     tool_control_state = _before_tool_control_state(call, functions)
     if tool_control_state is not None:
-        metadata["tool_control_state"] = tool_control_state
-        metadata["tool_control_enforcing"] = tool_control_state == "enforcing"
-        metadata["tool_control_mechanism"] = "adk_before_tool_callback"
+        set_tool_control(
+            metadata,
+            tool_control_state,
+            mechanism="adk_before_tool_callback",
+        )
     metadata["disallow_transfer_to_parent"] = _bool(_kw(call, "disallow_transfer_to_parent"))
     metadata["disallow_transfer_to_peers"] = _bool(_kw(call, "disallow_transfer_to_peers"))
     metadata["mode"] = _string(_kw(call, "mode"))

@@ -120,6 +120,7 @@ from horustrace.repository_tool_semantics import enrich_indirect_tool_content_se
 from horustrace.rules.builtin import evaluate
 from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
 from horustrace.runtime_viability import annotate_runtime_viability
+from horustrace.semantic_contract import set_source_context, tool_control_enforcing
 from horustrace.semantics import annotate_risk_semantics
 from horustrace.skill_llm_semantics import enrich_skill_llm_semantics
 from horustrace.skills import SKILL_FILENAME, bind_discovered_skills, scan_skill_file
@@ -168,7 +169,7 @@ def _annotate_authority_source_contexts(graph: Graph, root: Path) -> None:
     """Attach scan-root-relative source context to normalized agents."""
     for agent in graph.agents:
         path = agent.location.path if agent.location is not None else None
-        agent.metadata["source_context"] = classify_source_context(path, root=root)
+        set_source_context(agent.metadata, classify_source_context(path, root=root))
 
 
 def _finding_source_context(graph: Graph, finding: object, root: Path) -> str:
@@ -1717,7 +1718,7 @@ def _propagate_adk_delegation(graph: Graph) -> None:
             parent.tools.append(Tool(
                 name=f"delegate:{child.name}", kind="delegated_agent",
                 capabilities=capabilities, approval=delegated_approval,
-                guardrails=child.metadata.get("tool_control_enforcing") is True,
+                guardrails=tool_control_enforcing(child.metadata),
                 resources=resources, destinations=destinations, location=parent.location,
                 provenance=provenance,
                 metadata={

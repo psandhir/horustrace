@@ -371,7 +371,7 @@ async function run() {
     assert agent.metadata["tool_control_mechanism"] == (
         "claude_canUseTool+claude_PreToolUse"
     )
-    assert agent.metadata["enforcing_tool_control"] is True
+    assert "enforcing_tool_control" not in agent.metadata
     assert "Write" in agent.metadata["settings_deny_rules"]
 
     bash = next(tool for tool in agent.tools if tool.name == "Bash")
