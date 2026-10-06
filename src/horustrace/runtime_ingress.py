@@ -759,6 +759,64 @@ def _callback_runtime_invocation(
 
 
 
+def _module_agent_receivers(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    tree: ast.Module,
+    path: Path,
+    agents_by_path: dict[Path, list[Agent]],
+) -> dict[str, Agent]:
+    """Return unambiguous module-scope normalized agents visible to a handler."""
+    start = getattr(function, "lineno", 0) or 0
+    end = getattr(function, "end_lineno", start) or start
+    module_agents = [
+        agent
+        for agent in agents_by_path.get(path.resolve(), [])
+        if agent.location is not None
+        and not start <= agent.location.line <= end
+    ]
+    candidates: dict[str, list[Agent]] = {}
+
+    def add(alias: str, agent: Agent) -> None:
+        leaf = alias.rsplit(".", 1)[-1]
+        if leaf.isidentifier():
+            candidates.setdefault(leaf, []).append(agent)
+
+    for agent in module_agents:
+        add(agent.name, agent)
+        source_alias = str(agent.metadata.get("source_alias") or "")
+        if source_alias:
+            add(source_alias, agent)
+        for alias in agent.metadata.get("source_aliases") or []:
+            if alias:
+                add(str(alias), agent)
+
+    # Recover module variable names directly from source so semantic binding
+    # does not depend on framework adapters preserving alias metadata.
+    by_line: dict[int, list[Agent]] = {}
+    for agent in module_agents:
+        by_line.setdefault(agent.location.line, []).append(agent)
+    for node in tree.body:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = node.value
+        if not isinstance(value, ast.Call):
+            continue
+        matches = by_line.get(getattr(value, "lineno", 0) or 0, [])
+        unique_matches = list({id(agent): agent for agent in matches}.values())
+        if len(unique_matches) != 1:
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        for target in targets:
+            for alias in _target_names(target):
+                add(alias, unique_matches[0])
+
+    result: dict[str, Agent] = {}
+    for alias, matches in candidates.items():
+        unique = list({id(agent): agent for agent in matches}.values())
+        if len(unique) == 1:
+            result[alias] = unique[0]
+    return result
+
 def _local_agent_receivers(
     function: ast.FunctionDef | ast.AsyncFunctionDef,
     path: Path,
@@ -976,6 +1034,9 @@ def _direct_helper_summaries(
                 receiver_targets,
                 compiled_targets,
             )
+            receivers.update(
+                _module_agent_receivers(function, tree, path, agents_by_path)
+            )
             local_receivers = _local_agent_receivers(
                 function,
                 path,
@@ -1183,6 +1244,9 @@ def enrich_runtime_ingress_inputs(
                 imports,
                 receiver_targets,
                 compiled_targets,
+            )
+            receivers.update(
+                _module_agent_receivers(function, tree, path, agents_by_path)
             )
             local_receivers = _local_agent_receivers(
                 function,
