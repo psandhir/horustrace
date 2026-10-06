@@ -65,7 +65,7 @@ def tool_control_state(
     if raw is None:
         return None
     try:
-        return ToolControlState(str(raw))
+        return ToolControlState(raw)
     except ValueError:
         return None
 
