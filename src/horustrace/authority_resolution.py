@@ -27,7 +27,9 @@ def authority_resolution_summary(graph: Graph) -> dict[str, Any]:
         counts[relationship.resolution] += 1
         core_counts[relationship.core_resolution] += 1
         for dimension in relationship.unresolved:
-            unresolved_dimensions[dimension] = unresolved_dimensions.get(dimension, 0) + 1
+            unresolved_dimensions[dimension] = (
+                unresolved_dimensions.get(dimension, 0) + 1
+            )
         for dimension in relationship.core_unresolved:
             core_unresolved_dimensions[dimension] = (
                 core_unresolved_dimensions.get(dimension, 0) + 1
