@@ -212,7 +212,7 @@ def _python_effect_capabilities(node: ast.AST) -> set[str]:
             or "urllib.request" in called
         ):
             body_capabilities.add("network.external")
-            body_capabilities.update(http_mutation_capabilities(child))
+            body_capabilities.update(http_mutation_capabilities(child, context=node))
         elif called.startswith("socket."):
             body_capabilities.add("network.external")
 
@@ -246,6 +246,15 @@ def _python_effect_capabilities(node: ast.AST) -> set[str]:
     corroborated, _ = corroborate_name_inferred_authority(
         name_capabilities,
         body_capabilities,
+    )
+    # Amazon source-backed tools should not gain destructive/secret/admin
+    # authority from their Python business name alone.
+    corroborated.difference_update(
+        (
+            name_capabilities
+            & {"destructive.write", "identity.admin", "secrets.read"}
+        )
+        - body_capabilities
     )
     return body_capabilities | corroborated
 
