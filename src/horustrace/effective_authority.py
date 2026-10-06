@@ -261,6 +261,7 @@ class EffectiveAuthorityRelationship:
     relationship_id: str
     agent: str
     agent_instance_key: str
+    source_context: str
     target_kind: str
     target_name: str
     capabilities: tuple[str, ...]
@@ -283,6 +284,7 @@ class EffectiveAuthorityRelationship:
         return {
             "relationship_id": self.relationship_id,
             "agent": self.agent,
+            "source_context": self.source_context,
             "target": {
                 "kind": self.target_kind,
                 "name": self.target_name,
@@ -389,6 +391,7 @@ def _tool_relationship(
         relationship_id=_stable_relationship_id(agent.name, "tool", tool.name),
         agent=agent.name,
         agent_instance_key=_agent_instance_key(agent),
+        source_context=str(agent.metadata.get("source_context") or "unknown"),
         target_kind="tool",
         target_name=tool.name,
         capabilities=tuple(sorted(tool.capabilities)),
@@ -681,6 +684,7 @@ def _mcp_relationship(
         ),
         agent=agent.name,
         agent_instance_key=_agent_instance_key(agent),
+        source_context=str(agent.metadata.get("source_context") or "unknown"),
         target_kind="mcp_server",
         target_name=server.name,
         capabilities=capabilities,
@@ -768,6 +772,7 @@ def _skill_relationship(
         relationship_id=_stable_relationship_id(agent.name, "skill", skill.name),
         agent=agent.name,
         agent_instance_key=_agent_instance_key(agent),
+        source_context=str(agent.metadata.get("source_context") or "unknown"),
         target_kind="skill",
         target_name=skill.name,
         capabilities=tuple(sorted(skill.capabilities)),
@@ -827,6 +832,9 @@ def _skill_catalogue_relationships(
                 ),
                 agent=agent.name,
                 agent_instance_key=_agent_instance_key(agent),
+                source_context=str(
+                    agent.metadata.get("source_context") or "unknown"
+                ),
                 target_kind="skill_catalogue",
                 target_name=name,
                 capabilities=(),
@@ -881,6 +889,7 @@ def _delegation_relationship(
         ),
         agent=base.agent,
         agent_instance_key=base.agent_instance_key,
+        source_context=base.source_context,
         target_kind="delegation",
         target_name=target,
         capabilities=base.capabilities,
@@ -940,11 +949,28 @@ def effective_authority_report(graph: Graph) -> dict[str, Any]:
         kind: sum(item.target_kind == kind for item in relationships)
         for kind in ("tool", "mcp_server", "delegation", "skill", "skill_catalogue")
     }
+    source_context_counts: dict[str, int] = {}
+    for item in relationships:
+        source_context_counts[item.source_context] = (
+            source_context_counts.get(item.source_context, 0) + 1
+        )
     return {
         "schema_version": EFFECTIVE_AUTHORITY_SCHEMA_VERSION,
         "runtime_effectiveness": "not_verified",
         "summary": {
             "relationships": len(relationships),
+            "runtime_relationships": source_context_counts.get("runtime", 0),
+            "non_runtime_relationships": sum(
+                count
+                for context, count in source_context_counts.items()
+                if context not in {"runtime", "unknown"}
+            ),
+            "unknown_source_context_relationships": source_context_counts.get(
+                "unknown", 0
+            ),
+            "relationships_by_source_context": dict(
+                sorted(source_context_counts.items())
+            ),
             "tool_relationships": target_counts["tool"],
             "mcp_relationships": target_counts["mcp_server"],
             "delegation_relationships": target_counts["delegation"],
@@ -981,6 +1007,8 @@ def render_effective_authority_console(graph: Graph, root: Path) -> str:
         "=" * 30,
         f"Target:                       {root}",
         f"Relationships:                {summary['relationships']}",
+        f"Runtime relationships:        {summary['runtime_relationships']}",
+        f"Non-runtime relationships:    {summary['non_runtime_relationships']}",
         f"Tool relationships:           {summary['tool_relationships']}",
         f"MCP relationships:            {summary['mcp_relationships']}",
         f"Skill relationships:          {summary['skill_relationships']}",
@@ -1003,7 +1031,8 @@ def render_effective_authority_console(graph: Graph, root: Path) -> str:
         target = item["target"]
         lines.append(
             f"{item['agent']} -> {target['kind']}:{target['name']} "
-            f"[{item['resolution'].upper()}]"
+            f"[{item['resolution'].upper()}] "
+            f"source={item['source_context']}"
         )
         capabilities = ", ".join(item["capabilities"]) or "unknown"
         lines.append(f"  capabilities: {capabilities}")
