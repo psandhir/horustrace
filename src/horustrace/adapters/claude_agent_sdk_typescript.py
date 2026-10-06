@@ -112,15 +112,83 @@ def _balanced(source: str, start: int, opener: str, closer: str) -> tuple[str, i
     return None
 
 
+def _mask_comments(source: str) -> str:
+    """Mask JavaScript/TypeScript comments while preserving offsets and literals."""
+    result = list(source)
+    quote: str | None = None
+    escape = False
+    line_comment = False
+    block_comment = False
+    index = 0
+
+    def blank(position: int) -> None:
+        if result[position] not in {"\n", "\r"}:
+            result[position] = " "
+
+    while index < len(source):
+        char = source[index]
+        next_char = source[index + 1] if index + 1 < len(source) else ""
+
+        if line_comment:
+            if char in {"\n", "\r"}:
+                line_comment = False
+            else:
+                blank(index)
+            index += 1
+            continue
+
+        if block_comment:
+            blank(index)
+            if char == "*" and next_char == "/":
+                if index + 1 < len(source):
+                    blank(index + 1)
+                block_comment = False
+                index += 2
+            else:
+                index += 1
+            continue
+
+        if quote is not None:
+            if escape:
+                escape = False
+            elif char == "\\":
+                escape = True
+            elif char == quote:
+                quote = None
+            index += 1
+            continue
+
+        if char == "/" and next_char == "/":
+            blank(index)
+            if index + 1 < len(source):
+                blank(index + 1)
+            line_comment = True
+            index += 2
+            continue
+        if char == "/" and next_char == "*":
+            blank(index)
+            if index + 1 < len(source):
+                blank(index + 1)
+            block_comment = True
+            index += 2
+            continue
+        if char in {"'", '"', "`"}:
+            quote = char
+        index += 1
+
+    return "".join(result)
+
+
 def _named_imports(source: str) -> dict[str, str]:
     result: dict[str, str] = {}
+    masked = _mask_comments(source)
     pattern = re.compile(
         r"import\s*\{(?P<body>[^}]*)\}\s*from\s*[\"']"
         + re.escape(_SDK)
         + r"[\"']",
         re.DOTALL,
     )
-    for match in pattern.finditer(source):
+    for match in pattern.finditer(masked):
         for raw in match.group("body").split(","):
             item = raw.strip()
             if not item or item.startswith("type "):
@@ -136,24 +204,28 @@ def _named_imports(source: str) -> dict[str, str]:
 def _string_property(text: str, name: str) -> str | None:
     match = re.search(
         rf"\b{re.escape(name)}\s*:\s*([\"'])(.*?)\1",
-        text,
+        _mask_comments(text),
         re.DOTALL,
     )
     return match.group(2) if match else None
 
 
 def _bool_property(text: str, name: str) -> bool | None:
-    match = re.search(rf"\b{re.escape(name)}\s*:\s*(true|false)\b", text)
+    match = re.search(
+        rf"\b{re.escape(name)}\s*:\s*(true|false)\b",
+        _mask_comments(text),
+    )
     if not match:
         return None
     return match.group(1) == "true"
 
 
 def _array_segment(text: str, name: str) -> str | None:
-    marker = re.search(rf"\b{re.escape(name)}\s*:", text)
+    masked = _mask_comments(text)
+    marker = re.search(rf"\b{re.escape(name)}\s*:", masked)
     if not marker:
         return None
-    start = text.find("[", marker.end())
+    start = masked.find("[", marker.end())
     if start < 0:
         return None
     segment = _balanced(text, start, "[", "]")
@@ -165,18 +237,20 @@ def _string_array(text: str, name: str) -> list[str] | None:
     if body is None:
         return None
     # Return None for obviously dynamic entries rather than inventing a list.
-    values = re.findall(r"[\"']([^\"']+)[\"']", body)
-    stripped = re.sub(r"[\"'][^\"']+[\"']", "", body)
+    clean = _mask_comments(body)
+    values = re.findall(r"[\"']([^\"']+)[\"']", clean)
+    stripped = re.sub(r"[\"'][^\"']+[\"']", "", clean)
     if re.sub(r"[\s,]", "", stripped):
         return None
     return values
 
 
 def _object_segment(text: str, name: str) -> str | None:
-    marker = re.search(rf"\b{re.escape(name)}\s*:", text)
+    masked = _mask_comments(text)
+    marker = re.search(rf"\b{re.escape(name)}\s*:", masked)
     if not marker:
         return None
-    start = text.find("{", marker.end())
+    start = masked.find("{", marker.end())
     if start < 0:
         return None
     segment = _balanced(text, start, "{", "}")
@@ -184,7 +258,10 @@ def _object_segment(text: str, name: str) -> str | None:
 
 
 def _has_property(text: str, name: str) -> bool:
-    return re.search(rf"\b{re.escape(name)}\s*:", text) is not None
+    return re.search(
+        rf"\b{re.escape(name)}\s*:",
+        _mask_comments(text),
+    ) is not None
 
 
 def _resolve_typescript_import(path: Path, specifier: str) -> Path | None:
@@ -210,22 +287,23 @@ def _resolve_typescript_import(path: Path, specifier: str) -> Path | None:
 
 
 def _function_return_object(source: str, name: str) -> str | None:
+    masked = _mask_comments(source)
     match = re.search(
         rf"\b(?:export\s+)?(?:async\s+)?function\s+{re.escape(name)}\s*\(",
-        source,
+        masked,
     )
     if not match:
         return None
-    args_start = source.find("(", match.start())
+    args_start = masked.find("(", match.start())
     args = _balanced(source, args_start, "(", ")")
     if args is None:
         return None
-    body_start = source.find("{", args[1])
+    body_start = masked.find("{", args[1])
     body_segment = _balanced(source, body_start, "{", "}")
     if body_segment is None:
         return None
     body, _ = body_segment
-    return_match = re.search(r"\breturn\s*\{", body)
+    return_match = re.search(r"\breturn\s*\{", _mask_comments(body))
     if not return_match:
         return None
     object_start = body.find("{", return_match.start())
@@ -237,7 +315,7 @@ def _string_array_expression(
     expression: str,
     arrays: dict[str, list[str]],
 ) -> list[str] | None:
-    current = expression.strip()
+    current = _mask_comments(expression).strip()
     alias = re.fullmatch(r"([A-Za-z_$][\w$]*)", current)
     if alias:
         return list(arrays[alias.group(1)]) if alias.group(1) in arrays else None
@@ -273,12 +351,13 @@ def _string_array_expression(
 
 def _exported_string_arrays(source: str) -> dict[str, list[str]]:
     result: dict[str, list[str]] = {}
+    masked = _mask_comments(source)
     pattern = re.compile(
         r"\b(?:export\s+)?const\s+([A-Za-z_$][\w$]*)"
         r"(?:\s*:\s*[^=\n]+)?\s*=\s*"
     )
-    for match in pattern.finditer(source):
-        tail = source[match.end():]
+    for match in pattern.finditer(masked):
+        tail = masked[match.end():]
         start = tail.find("[")
         if start < 0 or tail[:start].strip():
             continue
@@ -296,13 +375,14 @@ def _exported_string_arrays(source: str) -> dict[str, list[str]]:
 
 def _imported_string_arrays(path: Path, source: str) -> dict[str, list[str]]:
     result: dict[str, list[str]] = {}
+    masked = _mask_comments(source)
     pattern = re.compile(
         r"import\s*\{(?P<body>[^}]*)\}\s*from\s*"
         r"(?P<quote>[\"'])(?P<specifier>[^\"']+)(?P=quote)",
         re.DOTALL,
     )
     cache: dict[Path, dict[str, list[str]]] = {}
-    for match in pattern.finditer(source):
+    for match in pattern.finditer(masked):
         imported_path = _resolve_typescript_import(path, match.group("specifier"))
         if imported_path is None:
             continue
@@ -343,13 +423,14 @@ def _expand_string_array_constants(
 
 def _imported_option_builders(path: Path, source: str) -> dict[str, str]:
     result: dict[str, str] = {}
+    masked = _mask_comments(source)
     pattern = re.compile(
         r"import\s*\{(?P<body>[^}]*)\}\s*from\s*"
         r"(?P<quote>[\"'])(?P<specifier>[^\"']+)(?P=quote)",
         re.DOTALL,
     )
     cache: dict[Path, str] = {}
-    for match in pattern.finditer(source):
+    for match in pattern.finditer(masked):
         imported_path = _resolve_typescript_import(path, match.group("specifier"))
         if imported_path is None:
             continue
@@ -390,7 +471,7 @@ def _binding_builder_objects(
         rf"(?:\s*:\s*[^=\n]+)?\s*=\s*"
         rf"({names})\s*\(",
     )
-    for match in pattern.finditer(source):
+    for match in pattern.finditer(_mask_comments(source)):
         result[match.group(1)] = (builders[match.group(2)], match.start())
     return result
 
@@ -419,7 +500,7 @@ def _expand_object_spreads(
 
 def _binding_objects(source: str) -> dict[str, tuple[str, int]]:
     result: dict[str, tuple[str, int]] = {}
-    for binding in _BINDING_RE.finditer(source):
+    for binding in _BINDING_RE.finditer(_mask_comments(source)):
         start = binding.end()
         while start < len(source) and source[start].isspace():
             start += 1
@@ -558,7 +639,7 @@ def _destinations(
 
 def _tool_bindings(path: Path, source: str, tool_symbols: set[str]) -> dict[str, Tool]:
     result: dict[str, Tool] = {}
-    for binding in _BINDING_RE.finditer(source):
+    for binding in _BINDING_RE.finditer(_mask_comments(source)):
         variable = binding.group(1)
         tail = source[binding.end():]
         call = re.match(r"([A-Za-z_$][\w$]*)\s*\(", tail)
@@ -597,7 +678,7 @@ def _sdk_mcp_servers(
     custom_tools: dict[str, Tool],
 ) -> dict[str, MCPServer]:
     result: dict[str, MCPServer] = {}
-    for binding in _BINDING_RE.finditer(source):
+    for binding in _BINDING_RE.finditer(_mask_comments(source)):
         variable = binding.group(1)
         tail = source[binding.end():]
         call = re.match(r"([A-Za-z_$][\w$]*)\s*\(", tail)
@@ -658,7 +739,7 @@ def _options_for_queries(
     ) if query_symbols else None
     if pattern is None:
         return result
-    for match in pattern.finditer(source):
+    for match in pattern.finditer(_mask_comments(source)):
         open_offset = source.find("(", match.start())
         segment = _balanced(source, open_offset, "(", ")")
         if segment is None:
