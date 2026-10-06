@@ -168,10 +168,7 @@ def _apply_environment_constraint(agent: object) -> None:
             continue
         for destination in tool.destinations:
             _normalize_destination(destination)
-            if (
-                destination.metadata.get("network_scope") == "dynamic_destination"
-                or destination.target.startswith(("<dynamic", "<model-selected"))
-            ):
+            if not destination_constraint_is_bounded(destination):
                 destination.restricted = True
                 destination.metadata["constraint_state"] = "bounded"
                 destination.metadata["constrained_by"] = "environment_allowed_hosts"
