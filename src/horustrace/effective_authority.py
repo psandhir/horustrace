@@ -256,6 +256,44 @@ def _resolution_status(unresolved: list[str], dimensions: dict[str, str]) -> str
     return "partially_resolved" if resolved else "unknown"
 
 
+_CORE_DIMENSIONS_BY_TARGET = {
+    "tool": ("target", "capabilities"),
+    "mcp_server": ("target", "capabilities", "tool_scope"),
+    "delegation": ("target", "capabilities"),
+    "skill": ("target", "skills", "capabilities"),
+    "skill_catalogue": ("target", "skills"),
+}
+
+
+def _core_dimension_names(
+    target_kind: str,
+    dimensions: dict[str, str],
+) -> tuple[str, ...]:
+    configured = _CORE_DIMENSIONS_BY_TARGET.get(
+        target_kind,
+        ("target", "capabilities"),
+    )
+    return tuple(name for name in configured if name in dimensions)
+
+
+def _core_resolution_status(
+    target_kind: str,
+    dimensions: dict[str, str],
+) -> str:
+    names = _core_dimension_names(target_kind, dimensions)
+    if not names:
+        return "unknown"
+    statuses = [dimensions.get(name, "unknown") for name in names]
+    if all(status == "resolved" for status in statuses):
+        return "fully_resolved"
+    if any(
+        status in {"resolved", "partially_resolved"}
+        for status in statuses
+    ):
+        return "partially_resolved"
+    return "unknown"
+
+
 @dataclass(frozen=True, slots=True)
 class EffectiveAuthorityRelationship:
     relationship_id: str
@@ -280,6 +318,22 @@ class EffectiveAuthorityRelationship:
     def resolution(self) -> str:
         return _resolution_status(list(self.unresolved), self.dimensions)
 
+    @property
+    def core_dimension_names(self) -> tuple[str, ...]:
+        return _core_dimension_names(self.target_kind, self.dimensions)
+
+    @property
+    def core_resolution(self) -> str:
+        return _core_resolution_status(self.target_kind, self.dimensions)
+
+    @property
+    def core_unresolved(self) -> tuple[str, ...]:
+        return tuple(
+            name
+            for name in self.core_dimension_names
+            if self.dimensions.get(name) != "resolved"
+        )
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "relationship_id": self.relationship_id,
@@ -297,6 +351,13 @@ class EffectiveAuthorityRelationship:
             "destinations": list(self.destinations),
             "semantics": self.semantics,
             "resolution": self.resolution,
+            "detail_resolution": self.resolution,
+            "core_resolution": self.core_resolution,
+            "core_dimensions": {
+                name: self.dimensions.get(name, "unknown")
+                for name in self.core_dimension_names
+            },
+            "core_unresolved": list(self.core_unresolved),
             "dimensions": self.dimensions,
             "unresolved": list(self.unresolved),
             "evidence": list(self.evidence),
@@ -945,6 +1006,10 @@ def effective_authority_report(graph: Graph) -> dict[str, Any]:
         status: sum(item.resolution == status for item in relationships)
         for status in ("fully_resolved", "partially_resolved", "unknown")
     }
+    core_resolution_counts = {
+        status: sum(item.core_resolution == status for item in relationships)
+        for status in ("fully_resolved", "partially_resolved", "unknown")
+    }
     target_counts = {
         kind: sum(item.target_kind == kind for item in relationships)
         for kind in ("tool", "mcp_server", "delegation", "skill", "skill_catalogue")
@@ -979,6 +1044,22 @@ def effective_authority_report(graph: Graph) -> dict[str, Any]:
             "fully_resolved_relationships": resolution_counts["fully_resolved"],
             "partially_resolved_relationships": resolution_counts["partially_resolved"],
             "unknown_relationships": resolution_counts["unknown"],
+            "core_fully_resolved_relationships": core_resolution_counts[
+                "fully_resolved"
+            ],
+            "core_partially_resolved_relationships": core_resolution_counts[
+                "partially_resolved"
+            ],
+            "core_unknown_relationships": core_resolution_counts["unknown"],
+            "core_fully_resolved_ratio": (
+                round(
+                    core_resolution_counts["fully_resolved"]
+                    / len(relationships),
+                    6,
+                )
+                if relationships
+                else 1.0
+            ),
             "relationships_with_identity": sum(
                 item.identity is not None for item in relationships
             ),
@@ -1013,9 +1094,12 @@ def render_effective_authority_console(graph: Graph, root: Path) -> str:
         f"MCP relationships:            {summary['mcp_relationships']}",
         f"Skill relationships:          {summary['skill_relationships']}",
         f"Unresolved skill catalogues:  {summary['unresolved_skill_catalogues']}",
-        f"Fully resolved:               {summary['fully_resolved_relationships']}",
-        f"Partially resolved:           {summary['partially_resolved_relationships']}",
-        f"Unknown:                      {summary['unknown_relationships']}",
+        f"Core fully resolved:          {summary['core_fully_resolved_relationships']}",
+        f"Core partially resolved:      {summary['core_partially_resolved_relationships']}",
+        f"Core unknown:                 {summary['core_unknown_relationships']}",
+        f"Detail fully resolved:        {summary['fully_resolved_relationships']}",
+        f"Detail partially resolved:    {summary['partially_resolved_relationships']}",
+        f"Detail unknown:               {summary['unknown_relationships']}",
         f"Identity evidence:            {summary['relationships_with_identity']}",
         f"Approval evidence:            {summary['relationships_with_approval_evidence']}",
         f"Destination evidence:         {summary['relationships_with_destination_evidence']}",
@@ -1031,7 +1115,8 @@ def render_effective_authority_console(graph: Graph, root: Path) -> str:
         target = item["target"]
         lines.append(
             f"{item['agent']} -> {target['kind']}:{target['name']} "
-            f"[{item['resolution'].upper()}] "
+            f"[CORE={item['core_resolution'].upper()}; "
+            f"DETAIL={item['detail_resolution'].upper()}] "
             f"source={item['source_context']}"
         )
         capabilities = ", ".join(item["capabilities"]) or "unknown"
@@ -1074,7 +1159,15 @@ def render_effective_authority_console(graph: Graph, root: Path) -> str:
         else:
             lines.append("  destinations: unknown")
         lines.append(
-            "  unresolved: "
+            "  core unresolved: "
+            + (
+                ", ".join(item["core_unresolved"])
+                if item["core_unresolved"]
+                else "none"
+            )
+        )
+        lines.append(
+            "  detail unresolved: "
             + (", ".join(item["unresolved"]) if item["unresolved"] else "none")
         )
         lines.append(
