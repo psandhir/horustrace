@@ -65,7 +65,7 @@ def _balanced(source: str, start: int, opener: str, closer: str) -> tuple[str, i
         next_char = source[index + 1] if index + 1 < len(source) else ""
 
         if line_comment:
-            if char in {"\\n", "\\r"}:
+            if char in {"\n", "\r"}:
                 line_comment = False
             index += 1
             continue
