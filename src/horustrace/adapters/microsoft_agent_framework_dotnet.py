@@ -26,6 +26,7 @@ from horustrace.heuristics import (
 from horustrace.models import (
     Agent,
     Graph,
+    InputSource,
     MCPServer,
     NetworkDestination,
     ResourceScope,
@@ -1111,6 +1112,68 @@ def _workflow_kind_from_edges(edges: list[dict[str, str]]) -> str:
     return "workflow"
 
 
+_RUNTIME_INPUT_PATTERNS = (
+    r"\bConsole\s*\.\s*(?:In\s*\.\s*)?ReadLine\s*\(",
+    r"\bEnvironment\s*\.\s*GetCommandLineArgs\s*\(",
+    r"\bargs\s*\[",
+    r"\bturnContext\s*\.\s*Activity\s*\.\s*(?:Text|Value)\b",
+    (
+        r"\b(?:HttpContext\s*\.\s*)?Request\s*\.\s*"
+        r"(?:Query|Form|Body|RouteValues|Headers)\b"
+    ),
+)
+
+
+def _expression_has_runtime_input(
+    expression: str,
+    known: dict[str, CSharpAssignment],
+    seen: set[str] | None = None,
+) -> bool:
+    masked = mask_non_code(expression)
+    if any(
+        re.search(pattern, masked, flags=re.IGNORECASE) is not None
+        for pattern in _RUNTIME_INPUT_PATTERNS
+    ):
+        return True
+
+    visited = set() if seen is None else set(seen)
+    for ref in refs(masked):
+        if ref in visited:
+            continue
+        item = known.get(ref)
+        if item is None:
+            continue
+        visited.add(ref)
+        if _expression_has_runtime_input(item.expression, known, visited):
+            return True
+    return False
+
+
+def _workflow_runtime_input_offset(
+    source: str,
+    alias: str,
+    known: dict[str, CSharpAssignment],
+) -> int | None:
+    masked = mask_non_code(source)
+    escaped = re.escape(alias)
+    for match in re.finditer(
+        rf"\b(?:RunStreamingAsync|RunAsync|Run)\s*\(\s*{escaped}\s*,",
+        masked,
+    ):
+        open_paren = masked.find("(", match.start(), match.end() + 1)
+        end = (
+            balanced_end(masked, open_paren, "(", ")")
+            if open_paren >= 0
+            else None
+        )
+        if end is None:
+            continue
+        invocation = source[match.start():end + 1]
+        if _expression_has_runtime_input(invocation, known):
+            return match.start()
+    return None
+
+
 def _workflow_is_executed(source: str, alias: str) -> bool:
     escaped = re.escape(alias)
     return any(
@@ -1544,6 +1607,28 @@ def _bind_per_run_authority(
             continue
         invocation = source[match.start():end + 1]
         invocation_refs = refs(invocation)
+
+        if _expression_has_runtime_input(invocation, known):
+            basis = "source_bound_runtime_ingress"
+            if not any(
+                item.metadata.get("basis") == basis
+                and item.metadata.get("runtime_method") == match.group(2)
+                for item in agent.inputs
+            ):
+                agent.inputs.append(
+                    InputSource(
+                        name=f"{alias}.{match.group(2)}:external-input",
+                        trust="untrusted",
+                        kind="user",
+                        location=location(path, source, match.start()),
+                        metadata={
+                            "basis": basis,
+                            "runtime_invocation_proven": True,
+                            "ingress_framework": "dotnet_runtime",
+                            "runtime_method": match.group(2),
+                        },
+                    )
+                )
 
         for option_name in invocation_refs & run_options.keys():
             tools, servers = run_options[option_name]
@@ -2091,6 +2176,31 @@ def scan_dotnet_file(path: Path) -> Graph:
                 },
             )
             graph.agents.append(workflow_agent)
+
+        runtime_input_offset = _workflow_runtime_input_offset(
+            source,
+            workflow_alias,
+            known,
+        )
+        if runtime_input_offset is not None and not any(
+            input_source.metadata.get("basis") == "source_bound_runtime_ingress"
+            for input_source in workflow_agent.inputs
+        ):
+            workflow_agent.inputs.append(
+                InputSource(
+                    name=f"{workflow_alias}:external-input",
+                    trust="untrusted",
+                    kind="user",
+                    location=location(path, source, runtime_input_offset),
+                    metadata={
+                        "basis": "source_bound_runtime_ingress",
+                        "runtime_invocation_proven": True,
+                        "ingress_framework": "dotnet_workflow_runtime",
+                        "runtime_method": "InProcessExecution",
+                    },
+                )
+            )
+
         workflow_agent.tools.extend(_workflow_delegation_tools(
             path,
             source,
