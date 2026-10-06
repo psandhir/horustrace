@@ -2614,6 +2614,7 @@ def scan(
         root if root.is_dir() else root.parent,
         approved_python_paths,
     )
+    normalize_destination_resource_provenance(graph)
     if llm_semantic_config is not None:
         llm_semantic_stats = enrich_llm_semantics(
             graph,
