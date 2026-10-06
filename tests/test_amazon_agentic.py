@@ -874,3 +874,105 @@ agent = Agent(tools=[order_management_tool])
     assert "network.external" in tool.capabilities
     assert "external.write" not in tool.capabilities
     assert "data.write" not in tool.capabilities
+
+
+def test_strands_repository_dynamic_swarm_registry_preserves_unresolved_membership(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        '''
+from strands import Agent
+from strands.hooks import HookProvider, HookRegistry, BeforeToolCallEvent
+from strands.multiagent import Swarm
+
+class CancelGuard(HookProvider):
+    def register_hooks(self, registry: HookRegistry):
+        registry.add_callback(BeforeToolCallEvent, self.check)
+
+    def check(self, event):
+        event.cancel_tool = "cancelled"
+
+def build_swarm(definitions):
+    guard = CancelGuard()
+    agents = {}
+    for definition in definitions:
+        agents[definition["id"]] = Agent(
+            name=definition["id"],
+            extra_hooks=[guard],
+        )
+    swarm = Swarm(
+        list(agents.values()),
+        max_handoffs=7,
+    )
+    return swarm
+''',
+        "orchestrator.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    swarm = next(item for item in graph.agents if item.name == "swarm")
+    assert swarm.metadata["multiagent_type"] == "swarm"
+    assert swarm.metadata["dynamic_control_flow"] is True
+    assert swarm.metadata["delegation_scope_unresolved"] is True
+    assert swarm.metadata["max_handoffs"] == 7
+    assert swarm.metadata["tool_control_state"] == "enforcing"
+    assert any(
+        tool.kind == "delegated_agent"
+        and tool.metadata.get("dynamic_bound_collection") is True
+        for tool in swarm.tools
+    )
+
+
+def test_strands_repository_cross_file_graph_factories_preserve_membership(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        '''
+from strands import Agent
+
+def create_research_agent():
+    return Agent(name="research")
+''',
+        "research.py",
+    )
+    write(
+        tmp_path,
+        '''
+from strands import Agent
+
+def create_trade_agent():
+    return Agent(name="trade")
+''',
+        "trade.py",
+    )
+    write(
+        tmp_path,
+        '''
+from strands.multiagent import GraphBuilder
+from research import create_research_agent
+from trade import create_trade_agent
+
+def build_graph():
+    research = create_research_agent()
+    trade = create_trade_agent()
+    builder = GraphBuilder()
+    builder.add_node(research, "research")
+    builder.add_node(trade, "trade")
+    builder.add_edge("research", "trade")
+    return builder.build()
+''',
+        "swarm.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    workflow = next(
+        item for item in graph.agents
+        if item.metadata.get("multiagent_type") == "graph"
+    )
+    assert workflow.metadata["workflow_edges"] == [
+        {"source": "research", "target": "trade"}
+    ]
+    assert set(workflow.metadata["delegates_to"]) == {"research", "trade"}
+    assert not workflow.metadata.get("unresolved_delegates")
