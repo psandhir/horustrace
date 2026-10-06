@@ -19,6 +19,7 @@ from horustrace.heuristics import (
     role_looks_admin,
 )
 from horustrace.models import Finding, Graph, Identity, NetworkDestination, Severity, SourceLocation
+from horustrace.semantic_contract import tool_control_enforcing
 from horustrace.skill_llm_semantics import confident_skill_concept
 
 
@@ -364,7 +365,7 @@ def evaluate(graph: Graph) -> list[Finding]:
 
     # Layer 1: agent/framework/MCP configuration controls.
     for agent in graph.agents:
-        agent_tool_control = agent.metadata.get("tool_control_enforcing") is True
+        agent_tool_control = tool_control_enforcing(agent.metadata)
         for skill in agent.skills:
             skill_authority = authority_by_key.get(
                 (
@@ -700,7 +701,7 @@ def evaluate(graph: Graph) -> list[Finding]:
     for agent in graph.agents:
         if agent.metadata.get("framework") != "google-adk":
             continue
-        safety_control = agent.metadata.get("tool_control_enforcing") is True
+        safety_control = tool_control_enforcing(agent.metadata)
         privileged_tools = [t for t in agent.tools if t.capabilities & PRIVILEGED_CAPABILITIES]
         if privileged_tools and not safety_control and all(t.approval is not True and not t.guardrails for t in privileged_tools):
             findings.append(Finding("ADK001", Severity.MEDIUM, "Privileged ADK agent has no detected enforcing tool control", f"ADK agent '{agent.name}' exposes privileged capabilities without a source-proven enforcing before-tool control or per-tool confirmation.", "Add a before_tool_callback/action-control plugin and require confirmation for high-impact tools.", layer=1, location=agent.location, agent=agent.name, evidence=["privileged_tools=" + ",".join(t.name for t in privileged_tools)]))
