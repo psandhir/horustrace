@@ -1117,8 +1117,10 @@ _RUNTIME_INPUT_PATTERNS = (
     r"\bEnvironment\s*\.\s*GetCommandLineArgs\s*\(",
     r"\bargs\s*\[",
     r"\bturnContext\s*\.\s*Activity\s*\.\s*(?:Text|Value)\b",
-    r"\b(?:HttpContext\s*\.\s*)?Request\s*\.\s*"
-    r"(?:Query|Form|Body|RouteValues|Headers)\b",
+    (
+        r"\b(?:HttpContext\s*\.\s*)?Request\s*\.\s*"
+        r"(?:Query|Form|Body|RouteValues|Headers)\b"
+    ),
 )
 
 
