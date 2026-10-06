@@ -1142,22 +1142,37 @@ def enrich_runtime_ingress_inputs(
         **wrapper_factories,
     }
     compiled_targets = _compiled_alias_targets(graph, modules)
+    helper_summaries, helper_parameters = _direct_helper_summaries(
+        graph,
+        modules,
+        receiver_targets,
+        compiled_targets,
+    )
+    _propagate_helper_summaries(
+        modules,
+        helper_summaries,
+        helper_parameters,
+    )
+
+    agents_by_path: dict[Path, list[Agent]] = {}
+    for agent in graph.agents:
+        if agent.location is not None:
+            agents_by_path.setdefault(agent.location.path.resolve(), []).append(agent)
 
     for path, (module, tree, imports) in modules.items():
         registered = _registered_route_handlers(tree)
         for function in ast.walk(tree):
             if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            framework = _decorator_kind(function, imports)
-            if framework is None and function.name in registered:
-                framework = "aiohttp"
+            framework = _ingress_kind(function, imports, registered)
             if framework is None:
                 continue
 
-            initial_taint = {
-                name for name, _ in _parameter_annotations(function)
-            }
-            initial_taint.update(_global_ingress_names(imports, framework))
+            initial_taint = _initial_ingress_names(
+                function,
+                imports,
+                framework,
+            )
             if not initial_taint:
                 continue
             tainted = _propagate_taint(function, initial_taint)
@@ -1169,17 +1184,31 @@ def enrich_runtime_ingress_inputs(
                 receiver_targets,
                 compiled_targets,
             )
-            if not receivers:
-                continue
+            local_receivers = _local_agent_receivers(
+                function,
+                path,
+                agents_by_path,
+            )
 
             invoked: dict[int, Agent] = {}
             for node in ast.walk(function):
                 if not isinstance(node, ast.Call):
                     continue
-                agent = _direct_runtime_invocation(node, receivers, tainted)
-                if agent is None:
-                    agent = _callback_runtime_invocation(node, receivers, tainted)
-                if agent is not None:
+                for agent in _runtime_targets_for_call(
+                    node,
+                    receivers,
+                    local_receivers,
+                    tainted,
+                ):
+                    invoked[id(agent)] = agent
+                for agent in _helper_runtime_invocations(
+                    node,
+                    module,
+                    imports,
+                    tainted,
+                    helper_summaries,
+                    helper_parameters,
+                ):
                     invoked[id(agent)] = agent
 
             for agent in invoked.values():
@@ -1190,11 +1219,18 @@ def enrich_runtime_ingress_inputs(
                     for item in agent.inputs
                 ):
                     continue
+                input_kind = (
+                    "user"
+                    if framework == "cli"
+                    else "external"
+                    if framework == "aws_lambda"
+                    else "web"
+                )
                 agent.inputs.append(
                     InputSource(
                         name=input_name,
                         trust="untrusted",
-                        kind="web",
+                        kind=input_kind,
                         location=SourceLocation(
                             path,
                             getattr(function, "lineno", 1) or 1,
