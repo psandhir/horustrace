@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from horustrace.models import Graph
+from horustrace.semantic_contract import SEMANTIC_CONTRACT_VERSION, validate_graph_semantics
 
 ADAPTER_CONTRACT_VERSION = 1
 _ADAPTER_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -34,11 +35,17 @@ class PythonFrameworkAdapter:
         if not callable(self.detector) or not callable(self.scanner):
             raise TypeError("adapter detector and scanner must be callable")
 
+    def validate_graph(self, graph: Graph) -> None:
+        errors = validate_graph_semantics(graph)
+        if errors:
+            raise ValueError("adapter graph violates semantic contract: " + "; ".join(errors))
+
     def as_dict(self) -> dict[str, Any]:
         self.validate()
         return {
             "name": self.name,
             "contract_version": self.contract_version,
+            "semantic_contract_version": SEMANTIC_CONTRACT_VERSION,
             "language": "python",
             "input": "source_file",
             "output": "horustrace.models.Graph",
