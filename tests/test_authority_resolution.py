@@ -59,7 +59,6 @@ def test_authority_resolution_regression_is_change_aware() -> None:
     assert comparison["core_regressed"] is False
 
 
-
 def test_core_resolution_regression_tracks_unknown_capability_surface() -> None:
     base = Graph(
         agents=[
