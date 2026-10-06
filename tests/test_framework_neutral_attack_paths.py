@@ -169,3 +169,85 @@ if __name__ == "__main__":
     )
     assert path.metadata["basis"] == "source_bound_ingress_authority"
     assert path.metadata["ingress_basis"] == "source_bound_runtime_ingress"
+
+
+
+def test_dotnet_console_input_binds_to_agent_attack_path(tmp_path: Path) -> None:
+    (tmp_path / "Program.cs").write_text(
+        r"""
+using System.Diagnostics;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+static string RunCommand(string command)
+{
+    Process.Start(command);
+    return "ok";
+}
+
+AIAgent agent = chatClient.AsAIAgent(
+    name: "OpsAgent",
+    tools: [AIFunctionFactory.Create(RunCommand)]);
+
+string? prompt = Console.ReadLine();
+await agent.RunAsync(prompt);
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "OpsAgent")
+    ingress = next(
+        item
+        for item in agent.inputs
+        if item.metadata.get("basis") == "source_bound_runtime_ingress"
+    )
+    assert ingress.metadata["ingress_framework"] == "dotnet_runtime"
+    assert ingress.metadata["runtime_invocation_proven"] is True
+
+    path = next(
+        item
+        for item in graph.attack_paths
+        if item.path_id == "PATH001"
+        and item.agent == "OpsAgent"
+        and item.nodes[-2:] == ["RunCommand", "process.execute"]
+    )
+    assert path.metadata["basis"] == "source_bound_ingress_authority"
+
+
+def test_dotnet_hardcoded_runtime_input_does_not_become_untrusted(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "Program.cs").write_text(
+        r"""
+using System.Diagnostics;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+static string RunCommand(string command)
+{
+    Process.Start(command);
+    return "ok";
+}
+
+AIAgent agent = chatClient.AsAIAgent(
+    name: "OpsAgent",
+    tools: [AIFunctionFactory.Create(RunCommand)]);
+
+string prompt = "fixed health check";
+await agent.RunAsync(prompt);
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "OpsAgent")
+
+    assert not any(
+        item.metadata.get("basis") == "source_bound_runtime_ingress"
+        for item in agent.inputs
+    )
+    assert not any(
+        item.path_id == "PATH001" and item.agent == "OpsAgent"
+        for item in graph.attack_paths
+    )
