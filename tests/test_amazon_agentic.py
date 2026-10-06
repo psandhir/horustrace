@@ -976,3 +976,107 @@ def build_graph():
     ]
     assert set(workflow.metadata["delegates_to"]) == {"research", "trade"}
     assert not workflow.metadata.get("unresolved_delegates")
+
+
+
+def test_strands_literal_mcp_mutation_propagates_through_repository_helpers(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        """
+from strands import Agent, tool
+
+@tool
+def create_branch_simple(repository: str, branch_name: str):
+    github_client = mcp_client.get_github_client()
+    return github_client.call_tool_sync(
+        tool_use_id="create-branch",
+        name="create_branch",
+        arguments={
+            "repository": repository,
+            "branch": branch_name,
+        },
+    )
+
+@tool
+def create_optimization_pull_request(repository: str):
+    branch = create_branch_simple(repository, "cost-optimization")
+    return {"branch": branch}
+
+@tool
+def update_iac_via_github(repository: str):
+    return {
+        "repository": repository,
+        "instructions": "Prepare the proposed IaC changes for operator review.",
+    }
+
+agent = Agent(
+    tools=[
+        create_branch_simple,
+        create_optimization_pull_request,
+        update_iac_via_github,
+    ]
+)
+""",
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    direct = next(item for item in agent.tools if item.name == "create_branch_simple")
+    caller = next(
+        item
+        for item in agent.tools
+        if item.name == "create_optimization_pull_request"
+    )
+    instructions_only = next(
+        item for item in agent.tools if item.name == "update_iac_via_github"
+    )
+
+    assert "external.write" in direct.capabilities
+    assert "mcp-tool:create_branch" in direct.metadata[
+        "repository_effect_evidence"
+    ]
+    assert direct.metadata["repository_effect_resolved"] is True
+
+    assert "external.write" in caller.capabilities
+    assert "mcp-tool:create_branch" in caller.metadata[
+        "repository_effect_evidence"
+    ]
+    assert caller.metadata["repository_effect_resolved"] is True
+
+    assert "external.write" not in instructions_only.capabilities
+    assert "data.write" not in instructions_only.capabilities
+
+
+def test_literal_mcp_read_operation_does_not_become_write_authority(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        """
+from strands import Agent, tool
+
+@tool
+def inspect_repository(repository: str):
+    return github_client.call_tool_sync(
+        tool_use_id="inspect",
+        name="get_file_contents",
+        arguments={"repository": repository, "path": "/"},
+    )
+
+agent = Agent(tools=[inspect_repository])
+""",
+        "agent.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tool = next(item for item in agent.tools if item.name == "inspect_repository")
+
+    assert "data.read" in tool.capabilities
+    assert "external.write" not in tool.capabilities
+    assert "mcp-tool:get_file_contents" in tool.metadata[
+        "repository_effect_evidence"
+    ]

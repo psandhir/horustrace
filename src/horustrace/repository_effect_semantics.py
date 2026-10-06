@@ -1094,6 +1094,84 @@ def _smtp_receiver_is_source_proven(
     return False
 
 
+def _literal_mcp_operation(call: ast.Call) -> str | None:
+    """Return a source-visible MCP operation invoked through a tool-call sink.
+
+    The wrapper function name is deliberately ignored.  Authority is derived
+    only when the source contains a literal operation at the actual tool
+    invocation boundary, e.g. call_tool_sync(name="create_branch", ...).
+    """
+    leaf = (_call_leaf(call.func) or "").lower()
+    if leaf not in {
+        "call_tool",
+        "call_tool_sync",
+        "invoke_tool",
+        "invoke_tool_sync",
+    }:
+        return None
+
+    node = next(
+        (keyword.value for keyword in call.keywords if keyword.arg == "name"),
+        None,
+    )
+    if node is None and leaf.startswith("invoke_tool") and call.args:
+        node = call.args[0]
+    value = _literal(node)
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def _mcp_operation_capabilities(operation: str) -> set[str]:
+    """Classify a literal MCP operation conservatively from its action verb."""
+    normalized = operation.strip().lower().replace("-", "_")
+    verb = normalized.split("_", 1)[0]
+    if verb in {
+        "delete",
+        "remove",
+        "drop",
+        "purge",
+        "destroy",
+        "revoke",
+        "terminate",
+    }:
+        return {"external.write", "destructive.write"}
+    if verb in {
+        "create",
+        "update",
+        "write",
+        "edit",
+        "put",
+        "patch",
+        "merge",
+        "commit",
+        "push",
+        "add",
+        "set",
+        "enable",
+        "disable",
+        "apply",
+        "submit",
+        "send",
+        "publish",
+        "upload",
+        "move",
+        "rename",
+    }:
+        return {"external.write"}
+    if verb in {
+        "get",
+        "list",
+        "read",
+        "search",
+        "query",
+        "fetch",
+        "find",
+        "inspect",
+        "describe",
+    }:
+        return {"data.read"}
+    return set()
+
+
 def _direct_effect(
     module: str,
     info: _ModuleInfo,
@@ -1104,6 +1182,13 @@ def _direct_effect(
     result = _FunctionEffect()
     dotted = (_dotted(call.func) or _call_leaf(call.func) or "").lower()
     leaf = (_call_leaf(call.func) or "").lower()
+
+    mcp_operation = _literal_mcp_operation(call)
+    if mcp_operation is not None:
+        mcp_capabilities = _mcp_operation_capabilities(mcp_operation)
+        if mcp_capabilities:
+            result.capabilities.update(mcp_capabilities)
+            result.evidence.add(f"mcp-tool:{mcp_operation}")
 
     if (
         dotted in {
@@ -1654,12 +1739,23 @@ def enrich_repository_tool_effects(
                     tool,
                     effect,
                 )
-                if not transitive_delta and not destination_refinement:
+                source_grounded_repository_sink = any(
+                    evidence.startswith("mcp-tool:")
+                    for evidence in direct_effect.evidence
+                )
+                if (
+                    not transitive_delta
+                    and not destination_refinement
+                    and not source_grounded_repository_sink
+                ):
                     continue
                 # A same-module destination-only refinement must not re-promote
-                # direct effects into privileged capabilities. Framework adapters
-                # remain authoritative for those direct capability claims.
-                merge_capabilities = transitive_delta
+                # direct effects into privileged capabilities. Literal MCP tool
+                # invocations are an exception: the repository layer has the
+                # source-visible operation that framework-local adapters do not.
+                merge_capabilities = (
+                    transitive_delta or source_grounded_repository_sink
+                )
 
             before = set(tool.capabilities)
             if merge_capabilities:
