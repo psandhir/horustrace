@@ -54,9 +54,25 @@ def _balanced(source: str, start: int, opener: str, closer: str) -> tuple[str, i
     depth = 0
     quote: str | None = None
     escape = False
+    line_comment = False
+    block_comment = False
     index = start
     while index < len(source):
         char = source[index]
+        next_char = source[index + 1] if index + 1 < len(source) else ""
+
+        if line_comment:
+            if char == "\n":
+                line_comment = False
+            index += 1
+            continue
+        if block_comment:
+            if char == "*" and next_char == "/":
+                block_comment = False
+                index += 2
+                continue
+            index += 1
+            continue
         if quote is not None:
             if escape:
                 escape = False
@@ -65,6 +81,14 @@ def _balanced(source: str, start: int, opener: str, closer: str) -> tuple[str, i
             elif char == quote:
                 quote = None
             index += 1
+            continue
+        if char == "/" and next_char == "/":
+            line_comment = True
+            index += 2
+            continue
+        if char == "/" and next_char == "*":
+            block_comment = True
+            index += 2
             continue
         if char in {"'", '"', "`"}:
             quote = char
