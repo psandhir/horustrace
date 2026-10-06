@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import tomllib
 from copy import deepcopy
 from pathlib import Path
-import tomllib
 from urllib.parse import urlparse
 
 from horustrace.models import Agent, Graph, Identity, MCPServer
@@ -390,7 +390,7 @@ def _implementation_matches_module(
         return False
     return any(
         parts[index:index + len(wanted)] == wanted
-        for index in range(0, len(parts) - len(wanted) + 1)
+        for index in range(len(parts) - len(wanted) + 1)
     )
 
 
