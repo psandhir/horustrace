@@ -14,6 +14,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
+from horustrace.semantic_contract import ToolControlState, set_tool_control
 
 FRAMEWORK = "claude-agent-sdk"
 _SDK = "@anthropic-ai/claude-agent-sdk"
@@ -868,16 +869,11 @@ def scan_claude_agent_sdk_typescript_file(path: Path) -> Graph:
             agent.metadata["pre_tool_use_guard"] = True
             control_mechanisms.append("claude_PreToolUse")
         if control_mechanisms:
-            # Canonical shared control metadata consumed by Effective Authority
-            # and framework-neutral control-gap rules.
-            agent.metadata["tool_control_state"] = "enforcing"
-            agent.metadata["tool_control_enforcing"] = True
-            agent.metadata["tool_control_mechanism"] = "+".join(
-                control_mechanisms
+            set_tool_control(
+                agent.metadata,
+                ToolControlState.ENFORCING,
+                mechanism="+".join(control_mechanisms),
             )
-            # Keep the #403 spelling as a compatibility alias for downstream
-            # consumers that may already inspect raw adapter metadata.
-            agent.metadata["enforcing_tool_control"] = True
         permission = _string_property(body, "permissionMode")
         if permission:
             agent.metadata["permission_mode"] = permission
