@@ -149,9 +149,12 @@ def _assigned_value(
                 for target in child.targets
             ):
                 return child.value
-        elif isinstance(child, ast.AnnAssign):
-            if isinstance(child.target, ast.Name) and child.target.id == name:
-                return child.value
+        elif (
+            isinstance(child, ast.AnnAssign)
+            and isinstance(child.target, ast.Name)
+            and child.target.id == name
+        ):
+            return child.value
     return None
 
 
