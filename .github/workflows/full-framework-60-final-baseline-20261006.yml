@@ -1,0 +1,131 @@
+name: Full Framework 60 Final Baseline
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - study/full-framework-60-final-baseline-20261006
+    paths:
+      - ".github/workflows/full-framework-60-final-baseline-20261006.yml"
+      - "research/full-framework-60-20261005/**"
+      - "research/full-framework-60-post-remediation-20261006/**"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: full-framework-60-post-remediation-20261006
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify frozen cohort
+        run: |
+          expected="1ea88dbb611cb7c0a81d5b8717553ef539cbdd49"
+          actual="$(git hash-object research/full-framework-60-20261005/cohort.json)"
+          test "$actual" = "$expected"
+      - id: matrix
+        name: Build frozen matrix
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          doc = json.loads(
+              Path("research/full-framework-60-20261005/cohort.json").read_text()
+          )
+          cases = doc["cases"]
+          assert len(cases) == 60
+          assert len({case["repo"] for case in cases}) == 60
+          assert Counter(case["framework"] for case in cases) == {
+              "google-adk": 10,
+              "pydantic-ai": 10,
+              "openai-agents": 10,
+              "amazon": 10,
+              "anthropic": 10,
+              "microsoft": 10,
+          }
+          print(
+              "matrix="
+              + json.dumps(
+                  [case["case_id"] for case in cases],
+                  separators=(",", ":"),
+              )
+          )
+          PY
+
+  scan:
+    needs: prepare
+    name: ${{ matrix.case_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        case_id: ${{ fromJson(needs.prepare.outputs.matrix) }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+      - name: Generate full security evidence bundle
+        run: |
+          python research/full-framework-60-20261005/run_case.py \
+            --case-id "${{ matrix.case_id }}" \
+            --output-dir artifacts
+      - name: Upload case bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ff60-finalbaseline-case-${{ matrix.case_id }}
+          path: artifacts/${{ matrix.case_id }}/
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    name: Aggregate post-remediation cohort
+    if: always()
+    needs: scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ff60-finalbaseline-case-*
+          path: downloaded
+          merge-multiple: false
+      - name: Aggregate original metrics
+        run: |
+          python research/full-framework-60-20261005/aggregate.py \
+            --input downloaded \
+            --output aggregate
+      - name: Compare with exact baseline
+        run: |
+          python research/full-framework-60-post-remediation-20261006/compare.py \
+            --input downloaded \
+            --baseline research/full-framework-60-post-remediation-20261006/baseline.csv \
+            --output comparison \
+            --scanner-revision 586d95c66c8fe3e98e86b8f2aeb4601feddf4b8b \
+            --harness-revision "$GITHUB_SHA"
+          cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
+          printf '\n' >> "$GITHUB_STEP_SUMMARY"
+          cat comparison/comparison.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: full-framework-60-final-baseline-summary
+          path: |
+            aggregate/
+            comparison/
+          if-no-files-found: error
+          retention-days: 30
