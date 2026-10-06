@@ -1748,3 +1748,56 @@ root_agent = SequentialAgent(
         "analyst_agent",
         "reporter_agent",
     }
+
+
+def test_adk_repository_dynamic_mcp_and_a2a_comprehensions(tmp_path: Path) -> None:
+    write(tmp_path, '''
+from google.adk.agents import Agent
+from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
+from google.adk.tools.agent_tool import AgentTool
+from google.adk.tools.mcp_tool import McpToolset
+from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPConnectionParams
+
+servers = load_servers()
+a2a_tools = [
+    AgentTool(RemoteA2aAgent(name=s["name"], agent_card=s["url"]))
+    for s in servers if s["type"] == "a2a"
+]
+mcp_tools = [
+    McpToolset(
+        connection_params=StreamableHTTPConnectionParams(url=s["url"]),
+        tool_filter=s.get("allowed_tools"),
+    )
+    for s in servers if s["type"] == "mcp"
+]
+root_agent = Agent(name="ops", tools=[*a2a_tools, *mcp_tools])
+''')
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "ops")
+    assert any("agent.delegate" in tool.capabilities for tool in agent.tools)
+    assert len(agent.mcp_servers) == 1
+    assert agent.mcp_servers[0].metadata["dynamic_mcp_endpoint"] is True
+
+
+def test_adk_repository_imported_mcp_registry_factory_is_preserved(tmp_path: Path) -> None:
+    write(tmp_path, '''
+def get_adk_tools():
+    registry = get_active_registry()
+    if registry is not None:
+        return registry.get_adk_toolsets()
+    return get_adk_tools_from_api()
+''', "mcp_helpers.py")
+    write(tmp_path, '''
+from google.adk.agents import Agent
+from mcp_helpers import get_adk_tools
+
+root_agent = Agent(name="registry-agent", tools=get_adk_tools())
+''')
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "registry-agent")
+    server = next(
+        item for item in agent.mcp_servers
+        if item.metadata.get("binding_origin") == "repository_mcp_factory"
+    )
+    assert server.metadata["dynamic_bound_collection"] is True
+    assert server.metadata["tool_catalogue_unresolved"] is True
