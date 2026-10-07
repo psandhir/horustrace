@@ -361,3 +361,38 @@ async def ops():
         if item.path_id == "PATH001" and item.agent == "OpsAgent"
     )
     assert path.metadata["basis"] == "capability_cooccurrence"
+
+
+def test_openai_static_runner_binds_cli_input_to_agent_attack_path(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import subprocess
+from agents import Agent, Runner, function_tool
+
+@function_tool
+
+
+def test_openai_static_runner_constant_input_is_not_runtime_ingress(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import subprocess
+from agents import Agent, Runner, function_tool
+
+@function_tool
+
+
+def test_openai_runner_binds_user_input_propagated_through_conversation_list(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import subprocess
+from agents import Agent, Runner, function_tool
+
+@function_tool
+
+

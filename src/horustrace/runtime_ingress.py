@@ -329,6 +329,7 @@ def _propagate_taint(
 ) -> set[str]:
     tainted = set(initial)
     assignments: list[tuple[list[str], ast.AST]] = []
+    mutations: list[tuple[str, list[ast.AST]]] = []
     for node in ast.walk(function):
         if isinstance(node, ast.Assign):
             names = [
@@ -341,6 +342,18 @@ def _propagate_taint(
             isinstance(node, ast.AnnAssign) and node.value is not None
         ) or isinstance(node, ast.NamedExpr):
             assignments.append((_target_names(node.target), node.value))
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.attr in {"append", "extend", "insert", "add", "update"}
+        ):
+            payloads = list(node.args)
+            if node.func.attr == "insert" and payloads:
+                payloads = payloads[1:]
+            payloads.extend(keyword.value for keyword in node.keywords)
+            if payloads:
+                mutations.append((node.func.value.id, payloads))
 
     for _ in range(8):
         changed = False
@@ -350,6 +363,12 @@ def _propagate_taint(
             before = len(tainted)
             tainted.update(names)
             changed = changed or len(tainted) != before
+        for receiver, payloads in mutations:
+            if receiver in tainted:
+                continue
+            if any(_expr_tainted(value, tainted) for value in payloads):
+                tainted.add(receiver)
+                changed = True
         if not changed:
             break
     return tainted
@@ -732,6 +751,53 @@ def _direct_runtime_invocation(
     return receivers[receiver.id]
 
 
+def _static_runner_runtime_invocation(
+    node: ast.Call,
+    receivers: dict[str, Agent],
+    local_receivers: dict[str, list[Agent]],
+    tainted: set[str],
+) -> list[Agent]:
+    """Resolve SDK runner calls where the agent is an explicit argument."""
+    if not isinstance(node.func, ast.Attribute):
+        return []
+    if node.func.attr not in {"run", "run_sync", "run_stream", "run_streamed"}:
+        return []
+
+    runner = _dotted(node.func.value) or _call_name(node.func.value) or ""
+    if runner.rsplit(".", 1)[-1] != "Runner":
+        return []
+
+    agent_expr = (
+        node.args[0]
+        if node.args
+        else next(
+            (
+                keyword.value
+                for keyword in node.keywords
+                if keyword.arg in {"agent", "starting_agent"}
+            ),
+            None,
+        )
+    )
+    if not isinstance(agent_expr, ast.Name):
+        return []
+
+    payloads = [
+        keyword.value
+        for keyword in node.keywords
+        if keyword.arg in {"input", "prompt", "user_input", "message"}
+    ]
+    if len(node.args) > 1:
+        payloads.append(node.args[1])
+    if not payloads or not any(_expr_tainted(value, tainted) for value in payloads):
+        return []
+
+    direct = receivers.get(agent_expr.id)
+    if direct is not None:
+        return [direct]
+    return list(local_receivers.get(agent_expr.id, []))
+
+
 def _callback_runtime_invocation(
     node: ast.Call,
     receivers: dict[str, Agent],
@@ -988,6 +1054,13 @@ def _runtime_targets_for_call(
     callback = _callback_runtime_invocation(node, receivers, tainted)
     if callback is not None:
         result[id(callback)] = callback
+    for agent in _static_runner_runtime_invocation(
+        node,
+        receivers,
+        local_receivers,
+        tainted,
+    ):
+        result[id(agent)] = agent
     for agent in _local_runtime_invocations(node, local_receivers, tainted):
         result[id(agent)] = agent
     for agent in _sdk_entrypoint_runtime_invocations(
