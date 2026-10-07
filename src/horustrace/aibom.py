@@ -4,9 +4,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 from urllib.parse import urlparse
 
 from horustrace.adg import ADGEdge, ADGNode, AgentDependencyGraph
@@ -74,8 +75,7 @@ def _normalize_repository_id(remote: str) -> str | None:
 
     if host and path:
         clean_path = path.strip("/")
-        if clean_path.endswith(".git"):
-            clean_path = clean_path[:-4]
+        clean_path = clean_path.removesuffix(".git")
         return f"{host.lower()}/{clean_path}" if clean_path else host.lower()
 
     # Non-network remotes are intentionally not emitted verbatim because they
@@ -176,13 +176,9 @@ def _relationship_id(
     *,
     collision: bool = False,
 ) -> str:
-    payload = "\0".join(
-        (
-            context.repository_id,
-            edge.kind,
-            source_asset_id,
-            target_asset_id,
-        )
+    payload = (
+        f"{context.repository_id}\0{edge.kind}\0"
+        f"{source_asset_id}\0{target_asset_id}"
     )
     if collision:
         payload += f"\0{edge.edge_id}"
