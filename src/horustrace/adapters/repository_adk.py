@@ -14,6 +14,7 @@ from horustrace.adapters.google_adk import (
     _mcp_from_toolset,
     _tool_from_call,
 )
+from horustrace.heuristics import infer_capabilities
 from horustrace.models import (
     Agent,
     Graph,
