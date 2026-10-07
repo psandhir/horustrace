@@ -959,6 +959,67 @@ def _custom_tool_runtime_name(
     return fallback
 
 
+def _custom_tool_from_repository_call(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    call: ast.Call,
+    alias: str,
+) -> Tool | None:
+    custom_ref = _custom_tool_class_for_call(modules, info, call)
+    if custom_ref is None:
+        return None
+    class_info, class_name, class_node = custom_ref
+    runtime_name = _custom_tool_runtime_name(class_node, alias)
+    capabilities: set[str] = set()
+    destinations: list[NetworkDestination] = []
+    seen_destinations: set[tuple[str, bool, str]] = set()
+
+    for method in class_node.body:
+        if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if method.name not in {"run", "run_async", "invoke"}:
+            continue
+        method_caps, method_destinations, _ = _analyze_function(
+            modules,
+            class_info,
+            method,
+            model_callable=True,
+        )
+        capabilities.update(method_caps)
+        for destination in method_destinations:
+            key = (
+                destination.target,
+                destination.restricted,
+                str(destination.metadata.get("source") or ""),
+            )
+            if key in seen_destinations:
+                continue
+            seen_destinations.add(key)
+            destinations.append(destination)
+
+    metadata: dict[str, object] = {
+        "framework": "google-adk",
+        "repository_resolved": True,
+        "custom_base_tool": True,
+        "custom_tool_class": class_name,
+        "source_alias": alias,
+        "binding_origin": "custom_base_agent_constructor",
+    }
+    if any(not item.restricted for item in destinations):
+        metadata["network_scope"] = "dynamic_destination"
+    elif destinations:
+        metadata["network_scope"] = "explicit_destination"
+
+    return Tool(
+        name=runtime_name,
+        kind="adk_custom_tool",
+        capabilities=capabilities,
+        destinations=destinations,
+        location=_loc(info.path, call),
+        metadata=metadata,
+    )
+
+
 def _class_init(class_node: ast.ClassDef) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
     return next(
         (
@@ -1208,6 +1269,70 @@ def _custom_agent_delegates(
             delegates.append(target)
 
     return delegates
+
+
+def _custom_agent_bound_tools(
+    modules: dict[str, ModuleInfo],
+    custom_ref: tuple[ModuleInfo, str, ast.ClassDef],
+) -> list[Tool]:
+    """Resolve custom ADK tools assigned to self.tools inside a custom agent."""
+    class_info, _, class_node = custom_ref
+    init = _class_init(class_node)
+    if init is None:
+        return []
+
+    local_calls = _function_calls(init)
+    local_sequences = _function_sequences(init)
+    result: list[Tool] = []
+    seen: set[str] = set()
+
+    def sequence(expr: ast.AST | None) -> list[ast.AST]:
+        if isinstance(expr, (ast.List, ast.Tuple, ast.Set)):
+            return list(expr.elts)
+        if isinstance(expr, ast.Name):
+            return list(local_sequences.get(expr.id, []))
+        return []
+
+    for assignment in ast.walk(init):
+        if not isinstance(assignment, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = assignment.value
+        if value is None:
+            continue
+        targets = assignment.targets if isinstance(assignment, ast.Assign) else [assignment.target]
+        binds_tools = any(
+            isinstance(target, ast.Attribute)
+            and isinstance(target.value, ast.Name)
+            and target.value.id == "self"
+            and target.attr == "tools"
+            for target in targets
+        )
+        if not binds_tools:
+            continue
+
+        for element in sequence(value):
+            call: ast.Call | None = None
+            alias = _name(element) or "tool"
+            if isinstance(element, ast.Call):
+                call = element
+                alias = _name(element.func) or alias
+            elif isinstance(element, ast.Name):
+                call = local_calls.get(element.id)
+                alias = element.id
+            if call is None:
+                continue
+            tool = _custom_tool_from_repository_call(
+                modules,
+                class_info,
+                call,
+                alias,
+            )
+            if tool is None or tool.name in seen:
+                continue
+            seen.add(tool.name)
+            result.append(tool)
+
+    return result
 
 
 def _attribute_function(
@@ -1853,7 +1978,12 @@ def _function_tool(
     info: ModuleInfo,
     func: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> tuple[Tool, Identity | None]:
-    caps, destinations, scopes = _analyze_function(modules, info, func)
+    caps, destinations, scopes = _analyze_function(
+        modules,
+        info,
+        func,
+        model_callable=True,
+    )
     resources, file_metadata = _function_file_transfer_semantics(info, func)
     required_roles, required_role_evidence = _analyze_required_gcp_roles(
         modules,
@@ -2395,6 +2525,13 @@ def _agent_from_call(
     tools, mcp_servers, identities, resolved_refs = _resolve_tools(
         modules, info, _kw(call, "tools"), sequences
     )
+    if custom_ref is not None:
+        existing_tool_names = {tool.name for tool in tools}
+        for custom_tool in _custom_agent_bound_tools(modules, custom_ref):
+            if custom_tool.name not in existing_tool_names:
+                tools.append(custom_tool)
+                existing_tool_names.add(custom_tool.name)
+
     agent_type = _name(call.func) or "Agent"
     agent = Agent(
         name=runtime_name,
