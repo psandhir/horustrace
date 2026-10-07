@@ -414,7 +414,12 @@ def scan_anthropic_managed_agents_typescript_file(path: Path) -> Graph:
             if field == "name":
                 agent.name = value
             else:
-                agent.metadata["model"] = value
+                set_model_provenance(
+                    agent.metadata,
+                    identifier=value,
+                    provider="anthropic",
+                    hosting="provider_hosted",
+                )
 
         for spread in re.finditer(r"\.\.\.([A-Za-z_$][\w$]*)\s*\(", body):
             local = spread.group(1)
