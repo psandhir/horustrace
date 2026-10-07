@@ -174,7 +174,10 @@ agent = Agent(
     assert delta["schema_version"] == 1
     assert delta["summary"]["assets_changed"] >= 1
     changed = delta["assets"]["changed"]
-    assert any(item["after"]["name"] == "web_search" for item in changed)
+    assert any(
+        item["after"]["attributes"].get("tool_name") == "web_search"
+        for item in changed
+    )
     assert delta["digest"].startswith("sha256:")
 
 
