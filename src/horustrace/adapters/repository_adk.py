@@ -1005,6 +1005,21 @@ def _custom_tool_from_repository_call(
         "source_alias": alias,
         "binding_origin": "custom_base_agent_constructor",
     }
+    model_selected_destinations = [
+        item
+        for item in destinations
+        if item.metadata.get("source") == "model_selected_url_argument"
+    ]
+    if model_selected_destinations:
+        metadata.update(
+            {
+                "model_selected_url_fetch": True,
+                "destination_provenance": "model_selected_url_argument",
+                "network_abstraction": model_selected_destinations[0].metadata.get(
+                    "network_abstraction"
+                ),
+            }
+        )
     if any(not item.restricted for item in destinations):
         metadata["network_scope"] = "dynamic_destination"
     elif destinations:
@@ -2509,6 +2524,107 @@ def _resolve_agent_name(
     return resolved or child.id
 
 
+def _function_reads_adk_user_content(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    func: ast.FunctionDef | ast.AsyncFunctionDef,
+    tainted: set[str],
+    visited: set[tuple[str, str, tuple[str, ...]]] | None = None,
+) -> bool:
+    """Prove that tainted ADK invocation context reaches ctx.user_content."""
+    visited = set() if visited is None else set(visited)
+    key = (info.module, func.name, tuple(sorted(tainted)))
+    if key in visited:
+        return False
+    visited.add(key)
+
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Attribute)
+            and node.attr == "user_content"
+            and _expr_uses_names(node.value, tainted)
+        ):
+            return True
+
+    def target_for_call(
+        call: ast.Call,
+    ) -> tuple[ModuleInfo, ast.FunctionDef | ast.AsyncFunctionDef] | None:
+        if isinstance(call.func, ast.Name):
+            local = info.functions.get(call.func.id)
+            if local is not None:
+                return info, local
+            imported = _imported_symbol(modules, info, call.func.id)
+            if imported and imported[1] in imported[0].functions:
+                return imported[0], imported[0].functions[imported[1]]
+        if isinstance(call.func, ast.Attribute):
+            return _attribute_function(modules, info, call.func)
+        return None
+
+    for call in (node for node in ast.walk(func) if isinstance(node, ast.Call)):
+        target = target_for_call(call)
+        if target is None:
+            continue
+        target_info, target_func = target
+        params = [
+            *target_func.args.posonlyargs,
+            *target_func.args.args,
+            *target_func.args.kwonlyargs,
+        ]
+        if params and params[0].arg in {"self", "cls"}:
+            params = params[1:]
+        target_taint: set[str] = set()
+        for index, argument in enumerate(call.args):
+            if index >= len(params):
+                break
+            if _expr_uses_names(argument, tainted):
+                target_taint.add(params[index].arg)
+        by_name = {parameter.arg: parameter.arg for parameter in params}
+        for keyword in call.keywords:
+            if (
+                keyword.arg in by_name
+                and _expr_uses_names(keyword.value, tainted)
+            ):
+                target_taint.add(keyword.arg)
+        if target_taint and _function_reads_adk_user_content(
+            modules,
+            target_info,
+            target_func,
+            target_taint,
+            visited,
+        ):
+            return True
+    return False
+
+
+def _custom_agent_has_runtime_user_ingress(
+    modules: dict[str, ModuleInfo],
+    custom_ref: tuple[ModuleInfo, str, ast.ClassDef],
+) -> bool:
+    class_info, _, class_node = custom_ref
+    for method in class_node.body:
+        if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if method.name not in {"_run_async_impl", "run_async", "run", "invoke"}:
+            continue
+        tainted = {
+            arg.arg
+            for arg in [
+                *method.args.posonlyargs,
+                *method.args.args,
+                *method.args.kwonlyargs,
+            ]
+            if arg.arg not in {"self", "cls"}
+        }
+        if tainted and _function_reads_adk_user_content(
+            modules,
+            class_info,
+            method,
+            tainted,
+        ):
+            return True
+    return False
+
+
 def _agent_from_call(
     modules: dict[str, ModuleInfo],
     info: ModuleInfo,
@@ -2546,6 +2662,24 @@ def _agent_from_call(
             "source_alias": alias,
         },
     )
+    if custom_ref is not None and _custom_agent_has_runtime_user_ingress(
+        modules,
+        custom_ref,
+    ):
+        agent.inputs.append(
+            InputSource(
+                name="adk-invocation-context:user-content",
+                trust="untrusted",
+                kind="user",
+                location=agent.location,
+                metadata={
+                    "basis": "source_bound_adk_invocation_context",
+                    "runtime_invocation_proven": True,
+                    "ingress_framework": "google-adk",
+                },
+            )
+        )
+
     if alias == "root_agent":
         agent.inputs.append(
             InputSource(
