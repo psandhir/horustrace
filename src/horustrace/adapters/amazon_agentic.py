@@ -1226,12 +1226,20 @@ def _scan_agentcore_json(path: Path, document: dict[str, Any]) -> Graph:
                 continue
             uri = source.get("uri")
             if isinstance(uri, str):
+                resource_kind = str(source.get("type") or "data").lower()
                 tool.resources.append(
-                    ResourceScope(
-                        kind=str(source.get("type") or "data").lower(),
+                    _resource_scope(
+                        kind=resource_kind,
                         selector=uri,
                         access={"data.read"},
                         location=SourceLocation(path),
+                        source="agentcore_knowledge_base_data_source",
+                        connection_type=(
+                            "object_store"
+                            if resource_kind in {"s3", "bucket", "object_store"}
+                            else "rag_source"
+                        ),
+                        source_reference=f"knowledgeBases.{name}.dataSources",
                     )
                 )
         graph.unbound_tools.append(tool)
@@ -1304,11 +1312,14 @@ def _scan_legacy_agentcore_yaml(path: Path, document: dict[str, Any]) -> Graph:
                     kind="agentcore_memory",
                     capabilities={"data.read", "data.write"},
                     resources=[
-                        ResourceScope(
-                            kind="agentcore_memory",
+                        _resource_scope(
+                            kind="memory",
                             selector=memory_id,
                             access={"data.read", "data.write"},
                             location=location,
+                            source="agentcore_memory_configuration",
+                            connection_type="memory",
+                            source_reference="runtime.memory.memory_id",
                         )
                     ],
                     location=location,
