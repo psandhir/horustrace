@@ -65,6 +65,15 @@ def git_root(path: Path) -> Path:
     return root
 
 
+def remote_origin(repo: Path) -> str | None:
+    """Return the configured origin URL without executing target code."""
+    try:
+        value = _run_git(repo, ["config", "--get", "remote.origin.url"])
+    except GitSnapshotError:
+        return None
+    return value or None
+
+
 def resolve_commit(repo: Path, ref: str) -> str:
     value = ref.strip()
     if not value or any(character in value for character in "\x00\r\n"):
