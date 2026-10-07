@@ -864,6 +864,101 @@ def _custom_agent_class_for_call(
     return None
 
 
+_ADK_TOOL_BASE_TYPES = {"BaseTool"}
+
+
+def _class_inherits_adk_tool(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    class_node: ast.ClassDef,
+    visited: set[tuple[str, str]] | None = None,
+) -> bool:
+    """Return True when a repository-local class derives from ADK BaseTool."""
+    visited = set() if visited is None else set(visited)
+    key = (info.module, class_node.name)
+    if key in visited:
+        return False
+    visited.add(key)
+
+    for base in class_node.bases:
+        base_name = _name(base) or ((_dotted(base) or "").rsplit(".", 1)[-1] or None)
+        if base_name in _ADK_TOOL_BASE_TYPES:
+            return True
+        if isinstance(base, ast.Name):
+            local = info.classes.get(base.id)
+            if local is not None and _class_inherits_adk_tool(
+                modules, info, local, visited
+            ):
+                return True
+            imported = _imported_symbol(modules, info, base.id)
+            if imported:
+                target, symbol = imported
+                imported_class = target.classes.get(symbol)
+                if imported_class is not None and _class_inherits_adk_tool(
+                    modules, target, imported_class, visited
+                ):
+                    return True
+    return False
+
+
+def _custom_tool_class_for_call(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    call: ast.Call,
+) -> tuple[ModuleInfo, str, ast.ClassDef] | None:
+    """Resolve a repository-local custom ADK BaseTool constructor."""
+    leaf = _name(call.func)
+    if not leaf:
+        return None
+
+    if isinstance(call.func, ast.Name):
+        local = info.classes.get(leaf)
+        if local is not None and _class_inherits_adk_tool(modules, info, local):
+            return info, leaf, local
+        imported = _symbol_import(modules, info, leaf, call)
+        if imported:
+            target, symbol = imported
+            imported_class = target.classes.get(symbol)
+            if imported_class is not None and _class_inherits_adk_tool(
+                modules, target, imported_class
+            ):
+                return target, symbol, imported_class
+
+    if isinstance(call.func, ast.Attribute) and isinstance(call.func.value, ast.Name):
+        imported = _symbol_import(modules, info, call.func.value.id, call)
+        if imported:
+            target, remote = imported
+            nested = (
+                _find_module(modules, f"{target.module}.{remote}")
+                if remote
+                else target
+            )
+            candidate = nested or target
+            imported_class = candidate.classes.get(call.func.attr)
+            if imported_class is not None and _class_inherits_adk_tool(
+                modules, candidate, imported_class
+            ):
+                return candidate, call.func.attr, imported_class
+    return None
+
+
+def _custom_tool_runtime_name(
+    class_node: ast.ClassDef,
+    fallback: str,
+) -> str:
+    for statement in class_node.body:
+        if not isinstance(statement, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = statement.value
+        targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+        if not any(isinstance(target, ast.Name) and target.id == "name" for target in targets):
+            continue
+        resolved = _string(value)
+        if resolved:
+            return resolved
+    return fallback
+
+
 def _class_init(class_node: ast.ClassDef) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
     return next(
         (
