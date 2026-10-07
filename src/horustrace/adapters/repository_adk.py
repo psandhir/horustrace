@@ -2014,7 +2014,7 @@ def _function_external_resource_id_semantics(
     id_parameters = {
         name
         for name in parameters
-        if name.endswith("_id") or name.endswith("_ids")
+        if name.endswith(("_id", "_ids"))
     }
     if not id_parameters:
         return [], {}
