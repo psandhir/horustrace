@@ -22,7 +22,11 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
-from horustrace.semantic_contract import set_model_provenance, set_tool_control
+from horustrace.semantic_contract import (
+    set_data_resource_provenance,
+    set_model_provenance,
+    set_tool_control,
+)
 
 STRANDS_FRAMEWORK = "strands-agents"
 BEDROCK_FRAMEWORK = "amazon-bedrock-agents"
@@ -142,6 +146,40 @@ def _attach_literal_destinations(tool: Tool, text: str) -> None:
             )
         )
         seen.add(target)
+
+
+def _resource_scope(
+    *,
+    kind: str,
+    selector: str,
+    access: set[str],
+    location: SourceLocation | None,
+    source: str,
+    provider: str = "aws",
+    connection_type: str | None = None,
+    resource_provenance: str | None = None,
+    selector_provenance: str = "source_resolved_configuration",
+    source_reference: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> ResourceScope:
+    resource_metadata = dict(metadata or {})
+    resource_metadata.setdefault("source", source)
+    resource = ResourceScope(
+        kind=kind,
+        selector=selector,
+        access=set(access),
+        location=location,
+        metadata=resource_metadata,
+    )
+    set_data_resource_provenance(
+        resource,
+        connection_type=connection_type,
+        provider=provider,
+        selector_provenance=selector_provenance,
+        resource_provenance=resource_provenance or source,
+        source_reference=source_reference or source,
+    )
+    return resource
 
 
 def _attach_literal_resources(tool: Tool, text: str) -> None:
