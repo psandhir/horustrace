@@ -64,7 +64,7 @@ Resource-kind to connection-type normalization is centralized in the semantic co
 | Claude Agent SDK Python | `cwd` and `add_dirs` filesystem scope | MCP/provider backing data is normally not exposed by the SDK option surface |
 | Claude Agent SDK TypeScript | `cwd` and `addDirs` filesystem scope | Same runtime/provider limitation as Python |
 | Anthropic Managed Agents | MCP/server topology and managed tool authority | Backing provider data-resource IDs are generally runtime-managed unless explicitly present in source |
-| Microsoft Agent Framework Python | Tool/MCP capability and destination topology | Concrete provider file-search/data IDs are not yet promoted when source-visible; treat this as an adapter gap, not a framework limitation |
+| Microsoft Agent Framework Python | Provider file-search `vector_store_ids`, including dynamic configuration, plus tool/MCP topology | Other provider-specific backing data should be added only where the client call exposes concrete scope |
 | Microsoft Agent Framework .NET | Harness persistent file memory and FileAccessStore read/write/destructive scope | Other chat-client/provider data resources require source-specific extraction |
 | Microsoft Foundry `azure.yaml` | Toolbox/MCP topology and destinations | Backing hosted data stores are not exposed by this deployment surface and should remain unknown/not exposed |
 
