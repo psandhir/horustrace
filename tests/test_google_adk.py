@@ -1962,7 +1962,11 @@ root_agent = LlmAgent(
     assert read_resource.kind == "remote_object"
     assert read_resource.selector == "<model-selected:file_id>"
     assert read_resource.access == {"data.read"}
+    assert read_resource.classification == "external"
     assert read_resource.metadata["remote_object_type"] == "file"
+    assert read_resource.metadata["selector_provenance"] == "model_selected"
+    assert read_resource.metadata["provider"] == "box"
+    assert read_resource.metadata["external_sdk_module"] == "box_ai_agents_toolkit"
 
     folder_resource = next(
         item
@@ -1984,5 +1988,46 @@ root_agent = LlmAgent(
         and resource["metadata"]["resource_provenance"]
         == "model_selected_remote_object_id"
         for resource in relationship["resources"]
+    )
+
+
+def test_adk_local_helper_id_does_not_invent_external_resource_scope(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "helpers.py").write_text(
+        """
+def internal_lookup(record_id: str) -> str:
+    return record_id
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from google.adk.agents import LlmAgent
+
+from helpers import internal_lookup
+
+
+def lookup_tool(record_id: str) -> str:
+    return internal_lookup(record_id)
+
+
+root_agent = LlmAgent(
+    name="local_lookup",
+    model="gemini-flash-latest",
+    tools=[lookup_tool],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "local_lookup")
+    tool = next(item for item in agent.tools if item.name == "lookup_tool")
+
+    assert not any(
+        resource.metadata.get("resource_provenance")
+        == "model_selected_remote_object_id"
+        for resource in tool.resources
     )
 
