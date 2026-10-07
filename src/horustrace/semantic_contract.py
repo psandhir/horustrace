@@ -11,7 +11,7 @@ from collections.abc import Mapping, MutableMapping
 from enum import Enum
 from typing import Any
 
-from horustrace.models import Agent, Graph
+from horustrace.models import Agent, Graph, ResourceScope
 from horustrace.source_context import SOURCE_CONTEXTS
 
 SEMANTIC_CONTRACT_VERSION = 1
@@ -29,6 +29,43 @@ class ModelResolution(str, Enum):
     UNRESOLVED_REFERENCE = "unresolved_reference"
     DYNAMIC = "dynamic"
     NOT_EXPOSED = "not_exposed"
+
+
+class DataConnectionResolution(str, Enum):
+    RESOLVED = "resolved"
+    MODEL_SELECTED = "model_selected"
+    DYNAMIC = "dynamic"
+    BROAD_OR_UNKNOWN = "broad_or_unknown"
+    NOT_EXPOSED = "not_exposed"
+
+
+class DataResourceSemanticKey(str, Enum):
+    CONNECTION_TYPE = "data_connection_type"
+    PROVIDER = "data_provider"
+    ACCOUNT = "data_account"
+    PROJECT = "data_project"
+    TENANT = "data_tenant"
+    SELECTOR_PROVENANCE = "selector_provenance"
+    RESOURCE_PROVENANCE = "resource_provenance"
+    SOURCE_REFERENCE = "data_source_reference"
+    RESOLUTION = "data_connection_resolution"
+    LIMITATION = "data_connection_limitation"
+
+
+DATA_CONNECTION_TYPES = frozenset(
+    {
+        "filesystem",
+        "object_store",
+        "database",
+        "vector_store",
+        "messaging",
+        "rag_source",
+        "saas_api",
+        "memory",
+        "cloud_resource",
+        "unknown",
+    }
+)
 
 
 class ModelSemanticKey(str, Enum):
@@ -203,6 +240,112 @@ def model_provenance(metadata: Mapping[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _data_key(field: DataResourceSemanticKey) -> str:
+    return field.value
+
+
+def _selector_resolution(selector: str) -> DataConnectionResolution:
+    lowered = selector.strip().lower()
+    if lowered in {"*", "<unknown>", "unknown"}:
+        return DataConnectionResolution.BROAD_OR_UNKNOWN
+    if lowered.startswith("<model-selected"):
+        return DataConnectionResolution.MODEL_SELECTED
+    if lowered.startswith("<") and lowered.endswith(">"):
+        return DataConnectionResolution.DYNAMIC
+    return DataConnectionResolution.RESOLVED
+
+
+def set_data_resource_provenance(
+    resource: ResourceScope,
+    *,
+    connection_type: str | None = None,
+    provider: str | None = None,
+    account: str | None = None,
+    project: str | None = None,
+    tenant: str | None = None,
+    selector_provenance: str | None = None,
+    resource_provenance: str | None = None,
+    source_reference: str | None = None,
+    resolution: DataConnectionResolution | str | None = None,
+    limitation: str | None = None,
+) -> None:
+    """Write canonical data-resource provenance without inventing source facts."""
+
+    metadata = resource.metadata
+    if connection_type is not None:
+        if connection_type not in DATA_CONNECTION_TYPES:
+            raise ValueError(f"invalid data connection type: {connection_type!r}")
+        metadata[_data_key(DataResourceSemanticKey.CONNECTION_TYPE)] = connection_type
+
+    values = {
+        DataResourceSemanticKey.PROVIDER: provider,
+        DataResourceSemanticKey.ACCOUNT: account,
+        DataResourceSemanticKey.PROJECT: project,
+        DataResourceSemanticKey.TENANT: tenant,
+        DataResourceSemanticKey.SELECTOR_PROVENANCE: selector_provenance,
+        DataResourceSemanticKey.RESOURCE_PROVENANCE: resource_provenance,
+        DataResourceSemanticKey.SOURCE_REFERENCE: source_reference,
+        DataResourceSemanticKey.LIMITATION: limitation,
+    }
+    for field, value in values.items():
+        key = _data_key(field)
+        if value is None:
+            continue
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{key} must be a non-empty string")
+        metadata[key] = value
+
+    parsed_resolution = (
+        DataConnectionResolution(resolution)
+        if resolution is not None
+        else _selector_resolution(resource.selector)
+    )
+    metadata[_data_key(DataResourceSemanticKey.RESOLUTION)] = parsed_resolution.value
+
+
+def data_connection_resolution(
+    resource: ResourceScope,
+) -> DataConnectionResolution | None:
+    raw = resource.metadata.get(_data_key(DataResourceSemanticKey.RESOLUTION))
+    if raw is None:
+        return None
+    try:
+        return DataConnectionResolution(raw)
+    except ValueError:
+        return None
+
+
+def validate_data_resource_semantics(
+    resource: ResourceScope,
+    *,
+    owner: str,
+) -> list[str]:
+    errors: list[str] = []
+    metadata = resource.metadata
+
+    connection_type = metadata.get(_data_key(DataResourceSemanticKey.CONNECTION_TYPE))
+    if connection_type is not None and connection_type not in DATA_CONNECTION_TYPES:
+        errors.append(
+            f"{owner}: invalid data_connection_type {connection_type!r}"
+        )
+
+    raw_resolution = metadata.get(_data_key(DataResourceSemanticKey.RESOLUTION))
+    parsed_resolution = data_connection_resolution(resource)
+    if raw_resolution is not None and parsed_resolution is None:
+        errors.append(
+            f"{owner}: invalid data_connection_resolution {raw_resolution!r}"
+        )
+    if parsed_resolution is DataConnectionResolution.NOT_EXPOSED:
+        limitation = metadata.get(_data_key(DataResourceSemanticKey.LIMITATION))
+        if not isinstance(limitation, str) or not limitation.strip():
+            errors.append(
+                f"{owner}: not_exposed data connection must declare "
+                "data_connection_limitation"
+            )
+
+    return errors
+
+
 def validate_agent_semantics(agent: Agent) -> list[str]:
     errors: list[str] = []
     metadata = agent.metadata
@@ -306,6 +449,22 @@ def validate_agent_semantics(agent: Agent) -> list[str]:
             errors.append(
                 f"agent {agent.name!r} tool {tool.name!r}: "
                 "tool_catalogue_unresolved must be boolean"
+            )
+        for resource in tool.resources:
+            errors.extend(
+                validate_data_resource_semantics(
+                    resource,
+                    owner=f"agent {agent.name!r} tool {tool.name!r}",
+                )
+            )
+
+    for server in agent.mcp_servers:
+        for resource in server.resources:
+            errors.extend(
+                validate_data_resource_semantics(
+                    resource,
+                    owner=f"agent {agent.name!r} mcp {server.name!r}",
+                )
             )
 
     return errors
