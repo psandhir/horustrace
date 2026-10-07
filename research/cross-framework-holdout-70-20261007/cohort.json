@@ -1,0 +1,750 @@
+{
+  "schema_version": 1,
+  "study": "cross-framework-holdout-70-20261007",
+  "status": "frozen_before_execution",
+  "locked_at": "2026-10-07",
+  "scanner_freeze_sha": "a8988e997d0a1c2a016f627adde9d51c331b4e22",
+  "selection": {
+    "target_repositories": 70,
+    "unique_repositories": 70,
+    "framework_counts": {
+      "google-adk": 10,
+      "pydantic-ai": 10,
+      "openai-agents": 10,
+      "amazon": 10,
+      "anthropic": 10,
+      "microsoft": 10,
+      "fastagent": 10
+    },
+    "method": "Fresh public GitHub holdout assembled after the frozen-60 baseline. Candidates were source-screened for actual framework constructs and security-relevant composition, then frozen to exact commit SHAs. Repositories present in the frozen full-framework 60 are excluded.",
+    "frozen_60_reused": false,
+    "current_scanner_output_used_for_selection": false,
+    "score_dimensions": [
+      "agent_inventory",
+      "tool_mcp_skill_binding",
+      "model_provenance",
+      "data_resource_provenance",
+      "effective_authority",
+      "controls_and_approval",
+      "delegation_and_composition",
+      "runtime_ingress",
+      "findings_precision_recall",
+      "attack_paths",
+      "coverage_diagnostics",
+      "authority_contract",
+      "owasp_and_policy_assurance",
+      "aibom_inventory_and_lineage",
+      "semantic_contract_consistency"
+    ]
+  },
+  "adjudication_labels": [
+    "correct",
+    "partial",
+    "false_positive",
+    "false_negative",
+    "source_not_exposed",
+    "adapter_gap"
+  ],
+  "cases": [
+    {
+      "case_id": "hold70-google-adk-01",
+      "framework": "google-adk",
+      "repo": "proflead/how-to-build-ai-agent",
+      "sha": "6dba7692cf4fa2c41944c6b327af2be78b1ab793",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "SequentialAgent composition over three LlmAgents with source-visible models and function tools.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-google-adk-02",
+      "framework": "google-adk",
+      "repo": "jeremylongshore/perception-with-intent",
+      "sha": "b812b4406c41584a095b109b41ff5dfc58700b03",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "ADK Agent with Gemini model and source-visible tool list.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-google-adk-03",
+      "framework": "google-adk",
+      "repo": "salomonerobert/adk-design-agent",
+      "sha": "b3aba77570f3891f836ac031257fe25872fc4000",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "ADK design agent with artifact tooling, image operations and callbacks.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-google-adk-04",
+      "framework": "google-adk",
+      "repo": "AbiramiSukumaran/renovation-agent-adk-mcp-toolbox",
+      "sha": "8c0aed21d68d865254b65e667b764fc31af25781",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "ADK renovation agent with environment-selected model and repository tool composition.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-google-adk-05",
+      "framework": "google-adk",
+      "repo": "amiitt001/adk-hiring-agent",
+      "sha": "7232ba30820c0370634b97142b0bb72c32d9d065",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "ADK hiring orchestrator delegating through AgentTool-wrapped specialist agents.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-google-adk-06",
+      "framework": "google-adk",
+      "repo": "VeerMuchandi/corporate_analyst",
+      "sha": "224dd5a5684e39fd9e89e84296694965e32beb72",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "ADK corporate analyst combining search, retrieval and enrichment tools.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-google-adk-07",
+      "framework": "google-adk",
+      "repo": "Ojas-Patil26/VeriQ",
+      "sha": "067cb330ab943279b4b8ea13c91c9042bdd9f421",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "Multi-agent ADK data-quality workflow with several tool-bearing LlmAgents.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-google-adk-08",
+      "framework": "google-adk",
+      "repo": "dwij2812/streamassist-datastorespec-example",
+      "sha": "c7ae87d8c45a55c2c678690269ec49c92801d4b8",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "ADK enterprise datastore search agent using FunctionTool and datastore search specifications.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-google-adk-09",
+      "framework": "google-adk",
+      "repo": "vivekcommit/Cloud_Architecture_Review",
+      "sha": "16ac50de750de9d4681a501f936184804a819754",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "ADK cloud architecture review workflow using LlmAgent and LoopAgent composition.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-google-adk-10",
+      "framework": "google-adk",
+      "repo": "fhinkel/agent-framework-demo",
+      "sha": "281825cd8043df92760c49def9047a6b6a72fe12",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "Compact ADK Agent with explicit Gemini model and function-tool surface.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-pydantic-ai-01",
+      "framework": "pydantic-ai",
+      "repo": "kumarvipu1/agentic-ppt-slide",
+      "sha": "2614076f9fbb0cdde10e481918b5177c5c3399c8",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "Pydantic AI multi-agent graph with explicit provider-backed models and dependency injection.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-pydantic-ai-02",
+      "framework": "pydantic-ai",
+      "repo": "lladdy/progressive-disclosure-ai-assistant",
+      "sha": "6e46f905897f4d89ad7219041505b17e81f2114c",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "Pydantic AI agent with stdio MCP toolset plus decorated filesystem/skill tools.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-pydantic-ai-03",
+      "framework": "pydantic-ai",
+      "repo": "gtsbahamas/text-moderation",
+      "sha": "decb6d85be0afe5bf08d222b519b33cf15e45064",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "Pydantic AI moderation agent with injected dependencies and HTTP-backed tools.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-pydantic-ai-04",
+      "framework": "pydantic-ai",
+      "repo": "LuizaRubim/chatbot_agent_music",
+      "sha": "54f135d00726cb8d91d8692498ebd03e214b4199",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "Pydantic AI music agent using tool_plain-decorated tools.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-pydantic-ai-05",
+      "framework": "pydantic-ai",
+      "repo": "newsbubbles/pharmiq",
+      "sha": "c69949739647a47ec8339b473bdf578c8cf8bfd9",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "Pydantic AI agent with OpenAI provider model and local stdio MCP server.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-pydantic-ai-06",
+      "framework": "pydantic-ai",
+      "repo": "xxLizXxx/AI-AgentTools-1",
+      "sha": "abf454c18134ef82902bed94ae4b3e99fde926fc",
+      "application_path": ".",
+      "evidence_path": "Agent.py",
+      "source_signal": "Pydantic AI agent with explicit OpenAI provider endpoint and HTTP client.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-pydantic-ai-07",
+      "framework": "pydantic-ai",
+      "repo": "dylibso/mcpx-pydantic-ai",
+      "sha": "4258a39a4b2dc7bd1253524a91ff4c9b0065ea0d",
+      "application_path": ".",
+      "evidence_path": "mcpx_pydantic_ai.py",
+      "source_signal": "Pydantic AI Agent subclass composing HTTP and stdio MCP servers dynamically.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-pydantic-ai-08",
+      "framework": "pydantic-ai",
+      "repo": "DanielVisca/Partners",
+      "sha": "4f453858bc77f0b263a681cb24bffd0c43ab2162",
+      "application_path": ".",
+      "evidence_path": "agent/agent.py",
+      "source_signal": "Pydantic AI wrapper with decorator tools and stdio/SSE/streamable-HTTP MCP support.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-pydantic-ai-09",
+      "framework": "pydantic-ai",
+      "repo": "BenedatLLC/agent-with-mcp-example",
+      "sha": "126076d5894d35f244b18f647368a80673e0a5c1",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "Pydantic AI agent using operator-supplied HTTP MCP endpoint and dynamic tool catalogue.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-pydantic-ai-10",
+      "framework": "pydantic-ai",
+      "repo": "riza-io/examples",
+      "sha": "1a6487c4989008d2bb5a2417ca11920c43be7f91",
+      "application_path": "demos/mcp_and_pydanticai",
+      "evidence_path": "agent_with_riza.py",
+      "source_signal": "Pydantic AI agent bound to a remote Riza code-interpreter MCP server.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-openai-agents-01",
+      "framework": "openai-agents",
+      "repo": "sugyan/blueskai",
+      "sha": "d8a998e6c94e839fccbc90e214389d5424eb6b6b",
+      "application_path": ".",
+      "evidence_path": "blueskai/runner.py",
+      "source_signal": "OpenAI Agents SDK wrapper with configurable MCP servers and streamed tool-call execution.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-openai-agents-02",
+      "framework": "openai-agents",
+      "repo": "ppoak/parquool",
+      "sha": "ffadb5c2143135ea8fd8cf3ec650726c50b9e34e",
+      "application_path": ".",
+      "evidence_path": "parquool/agent.py",
+      "source_signal": "OpenAI Agents SDK abstraction with function tools, MCP servers, handoffs and Runner execution.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-openai-agents-03",
+      "framework": "openai-agents",
+      "repo": "sebderhy/mcp-app-template",
+      "sha": "2c92f03360b4a43b77a22bc87f6428250f14310b",
+      "application_path": "server",
+      "evidence_path": "agent_runner.py",
+      "source_signal": "OpenAI Agent connected to streamable-HTTP MCP with tool-choice controls.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-openai-agents-04",
+      "framework": "openai-agents",
+      "repo": "deepstation/mcp-agent-example",
+      "sha": "f5ec51cf4ced20bb20511189f1b299244f6dd3f0",
+      "application_path": ".",
+      "evidence_path": "mini_tui_agent.py",
+      "source_signal": "OpenAI Agent using explicit stdio MCP servers and Runner-driven interactive input.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-openai-agents-05",
+      "framework": "openai-agents",
+      "repo": "cdtait/fmp-mcp-server",
+      "sha": "0cac7e78c90d7cf158743d42d706181e732cac9a",
+      "application_path": "src",
+      "evidence_path": "agent_chat_client.py",
+      "source_signal": "OpenAI Agent with SSE MCP server and required tool-choice semantics.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-openai-agents-06",
+      "framework": "openai-agents",
+      "repo": "tyrchen/postgres-mcp",
+      "sha": "a75569d441db8c192b5d4c0b6d3ec4c2799c2eca",
+      "application_path": ".",
+      "evidence_path": "agents/pg_agent.py",
+      "source_signal": "OpenAI Agent backed by PostgreSQL stdio MCP with database mutation authority.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-openai-agents-07",
+      "framework": "openai-agents",
+      "repo": "manishSan/AILegalAssistance",
+      "sha": "0c7db1e253f0803165f4a32fb17f74cc3aba4020",
+      "application_path": "app",
+      "evidence_path": "agent_runner.py",
+      "source_signal": "OpenAI legal agent using local stdio MCP and required tool choice for case data.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-openai-agents-08",
+      "framework": "openai-agents",
+      "repo": "Mayank171103/appointment-agent",
+      "sha": "08d6bc112d6a28869c16a3f24a8b8102f05a6f1a",
+      "application_path": ".",
+      "evidence_path": "agent_runner.py",
+      "source_signal": "OpenAI appointment agent using a local calendar MCP server with event-creation authority.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-openai-agents-09",
+      "framework": "openai-agents",
+      "repo": "marcuscollard/Houm",
+      "sha": "6ae62d57fb29a6c553459aa03990befc455a28fc",
+      "application_path": "backend",
+      "evidence_path": "agent_runner.py",
+      "source_signal": "OpenAI real-estate agent with MCP search/distance tools and required tool invocation.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-openai-agents-10",
+      "framework": "openai-agents",
+      "repo": "Yuta-dango/ai_agent_exp",
+      "sha": "55225f4eec95117a524da39a5600a3e3746702e2",
+      "application_path": "src",
+      "evidence_path": "agent_runner.py",
+      "source_signal": "OpenAI travel agent using a local weather MCP server.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-amazon-01",
+      "framework": "amazon",
+      "repo": "Johnnysharkhead/aws-agentic-ai-manufacturing-hackathon",
+      "sha": "1c468bf5b68e91dc7986cea3784ca49ccbf28aae",
+      "application_path": "demo",
+      "evidence_path": "demo_agent.py",
+      "source_signal": "Strands Bedrock agent dynamically combining four streamable-HTTP MCP catalogues.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-amazon-02",
+      "framework": "amazon",
+      "repo": "aws-samples/sample_agentic_ai_strands",
+      "sha": "f93a74c6a235027c01785628c15a37ca25fa5186",
+      "application_path": "src",
+      "evidence_path": "strands_agent_client.py",
+      "source_signal": "Strands client supporting Bedrock/OpenAI models, MCP tools, memory and conversation management.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-amazon-03",
+      "framework": "amazon",
+      "repo": "montycloud/ace_bench",
+      "sha": "9ef008f1b3d601b5ed2644ceaa53f56354b61d6a",
+      "application_path": "agents/soa",
+      "evidence_path": "agent/handler.py",
+      "source_signal": "Strands AWS optimization agent using dynamic AWS MCP tools including call_aws/run_script.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-amazon-04",
+      "framework": "amazon",
+      "repo": "MishaRuko/AgentVerseHackathon",
+      "sha": "47c8ca1152fd7c357aea5a842cd2537c8b22972a",
+      "application_path": ".",
+      "evidence_path": "personas/finance_persona.py",
+      "source_signal": "Strands finance persona wrapped as a delegated tool with an MCP client.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-amazon-05",
+      "framework": "amazon",
+      "repo": "pipecat-ai/aws-workshops",
+      "sha": "af508803948a58cee60f51d67e0f5efc724ab844",
+      "application_path": "lab-2",
+      "evidence_path": "strands_agent.py",
+      "source_signal": "Strands Bedrock agent combining stdio location MCP tools with a local weather tool.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-amazon-06",
+      "framework": "amazon",
+      "repo": "aws-samples/sample-multi-agent-aurora-bedrock-agentcore",
+      "sha": "92f72fa2aa8b48be2a63bf8ddb9b9a962ac752d5",
+      "application_path": "modules/02/strands",
+      "evidence_path": "agent.py",
+      "source_signal": "Strands AgentCore example with model selection, MCP tools and file-session persistence.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-amazon-07",
+      "framework": "amazon",
+      "repo": "xiehust/strands_demos",
+      "sha": "4e91caf20681dab52e6e3265770f28dfde0045d5",
+      "application_path": "a2a-strands",
+      "evidence_path": "doc_agent.py",
+      "source_signal": "Strands documentation agent with BYPASS_TOOL_CONSENT, MCP tools and file-write authority.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-amazon-08",
+      "framework": "amazon",
+      "repo": "tech42-org/agentcore-base-deployment",
+      "sha": "28a43055a56d238961849a2cdb4f3b243396e611",
+      "application_path": "docker",
+      "evidence_path": "utils/agent_strands.py",
+      "source_signal": "Strands AgentCore runtime with dynamic MCP, memory, browser/code-interpreter/retrieve options.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-amazon-09",
+      "framework": "amazon",
+      "repo": "awsdataarchitect/cloudeng-strands-agent",
+      "sha": "4e6af6d913282ce680db86383c62ad6f561b8f76",
+      "application_path": ".",
+      "evidence_path": "cloud_engineer_agent.py",
+      "source_signal": "Strands cloud-engineering agent combining AWS mutation tool with documentation/diagram MCP servers.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-amazon-10",
+      "framework": "amazon",
+      "repo": "Rishabhusesit/iot_core_home_automation",
+      "sha": "0ea94597269cbef6f1aeeae3fe9a42583df17c83",
+      "application_path": "agentcore",
+      "evidence_path": "strands_agent_runtime.py",
+      "source_signal": "Strands AgentCore IoT runtime with dynamic HTTP MCP and Bedrock model fallback.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-anthropic-01",
+      "framework": "anthropic",
+      "repo": "leonvanzyl/autonomous-coding",
+      "sha": "1690a61a22facfbd2fcbe99eac46d4b459f123b1",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "Claude Agent SDK coding client with persistent ClaudeSDKClient and model selection.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-anthropic-02",
+      "framework": "anthropic",
+      "repo": "kpolley/easy-agents",
+      "sha": "ec977a5a27fb78a3d3af9ad9a1903e61fd23bfba",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "Claude Agent SDK agent using bypassPermissions, MCP servers and explicit MCP tool allowlist.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-anthropic-03",
+      "framework": "anthropic",
+      "repo": "Cranot/roam-code",
+      "sha": "4856519f0ae0b97949cb7ea961c501bbbb9e34b7",
+      "application_path": ".",
+      "evidence_path": "dev/roam_agent.py",
+      "source_signal": "Claude Agent SDK coding modes with bypassPermissions, model override and stdio MCP.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-anthropic-04",
+      "framework": "anthropic",
+      "repo": "QuantumByteOSS/quantumbyte",
+      "sha": "6eaa965a018332dd4407a13466d2a9973a448fc5",
+      "application_path": "apps/worker",
+      "evidence_path": "main.py",
+      "source_signal": "Claude Agent SDK worker with skills, hooks, MCP servers, cwd and bypassPermissions.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-anthropic-05",
+      "framework": "anthropic",
+      "repo": "rlacombe/distillate",
+      "sha": "1ff62e110771e6f58e3ba5a6244c50ce6d6d246e",
+      "application_path": ".",
+      "evidence_path": "distillate/agent_sdk.py",
+      "source_signal": "Persistent Claude Agent SDK wrapper with MCP, allowed tools, model switching and bypassPermissions.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-anthropic-06",
+      "framework": "anthropic",
+      "repo": "liangdabiao/llm-wiki",
+      "sha": "a877b1ac37b8e75c65c821c1983f9fb57df15c8b",
+      "application_path": ".",
+      "evidence_path": "7_wiki_writer.py",
+      "source_signal": "Claude Agent SDK wiki writer with Skill/Read/Write/Bash/Edit authority and acceptEdits.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-anthropic-07",
+      "framework": "anthropic",
+      "repo": "anthropics/agent-sdk-workshop",
+      "sha": "a273fbe2b3776d84cf29f025927d71dcc0982c9f",
+      "application_path": "01-guided-demo",
+      "evidence_path": "agent.py",
+      "source_signal": "Official Claude Agent SDK workshop exercising MCP, allowed tools, subagents and hooks.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-anthropic-08",
+      "framework": "anthropic",
+      "repo": "juntoku9/claude-for-crypto-research",
+      "sha": "90c999985d95d75ffa81ff6ca93454110364fc4b",
+      "application_path": ".",
+      "evidence_path": "research_agent/agent.py",
+      "source_signal": "Claude Agent SDK research orchestrator with Task delegation, hooks and bypassPermissions.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-anthropic-09",
+      "framework": "anthropic",
+      "repo": "jdsingh122918/buddy-fox",
+      "sha": "0491e0b9673d783673cd7da1fe7f6f924b3b9e12",
+      "application_path": ".",
+      "evidence_path": "src/agent.py",
+      "source_signal": "Claude Agent SDK assistant with configurable model and allowed-tool surface.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-anthropic-10",
+      "framework": "anthropic",
+      "repo": "alexmillerdb/mlflow-eval-agent",
+      "sha": "5da3d91054209127304cf5df097b2def98caf638",
+      "application_path": ".",
+      "evidence_path": "src/agent.py",
+      "source_signal": "Claude Agent SDK evaluation agent with MCP server, cwd, allowed tools and bypassPermissions.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-microsoft-01",
+      "framework": "microsoft",
+      "repo": "rwjdk/agent-framework-samples",
+      "sha": "055c916d6ae08fedde60341e8a4da0a6db0d4920",
+      "application_path": "src/Onnx",
+      "evidence_path": "Program.cs",
+      "source_signal": "Microsoft Agent Framework ChatClientAgent using a local ONNX-backed chat client.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-microsoft-02",
+      "framework": "microsoft",
+      "repo": "dcostea/AgentFrameworkBook",
+      "sha": "d51d9370d567c78cce32dc583c530cfda0389c51",
+      "application_path": "05.Agents/Agent",
+      "evidence_path": "Program.cs",
+      "source_signal": "Microsoft Agent Framework ChatClientAgent with OpenAI model selected from configuration.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-microsoft-03",
+      "framework": "microsoft",
+      "repo": "AzureBrasil-cloud/ai-training-session-microsoft-agent-framework",
+      "sha": "bd92986c1adc11d5ef34fa1a07b5d6801a43be52",
+      "application_path": "src/ContosoAutoTech.Infrastructure",
+      "evidence_path": "AIAgent/AIAgentService.CreateAiAgent.cs",
+      "source_signal": "Microsoft Agent Framework agent factory accepting AITool collections and context providers.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-microsoft-04",
+      "framework": "microsoft",
+      "repo": "r-manimaran/MicrosoftAgentFramework",
+      "sha": "729a0138b2d40501a5efee48d89672998ad4b3cd",
+      "application_path": "23.AgentApp-Api/WebApi",
+      "evidence_path": "AIAgentFactory.cs",
+      "source_signal": "Microsoft Agent Framework Azure OpenAI agent factory with configured endpoint/deployment.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-microsoft-05",
+      "framework": "microsoft",
+      "repo": "jacking75/edu_microsoft_agent_framework",
+      "sha": "3c4687a0892ce767a8475c99930940a464072111",
+      "application_path": "src/StageMemoryAgent",
+      "evidence_path": "Agents/MemoryAgent.cs",
+      "source_signal": "Microsoft Agent Framework agent with persistent application memory reads/writes.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-microsoft-06",
+      "framework": "microsoft",
+      "repo": "MTrajK/dotnet-projects",
+      "sha": "eaabfe53ff7a614bf4ea64aea770f2c08095d273",
+      "application_path": "DotNet.AIAgents/DotNet.AIAgents.Samples",
+      "evidence_path": "DotNet.AIAgents.Samples.Common/AIAgents/RagAIAgent.cs",
+      "source_signal": "Microsoft Agent Framework RAG agent with Azure OpenAI model and AIContextProvider.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-microsoft-07",
+      "framework": "microsoft",
+      "repo": "normalian/MyAGTSamples",
+      "sha": "0f149c24ad48eadf928a7c91d28ab772a6d259e1",
+      "application_path": "AGTAuditBlobTelemetryApp01",
+      "evidence_path": "Program.cs",
+      "source_signal": "Microsoft Agent Framework agent with AIFunction tools plus Azure audit/telemetry integration.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-microsoft-08",
+      "framework": "microsoft",
+      "repo": "axzxs2001/Asp.NetCoreExperiment",
+      "sha": "bab36033b9214b5899641cd9ab96023376265d6d",
+      "application_path": "Asp.NetCoreExperiment/MSAgentsAI/AgentDemo01",
+      "evidence_path": "Program.cs",
+      "source_signal": "Microsoft Agent Framework examples including ApprovalRequiredAIFunction and Azure OpenAI.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-microsoft-09",
+      "framework": "microsoft",
+      "repo": "Azure-Samples/eShopLite",
+      "sha": "f6349114992b233daf92c0ff7ccba0e151e1deff",
+      "application_path": "scenarios/07-AgentsConcurrent/src/Insights",
+      "evidence_path": "Agents/AgentsExtensions.cs",
+      "source_signal": "Microsoft Agent Framework concurrent keyed agents created from chat clients.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-microsoft-10",
+      "framework": "microsoft",
+      "repo": "microsoft/Generative-AI-for-beginners-dotnet",
+      "sha": "402729957a2fcb618810f07d6448b807582faa3f",
+      "application_path": "samples/MAF/MAF02",
+      "evidence_path": "Program.cs",
+      "source_signal": "Microsoft Agent Framework writer/editor workflow composed with AgentWorkflowBuilder.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-fastagent-01",
+      "framework": "fastagent",
+      "repo": "myselfgus/ai2go",
+      "sha": "945323f8581e659f9f8ae0e69e3e90f2c567a5e3",
+      "application_path": ".",
+      "evidence_path": "services_agent_src_worker.py",
+      "source_signal": "FastAgent worker bound to a named MCP hub.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-fastagent-02",
+      "framework": "fastagent",
+      "repo": "zazencodes/zazencodes-season-2",
+      "sha": "21b36bd98de51efd58aeceaafd0588f3961f00c3",
+      "application_path": "src/fast-agent/3-workflows/workflow",
+      "evidence_path": "chaining.py",
+      "source_signal": "FastAgent chain composing MCP-backed and synthesis agents.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-fastagent-03",
+      "framework": "fastagent",
+      "repo": "voodoohop/discord-pollinations-family",
+      "sha": "cfdc797c17f441071455ded66bc44367f1602bed",
+      "application_path": "fast-agent-bot",
+      "evidence_path": "agent.py",
+      "source_signal": "FastAgent Discord bot with several agents and a chain workflow.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-fastagent-04",
+      "framework": "fastagent",
+      "repo": "lucidprogrammer/youtube-vision-transcriber",
+      "sha": "a6c8e0274599e3b6d29bea8a77c6f0582ba92e17",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "FastAgent YouTube workflow chaining MCP video, filesystem and transcription agents.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-fastagent-05",
+      "framework": "fastagent",
+      "repo": "angrysky56/ollama-mcp-server",
+      "sha": "53c0f710c1a6601118cdbba73e7361c7b7d06b8f",
+      "application_path": "fast-agent-scripts",
+      "evidence_path": "research_summary_agent.py",
+      "source_signal": "FastAgent research-summary chain over an Ollama MCP server.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-fastagent-06",
+      "framework": "fastagent",
+      "repo": "Henryyy-Hung/Shell-Agent-Prototype",
+      "sha": "c19f72311537945bea68ee208da7d70ab44863b3",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "FastAgent shell workflow with per-server tool filters, chain and router composition.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-fastagent-07",
+      "framework": "fastagent",
+      "repo": "mthurston/fast-agent-poc",
+      "sha": "49ca7d03c56c29dfab1578a4a209b57733751b5e",
+      "application_path": "src/workflow",
+      "evidence_path": "chaining.py",
+      "source_signal": "FastAgent chain using a fetch MCP server.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-fastagent-08",
+      "framework": "fastagent",
+      "repo": "CupOfGeo/first-agent",
+      "sha": "8de59ca0d41d30e31e70b1dea5776018e0925566",
+      "application_path": "workflow-fixed",
+      "evidence_path": "chaining.py",
+      "source_signal": "FastAgent chained workflow with an MCP-backed fetch agent.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-fastagent-09",
+      "framework": "fastagent",
+      "repo": "ggneilc/mcp_tools",
+      "sha": "3d3f0a75024364a2ede09d3162c5d0abf68a89ce",
+      "application_path": ".",
+      "evidence_path": "agents/doc_to_post.py",
+      "source_signal": "FastAgent document-to-post workflow combining MCP files/blog, evaluator-optimizer and chain.",
+      "surface": null
+    },
+    {
+      "case_id": "hold70-fastagent-10",
+      "framework": "fastagent",
+      "repo": "ogulcanakca/butler",
+      "sha": "188e2a8f7a9f8578af87ad11bc0bc92d562c395f",
+      "application_path": ".",
+      "evidence_path": "agent.py",
+      "source_signal": "FastAgent butler with router/orchestrator and multiple MCP-backed specialist agents.",
+      "surface": null
+    }
+  ]
+}
