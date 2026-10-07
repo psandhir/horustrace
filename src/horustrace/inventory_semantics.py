@@ -149,17 +149,32 @@ def model_inventory_attributes(metadata: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(output_modalities, (list, tuple, set)):
         output_modalities = []
 
+    declared_resolution = _scalar(metadata, "model_resolution")
+    model_reference = _scalar(metadata, "model_reference")
+    limitation = _scalar(metadata, "model_provenance_limitation")
+
     if identifier and provider:
         identity_resolution = "provider_and_identifier"
     elif identifier:
         identity_resolution = "identifier_only"
     elif provider:
         identity_resolution = "provider_only"
+    elif declared_resolution in {"unresolved_reference", "dynamic", "not_exposed"}:
+        identity_resolution = declared_resolution
     else:
         identity_resolution = "unknown"
 
     provider_value = provider or "unknown"
     identifier_value = identifier or "unknown"
+    model_key_suffix = (
+        identifier_value
+        if identifier
+        else model_reference
+        if model_reference
+        else declared_resolution
+        if declared_resolution
+        else "unknown"
+    )
     return {
         "model_identifier": identifier_value,
         "model_provider": provider_value,
@@ -176,7 +191,10 @@ def model_inventory_attributes(metadata: dict[str, Any]) -> dict[str, Any]:
         "input_modalities": sorted({str(item) for item in input_modalities}),
         "output_modalities": sorted({str(item) for item in output_modalities}),
         "identity_resolution": identity_resolution,
-        "model_key": f"{provider_value}:{identifier_value}",
+        "model_resolution": declared_resolution or identity_resolution,
+        "model_reference": model_reference or "unknown",
+        "model_provenance_limitation": limitation or "unknown",
+        "model_key": f"{provider_value}:{model_key_suffix}",
     }
 
 
