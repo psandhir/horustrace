@@ -2,6 +2,15 @@ import json
 from pathlib import Path
 
 from horustrace.cli import main
+from horustrace.models import (
+    Agent,
+    Graph,
+    Identity,
+    NetworkDestination,
+    ResourceScope,
+    SourceLocation,
+    Tool,
+)
 from horustrace.scanner import scan
 from horustrace.security_graph import (
     AGENT_SECURITY_GRAPH_MODEL,
@@ -110,3 +119,76 @@ root_agent = SequentialAgent(
         if node["kind"] == "delegation"
     }
     assert {"delegate:writer", "delegate:formatter"} <= delegation_nodes
+
+
+
+def test_security_graph_preserves_model_data_identity_lineage(tmp_path: Path) -> None:
+    location = SourceLocation(tmp_path / "agent.py", 3, 1)
+    identity = Identity(
+        name="storage-identity",
+        provider="gcp",
+        location=location,
+        metadata={"framework": "google-adk"},
+    )
+    tool = Tool(
+        name="read_object",
+        kind="adk_function",
+        capabilities={"data.read", "network.external"},
+        identity="storage-identity",
+        resources=[
+            ResourceScope(
+                kind="gcs",
+                selector="gs://reports/*",
+                access={"data.read"},
+                location=location,
+                metadata={
+                    "provider": "gcp",
+                    "source": "source_configuration",
+                },
+            )
+        ],
+        destinations=[
+            NetworkDestination(
+                target="https://storage.googleapis.com",
+                restricted=True,
+                location=location,
+                metadata={
+                    "provider": "gcp",
+                    "network_scope": "fixed_provider_network",
+                },
+            )
+        ],
+        location=location,
+        metadata={"framework": "google-adk"},
+    )
+    agent = Agent(
+        name="report_agent",
+        tools=[tool],
+        identities=[identity],
+        location=location,
+        metadata={
+            "framework": "google-adk",
+            "model": "google:gemini-2.5-pro",
+        },
+    )
+    graph = Graph(agents=[agent])
+
+    document = build_agent_security_graph(graph, tmp_path).as_dict()
+    nodes = document["topology"]["nodes"]
+    edges = document["topology"]["edges"]
+
+    model = next(item for item in nodes if item["kind"] == "model")
+    assert model["attributes"]["model_provider"] == "google"
+    assert model["attributes"]["model_identifier"] == "google:gemini-2.5-pro"
+
+    resource = next(item for item in nodes if item["kind"] == "data_resource")
+    assert resource["attributes"]["connection_type"] == "object_store"
+    assert resource["attributes"]["provider"] == "gcp"
+
+    edge_kinds = {item["kind"] for item in edges}
+    assert "USES_MODEL" in edge_kinds
+    assert "USES_IDENTITY" in edge_kinds
+    assert "READS_FROM" in edge_kinds
+    assert "AUTHORIZES_ACCESS_TO" in edge_kinds
+    assert "AUTHORIZES_CONNECTION_TO" in edge_kinds
+
