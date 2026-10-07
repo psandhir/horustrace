@@ -29,7 +29,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
-from horustrace.semantic_contract import set_tool_control
+from horustrace.semantic_contract import set_model_provenance, set_tool_control
 from horustrace.skills import instruction_capability_signals
 
 AGENT_TYPES = {"Agent", "LlmAgent", "SequentialAgent", "ParallelAgent", "LoopAgent", "Workflow", "RemoteA2aAgent"}
@@ -2281,7 +2281,13 @@ def _agent_from_call(
         metadata["instruction"] = instruction
     model = _string(_kw(call, "model"))
     if model:
-        metadata["model"] = model
+        google_model = model.lower().startswith(("gemini-", "models/gemini"))
+        set_model_provenance(
+            metadata,
+            identifier=model,
+            provider="google" if google_model else None,
+            hosting="provider_hosted" if google_model else None,
+        )
     callbacks = _callbacks(call)
     if callbacks:
         metadata["callbacks"] = callbacks
