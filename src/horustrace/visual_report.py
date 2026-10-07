@@ -614,12 +614,12 @@ function findingContext(f){{
  const paths=a?.path_views||[];
  if(f.assessment==="policy_violation")signals.push(["policy","policy violation"]);
  if(f.source_context==="runtime")signals.push(["runtime","runtime source"]);
- if(paths.some(p=>p.evidence_strength==="supported_static_dataflow"))signals.push(["supported_path","supported attack path"]);
- else if((a?.summary?.attack_paths||0)>0)signals.push(["attack_path","attack path"]);
- if((a?.summary?.contract_violations||0)>0)signals.push(["contract","contract violation"]);
- if((a?.summary?.write_capable_relationships||0)>0)signals.push(["write","write-capable authority"]);
- if((a?.summary?.destinations||0)>0)signals.push(["destination","external destination"]);
- if((a?.effective_authority||[]).some(r=>r.resolution!=="fully_resolved"))signals.push(["unresolved","unresolved authority"]);
+ if(paths.some(p=>p.evidence_strength==="supported_static_dataflow"))signals.push(["supported_path","agent has supported attack path"]);
+ else if((a?.summary?.attack_paths||0)>0)signals.push(["attack_path","agent has attack path"]);
+ if((a?.summary?.contract_violations||0)>0)signals.push(["contract","agent contract violation"]);
+ if((a?.summary?.write_capable_relationships||0)>0)signals.push(["write","agent has write-capable authority"]);
+ if((a?.summary?.destinations||0)>0)signals.push(["destination","agent reaches external destination"]);
+ if((a?.effective_authority||[]).some(r=>r.resolution!=="fully_resolved"))signals.push(["unresolved","agent has unresolved authority"]);
  return signals;
 }}
 function compareFindings(a,b){{
@@ -651,7 +651,7 @@ function findingCard(f){{
 function priorityFindingTable(items){{
  if(!items.length)return '<div class="empty">No active findings require review.</div>';
  const rows=items.map(f=>{{const context=findingContext(f).slice(0,3).map(([,label])=>'<span class="pill">'+esc(label)+'</span>').join("");return '<tr><td><div class="row-title">'+esc(f.rule_id)+' · '+esc(f.title)+'</div><div class="row-sub">'+esc(f.agent||"unattributed")+' · '+loc(f.location)+'</div></td><td><span class="badge '+esc(f.severity)+'">'+esc(String(f.severity).toUpperCase())+'</span></td><td><div class="priority-context">'+context+'</div></td></tr>';}}).join("");
- return '<div class="panel flush table-wrap"><table><thead><tr><th>Finding</th><th>Severity</th><th>Risk context</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+ return '<div class="panel flush table-wrap"><table><thead><tr><th>Finding</th><th>Severity</th><th>Review context</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }}
 
 function renderDashboard(){{
@@ -664,7 +664,7 @@ function renderDashboard(){{
  root.innerHTML=pageHead("Repository overview","Security assessment","Prioritised static evidence for effective authority, findings, attack paths and declared agent contracts.",badge(s.analysis_incomplete?"unresolved":"compliant"))+
  '<div class="assessment-banner '+esc(state.tone)+'" data-drill="'+primaryDrill+'" role="button" tabindex="0"><div><div class="eyebrow">Assessment signal</div><div class="assessment-title '+esc(state.tone)+'">'+esc(state.label)+'</div><div class="assessment-copy">'+esc(state.copy)+'</div></div><div class="assessment-side"><div class="assessment-count">'+number(state.count)+'<small>'+esc(state.unit)+'</small></div></div></div>'+
  '<div class="cards">'+metric("Active findings",s.findings,(s.severity?.critical||s.severity?.high)?"high":"","Critical "+number(s.severity?.critical||0)+" · High "+number(s.severity?.high||0))+metric("Policy violations",s.policy_violations,s.policy_violations?"critical":"","policy:all","Configured HorusTrace policy rules")+metric("Contract violations",s.contract_violations,s.contract_violations?"critical":"","contracts:violation",number(s.contract_unresolved)+" unresolved checks")+metric("OWASP categories with findings",s.owasp_categories_with_findings,s.owasp_categories_with_findings?"warn":"","owasp:all",number(s.owasp_categories_not_assessed)+" not assessed")+metric("Agents",s.agents,"","agents:all",number(s.write_capable_relationships)+" write-capable relationships")+metric("Attack paths",s.attack_paths,"","attack:all","Static evidence; exploitability not verified")+'</div>'+
- sectionHead("Priority findings","Severity-led review order enriched with existing policy, attack-path, contract, authority and source context.")+priorityFindingTable(priorityFindings)+
+ sectionHead("Priority findings","Severity-led review order enriched with existing policy, agent attack-path, contract, authority and source context.")+priorityFindingTable(priorityFindings)+
  sectionHead("Priority review queue","Agents ordered by static review priority.")+agentTable(attention)+
  '<div class="grid2"><div>'+sectionHead("Finding severity","Active findings by scanner severity.")+severityCards(s.severity,true)+'</div><div>'+sectionHead("Effective agency","Reconstructed authority and destination scope.")+'<div class="panel">'+drillList([drillRow("Authority relationships",s.authority_relationships,"agents:authority"),drillRow("Not fully resolved",s.authority_not_fully_resolved,"agents:unresolved","warn"),drillRow("Write-capable relationships",s.write_capable_relationships,"agents:write"),drillRow("Unique destinations",s.destinations,"agents:destinations")])+'</div></div></div>'+
  '<div class="grid2"><div>'+sectionHead("Environment inventory","Security-relevant components found in the scan.")+'<div class="cards">'+metric("Tools",s.tools,"","agents:tools")+metric("Skills",s.skills,"","agents:skills",number(s.bound_skills)+" bound · "+number(s.unbound_skills)+" unbound")+metric("MCP servers",s.mcp_servers,"","agents:mcp")+metric("Identities",s.identities,"","agents:identities")+metric("Resources",s.resources,"","agents:resources")+'</div></div><div>'+sectionHead("Agent contracts","Declared authority compared with effective authority.")+'<div class="panel">'+drillList(['<div class="drill-row" style="cursor:default"><span>Overall status</span><span>'+badge(DATA.assurance.authority_contract.status)+'</span></div>',drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),drillRow("Violations",s.contract_violations,"contracts:violation","critical"),drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")])+'</div></div></div>';
