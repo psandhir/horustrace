@@ -14,6 +14,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
+from horustrace.semantic_contract import set_model_provenance
 
 FRAMEWORK = "strands-agents"
 _SDK = "@strands-agents/sdk"
@@ -360,12 +361,19 @@ def _mcp_server(
 
 
 def _model_metadata(body: str) -> dict[str, object]:
+    result: dict[str, object] = {}
     model_match = re.search(
         r"\bmodel\s*:\s*(?:new\s+)?([A-Za-z_$][\w$]*)",
         body,
     )
     if not model_match:
-        return {"model_provider": "amazon-bedrock", "model_default": True}
+        set_model_provenance(
+            result,
+            provider="amazon-bedrock",
+            hosting="provider_hosted",
+        )
+        result["model_default"] = True
+        return result
     model_ref = model_match.group(1)
     provider = {
         "BedrockModel": "amazon-bedrock",
@@ -373,14 +381,20 @@ def _model_metadata(body: str) -> dict[str, object]:
         "AnthropicModel": "anthropic",
         "GoogleModel": "google",
         "GeminiModel": "google",
+        "OllamaModel": "ollama",
     }.get(model_ref)
     if provider:
-        result: dict[str, object] = {"model_provider": provider}
         model_id = _string_property(body, "modelId")
-        if model_id:
-            result["model"] = model_id
+        set_model_provenance(
+            result,
+            identifier=model_id,
+            provider=provider,
+            hosting="self_hosted" if provider == "ollama" else "provider_hosted",
+            constructor=model_ref,
+        )
         return result
-    return {"model_reference": model_ref}
+    set_model_provenance(result, reference=model_ref)
+    return result
 
 
 def is_amazon_strands_typescript_file(path: Path) -> bool:
