@@ -216,8 +216,10 @@ def data_connection_type(kind: str, metadata: dict[str, Any]) -> str:
         return "messaging"
     if normalized in _RAG_KINDS:
         return "rag_source"
-    if normalized in {"external_resource", "saas", "api"}:
+    if normalized in {"external_resource", "remote_object", "saas", "api"}:
         return "saas_api"
+    if normalized in {"memory", "memory_store"}:
+        return "memory"
     return "unknown"
 
 
@@ -227,29 +229,40 @@ def data_resource_attributes(resource: ResourceScope) -> dict[str, Any]:
     connection_type = data_connection_type(resource.kind, metadata)
     provider = _scalar(
         metadata,
-        "provider",
         "data_provider",
+        "provider",
         "workspace_provider",
     ) or "unknown"
-    account = _scalar(metadata, "account", "account_id", "account_name")
-    project = _scalar(metadata, "project", "project_id")
-    tenant = _scalar(metadata, "tenant", "tenant_id")
+    account = _scalar(
+        metadata,
+        "data_account",
+        "account",
+        "account_id",
+        "account_name",
+    )
+    project = _scalar(metadata, "data_project", "project", "project_id")
+    tenant = _scalar(metadata, "data_tenant", "tenant", "tenant_id")
 
     selector = resource.selector or "<unknown>"
-    lowered = selector.strip().lower()
-    if lowered in {"*", "<unknown>", "unknown"}:
-        scope_resolution = "broad_or_unknown"
-    elif lowered.startswith("<model-selected"):
-        scope_resolution = "model_selected"
-    elif lowered.startswith("<") and lowered.endswith(">"):
-        scope_resolution = "dynamic"
+    declared_resolution = _scalar(metadata, "data_connection_resolution")
+    if declared_resolution:
+        scope_resolution = declared_resolution
     else:
-        scope_resolution = "resolved"
+        lowered = selector.strip().lower()
+        if lowered in {"*", "<unknown>", "unknown"}:
+            scope_resolution = "broad_or_unknown"
+        elif lowered.startswith("<model-selected"):
+            scope_resolution = "model_selected"
+        elif lowered.startswith("<") and lowered.endswith(">"):
+            scope_resolution = "dynamic"
+        else:
+            scope_resolution = "resolved"
 
     provenance = _scalar(
         metadata,
         "resource_provenance",
         "selector_provenance",
+        "data_source_reference",
         "source",
     ) or "source_location"
 
@@ -267,6 +280,9 @@ def data_resource_attributes(resource: ResourceScope) -> dict[str, Any]:
         "provenance": provenance,
         "selector_provenance": _scalar(metadata, "selector_provenance") or "unknown",
         "resource_provenance": _scalar(metadata, "resource_provenance") or "unknown",
+        "data_source_reference": _scalar(metadata, "data_source_reference") or "unknown",
+        "data_connection_resolution": scope_resolution,
+        "data_connection_limitation": _scalar(metadata, "data_connection_limitation") or "unknown",
         "source": _scalar(metadata, "source") or "unknown",
         "resource_key": f"{connection_type}:{provider}:{selector}",
     }
