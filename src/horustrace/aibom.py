@@ -291,7 +291,7 @@ def build_aibom(
                     context.lifecycle or "unknown",
                 ),
                 "posture": _posture(annotation),
-                "resolution": annotation.get("resolution", "unknown"),
+                "resolution": annotation.get("resolution", "resolved"),
                 "unresolved": unresolved_values,
                 "provenance": {
                     "discovery_source": annotation.get(
