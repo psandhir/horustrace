@@ -527,6 +527,9 @@ main{{padding:32px 38px 42px;max-width:1560px;width:100%;min-width:0}} h1{{font-
 .drill-list{{display:flex;flex-direction:column;gap:2px}} .drill-row{{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;cursor:pointer;border-radius:7px;padding:7px 8px;margin:0 -8px;color:inherit}} .drill-row:hover{{background:#ffffff08}} .drill-value{{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;font-weight:700}} .drill-value::after{{content:"›";color:var(--muted);font-size:16px;line-height:1;opacity:.7}}
 .filter-banner{{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#101a31;border:1px solid #344566;border-radius:9px;padding:9px 11px;margin:12px 0}}
 .finding{{border-left:3px solid var(--line);padding:14px 15px;margin:10px 0;background:var(--surface);border-radius:9px;border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}} .finding[data-sev="critical"]{{border-left-color:var(--critical)}} .finding[data-sev="high"]{{border-left-color:var(--high)}} .finding[data-sev="medium"]{{border-left-color:var(--medium)}} .finding[data-sev="low"]{{border-left-color:var(--low)}} .finding-head{{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}} .finding-title{{display:flex;gap:7px;align-items:center;flex-wrap:wrap}} .finding-name{{font-size:14px;font-weight:760;margin-top:7px}} .finding-meta{{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0 0;color:var(--muted);font-size:11px}} .finding p{{color:#d8dfeb}}
+.finding-context{{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px}} .context-label{{font-size:10px;color:var(--muted2);font-weight:800;text-transform:uppercase;letter-spacing:.07em;margin-right:2px}}
+.remediation{{margin-top:12px;padding:10px 11px;border:1px solid #2f405d;border-radius:8px;background:#0c1627}} .remediation strong{{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);margin-bottom:4px}} .remediation span{{color:#d8dfeb}}
+.priority-context{{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}} .priority-context .pill{{padding:2px 6px;font-size:9px}}
 code,pre{{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}} code{{background:#ffffff0b;padding:2px 5px;border-radius:5px}} details{{margin-top:8px;border-top:1px solid #ffffff0a;padding-top:7px}} details summary{{cursor:pointer;color:#c9d4e5;font-weight:650;font-size:12px}} pre{{white-space:pre-wrap;word-break:break-word;background:#09101e;border:1px solid var(--line);padding:12px;border-radius:8px;max-height:340px;overflow:auto}}
 .map-toolbar{{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:8px 0 10px}} .map-toolbar input{{min-width:250px;flex:1;background:#09101e;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 9px}} .map-btn{{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;padding:7px 9px;cursor:pointer;font-size:12px}} .map-btn:hover{{border-color:#52688f;background:var(--surface2)}} .map-hint{{font-size:11px;color:var(--muted);margin:-2px 0 10px}}
 .graph-wrap{{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:12px;position:relative}} .graph-wrap.expanded{{position:fixed;inset:14px;z-index:9999;background:var(--bg);padding:14px;border:1px solid var(--line);border-radius:14px;grid-template-columns:minmax(0,1fr) 340px;box-shadow:0 24px 80px #000b}} .graph-wrap.expanded .graph{{height:calc(100vh - 105px)}} body.graph-modal-open{{overflow:hidden}} .graph-canvas{{position:relative;min-width:0}} .graph{{width:100%;height:520px;background:#09101e;border:1px solid var(--line);border-radius:10px;touch-action:none;cursor:grab}} .graph.panning{{cursor:grabbing}} .inspector{{min-height:120px;overflow:auto}} .legend{{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin:7px 0 10px}}
@@ -605,27 +608,63 @@ function severityCards(s,interactive=false){{
  metric("High",s.high,"high",interactive?"findings:high":"")+metric("Medium",s.medium,"medium",interactive?"findings:medium":"")+
  metric("Low",s.low,"low",interactive?"findings:low":"")+'</div>';
 }}
+function agentForFinding(f){{return f.agent?DATA.agents.find(a=>a.name===f.agent):null;}}
+function findingContext(f){{
+ const a=agentForFinding(f),signals=[];
+ const paths=a?.path_views||[];
+ if(f.assessment==="policy_violation")signals.push(["policy","policy violation"]);
+ if(f.source_context==="runtime")signals.push(["runtime","runtime source"]);
+ if(paths.some(p=>p.evidence_strength==="supported_static_dataflow"))signals.push(["supported_path","supported attack path"]);
+ else if((a?.summary?.attack_paths||0)>0)signals.push(["attack_path","attack path"]);
+ if((a?.summary?.contract_violations||0)>0)signals.push(["contract","contract violation"]);
+ if((a?.summary?.write_capable_relationships||0)>0)signals.push(["write","write-capable authority"]);
+ if((a?.summary?.destinations||0)>0)signals.push(["destination","external destination"]);
+ if((a?.effective_authority||[]).some(r=>r.resolution!=="fully_resolved"))signals.push(["unresolved","unresolved authority"]);
+ return signals;
+}}
+function compareFindings(a,b){{
+ const av=findingContext(a).map(x=>x[0]),bv=findingContext(b).map(x=>x[0]);
+ const vector=f=>[severityRank(f.severity),f.assessment==="policy_violation"?1:0];
+ const ax=[...vector(a),av.includes("supported_path")?1:0,av.includes("contract")?1:0,av.includes("write")?1:0,av.includes("runtime")?1:0];
+ const bx=[...vector(b),bv.includes("supported_path")?1:0,bv.includes("contract")?1:0,bv.includes("write")?1:0,bv.includes("runtime")?1:0];
+ for(let i=0;i<ax.length;i++){{if(ax[i]!==bx[i])return bx[i]-ax[i];}}
+ return String(a.rule_id).localeCompare(String(b.rule_id));
+}}
+function findingMatchesContext(f,mode){{
+ if(mode==="all")return true;
+ return findingContext(f).some(([key])=>key===mode||(mode==="path"&&(key==="supported_path"||key==="attack_path")));
+}}
 function findingCard(f){{
  const evidence=(f.evidence||[]).map(x=>"<li>"+esc(x)+"</li>").join("");
  const prov=(f.provenance||[]).map(x=>"<li>"+esc(x.origin)+": "+esc(x.fact)+(x.location?" — "+loc(x.location):"")+"</li>").join("");
  const agent=f.agent?'<span class="pill">agent: '+esc(f.agent)+'</span>':"";
  const policy=f.assessment==="policy_violation"?'<span class="pill">policy violation</span>':"";
+ const source=f.source_context?'<span class="pill">source: '+esc(f.source_context)+'</span>':"";
  const owasp=(f.standards?.owasp_agentic||[]).map(x=>'<span class="pill">OWASP '+esc(x)+'</span>').join("");
+ const context=findingContext(f).map(([,label])=>'<span class="pill">'+esc(label)+'</span>').join("");
  return '<article class="finding" data-sev="'+esc(f.severity)+'"><div class="finding-head"><div><div class="finding-title"><strong>'+esc(f.rule_id)+'</strong><span class="badge '+esc(f.severity)+'">'+esc(String(f.severity).toUpperCase())+'</span>'+agent+'</div><div class="finding-name">'+esc(f.title)+'</div></div><span class="muted small">'+loc(f.location)+'</span></div>'+
- '<div class="finding-meta"><span>'+esc(f.assessment||"static")+' assessment</span>'+policy+owasp+'</div><p>'+esc(f.message)+'</p>'+
- (evidence?'<details><summary>Evidence</summary><ul>'+evidence+'</ul></details>':"")+(prov?'<details><summary>Provenance</summary><ul>'+prov+'</ul></details>':"")+
- (f.recommendation?'<details><summary>Remediation</summary><p>'+esc(f.recommendation)+'</p></details>':"")+'</article>';
+ '<div class="finding-meta"><span>'+esc(f.assessment||"static")+' assessment</span>'+policy+source+owasp+'</div><p>'+esc(f.message)+'</p>'+
+ (context?'<div class="finding-context"><span class="context-label">Context</span>'+context+'</div>':"")+
+ (f.recommendation?'<div class="remediation"><strong>Recommended action</strong><span>'+esc(f.recommendation)+'</span></div>':"")+
+ (evidence?'<details><summary>Evidence</summary><ul>'+evidence+'</ul></details>':"")+(prov?'<details><summary>Provenance</summary><ul>'+prov+'</ul></details>':"")+'</article>';
+}}
+function priorityFindingTable(items){{
+ if(!items.length)return '<div class="empty">No active findings require review.</div>';
+ const rows=items.map(f=>{{const context=findingContext(f).slice(0,3).map(([,label])=>'<span class="pill">'+esc(label)+'</span>').join("");return '<tr><td><div class="row-title">'+esc(f.rule_id)+' · '+esc(f.title)+'</div><div class="row-sub">'+esc(f.agent||"unattributed")+' · '+loc(f.location)+'</div></td><td><span class="badge '+esc(f.severity)+'">'+esc(String(f.severity).toUpperCase())+'</span></td><td><div class="priority-context">'+context+'</div></td></tr>';}}).join("");
+ return '<div class="panel flush table-wrap"><table><thead><tr><th>Finding</th><th>Severity</th><th>Risk context</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }}
 
 function renderDashboard(){{
  const s=DATA.summary,state=assessmentState(s),root=document.getElementById("dashboard");
  const attention=DATA.agents.filter(a=>a.summary.findings||a.summary.contract_violations||a.summary.contract_unresolved||a.summary.attack_paths).sort((a,b)=>agentPriority(b)-agentPriority(a)).slice(0,10);
+ const priorityFindings=[...DATA.findings].sort(compareFindings).slice(0,8);
  const drillRow=(label,value,drill,cls="")=>'<div class="drill-row" role="button" tabindex="0" data-drill="'+esc(drill)+'"><span>'+esc(label)+'</span><span class="drill-value '+esc(cls)+'">'+number(value)+'</span></div>';
  const drillList=(rows)=>'<div class="drill-list">'+rows.join("")+'</div>';
  const primaryDrill=(s.severity?.critical||0)?"findings:critical":((s.severity?.high||0)?"findings:high":(s.contract_violations?"contracts:violation":"findings:all"));
  root.innerHTML=pageHead("Repository overview","Security assessment","Prioritised static evidence for effective authority, findings, attack paths and declared agent contracts.",badge(s.analysis_incomplete?"unresolved":"compliant"))+
  '<div class="assessment-banner '+esc(state.tone)+'" data-drill="'+primaryDrill+'" role="button" tabindex="0"><div><div class="eyebrow">Assessment signal</div><div class="assessment-title '+esc(state.tone)+'">'+esc(state.label)+'</div><div class="assessment-copy">'+esc(state.copy)+'</div></div><div class="assessment-side"><div class="assessment-count">'+number(state.count)+'<small>'+esc(state.unit)+'</small></div></div></div>'+
  '<div class="cards">'+metric("Active findings",s.findings,(s.severity?.critical||s.severity?.high)?"high":"","Critical "+number(s.severity?.critical||0)+" · High "+number(s.severity?.high||0))+metric("Policy violations",s.policy_violations,s.policy_violations?"critical":"","policy:all","Configured HorusTrace policy rules")+metric("Contract violations",s.contract_violations,s.contract_violations?"critical":"","contracts:violation",number(s.contract_unresolved)+" unresolved checks")+metric("OWASP categories with findings",s.owasp_categories_with_findings,s.owasp_categories_with_findings?"warn":"","owasp:all",number(s.owasp_categories_not_assessed)+" not assessed")+metric("Agents",s.agents,"","agents:all",number(s.write_capable_relationships)+" write-capable relationships")+metric("Attack paths",s.attack_paths,"","attack:all","Static evidence; exploitability not verified")+'</div>'+
+ sectionHead("Priority findings","Severity-led review order enriched with existing policy, attack-path, contract, authority and source context.")+priorityFindingTable(priorityFindings)+
  sectionHead("Priority review queue","Agents ordered by static review priority.")+agentTable(attention)+
  '<div class="grid2"><div>'+sectionHead("Finding severity","Active findings by scanner severity.")+severityCards(s.severity,true)+'</div><div>'+sectionHead("Effective agency","Reconstructed authority and destination scope.")+'<div class="panel">'+drillList([drillRow("Authority relationships",s.authority_relationships,"agents:authority"),drillRow("Not fully resolved",s.authority_not_fully_resolved,"agents:unresolved","warn"),drillRow("Write-capable relationships",s.write_capable_relationships,"agents:write"),drillRow("Unique destinations",s.destinations,"agents:destinations")])+'</div></div></div>'+
  '<div class="grid2"><div>'+sectionHead("Environment inventory","Security-relevant components found in the scan.")+'<div class="cards">'+metric("Tools",s.tools,"","agents:tools")+metric("Skills",s.skills,"","agents:skills",number(s.bound_skills)+" bound · "+number(s.unbound_skills)+" unbound")+metric("MCP servers",s.mcp_servers,"","agents:mcp")+metric("Identities",s.identities,"","agents:identities")+metric("Resources",s.resources,"","agents:resources")+'</div></div><div>'+sectionHead("Agent contracts","Declared authority compared with effective authority.")+'<div class="panel">'+drillList(['<div class="drill-row" style="cursor:default"><span>Overall status</span><span>'+badge(DATA.assurance.authority_contract.status)+'</span></div>',drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),drillRow("Violations",s.contract_violations,"contracts:violation","critical"),drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")])+'</div></div></div>';
@@ -855,14 +894,19 @@ function openAgent(name){{
  }})); showView("agent-detail");
 }}
 
-function renderFindings(severity="all"){{
+function renderFindings(severity="all",contextMode="all"){{
  const root=document.getElementById("findings"),filters=["all","critical","high","medium","low"];
  const chips=filters.map(value=>'<button class="filter-chip '+(severity===value?"active":"")+'" data-finding-filter="'+value+'">'+esc(value==="all"?"All":value[0].toUpperCase()+value.slice(1))+'</button>').join("");
- root.innerHTML=pageHead("Risk review","Findings","Search and triage active scanner findings. Severity is scanner-assigned static evidence, not runtime exploitability.")+
- '<div class="toolbar"><div class="toolbar-left"><div class="filter-chips">'+chips+'</div></div><div class="toolbar-right"><input id="finding-search" class="search" aria-label="Search findings" placeholder="Search rule, title, agent, message or file"></div></div><div class="muted small" id="finding-count"></div><div id="finding-list"></div>';
+ const contexts=[["all","All context"],["policy","Policy violation"],["path","Attack path"],["contract","Contract issue"],["write","Write-capable"],["runtime","Runtime source"],["unresolved","Unresolved authority"]];
+ const contextChips=contexts.map(([value,label])=>'<button class="filter-chip '+(contextMode===value?"active":"")+'" data-context-filter="'+value+'">'+esc(label)+'</button>').join("");
+ root.innerHTML=pageHead("Risk review","Findings","Prioritised active findings with security context and remediation kept next to the evidence.")+
+ '<div class="toolbar"><div class="toolbar-left"><div class="filter-chips">'+chips+'</div></div><div class="toolbar-right"><input id="finding-search" class="search" aria-label="Search findings" placeholder="Search rule, title, agent, message or file"></div></div>'+
+ '<div class="toolbar"><div class="toolbar-left"><span class="muted small">Context</span><div class="filter-chips">'+contextChips+'</div></div></div><div class="muted small" id="finding-count"></div><div id="finding-list"></div>';
  const list=root.querySelector("#finding-list"),count=root.querySelector("#finding-count"),search=root.querySelector("#finding-search");
- const apply=()=>{{const q=search.value.trim().toLowerCase();const items=DATA.findings.filter(item=>(severity==="all"||item.severity===severity)&&(!q||JSON.stringify([item.rule_id,item.title,item.agent,item.message,item.location]).toLowerCase().includes(q))).sort((a,b)=>severityRank(b.severity)-severityRank(a.severity)||String(a.rule_id).localeCompare(String(b.rule_id)));count.textContent=number(items.length)+" active findings";list.innerHTML=items.length?items.map(findingCard).join(""):'<div class="empty">No findings matched this view.</div>';}};
- root.querySelectorAll("[data-finding-filter]").forEach(btn=>btn.addEventListener("click",()=>renderFindings(btn.dataset.findingFilter)));search.addEventListener("input",apply);apply();
+ const apply=()=>{{const q=search.value.trim().toLowerCase();const items=DATA.findings.filter(item=>(severity==="all"||item.severity===severity)&&findingMatchesContext(item,contextMode)&&(!q||JSON.stringify([item.rule_id,item.title,item.agent,item.message,item.location,item.source_context,findingContext(item)]).toLowerCase().includes(q))).sort(compareFindings);count.textContent=number(items.length)+" active findings · context-aware review order";list.innerHTML=items.length?items.map(findingCard).join(""):'<div class="empty">No findings matched this view.</div>';}};
+ root.querySelectorAll("[data-finding-filter]").forEach(btn=>btn.addEventListener("click",()=>renderFindings(btn.dataset.findingFilter,contextMode)));
+ root.querySelectorAll("[data-context-filter]").forEach(btn=>btn.addEventListener("click",()=>renderFindings(severity,btn.dataset.contextFilter)));
+ search.addEventListener("input",apply);apply();
 }}
 
 function renderPolicy(){{
@@ -898,11 +942,17 @@ function renderOwasp(risk="all"){{
  const clear=root.querySelector("#owasp-clear");if(clear)clear.addEventListener("click",()=>renderOwasp("all"));
 }}
 
-function renderAttack(){{
- const items=DATA.agents.flatMap(a=>(a.path_views||[])),supported=items.filter(x=>x.evidence_strength==="supported_static_dataflow").length,potential=items.length-supported;
- document.getElementById("attack").innerHTML=pageHead("Risk chains","Attack paths","Evidence-aware chains from source/capability context to sensitive actions or destinations.")+
- '<div class="cards">'+metric("Attack paths",items.length)+metric("Supported data flow",supported,"ok","","Solid connectors")+metric("Potential capability paths",potential,"warn","","Dashed connectors; flow not proven")+'</div>'+
- sectionHead("Reconstructed paths","Runtime exploitability is not verified.")+(items.length?items.sort((a,b)=>severityRank(b.severity)-severityRank(a.severity)).map(renderPathCard).join(""):'<div class="empty">No attack paths detected.</div>');
+function renderAttack(mode="all"){{
+ const allItems=DATA.agents.flatMap(a=>(a.path_views||[])),supported=allItems.filter(x=>x.evidence_strength==="supported_static_dataflow").length,potential=allItems.length-supported;
+ const filters=[["all","All"],["supported","Supported flow"],["potential","Potential"],["critical","Critical"],["high","High"]];
+ const chips=filters.map(([value,label])=>'<button class="filter-chip '+(mode===value?"active":"")+'" data-path-filter="'+value+'">'+esc(label)+'</button>').join("");
+ const root=document.getElementById("attack");
+ root.innerHTML=pageHead("Risk chains","Attack paths","Evidence-aware chains from source/capability context to sensitive actions or destinations.")+
+ '<div class="cards">'+metric("Attack paths",allItems.length)+metric("Supported data flow",supported,"ok","","Solid connectors")+metric("Potential capability paths",potential,"warn","","Dashed connectors; flow not proven")+'</div>'+
+ '<div class="toolbar"><div class="toolbar-left"><div class="filter-chips">'+chips+'</div></div><div class="toolbar-right"><input id="path-search" class="search" aria-label="Search attack paths" placeholder="Search path, agent, title or step"></div></div><div class="muted small" id="path-count"></div><div id="path-list"></div>';
+ const list=root.querySelector("#path-list"),count=root.querySelector("#path-count"),search=root.querySelector("#path-search");
+ const apply=()=>{{const q=search.value.trim().toLowerCase();const items=allItems.filter(item=>{{const modeMatch=mode==="all"||(mode==="supported"&&item.evidence_strength==="supported_static_dataflow")||(mode==="potential"&&item.evidence_strength!=="supported_static_dataflow")||item.severity===mode;return modeMatch&&(!q||JSON.stringify([item.path_id,item.agent,item.title,item.steps]).toLowerCase().includes(q));}}).sort((a,b)=>severityRank(b.severity)-severityRank(a.severity));count.textContent=number(items.length)+" attack paths";list.innerHTML=sectionHead("Reconstructed paths","Runtime exploitability is not verified.")+(items.length?items.map(renderPathCard).join(""):'<div class="empty">No attack paths matched this view.</div>');}};
+ root.querySelectorAll("[data-path-filter]").forEach(btn=>btn.addEventListener("click",()=>renderAttack(btn.dataset.pathFilter)));search.addEventListener("input",apply);apply();
 }}
 
 function renderContracts(mode="all"){{
