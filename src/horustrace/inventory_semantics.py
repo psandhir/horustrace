@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from horustrace.models import ResourceScope
+from horustrace.semantic_contract import canonical_data_connection_type
 
 _KNOWN_MODEL_PROVIDER_PREFIXES = {
     "anthropic": "anthropic",
@@ -41,63 +42,6 @@ _PROVIDER_HOSTING = {
     "openai": "provider_hosted",
     "openrouter": "provider_hosted",
 }
-
-_FILESYSTEM_KINDS = {
-    "directory",
-    "file",
-    "filesystem",
-    "local_file",
-    "path",
-    "workspace",
-}
-_OBJECT_STORE_KINDS = {
-    "blob",
-    "bucket",
-    "gcs",
-    "object",
-    "object_store",
-    "s3",
-}
-_DATABASE_KINDS = {
-    "cosmos",
-    "cosmosdb",
-    "database",
-    "db",
-    "dynamodb",
-    "firestore",
-    "mysql",
-    "postgres",
-    "postgresql",
-    "sql",
-    "sqlite",
-}
-_VECTOR_KINDS = {
-    "chroma",
-    "lancedb",
-    "pinecone",
-    "qdrant",
-    "vector",
-    "vector_store",
-    "weaviate",
-}
-_MESSAGING_KINDS = {
-    "event",
-    "kafka",
-    "messaging",
-    "pubsub",
-    "queue",
-    "sns",
-    "sqs",
-    "topic",
-}
-_RAG_KINDS = {
-    "knowledge_base",
-    "knowledgebase",
-    "rag",
-    "retrieval",
-    "retriever",
-}
-
 
 def _scalar(metadata: dict[str, Any], *keys: str) -> str | None:
     for key in keys:
@@ -200,27 +144,7 @@ def model_inventory_attributes(metadata: dict[str, Any]) -> dict[str, Any]:
 
 def data_connection_type(kind: str, metadata: dict[str, Any]) -> str:
     explicit = _scalar(metadata, "data_connection_type", "connection_type")
-    if explicit:
-        return explicit
-
-    normalized = kind.strip().lower().replace("-", "_")
-    if normalized in _FILESYSTEM_KINDS:
-        return "filesystem"
-    if normalized in _OBJECT_STORE_KINDS:
-        return "object_store"
-    if normalized in _DATABASE_KINDS:
-        return "database"
-    if normalized in _VECTOR_KINDS:
-        return "vector_store"
-    if normalized in _MESSAGING_KINDS:
-        return "messaging"
-    if normalized in _RAG_KINDS:
-        return "rag_source"
-    if normalized in {"external_resource", "remote_object", "saas", "api"}:
-        return "saas_api"
-    if normalized in {"memory", "memory_store"}:
-        return "memory"
-    return "unknown"
+    return explicit or canonical_data_connection_type(kind)
 
 
 def data_resource_attributes(resource: ResourceScope) -> dict[str, Any]:
