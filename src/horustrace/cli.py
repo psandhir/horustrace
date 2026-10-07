@@ -9,7 +9,7 @@ from pathlib import Path
 from horustrace import __version__
 from horustrace.adapters.manifest import ManifestError
 from horustrace.adapters.registry import adapter_catalogue
-from horustrace.aibom import build_aibom, repository_aibom_context
+from horustrace.aibom import build_aibom, repository_aibom_context, to_cyclonedx_1_6
 from horustrace.assurance import build_assurance_report
 from horustrace.authority_contract import authority_contract_report
 from horustrace.authority_query import (
@@ -387,6 +387,12 @@ def _parser() -> argparse.ArgumentParser:
     aibom_parser = sub.add_parser("aibom", help="Generate an Agent Bill of Materials")
     aibom_parser.add_argument("path", nargs="?", default=".")
     aibom_parser.add_argument("--output", type=Path)
+    aibom_parser.add_argument(
+        "--format",
+        choices=["horustrace", "cyclonedx"],
+        default="horustrace",
+        help="AI-BOM output format. cyclonedx emits CycloneDX 1.6 JSON.",
+    )
     aibom_parser.add_argument("--config", type=Path)
     aibom_parser.add_argument(
         "--authority-source",
@@ -821,6 +827,8 @@ def main(argv: list[str] | None = None) -> int:
                     context=context,
                     coverage=graph.coverage.as_dict(),
                 )
+                if args.format == "cyclonedx":
+                    document = to_cyclonedx_1_6(document)
             output = json.dumps(document, indent=2)
 
         if args.output:

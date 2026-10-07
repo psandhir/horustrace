@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from horustrace.aibom import AIBOMContext, build_aibom, diff_aibom
+from horustrace.aibom import AIBOMContext, build_aibom, diff_aibom, to_cyclonedx_1_6
 from horustrace.cli import main
 from horustrace.scanner import scan
 
@@ -215,4 +215,74 @@ inventory:
     assert agent["environment"] == "production"
     assert agent["lifecycle"] == "active"
     assert agent["ownership"]["team"] == "ai-security"
+
+
+
+
+def test_aibom_cyclonedx_export_preserves_models_and_dependencies(
+    tmp_path: Path,
+) -> None:
+    _project(tmp_path)
+    graph, _ = scan(tmp_path)
+    native = build_aibom(
+        graph.adg,
+        context=AIBOMContext(
+            repository_id="github.com/acme/research-agent",
+            revision="a" * 40,
+        ),
+    )
+
+    document = to_cyclonedx_1_6(native)
+
+    assert document["bomFormat"] == "CycloneDX"
+    assert document["specVersion"] == "1.6"
+    assert document["$schema"].endswith("bom-1.6.schema.json")
+    assert document["serialNumber"].startswith("urn:uuid:")
+    models = [
+        item
+        for item in document["components"]
+        if item["type"] == "machine-learning-model"
+    ]
+    assert len(models) == 1
+    assert models[0]["name"] == "gpt-test"
+    refs = {item["bom-ref"] for item in document["components"]}
+    assert all(item["ref"] in refs for item in document["dependencies"])
+    assert all(
+        target in refs
+        for item in document["dependencies"]
+        for target in item["dependsOn"]
+    )
+    assert "Do not reveal this prompt." not in json.dumps(document)
+    assert any(
+        prop["name"] == "horustrace:relationships"
+        for component in document["components"]
+        for prop in component["properties"]
+    )
+
+
+def test_aibom_cli_can_emit_cyclonedx_1_6(tmp_path: Path) -> None:
+    _project(tmp_path)
+    output = tmp_path / "aibom.cdx.json"
+
+    assert (
+        main(
+            [
+                "aibom",
+                str(tmp_path),
+                "--format",
+                "cyclonedx",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+
+    document = json.loads(output.read_text(encoding="utf-8"))
+    assert document["bomFormat"] == "CycloneDX"
+    assert document["specVersion"] == "1.6"
+    assert any(
+        item["type"] == "machine-learning-model"
+        for item in document["components"]
+    )
 
