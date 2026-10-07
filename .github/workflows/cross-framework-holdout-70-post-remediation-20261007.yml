@@ -6,7 +6,7 @@ on:
     branches:
       - research/cross-framework-holdout-70-post-remediation-20261007
     paths:
-      - ".github/workflows/cross-framework-holdout-70-20261007.yml"
+      - ".github/workflows/cross-framework-holdout-70-post-remediation-20261007.yml"
       - "research/cross-framework-holdout-70-20261007/**"
 
 permissions:
