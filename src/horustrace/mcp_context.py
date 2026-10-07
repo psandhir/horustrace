@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import tomllib
 from copy import deepcopy
 from pathlib import Path
@@ -281,6 +282,197 @@ def resolve_fast_agent_mcp_references(graph: Graph) -> None:
     graph.unresolved_mcp_references.extend(unresolved)
 
 
+def _ast_dotted(node: ast.AST | None) -> str | None:
+    if node is None:
+        return None
+    parts: list[str] = []
+    current = node
+    while isinstance(current, ast.Attribute):
+        parts.append(current.attr)
+        current = current.value
+    if isinstance(current, ast.Name):
+        parts.append(current.id)
+        return ".".join(reversed(parts))
+    return None
+
+
+def _static_path_value(
+    node: ast.AST | None,
+    *,
+    source_path: Path,
+    assignments: dict[str, ast.AST],
+    seen: set[str] | None = None,
+) -> str | None:
+    """Resolve a small, source-only subset of Python path expressions."""
+    if node is None:
+        return None
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Name):
+        if node.id == "__file__":
+            return str(source_path.resolve())
+        seen = set(seen or ())
+        if node.id in seen:
+            return None
+        target = assignments.get(node.id)
+        if target is None:
+            return None
+        seen.add(node.id)
+        return _static_path_value(
+            target,
+            source_path=source_path,
+            assignments=assignments,
+            seen=seen,
+        )
+    if isinstance(node, ast.Attribute) and node.attr == "parent":
+        value = _static_path_value(
+            node.value,
+            source_path=source_path,
+            assignments=assignments,
+            seen=seen,
+        )
+        return str(Path(value).parent) if value else None
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        left = _static_path_value(
+            node.left,
+            source_path=source_path,
+            assignments=assignments,
+            seen=seen,
+        )
+        right = _static_path_value(
+            node.right,
+            source_path=source_path,
+            assignments=assignments,
+            seen=seen,
+        )
+        return str(Path(left) / right) if left and right else None
+    if not isinstance(node, ast.Call):
+        return None
+
+    called = _ast_dotted(node.func) or ""
+    if called in {"str", "os.fspath"} and node.args:
+        return _static_path_value(
+            node.args[0],
+            source_path=source_path,
+            assignments=assignments,
+            seen=seen,
+        )
+    if called in {"Path", "pathlib.Path"} and node.args:
+        return _static_path_value(
+            node.args[0],
+            source_path=source_path,
+            assignments=assignments,
+            seen=seen,
+        )
+    if called == "os.path.abspath" and node.args:
+        value = _static_path_value(
+            node.args[0],
+            source_path=source_path,
+            assignments=assignments,
+            seen=seen,
+        )
+        return str(Path(value).resolve()) if value else None
+    if called == "os.path.dirname" and node.args:
+        value = _static_path_value(
+            node.args[0],
+            source_path=source_path,
+            assignments=assignments,
+            seen=seen,
+        )
+        return str(Path(value).parent) if value else None
+    if called == "os.path.join" and node.args:
+        parts = [
+            _static_path_value(
+                item,
+                source_path=source_path,
+                assignments=assignments,
+                seen=seen,
+            )
+            for item in node.args
+        ]
+        if parts and all(part is not None for part in parts):
+            return str(Path(parts[0]).joinpath(*parts[1:]))
+    return None
+
+
+def _stdio_args_from_source(server: MCPServer) -> list[str]:
+    """Recover statically resolvable stdio args from the declaration source."""
+    if server.location is None:
+        return []
+    path = server.location.path
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    except (OSError, UnicodeDecodeError, SyntaxError):
+        return []
+
+    assignments: dict[str, ast.AST] = {}
+    for statement in tree.body:
+        if not isinstance(statement, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = statement.value
+        if value is None:
+            continue
+        targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+        for target in targets:
+            if isinstance(target, ast.Name):
+                assignments[target.id] = value
+
+    line = server.location.line
+    candidates: list[ast.Call] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        name = (_ast_dotted(node.func) or "").rsplit(".", 1)[-1]
+        if name not in {
+            "MCPServerStdio",
+            "ServerStdio",
+            "StdioServerParameters",
+            "StdioClientTransport",
+        }:
+            continue
+        start = getattr(node, "lineno", 0) or 0
+        end = getattr(node, "end_lineno", start) or start
+        if start <= line <= end:
+            candidates.append(node)
+
+    if len(candidates) != 1:
+        return []
+
+    call = candidates[0]
+    params_node = next(
+        (keyword.value for keyword in call.keywords if keyword.arg == "params"),
+        None,
+    )
+    if params_node is None and call.args and isinstance(call.args[0], ast.Dict):
+        params_node = call.args[0]
+
+    args_node: ast.AST | None = None
+    if isinstance(params_node, ast.Dict):
+        for key, value in zip(params_node.keys, params_node.values):
+            if isinstance(key, ast.Constant) and key.value == "args":
+                args_node = value
+                break
+    if args_node is None:
+        args_node = next(
+            (keyword.value for keyword in call.keywords if keyword.arg in {"args", "Arguments"}),
+            None,
+        )
+
+    if not isinstance(args_node, (ast.List, ast.Tuple)):
+        return []
+
+    result: list[str] = []
+    for item in args_node.elts:
+        value = _static_path_value(
+            item,
+            source_path=path,
+            assignments=assignments,
+        )
+        if value is not None:
+            result.append(value)
+    return result
+
+
 def _local_stdio_script_candidates(
     server: MCPServer,
     root: Path,
@@ -290,7 +482,8 @@ def _local_stdio_script_candidates(
         return set()
 
     candidates: set[Path] = set()
-    for arg in server.args:
+    source_args = _stdio_args_from_source(server)
+    for arg in [*server.args, *source_args]:
         if not isinstance(arg, str) or not arg or arg.startswith("-"):
             continue
         script = Path(arg)
