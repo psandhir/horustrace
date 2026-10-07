@@ -258,8 +258,14 @@ def test_visual_report_exposes_production_review_workflows(tmp_path: Path) -> No
 
     html = render_visual_report_html(graph, findings, tmp_path)
 
+    assert "Priority findings" in html
     assert "Priority review queue" in html
     assert "Assessment signal" in html
+    assert "Recommended action" in html
+    assert 'data-context-filter=' in html
+    assert "context-aware review order" in html
+    assert "function findingContext(f)" in html
+    assert "function compareFindings(a,b)" in html
     assert 'aria-label="Report sections"' in html
     assert 'data-agent-filter=' in html
     assert 'data-finding-filter=' in html
@@ -291,6 +297,9 @@ def test_visual_report_has_expandable_map_controls(tmp_path: Path) -> None:
     assert "Attack paths" in html
     assert "Supported static data flow" in html
     assert "Potential capability path" in html
+    assert 'data-path-filter=' in html
+    assert "Search path, agent, title or step" in html
+    assert "Supported flow" in html
 
 
 def test_visual_report_html_is_self_contained(tmp_path: Path) -> None:
