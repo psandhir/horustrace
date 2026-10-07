@@ -623,12 +623,95 @@ def authority_contract_report(graph: Graph) -> dict[str, Any]:
     )
     violations = [item for item in results if item.status == "violation"]
     unresolved = [item for item in results if item.status == "unresolved"]
+
+    missing_contracts = [
+        {
+            "agent": agent.name,
+            "status": "not_declared",
+            "reason": "authority_contract_missing",
+            "location": _location_dict(agent.location),
+        }
+        for agent in sorted(
+            graph.agents,
+            key=lambda item: (
+                item.name,
+                str(item.location.path) if item.location is not None else "",
+                item.location.line if item.location is not None else 0,
+            ),
+        )
+        if agent.policy.authority is None
+    ]
+
+    agent_assessments: list[dict[str, Any]] = []
+    for agent in sorted(
+        graph.agents,
+        key=lambda item: (
+            item.name,
+            str(item.location.path) if item.location is not None else "",
+            item.location.line if item.location is not None else 0,
+        ),
+    ):
+        contract = agent.policy.authority
+        evaluated = [
+            item for item in relationship_evaluations if item["agent"] == agent.name
+        ]
+        violation_count = sum(item["status"] == "violation" for item in evaluated)
+        unresolved_count = sum(item["status"] == "unresolved" for item in evaluated)
+        if contract is None:
+            status = "not_declared"
+            reason = "authority_contract_missing"
+        elif violation_count:
+            status = "violation"
+            reason = "effective_authority_outside_contract"
+        elif unresolved_count:
+            status = "unresolved"
+            reason = "contract_evidence_unresolved"
+        elif evaluated:
+            status = "compliant"
+            reason = "effective_authority_within_contract"
+        else:
+            status = "declared"
+            reason = "contract_declared_no_authority_relationships"
+
+        agent_assessments.append(
+            {
+                "agent": agent.name,
+                "status": status,
+                "reason": reason,
+                "contract_declared": contract is not None,
+                "location": _location_dict(agent.location),
+                "contract_location": (
+                    _location_dict(contract.location) if contract is not None else None
+                ),
+                "relationships_evaluated": len(evaluated),
+                "violation_relationships": violation_count,
+                "unresolved_relationships": unresolved_count,
+            }
+        )
+
+    total_agents = len(graph.agents)
+    agents_with_contract = total_agents - len(missing_contracts)
+    coverage_percent = (
+        round((agents_with_contract / total_agents) * 100, 2)
+        if total_agents
+        else 100.0
+    )
     return {
         "schema_version": AUTHORITY_CONTRACT_EVALUATION_SCHEMA_VERSION,
         "runtime_effectiveness": "not_verified",
         "summary": {
-            "agents_with_contract": sum(
-                agent.policy.authority is not None for agent in graph.agents
+            "total_agents": total_agents,
+            "agents_with_contract": agents_with_contract,
+            "agents_without_contract": len(missing_contracts),
+            "contract_coverage_percent": coverage_percent,
+            "compliant_agents": sum(
+                item["status"] == "compliant" for item in agent_assessments
+            ),
+            "violation_agents": sum(
+                item["status"] == "violation" for item in agent_assessments
+            ),
+            "unresolved_agents": sum(
+                item["status"] == "unresolved" for item in agent_assessments
             ),
             "relationships_evaluated": len(relationship_evaluations),
             "compliant_relationships": sum(
@@ -643,6 +726,8 @@ def authority_contract_report(graph: Graph) -> dict[str, Any]:
             "violations": len(violations),
             "unresolved": len(unresolved),
         },
+        "agents": agent_assessments,
+        "missing_contracts": missing_contracts,
         "relationships": relationship_evaluations,
         "violations": [item.as_dict() for item in violations],
         "unresolved": [item.as_dict() for item in unresolved],
