@@ -194,7 +194,7 @@ def test_data_resource_not_exposed_requires_limitation() -> None:
     )
     agent = Agent(
         name="agent",
-        tools=[Tool(name="query", resources=[resource])],
+        tools=[Tool(name="query", kind="function", resources=[resource])],
     )
 
     errors = validate_graph_semantics(Graph(agents=[agent]))
