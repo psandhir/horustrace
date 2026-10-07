@@ -1575,6 +1575,126 @@ def _assignment_targets(node: ast.AST) -> set[str]:
     }
 
 
+def _function_remote_object_semantics(
+    info: ModuleInfo,
+    func: ast.FunctionDef | ast.AsyncFunctionDef,
+    capabilities: set[str],
+) -> tuple[list[ResourceScope], dict[str, object]]:
+    """Prove model-selected remote object IDs used by content operations."""
+    access = capabilities & {"data.read", "data.write", "destructive.write"}
+    if not access:
+        return [], {}
+
+    params = [
+        arg.arg
+        for arg in [
+            *func.args.posonlyargs,
+            *func.args.args,
+            *func.args.kwonlyargs,
+        ]
+        if arg.arg not in {"self", "cls", "ctx", "context", "tool_context"}
+    ]
+    candidate_params = [
+        name
+        for name in params
+        if name == "id"
+        or name.endswith("_id")
+        or name.endswith("_ids")
+    ]
+    if not candidate_params:
+        return [], {}
+
+    assignments = [
+        node
+        for node in ast.walk(func)
+        if isinstance(node, (ast.Assign, ast.AnnAssign))
+        and node.value is not None
+    ]
+    parameter_aliases: dict[str, set[str]] = {
+        name: {name} for name in candidate_params
+    }
+    for parameter, aliases in parameter_aliases.items():
+        changed = True
+        while changed:
+            changed = False
+            for assignment in assignments:
+                if not _expr_uses_names(assignment.value, aliases):
+                    continue
+                for name in _assignment_targets(assignment):
+                    if name not in aliases:
+                        aliases.add(name)
+                        changed = True
+
+    content_markers = {
+        "read",
+        "extract",
+        "download",
+        "list",
+        "search",
+        "ask",
+        "content",
+        "file",
+        "folder",
+        "document",
+        "object",
+        "item",
+    }
+    observed: dict[str, SourceLocation] = {}
+    for call in (node for node in ast.walk(func) if isinstance(node, ast.Call)):
+        called = (_dotted(call.func) or _name(call.func) or "").lower()
+        if not called:
+            continue
+        leaf = (_name(call.func) or "").lower()
+        tokens = set(
+            part
+            for part in called.replace(".", "_").split("_")
+            if part
+        )
+        if not (tokens & content_markers or any(marker in leaf for marker in content_markers)):
+            continue
+        values = [*call.args, *(keyword.value for keyword in call.keywords)]
+        for parameter, aliases in parameter_aliases.items():
+            if any(_expr_uses_names(value, aliases) for value in values):
+                observed.setdefault(parameter, _loc(info.path, call))
+
+    if not observed:
+        return [], {}
+
+    resources: list[ResourceScope] = []
+    object_types: dict[str, str] = {}
+    for parameter, location in sorted(observed.items()):
+        if parameter.startswith("file"):
+            object_type = "file"
+        elif parameter.startswith("folder"):
+            object_type = "folder"
+        elif parameter.startswith("document"):
+            object_type = "document"
+        else:
+            object_type = "remote_object"
+        object_types[parameter] = object_type
+        resources.append(
+            ResourceScope(
+                kind="remote_object",
+                selector=f"<model-selected:{parameter}>",
+                access=set(access),
+                location=location,
+                metadata={
+                    "source": "model_selected_function_parameter",
+                    "resource_provenance": "model_selected_remote_object_id",
+                    "selector_parameter": parameter,
+                    "remote_object_type": object_type,
+                },
+            )
+        )
+
+    return resources, {
+        "model_selected_remote_object": True,
+        "model_selected_resource_parameters": sorted(observed),
+        "model_selected_remote_object_types": object_types,
+        "resource_provenance": "model_selected_remote_object_id",
+    }
+
+
 def _function_file_transfer_semantics(
     info: ModuleInfo,
     func: ast.FunctionDef | ast.AsyncFunctionDef,
@@ -2000,6 +2120,16 @@ def _function_tool(
         model_callable=True,
     )
     resources, file_metadata = _function_file_transfer_semantics(info, func)
+    remote_resources, remote_metadata = _function_remote_object_semantics(
+        info,
+        func,
+        caps,
+    )
+    resources.extend(
+        resource
+        for resource in remote_resources
+        if resource not in resources
+    )
     required_roles, required_role_evidence = _analyze_required_gcp_roles(
         modules,
         info,
@@ -2031,6 +2161,7 @@ def _function_tool(
         "framework": "google-adk",
         "repository_resolved": True,
         **file_metadata,
+        **remote_metadata,
     }
     if network_scope:
         metadata["network_scope"] = network_scope
@@ -2757,10 +2888,17 @@ def _merge_agent(existing: Agent, incoming: Agent) -> None:
                 "filesystem_path_constrained",
                 "file_read_external_transfer",
                 "file_read_external_sinks",
+                "model_selected_remote_object",
+                "model_selected_resource_parameters",
+                "model_selected_remote_object_types",
+                "resource_provenance",
             ):
                 if key in tool.metadata:
                     existing_tool.metadata[key] = tool.metadata[key]
-            if tool.metadata.get("model_selected_file_read"):
+            if (
+                tool.metadata.get("model_selected_file_read")
+                or tool.metadata.get("model_selected_remote_object")
+            ):
                 existing_tool.resources.extend(
                     resource
                     for resource in tool.resources
