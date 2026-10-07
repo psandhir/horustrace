@@ -213,3 +213,55 @@ agent = Agent(name="agent", mcp_servers=[firecrawl, websearch])
     assert net004[0].agent == "agent"
     assert "firecrawl" in net004[0].message.lower()
     assert not any(path.path_id.startswith("PATH") for path in graph.attack_paths)
+
+
+def test_local_stdio_source_path_expression_projects_mcp_implementation(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "mcp_calendar_server.py").write_text(
+        """
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("calendar")
+
+@mcp.tool()
+def create_calendar_event(title: str) -> str:
+    return title
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+import os
+import sys
+from agents import Agent
+from agents.mcp import MCPServerStdio
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+MCP_SCRIPT = os.path.join(HERE, "mcp_calendar_server.py")
+
+calendar_server = MCPServerStdio(
+    params={
+        "command": sys.executable,
+        "args": ["-u", MCP_SCRIPT],
+        "cwd": HERE,
+    }
+)
+
+agent = Agent(name="Appointment Booker", mcp_servers=[calendar_server])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    agent = next(item for item in graph.agents if item.name == "Appointment Booker")
+    server = next(item for item in agent.mcp_servers if item.name == "calendar_server")
+
+    assert server.metadata["repository_resolved"] is True
+    assert server.metadata["binding_origin"] == "local_stdio_script"
+    assert server.metadata["implementation_path"].endswith("mcp_calendar_server.py")
+    assert any(
+        item["name"] == "create_calendar_event"
+        for item in server.metadata["discovered_tools"]
+    )
