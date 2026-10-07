@@ -125,7 +125,10 @@ def render(
     lines.extend([
         "Authority Contract assessment",
         f"  Status: {contract_assurance['status']}",
+        f"  Agents: {contract_summary['total_agents']}",
         f"  Agents with contract: {contract_summary['agents_with_contract']}",
+        f"  Agents without contract: {contract_summary['agents_without_contract']}",
+        f"  Contract coverage: {contract_summary['contract_coverage_percent']}%",
         f"  Relationships evaluated: {contract_summary['relationships_evaluated']}",
         f"  Compliant relationships: {contract_summary['compliant_relationships']}",
         f"  Violation relationships: {contract_summary['violation_relationships']}",
@@ -134,6 +137,11 @@ def render(
         f"  Unresolved clauses: {contract_summary['unresolved']}",
         "  Runtime effectiveness: not_verified",
     ])
+    for item in contract_report["missing_contracts"]:
+        lines.append(
+            "  NOT_DECLARED "
+            f"agent={item['agent']} reason={item['reason']}"
+        )
     for item in contract_report["violations"]:
         lines.append(
             "  VIOLATION "
