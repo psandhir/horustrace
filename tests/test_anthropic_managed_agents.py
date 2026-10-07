@@ -338,3 +338,28 @@ agent = client.beta.agents.create(
         tool.kind == "dynamic_tool_collection" for tool in agent.tools
     )
     assert "dynamic_tool_catalogue" not in agent.metadata
+
+
+def test_managed_agent_preserves_canonical_model_provenance(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        """
+from anthropic import Anthropic
+
+client = Anthropic()
+agent = client.beta.agents.create(
+    name="research",
+    model="claude-opus-4-7",
+    tools=[],
+)
+""",
+    )
+
+    graph = scan_python_file(path)
+    agent = graph.agents[0]
+
+    assert agent.metadata["model"] == "claude-opus-4-7"
+    assert agent.metadata["model_provider"] == "anthropic"
+    assert agent.metadata["model_hosting"] == "provider_hosted"
+    assert agent.metadata["model_resolution"] == "resolved_identifier"
+
