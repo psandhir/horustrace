@@ -183,25 +183,33 @@ researcher_agent = PyAIAgent(
 
     graph, _ = scan(tmp_path)
 
-    # The legacy aliased Agent constructor is not normalized here; the MCP
-    # declaration must still be preserved structurally rather than lost.
+    agent = next(
+        item for item in graph.agents
+        if item.name == "researcher_agent"
+    )
     server = next(
-        item
-        for item in graph.unbound_mcp_servers
+        item for item in agent.mcp_servers
         if item.name == "tavily_mcp_server"
     )
     assert server.transport == "stdio"
     assert server.command == "npx"
     assert server.args == ["-y", "tavily-mcp@0.1.4"]
     assert server.metadata["constructor_alias"] == "PyAIMCPServerStdio"
-    assert server.metadata["binding_state"] == "unbound"
+    assert not any(
+        item.name == "tavily_mcp_server"
+        for item in graph.unbound_mcp_servers
+    )
     assert graph.adg is not None
     node = next(
         item
         for item in graph.adg.nodes
-        if item.kind == "mcp_server" and item.name == "tavily_mcp_server"
+        if item.kind == "mcp_server"
+        and item.name == "researcher_agent:tavily_mcp_server"
     )
-    assert node.attributes["unbound"] is True
+    assert any(
+        edge.kind == "INVOKES" and edge.target == node.node_id
+        for edge in graph.adg.edges
+    )
 
 
 def test_shadowed_fastmcp_assignment_keeps_only_runtime_instance(

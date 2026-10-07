@@ -2293,3 +2293,58 @@ asyncio.run(main())
     assert "data.read" in agent.capabilities
     assert "data.write" in agent.capabilities
 
+
+
+def test_pydantic_agent_alias_inside_application_wrapper_is_detected(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent as PydanticAgent
+
+
+class Agent:
+    def __init__(self, model: str):
+        self._model = model
+        self._agent = None
+
+    def _build_agent(self):
+        if self._agent is None:
+            self._agent = PydanticAgent(
+                self._model,
+                name="wrapped-agent",
+            )
+        return self._agent
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    agent = next(item for item in graph.agents if item.name == "self._agent")
+    assert agent.metadata["framework"] == "pydantic-ai"
+
+
+def test_user_defined_agent_constructor_is_not_misclassified_as_pydantic(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import RunContext
+
+
+class Agent:
+    def __init__(self, name: str):
+        self.name = name
+
+
+agent = Agent("local-wrapper")
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    assert not any(
+        item.metadata.get("framework") == "pydantic-ai"
+        for item in graph.agents
+    )

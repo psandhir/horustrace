@@ -448,6 +448,47 @@ def _uses_pydantic_ai(tree: ast.AST) -> bool:
     return False
 
 
+def _pydantic_agent_imports(
+    tree: ast.AST,
+) -> tuple[set[str], set[str]]:
+    """Return source-proven local names for pydantic_ai.Agent constructors."""
+    constructor_names: set[str] = set()
+    module_aliases: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if not module.startswith(_PYDANTIC_PREFIXES):
+                continue
+            for alias in node.names:
+                if alias.name == "Agent":
+                    constructor_names.add(alias.asname or alias.name)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if not alias.name.startswith(_PYDANTIC_PREFIXES):
+                    continue
+                module_aliases.add(alias.asname or alias.name.split(".", 1)[0])
+    return constructor_names, module_aliases
+
+
+def _is_pydantic_agent_call(
+    call: ast.Call,
+    constructor_names: set[str],
+    module_aliases: set[str],
+) -> bool:
+    func = call.func
+    while isinstance(func, ast.Subscript):
+        func = func.value
+    if isinstance(func, ast.Name):
+        return func.id in constructor_names
+    if (
+        isinstance(func, ast.Attribute)
+        and func.attr == "Agent"
+        and isinstance(func.value, ast.Name)
+    ):
+        return func.value.id in module_aliases
+    return False
+
+
 def is_pydantic_ai_file(path: Path) -> bool:
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -3209,6 +3250,8 @@ def scan_python_file(path: Path) -> Graph:
     if not _uses_pydantic_ai(tree):
         return graph
 
+    agent_constructor_names, agent_module_aliases = _pydantic_agent_imports(tree)
+
     functions = {
         node.name: node
         for node in ast.walk(tree)
@@ -3249,7 +3292,11 @@ def scan_python_file(path: Path) -> Graph:
                         declared_mcp_servers[target] = declared_mcp
                 if (
                     isinstance(node.value, ast.Call)
-                    and _call_name(node.value.func) == "Agent"
+                    and _is_pydantic_agent_call(
+                        node.value,
+                        agent_constructor_names,
+                        agent_module_aliases,
+                    )
                 ):
                     agent_calls[target] = node.value
 
@@ -3278,7 +3325,14 @@ def scan_python_file(path: Path) -> Graph:
             return
 
         def visit_Assign(self, node: ast.Assign) -> None:
-            if isinstance(node.value, ast.Call) and _call_name(node.value.func) == "Agent":
+            if (
+                isinstance(node.value, ast.Call)
+                and _is_pydantic_agent_call(
+                    node.value,
+                    agent_constructor_names,
+                    agent_module_aliases,
+                )
+            ):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
                         self.local_agents[target.id] = node.value
@@ -3288,14 +3342,25 @@ def scan_python_file(path: Path) -> Graph:
             if (
                 isinstance(node.target, ast.Name)
                 and isinstance(node.value, ast.Call)
-                and _call_name(node.value.func) == "Agent"
+                and _is_pydantic_agent_call(
+                    node.value,
+                    agent_constructor_names,
+                    agent_module_aliases,
+                )
             ):
                 self.local_agents[node.target.id] = node.value
             self.generic_visit(node)
 
         def visit_Return(self, node: ast.Return) -> None:
             value = node.value
-            if isinstance(value, ast.Call) and _call_name(value.func) == "Agent":
+            if (
+                isinstance(value, ast.Call)
+                and _is_pydantic_agent_call(
+                    value,
+                    agent_constructor_names,
+                    agent_module_aliases,
+                )
+            ):
                 self.calls.append(value)
             elif (
                 isinstance(value, ast.Call)
