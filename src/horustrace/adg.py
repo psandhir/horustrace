@@ -430,11 +430,28 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
             builder.edge("USES_PROMPT", agent_id, prompt_id, location=agent.location)
 
         model = agent.metadata.get("model")
-        if isinstance(model, str) and model:
+        has_model_evidence = (
+            isinstance(model, str)
+            and bool(model)
+        ) or any(
+            agent.metadata.get(key) is not None
+            for key in (
+                "model_provider",
+                "model_reference",
+                "model_resolution",
+                "model_provenance_limitation",
+            )
+        )
+        if has_model_evidence:
             model_attributes = model_inventory_attributes(agent.metadata)
+            model_name = (
+                model
+                if isinstance(model, str) and model
+                else f"{agent.name}:model"
+            )
             model_id = builder.node(
                 "model",
-                model,
+                model_name,
                 location=agent.location,
                 framework=framework,
                 attributes=model_attributes,
