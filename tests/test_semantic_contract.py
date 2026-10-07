@@ -2,10 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from horustrace.models import Agent, Graph, Tool
+from horustrace.models import Agent, Graph, ResourceScope, Tool
 from horustrace.semantic_contract import (
+    DataConnectionResolution,
     ModelResolution,
     ToolControlState,
+    set_data_resource_provenance,
     set_model_provenance,
     set_source_context,
     set_tool_control,
@@ -135,4 +137,67 @@ def test_model_provenance_contract_requires_limitation_for_not_exposed() -> None
         "model_provenance_limitation" in error
         for error in validate_graph_semantics(graph)
     )
+
+
+
+
+def test_data_resource_provenance_is_written_atomically() -> None:
+    resource = ResourceScope(
+        kind="s3",
+        selector="s3://reports/*",
+        access={"data.read"},
+    )
+
+    set_data_resource_provenance(
+        resource,
+        provider="aws",
+        selector_provenance="literal_configuration",
+        resource_provenance="source_configuration",
+        source_reference="tool.bucket",
+    )
+
+    assert resource.metadata["data_connection_type"] == "object_store"
+    assert resource.metadata["data_provider"] == "aws"
+    assert resource.metadata["data_connection_resolution"] == "resolved"
+    assert resource.metadata["selector_provenance"] == "literal_configuration"
+    assert resource.metadata["resource_provenance"] == "source_configuration"
+    assert resource.metadata["data_source_reference"] == "tool.bucket"
+
+
+def test_data_resource_model_selected_selector_has_canonical_resolution() -> None:
+    resource = ResourceScope(
+        kind="remote_object",
+        selector="<model-selected:file_id>",
+        access={"data.read"},
+    )
+
+    set_data_resource_provenance(
+        resource,
+        provider="box",
+        selector_provenance="model_selected",
+        resource_provenance="external_sdk_resource_identifier",
+    )
+
+    assert (
+        resource.metadata["data_connection_resolution"]
+        == DataConnectionResolution.MODEL_SELECTED.value
+    )
+    assert resource.metadata["data_connection_type"] == "saas_api"
+
+
+def test_data_resource_not_exposed_requires_limitation() -> None:
+    resource = ResourceScope(
+        kind="database",
+        selector="<unknown>",
+        access={"data.read"},
+        metadata={"data_connection_resolution": "not_exposed"},
+    )
+    agent = Agent(
+        name="agent",
+        tools=[Tool(name="query", resources=[resource])],
+    )
+
+    errors = validate_graph_semantics(Graph(agents=[agent]))
+
+    assert any("data_connection_limitation" in error for error in errors)
 
