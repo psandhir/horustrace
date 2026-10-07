@@ -2356,6 +2356,28 @@ def scan(
     authority_source: Path | None = None,
     llm_semantic_config: LLMSemanticConfig | None = None,
 ) -> tuple[Graph, list]:
+    with tempfile.TemporaryDirectory(prefix="horustrace-notebooks-") as notebook_tempdir:
+        return _scan(
+            path,
+            suppressions_path=suppressions_path,
+            use_default_suppressions=use_default_suppressions,
+            config=config,
+            authority_source=authority_source,
+            llm_semantic_config=llm_semantic_config,
+            notebook_tempdir=Path(notebook_tempdir),
+        )
+
+
+def _scan(
+    path: Path,
+    suppressions_path: Path | None = None,
+    use_default_suppressions: bool = True,
+    config: ScanConfig | None = None,
+    authority_source: Path | None = None,
+    llm_semantic_config: LLMSemanticConfig | None = None,
+    *,
+    notebook_tempdir: Path,
+) -> tuple[Graph, list]:
     root = path.resolve()
     containment_root = canonical_root(root)
     graph = Graph()
@@ -2371,7 +2393,6 @@ def scan(
     approved_python_paths: list[Path] = []
     approved_csharp_paths: list[Path] = []
     framework_evidence: dict[str, list[SourceLocation]] = {}
-    notebook_tempdir = tempfile.TemporaryDirectory(prefix="horustrace-notebooks-")
     notebook_path_map: dict[Path, Path] = {}
     for candidate in sorted(candidates):
         graph.coverage.files_considered += 1
@@ -2543,7 +2564,7 @@ def scan(
                         details=item,
                     ),
                 )
-            temp_path = Path(notebook_tempdir.name) / (
+            temp_path = notebook_tempdir / (
                 candidate.name.replace(".ipynb", "") + f"-{len(notebook_path_map)}.py"
             )
             temp_path.write_text(notebook_source, encoding="utf-8")
@@ -2802,8 +2823,6 @@ def scan(
             approved_python_paths,
             unknown_flows,
         )
-    notebook_tempdir.cleanup()
-
     flow_execution_contexts = {
         context.value: sum(
             flow.execution_context == context for flow in graph.flow_paths

@@ -29,6 +29,7 @@ jobs:
           pytest -q
           --cov=horustrace
           --cov-branch
+          --cov-fail-under=82
           --cov-report=term-missing
           --cov-report=xml:coverage.xml
           --cov-report=json:coverage.json
@@ -43,8 +44,9 @@ jobs:
           with open("coverage.json", encoding="utf-8") as handle:
               totals = json.load(handle)["totals"]
           lines = [
-              "## Branch coverage baseline",
+              "## Branch coverage guardrail",
               "",
+              "- Required floor: 82%",
               f"- Lines: {totals['percent_covered_display']}%",
               f"- Statements: {totals['covered_lines']}/{totals['num_statements']}",
               f"- Branches: {totals['covered_branches']}/{totals['num_branches']}",
