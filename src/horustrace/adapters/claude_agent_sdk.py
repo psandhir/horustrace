@@ -22,7 +22,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
-from horustrace.semantic_contract import ToolControlState, set_tool_control
+from horustrace.semantic_contract import ToolControlState, set_model_provenance, set_tool_control
 
 FRAMEWORK = "claude-agent-sdk"
 
@@ -931,7 +931,12 @@ def _subagent_from_call(
         },
     )
     if isinstance(model, str):
-        agent.metadata["model"] = model
+        set_model_provenance(
+            agent.metadata,
+            identifier=model,
+            provider="anthropic",
+            hosting="provider_hosted",
+        )
     if isinstance(permission_mode, str):
         agent.metadata["permission_mode"] = permission_mode
     memory = _literal(_kw(call, "memory"))
@@ -1013,7 +1018,12 @@ def _option_agent(
 
     model = _resolved_literal(_kw(call, "model", dicts, values), values)
     if isinstance(model, str):
-        agent.metadata["model"] = model
+        set_model_provenance(
+            agent.metadata,
+            identifier=model,
+            provider="anthropic",
+            hosting="provider_hosted",
+        )
 
     tools_node = _kw(call, "tools", dicts, values)
     tool_names = _string_list(tools_node, sequences, values)
