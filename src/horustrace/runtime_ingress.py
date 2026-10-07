@@ -22,6 +22,7 @@ _RUNTIME_METHODS = {
     "run_stream",
     "run_stream_sync",
     "run_stream_events",
+    "stream_async",
     "invoke",
     "ainvoke",
     "stream",
