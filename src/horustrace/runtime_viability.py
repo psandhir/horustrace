@@ -85,10 +85,12 @@ def _missing_local_imports(path: Path, root: Path, tree: ast.Module) -> list[dic
         if not module:
             continue
         first = module.split(".", 1)[0]
-        local_namespace = (
-            (root / f"{first}.py").is_file()
-            or (root / first).is_dir()
-        )
+        # Treat an absolute import as repository-local only when the root
+        # exposes an actual Python module/package for that namespace. A plain
+        # same-named directory (for example a repository's "agents/" samples
+        # alongside the OpenAI Agents SDK import) is not proof that Python
+        # resolves the import locally.
+        local_namespace = _module_exists(root, first)
         if local_namespace and not _module_exists(root, module):
             blockers.append(
                 {
