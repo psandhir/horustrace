@@ -1873,10 +1873,13 @@ root_agent = AlphaBotAgent()
         finding.rule_id == "NET001" and finding.agent == "AlphaBot"
         for finding in findings
     )
-    assert any(
-        item.path_id == "PATH009"
+    path = next(
+        item
+        for item in graph.attack_paths
+        if item.path_id == "PATH011"
         and item.agent == "AlphaBot"
         and "<model-selected-url>" in item.nodes
-        for item in graph.attack_paths
     )
+    assert path.metadata["basis"] == "source_bound_ingress_authority"
+    assert path.metadata["destination_provenance"] == "model_selected_url_argument"
 
