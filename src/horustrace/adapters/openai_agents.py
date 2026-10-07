@@ -14,10 +14,11 @@ from horustrace.models import (
     InputSource,
     MCPServer,
     NetworkDestination,
+    ResourceScope,
     SourceLocation,
     Tool,
 )
-from horustrace.semantic_contract import set_model_provenance
+from horustrace.semantic_contract import set_data_resource_provenance, set_model_provenance
 
 
 _OPENAI_AGENT_EXPORTS = {
@@ -269,6 +270,63 @@ def _tool_from_call(
         )
         if name == "WebSearchTool":
             tool.metadata["untrusted_input"] = True
+        if name == "FileSearchTool":
+            vector_store_node = (
+                _kw(node, "vector_store_ids")
+                or _kw(node, "vector_store_id")
+            )
+            raw_vector_stores = _literal(vector_store_node)
+            if isinstance(raw_vector_stores, str):
+                vector_store_ids = [raw_vector_stores]
+            elif isinstance(raw_vector_stores, (list, tuple, set)):
+                vector_store_ids = [
+                    str(item)
+                    for item in raw_vector_stores
+                    if isinstance(item, str) and item
+                ]
+            else:
+                vector_store_ids = []
+
+            for vector_store_id in vector_store_ids:
+                resource = ResourceScope(
+                    kind="vector_store",
+                    selector=vector_store_id,
+                    access={"data.read"},
+                    location=tool.location,
+                    metadata={"source": "openai_file_search_vector_store"},
+                )
+                set_data_resource_provenance(
+                    resource,
+                    provider="openai",
+                    selector_provenance="literal_configuration",
+                    resource_provenance="provider_managed_vector_store",
+                    source_reference="FileSearchTool.vector_store_ids",
+                )
+                tool.resources.append(resource)
+
+            if vector_store_node is not None and not vector_store_ids:
+                expression = _expr_reference(vector_store_node)
+                resource = ResourceScope(
+                    kind="vector_store",
+                    selector="<configured-vector-store>",
+                    access={"data.read"},
+                    location=tool.location,
+                    metadata={
+                        "source": "openai_file_search_vector_store",
+                        "configuration_expression": expression,
+                    },
+                )
+                set_data_resource_provenance(
+                    resource,
+                    provider="openai",
+                    selector_provenance="dynamic_configuration",
+                    resource_provenance="provider_managed_vector_store",
+                    source_reference=(
+                        expression or "FileSearchTool.vector_store_ids"
+                    ),
+                    resolution="dynamic",
+                )
+                tool.resources.append(resource)
         if name in {"WebSearchTool", "ImageGenerationTool"}:
             tool.destinations.append(
                 NetworkDestination(

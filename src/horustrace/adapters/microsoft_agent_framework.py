@@ -23,10 +23,11 @@ from horustrace.models import (
     Graph,
     MCPServer,
     NetworkDestination,
+    ResourceScope,
     SourceLocation,
     Tool,
 )
-from horustrace.semantic_contract import set_model_provenance
+from horustrace.semantic_contract import set_data_resource_provenance, set_model_provenance
 
 _FRAMEWORK_PREFIX = "agent_framework"
 _AGENT_TYPES = {"Agent", "ChatAgent", "FoundryAgent", "create_harness_agent"}
@@ -591,6 +592,67 @@ def _mcp_from_call(
         server.metadata["authentication_evidence"] = _expr(headers)
     return server
 
+def _attach_file_search_resources(
+    tool: Tool,
+    call: ast.Call,
+    *,
+    source_reference: str,
+) -> None:
+    node = _kw(call, "vector_store_ids") or _kw(call, "vector_store_id")
+    if node is None:
+        return
+
+    raw = _literal(node)
+    if isinstance(raw, str):
+        selectors = [raw]
+    elif isinstance(raw, (list, tuple, set)):
+        selectors = [
+            str(item)
+            for item in raw
+            if isinstance(item, str) and item
+        ]
+    else:
+        selectors = []
+
+    if selectors:
+        for selector in selectors:
+            resource = ResourceScope(
+                kind="vector_store",
+                selector=selector,
+                access={"data.read"},
+                location=tool.location,
+                metadata={"source": "microsoft_file_search_vector_store"},
+            )
+            set_data_resource_provenance(
+                resource,
+                selector_provenance="literal_configuration",
+                resource_provenance="provider_file_search_configuration",
+                source_reference=source_reference,
+            )
+            tool.resources.append(resource)
+        return
+
+    expression = _expr(node)
+    resource = ResourceScope(
+        kind="vector_store",
+        selector="<configured-vector-store>",
+        access={"data.read"},
+        location=tool.location,
+        metadata={
+            "source": "microsoft_file_search_vector_store",
+            "configuration_expression": expression,
+        },
+    )
+    set_data_resource_provenance(
+        resource,
+        selector_provenance="dynamic_configuration",
+        resource_provenance="provider_file_search_configuration",
+        source_reference=expression or source_reference,
+        resolution="dynamic",
+    )
+    tool.resources.append(resource)
+
+
 def _tool_from_call(
     path: Path,
     call: ast.Call,
@@ -605,7 +667,7 @@ def _tool_from_call(
 
     if name in _PROVIDER_TOOL_FACTORIES:
         kind, capabilities = _PROVIDER_TOOL_FACTORIES[name]
-        return Tool(
+        tool = Tool(
             name=alias or name,
             kind=kind,
             capabilities=set(capabilities),
@@ -616,6 +678,13 @@ def _tool_from_call(
                 "tool_factory": dotted,
             },
         )
+        if name == "get_file_search_tool":
+            _attach_file_search_resources(
+                tool,
+                call,
+                source_reference="get_file_search_tool.vector_store_ids",
+            )
+        return tool
 
     if name in _HOSTED_TOOL_FUNCTIONS:
         kind, capabilities = _HOSTED_TOOL_FUNCTIONS[name]
@@ -642,6 +711,12 @@ def _tool_from_call(
                         "provider": "microsoft-foundry",
                     },
                 )
+            )
+        if name == "file_search_tool":
+            _attach_file_search_resources(
+                tool,
+                call,
+                source_reference="file_search_tool.vector_store_ids",
             )
         return tool
 

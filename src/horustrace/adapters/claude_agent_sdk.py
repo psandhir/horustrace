@@ -22,7 +22,12 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
-from horustrace.semantic_contract import ToolControlState, set_model_provenance, set_tool_control
+from horustrace.semantic_contract import (
+    ToolControlState,
+    set_data_resource_provenance,
+    set_model_provenance,
+    set_tool_control,
+)
 
 FRAMEWORK = "claude-agent-sdk"
 
@@ -676,29 +681,29 @@ def _filesystem_scopes(
     sequences: dict[str, list[ast.AST]],
 ) -> list[ResourceScope]:
     resources: list[ResourceScope] = []
+
+    def append_scope(selector: str, source: str) -> None:
+        resource = ResourceScope(
+            kind="filesystem",
+            selector=selector,
+            access={"data.read", "data.write"},
+            location=_location(path, call),
+            metadata={"source": source},
+        )
+        set_data_resource_provenance(
+            resource,
+            selector_provenance="literal_configuration",
+            resource_provenance=source,
+            source_reference=source,
+        )
+        resources.append(resource)
+
     cwd = _literal(_kw(call, "cwd"))
     if isinstance(cwd, str):
-        resources.append(
-            ResourceScope(
-                kind="filesystem",
-                selector=cwd,
-                access={"data.read", "data.write"},
-                location=_location(path, call),
-                metadata={"source": "claude_cwd"},
-            )
-        )
+        append_scope(cwd, "claude_cwd")
     add_dirs = _string_list(_kw(call, "add_dirs"), sequences)
-    if add_dirs:
-        resources.extend(
-            ResourceScope(
-                kind="filesystem",
-                selector=value,
-                access={"data.read", "data.write"},
-                location=_location(path, call),
-                metadata={"source": "claude_add_dirs"},
-            )
-            for value in add_dirs
-        )
+    for value in add_dirs or []:
+        append_scope(value, "claude_add_dirs")
     return resources
 
 

@@ -22,7 +22,11 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
-from horustrace.semantic_contract import set_model_provenance, set_tool_control
+from horustrace.semantic_contract import (
+    set_data_resource_provenance,
+    set_model_provenance,
+    set_tool_control,
+)
 
 STRANDS_FRAMEWORK = "strands-agents"
 BEDROCK_FRAMEWORK = "amazon-bedrock-agents"
@@ -144,6 +148,40 @@ def _attach_literal_destinations(tool: Tool, text: str) -> None:
         seen.add(target)
 
 
+def _resource_scope(
+    *,
+    kind: str,
+    selector: str,
+    access: set[str],
+    location: SourceLocation | None,
+    source: str,
+    provider: str = "aws",
+    connection_type: str | None = None,
+    resource_provenance: str | None = None,
+    selector_provenance: str = "source_resolved_configuration",
+    source_reference: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> ResourceScope:
+    resource_metadata = dict(metadata or {})
+    resource_metadata.setdefault("source", source)
+    resource = ResourceScope(
+        kind=kind,
+        selector=selector,
+        access=set(access),
+        location=location,
+        metadata=resource_metadata,
+    )
+    set_data_resource_provenance(
+        resource,
+        connection_type=connection_type,
+        provider=provider,
+        selector_provenance=selector_provenance,
+        resource_provenance=resource_provenance or source,
+        source_reference=source_reference or source,
+    )
+    return resource
+
+
 def _attach_literal_resources(tool: Tool, text: str) -> None:
     seen = {(item.kind, item.selector) for item in tool.resources}
     for arn in _ARN_RE.findall(text):
@@ -151,12 +189,14 @@ def _attach_literal_resources(tool: Tool, text: str) -> None:
         if key in seen:
             continue
         tool.resources.append(
-            ResourceScope(
+            _resource_scope(
                 kind="aws_arn",
                 selector=arn,
                 access=set(tool.capabilities),
                 location=tool.location,
-                metadata={"source": "literal_arn"},
+                source="literal_arn",
+                connection_type="cloud_resource",
+                selector_provenance="literal_source_value",
             )
         )
         seen.add(key)
@@ -167,12 +207,14 @@ def _attach_literal_resources(tool: Tool, text: str) -> None:
             continue
         access = {cap for cap in tool.capabilities if cap in {"data.read", "data.write"}}
         tool.resources.append(
-            ResourceScope(
+            _resource_scope(
                 kind="s3",
                 selector=selector,
                 access=access or {"data.read"},
                 location=tool.location,
-                metadata={"source": "literal_s3_uri"},
+                source="literal_s3_uri",
+                connection_type="object_store",
+                selector_provenance="literal_source_value",
             )
         )
         seen.add(key)
@@ -1184,12 +1226,20 @@ def _scan_agentcore_json(path: Path, document: dict[str, Any]) -> Graph:
                 continue
             uri = source.get("uri")
             if isinstance(uri, str):
+                resource_kind = str(source.get("type") or "data").lower()
                 tool.resources.append(
-                    ResourceScope(
-                        kind=str(source.get("type") or "data").lower(),
+                    _resource_scope(
+                        kind=resource_kind,
                         selector=uri,
                         access={"data.read"},
                         location=SourceLocation(path),
+                        source="agentcore_knowledge_base_data_source",
+                        connection_type=(
+                            "object_store"
+                            if resource_kind in {"s3", "bucket", "object_store"}
+                            else "rag_source"
+                        ),
+                        source_reference=f"knowledgeBases.{name}.dataSources",
                     )
                 )
         graph.unbound_tools.append(tool)
@@ -1262,11 +1312,14 @@ def _scan_legacy_agentcore_yaml(path: Path, document: dict[str, Any]) -> Graph:
                     kind="agentcore_memory",
                     capabilities={"data.read", "data.write"},
                     resources=[
-                        ResourceScope(
-                            kind="agentcore_memory",
+                        _resource_scope(
+                            kind="memory",
                             selector=memory_id,
                             access={"data.read", "data.write"},
                             location=location,
+                            source="agentcore_memory_configuration",
+                            connection_type="memory",
+                            source_reference="runtime.memory.memory_id",
                         )
                     ],
                     location=location,

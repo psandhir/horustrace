@@ -29,7 +29,11 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
-from horustrace.semantic_contract import set_model_provenance, set_tool_control
+from horustrace.semantic_contract import (
+    set_data_resource_provenance,
+    set_model_provenance,
+    set_tool_control,
+)
 from horustrace.skills import instruction_capability_signals
 
 AGENT_TYPES = {"Agent", "LlmAgent", "SequentialAgent", "ParallelAgent", "LoopAgent", "Workflow", "RemoteA2aAgent"}
@@ -1863,10 +1867,30 @@ def _tool_from_call(
         # tools additionally expose model-selected content destinations.
         _apply_retrieval_network_semantics(tool, name)
         # Resource scoping where ADK exposes a literal data source identifier.
-        for key, kind in (("data_store_id", "vertex-search"), ("search_engine_id", "vertex-search"), ("project", "gcp-project"), ("dataset", "bigquery")):
+        for key, kind in (
+            ("data_store_id", "vertex-search"),
+            ("search_engine_id", "vertex-search"),
+            ("project", "gcp-project"),
+            ("dataset", "bigquery"),
+        ):
             value = _string(_kw(call, key))
-            if value:
-                tool.resources.append(ResourceScope(kind=kind, selector=value, access=set(caps), location=tool.location))
+            if not value:
+                continue
+            resource = ResourceScope(
+                kind=kind,
+                selector=value,
+                access=set(caps),
+                location=tool.location,
+                metadata={"source": f"google_adk:{name}:{key}"},
+            )
+            set_data_resource_provenance(
+                resource,
+                provider="google-cloud",
+                selector_provenance="literal_constructor_argument",
+                resource_provenance="framework_configuration",
+                source_reference=f"{name}.{key}",
+            )
+            tool.resources.append(resource)
         return tool
 
     return None

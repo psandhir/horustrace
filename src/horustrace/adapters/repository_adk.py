@@ -25,6 +25,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
+from horustrace.semantic_contract import set_data_resource_provenance
 
 OAUTH_PREFIXES = (
     "https://www.googleapis.com/auth/",
@@ -1731,25 +1732,29 @@ def _function_remote_object_semantics(
             if key in seen:
                 continue
             seen.add(key)
-            resources.append(
-                ResourceScope(
-                    kind="remote_object",
-                    selector=f"<model-selected:{parameter}>",
-                    access=set(call_access),
-                    classification="external",
-                    location=_loc(info.path, call),
-                    metadata={
-                        "source": "external_sdk_resource_identifier",
-                        "resource_provenance": "model_selected_remote_object_id",
-                        "selector_provenance": "model_selected",
-                        "selector_parameter": parameter,
-                        "remote_object_type": object_type,
-                        "provider": provider,
-                        "external_sdk_module": imported_module,
-                        "external_sdk_symbol": external_symbol,
-                    },
-                )
+            resource = ResourceScope(
+                kind="remote_object",
+                selector=f"<model-selected:{parameter}>",
+                access=set(call_access),
+                classification="external",
+                location=_loc(info.path, call),
+                metadata={
+                    "source": "external_sdk_resource_identifier",
+                    "selector_parameter": parameter,
+                    "remote_object_type": object_type,
+                    "provider": provider,
+                    "external_sdk_module": imported_module,
+                    "external_sdk_symbol": external_symbol,
+                },
             )
+            set_data_resource_provenance(
+                resource,
+                provider=provider,
+                selector_provenance="model_selected",
+                resource_provenance="model_selected_remote_object_id",
+                source_reference=f"{imported_module}.{external_symbol}",
+            )
+            resources.append(resource)
 
     if not resources:
         return [], {}
@@ -1916,20 +1921,24 @@ def _function_file_transfer_semantics(
         metadata["file_read_external_transfer"] = True
         metadata["file_read_external_sinks"] = sorted(set(external_sinks))
 
-    resources = [
-        ResourceScope(
-            kind="file",
-            selector="<model-selected-file>",
-            access={"data.read"},
-            location=read_locations[0],
-            metadata={
-                "source": "model_selected_function_parameter",
-                "path_parameters": parameters,
-                "path_containment": "explicit" if containment else "not_detected",
-            },
-        )
-    ]
-    return resources, metadata
+    resource = ResourceScope(
+        kind="file",
+        selector="<model-selected-file>",
+        access={"data.read"},
+        location=read_locations[0],
+        metadata={
+            "source": "model_selected_function_parameter",
+            "path_parameters": parameters,
+            "path_containment": "explicit" if containment else "not_detected",
+        },
+    )
+    set_data_resource_provenance(
+        resource,
+        selector_provenance="model_selected_function_parameter",
+        resource_provenance="source_bound_file_read",
+        source_reference=func.name,
+    )
+    return [resource], metadata
 
 
 def _analyze_function(

@@ -16,6 +16,7 @@ from horustrace.models import (
 )
 from horustrace.semantic_contract import (
     ToolControlState,
+    set_data_resource_provenance,
     set_model_provenance,
     set_tool_control,
 )
@@ -1007,16 +1008,22 @@ def scan_claude_agent_sdk_typescript_file(path: Path) -> Graph:
         cwd = _string_property(body, "cwd")
         add_dirs = _string_array(body, "addDirs") or []
         if cwd or add_dirs:
-            scopes = [
-                ResourceScope(
+            scopes: list[ResourceScope] = []
+            for value in ([cwd] if cwd else []) + add_dirs:
+                resource = ResourceScope(
                     kind="filesystem",
                     selector=value,
                     access={"data.read", "data.write"},
                     location=agent.location,
                     metadata={"source": "claude_ts_filesystem_scope"},
                 )
-                for value in ([cwd] if cwd else []) + add_dirs
-            ]
+                set_data_resource_provenance(
+                    resource,
+                    selector_provenance="literal_configuration",
+                    resource_provenance="claude_ts_filesystem_scope",
+                    source_reference="ClaudeAgentOptions.cwd/addDirs",
+                )
+                scopes.append(resource)
             for tool in agent.tools:
                 if tool.name in {
                     "Read", "Glob", "Grep", "Write", "Edit",
