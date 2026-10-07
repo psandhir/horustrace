@@ -11,7 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from horustrace.heuristics import infer_capabilities
-from horustrace.models import Graph, NetworkDestination, SourceLocation, Tool
+from horustrace.models import Agent, Graph, NetworkDestination, SourceLocation, Tool
+from horustrace.semantic_contract import set_model_provenance
 
 _AGENT_RUN_METHODS = {
     "run",
@@ -32,6 +33,7 @@ class _ModuleInfo:
     imports: dict[str, tuple[str, str]]
     imported_modules: set[str]
     toolset_classes: dict[str, ast.ClassDef]
+    classes: dict[str, ast.ClassDef]
 
 
 def _call_name(node: ast.AST | None) -> str | None:
@@ -120,9 +122,11 @@ def _build_modules(root: Path, python_paths: list[Path]) -> dict[str, _ModuleInf
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         }
         toolset_classes: dict[str, ast.ClassDef] = {}
+        classes: dict[str, ast.ClassDef] = {}
         for node in getattr(tree, "body", []):
             if not isinstance(node, ast.ClassDef):
                 continue
+            classes[node.name] = node
             if any((_call_name(base) or "") == "FunctionToolset" for base in node.bases):
                 toolset_classes[node.name] = node
 
@@ -134,8 +138,162 @@ def _build_modules(root: Path, python_paths: list[Path]) -> dict[str, _ModuleInf
             imports=imports,
             imported_modules=imported_modules,
             toolset_classes=toolset_classes,
+            classes=classes,
         )
     return modules
+
+
+
+def _proven_pydantic_agent_subclasses(
+    modules: dict[str, _ModuleInfo],
+) -> set[tuple[str, str]]:
+    """Resolve repository classes whose inheritance is source-proven to Pydantic Agent."""
+    proven: set[tuple[str, str]] = set()
+
+    def base_target(info: _ModuleInfo, base: ast.AST) -> tuple[str, str] | None:
+        if isinstance(base, ast.Name):
+            imported = info.imports.get(base.id)
+            if imported and imported[1]:
+                return imported
+            return (info.name, base.id)
+        if isinstance(base, ast.Attribute) and isinstance(base.value, ast.Name):
+            imported = info.imports.get(base.value.id)
+            if imported and not imported[1]:
+                return (imported[0], base.attr)
+        return None
+
+    changed = True
+    while changed:
+        changed = False
+        for info in modules.values():
+            for name, cls in info.classes.items():
+                key = (info.name, name)
+                if key in proven:
+                    continue
+                for base in cls.bases:
+                    target = base_target(info, base)
+                    if target is None:
+                        continue
+                    module, symbol = target
+                    if (
+                        symbol == "Agent"
+                        and (module == "pydantic_ai" or module.startswith("pydantic_ai."))
+                    ):
+                        proven.add(key)
+                        changed = True
+                        break
+                    local = _local_module(modules, module)
+                    if local is not None and (local.name, symbol) in proven:
+                        proven.add(key)
+                        changed = True
+                        break
+    return proven
+
+
+def _subclass_call(
+    modules: dict[str, _ModuleInfo],
+    owner: _ModuleInfo,
+    call: ast.Call,
+    proven: set[tuple[str, str]],
+) -> tuple[str, str] | None:
+    if isinstance(call.func, ast.Name):
+        imported = owner.imports.get(call.func.id)
+        if imported and imported[1]:
+            target = _local_module(modules, imported[0])
+            key = ((target.name if target is not None else imported[0]), imported[1])
+            return key if key in proven else None
+        key = (owner.name, call.func.id)
+        return key if key in proven else None
+    if isinstance(call.func, ast.Attribute) and isinstance(call.func.value, ast.Name):
+        imported = owner.imports.get(call.func.value.id)
+        if imported and not imported[1]:
+            target = _local_module(modules, imported[0])
+            key = ((target.name if target is not None else imported[0]), call.func.attr)
+            return key if key in proven else None
+    return None
+
+
+def _resolve_local_agent_subclass_instances(
+    graph: Graph,
+    modules: dict[str, _ModuleInfo],
+) -> None:
+    proven = _proven_pydantic_agent_subclasses(modules)
+    if not proven:
+        return
+
+    for info in modules.values():
+        factories: dict[str, tuple[ast.Call, tuple[str, str]]] = {}
+        for name, function in info.functions.items():
+            for statement in function.body:
+                if not isinstance(statement, ast.Return) or not isinstance(statement.value, ast.Call):
+                    continue
+                target = _subclass_call(modules, info, statement.value, proven)
+                if target is not None:
+                    factories[name] = (statement.value, target)
+                    break
+
+        for statement in getattr(info.tree, "body", []):
+            if not isinstance(statement, (ast.Assign, ast.AnnAssign)) or statement.value is None:
+                continue
+            targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+            names = [target.id for target in targets if isinstance(target, ast.Name)]
+            if not names or not isinstance(statement.value, ast.Call):
+                continue
+
+            constructor = statement.value
+            subclass = _subclass_call(modules, info, constructor, proven)
+            factory_name = None
+            if subclass is None and isinstance(constructor.func, ast.Name):
+                factory = factories.get(constructor.func.id)
+                if factory is not None:
+                    constructor, subclass = factory
+                    factory_name = statement.value.func.id
+            if subclass is None:
+                continue
+
+            for name in names:
+                if any(
+                    agent.location is not None
+                    and agent.location.path.resolve() == info.path
+                    and agent.name == name
+                    for agent in graph.agents
+                ):
+                    continue
+                metadata = {
+                    "framework": "pydantic-ai",
+                    "agent_type": subclass[1],
+                    "repository_subclass_provenance": True,
+                    "framework_base": "pydantic_ai.Agent",
+                    "subclass_module": subclass[0],
+                    "subclass_name": subclass[1],
+                    "binding_origin": (
+                        "repository_subclass_factory_assignment"
+                        if factory_name
+                        else "repository_subclass_assignment"
+                    ),
+                }
+                if factory_name:
+                    metadata["factory_function"] = factory_name
+                    metadata["factory_return"] = True
+                    metadata["factory_instance"] = True
+                model = constructor.args[0] if constructor.args else None
+                if isinstance(model, ast.Constant) and isinstance(model.value, str):
+                    set_model_provenance(metadata, identifier=model.value)
+                elif isinstance(model, ast.Name):
+                    set_model_provenance(metadata, reference=model.id)
+                else:
+                    set_model_provenance(metadata)
+                graph.agents.append(
+                    Agent(
+                        name=name,
+                        location=SourceLocation(
+                            info.path,
+                            getattr(constructor, "lineno", getattr(statement, "lineno", 1)) or 1,
+                            (getattr(constructor, "col_offset", 0) or 0) + 1,
+                        ),
+                        metadata=metadata,
+                    )
+                )
 
 
 def _module_by_path(modules: dict[str, _ModuleInfo]) -> dict[Path, _ModuleInfo]:
@@ -533,5 +691,6 @@ def enrich_pydantic_repository_graph(
     modules = _build_modules(root, python_paths)
     if not modules:
         return
+    _resolve_local_agent_subclass_instances(graph, modules)
     _resolve_custom_toolsets(graph, modules)
     _resolve_imported_delegation(graph, modules)
