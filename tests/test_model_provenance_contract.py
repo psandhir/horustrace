@@ -6,7 +6,6 @@ from horustrace.inventory_semantics import model_inventory_attributes
 from horustrace.scanner import scan
 from horustrace.semantic_contract import validate_graph_semantics
 
-
 PYTHON_FRAMEWORK_CASES = (
     (
         "google-adk",
