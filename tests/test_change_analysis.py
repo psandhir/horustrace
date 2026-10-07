@@ -8,7 +8,15 @@ from horustrace.adg import ADGEdge, ADGNode, AgentDependencyGraph
 from horustrace.change_analysis import build_git_diff, compare_scans, render_markdown
 from horustrace.cli import main
 from horustrace.git_snapshot import materialize_git_ref
-from horustrace.models import Finding, Graph, Severity, SourceLocation
+from horustrace.models import (
+    Agent,
+    AgentPolicy,
+    AuthorityContract,
+    Finding,
+    Graph,
+    Severity,
+    SourceLocation,
+)
 
 _SECURE_MANIFEST = """version: 1
 agents:
@@ -488,4 +496,103 @@ def test_diff_cli_markdown_output(tmp_path: Path, capsys) -> None:
     assert "# HorusTrace Security Delta" in output
     assert "Introduced findings" in output
     assert "Application/runtime finding changes" in output
+
+
+
+
+def test_diff_reports_new_agent_without_authority_contract(tmp_path: Path) -> None:
+    base_root = tmp_path / "base-contract"
+    head_root = tmp_path / "head-contract"
+    base_root.mkdir()
+    head_root.mkdir()
+
+    base_graph = Graph(
+        agents=[
+            Agent(
+                name="governed",
+                policy=AgentPolicy(authority=AuthorityContract()),
+                location=SourceLocation(base_root / "agent.py", line=3),
+            )
+        ],
+        adg=AgentDependencyGraph(),
+    )
+    head_graph = Graph(
+        agents=[
+            Agent(
+                name="governed",
+                policy=AgentPolicy(authority=AuthorityContract()),
+                location=SourceLocation(head_root / "agent.py", line=3),
+            ),
+            Agent(
+                name="new-unmanaged",
+                location=SourceLocation(head_root / "new_agent.py", line=5),
+            ),
+        ],
+        adg=AgentDependencyGraph(),
+    )
+
+    report = compare_scans(
+        base_graph,
+        [],
+        base_root,
+        head_graph,
+        [],
+        head_root,
+        base_ref="base",
+        head_ref="head",
+    )
+
+    coverage = report["authority_contract_coverage"]
+    assert coverage["base"]["contract_coverage_percent"] == 100.0
+    assert coverage["head"]["contract_coverage_percent"] == 50.0
+    assert report["summary"]["introduced_missing_contracts"] == 1
+    assert report["summary"]["new_agents_without_contract"] == 1
+    assert coverage["new_agents_without_contract"] == [
+        {
+            "agent": "new-unmanaged",
+            "status": "not_declared",
+            "reason": "authority_contract_missing",
+            "location": {
+                "path": "new_agent.py",
+                "line": 5,
+                "column": 1,
+            },
+            "source_context": "runtime",
+        }
+    ]
+
+
+def test_diff_require_authority_contract_fails_on_head_missing_contract(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = {
+        "base": {"analysis_incomplete": False},
+        "head": {"analysis_incomplete": False},
+        "authority_resolution": {"regressed": False},
+        "authority_policy_delta": {
+            "introduced_violations": [],
+            "contract_weakenings": [],
+        },
+        "authority_contract_coverage": {
+            "head": {"agents_without_contract": 1},
+        },
+        "findings": {"introduced": [], "worsened": []},
+    }
+    monkeypatch.setattr("horustrace.cli.build_git_diff", lambda *_args: report)
+    monkeypatch.setattr("horustrace.cli.render_diff_console", lambda _report: "diff")
+
+    result = main(
+        [
+            "diff",
+            "base..head",
+            "--repo",
+            str(tmp_path),
+            "--fail-on",
+            "none",
+            "--require-authority-contract",
+        ]
+    )
+
+    assert result == 2
 
