@@ -864,6 +864,177 @@ def _custom_agent_class_for_call(
     return None
 
 
+_ADK_TOOL_BASE_TYPES = {"BaseTool"}
+
+
+def _class_inherits_adk_tool(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    class_node: ast.ClassDef,
+    visited: set[tuple[str, str]] | None = None,
+) -> bool:
+    """Return True when a repository-local class derives from ADK BaseTool."""
+    visited = set() if visited is None else set(visited)
+    key = (info.module, class_node.name)
+    if key in visited:
+        return False
+    visited.add(key)
+
+    for base in class_node.bases:
+        base_name = _name(base) or ((_dotted(base) or "").rsplit(".", 1)[-1] or None)
+        if base_name in _ADK_TOOL_BASE_TYPES:
+            return True
+        if isinstance(base, ast.Name):
+            local = info.classes.get(base.id)
+            if local is not None and _class_inherits_adk_tool(
+                modules, info, local, visited
+            ):
+                return True
+            imported = _imported_symbol(modules, info, base.id)
+            if imported:
+                target, symbol = imported
+                imported_class = target.classes.get(symbol)
+                if imported_class is not None and _class_inherits_adk_tool(
+                    modules, target, imported_class, visited
+                ):
+                    return True
+    return False
+
+
+def _custom_tool_class_for_call(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    call: ast.Call,
+) -> tuple[ModuleInfo, str, ast.ClassDef] | None:
+    """Resolve a repository-local custom ADK BaseTool constructor."""
+    leaf = _name(call.func)
+    if not leaf:
+        return None
+
+    if isinstance(call.func, ast.Name):
+        local = info.classes.get(leaf)
+        if local is not None and _class_inherits_adk_tool(modules, info, local):
+            return info, leaf, local
+        imported = _symbol_import(modules, info, leaf, call)
+        if imported:
+            target, symbol = imported
+            imported_class = target.classes.get(symbol)
+            if imported_class is not None and _class_inherits_adk_tool(
+                modules, target, imported_class
+            ):
+                return target, symbol, imported_class
+
+    if isinstance(call.func, ast.Attribute) and isinstance(call.func.value, ast.Name):
+        imported = _symbol_import(modules, info, call.func.value.id, call)
+        if imported:
+            target, remote = imported
+            nested = (
+                _find_module(modules, f"{target.module}.{remote}")
+                if remote
+                else target
+            )
+            candidate = nested or target
+            imported_class = candidate.classes.get(call.func.attr)
+            if imported_class is not None and _class_inherits_adk_tool(
+                modules, candidate, imported_class
+            ):
+                return candidate, call.func.attr, imported_class
+    return None
+
+
+def _custom_tool_runtime_name(
+    class_node: ast.ClassDef,
+    fallback: str,
+) -> str:
+    for statement in class_node.body:
+        if not isinstance(statement, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = statement.value
+        targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+        if not any(isinstance(target, ast.Name) and target.id == "name" for target in targets):
+            continue
+        resolved = _string(value)
+        if resolved:
+            return resolved
+    return fallback
+
+
+def _custom_tool_from_repository_call(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    call: ast.Call,
+    alias: str,
+) -> Tool | None:
+    custom_ref = _custom_tool_class_for_call(modules, info, call)
+    if custom_ref is None:
+        return None
+    class_info, class_name, class_node = custom_ref
+    runtime_name = _custom_tool_runtime_name(class_node, alias)
+    capabilities: set[str] = set()
+    destinations: list[NetworkDestination] = []
+    seen_destinations: set[tuple[str, bool, str]] = set()
+
+    for method in class_node.body:
+        if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if method.name not in {"run", "run_async", "invoke"}:
+            continue
+        method_caps, method_destinations, _ = _analyze_function(
+            modules,
+            class_info,
+            method,
+            model_callable=True,
+        )
+        capabilities.update(method_caps)
+        for destination in method_destinations:
+            key = (
+                destination.target,
+                destination.restricted,
+                str(destination.metadata.get("source") or ""),
+            )
+            if key in seen_destinations:
+                continue
+            seen_destinations.add(key)
+            destinations.append(destination)
+
+    metadata: dict[str, object] = {
+        "framework": "google-adk",
+        "repository_resolved": True,
+        "custom_base_tool": True,
+        "custom_tool_class": class_name,
+        "source_alias": alias,
+        "binding_origin": "custom_base_agent_constructor",
+    }
+    model_selected_destinations = [
+        item
+        for item in destinations
+        if item.metadata.get("source") == "model_selected_url_argument"
+    ]
+    if model_selected_destinations:
+        metadata.update(
+            {
+                "model_selected_url_fetch": True,
+                "destination_provenance": "model_selected_url_argument",
+                "network_abstraction": model_selected_destinations[0].metadata.get(
+                    "network_abstraction"
+                ),
+            }
+        )
+    if any(not item.restricted for item in destinations):
+        metadata["network_scope"] = "dynamic_destination"
+    elif destinations:
+        metadata["network_scope"] = "explicit_destination"
+
+    return Tool(
+        name=runtime_name,
+        kind="adk_custom_tool",
+        capabilities=capabilities,
+        destinations=destinations,
+        location=_loc(info.path, call),
+        metadata=metadata,
+    )
+
+
 def _class_init(class_node: ast.ClassDef) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
     return next(
         (
@@ -1115,6 +1286,70 @@ def _custom_agent_delegates(
     return delegates
 
 
+def _custom_agent_bound_tools(
+    modules: dict[str, ModuleInfo],
+    custom_ref: tuple[ModuleInfo, str, ast.ClassDef],
+) -> list[Tool]:
+    """Resolve custom ADK tools assigned to self.tools inside a custom agent."""
+    class_info, _, class_node = custom_ref
+    init = _class_init(class_node)
+    if init is None:
+        return []
+
+    local_calls = _function_calls(init)
+    local_sequences = _function_sequences(init)
+    result: list[Tool] = []
+    seen: set[str] = set()
+
+    def sequence(expr: ast.AST | None) -> list[ast.AST]:
+        if isinstance(expr, (ast.List, ast.Tuple, ast.Set)):
+            return list(expr.elts)
+        if isinstance(expr, ast.Name):
+            return list(local_sequences.get(expr.id, []))
+        return []
+
+    for assignment in ast.walk(init):
+        if not isinstance(assignment, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = assignment.value
+        if value is None:
+            continue
+        targets = assignment.targets if isinstance(assignment, ast.Assign) else [assignment.target]
+        binds_tools = any(
+            isinstance(target, ast.Attribute)
+            and isinstance(target.value, ast.Name)
+            and target.value.id == "self"
+            and target.attr == "tools"
+            for target in targets
+        )
+        if not binds_tools:
+            continue
+
+        for element in sequence(value):
+            call: ast.Call | None = None
+            alias = _name(element) or "tool"
+            if isinstance(element, ast.Call):
+                call = element
+                alias = _name(element.func) or alias
+            elif isinstance(element, ast.Name):
+                call = local_calls.get(element.id)
+                alias = element.id
+            if call is None:
+                continue
+            tool = _custom_tool_from_repository_call(
+                modules,
+                class_info,
+                call,
+                alias,
+            )
+            if tool is None or tool.name in seen:
+                continue
+            seen.add(tool.name)
+            result.append(tool)
+
+    return result
+
+
 def _attribute_function(
     modules: dict[str, ModuleInfo], info: ModuleInfo, node: ast.Attribute
 ) -> tuple[ModuleInfo, ast.FunctionDef | ast.AsyncFunctionDef] | None:
@@ -1214,10 +1449,12 @@ def _network_call_destination(
     call: ast.Call,
     called: str,
     assignments: dict[str, ast.AST] | None = None,
+    model_selected_names: set[str] | None = None,
 ) -> NetworkDestination | None:
     # urllib.parse/string helpers are not network sinks. Only urlopen performs
     # I/O; Request(...) is a local request-object constructor whose wrapped URL
     # is resolved when it reaches urlopen().
+    a2a_card_resolver = called.endswith("a2acardresolver")
     network_call = (
         any(
             marker in called
@@ -1234,11 +1471,29 @@ def _network_call_destination(
         )
         or called.endswith("urllib.request.urlopen")
         or called == "urlopen"
+        or a2a_card_resolver
     )
     if not network_call:
         return None
 
-    target_node = call.args[0] if call.args else _kw(call, "url")
+    target_node = (
+        _kw(call, "base_url")
+        if a2a_card_resolver
+        else (call.args[0] if call.args else _kw(call, "url"))
+    )
+    if model_selected_names and _expr_uses_names(target_node, model_selected_names):
+        destination = _destination(
+            info.path,
+            call,
+            "<model-selected-url>",
+            restricted=False,
+            source="model_selected_url_argument",
+        )
+        destination.metadata["destination_provenance"] = "model_selected_url_argument"
+        if a2a_card_resolver:
+            destination.metadata["network_abstraction"] = "a2a_agent_card"
+        return destination
+
     target = _resolved_string(info, target_node)
     if target and target.startswith(("http://", "https://")):
         return _destination(
@@ -1494,6 +1749,8 @@ def _analyze_function(
     info: ModuleInfo,
     func: ast.FunctionDef | ast.AsyncFunctionDef,
     visited: set[tuple[str, str]] | None = None,
+    *,
+    model_callable: bool = False,
 ) -> tuple[set[str], list[NetworkDestination], set[str]]:
     visited = set() if visited is None else set(visited)
     key = (info.module, func.name)
@@ -1513,6 +1770,53 @@ def _analyze_function(
             continue
         for name in _assignment_targets(assignment):
             local_assignments[name] = value
+
+    model_selected_names: set[str] = set()
+    if model_callable:
+        excluded = {"self", "cls", "ctx", "context", "tool_context"}
+        model_selected_names.update(
+            arg.arg
+            for arg in [
+                *func.args.posonlyargs,
+                *func.args.args,
+                *func.args.kwonlyargs,
+            ]
+            if arg.arg not in excluded
+        )
+        kwarg_name = func.args.kwarg.arg if func.args.kwarg is not None else None
+
+        def from_tool_args(expr: ast.AST) -> bool:
+            if kwarg_name is None:
+                return False
+            if (
+                isinstance(expr, ast.Subscript)
+                and isinstance(expr.value, ast.Name)
+                and expr.value.id == kwarg_name
+            ):
+                key = _string(expr.slice)
+                return key == "args"
+            if (
+                isinstance(expr, ast.Call)
+                and isinstance(expr.func, ast.Attribute)
+                and isinstance(expr.func.value, ast.Name)
+                and expr.func.value.id == kwarg_name
+                and expr.func.attr == "get"
+                and expr.args
+            ):
+                return _string(expr.args[0]) == "args"
+            return False
+
+        changed = True
+        while changed:
+            changed = False
+            for name, value in local_assignments.items():
+                if name in model_selected_names:
+                    continue
+                if from_tool_args(value) or _expr_uses_names(
+                    value, model_selected_names
+                ):
+                    model_selected_names.add(name)
+                    changed = True
 
     for node in ast.walk(func):
         if isinstance(node, ast.Call):
@@ -1570,6 +1874,7 @@ def _analyze_function(
                 node,
                 called,
                 local_assignments,
+                model_selected_names,
             )
             if network_destination is not None:
                 caps.add("network.external")
@@ -1688,7 +1993,12 @@ def _function_tool(
     info: ModuleInfo,
     func: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> tuple[Tool, Identity | None]:
-    caps, destinations, scopes = _analyze_function(modules, info, func)
+    caps, destinations, scopes = _analyze_function(
+        modules,
+        info,
+        func,
+        model_callable=True,
+    )
     resources, file_metadata = _function_file_transfer_semantics(info, func)
     required_roles, required_role_evidence = _analyze_required_gcp_roles(
         modules,
@@ -2214,6 +2524,107 @@ def _resolve_agent_name(
     return resolved or child.id
 
 
+def _function_reads_adk_user_content(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    func: ast.FunctionDef | ast.AsyncFunctionDef,
+    tainted: set[str],
+    visited: set[tuple[str, str, tuple[str, ...]]] | None = None,
+) -> bool:
+    """Prove that tainted ADK invocation context reaches ctx.user_content."""
+    visited = set() if visited is None else set(visited)
+    key = (info.module, func.name, tuple(sorted(tainted)))
+    if key in visited:
+        return False
+    visited.add(key)
+
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Attribute)
+            and node.attr == "user_content"
+            and _expr_uses_names(node.value, tainted)
+        ):
+            return True
+
+    def target_for_call(
+        call: ast.Call,
+    ) -> tuple[ModuleInfo, ast.FunctionDef | ast.AsyncFunctionDef] | None:
+        if isinstance(call.func, ast.Name):
+            local = info.functions.get(call.func.id)
+            if local is not None:
+                return info, local
+            imported = _imported_symbol(modules, info, call.func.id)
+            if imported and imported[1] in imported[0].functions:
+                return imported[0], imported[0].functions[imported[1]]
+        if isinstance(call.func, ast.Attribute):
+            return _attribute_function(modules, info, call.func)
+        return None
+
+    for call in (node for node in ast.walk(func) if isinstance(node, ast.Call)):
+        target = target_for_call(call)
+        if target is None:
+            continue
+        target_info, target_func = target
+        params = [
+            *target_func.args.posonlyargs,
+            *target_func.args.args,
+            *target_func.args.kwonlyargs,
+        ]
+        if params and params[0].arg in {"self", "cls"}:
+            params = params[1:]
+        target_taint: set[str] = set()
+        for index, argument in enumerate(call.args):
+            if index >= len(params):
+                break
+            if _expr_uses_names(argument, tainted):
+                target_taint.add(params[index].arg)
+        by_name = {parameter.arg: parameter.arg for parameter in params}
+        for keyword in call.keywords:
+            if (
+                keyword.arg in by_name
+                and _expr_uses_names(keyword.value, tainted)
+            ):
+                target_taint.add(keyword.arg)
+        if target_taint and _function_reads_adk_user_content(
+            modules,
+            target_info,
+            target_func,
+            target_taint,
+            visited,
+        ):
+            return True
+    return False
+
+
+def _custom_agent_has_runtime_user_ingress(
+    modules: dict[str, ModuleInfo],
+    custom_ref: tuple[ModuleInfo, str, ast.ClassDef],
+) -> bool:
+    class_info, _, class_node = custom_ref
+    for method in class_node.body:
+        if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if method.name not in {"_run_async_impl", "run_async", "run", "invoke"}:
+            continue
+        tainted = {
+            arg.arg
+            for arg in [
+                *method.args.posonlyargs,
+                *method.args.args,
+                *method.args.kwonlyargs,
+            ]
+            if arg.arg not in {"self", "cls"}
+        }
+        if tainted and _function_reads_adk_user_content(
+            modules,
+            class_info,
+            method,
+            tainted,
+        ):
+            return True
+    return False
+
+
 def _agent_from_call(
     modules: dict[str, ModuleInfo],
     info: ModuleInfo,
@@ -2230,6 +2641,13 @@ def _agent_from_call(
     tools, mcp_servers, identities, resolved_refs = _resolve_tools(
         modules, info, _kw(call, "tools"), sequences
     )
+    if custom_ref is not None:
+        existing_tool_names = {tool.name for tool in tools}
+        for custom_tool in _custom_agent_bound_tools(modules, custom_ref):
+            if custom_tool.name not in existing_tool_names:
+                tools.append(custom_tool)
+                existing_tool_names.add(custom_tool.name)
+
     agent_type = _name(call.func) or "Agent"
     agent = Agent(
         name=runtime_name,
@@ -2244,6 +2662,24 @@ def _agent_from_call(
             "source_alias": alias,
         },
     )
+    if custom_ref is not None and _custom_agent_has_runtime_user_ingress(
+        modules,
+        custom_ref,
+    ):
+        agent.inputs.append(
+            InputSource(
+                name="adk-invocation-context:user-content",
+                trust="untrusted",
+                kind="user",
+                location=agent.location,
+                metadata={
+                    "basis": "source_bound_adk_invocation_context",
+                    "runtime_invocation_proven": True,
+                    "ingress_framework": "google-adk",
+                },
+            )
+        )
+
     if alias == "root_agent":
         agent.inputs.append(
             InputSource(
