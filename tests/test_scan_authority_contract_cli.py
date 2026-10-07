@@ -35,6 +35,10 @@ def _violation_graph() -> Graph:
     )
 
 
+def _missing_contract_graph() -> Graph:
+    return Graph(agents=[Agent(name="unmanaged")])
+
+
 def _unresolved_graph() -> Graph:
     return Graph(
         agents=[
@@ -201,3 +205,63 @@ def test_scan_sarif_carries_authority_contract_metadata(
     assert properties["assurance"]["authority_contract"]["status"] == "violation"
     assert properties["assurance"]["organization_policy"]["status"] == "no_violations"
     assert properties["assurance"]["owasp_agentic"]["categories"] == 10
+
+
+
+def test_require_authority_contract_fails_independently_of_findings(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(
+        cli,
+        "scan",
+        lambda *_args, **_kwargs: (_missing_contract_graph(), []),
+    )
+
+    result = cli.main(
+        [
+            "scan",
+            str(tmp_path),
+            "--format",
+            "json",
+            "--fail-on",
+            "none",
+            "--require-authority-contract",
+        ]
+    )
+
+    assert result == 2
+    report = json.loads(capsys.readouterr().out)
+    summary = report["authority_contract"]["summary"]
+    assert summary["agents_without_contract"] == 1
+    assert summary["contract_coverage_percent"] == 0.0
+    assert report["authority_contract"]["missing_contracts"][0] == {
+        "agent": "unmanaged",
+        "status": "not_declared",
+        "reason": "authority_contract_missing",
+        "location": None,
+    }
+
+
+def test_missing_authority_contract_gate_is_opt_in(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        cli,
+        "scan",
+        lambda *_args, **_kwargs: (_missing_contract_graph(), []),
+    )
+
+    result = cli.main(
+        [
+            "scan",
+            str(tmp_path),
+            "--fail-on",
+            "none",
+        ]
+    )
+
+    assert result == 0
+
