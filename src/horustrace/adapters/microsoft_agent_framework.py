@@ -363,12 +363,24 @@ def _client_model_metadata(
         or _kw(node, "deployment")
     )
     model = _literal(raw_model)
+    endpoint = _literal(
+        _kw(node, "base_url")
+        or _kw(node, "endpoint")
+        or _kw(node, "project_endpoint")
+    )
+    region = _literal(
+        _kw(node, "region")
+        or _kw(node, "region_name")
+        or _kw(node, "location")
+    )
     metadata: dict[str, Any] = {}
     set_model_provenance(
         metadata,
         identifier=model if isinstance(model, str) else None,
         provider=provider,
         hosting="provider_hosted",
+        endpoint=endpoint if isinstance(endpoint, str) else None,
+        region=region if isinstance(region, str) else None,
         constructor=constructor,
     )
     return metadata
