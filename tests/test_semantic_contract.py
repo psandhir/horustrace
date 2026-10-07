@@ -4,7 +4,9 @@ import pytest
 
 from horustrace.models import Agent, Graph, Tool
 from horustrace.semantic_contract import (
+    ModelResolution,
     ToolControlState,
+    set_model_provenance,
     set_source_context,
     set_tool_control,
     source_context,
@@ -97,3 +99,40 @@ def test_adapters_do_not_emit_deprecated_tool_control_alias() -> None:
     ]
 
     assert offenders == []
+
+
+
+def test_model_provenance_contract_preserves_partial_resolution() -> None:
+    metadata: dict[str, object] = {}
+
+    set_model_provenance(
+        metadata,
+        provider="amazon-bedrock",
+        hosting="provider_hosted",
+    )
+
+    assert metadata == {
+        "model_provider": "amazon-bedrock",
+        "model_hosting": "provider_hosted",
+        "model_resolution": "provider_only",
+    }
+    assert validate_graph_semantics(
+        Graph(agents=[Agent(name="agent", metadata=metadata)])
+    ) == []
+
+
+def test_model_provenance_contract_requires_limitation_for_not_exposed() -> None:
+    graph = Graph(
+        agents=[
+            Agent(
+                name="hosted",
+                metadata={"model_resolution": ModelResolution.NOT_EXPOSED.value},
+            )
+        ]
+    )
+
+    assert any(
+        "model_provenance_limitation" in error
+        for error in validate_graph_semantics(graph)
+    )
+
