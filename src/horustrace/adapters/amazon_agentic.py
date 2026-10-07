@@ -22,7 +22,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
-from horustrace.semantic_contract import set_tool_control
+from horustrace.semantic_contract import set_model_provenance, set_tool_control
 
 STRANDS_FRAMEWORK = "strands-agents"
 BEDROCK_FRAMEWORK = "amazon-bedrock-agents"
@@ -409,10 +409,18 @@ def _mcp_server_from_call(path: Path, name: str, call: ast.Call) -> MCPServer:
 
 
 def _model_metadata(node: ast.AST | None) -> dict[str, Any]:
+    result: dict[str, Any] = {}
     if node is None:
-        return {"model_provider": "amazon-bedrock", "model_default": True}
+        set_model_provenance(
+            result,
+            provider="amazon-bedrock",
+            hosting="provider_hosted",
+        )
+        result["model_default"] = True
+        return result
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return {"model": node.value}
+        set_model_provenance(result, identifier=node.value)
+        return result
     if isinstance(node, ast.Call):
         leaf = _leaf(node.func) or ""
         model_id = _literal_string(_keyword(node, "model_id")) or _literal_string(
@@ -425,13 +433,20 @@ def _model_metadata(node: ast.AST | None) -> dict[str, Any]:
             "GeminiModel": "google",
             "OllamaModel": "ollama",
         }.get(leaf, leaf or "custom")
-        result: dict[str, Any] = {"model_provider": provider}
-        if model_id:
-            result["model"] = model_id
+        set_model_provenance(
+            result,
+            identifier=model_id,
+            provider=provider,
+            hosting="self_hosted" if provider == "ollama" else "provider_hosted",
+            constructor=leaf or None,
+        )
         return result
     if isinstance(node, ast.Name):
-        return {"model_reference": node.id}
-    return {"model_dynamic": True}
+        set_model_provenance(result, reference=node.id)
+        return result
+    set_model_provenance(result)
+    result["model_dynamic"] = True
+    return result
 
 
 def _aws_runtime_identity(
