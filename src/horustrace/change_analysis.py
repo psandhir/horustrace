@@ -6,6 +6,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
 
+from horustrace.authority_contract import authority_contract_report
 from horustrace.authority_delta import compare_effective_authority
 from horustrace.authority_policy_delta import compare_authority_contracts
 from horustrace.authority_resolution import compare_authority_resolution
@@ -98,6 +99,20 @@ def _context_counts(items: list[dict[str, Any]], *, nested_after: bool = False) 
         context = str(record.get("source_context") or "unknown")
         counter[context] += 1
     return dict(sorted(counter.items()))
+
+
+def _contract_missing_record(
+    item: dict[str, Any],
+    root: Path,
+) -> dict[str, Any]:
+    record = dict(item)
+    location = record.get("location")
+    if isinstance(location, dict) and isinstance(location.get("path"), str):
+        location = dict(location)
+        location["path"] = _relative_path(Path(location["path"]), root)
+        record["location"] = location
+    record["source_context"] = _record_source_context(record)
+    return record
 
 
 def _semantic_node(node: dict[str, Any]) -> dict[str, Any]:
@@ -227,6 +242,31 @@ def compare_scans(
     added_edges = [_edge_record(head_edges[item], all_nodes) for item in added_edge_ids]
     removed_edges = [_edge_record(base_edges[item], all_nodes) for item in removed_edge_ids]
 
+    base_contract_report = authority_contract_report(base_graph)
+    head_contract_report = authority_contract_report(head_graph)
+    base_missing = {
+        item["agent"]: _contract_missing_record(item, base_root)
+        for item in base_contract_report["missing_contracts"]
+    }
+    head_missing = {
+        item["agent"]: _contract_missing_record(item, head_root)
+        for item in head_contract_report["missing_contracts"]
+    }
+    introduced_missing_contracts = [
+        head_missing[name] for name in sorted(head_missing.keys() - base_missing.keys())
+    ]
+    resolved_missing_contracts = [
+        base_missing[name] for name in sorted(base_missing.keys() - head_missing.keys())
+    ]
+    base_agent_names = {agent.name for agent in base_graph.agents}
+    head_agent_names = {agent.name for agent in head_graph.agents}
+    newly_introduced_agent_names = head_agent_names - base_agent_names
+    new_agents_without_contract = [
+        item
+        for item in introduced_missing_contracts
+        if item["agent"] in newly_introduced_agent_names
+    ]
+
     authority_delta = compare_effective_authority(
         base_graph,
         base_root,
@@ -321,6 +361,15 @@ def compare_scans(
             "authority_contract_strengthenings": authority_policy_delta["summary"][
                 "contract_strengthenings"
             ],
+            "base_agents_without_contract": base_contract_report["summary"][
+                "agents_without_contract"
+            ],
+            "head_agents_without_contract": head_contract_report["summary"][
+                "agents_without_contract"
+            ],
+            "introduced_missing_contracts": len(introduced_missing_contracts),
+            "resolved_missing_contracts": len(resolved_missing_contracts),
+            "new_agents_without_contract": len(new_agents_without_contract),
             "base_unresolved_authority_relationships": authority_resolution["base"][
                 "unresolved_relationships"
             ],
@@ -344,6 +393,27 @@ def compare_scans(
         },
         "effective_authority_delta": authority_delta,
         "authority_policy_delta": authority_policy_delta,
+        "authority_contract_coverage": {
+            "base": {
+                "total_agents": base_contract_report["summary"]["total_agents"],
+                "agents_with_contract": base_contract_report["summary"]["agents_with_contract"],
+                "agents_without_contract": base_contract_report["summary"]["agents_without_contract"],
+                "contract_coverage_percent": base_contract_report["summary"][
+                    "contract_coverage_percent"
+                ],
+            },
+            "head": {
+                "total_agents": head_contract_report["summary"]["total_agents"],
+                "agents_with_contract": head_contract_report["summary"]["agents_with_contract"],
+                "agents_without_contract": head_contract_report["summary"]["agents_without_contract"],
+                "contract_coverage_percent": head_contract_report["summary"][
+                    "contract_coverage_percent"
+                ],
+            },
+            "introduced_missing_contracts": introduced_missing_contracts,
+            "resolved_missing_contracts": resolved_missing_contracts,
+            "new_agents_without_contract": new_agents_without_contract,
+        },
         "security_review": security_review,
         "authority_resolution": authority_resolution,
         "context_summary": {
@@ -484,6 +554,12 @@ def render_console(report: dict[str, Any]) -> str:
             f"{summary['introduced_policy_unresolved']} new unresolved)"
         ),
         (
+            f"  Contract coverage:   base={report['authority_contract_coverage']['base']['contract_coverage_percent']}% "
+            f"head={report['authority_contract_coverage']['head']['contract_coverage_percent']}% "
+            f"({summary['head_agents_without_contract']} head agents missing; "
+            f"{summary['new_agents_without_contract']} newly introduced)"
+        ),
+        (
             "  Analysis: "
             f"base={'incomplete' if report['base']['analysis_incomplete'] else 'complete'}, "
             f"head={'incomplete' if report['head']['analysis_incomplete'] else 'complete'}"
@@ -505,6 +581,27 @@ def render_console(report: dict[str, Any]) -> str:
         if len(policy_weakenings) > _MAX_CONSOLE_ITEMS:
             lines.append(
                 f"  ... {len(policy_weakenings) - _MAX_CONSOLE_ITEMS} more policy weakenings"
+            )
+
+    new_agents_missing_contract = report["authority_contract_coverage"][
+        "new_agents_without_contract"
+    ]
+    introduced_missing_contracts = report["authority_contract_coverage"][
+        "introduced_missing_contracts"
+    ]
+    if introduced_missing_contracts:
+        lines.extend(["", "Introduced missing Authority Contracts"])
+        new_names = {item["agent"] for item in new_agents_missing_contract}
+        for item in introduced_missing_contracts[:_MAX_CONSOLE_ITEMS]:
+            marker = "new agent" if item["agent"] in new_names else "contract removed"
+            lines.append(
+                f"  ! agent={item['agent']} status={item['status']} "
+                f"reason={item['reason']} ({marker}){_format_location(item)}"
+            )
+        if len(introduced_missing_contracts) > _MAX_CONSOLE_ITEMS:
+            lines.append(
+                f"  ... {len(introduced_missing_contracts) - _MAX_CONSOLE_ITEMS} "
+                "more missing contracts"
             )
 
     introduced_policy = report["authority_policy_delta"]["introduced_violations"]
