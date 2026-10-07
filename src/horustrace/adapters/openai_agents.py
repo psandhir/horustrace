@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -1258,6 +1259,94 @@ def _external_handler_evidence(
     return None
 
 
+
+def _local_mcp_subclass_templates(
+    path: Path,
+    tree: ast.Module,
+    constants: dict[str, str],
+    configuration_sources: dict[str, str],
+) -> dict[str, MCPServer]:
+    """Resolve source-proven local subclasses of supported MCP transports."""
+    classes = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef)
+    }
+    transports: dict[str, str] = {}
+    changed = True
+    while changed:
+        changed = False
+        for name, cls in classes.items():
+            if name in transports:
+                continue
+            for base in cls.bases:
+                base_name = _call_name(base)
+                if base_name in MCP_TYPES:
+                    transports[name] = base_name
+                    changed = True
+                    break
+                if base_name in transports:
+                    transports[name] = transports[base_name]
+                    changed = True
+                    break
+
+    result: dict[str, MCPServer] = {}
+    for name, transport_name in transports.items():
+        cls = classes[name]
+        init = next(
+            (
+                node
+                for node in cls.body
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and node.name == "__init__"
+            ),
+            None,
+        )
+        if init is None:
+            continue
+        super_calls = [
+            node
+            for node in ast.walk(init)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "__init__"
+            and isinstance(node.func.value, ast.Call)
+            and _call_name(node.func.value.func) == "super"
+        ]
+        if len(super_calls) != 1:
+            continue
+        source_call = super_calls[0]
+        synthetic = ast.Call(
+            func=ast.Name(id=transport_name, ctx=ast.Load()),
+            args=list(source_call.args),
+            keywords=list(source_call.keywords),
+        )
+        ast.copy_location(synthetic, source_call)
+        server = _mcp_from_call(
+            path,
+            synthetic,
+            name,
+            constants,
+            configuration_sources,
+        )
+        if server is None:
+            continue
+        declared_name = _literal(_kw(source_call, "name"))
+        if isinstance(declared_name, str) and declared_name:
+            server.name = declared_name
+        server.metadata.update(
+            {
+                "framework": "openai-agents",
+                "repository_resolved": True,
+                "binding_origin": "local_mcp_transport_subclass",
+                "mcp_subclass": name,
+                "tool_catalogue_unresolved": True,
+            }
+        )
+        result[name] = server
+    return result
+
+
 def scan_python_file(path: Path) -> Graph:
     graph = Graph()
     try:
@@ -1359,6 +1448,35 @@ def scan_python_file(path: Path) -> Graph:
                 server = _mcp_from_call(path, item.context_expr, alias, constants, configuration_sources)
                 if server:
                     mcp_servers[alias] = server
+
+    local_mcp_subclasses = _local_mcp_subclass_templates(
+        path,
+        tree,
+        constants,
+        configuration_sources,
+    )
+    if local_mcp_subclasses:
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.With, ast.AsyncWith)):
+                continue
+            for item in node.items:
+                if (
+                    not isinstance(item.context_expr, ast.Call)
+                    or not isinstance(item.optional_vars, ast.Name)
+                ):
+                    continue
+                subclass_name = _call_name(item.context_expr.func)
+                template = local_mcp_subclasses.get(subclass_name or "")
+                if template is None:
+                    continue
+                resolved = deepcopy(template)
+                resolved.metadata.update(
+                    {
+                        "context_manager_alias": item.optional_vars.id,
+                        "binding_origin": "local_mcp_subclass_context_manager",
+                    }
+                )
+                mcp_servers[item.optional_vars.id] = resolved
 
     agent_names_by_alias: dict[str, str] = {}
     agent_alias_by_line: dict[int, str] = {}
@@ -1877,6 +1995,85 @@ def scan_python_file(path: Path) -> Graph:
         return value.value if isinstance(value, ast.Await) else value
 
     functions_by_name = {function.name: function for function in functions}
+
+    # Resolve parameter-bound MCP servers only when a call site passes a
+    # source-proven concrete MCP instance into the function that constructs
+    # the agent. Ambiguous or dynamic call sites remain unresolved.
+    for agent in graph.agents:
+        placeholders = [
+            server
+            for server in agent.mcp_servers
+            if server.metadata.get("binding_origin") == "function_parameter"
+            and server.metadata.get("source_bound_parameter") is True
+        ]
+        if not placeholders or agent.location is None:
+            continue
+        owner_function = next(
+            (
+                function
+                for function in functions
+                if getattr(function, "lineno", 0)
+                <= agent.location.line
+                <= getattr(function, "end_lineno", 0)
+            ),
+            None,
+        )
+        if owner_function is None:
+            continue
+
+        replacements: dict[int, MCPServer] = {}
+        for placeholder in placeholders:
+            candidates: list[MCPServer] = []
+            parameter = placeholder.name
+            for call in ast.walk(tree):
+                if (
+                    not isinstance(call, ast.Call)
+                    or _call_name(call.func) != owner_function.name
+                ):
+                    continue
+                if _enclosing_function(functions, call) is owner_function:
+                    continue
+                argument = call_argument_for_parameter(
+                    call,
+                    owner_function,
+                    parameter,
+                )
+                if not isinstance(argument, ast.Name):
+                    continue
+                concrete = mcp_servers.get(argument.id)
+                if concrete is not None:
+                    candidates.append(concrete)
+
+            unique = {
+                (
+                    candidate.transport,
+                    candidate.url,
+                    candidate.command,
+                    tuple(candidate.args),
+                    candidate.name,
+                ): candidate
+                for candidate in candidates
+            }
+            if len(unique) != 1:
+                continue
+            concrete = deepcopy(next(iter(unique.values())))
+            concrete.metadata.update(
+                {
+                    "repository_resolved": True,
+                    "binding_origin": "source_bound_mcp_parameter_call",
+                    "source_parameter": parameter,
+                    "parameter_function": owner_function.name,
+                    "transport_unresolved": False,
+                }
+            )
+            replacements[id(placeholder)] = concrete
+
+        if replacements:
+            agent.mcp_servers = [
+                replacements.get(id(server), server)
+                for server in agent.mcp_servers
+            ]
+            agent.metadata["parameter_bound_mcp_resolved"] = True
     dynamic_agents = [
         agent
         for agent in graph.agents
