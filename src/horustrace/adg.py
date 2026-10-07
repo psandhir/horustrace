@@ -7,8 +7,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from horustrace.inventory_semantics import (
+    data_resource_attributes,
+    model_inventory_attributes,
+    network_destination_attributes,
+)
 from horustrace.limits import MAX_ADG_EDGES, MAX_ADG_NODES, ScanLimitError
-from horustrace.models import Agent, FlowPath, Graph, SourceLocation, Tool
+from horustrace.models import Agent, FlowPath, Graph, ResourceScope, SourceLocation, Tool
 
 ADG_SCHEMA_VERSION = 1
 
@@ -307,6 +312,31 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
         )
         identity_ids.setdefault(identity.name, identity_id)
 
+    def bound_identity_id(
+        name: str | None,
+        *,
+        location: SourceLocation | None,
+        framework: str,
+    ) -> str | None:
+        if not name:
+            return None
+        identity_id = identity_ids.get(name)
+        if identity_id is not None:
+            return identity_id
+        identity_id = builder.node(
+            "identity",
+            name,
+            location=location,
+            framework=framework,
+            attributes={
+                "provider": "unknown",
+                "credential_source": "unknown",
+                "resolution": "unresolved_reference",
+            },
+        )
+        identity_ids[name] = identity_id
+        return identity_id
+
     for tool in graph.unbound_tools:
         if tool.metadata.get("topology_visible_unbound") is not True:
             continue
@@ -401,13 +431,24 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
 
         model = agent.metadata.get("model")
         if isinstance(model, str) and model:
+            model_attributes = model_inventory_attributes(agent.metadata)
             model_id = builder.node(
                 "model",
                 model,
                 location=agent.location,
                 framework=framework,
+                attributes=model_attributes,
             )
-            builder.edge("USES_MODEL", agent_id, model_id, location=agent.location)
+            builder.edge(
+                "USES_MODEL",
+                agent_id,
+                model_id,
+                location=agent.location,
+                attributes={
+                    "model_key": model_attributes["model_key"],
+                    "basis": "source_model_configuration",
+                },
+            )
 
         for memory in agent.metadata.get("memory") or []:
             if not isinstance(memory, dict):
@@ -443,18 +484,38 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
             )
 
         for source in agent.data_sources:
+            normalized_resource = ResourceScope(
+                kind="data",
+                selector=source.selector or source.name,
+                access={source.capability},
+                classification=source.classification,
+                location=source.location,
+                provenance=list(source.provenance),
+            )
+            resource_attributes = data_resource_attributes(normalized_resource)
             resource_id = builder.node(
                 "data_resource",
                 f"{agent.name}:{source.selector or source.name}",
                 location=source.location,
                 framework=framework,
+                attributes=resource_attributes,
+            )
+            edge_kind = (
+                "WRITES_TO"
+                if {"data.write", "destructive.write"} & normalized_resource.access
+                else "READS_FROM"
+            )
+            builder.edge(
+                edge_kind,
+                agent_id,
+                resource_id,
+                location=source.location,
                 attributes={
-                    "selector": source.selector or source.name,
-                    "classification": source.classification,
-                    "capability": source.capability,
+                    "access": sorted(normalized_resource.access),
+                    "resource_key": resource_attributes["resource_key"],
+                    "basis": "agent_data_source",
                 },
             )
-            builder.edge("READS_FROM", agent_id, resource_id, location=source.location)
 
         for identity in agent.identities:
             identity_id = identity_ids.get(identity.name)
@@ -470,21 +531,28 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
             builder.edge("USES_IDENTITY", agent_id, identity_id, location=identity.location)
 
         for destination in agent.network:
+            destination_attributes = network_destination_attributes(
+                destination.target,
+                restricted=destination.restricted,
+                direction=destination.direction,
+                metadata=destination.metadata,
+            )
             destination_id = builder.node(
                 "network_destination",
                 destination.target,
                 location=destination.location,
                 framework=framework,
-                attributes={
-                    "direction": destination.direction,
-                    "restricted": destination.restricted,
-                },
+                attributes=destination_attributes,
             )
             builder.edge(
                 "CONNECTS_TO",
                 agent_id,
                 destination_id,
                 location=destination.location,
+                attributes={
+                    "destination_key": destination_attributes["destination_key"],
+                    "basis": "agent_network_destination",
+                },
             )
 
         for skill in agent.skills:
@@ -527,29 +595,54 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                 },
             )
             builder.edge("INVOKES", agent_id, server_id, location=server.location)
+            server_identity_id = bound_identity_id(
+                server.identity,
+                location=server.location,
+                framework=framework,
+            )
             if server.url:
+                destination_attributes = network_destination_attributes(
+                    server.url,
+                    restricted=True,
+                    direction="outbound",
+                    metadata=server.metadata,
+                )
                 destination_id = builder.node(
                     "network_destination",
                     server.url,
                     location=server.location,
                     framework=framework,
-                    attributes={"direction": "outbound", "restricted": True},
+                    attributes=destination_attributes,
                 )
                 builder.edge(
                     "CONNECTS_TO",
                     server_id,
                     destination_id,
                     location=server.location,
+                    attributes={
+                        "destination_key": destination_attributes["destination_key"],
+                        "basis": "mcp_server_endpoint",
+                    },
                 )
-            if server.identity:
-                identity_id = identity_ids.get(server.identity)
-                if identity_id:
+                if server_identity_id is not None:
                     builder.edge(
-                        "USES_IDENTITY",
-                        server_id,
-                        identity_id,
+                        "AUTHORIZES_CONNECTION_TO",
+                        server_identity_id,
+                        destination_id,
                         location=server.location,
+                        attributes={
+                            "via_kind": "mcp_server",
+                            "via": server.name,
+                            "basis": "bound_mcp_identity",
+                        },
                     )
+            if server_identity_id is not None:
+                builder.edge(
+                    "USES_IDENTITY",
+                    server_id,
+                    server_identity_id,
+                    location=server.location,
+                )
             for tool_name in server.allowed_tools:
                 scope_id = builder.node(
                     "mcp_tool_scope",
@@ -580,18 +673,13 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                 )
 
             for resource in server.resources:
+                resource_attributes = data_resource_attributes(resource)
                 resource_id = builder.node(
                     "data_resource",
                     f"{agent.name}:{server.name}:{resource.kind}:{resource.selector}",
                     location=resource.location or server.location,
                     framework=framework,
-                    attributes={
-                        "resource_kind": resource.kind,
-                        "selector": resource.selector,
-                        "classification": resource.classification,
-                        "access": sorted(resource.access),
-                        "source": resource.metadata.get("source"),
-                    },
+                    attributes=resource_attributes,
                 )
                 if "data.read" in resource.access:
                     builder.edge(
@@ -599,13 +687,36 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                         server_id,
                         resource_id,
                         location=resource.location or server.location,
+                        attributes={
+                            "access": sorted(resource.access),
+                            "resource_key": resource_attributes["resource_key"],
+                            "basis": "mcp_resource_scope",
+                        },
                     )
-                if "data.write" in resource.access:
+                if {"data.write", "destructive.write"} & resource.access:
                     builder.edge(
                         "WRITES_TO",
                         server_id,
                         resource_id,
                         location=resource.location or server.location,
+                        attributes={
+                            "access": sorted(resource.access),
+                            "resource_key": resource_attributes["resource_key"],
+                            "basis": "mcp_resource_scope",
+                        },
+                    )
+                if server_identity_id is not None:
+                    builder.edge(
+                        "AUTHORIZES_ACCESS_TO",
+                        server_identity_id,
+                        resource_id,
+                        location=resource.location or server.location,
+                        attributes={
+                            "via_kind": "mcp_server",
+                            "via": server.name,
+                            "access": sorted(resource.access),
+                            "basis": "bound_mcp_identity",
+                        },
                     )
 
         for tool in agent.tools:
@@ -637,50 +748,92 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                 "delegation_projection",
             }:
                 builder.edge("INVOKES", agent_id, tool_id, location=tool.location)
-            if tool.identity:
-                identity_id = identity_ids.get(tool.identity)
-                if identity_id:
-                    builder.edge(
-                        "USES_IDENTITY",
-                        tool_id,
-                        identity_id,
-                        location=tool.location,
-                    )
+            tool_identity_id = bound_identity_id(
+                tool.identity,
+                location=tool.location,
+                framework=framework,
+            )
+            if tool_identity_id is not None:
+                builder.edge(
+                    "USES_IDENTITY",
+                    tool_id,
+                    tool_identity_id,
+                    location=tool.location,
+                )
             for resource in tool.resources:
+                resource_attributes = data_resource_attributes(resource)
                 resource_id = builder.node(
                     "data_resource",
                     f"{agent.name}:{resource.kind}:{resource.selector}",
                     location=resource.location,
                     framework=framework,
-                    attributes={
-                        "resource_kind": resource.kind,
-                        "selector": resource.selector,
-                        "classification": resource.classification,
-                        "access": sorted(resource.access),
-                    },
+                    attributes=resource_attributes,
                 )
                 edge_kind = (
-                    "WRITES_TO" if "data.write" in resource.access else "READS_FROM"
+                    "WRITES_TO"
+                    if {"data.write", "destructive.write"} & resource.access
+                    else "READS_FROM"
                 )
-                builder.edge(edge_kind, tool_id, resource_id, location=resource.location)
+                builder.edge(
+                    edge_kind,
+                    tool_id,
+                    resource_id,
+                    location=resource.location,
+                    attributes={
+                        "access": sorted(resource.access),
+                        "resource_key": resource_attributes["resource_key"],
+                        "basis": "tool_resource_scope",
+                    },
+                )
+                if tool_identity_id is not None:
+                    builder.edge(
+                        "AUTHORIZES_ACCESS_TO",
+                        tool_identity_id,
+                        resource_id,
+                        location=resource.location or tool.location,
+                        attributes={
+                            "via_kind": "tool",
+                            "via": tool.name,
+                            "access": sorted(resource.access),
+                            "basis": "bound_tool_identity",
+                        },
+                    )
             for destination in tool.destinations:
+                destination_attributes = network_destination_attributes(
+                    destination.target,
+                    restricted=destination.restricted,
+                    direction=destination.direction,
+                    metadata=destination.metadata,
+                )
                 destination_id = builder.node(
                     "network_destination",
                     destination.target,
                     location=destination.location or tool.location,
                     framework=framework,
-                    attributes={
-                        "direction": destination.direction,
-                        "restricted": destination.restricted,
-                        "source": destination.metadata.get("source"),
-                    },
+                    attributes=destination_attributes,
                 )
                 builder.edge(
                     "CONNECTS_TO",
                     tool_id,
                     destination_id,
                     location=tool.location,
+                    attributes={
+                        "destination_key": destination_attributes["destination_key"],
+                        "basis": "tool_destination",
+                    },
                 )
+                if tool_identity_id is not None:
+                    builder.edge(
+                        "AUTHORIZES_CONNECTION_TO",
+                        tool_identity_id,
+                        destination_id,
+                        location=destination.location or tool.location,
+                        attributes={
+                            "via_kind": "tool",
+                            "via": tool.name,
+                            "basis": "bound_tool_identity",
+                        },
+                    )
             if "memory" in tool.name.lower():
                 memory_id = builder.node(
                     "memory",
