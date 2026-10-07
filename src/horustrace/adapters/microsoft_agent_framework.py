@@ -26,6 +26,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
+from horustrace.semantic_contract import set_model_provenance
 
 _FRAMEWORK_PREFIX = "agent_framework"
 _AGENT_TYPES = {"Agent", "ChatAgent", "FoundryAgent", "create_harness_agent"}
@@ -317,6 +318,60 @@ def _is_maf_client_create_agent(
             imported_symbols=imported_symbols,
         )
     )
+
+
+_MODEL_CLIENT_PROVIDERS = {
+    "OpenAIChatClient": "openai",
+    "OpenAIResponsesClient": "openai",
+    "AzureOpenAIChatClient": "microsoft-azure-openai",
+    "AzureOpenAIResponsesClient": "microsoft-azure-openai",
+    "FoundryChatClient": "microsoft-foundry",
+}
+
+
+def _client_model_metadata(
+    node: ast.AST | None,
+    variables: dict[str, ast.AST],
+    *,
+    seen: set[str] | None = None,
+) -> dict[str, Any]:
+    """Extract source-visible model facts from a MAF client constructor."""
+    seen = set(seen or ())
+    if isinstance(node, ast.Name):
+        if node.id in seen:
+            return {}
+        target = variables.get(node.id)
+        if target is None:
+            return {}
+        return _client_model_metadata(
+            target,
+            variables,
+            seen=seen | {node.id},
+        )
+    if not isinstance(node, ast.Call):
+        return {}
+
+    constructor = _call_name(node.func) or ""
+    provider = _MODEL_CLIENT_PROVIDERS.get(constructor)
+    if provider is None:
+        return {}
+
+    raw_model = (
+        _kw(node, "model_id")
+        or _kw(node, "model")
+        or _kw(node, "deployment_name")
+        or _kw(node, "deployment")
+    )
+    model = _literal(raw_model)
+    metadata: dict[str, Any] = {}
+    set_model_provenance(
+        metadata,
+        identifier=model if isinstance(model, str) else None,
+        provider=provider,
+        hosting="provider_hosted",
+        constructor=constructor,
+    )
+    return metadata
 
 
 def _function_capabilities(
@@ -1040,6 +1095,7 @@ def scan_python_file(path: Path) -> Graph:
                 "source_aliases": list(aliases),
             },
         )
+        agent.metadata.update(_client_model_metadata(client_node, variables))
 
         skill_paths: list[str] = []
         if _call_name(call.func) == "create_harness_agent":
