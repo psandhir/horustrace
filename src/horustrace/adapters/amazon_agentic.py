@@ -189,12 +189,14 @@ def _attach_literal_resources(tool: Tool, text: str) -> None:
         if key in seen:
             continue
         tool.resources.append(
-            ResourceScope(
+            _resource_scope(
                 kind="aws_arn",
                 selector=arn,
                 access=set(tool.capabilities),
                 location=tool.location,
-                metadata={"source": "literal_arn"},
+                source="literal_arn",
+                connection_type="cloud_resource",
+                selector_provenance="literal_source_value",
             )
         )
         seen.add(key)
@@ -205,12 +207,14 @@ def _attach_literal_resources(tool: Tool, text: str) -> None:
             continue
         access = {cap for cap in tool.capabilities if cap in {"data.read", "data.write"}}
         tool.resources.append(
-            ResourceScope(
+            _resource_scope(
                 kind="s3",
                 selector=selector,
                 access=access or {"data.read"},
                 location=tool.location,
-                metadata={"source": "literal_s3_uri"},
+                source="literal_s3_uri",
+                connection_type="object_store",
+                selector_provenance="literal_source_value",
             )
         )
         seen.add(key)
