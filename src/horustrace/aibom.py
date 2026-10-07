@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -568,3 +569,221 @@ def diff_aibom(
     }
     delta["digest"] = _canonical_digest(delta)
     return delta
+
+
+
+_CYCLONEDX_COMPONENT_TYPES = {
+    "agent": "application",
+    "model": "machine-learning-model",
+    "prompt": "file",
+    "skill": "library",
+    "tool": "library",
+    "mcp_server": "application",
+    "memory": "data",
+    "identity": "application",
+    "data_resource": "data",
+    "network_destination": "application",
+    "policy_control": "application",
+}
+
+
+def _cyclonedx_property(name: str, value: Any) -> dict[str, str] | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        rendered = value
+    elif isinstance(value, (bool, int, float)):
+        rendered = str(value).lower() if isinstance(value, bool) else str(value)
+    else:
+        rendered = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+    return {"name": name, "value": rendered}
+
+
+def _cyclonedx_component(
+    item: Mapping[str, Any],
+    *,
+    source: Mapping[str, Any],
+    relationship_evidence: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    asset_type = str(item.get("asset_type") or item.get("kind") or "component")
+    attributes = item.get("attributes")
+    attributes = attributes if isinstance(attributes, Mapping) else {}
+    posture = item.get("posture")
+    posture = posture if isinstance(posture, Mapping) else {}
+    ownership = item.get("ownership")
+    ownership = ownership if isinstance(ownership, Mapping) else {}
+    provenance = item.get("provenance")
+    provenance = provenance if isinstance(provenance, Mapping) else {}
+
+    properties = [
+        _cyclonedx_property("horustrace:asset-type", asset_type),
+        _cyclonedx_property("horustrace:framework", item.get("framework")),
+        _cyclonedx_property("horustrace:resolution", item.get("resolution")),
+        _cyclonedx_property("horustrace:unresolved", item.get("unresolved") or []),
+        _cyclonedx_property("horustrace:environment", item.get("environment")),
+        _cyclonedx_property("horustrace:lifecycle", item.get("lifecycle")),
+        _cyclonedx_property("horustrace:ownership", ownership),
+        _cyclonedx_property("horustrace:posture", posture),
+        _cyclonedx_property("horustrace:attributes", attributes),
+        _cyclonedx_property(
+            "horustrace:discovery-source",
+            provenance.get("discovery_source"),
+        ),
+        _cyclonedx_property("horustrace:source-revision", source.get("revision")),
+        _cyclonedx_property(
+            "horustrace:evidence",
+            provenance.get("evidence") or [],
+        ),
+        _cyclonedx_property(
+            "horustrace:relationships",
+            relationship_evidence,
+        ),
+    ]
+
+    component: dict[str, Any] = {
+        "type": _CYCLONEDX_COMPONENT_TYPES.get(asset_type, "application"),
+        "bom-ref": str(item.get("asset_id") or item.get("id")),
+        "name": str(item.get("name") or item.get("asset_id") or item.get("id")),
+        "properties": [value for value in properties if value is not None],
+    }
+
+    version = (
+        attributes.get("model_version")
+        or attributes.get("version")
+        or attributes.get("revision")
+    )
+    if isinstance(version, str) and version:
+        component["version"] = version
+
+    if component["type"] == "machine-learning-model":
+        model_parameters: dict[str, Any] = {}
+        task = attributes.get("task")
+        architecture_family = attributes.get("architecture_family")
+        architecture = attributes.get("architecture")
+        if isinstance(task, str) and task:
+            model_parameters["task"] = task
+        if isinstance(architecture_family, str) and architecture_family:
+            model_parameters["architectureFamily"] = architecture_family
+        if isinstance(architecture, str) and architecture:
+            model_parameters["modelArchitecture"] = architecture
+        if model_parameters:
+            component["modelCard"] = {
+                "modelParameters": model_parameters,
+            }
+
+    return component
+
+
+def to_cyclonedx_1_6(document: Mapping[str, Any]) -> dict[str, Any]:
+    """Map an AI-BOM v2 document to a conservative CycloneDX 1.6 JSON BOM.
+
+    CycloneDX carries the interoperable component/dependency view. HorusTrace
+    authority, posture, provenance and relationship evidence remain available as
+    namespaced component properties so the export does not silently discard
+    security semantics that have no direct CycloneDX equivalent.
+    """
+    inventory = document.get("inventory")
+    inventory = inventory if isinstance(inventory, Mapping) else {}
+    relationships = document.get("relationships")
+    relationships = relationships if isinstance(relationships, list) else []
+    source = document.get("source")
+    source = source if isinstance(source, Mapping) else {}
+    snapshot = document.get("snapshot")
+    snapshot = snapshot if isinstance(snapshot, Mapping) else {}
+
+    assets: list[Mapping[str, Any]] = []
+    for items in inventory.values():
+        if isinstance(items, list):
+            assets.extend(item for item in items if isinstance(item, Mapping))
+
+    relationship_by_source: dict[str, list[Mapping[str, Any]]] = {}
+    dependency_targets: dict[str, set[str]] = {}
+    for relationship in relationships:
+        source_asset = relationship.get("source_asset_id")
+        target_asset = relationship.get("target_asset_id")
+        if not isinstance(source_asset, str) or not isinstance(target_asset, str):
+            continue
+        relationship_by_source.setdefault(source_asset, []).append(
+            {
+                "relationship_id": relationship.get("relationship_id"),
+                "kind": relationship.get("kind"),
+                "target_asset_id": target_asset,
+                "resolution": relationship.get("resolution"),
+                "unresolved": relationship.get("unresolved") or [],
+                "provenance": relationship.get("provenance") or {},
+            }
+        )
+        dependency_targets.setdefault(source_asset, set()).add(target_asset)
+
+    components = [
+        _cyclonedx_component(
+            item,
+            source=source,
+            relationship_evidence=sorted(
+                relationship_by_source.get(
+                    str(item.get("asset_id") or item.get("id")),
+                    [],
+                ),
+                key=lambda value: (
+                    str(value.get("kind") or ""),
+                    str(value.get("target_asset_id") or ""),
+                ),
+            ),
+        )
+        for item in sorted(
+            assets,
+            key=lambda value: str(value.get("asset_id") or value.get("id")),
+        )
+    ]
+
+    component_refs = {
+        str(item.get("bom-ref"))
+        for item in components
+        if isinstance(item.get("bom-ref"), str)
+    }
+    dependencies = [
+        {
+            "ref": ref,
+            "dependsOn": sorted(
+                target
+                for target in dependency_targets.get(ref, set())
+                if target in component_refs
+            ),
+        }
+        for ref in sorted(component_refs)
+    ]
+
+    repository_id = str(source.get("repository_id") or "local:unknown")
+    digest = str(document.get("digest") or snapshot.get("scan_digest") or "")
+    serial = uuid.uuid5(
+        uuid.NAMESPACE_URL,
+        f"horustrace:{repository_id}:{digest}",
+    )
+
+    metadata_properties = [
+        _cyclonedx_property("horustrace:aibom-schema-version", document.get("schema_version")),
+        _cyclonedx_property("horustrace:repository-id", source.get("repository_id")),
+        _cyclonedx_property("horustrace:project", source.get("project")),
+        _cyclonedx_property("horustrace:source-revision", source.get("revision")),
+        _cyclonedx_property("horustrace:scan-digest", snapshot.get("scan_digest")),
+        _cyclonedx_property("horustrace:aibom-digest", document.get("digest")),
+    ]
+
+    result: dict[str, Any] = {
+        "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.6",
+        "serialNumber": f"urn:uuid:{serial}",
+        "version": 1,
+        "metadata": {
+            "properties": [
+                value for value in metadata_properties if value is not None
+            ],
+        },
+        "components": components,
+        "dependencies": dependencies,
+    }
+    observed_at = snapshot.get("observed_at")
+    if isinstance(observed_at, str) and observed_at:
+        result["metadata"]["timestamp"] = observed_at
+    return result
