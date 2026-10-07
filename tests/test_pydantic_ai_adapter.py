@@ -2248,3 +2248,48 @@ agent = create_readwrite_agent()
     assert "data.write" in agent.capabilities
     assert "process.execute" not in agent.capabilities
 
+def test_pydantic_factory_instance_cli_input_reaches_console_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import asyncio
+from pydantic_ai import Agent
+from pydantic_ai_backends import create_console_toolset
+
+def create_cli_agent():
+    toolset = create_console_toolset(
+        include_execute=True,
+        require_write_approval=False,
+        require_execute_approval=False,
+    )
+    base_agent = Agent("openai:gpt-4o-mini")
+    return base_agent.with_toolset(toolset)
+
+async def main():
+    cli_agent = create_cli_agent()
+    user_input = input("You: ")
+    await cli_agent.run(user_input)
+
+asyncio.run(main())
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("factory_function") == "create_cli_agent"
+    )
+
+    assert agent.metadata["factory_instance"] is True
+    assert agent.metadata["factory_assignment_line"] > agent.location.line
+    assert any(
+        source.metadata.get("basis") == "pydantic_ai_cli_input_to_run"
+        for source in agent.inputs
+    )
+    assert "process.execute" in agent.capabilities
+    assert "data.read" in agent.capabilities
+    assert "data.write" in agent.capabilities
+
