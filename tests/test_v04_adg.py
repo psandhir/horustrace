@@ -1,8 +1,18 @@
 import json
 from pathlib import Path
 
+from horustrace.adg import build_adg
 from horustrace.aibom import AIBOMContext, build_aibom, diff_aibom, to_cyclonedx_1_6
 from horustrace.cli import main
+from horustrace.models import (
+    Agent,
+    Graph,
+    Identity,
+    NetworkDestination,
+    ResourceScope,
+    SourceLocation,
+    Tool,
+)
 from horustrace.scanner import scan
 
 
@@ -285,4 +295,110 @@ def test_aibom_cli_can_emit_cyclonedx_1_6(tmp_path: Path) -> None:
         item["type"] == "machine-learning-model"
         for item in document["components"]
     )
+
+
+
+
+def test_model_and_data_lineage_is_audit_queryable(tmp_path: Path) -> None:
+    location = SourceLocation(tmp_path / "agent.py", 7, 1)
+    identity = Identity(
+        name="box-ccg",
+        provider="box",
+        credential_source="client_credentials",
+        location=location,
+        metadata={"framework": "google-adk"},
+    )
+    tool = Tool(
+        name="box_read",
+        kind="adk_function",
+        capabilities={"data.read", "network.external"},
+        identity="box-ccg",
+        resources=[
+            ResourceScope(
+                kind="external_resource",
+                selector="<model-selected:file_id>",
+                access={"data.read"},
+                classification="internal",
+                location=location,
+                metadata={
+                    "provider": "box",
+                    "resource_provenance": "model_selected_remote_object_id",
+                    "selector_provenance": "model_selected",
+                    "source": "external_sdk_resource_identifier",
+                },
+            )
+        ],
+        destinations=[
+            NetworkDestination(
+                target="https://api.box.com",
+                restricted=True,
+                location=location,
+                metadata={
+                    "provider": "box",
+                    "network_scope": "fixed_provider_network",
+                    "destination_provenance": "provider_sdk",
+                },
+            )
+        ],
+        location=location,
+        metadata={"framework": "google-adk"},
+    )
+    agent = Agent(
+        name="box_agent",
+        tools=[tool],
+        identities=[identity],
+        location=location,
+        metadata={
+            "framework": "google-adk",
+            "model": "openai:gpt-4o",
+        },
+    )
+    graph = Graph(agents=[agent])
+    graph.adg = build_adg(graph, tmp_path)
+
+    topology = graph.adg.as_dict()
+    model = next(item for item in topology["nodes"] if item["kind"] == "model")
+    assert model["attributes"]["model_identifier"] == "openai:gpt-4o"
+    assert model["attributes"]["model_provider"] == "openai"
+    assert model["attributes"]["model_hosting"] == "provider_hosted"
+    assert model["attributes"]["model_family"] == "unknown"
+    assert model["attributes"]["model_version"] == "unknown"
+
+    resource = next(
+        item for item in topology["nodes"] if item["kind"] == "data_resource"
+    )
+    assert resource["attributes"]["connection_type"] == "saas_api"
+    assert resource["attributes"]["provider"] == "box"
+    assert resource["attributes"]["scope_resolution"] == "model_selected"
+    assert resource["attributes"]["resource_provenance"] == (
+        "model_selected_remote_object_id"
+    )
+
+    edge_kinds = {item["kind"] for item in topology["edges"]}
+    assert "AUTHORIZES_ACCESS_TO" in edge_kinds
+    assert "AUTHORIZES_CONNECTION_TO" in edge_kinds
+
+    document = build_aibom(
+        graph.adg,
+        context=AIBOMContext(repository_id="github.com/acme/box-agent"),
+    )
+    assert document["lineage"]["models"][0]["model_identifier"] == "openai:gpt-4o"
+    assert document["lineage"]["models"][0]["agents"][0]["name"] == "box_agent"
+
+    data_lineage = document["lineage"]["data_resources"][0]
+    assert data_lineage["selector"] == "<model-selected:file_id>"
+    assert data_lineage["connection_type"] == "saas_api"
+    access_path = data_lineage["access_paths"][0]
+    assert access_path["agent"]["name"] == "box_agent"
+    assert access_path["via"]["name"].endswith(":box_read")
+    assert access_path["identities"][0]["name"] == "box-ccg"
+    assert access_path["identities"][0]["authorization_relationship_id"]
+
+    destination_lineage = document["lineage"]["external_destinations"][0]
+    assert destination_lineage["target"] == "https://api.box.com"
+    assert destination_lineage["provider"] == "box"
+    destination_path = destination_lineage["access_paths"][0]
+    assert destination_path["agent"]["name"] == "box_agent"
+    assert destination_path["identities"][0]["name"] == "box-ccg"
+    assert destination_path["identities"][0]["authorization_relationship_id"]
 

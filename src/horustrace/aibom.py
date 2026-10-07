@@ -223,6 +223,249 @@ def _posture(annotation: Mapping[str, Any]) -> dict[str, Any]:
     return posture
 
 
+def _lineage_index(
+    adg: AgentDependencyGraph,
+    local_to_asset: Mapping[str, str],
+    relationship_ids: Mapping[str, str],
+) -> dict[str, Any]:
+    """Build audit-oriented model, resource and destination reachability indexes."""
+    nodes = {node.node_id: node for node in adg.nodes}
+
+    invokers: dict[str, set[str]] = {}
+    identities_by_owner: dict[str, set[str]] = {}
+    authorization_edges: dict[tuple[str, str, str], str] = {}
+    for edge in adg.edges:
+        source = nodes.get(edge.source)
+        target = nodes.get(edge.target)
+        if source is None or target is None:
+            continue
+        if edge.kind == "INVOKES" and source.kind == "agent":
+            invokers.setdefault(edge.target, set()).add(edge.source)
+        elif edge.kind == "USES_IDENTITY":
+            identities_by_owner.setdefault(edge.source, set()).add(edge.target)
+        elif edge.kind in {"AUTHORIZES_ACCESS_TO", "AUTHORIZES_CONNECTION_TO"}:
+            authorization_edges[(edge.kind, edge.source, edge.target)] = (
+                relationship_ids.get(edge.edge_id, edge.edge_id)
+            )
+
+    model_groups: dict[str, dict[str, Any]] = {}
+    for edge in adg.edges:
+        if edge.kind != "USES_MODEL":
+            continue
+        agent = nodes.get(edge.source)
+        model = nodes.get(edge.target)
+        if agent is None or model is None or agent.kind != "agent" or model.kind != "model":
+            continue
+        model_key = str(model.attributes.get("model_key") or model.name)
+        group = model_groups.setdefault(
+            model_key,
+            {
+                "model_key": model_key,
+                "model_identifier": model.attributes.get("model_identifier", model.name),
+                "provider": model.attributes.get("model_provider", "unknown"),
+                "family": model.attributes.get("model_family", "unknown"),
+                "version": model.attributes.get("model_version", "unknown"),
+                "hosting": model.attributes.get("model_hosting", "unknown"),
+                "model_asset_ids": set(),
+                "agents": {},
+            },
+        )
+        model_asset_id = local_to_asset.get(model.node_id)
+        agent_asset_id = local_to_asset.get(agent.node_id)
+        if model_asset_id:
+            group["model_asset_ids"].add(model_asset_id)
+        if agent_asset_id:
+            group["agents"][agent_asset_id] = {
+                "asset_id": agent_asset_id,
+                "name": agent.name,
+                "relationship_id": relationship_ids.get(edge.edge_id, edge.edge_id),
+                "evidence": edge.location,
+            }
+
+    def principals_for(source_id: str) -> list[str]:
+        source = nodes.get(source_id)
+        if source is None:
+            return []
+        if source.kind == "agent":
+            return [source_id]
+        return sorted(invokers.get(source_id, set()))
+
+    resource_groups: dict[str, dict[str, Any]] = {}
+    destination_groups: dict[str, dict[str, Any]] = {}
+    for edge in adg.edges:
+        if edge.kind not in {"READS_FROM", "WRITES_TO", "CONNECTS_TO"}:
+            continue
+        target = nodes.get(edge.target)
+        source = nodes.get(edge.source)
+        if target is None or source is None:
+            continue
+        principal_ids = principals_for(edge.source)
+        if not principal_ids:
+            continue
+
+        identity_ids = sorted(identities_by_owner.get(edge.source, set()))
+        identities = [
+            {
+                "asset_id": local_to_asset.get(identity_id),
+                "name": nodes[identity_id].name,
+                "authorization_relationship_id": authorization_edges.get(
+                    (
+                        "AUTHORIZES_CONNECTION_TO"
+                        if edge.kind == "CONNECTS_TO"
+                        else "AUTHORIZES_ACCESS_TO",
+                        identity_id,
+                        edge.target,
+                    )
+                ),
+            }
+            for identity_id in identity_ids
+            if identity_id in nodes
+        ]
+        via_asset_id = local_to_asset.get(source.node_id)
+
+        if target.kind == "data_resource" and edge.kind in {"READS_FROM", "WRITES_TO"}:
+            resource_key = str(
+                target.attributes.get("resource_key")
+                or target.attributes.get("selector")
+                or target.name
+            )
+            group = resource_groups.setdefault(
+                resource_key,
+                {
+                    "resource_key": resource_key,
+                    "selector": target.attributes.get("selector", target.name),
+                    "connection_type": target.attributes.get("connection_type", "unknown"),
+                    "provider": target.attributes.get("provider", "unknown"),
+                    "classification": target.attributes.get("classification", "unknown"),
+                    "resource_asset_ids": set(),
+                    "access_paths": [],
+                },
+            )
+            target_asset_id = local_to_asset.get(target.node_id)
+            if target_asset_id:
+                group["resource_asset_ids"].add(target_asset_id)
+            for principal_id in principal_ids:
+                principal = nodes.get(principal_id)
+                principal_asset_id = local_to_asset.get(principal_id)
+                if principal is None or principal_asset_id is None:
+                    continue
+                group["access_paths"].append(
+                    {
+                        "agent": {
+                            "asset_id": principal_asset_id,
+                            "name": principal.name,
+                        },
+                        "via": (
+                            None
+                            if source.kind == "agent"
+                            else {
+                                "asset_id": via_asset_id,
+                                "kind": source.kind,
+                                "name": source.name,
+                            }
+                        ),
+                        "identities": identities,
+                        "access": edge.attributes.get("access")
+                        or target.attributes.get("access")
+                        or [],
+                        "relationship_id": relationship_ids.get(
+                            edge.edge_id,
+                            edge.edge_id,
+                        ),
+                        "evidence": edge.location,
+                    }
+                )
+
+        if target.kind == "network_destination" and edge.kind == "CONNECTS_TO":
+            destination_key = str(
+                target.attributes.get("destination_key") or target.name
+            )
+            group = destination_groups.setdefault(
+                destination_key,
+                {
+                    "destination_key": destination_key,
+                    "target": target.name,
+                    "provider": target.attributes.get("provider", "unknown"),
+                    "restricted": target.attributes.get("restricted"),
+                    "destination_asset_ids": set(),
+                    "access_paths": [],
+                },
+            )
+            target_asset_id = local_to_asset.get(target.node_id)
+            if target_asset_id:
+                group["destination_asset_ids"].add(target_asset_id)
+            for principal_id in principal_ids:
+                principal = nodes.get(principal_id)
+                principal_asset_id = local_to_asset.get(principal_id)
+                if principal is None or principal_asset_id is None:
+                    continue
+                group["access_paths"].append(
+                    {
+                        "agent": {
+                            "asset_id": principal_asset_id,
+                            "name": principal.name,
+                        },
+                        "via": (
+                            None
+                            if source.kind == "agent"
+                            else {
+                                "asset_id": via_asset_id,
+                                "kind": source.kind,
+                                "name": source.name,
+                            }
+                        ),
+                        "identities": identities,
+                        "relationship_id": relationship_ids.get(
+                            edge.edge_id,
+                            edge.edge_id,
+                        ),
+                        "evidence": edge.location,
+                    }
+                )
+
+    models = []
+    for key in sorted(model_groups):
+        group = model_groups[key]
+        group["model_asset_ids"] = sorted(group["model_asset_ids"])
+        group["agents"] = [
+            group["agents"][asset_id]
+            for asset_id in sorted(group["agents"])
+        ]
+        models.append(group)
+
+    resources = []
+    for key in sorted(resource_groups):
+        group = resource_groups[key]
+        group["resource_asset_ids"] = sorted(group["resource_asset_ids"])
+        group["access_paths"].sort(
+            key=lambda item: (
+                item["agent"]["name"],
+                str((item.get("via") or {}).get("name") or ""),
+                str(item["relationship_id"]),
+            )
+        )
+        resources.append(group)
+
+    destinations = []
+    for key in sorted(destination_groups):
+        group = destination_groups[key]
+        group["destination_asset_ids"] = sorted(group["destination_asset_ids"])
+        group["access_paths"].sort(
+            key=lambda item: (
+                item["agent"]["name"],
+                str((item.get("via") or {}).get("name") or ""),
+                str(item["relationship_id"]),
+            )
+        )
+        destinations.append(group)
+
+    return {
+        "models": models,
+        "data_resources": resources,
+        "external_destinations": destinations,
+    }
+
+
 def build_aibom(
     adg: AgentDependencyGraph,
     *,
@@ -408,6 +651,11 @@ def build_aibom(
         "coverage": dict(coverage or {}),
         "inventory": inventory,
         "relationships": relationships,
+        "lineage": _lineage_index(
+            adg,
+            local_to_asset,
+            relationship_ids,
+        ),
         "summary": {
             "components": sum(len(items) for items in inventory.values()),
             "relationships": len(relationships),
