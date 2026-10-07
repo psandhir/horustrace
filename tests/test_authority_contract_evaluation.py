@@ -51,7 +51,13 @@ def test_denied_capability_produces_stable_relationship_linked_violation(tmp_pat
     report = authority_contract_report(graph)
 
     assert report["summary"] == {
+        "total_agents": 1,
         "agents_with_contract": 1,
+        "agents_without_contract": 0,
+        "contract_coverage_percent": 100.0,
+        "compliant_agents": 0,
+        "violation_agents": 1,
+        "unresolved_agents": 0,
         "relationships_evaluated": 1,
         "compliant_relationships": 0,
         "violation_relationships": 1,
@@ -654,3 +660,44 @@ def test_missing_clause_location_falls_back_to_contract_location(
         violation["explanation"]["policy"]["location"]
         == violation["contract_location"]
     )
+
+
+
+def test_missing_contract_is_first_class_governance_status(tmp_path: Path) -> None:
+    graph = Graph(
+        agents=[
+            Agent(
+                name="unmanaged",
+                location=SourceLocation(tmp_path / "agent.py", line=3),
+            ),
+            Agent(
+                name="governed",
+                policy=AgentPolicy(authority=_contract()),
+                location=SourceLocation(tmp_path / "agent.py", line=8),
+            ),
+        ]
+    )
+
+    report = authority_contract_report(graph)
+
+    assert report["summary"]["total_agents"] == 2
+    assert report["summary"]["agents_with_contract"] == 1
+    assert report["summary"]["agents_without_contract"] == 1
+    assert report["summary"]["contract_coverage_percent"] == 50.0
+    assert report["missing_contracts"] == [
+        {
+            "agent": "unmanaged",
+            "status": "not_declared",
+            "reason": "authority_contract_missing",
+            "location": {
+                "path": str(tmp_path / "agent.py"),
+                "line": 3,
+                "column": 1,
+            },
+        }
+    ]
+    by_agent = {item["agent"]: item for item in report["agents"]}
+    assert by_agent["unmanaged"]["status"] == "not_declared"
+    assert by_agent["unmanaged"]["reason"] == "authority_contract_missing"
+    assert by_agent["governed"]["status"] == "declared"
+
