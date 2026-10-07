@@ -470,3 +470,106 @@ async def main():
         item.path_id == "PATH001" and item.agent == "OpsAgent"
         for item in graph.attack_paths
     )
+
+
+def test_claude_module_scope_options_bind_cli_input_to_attack_path(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from claude_agent_sdk import ClaudeAgentOptions, query
+
+options = ClaudeAgentOptions(
+    allowed_tools=["Bash"],
+    permission_mode="bypassPermissions",
+)
+
+async def main():
+    prompt = input("> ")
+    async for message in query(prompt=prompt, options=options):
+        return message
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item for item in graph.agents
+        if item.metadata.get("framework") == "claude-agent-sdk"
+        and item.metadata.get("sdk_entrypoint") is True
+    )
+    assert any(
+        item.metadata.get("runtime_invocation_proven") is True
+        for item in agent.inputs
+    )
+    assert any(
+        item.path_id == "PATH001" and item.agent == agent.name
+        for item in graph.attack_paths
+    )
+
+
+def test_claude_sdk_client_context_manager_binds_cli_input_to_attack_path(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+
+async def main():
+    options = ClaudeAgentOptions(
+        allowed_tools=["Bash"],
+        permission_mode="bypassPermissions",
+    )
+    async with ClaudeSDKClient(options=options) as client:
+        prompt = input("> ")
+        await client.query(prompt)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item for item in graph.agents
+        if item.metadata.get("framework") == "claude-agent-sdk"
+        and item.metadata.get("sdk_entrypoint") is True
+    )
+    ingress = next(
+        item for item in agent.inputs
+        if item.metadata.get("basis") == "source_bound_runtime_ingress"
+    )
+    assert ingress.trust == "untrusted"
+    assert ingress.metadata["runtime_invocation_proven"] is True
+    assert any(
+        item.path_id == "PATH001" and item.agent == agent.name
+        for item in graph.attack_paths
+    )
+
+
+def test_claude_sdk_client_constant_query_is_not_runtime_ingress(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+
+async def main():
+    options = ClaudeAgentOptions(
+        allowed_tools=["Bash"],
+        permission_mode="bypassPermissions",
+    )
+    async with ClaudeSDKClient(options=options) as client:
+        await client.query("fixed health check")
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item for item in graph.agents
+        if item.metadata.get("framework") == "claude-agent-sdk"
+        and item.metadata.get("sdk_entrypoint") is True
+    )
+    assert not any(
+        item.metadata.get("basis") == "source_bound_runtime_ingress"
+        for item in agent.inputs
+    )
