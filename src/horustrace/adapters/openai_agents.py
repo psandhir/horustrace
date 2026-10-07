@@ -17,6 +17,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
+from horustrace.semantic_contract import set_model_provenance
 
 
 _OPENAI_AGENT_EXPORTS = {
@@ -1534,7 +1535,7 @@ def scan_python_file(path: Path) -> Graph:
             metadata["instructions"] = instructions
         model = _literal(_kw(node, "model"))
         if isinstance(model, str):
-            metadata["model"] = model
+            set_model_provenance(metadata, identifier=model)
 
         input_guardrails_node = _kw(node, "input_guardrails")
         output_guardrails_node = _kw(node, "output_guardrails")

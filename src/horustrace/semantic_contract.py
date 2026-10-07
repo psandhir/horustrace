@@ -23,6 +23,31 @@ class ToolControlState(str, Enum):
     UNRESOLVED = "unresolved"
 
 
+class ModelResolution(str, Enum):
+    RESOLVED_IDENTIFIER = "resolved_identifier"
+    PROVIDER_ONLY = "provider_only"
+    UNRESOLVED_REFERENCE = "unresolved_reference"
+    DYNAMIC = "dynamic"
+    NOT_EXPOSED = "not_exposed"
+
+
+class ModelSemanticKey(str, Enum):
+    IDENTIFIER = "model"
+    PROVIDER = "model_provider"
+    HOSTING = "model_hosting"
+    ENDPOINT = "model_endpoint"
+    REGION = "model_region"
+    SOURCE_REFERENCE = "model_source_reference"
+    PROVIDER_SOURCE_REFERENCE = "model_provider_source_reference"
+    CONSTRUCTOR = "model_constructor"
+    REFERENCE = "model_reference"
+    RESOLUTION = "model_resolution"
+    LIMITATION = "model_provenance_limitation"
+
+
+MODEL_HOSTING_STATES = frozenset({"provider_hosted", "self_hosted"})
+
+
 class AgentSemanticKey(str, Enum):
     SOURCE_CONTEXT = "source_context"
     TOOL_CONTROL_STATE = "tool_control_state"
@@ -93,6 +118,91 @@ def source_context(metadata: Mapping[str, Any]) -> str:
     return value if value in SOURCE_CONTEXTS else "unknown"
 
 
+def _model_key(field: ModelSemanticKey) -> str:
+    return field.value
+
+
+def set_model_provenance(
+    metadata: MutableMapping[str, Any],
+    *,
+    identifier: str | None = None,
+    provider: str | None = None,
+    hosting: str | None = None,
+    endpoint: str | None = None,
+    region: str | None = None,
+    source_reference: str | None = None,
+    provider_source_reference: str | None = None,
+    constructor: str | None = None,
+    reference: str | None = None,
+    resolution: ModelResolution | str | None = None,
+    limitation: str | None = None,
+) -> None:
+    """Write canonical model provenance without inventing missing facts."""
+
+    values = {
+        ModelSemanticKey.IDENTIFIER: identifier,
+        ModelSemanticKey.PROVIDER: provider,
+        ModelSemanticKey.ENDPOINT: endpoint,
+        ModelSemanticKey.REGION: region,
+        ModelSemanticKey.SOURCE_REFERENCE: source_reference,
+        ModelSemanticKey.PROVIDER_SOURCE_REFERENCE: provider_source_reference,
+        ModelSemanticKey.CONSTRUCTOR: constructor,
+        ModelSemanticKey.REFERENCE: reference,
+        ModelSemanticKey.LIMITATION: limitation,
+    }
+    for field, value in values.items():
+        key = _model_key(field)
+        if value is None:
+            metadata.pop(key, None)
+            continue
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{key} must be a non-empty string")
+        metadata[key] = value
+
+    if hosting is None:
+        metadata.pop(_model_key(ModelSemanticKey.HOSTING), None)
+    else:
+        if hosting not in MODEL_HOSTING_STATES:
+            raise ValueError(f"invalid model hosting state: {hosting!r}")
+        metadata[_model_key(ModelSemanticKey.HOSTING)] = hosting
+
+    parsed_resolution = (
+        ModelResolution(resolution)
+        if resolution is not None
+        else (
+            ModelResolution.RESOLVED_IDENTIFIER
+            if identifier
+            else ModelResolution.PROVIDER_ONLY
+            if provider
+            else ModelResolution.UNRESOLVED_REFERENCE
+            if reference
+            else ModelResolution.DYNAMIC
+        )
+    )
+    metadata[_model_key(ModelSemanticKey.RESOLUTION)] = parsed_resolution.value
+
+
+def model_resolution(metadata: Mapping[str, Any]) -> ModelResolution | None:
+    raw = metadata.get(_model_key(ModelSemanticKey.RESOLUTION))
+    if raw is None:
+        return None
+    try:
+        return ModelResolution(raw)
+    except ValueError:
+        return None
+
+
+def model_provenance(metadata: Mapping[str, Any]) -> dict[str, Any]:
+    """Return canonical source-visible model evidence from agent metadata."""
+
+    result: dict[str, Any] = {}
+    for field in ModelSemanticKey:
+        value = metadata.get(_model_key(field))
+        if value is not None:
+            result[_model_key(field)] = value
+    return result
+
+
 def validate_agent_semantics(agent: Agent) -> list[str]:
     errors: list[str] = []
     metadata = agent.metadata
@@ -134,6 +244,46 @@ def validate_agent_semantics(agent: Agent) -> list[str]:
         errors.append(
             f"agent {agent.name!r}: invalid source_context {source_context!r}"
         )
+
+    raw_model_resolution = metadata.get(_model_key(ModelSemanticKey.RESOLUTION))
+    parsed_model_resolution = model_resolution(metadata)
+    if raw_model_resolution is not None and parsed_model_resolution is None:
+        errors.append(
+            f"agent {agent.name!r}: invalid model_resolution "
+            f"{raw_model_resolution!r}"
+        )
+
+    hosting = metadata.get(_model_key(ModelSemanticKey.HOSTING))
+    if hosting is not None and hosting not in MODEL_HOSTING_STATES:
+        errors.append(
+            f"agent {agent.name!r}: invalid model_hosting {hosting!r}"
+        )
+
+    if parsed_model_resolution is ModelResolution.RESOLVED_IDENTIFIER:
+        identifier = metadata.get(_model_key(ModelSemanticKey.IDENTIFIER))
+        if not isinstance(identifier, str) or not identifier.strip():
+            errors.append(
+                f"agent {agent.name!r}: resolved model must declare model identifier"
+            )
+    elif parsed_model_resolution is ModelResolution.PROVIDER_ONLY:
+        provider = metadata.get(_model_key(ModelSemanticKey.PROVIDER))
+        if not isinstance(provider, str) or not provider.strip():
+            errors.append(
+                f"agent {agent.name!r}: provider-only model must declare provider"
+            )
+    elif parsed_model_resolution is ModelResolution.UNRESOLVED_REFERENCE:
+        reference = metadata.get(_model_key(ModelSemanticKey.REFERENCE))
+        if not isinstance(reference, str) or not reference.strip():
+            errors.append(
+                f"agent {agent.name!r}: unresolved model must declare model_reference"
+            )
+    elif parsed_model_resolution is ModelResolution.NOT_EXPOSED:
+        limitation = metadata.get(_model_key(ModelSemanticKey.LIMITATION))
+        if not isinstance(limitation, str) or not limitation.strip():
+            errors.append(
+                f"agent {agent.name!r}: not_exposed model must declare "
+                "model_provenance_limitation"
+            )
 
     for tool in agent.tools:
         delegate_target = tool.metadata.get("delegate_target")

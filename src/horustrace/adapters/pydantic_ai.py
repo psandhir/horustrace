@@ -30,6 +30,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
+from horustrace.semantic_contract import set_model_provenance
 
 _PYDANTIC_PREFIXES = ("pydantic_ai", "pydantic_ai_harness")
 _AGENT_RUN_METHODS = {
@@ -248,15 +249,17 @@ def _pydantic_model_metadata(
     resolved = _assigned_expr(node, assignments)
     literal = _literal(resolved)
     if isinstance(literal, str):
-        return {"model": literal}
+        metadata: dict[str, Any] = {}
+        set_model_provenance(metadata, identifier=literal)
+        return metadata
 
     if not isinstance(resolved, ast.Call):
+        metadata = {}
         if isinstance(node, ast.Name):
-            return {
-                "model_reference": node.id,
-                "model_resolution": "unresolved_reference",
-            }
-        return {"model_resolution": "dynamic"}
+            set_model_provenance(metadata, reference=node.id)
+        else:
+            set_model_provenance(metadata)
+        return metadata
 
     constructor = _call_name(resolved.func) or "model"
     provider = _MODEL_CONSTRUCTOR_PROVIDERS.get(constructor)
@@ -302,35 +305,30 @@ def _pydantic_model_metadata(
         )
 
     source_module = imports.get(constructor)
-    metadata: dict[str, Any] = {
-        "model_constructor": constructor,
-        "model_resolution": (
-            "resolved_identifier"
-            if isinstance(model_name, str) and model_name
-            else "provider_only"
-            if provider
-            else "dynamic"
-        ),
-    }
-    if isinstance(model_name, str) and model_name:
-        metadata["model"] = model_name
-    if provider:
-        metadata["model_provider"] = provider
-        metadata["model_hosting"] = (
+    metadata = {}
+    set_model_provenance(
+        metadata,
+        identifier=model_name if isinstance(model_name, str) and model_name else None,
+        provider=provider,
+        hosting=(
             "self_hosted"
             if provider in _SELF_HOSTED_MODEL_PROVIDERS
             else "provider_hosted"
-        )
-    if isinstance(endpoint, str) and endpoint:
-        metadata["model_endpoint"] = endpoint
-    if isinstance(region, str) and region:
-        metadata["model_region"] = region
-    if source_module:
-        metadata["model_source_reference"] = f"{source_module}.{constructor}"
-    if provider_source:
-        metadata["model_provider_source_reference"] = (
+            if provider
+            else None
+        ),
+        endpoint=endpoint if isinstance(endpoint, str) and endpoint else None,
+        region=region if isinstance(region, str) and region else None,
+        source_reference=(
+            f"{source_module}.{constructor}" if source_module else None
+        ),
+        provider_source_reference=(
             f"{provider_source}.{_call_name(provider_node.func)}"
-        )
+            if provider_source
+            else None
+        ),
+        constructor=constructor,
+    )
     return metadata
 
 

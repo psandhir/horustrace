@@ -14,7 +14,11 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
-from horustrace.semantic_contract import ToolControlState, set_tool_control
+from horustrace.semantic_contract import (
+    ToolControlState,
+    set_model_provenance,
+    set_tool_control,
+)
 
 FRAMEWORK = "claude-agent-sdk"
 _SDK = "@anthropic-ai/claude-agent-sdk"
@@ -816,6 +820,14 @@ def _subagents(
             agent.metadata["tool_surface_inherited"] = True
         else:
             agent.tools.extend(_builtin(path, source, offset, item) for item in tools)
+        model = _string_property(body, "model")
+        if model:
+            set_model_provenance(
+                agent.metadata,
+                identifier=model,
+                provider="anthropic",
+                hosting="provider_hosted",
+            )
         permission = _string_property(body, "permissionMode")
         if permission:
             agent.metadata["permission_mode"] = permission
@@ -872,6 +884,15 @@ def scan_claude_agent_sdk_typescript_file(path: Path) -> Graph:
                 "tool_surface": "explicit",
             },
         )
+
+        model = _string_property(body, "model")
+        if model:
+            set_model_provenance(
+                agent.metadata,
+                identifier=model,
+                provider="anthropic",
+                hosting="provider_hosted",
+            )
 
         tool_names = _string_array(body, "tools")
         tools_present = _has_property(body, "tools")

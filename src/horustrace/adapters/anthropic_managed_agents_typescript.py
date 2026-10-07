@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 from horustrace.models import Agent, Graph, MCPServer, SourceLocation, Tool
+from horustrace.semantic_contract import set_model_provenance
 
 FRAMEWORK = "claude-managed-agents"
 _EXTENSIONS = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
@@ -260,7 +261,12 @@ def _apply_builder(
             if field == "name":
                 agent.name = value
             else:
-                agent.metadata["model"] = value
+                set_model_provenance(
+                    agent.metadata,
+                    identifier=value,
+                    provider="anthropic",
+                    hosting="provider_hosted",
+                )
 
     servers: dict[str, MCPServer] = {server.name: server for server in agent.mcp_servers}
     for object_body, offset in _object_candidates(body, "url"):
@@ -408,7 +414,12 @@ def scan_anthropic_managed_agents_typescript_file(path: Path) -> Graph:
             if field == "name":
                 agent.name = value
             else:
-                agent.metadata["model"] = value
+                set_model_provenance(
+                    agent.metadata,
+                    identifier=value,
+                    provider="anthropic",
+                    hosting="provider_hosted",
+                )
 
         for spread in re.finditer(r"\.\.\.([A-Za-z_$][\w$]*)\s*\(", body):
             local = spread.group(1)

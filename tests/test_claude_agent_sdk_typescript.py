@@ -393,3 +393,34 @@ async function run() {
 
     finding_ids = {item.rule_id for item in evaluate(graph)}
     assert "AGT040" not in finding_ids
+
+def test_claude_typescript_model_provenance_is_canonical(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        """
+import { query } from "@anthropic-ai/claude-agent-sdk";
+
+const options = {
+  model: "claude-sonnet-4-6",
+  tools: ["Read"],
+};
+
+async function run() {
+  for await (const message of query({
+    prompt: "inspect",
+    options,
+  })) {
+    console.log(message);
+  }
+}
+""",
+    )
+
+    graph = scan_claude_agent_sdk_typescript_file(path)
+    agent = graph.agents[0]
+
+    assert agent.metadata["model"] == "claude-sonnet-4-6"
+    assert agent.metadata["model_provider"] == "anthropic"
+    assert agent.metadata["model_hosting"] == "provider_hosted"
+    assert agent.metadata["model_resolution"] == "resolved_identifier"
+

@@ -102,3 +102,30 @@ const unrelated = { Agent: true }
     agents = [item for item in graph.agents if item.metadata.get("language") == "typescript"]
     assert len(agents) == 1
     assert agents[0].name == "agent"
+
+def test_strands_typescript_model_provenance_matches_python_contract(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        """
+import { Agent, BedrockModel } from '@strands-agents/sdk'
+
+const agent = new Agent({
+  name: 'research',
+  model: new BedrockModel({
+    modelId: 'anthropic.claude-sonnet-4',
+  }),
+})
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "research")
+
+    assert agent.metadata["model"] == "anthropic.claude-sonnet-4"
+    assert agent.metadata["model_provider"] == "amazon-bedrock"
+    assert agent.metadata["model_hosting"] == "provider_hosted"
+    assert agent.metadata["model_constructor"] == "BedrockModel"
+    assert agent.metadata["model_resolution"] == "resolved_identifier"
+
