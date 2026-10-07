@@ -1,0 +1,53 @@
+name: Attack Path Parity Targeted Fresh Cases
+
+on:
+  push:
+    branches:
+      - research/attack-path-parity-targeted-20261007
+    paths:
+      - ".github/workflows/attack-path-parity-targeted-20261007.yml"
+      - "research/cross-framework-holdout-70-20261007/**"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: attack-path-parity-targeted-20261007
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        case_id:
+          - hold70-openai-agents-04
+          - hold70-openai-agents-06
+          - hold70-openai-agents-08
+          - hold70-amazon-07
+          - hold70-fastagent-06
+          - hold70-anthropic-08
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Install HorusTrace
+        run: python -m pip install -e .
+      - name: Run pinned Fresh case
+        run: |
+          python research/cross-framework-holdout-70-20261007/run_case.py \
+            --case-id "${{ matrix.case_id }}" \
+            --output-dir artifacts
+      - name: Upload case result
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: parity-${{ matrix.case_id }}
+          path: artifacts/${{ matrix.case_id }}/
+          if-no-files-found: warn
+          retention-days: 14
