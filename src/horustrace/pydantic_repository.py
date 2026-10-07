@@ -142,6 +142,29 @@ def _module_by_path(modules: dict[str, _ModuleInfo]) -> dict[Path, _ModuleInfo]:
     return {info.path: info for info in modules.values()}
 
 
+def _local_module(
+    modules: dict[str, _ModuleInfo],
+    requested: str,
+) -> _ModuleInfo | None:
+    """Resolve a repository module when the scan root truncates package prefixes.
+
+    Exact matches win. A suffix match is accepted only when it identifies one
+    scanned module uniquely, so narrowed scan roots never guess between
+    ambiguous local packages.
+    """
+    direct = modules.get(requested)
+    if direct is not None:
+        return direct
+    if not requested:
+        return None
+    matches = [
+        info
+        for name, info in modules.items()
+        if name and requested.endswith(f".{name}")
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
 def _names_from_sequence(node: ast.AST | None) -> list[str]:
     if not isinstance(node, (ast.List, ast.Tuple, ast.Set)):
         return []
@@ -239,12 +262,18 @@ def _call_target(
             return module, name
         imported = info.imports.get(name)
         if imported and imported[1]:
-            return imported
+            target = _local_module(modules, imported[0])
+            return (target.name, imported[1]) if target is not None else imported
         return None
     if isinstance(call.func, ast.Attribute) and isinstance(call.func.value, ast.Name):
         imported = info.imports.get(call.func.value.id)
         if imported and not imported[1]:
-            return imported[0], call.func.attr
+            target = _local_module(modules, imported[0])
+            return (
+                (target.name, call.func.attr)
+                if target is not None
+                else (imported[0], call.func.attr)
+            )
     return None
 
 
@@ -316,7 +345,7 @@ def _resolve_toolset_class(
 ) -> tuple[_ModuleInfo, ast.ClassDef] | None:
     imported = owner.imports.get(candidate)
     if imported and imported[1]:
-        target = modules.get(imported[0])
+        target = _local_module(modules, imported[0])
         if target is not None:
             cls = target.toolset_classes.get(imported[1])
             if cls is not None:
@@ -343,7 +372,7 @@ def _resolve_member(
         return owner, function
     imported = owner.imports.get(member)
     if imported and imported[1]:
-        target = modules.get(imported[0])
+        target = _local_module(modules, imported[0])
         function = target.functions.get(imported[1]) if target is not None else None
         if target is not None and function is not None:
             return target, function
@@ -474,7 +503,7 @@ def _resolve_imported_delegation(
                 imported = info.imports.get(call.func.value.id)
                 if not imported or not imported[1]:
                     continue
-                child_module = modules.get(imported[0])
+                child_module = _local_module(modules, imported[0])
                 if child_module is None:
                     continue
                 matches = agents_by_source.get(

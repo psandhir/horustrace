@@ -68,7 +68,7 @@ def annotate_risk_semantics(graph: Graph) -> None:
         network = _network_semantics(tool)
         sensitive_domain = _sensitive_write_domain(tool)
         if mutation:
-            tool.metadata["mutation_semantics"] = mutation
+            tool.metadata.setdefault("mutation_semantics", mutation)
         if network:
             tool.metadata["network_semantics"] = network
         if sensitive_domain:

@@ -663,6 +663,7 @@ def evaluate(graph: Graph) -> list[Finding]:
                 and not tool.guardrails
                 and tool.approval is not True
                 and _llm_synthetic_control_gap_is_proven(tool)
+                and tool.metadata.get("agent_internal_artifact") is not True
                 and not agent_tool_control
             ):
                 evidence = [
