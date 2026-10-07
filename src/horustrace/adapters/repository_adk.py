@@ -1597,9 +1597,7 @@ def _function_remote_object_semantics(
     candidate_params = [
         name
         for name in params
-        if name == "id"
-        or name.endswith("_id")
-        or name.endswith("_ids")
+        if name == "id" or name.endswith(("_id", "_ids"))
     ]
     if not candidate_params:
         return [], {}
@@ -1645,11 +1643,11 @@ def _function_remote_object_semantics(
         if not called:
             continue
         leaf = (_name(call.func) or "").lower()
-        tokens = set(
+        tokens = {
             part
             for part in called.replace(".", "_").split("_")
             if part
-        )
+        }
         if not (tokens & content_markers or any(marker in leaf for marker in content_markers)):
             continue
         values = [*call.args, *(keyword.value for keyword in call.keywords)]
