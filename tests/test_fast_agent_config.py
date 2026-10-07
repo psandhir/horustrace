@@ -294,3 +294,79 @@ async def main():
     graph, _ = scan(tmp_path)
     agent = next(item for item in graph.agents if item.name == "worker")
     assert [server.name for server in agent.mcp_servers] == ["local"]
+
+
+def test_fast_agent_resolved_config_does_not_leave_unresolved_reference_diagnostic(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "fast-agent.yaml").write_text(
+        """
+mcp:
+  servers:
+    remote_shell_toolkit:
+      command: ./resources/remote_shell_toolkit.exe
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from mcp_agent.core.fastagent import FastAgent
+
+fast = FastAgent("shell")
+
+@fast.agent(
+    name="worker",
+    servers=["remote_shell_toolkit"],
+    tools={"remote_shell_toolkit": ["write_to_remote_shell"]},
+)
+async def worker():
+    pass
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "worker")
+    server = next(
+        item for item in agent.mcp_servers
+        if item.name == "remote_shell_toolkit"
+    )
+
+    assert server.command == "./resources/remote_shell_toolkit.exe"
+    assert server.allowed_tools == ["write_to_remote_shell"]
+    assert server.metadata["repository_resolved"] is True
+    assert not any(
+        diagnostic.details.get("construct") == "mcp_server_reference"
+        and diagnostic.location == agent.location
+        for diagnostic in graph.coverage.diagnostics
+    )
+
+
+def test_fast_agent_missing_config_retains_unresolved_reference_diagnostic(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from mcp_agent.core.fastagent import FastAgent
+
+fast = FastAgent("shell")
+
+@fast.agent(name="worker", servers=["missing_server"])
+async def worker():
+    pass
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    assert any(item.name == "worker" for item in graph.agents)
+
+    assert any(
+        diagnostic.details.get("construct") == "mcp_server_reference"
+        and diagnostic.details.get("server_refs") == ["missing_server"]
+        for diagnostic in graph.coverage.diagnostics
+    )
+    assert any(
+        server.name == "missing_server"
+        for server in graph.unresolved_mcp_references
+    )

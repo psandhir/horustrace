@@ -6,7 +6,8 @@ from copy import deepcopy
 from pathlib import Path
 from urllib.parse import urlparse
 
-from horustrace.models import Agent, Graph, Identity, MCPServer
+from horustrace.coverage import add_diagnostic
+from horustrace.models import Agent, Graph, Identity, MCPServer, ScanDiagnostic
 
 
 def _module_name(path: Path, root: Path) -> str:
@@ -199,6 +200,23 @@ def resolve_fast_agent_mcp_references(graph: Graph) -> None:
             scoped = _fast_agent_scoped_matches(agent, matches)
             selected = scoped if scoped else matches
             if len(selected) != 1:
+                add_diagnostic(
+                    graph.coverage,
+                    ScanDiagnostic(
+                        "unsupported_security_construct",
+                        (
+                            "FastAgent MCP server reference could not be resolved "
+                            "to a unique repository configuration."
+                        ),
+                        agent.location,
+                        details={
+                            "framework": "fast-agent",
+                            "construct": "mcp_server_reference",
+                            "server_refs": [ref],
+                            "candidate_count": len(selected),
+                        },
+                    ),
+                )
                 unresolved.append(
                     _unresolved_reference(
                         agent=agent,

@@ -501,23 +501,6 @@ def scan_python_file(path: Path) -> Graph:
                 metadata["delegates_to"] = delegates_to
             if servers:
                 metadata["mcp_server_refs"] = servers
-                add_diagnostic(
-                    graph.coverage,
-                    ScanDiagnostic(
-                        "unsupported_security_construct",
-                        (
-                            "FastAgent MCP server references were discovered, but "
-                            "endpoint, transport and authentication authority require "
-                            "FastAgent configuration or AgentCard resolution."
-                        ),
-                        _location(path, decorator),
-                        details={
-                            "framework": "fast-agent",
-                            "construct": "mcp_server_reference",
-                            "server_refs": list(servers),
-                        },
-                    ),
-                )
             if dynamic_servers:
                 metadata["dynamic_mcp_servers"] = True
                 add_diagnostic(
