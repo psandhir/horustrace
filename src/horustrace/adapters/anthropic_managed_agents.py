@@ -13,6 +13,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
+from horustrace.semantic_contract import set_model_provenance
 
 FRAMEWORK = "claude-managed-agents"
 
@@ -490,9 +491,20 @@ def _agent_from_call(
     )
     model = _literal(_kw(call, "model"))
     if isinstance(model, str):
-        agent.metadata["model"] = model
+        set_model_provenance(
+            agent.metadata,
+            identifier=model,
+            provider="anthropic",
+            hosting="provider_hosted",
+        )
     elif isinstance(model, dict):
-        agent.metadata["model"] = model.get("id")
+        model_id = model.get("id")
+        set_model_provenance(
+            agent.metadata,
+            identifier=model_id if isinstance(model_id, str) else None,
+            provider="anthropic",
+            hosting="provider_hosted",
+        )
         if model.get("effort") is not None:
             agent.metadata["model_effort"] = model.get("effort")
 
