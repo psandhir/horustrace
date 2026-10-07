@@ -372,7 +372,7 @@ def _resolve_member(
         return owner, function
     imported = owner.imports.get(member)
     if imported and imported[1]:
-        target = modules.get(imported[0])
+        target = _local_module(modules, imported[0])
         function = target.functions.get(imported[1]) if target is not None else None
         if target is not None and function is not None:
             return target, function
