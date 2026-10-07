@@ -1758,6 +1758,114 @@ def _mcp_server_from_expr(
     return None
 
 
+def _console_toolset_tools(
+    path: Path,
+    expr: ast.Call,
+    *,
+    imports: dict[str, str],
+) -> tuple[list[Tool], list[MCPServer], bool] | None:
+    """Normalize the source-visible pydantic-ai-backends console toolset.
+
+    This is package-level semantics, not repository-specific logic. The toolset
+    exposes filesystem read/write and optional shell execution. When enablement
+    is dynamic, preserve possible authority and mark it configuration-dependent.
+    """
+
+    name = _call_name(expr.func) or ""
+    if name != "create_console_toolset":
+        return None
+    module = imports.get(name) or ""
+    if not module.startswith("pydantic_ai_backends"):
+        return None
+
+    include_execute_node = _kw(expr, "include_execute")
+    include_execute = _literal(include_execute_node)
+    execute_possible = include_execute is not False
+    execute_dynamic = include_execute_node is not None and not isinstance(
+        include_execute, bool
+    )
+
+    write_approval = _literal(_kw(expr, "require_write_approval"))
+    execute_approval = _literal(_kw(expr, "require_execute_approval"))
+
+    filesystem = ResourceScope(
+        kind="filesystem",
+        selector="<runtime-backend-filesystem>",
+        access={"data.read", "data.write"},
+        classification="internal",
+        location=_location(path, expr),
+        metadata={
+            "source": "pydantic_ai_backends.create_console_toolset",
+            "runtime_binding": "ctx.deps.backend_or_explicit_backend",
+        },
+    )
+    set_data_resource_provenance(
+        filesystem,
+        selector_provenance="runtime_backend_binding",
+        resource_provenance="console_toolset_backend",
+        source_reference="pydantic_ai_backends.create_console_toolset",
+        resolution="dynamic",
+    )
+
+    read_tool = Tool(
+        name="console:file-read",
+        kind="pydantic_console_toolset",
+        capabilities={"data.read"},
+        resources=[deepcopy(filesystem)],
+        location=_location(path, expr),
+        metadata={
+            "framework": "pydantic-ai",
+            "binding_origin": "create_console_toolset",
+            "console_operations": ["ls", "read_file", "glob", "grep"],
+        },
+    )
+    write_tool = Tool(
+        name="console:file-write",
+        kind="pydantic_console_toolset",
+        capabilities={"data.read", "data.write"},
+        resources=[deepcopy(filesystem)],
+        approval=write_approval if isinstance(write_approval, bool) else None,
+        location=_location(path, expr),
+        metadata={
+            "framework": "pydantic-ai",
+            "binding_origin": "create_console_toolset",
+            "console_operations": ["write_file", "edit_file", "hashline_edit"],
+        },
+    )
+    tools = [read_tool, write_tool]
+
+    if execute_possible:
+        execute_tool = Tool(
+            name="console:execute",
+            kind="pydantic_console_toolset",
+            capabilities={
+                "process.execute",
+                "data.read",
+                "data.write",
+                "network.external",
+            },
+            resources=[deepcopy(filesystem)],
+            approval=execute_approval if isinstance(execute_approval, bool) else None,
+            location=_location(path, expr),
+            metadata={
+                "framework": "pydantic-ai",
+                "binding_origin": "create_console_toolset",
+                "console_operations": [
+                    "execute",
+                    "run_in_background",
+                    "read_output",
+                    "kill_shell",
+                    "list_shells",
+                ],
+                "configuration_dependent": execute_dynamic,
+            },
+        )
+        tools.append(execute_tool)
+
+    dynamic = execute_dynamic
+    return tools, [], dynamic
+
+
 def _toolset_tools(
     path: Path,
     expr: ast.AST,
@@ -1815,6 +1923,9 @@ def _toolset_tools(
         return [], [mcp], bool(mcp.metadata.get("dynamic_mcp_endpoint"))
 
     name = _call_name(expr.func)
+    console = _console_toolset_tools(path, expr, imports=imports)
+    if console is not None:
+        return console
     if name == "Capability":
         # Pydantic AI's declarative Capability is an authority-bearing bundle:
         # it can contribute function tools and nested toolsets to any Agent that
@@ -2750,7 +2861,10 @@ def _annotate_cli_run_inputs(
         alias: agent
         for alias, agent in agents.items()
         if agent.location is not None
-        and enclosing_function(agent.location.line) is None
+        and enclosing_function(
+            int(agent.metadata.get("factory_assignment_line") or agent.location.line)
+        )
+        is None
     }
 
     for fn in functions:
@@ -2758,7 +2872,10 @@ def _annotate_cli_run_inputs(
         for alias, agent in agents.items():
             if agent.location is None:
                 continue
-            owner = enclosing_function(agent.location.line)
+            effective_line = int(
+                agent.metadata.get("factory_assignment_line") or agent.location.line
+            )
+            owner = enclosing_function(effective_line)
             if owner is fn:
                 available[alias] = agent
         if not available:
@@ -3103,7 +3220,10 @@ def scan_python_file(path: Path) -> Graph:
     agent_calls: dict[str, ast.Call] = {}
     factory_agent_aliases: set[str] = set()
     factory_alias_sources: dict[str, str] = {}
+    factory_alias_locations: dict[str, SourceLocation] = {}
     factory_returns: dict[str, ast.Call] = {}
+    factory_return_toolsets: dict[str, list[ast.AST]] = {}
+    factory_alias_toolsets: dict[str, list[ast.AST]] = {}
     declared_mcp_servers: dict[str, MCPServer] = {}
 
     for node in ast.walk(tree):
@@ -3143,6 +3263,8 @@ def scan_python_file(path: Path) -> Graph:
         ) -> None:
             self.root = root
             self.calls: list[ast.Call] = []
+            self.local_agents: dict[str, ast.Call] = {}
+            self.return_toolsets: list[ast.AST] = []
 
         def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
             if node is self.root:
@@ -3155,10 +3277,46 @@ def scan_python_file(path: Path) -> Graph:
         def visit_Lambda(self, node: ast.Lambda) -> None:
             return
 
+        def visit_Assign(self, node: ast.Assign) -> None:
+            if isinstance(node.value, ast.Call) and _call_name(node.value.func) == "Agent":
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        self.local_agents[target.id] = node.value
+            self.generic_visit(node)
+
+        def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+            if (
+                isinstance(node.target, ast.Name)
+                and isinstance(node.value, ast.Call)
+                and _call_name(node.value.func) == "Agent"
+            ):
+                self.local_agents[node.target.id] = node.value
+            self.generic_visit(node)
+
         def visit_Return(self, node: ast.Return) -> None:
             value = node.value
             if isinstance(value, ast.Call) and _call_name(value.func) == "Agent":
                 self.calls.append(value)
+            elif (
+                isinstance(value, ast.Call)
+                and isinstance(value.func, ast.Attribute)
+                and value.func.attr in {"with_toolset", "with_toolsets"}
+            ):
+                receiver = _call_name(value.func.value)
+                base = self.local_agents.get(receiver or "")
+                if base is not None:
+                    self.calls.append(base)
+                    raw = (
+                        value.args[0]
+                        if value.args
+                        else _kw(value, "toolset")
+                        or _kw(value, "toolsets")
+                    )
+                    if raw is not None:
+                        if isinstance(raw, (ast.List, ast.Tuple, ast.Set)):
+                            self.return_toolsets.extend(raw.elts)
+                        else:
+                            self.return_toolsets.append(raw)
             self.generic_visit(node)
 
     for function in functions.values():
@@ -3167,6 +3325,8 @@ def scan_python_file(path: Path) -> Graph:
         if len(visitor.calls) != 1:
             continue
         factory_returns[function.name] = visitor.calls[0]
+        if visitor.return_toolsets:
+            factory_return_toolsets[function.name] = list(visitor.return_toolsets)
 
     # Materialize source-visible factory instances. Assignment from a local
     # factory proves a concrete agent instance, and later agent.tool(...)
@@ -3183,6 +3343,9 @@ def scan_python_file(path: Path) -> Graph:
         agent_calls[alias] = returned
         factory_agent_aliases.add(alias)
         factory_alias_sources[alias] = factory_name
+        factory_alias_locations[alias] = _location(path, value)
+        if factory_name in factory_return_toolsets:
+            factory_alias_toolsets[alias] = list(factory_return_toolsets[factory_name])
         instantiated_factories.add(factory_name)
 
     # Preserve a factory-level construction only when the source exposes no
@@ -3194,6 +3357,10 @@ def scan_python_file(path: Path) -> Graph:
         agent_calls[factory_name] = returned
         factory_agent_aliases.add(factory_name)
         factory_alias_sources[factory_name] = factory_name
+        if factory_name in factory_return_toolsets:
+            factory_alias_toolsets[factory_name] = list(
+                factory_return_toolsets[factory_name]
+            )
 
     decorated_toolsets: dict[str, list[Tool]] = {}
     added_toolsets: dict[str, list[Tool]] = {}
@@ -3282,6 +3449,18 @@ def scan_python_file(path: Path) -> Graph:
                             "factory_assignment"
                             if factory_alias_sources.get(alias, alias) != alias
                             else "direct_factory_return"
+                        ),
+                        **(
+                            {
+                                "factory_assignment_line": factory_alias_locations[
+                                    alias
+                                ].line,
+                                "factory_assignment_column": factory_alias_locations[
+                                    alias
+                                ].column,
+                            }
+                            if alias in factory_alias_locations
+                            else {}
                         ),
                     }
                     if alias in factory_agent_aliases
@@ -3437,6 +3616,27 @@ def scan_python_file(path: Path) -> Graph:
                     agent.mcp_servers.extend(servers)
                     if dynamic:
                         agent.metadata["dynamic_tools"] = True
+
+        for element in factory_alias_toolsets.get(alias, []):
+            tools, servers, dynamic = _toolset_tools(
+                path,
+                element,
+                functions,
+                assignments,
+                sequences,
+                imports,
+                decorated_toolsets,
+                added_toolsets,
+            )
+            for tool in tools:
+                tool.metadata["binding_origin"] = "factory_return.with_toolset"
+                _merge_tool(agent.tools, tool)
+            for server in servers:
+                server.metadata["binding_origin"] = "factory_return.with_toolset"
+                agent.mcp_servers.append(server)
+            if dynamic:
+                agent.metadata["dynamic_tools"] = True
+            agent.metadata["factory_return_toolset"] = True
 
         capabilities_expr = _agent_kw(call, "capabilities", tree, assignments)
         safety_capabilities: list[str] = []

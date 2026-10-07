@@ -2163,3 +2163,133 @@ def build(model):
     assert agent.metadata["model_reference"] == "model"
     assert agent.metadata["model_resolution"] == "unresolved_reference"
 
+def test_pydantic_factory_return_with_console_toolset_composes_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from dataclasses import dataclass
+from pydantic_ai import Agent
+from pydantic_ai_backends import LocalBackend, create_console_toolset
+
+@dataclass
+class AgentDeps:
+    backend: LocalBackend
+
+def create_cli_agent(enable_execute: bool = True):
+    toolset = create_console_toolset(
+        include_execute=enable_execute,
+        require_write_approval=False,
+        require_execute_approval=False,
+    )
+    base_agent = Agent("openai:gpt-4o-mini", deps_type=AgentDeps)
+    return base_agent.with_toolset(toolset)
+
+agent = create_cli_agent(enable_execute=runtime_flag)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("factory_function") == "create_cli_agent"
+    )
+
+    assert agent.metadata["factory_return_toolset"] is True
+    tools = {tool.name: tool for tool in agent.tools}
+    assert {"console:file-read", "console:file-write", "console:execute"} <= set(tools)
+    assert tools["console:file-read"].capabilities == {"data.read"}
+    assert tools["console:file-write"].capabilities == {"data.read", "data.write"}
+    assert tools["console:file-write"].approval is False
+    assert "process.execute" in tools["console:execute"].capabilities
+    assert tools["console:execute"].approval is False
+    assert tools["console:execute"].metadata["configuration_dependent"] is True
+
+    resource = tools["console:execute"].resources[0]
+    assert resource.selector == "<runtime-backend-filesystem>"
+    assert resource.metadata["data_connection_type"] == "filesystem"
+    assert resource.metadata["data_connection_resolution"] == "dynamic"
+    assert resource.metadata["resource_provenance"] == "console_toolset_backend"
+
+
+def test_pydantic_console_toolset_literal_execute_false_removes_process_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+from pydantic_ai_backends import create_console_toolset
+
+def create_readwrite_agent():
+    toolset = create_console_toolset(
+        include_execute=False,
+        require_write_approval=True,
+    )
+    base_agent = Agent("openai:gpt-4o-mini")
+    return base_agent.with_toolset(toolset)
+
+agent = create_readwrite_agent()
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("factory_function") == "create_readwrite_agent"
+    )
+
+    tools = {tool.name: tool for tool in agent.tools}
+    assert "console:execute" not in tools
+    assert tools["console:file-write"].approval is True
+    assert "data.write" in agent.capabilities
+    assert "process.execute" not in agent.capabilities
+
+def test_pydantic_factory_instance_cli_input_reaches_console_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import asyncio
+from pydantic_ai import Agent
+from pydantic_ai_backends import create_console_toolset
+
+def create_cli_agent():
+    toolset = create_console_toolset(
+        include_execute=True,
+        require_write_approval=False,
+        require_execute_approval=False,
+    )
+    base_agent = Agent("openai:gpt-4o-mini")
+    return base_agent.with_toolset(toolset)
+
+async def main():
+    cli_agent = create_cli_agent()
+    user_input = input("You: ")
+    await cli_agent.run(user_input)
+
+asyncio.run(main())
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("factory_function") == "create_cli_agent"
+    )
+
+    assert agent.metadata["factory_instance"] is True
+    assert agent.metadata["factory_assignment_line"] > agent.location.line
+    assert any(
+        source.metadata.get("basis") == "pydantic_ai_cli_input_to_run"
+        for source in agent.inputs
+    )
+    assert "process.execute" in agent.capabilities
+    assert "data.read" in agent.capabilities
+    assert "data.write" in agent.capabilities
+
