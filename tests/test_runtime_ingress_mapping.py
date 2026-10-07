@@ -565,5 +565,7 @@ executor = StrandsAgentExecutor(DocAgent())
         for item in graph.attack_paths
         if item.path_id == "PATH001" and item.agent == "docs"
     )
-    assert path.metadata["basis"] == "source_bound_ingress_authority"
+    # The flow engine can prove this path directly, which is stronger than
+    # the source-bound ingress/authority fallback added by this remediation.
+    assert path.metadata["basis"] == "static_dataflow"
     assert path.nodes[-1] == "process.execute"
