@@ -22,6 +22,7 @@ _RUNTIME_METHODS = {
     "run_stream",
     "run_stream_sync",
     "run_stream_events",
+    "stream_async",
     "invoke",
     "ainvoke",
     "stream",
@@ -1173,6 +1174,248 @@ def _helper_runtime_invocations(
     return list(result.values())
 
 
+def _a2a_executor_ingress_targets(
+    graph: Graph,
+    modules: dict[Path, tuple[str, ast.Module, dict[str, str]]],
+) -> list[tuple[Agent, Path, ast.FunctionDef | ast.AsyncFunctionDef, str]]:
+    """Resolve A2A RequestContext ingress through repository-local executor wrappers."""
+    agents_by_path: dict[Path, list[Agent]] = {}
+    for agent in graph.agents:
+        if agent.location is not None:
+            agents_by_path.setdefault(agent.location.path.resolve(), []).append(agent)
+
+    class_defs: dict[str, list[tuple[Path, ast.ClassDef]]] = {}
+    for path, (_, tree, _) in modules.items():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                class_defs.setdefault(node.name, []).append((path, node))
+
+    def method(class_node: ast.ClassDef, name: str):
+        return next(
+            (
+                item for item in class_node.body
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and item.name == name
+            ),
+            None,
+        )
+
+    def field_parameters(class_node: ast.ClassDef) -> dict[str, tuple[str, int]]:
+        init = method(class_node, "__init__")
+        if init is None:
+            return {}
+        parameters = [arg.arg for arg in init.args.args if arg.arg != "self"]
+        result: dict[str, tuple[str, int]] = {}
+        for node in ast.walk(init):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            if not isinstance(value, ast.Name) or value.id not in parameters:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                if (
+                    isinstance(target, ast.Attribute)
+                    and isinstance(target.value, ast.Name)
+                    and target.value.id == "self"
+                ):
+                    result[target.attr] = (value.id, parameters.index(value.id))
+        return result
+
+    def wrapper_names(executor_name: str, parameter_index: int) -> set[str]:
+        result: set[str] = set()
+        for _, tree, _ in modules.values():
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                if (_call_name(node.func) or "") != executor_name:
+                    continue
+                if parameter_index >= len(node.args):
+                    continue
+                value = node.args[parameter_index]
+                if isinstance(value, ast.Call):
+                    wrapper = _call_name(value.func)
+                    if wrapper:
+                        result.add(wrapper)
+        return result
+
+    def agents_in_scope(path: Path, function) -> list[Agent]:
+        start = getattr(function, "lineno", 0) or 0
+        end = getattr(function, "end_lineno", start) or start
+        return [
+            agent
+            for agent in agents_by_path.get(path.resolve(), [])
+            if agent.location is not None
+            and start <= agent.location.line <= end
+        ]
+
+    resolved: list[tuple[Agent, Path, ast.FunctionDef | ast.AsyncFunctionDef, str]] = []
+    seen: set[tuple[int, str]] = set()
+
+    for executor_name, definitions in class_defs.items():
+        for executor_path, executor in definitions:
+            bases = {
+                (_dotted(base) or _call_name(base) or "").rsplit(".", 1)[-1]
+                for base in executor.bases
+            }
+            if "AgentExecutor" not in bases:
+                continue
+            execute = method(executor, "execute")
+            if execute is None:
+                continue
+
+            context_names = {
+                name
+                for name, annotation in _parameter_annotations(execute)
+                if (_annotation_name(annotation) or "").rsplit(".", 1)[-1]
+                == "RequestContext"
+            }
+            if not context_names:
+                continue
+            tainted = _propagate_taint(execute, context_names)
+
+            fields = field_parameters(executor)
+            for node in ast.walk(execute):
+                if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                    continue
+                receiver = node.func.value
+                if not (
+                    isinstance(receiver, ast.Attribute)
+                    and isinstance(receiver.value, ast.Name)
+                    and receiver.value.id == "self"
+                    and receiver.attr in fields
+                ):
+                    continue
+                values = [*node.args, *(keyword.value for keyword in node.keywords)]
+                tainted_indexes = [
+                    index
+                    for index, value in enumerate(node.args)
+                    if _expr_tainted(value, tainted)
+                ]
+                if not tainted_indexes and not any(
+                    _expr_tainted(value, tainted) for value in values
+                ):
+                    continue
+
+                _, parameter_index = fields[receiver.attr]
+                wrappers = wrapper_names(executor_name, parameter_index)
+                for wrapper_name in wrappers:
+                    wrapper_defs = class_defs.get(wrapper_name, [])
+                    if len(wrapper_defs) != 1:
+                        continue
+                    wrapper_path, wrapper_class = wrapper_defs[0]
+                    wrapper_method = method(wrapper_class, node.func.attr)
+                    if wrapper_method is None:
+                        continue
+
+                    wrapper_parameters = [
+                        arg.arg for arg in wrapper_method.args.args
+                        if arg.arg != "self"
+                    ]
+                    wrapper_taint = {
+                        wrapper_parameters[index]
+                        for index in tainted_indexes
+                        if index < len(wrapper_parameters)
+                    }
+                    if not wrapper_taint:
+                        continue
+                    wrapper_tainted = _propagate_taint(
+                        wrapper_method,
+                        wrapper_taint,
+                    )
+
+                    helper_names: set[str] = set()
+                    direct_agents = agents_in_scope(wrapper_path, wrapper_method)
+                    for inner in ast.walk(wrapper_method):
+                        if isinstance(inner, (ast.Assign, ast.AnnAssign)):
+                            value = inner.value
+                            if (
+                                isinstance(value, ast.Call)
+                                and isinstance(value.func, ast.Attribute)
+                                and isinstance(value.func.value, ast.Name)
+                                and value.func.value.id == "self"
+                            ):
+                                helper_names.add(value.func.attr)
+
+                    target_agents = list(direct_agents)
+                    for helper_name in helper_names:
+                        helper_method = method(wrapper_class, helper_name)
+                        if helper_method is not None:
+                            target_agents.extend(
+                                agents_in_scope(wrapper_path, helper_method)
+                            )
+
+                    # Require a source-visible runtime call that consumes the
+                    # wrapper's tainted request parameter before binding ingress.
+                    runtime_consumed = any(
+                        isinstance(inner, ast.Call)
+                        and (
+                            _call_name(inner.func) in _RUNTIME_METHODS
+                            or (
+                                isinstance(inner.func, ast.Attribute)
+                                and inner.func.attr in _RUNTIME_METHODS
+                            )
+                        )
+                        and any(
+                            _expr_tainted(value, wrapper_tainted)
+                            for value in [
+                                *inner.args,
+                                *(kw.value for kw in inner.keywords),
+                            ]
+                        )
+                        for inner in ast.walk(wrapper_method)
+                    )
+                    if not runtime_consumed:
+                        continue
+
+                    for agent in target_agents:
+                        key = (id(agent), f"{executor_name}.{execute.name}")
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        resolved.append(
+                            (agent, executor_path, execute, wrapper_name)
+                        )
+
+    return resolved
+
+
+def _enrich_a2a_executor_ingress(
+    graph: Graph,
+    modules: dict[Path, tuple[str, ast.Module, dict[str, str]]],
+) -> None:
+    for agent, path, execute, wrapper_name in _a2a_executor_ingress_targets(
+        graph,
+        modules,
+    ):
+        input_name = f"{path.stem}.{execute.name}:external-input"
+        if any(
+            item.name == input_name
+            and item.metadata.get("basis") == "source_bound_runtime_ingress"
+            for item in agent.inputs
+        ):
+            continue
+        agent.inputs.append(
+            InputSource(
+                name=input_name,
+                trust="untrusted",
+                kind="external",
+                location=SourceLocation(
+                    path,
+                    getattr(execute, "lineno", 1) or 1,
+                    (getattr(execute, "col_offset", 0) or 0) + 1,
+                ),
+                metadata={
+                    "basis": "source_bound_runtime_ingress",
+                    "runtime_invocation_proven": True,
+                    "ingress_framework": "a2a",
+                    "handler": execute.name,
+                    "wrapper_class": wrapper_name,
+                },
+            )
+        )
+
+
 def enrich_runtime_ingress_inputs(
     graph: Graph,
     root: Path,
@@ -1309,3 +1552,5 @@ def enrich_runtime_ingress_inputs(
                         },
                     )
                 )
+
+    _enrich_a2a_executor_ingress(graph, modules)

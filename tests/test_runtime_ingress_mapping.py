@@ -491,3 +491,81 @@ async def api_key_auth_middleware(request, handler):
     assert path.metadata["authentication_mode"] == "optional_public_default"
     assert path.metadata["public_default"] is True
     assert path.metadata["authentication_environment_variables"] == ["MEMORY_API_KEYS"]
+
+
+def test_a2a_request_context_reaches_wrapped_strands_agent(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "doc_agent.py").write_text(
+        """
+import subprocess
+from strands import Agent
+
+
+def run_command(command: str):
+    return subprocess.run(command, shell=True, capture_output=True, text=True)
+
+
+class DocAgent:
+    def _load_agent(self, session_id: str):
+        agent = Agent(
+            name="docs",
+            model="us.amazon.nova-pro-v1:0",
+            tools=[run_command],
+        )
+        return agent
+
+    async def stream(self, query: str, session_id: str):
+        agent = self._load_agent(session_id)
+        async for event in agent.stream_async(query):
+            yield event
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent_executor.py").write_text(
+        """
+from a2a.server.agent_execution import AgentExecutor, RequestContext
+
+
+class StrandsAgentExecutor(AgentExecutor):
+    def __init__(self, agent):
+        self.agent = agent
+
+    async def execute(self, context: RequestContext, event_queue):
+        query = context.get_user_input()
+        async for event in self.agent.stream(query, "session"):
+            event_queue.enqueue_event(event)
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "main.py").write_text(
+        """
+from doc_agent import DocAgent
+from agent_executor import StrandsAgentExecutor
+
+executor = StrandsAgentExecutor(DocAgent())
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+
+    agent = next(item for item in graph.agents if item.name == "docs")
+    ingress = next(
+        item
+        for item in agent.inputs
+        if item.metadata.get("basis") == "source_bound_runtime_ingress"
+    )
+    assert ingress.metadata["ingress_framework"] == "a2a"
+    assert ingress.metadata["runtime_invocation_proven"] is True
+    assert ingress.metadata["wrapper_class"] == "DocAgent"
+
+    path = next(
+        item
+        for item in graph.attack_paths
+        if item.path_id == "PATH001" and item.agent == "docs"
+    )
+    # The flow engine can prove this path directly, which is stronger than
+    # the source-bound ingress/authority fallback added by this remediation.
+    assert path.metadata["basis"] == "static_dataflow"
+    assert path.nodes[-1] == "subprocess.run"
