@@ -1883,3 +1883,130 @@ root_agent = AlphaBotAgent()
     assert path.metadata["basis"] == "source_bound_ingress_authority"
     assert path.metadata["destination_provenance"] == "model_selected_url_argument"
 
+
+def test_adk_model_selected_external_resource_ids_enter_effective_authority(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        """
+from box_ai_agents_toolkit import (
+    box_file_ai_ask,
+    box_folder_list_content,
+    get_ccg_client,
+)
+from google.adk.agents import LlmAgent
+
+
+def box_ask_ai_tool(file_id: str, prompt: str) -> dict:
+    client = get_ccg_client()
+    return box_file_ai_ask(client, file_id, prompt=prompt)
+
+
+def box_list_folder_content_by_folder_id(
+    folder_id: str,
+    is_recursive: bool,
+) -> list[dict]:
+    client = get_ccg_client()
+    return box_folder_list_content(client, folder_id, is_recursive)
+
+
+root_agent = LlmAgent(
+    name="box_generic_agent",
+    model="gemini-2.0-flash",
+    tools=[box_ask_ai_tool, box_list_folder_content_by_folder_id],
+)
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "box_generic_agent")
+    ask = next(item for item in agent.tools if item.name == "box_ask_ai_tool")
+    listing = next(
+        item
+        for item in agent.tools
+        if item.name == "box_list_folder_content_by_folder_id"
+    )
+
+    ask_scope = next(
+        item
+        for item in ask.resources
+        if item.selector == "file_id"
+    )
+    assert ask_scope.kind == "external_resource"
+    assert ask_scope.classification == "external"
+    assert ask_scope.access == {"data.read"}
+    assert ask_scope.metadata["provider"] == "box"
+    assert ask_scope.metadata["resource_type"] == "file"
+    assert ask_scope.metadata["selector_provenance"] == "model_selected"
+
+    folder_scope = next(
+        item
+        for item in listing.resources
+        if item.selector == "folder_id"
+    )
+    assert folder_scope.kind == "external_resource"
+    assert folder_scope.classification == "external"
+    assert folder_scope.access == {"data.read"}
+    assert folder_scope.metadata["provider"] == "box"
+    assert folder_scope.metadata["resource_type"] == "folder"
+    assert folder_scope.metadata["selector_provenance"] == "model_selected"
+
+    relationships = {
+        item["target"]["name"]: item
+        for item in effective_authority_report(graph)["relationships"]
+        if item["agent"] == "box_generic_agent"
+    }
+    ask_authority = relationships["box_ask_ai_tool"]
+    assert ask_authority["dimensions"]["resources"] == "resolved"
+    assert any(
+        resource["selector"] == "file_id"
+        and resource["metadata"]["provider"] == "box"
+        and resource["metadata"]["selector_provenance"] == "model_selected"
+        for resource in ask_authority["resources"]
+    )
+    folder_authority = relationships["box_list_folder_content_by_folder_id"]
+    assert folder_authority["dimensions"]["resources"] == "resolved"
+    assert any(
+        resource["selector"] == "folder_id"
+        and resource["metadata"]["provider"] == "box"
+        and resource["metadata"]["selector_provenance"] == "model_selected"
+        for resource in folder_authority["resources"]
+    )
+
+
+def test_adk_local_helper_id_does_not_invent_external_resource_scope(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        """
+def internal_lookup(record_id: str) -> str:
+    return record_id
+""",
+        "helpers.py",
+    )
+    write(
+        tmp_path,
+        """
+from google.adk.agents import LlmAgent
+from helpers import internal_lookup
+
+
+def lookup_tool(record_id: str) -> str:
+    return internal_lookup(record_id)
+
+
+root_agent = LlmAgent(
+    name="local_lookup",
+    model="gemini-flash-latest",
+    tools=[lookup_tool],
+)
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "local_lookup")
+    tool = next(item for item in agent.tools if item.name == "lookup_tool")
+    assert not tool.resources
+
