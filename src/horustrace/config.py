@@ -34,10 +34,22 @@ class RuleOverride:
 
 
 @dataclass(frozen=True)
+class InventoryConfig:
+    repository_id: str | None = None
+    project: str | None = None
+    owner: str | None = None
+    team: str | None = None
+    business_service: str | None = None
+    environment: str | None = None
+    lifecycle: str | None = None
+
+
+@dataclass(frozen=True)
 class ScanConfig:
     strict: bool = False
     rules: dict[str, RuleOverride] = field(default_factory=dict)
     source_path: Path | None = None
+    inventory: InventoryConfig = field(default_factory=InventoryConfig)
 
 
 def load_config(root: Path, explicit: Path | None = None) -> ScanConfig:
@@ -55,11 +67,36 @@ def load_config(root: Path, explicit: Path | None = None) -> ScanConfig:
         raise ConfigError(f"{path}: {exc}") from exc
     except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
         raise ConfigError(f"{path}: cannot read configuration") from exc
-    if not isinstance(raw, dict) or set(raw) - {"version", "rules", "scanner"} or type(raw.get("version")) is not int or raw["version"] != 1:
+    if not isinstance(raw, dict) or set(raw) - {"version", "rules", "scanner", "inventory"} or type(raw.get("version")) is not int or raw["version"] != 1:
         raise ConfigError(f"{path}: invalid configuration schema")
     scanner = raw.get("scanner", {})
     if not isinstance(scanner, dict) or set(scanner) - {"strict"} or type(scanner.get("strict", False)) is not bool:
         raise ConfigError(f"{path}: invalid scanner configuration")
+    inventory_raw = raw.get("inventory", {})
+    inventory_fields = {
+        "repository_id",
+        "project",
+        "owner",
+        "team",
+        "business_service",
+        "environment",
+        "lifecycle",
+    }
+    if not isinstance(inventory_raw, dict) or set(inventory_raw) - inventory_fields:
+        raise ConfigError(f"{path}: invalid inventory configuration")
+    for key, value in inventory_raw.items():
+        if not isinstance(value, str) or not value.strip():
+            raise ConfigError(f"{path}: inventory.{key} must be a non-empty string")
+    inventory = InventoryConfig(
+        repository_id=inventory_raw.get("repository_id"),
+        project=inventory_raw.get("project"),
+        owner=inventory_raw.get("owner"),
+        team=inventory_raw.get("team"),
+        business_service=inventory_raw.get("business_service"),
+        environment=inventory_raw.get("environment"),
+        lifecycle=inventory_raw.get("lifecycle"),
+    )
+
     rules = raw.get("rules", {})
     if not isinstance(rules, dict):
         raise ConfigError(f"{path}: rules must be a mapping")
@@ -74,7 +111,7 @@ def load_config(root: Path, explicit: Path | None = None) -> ScanConfig:
         except (TypeError, ValueError) as exc:
             raise ConfigError(f"{path}: invalid severity for {rule_id}") from exc
         parsed[rule_id] = RuleOverride(item.get("enabled", True), severity)
-    return ScanConfig(scanner.get("strict", False), parsed, path)
+    return ScanConfig(scanner.get("strict", False), parsed, path, inventory)
 
 
 def apply(config: ScanConfig, findings: list[Finding]) -> tuple[list[Finding], list[str]]:
