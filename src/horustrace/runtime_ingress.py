@@ -733,6 +733,61 @@ def _handler_receivers(
     return receivers
 
 
+def _claude_sdk_client_receivers(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    receivers: dict[str, Agent],
+    local_receivers: dict[str, list[Agent]],
+) -> dict[str, Agent]:
+    """Bind ClaudeSDKClient aliases to source-proven Claude options agents."""
+    result: dict[str, Agent] = {}
+
+    def option_agent(node: ast.AST | None) -> Agent | None:
+        if not isinstance(node, ast.Name):
+            return None
+        candidates: dict[int, Agent] = {}
+        direct = receivers.get(node.id)
+        if direct is not None:
+            candidates[id(direct)] = direct
+        for agent in local_receivers.get(node.id, []):
+            candidates[id(agent)] = agent
+        matches = [
+            agent
+            for agent in candidates.values()
+            if agent.metadata.get("sdk_entrypoint") is True
+            and agent.metadata.get("framework") == "claude-agent-sdk"
+        ]
+        return matches[0] if len(matches) == 1 else None
+
+    def client_agent(call: ast.Call) -> Agent | None:
+        if (_call_name(call.func) or "") != "ClaudeSDKClient":
+            return None
+        options = next(
+            (keyword.value for keyword in call.keywords if keyword.arg == "options"),
+            call.args[0] if call.args else None,
+        )
+        return option_agent(options)
+
+    for node in ast.walk(function):
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and isinstance(node.value, ast.Call):
+            agent = client_agent(node.value)
+            if agent is None:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                for name in _target_names(target):
+                    result[name] = agent
+        elif isinstance(node, (ast.With, ast.AsyncWith)):
+            for item in node.items:
+                if not isinstance(item.context_expr, ast.Call) or item.optional_vars is None:
+                    continue
+                agent = client_agent(item.context_expr)
+                if agent is None:
+                    continue
+                for name in _target_names(item.optional_vars):
+                    result[name] = agent
+    return result
+
+
 def _direct_runtime_invocation(
     node: ast.Call,
     receivers: dict[str, Agent],
@@ -929,6 +984,7 @@ def _local_runtime_invocations(
 
 def _sdk_entrypoint_runtime_invocations(
     node: ast.Call,
+    receivers: dict[str, Agent],
     local_receivers: dict[str, list[Agent]],
     tainted: set[str],
 ) -> list[Agent]:
@@ -954,9 +1010,16 @@ def _sdk_entrypoint_runtime_invocations(
     if not _expr_tainted(prompt, tainted):
         return []
 
+    candidates: dict[int, Agent] = {}
+    direct = receivers.get(options.id)
+    if direct is not None:
+        candidates[id(direct)] = direct
+    for agent in local_receivers.get(options.id, []):
+        candidates[id(agent)] = agent
+
     return [
         agent
-        for agent in local_receivers.get(options.id, [])
+        for agent in candidates.values()
         if agent.metadata.get("sdk_entrypoint") is True
         and agent.metadata.get("framework") == "claude-agent-sdk"
     ]
@@ -1065,6 +1128,7 @@ def _runtime_targets_for_call(
         result[id(agent)] = agent
     for agent in _sdk_entrypoint_runtime_invocations(
         node,
+        receivers,
         local_receivers,
         tainted,
     ):
@@ -1115,6 +1179,13 @@ def _direct_helper_summaries(
                 function,
                 path,
                 agents_by_path,
+            )
+            receivers.update(
+                _claude_sdk_client_receivers(
+                    function,
+                    receivers,
+                    local_receivers,
+                )
             )
 
             for parameter in parameters:
@@ -1622,6 +1693,13 @@ def enrich_runtime_ingress_inputs(
                 function,
                 path,
                 agents_by_path,
+            )
+            receivers.update(
+                _claude_sdk_client_receivers(
+                    function,
+                    receivers,
+                    local_receivers,
+                )
             )
 
             invoked: dict[int, Agent] = {}
