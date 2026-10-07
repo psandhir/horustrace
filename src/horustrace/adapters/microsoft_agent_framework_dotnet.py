@@ -32,6 +32,7 @@ from horustrace.models import (
     ResourceScope,
     Tool,
 )
+from horustrace.semantic_contract import set_data_resource_provenance
 
 FRAMEWORK = "microsoft-agent-framework-dotnet"
 
@@ -830,6 +831,36 @@ def _resource_selector(expression: str | None, fallback: str) -> str:
     return fallback
 
 
+def _harness_resource(
+    *,
+    selector: str,
+    access: set[str],
+    location_value,
+    source_reference: str,
+    metadata: dict[str, object] | None = None,
+    connection_type: str = "filesystem",
+) -> ResourceScope:
+    resource = ResourceScope(
+        kind="filesystem" if connection_type == "filesystem" else connection_type,
+        selector=selector,
+        access=set(access),
+        location=location_value,
+        metadata=dict(metadata or {}),
+    )
+    set_data_resource_provenance(
+        resource,
+        connection_type=connection_type,
+        selector_provenance=(
+            "dynamic_configuration"
+            if selector.startswith("<") and selector.endswith(">")
+            else "source_resolved_configuration"
+        ),
+        resource_provenance="microsoft_harness_configuration",
+        source_reference=source_reference,
+    )
+    return resource
+
+
 def _harness_builtin_tools(
     path: Path,
     source: str,
@@ -880,11 +911,12 @@ def _harness_builtin_tools(
             capabilities={"data.read", "data.write"},
             approval=False,
             location=location(path, source, offset),
-            resources=[ResourceScope(
-                kind="filesystem",
+            resources=[_harness_resource(
                 selector=selector,
                 access={"data.read", "data.write"},
-                location=location(path, source, offset),
+                location_value=location(path, source, offset),
+                source_reference="HarnessAgent.FileMemoryStore",
+                connection_type="memory",
                 metadata={
                     "framework": FRAMEWORK,
                     "harness_internal_memory": True,
@@ -977,11 +1009,11 @@ def _harness_builtin_tools(
             capabilities={"data.read"},
             approval=False if read_auto else read_approval,
             location=location(path, source, offset),
-            resources=[ResourceScope(
-                kind="filesystem",
+            resources=[_harness_resource(
                 selector=selector,
                 access={"data.read"},
-                location=location(path, source, offset),
+                location_value=location(path, source, offset),
+                source_reference="HarnessAgent.FileAccessProvider",
                 metadata={**shared_metadata, "shared_store": True},
             )],
             metadata={
@@ -997,11 +1029,11 @@ def _harness_builtin_tools(
                 capabilities={"data.write", "destructive.write"},
                 approval=False if write_auto else write_approval,
                 location=location(path, source, offset),
-                resources=[ResourceScope(
-                    kind="filesystem",
+                resources=[_harness_resource(
                     selector=selector,
                     access={"data.write", "destructive.write"},
-                    location=location(path, source, offset),
+                    location_value=location(path, source, offset),
+                    source_reference="HarnessAgent.FileAccessProvider",
                     metadata={**shared_metadata, "shared_store": True},
                 )],
                 metadata={
