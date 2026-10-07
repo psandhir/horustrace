@@ -1742,6 +1742,7 @@ def _function_remote_object_semantics(
                     "source": "external_sdk_resource_identifier",
                     "selector_parameter": parameter,
                     "remote_object_type": object_type,
+                    "provider": provider,
                     "external_sdk_module": imported_module,
                     "external_sdk_symbol": external_symbol,
                 },
