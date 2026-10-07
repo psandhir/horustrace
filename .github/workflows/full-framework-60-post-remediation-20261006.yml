@@ -1,4 +1,4 @@
-name: Full Framework 60 Post Remediation
+name: Frozen 60 Regression
 
 on:
   workflow_dispatch:
@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - main
+      - research/frozen60-post-remediation-20261007
     paths:
       - ".github/workflows/full-framework-60-post-remediation-20261006.yml"
       - "src/horustrace/adapters/**"
@@ -28,7 +29,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: full-framework-60-post-remediation-20261006
+  group: frozen-60-regression-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
