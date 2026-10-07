@@ -626,11 +626,91 @@ def _assignment_is_agent(item: CSharpAssignment) -> bool:
     if _root_method_call(item.expression, "CreateAIAgent"):
         return True
     declared = (item.declared_type or "").replace("?", "").strip()
+    if declared not in {"AIAgent", "ChatClientAgent"}:
+        return False
     return (
-        declared in {"AIAgent", "ChatClientAgent"}
-        and re.match(r"^\s*new\s*\(", item.expression) is not None
+        ".CreateAIAgent(" in item.expression
+        or any(marker in item.expression for marker in _AGENT_MARKERS)
+        or re.match(r"^\s*new\s*\(", item.expression) is not None
     )
 
+
+_AGENT_RETURN_METHOD_RE = re.compile(
+    r"""
+    (?P<return_type>
+        (?:Microsoft\.Agents\.AI\.)?
+        (?:AIAgent|ChatClientAgent)
+    )
+    \s+
+    (?P<name>[A-Za-z_]\w*)
+    \s*\(
+    """,
+    re.VERBOSE,
+)
+
+
+def _agent_factory_return_items(
+    source: str,
+    masked: str,
+) -> list[CSharpAssignment]:
+    """Return source-proven agent expressions returned by C# factory methods."""
+    result: list[CSharpAssignment] = []
+    seen: set[tuple[str, int]] = set()
+
+    for match in _AGENT_RETURN_METHOD_RE.finditer(masked):
+        open_paren = masked.find("(", match.start(), match.end() + 1)
+        if open_paren < 0:
+            continue
+        params_end = balanced_end(masked, open_paren, "(", ")")
+        if params_end is None:
+            continue
+
+        i = params_end + 1
+        while i < len(masked) and masked[i].isspace():
+            i += 1
+
+        candidates: list[tuple[str, int]] = []
+        if masked.startswith("=>", i):
+            expr_start = i + 2
+            expr_end = statement_end(masked, expr_start)
+            candidates.append((source[expr_start:expr_end].strip(), expr_start))
+        elif i < len(masked) and masked[i] == "{":
+            body_end = balanced_end(masked, i, "{", "}")
+            if body_end is None:
+                continue
+            body_masked = masked[i + 1:body_end]
+            body_offset = i + 1
+            for return_match in re.finditer(r"\breturn\b", body_masked):
+                expr_start = body_offset + return_match.end()
+                expr_end = statement_end(masked, expr_start)
+                if expr_end > body_end:
+                    continue
+                candidates.append(
+                    (source[expr_start:expr_end].strip(), expr_start)
+                )
+
+        for expression, offset in candidates:
+            if not expression:
+                continue
+            if not (
+                ".CreateAIAgent(" in expression
+                or any(marker in expression for marker in _AGENT_MARKERS)
+            ):
+                continue
+            key = (match.group("name"), offset)
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(
+                CSharpAssignment(
+                    name=match.group("name"),
+                    expression=expression,
+                    offset=offset,
+                    declared_type=match.group("return_type").rsplit(".", 1)[-1],
+                )
+            )
+
+    return result
 
 def _inline_skill_tool(
     path: Path,
@@ -1913,6 +1993,16 @@ def scan_dotnet_file(path: Path) -> Graph:
         item for item in known.values()
         if _assignment_is_agent(item)
     ]
+    factory_items = _agent_factory_return_items(source, masked)
+    existing_item_keys = {
+        (item.name, item.offset, item.expression)
+        for item in agent_items
+    }
+    for item in factory_items:
+        key = (item.name, item.offset, item.expression)
+        if key not in existing_item_keys and _assignment_is_agent(item):
+            agent_items.append(item)
+            existing_item_keys.add(key)
     aliases: dict[str, Agent] = {}
     for item in agent_items:
         foundry = _foundry_agent(item.expression, foundry_clients)

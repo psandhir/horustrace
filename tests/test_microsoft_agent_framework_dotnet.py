@@ -1670,3 +1670,88 @@ StreamingRun run = await InProcessExecution.RunStreamingAsync(workflow, userMess
         "priceagent",
         "quoteagent",
     }
+
+
+def test_dotnet_maf_block_factory_return_is_inventory_target(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r"""
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+private AIAgent CreateAIAgent()
+{
+    var chatClient = client.GetChatClient("gpt-4o-mini");
+
+    return chatClient.AsAIAgent(new ChatClientAgentOptions
+    {
+        Name = "MemoryAgent",
+    });
+}
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "MemoryAgent")
+
+    assert agent.metadata["framework"] == "microsoft-agent-framework-dotnet"
+    assert "CreateAIAgent" in agent.metadata["source_aliases"]
+
+
+def test_dotnet_maf_fluent_factory_return_preserves_agent_and_tools(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r"""
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+static string GetWeather(string city) => "sunny";
+
+public static AIAgent CreateAIAgent()
+{
+    return chatClient
+        .CreateAIAgent(
+            name: "WebApiAgent",
+            tools: [AIFunctionFactory.Create(GetWeather)])
+        .AsBuilder()
+        .Use(Middleware.FunctionCallMiddleware)
+        .Build();
+}
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "WebApiAgent")
+
+    assert "CreateAIAgent" in agent.metadata["source_aliases"]
+    assert {item.name for item in agent.tools} == {"GetWeather"}
+
+
+def test_dotnet_maf_expression_bodied_factory_is_inventory_target(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r"""
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+static string GetWeather(string city) => "sunny";
+
+private static AIAgent CreateAIAgent(IChatClient chatClient) =>
+    chatClient.AsAIAgent(
+        name: "GovernedAgent",
+        tools: [AIFunctionFactory.Create(GetWeather, name: "GetWeather")])
+    .WithGovernance(kernel);
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "GovernedAgent")
+
+    assert "CreateAIAgent" in agent.metadata["source_aliases"]
+    assert {item.name for item in agent.tools} == {"GetWeather"}
