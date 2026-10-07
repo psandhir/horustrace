@@ -20,12 +20,34 @@
     "min_total_authority_relationships": 484,
     "min_core_fully_resolved_ratio": 0.75,
     "framework_minimums": {
-      "amazon": {"agents": 22, "authority_relationships": 115},
-      "anthropic": {"agents": 24, "authority_relationships": 116},
-      "google-adk": {"agents": 59, "authority_relationships": 81},
-      "microsoft": {"agents": 16, "authority_relationships": 30},
-      "openai-agents": {"agents": 65, "authority_relationships": 114},
-      "pydantic-ai": {"agents": 11, "authority_relationships": 27}
+      "amazon": {
+        "agents": 22,
+        "authority_relationships": 115
+      },
+      "anthropic": {
+        "agents": 24,
+        "authority_relationships": 116
+      },
+      "google-adk": {
+        "agents": 59,
+        "authority_relationships": 81
+      },
+      "microsoft": {
+        "agents": 16,
+        "authority_relationships": 30
+      },
+      "openai-agents": {
+        "agents": 65,
+        "authority_relationships": 114
+      },
+      "pydantic-ai": {
+        "agents": 11,
+        "authority_relationships": 27
+      }
+    },
+    "max_unapproved_attack_path_drop": 0,
+    "allowed_attack_path_drops": {
+      "ff60-openai-agents-05": 15
     }
   }
 }
