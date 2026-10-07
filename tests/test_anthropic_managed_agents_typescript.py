@@ -175,3 +175,32 @@ const agent = await client.beta.agents.create({
     )
     assert agent.metadata["managed_runtime"] is True
     assert {server.name for server in agent.mcp_servers} == {"partner"}
+
+
+def test_managed_agents_typescript_preserves_canonical_model_provenance(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        """
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+const agent = await client.beta.agents.create({
+  name: "research",
+  model: "claude-opus-4-7",
+  tools: [],
+  betas: ["managed-agents-2026-04-01"],
+});
+""",
+        "create-agent.ts",
+    )
+
+    graph = scan_anthropic_managed_agents_typescript_file(path)
+    agent = graph.agents[0]
+
+    assert agent.metadata["model"] == "claude-opus-4-7"
+    assert agent.metadata["model_provider"] == "anthropic"
+    assert agent.metadata["model_hosting"] == "provider_hosted"
+    assert agent.metadata["model_resolution"] == "resolved_identifier"
+
