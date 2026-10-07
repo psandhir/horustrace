@@ -68,3 +68,62 @@ agent = Agent(name="ops", model="gemini-3.1-flash-lite", tools=[update_record])
         and blocker.get("module") == "local_tools.missing"
         for blocker in agent.metadata["runtime_blockers"]
     )
+
+
+def test_absolute_sdk_import_is_not_blocked_by_same_named_plain_directory(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agents").mkdir()
+    (tmp_path / "agents" / "example.py").write_text(
+        "VALUE = 1\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "app.py").write_text(
+        """
+from agents import Agent
+
+agent = Agent(name="sdk-agent")
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "sdk-agent")
+
+    assert agent.metadata.get("runtime_viability") != "blocked_by_source_error"
+    assert not any(
+        blocker.get("kind") == "missing_local_module"
+        and blocker.get("module") == "agents"
+        for blocker in agent.metadata.get("runtime_blockers", [])
+    )
+    assert not any(
+        diagnostic.kind == "runtime_viability_blocker"
+        for diagnostic in graph.coverage.diagnostics
+    )
+
+
+def test_real_local_package_missing_submodule_remains_runtime_blocker(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "localpkg"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "app.py").write_text(
+        """
+from agents import Agent
+from localpkg.missing import TOOL
+
+agent = Agent(name="blocked-agent", tools=[TOOL])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "blocked-agent")
+
+    assert agent.metadata["runtime_viability"] == "blocked_by_source_error"
+    assert any(
+        blocker.get("kind") == "missing_local_module"
+        and blocker.get("module") == "localpkg.missing"
+        for blocker in agent.metadata["runtime_blockers"]
+    )
