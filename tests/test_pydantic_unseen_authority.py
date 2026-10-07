@@ -391,3 +391,153 @@ def build_agent(capabilities):
     ]
     assert len(dynamic_nodes) == 1
     assert dynamic_nodes[0].kind == "capability"
+
+
+def test_imported_delegation_survives_narrowed_scan_root(tmp_path: Path) -> None:
+    _write(tmp_path / "src" / "__init__.py", "")
+    _write(tmp_path / "src" / "agents" / "__init__.py", "")
+    _write(
+        tmp_path / "src" / "agents" / "sub_agent.py",
+        """
+from pydantic_ai import Agent
+
+sub_agent = Agent("openai:gpt-5.2")
+""",
+    )
+    _write(
+        tmp_path / "src" / "agents" / "main_agent.py",
+        """
+import asyncio
+
+from pydantic_ai import Agent
+
+from src.agents.sub_agent import sub_agent
+
+
+main_agent = Agent("openai:gpt-5.2")
+
+
+@main_agent.tool_plain
+async def spawn_sub_agents(prompts: list[str]) -> str:
+    async def run_one(prompt: str) -> str:
+        with sub_agent.parallel_tool_call_execution_mode("sequential"):
+            result = await asyncio.wait_for(
+                sub_agent.run(prompt),
+                timeout=30,
+            )
+        return result.output
+
+    return "\\n".join(await asyncio.gather(*(run_one(item) for item in prompts)))
+""",
+    )
+
+    graph, _ = scan(tmp_path / "src" / "agents")
+    main = next(item for item in graph.agents if item.name == "main_agent")
+    spawn = next(item for item in main.tools if item.name == "spawn_sub_agents")
+
+    assert "agent.delegate" in spawn.capabilities
+    assert spawn.metadata["delegate_target"] == "sub_agent"
+    assert spawn.metadata["delegation_basis"] == "repository_imported_pydantic_agent_run"
+
+
+def test_toolguard_preserves_conditional_approval_without_suppressing_gap(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "agent.py",
+        """
+import subprocess
+
+from pydantic_ai import Agent
+from pydantic_ai_shields import ToolGuard
+
+
+class Settings:
+    guardrails_enabled = True
+
+    def require_approval(self, tool_name: str) -> bool:
+        return tool_name.startswith("danger")
+
+
+settings = Settings()
+
+agent = Agent(
+    "openai:gpt-5.2",
+    capabilities=[
+        *(
+            [ToolGuard(require_approval=settings.require_approval)]
+            if settings.guardrails_enabled
+            else []
+        ),
+    ],
+)
+
+
+@agent.tool_plain
+def run_command(command: str) -> str:
+    return subprocess.run(
+        command,
+        shell=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+""",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tool = next(item for item in agent.tools if item.name == "run_command")
+    relationship = next(
+        item
+        for item in effective_authority_relationships(graph)
+        if item.agent == "agent" and item.target_name == "run_command"
+    )
+
+    assert tool.approval is None
+    assert tool.metadata["conditional_approval"] is True
+    assert tool.metadata["approval_mechanism"] == "pydantic_tool_guard"
+    assert tool.metadata["approval_policy_callable"] == "settings.require_approval"
+    assert relationship.dimensions["approval"] == "partially_resolved"
+    assert relationship.approval["conditional"] is True
+    assert relationship.approval["required"] is None
+    assert relationship.approval["mechanism"] == "pydantic_tool_guard"
+    assert "approval_condition" in relationship.unresolved
+    assert any(
+        item.rule_id == "AGT020" and item.agent == "agent"
+        for item in findings
+    )
+
+
+def test_generated_hidden_preview_file_is_internal_artifact(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "agent.py",
+        """
+from pathlib import Path
+
+from pydantic_ai import Agent
+
+agent = Agent("openai:gpt-5.2")
+
+
+@agent.tool_plain
+def preview_click(file_name: str) -> bytes:
+    preview_path = Path(f".playwright-mcp/preview_{file_name}")
+    annotated.save(preview_path, format="PNG")
+    return preview_path.read_bytes()
+""",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+    tool = next(item for item in agent.tools if item.name == "preview_click")
+
+    assert "data.write" in tool.capabilities
+    assert tool.metadata["agent_internal_artifact"] is True
+    assert tool.metadata["generated_artifact"] is True
+    assert tool.metadata["mutation_semantics"] == "agent_internal_artifact"
+    assert not any(
+        item.rule_id in {"AGT021", "AGT022", "AGT040", "CAP005"}
+        and item.agent == "agent"
+        for item in findings
+    )
+
