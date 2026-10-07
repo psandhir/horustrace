@@ -30,7 +30,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
-from horustrace.semantic_contract import set_model_provenance
+from horustrace.semantic_contract import set_data_resource_provenance, set_model_provenance
 
 _PYDANTIC_PREFIXES = ("pydantic_ai", "pydantic_ai_harness")
 _AGENT_RUN_METHODS = {
@@ -1218,14 +1218,20 @@ def _tool_from_function(
     )
     if scoped_path_control:
         access = capabilities & {"data.read", "data.write", "destructive.write"}
-        tool.resources.append(
-            ResourceScope(
-                kind="file",
-                selector=".shotgun/**",
-                access=set(access),
-                location=_location(path, node),
-            )
+        resource = ResourceScope(
+            kind="file",
+            selector=".shotgun/**",
+            access=set(access),
+            location=_location(path, node),
+            metadata={"source": "agent_scoped_path_validation"},
         )
+        set_data_resource_provenance(
+            resource,
+            selector_provenance="framework_internal_fixed_scope",
+            resource_provenance="agent_scoped_path_validation",
+            source_reference="_validate_agent_scoped_path",
+        )
+        tool.resources.append(resource)
         tool.guardrails = True
         tool.metadata.update(
             {
@@ -2172,15 +2178,26 @@ def _resource_once(
         for item in tool.resources
     ):
         return
-    tool.resources.append(
-        ResourceScope(
-            kind=kind,
-            selector=selector,
-            access=set(access),
-            location=location,
-            metadata=dict(metadata or {}),
-        )
+    resource_metadata = dict(metadata or {})
+    resource = ResourceScope(
+        kind=kind,
+        selector=selector,
+        access=set(access),
+        location=location,
+        metadata=resource_metadata,
     )
+    provider = resource_metadata.get("workspace_provider")
+    if not isinstance(provider, str):
+        provider = resource_metadata.get("provider")
+    source = resource_metadata.get("source")
+    set_data_resource_provenance(
+        resource,
+        provider=provider if isinstance(provider, str) and provider else None,
+        selector_provenance="source_resolved_configuration",
+        resource_provenance=source if isinstance(source, str) and source else None,
+        source_reference=source if isinstance(source, str) and source else None,
+    )
+    tool.resources.append(resource)
 
 
 def _apply_workspace_semantics(agent: Agent, spec: dict[str, Any]) -> None:
