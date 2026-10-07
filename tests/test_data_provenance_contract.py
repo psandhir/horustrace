@@ -91,6 +91,21 @@ async def run():
         "unknown",
     ),
     (
+        "microsoft-agent-framework-python",
+        "agent.py",
+        """
+from agent_framework import Agent
+from agent_framework.openai import OpenAIResponsesClient
+
+client = OpenAIResponsesClient()
+search = client.get_file_search_tool(vector_store_ids=["vs_docs"])
+agent = Agent(client=client, name="docs", tools=[search])
+""",
+        "vs_docs",
+        "vector_store",
+        "unknown",
+    ),
+    (
         "microsoft-agent-framework-dotnet",
         "Agent.cs",
         r"""
