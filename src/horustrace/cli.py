@@ -9,7 +9,7 @@ from pathlib import Path
 from horustrace import __version__
 from horustrace.adapters.manifest import ManifestError
 from horustrace.adapters.registry import adapter_catalogue
-from horustrace.aibom import build_aibom
+from horustrace.aibom import build_aibom, repository_aibom_context
 from horustrace.assurance import build_assurance_report
 from horustrace.authority_contract import authority_contract_report
 from horustrace.authority_query import (
@@ -802,11 +802,25 @@ def main(argv: list[str] | None = None) -> int:
             if graph.adg is None:
                 print("horustrace: Agent Dependency Graph was not generated", file=sys.stderr)
                 return 1
-            document = (
-                graph.adg.as_dict()
-                if args.command == "graph"
-                else build_aibom(graph.adg)
-            )
+            if args.command == "graph":
+                document = graph.adg.as_dict()
+            else:
+                inventory = config.inventory
+                context = repository_aibom_context(
+                    root,
+                    repository_id=inventory.repository_id,
+                    project=inventory.project,
+                    owner=inventory.owner,
+                    team=inventory.team,
+                    business_service=inventory.business_service,
+                    environment=inventory.environment,
+                    lifecycle=inventory.lifecycle,
+                )
+                document = build_aibom(
+                    graph.adg,
+                    context=context,
+                    coverage=graph.coverage.as_dict(),
+                )
             output = json.dumps(document, indent=2)
 
         if args.output:
