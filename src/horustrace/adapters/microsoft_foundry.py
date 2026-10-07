@@ -21,6 +21,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
+from horustrace.semantic_contract import ModelResolution, set_model_provenance
 
 _AGENT_HOSTS = {"azure.ai.agent", "azure.ai.hostedagent", "azure.ai.hosted-agent"}
 _TOOLBOX_HOSTS = {"azure.ai.toolbox"}
@@ -210,6 +211,15 @@ def scan_foundry_config(path: Path) -> Graph:
                 "environment_variables": _environment_names(raw_service),
                 "deployment_evidence": "azure.yaml",
             },
+        )
+
+        set_model_provenance(
+            agent.metadata,
+            resolution=ModelResolution.NOT_EXPOSED,
+            limitation=(
+                "azure.yaml hosted-agent service does not expose the backing "
+                "model identifier or provider"
+            ),
         )
 
         # Foundry hosted agents receive an Entra agent identity. The source file
