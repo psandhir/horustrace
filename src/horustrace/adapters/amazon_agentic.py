@@ -432,12 +432,18 @@ def _model_metadata(node: ast.AST | None) -> dict[str, Any]:
             "OpenAIModel": "openai",
             "GeminiModel": "google",
             "OllamaModel": "ollama",
-        }.get(leaf, leaf or "custom")
+        }.get(leaf)
         set_model_provenance(
             result,
             identifier=model_id,
             provider=provider,
-            hosting="self_hosted" if provider == "ollama" else "provider_hosted",
+            hosting=(
+                "self_hosted"
+                if provider == "ollama"
+                else "provider_hosted"
+                if provider
+                else None
+            ),
             constructor=leaf or None,
         )
         return result
