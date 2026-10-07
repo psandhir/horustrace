@@ -564,10 +564,13 @@ def scan_python_file(path: Path) -> Graph:
                 agent.inputs.append(
                     InputSource(
                         name="human_input",
-                        trust="trusted",
+                        trust="untrusted",
                         kind="user",
                         location=_location(path, decorator),
-                        metadata={"framework": "fast-agent"},
+                        metadata={
+                            "framework": "fast-agent",
+                            "basis": "framework_declared_human_input",
+                        },
                     )
                 )
 
