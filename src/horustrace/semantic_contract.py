@@ -105,7 +105,7 @@ _RAG_RESOURCE_KINDS = frozenset(
         "retrieval",
         "retriever",
         "search_engine",
-        "vertex-search",
+        "vertex_search",
     }
 )
 _SAAS_RESOURCE_KINDS = frozenset(
@@ -113,7 +113,7 @@ _SAAS_RESOURCE_KINDS = frozenset(
 )
 _MEMORY_RESOURCE_KINDS = frozenset({"memory", "memory_store"})
 _CLOUD_RESOURCE_KINDS = frozenset(
-    {"aws_arn", "gcp-project", "lambda", "cloud_resource"}
+    {"aws_arn", "gcp_project", "lambda", "cloud_resource"}
 )
 
 
