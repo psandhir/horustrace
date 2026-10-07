@@ -143,5 +143,3 @@ jobs:
             comparison/
           if-no-files-found: error
           retention-days: 30
-
-# connector-permission-probe
