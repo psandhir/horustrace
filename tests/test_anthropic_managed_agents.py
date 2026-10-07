@@ -355,7 +355,7 @@ agent = client.beta.agents.create(
 """,
     )
 
-    graph = scan_python_file(path)
+    graph = scan_anthropic_managed_agents_file(path)
     agent = graph.agents[0]
 
     assert agent.metadata["model"] == "claude-opus-4-7"
