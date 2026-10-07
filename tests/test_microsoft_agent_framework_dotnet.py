@@ -1755,3 +1755,98 @@ private static AIAgent CreateAIAgent(IChatClient chatClient) =>
 
     assert "CreateAIAgent" in agent.metadata["source_aliases"]
     assert {item.name for item in agent.tools} == {"GetWeather"}
+
+
+def test_dotnet_maf_dynamic_agent_name_does_not_capture_nested_tool_name(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r"""
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+static string GetWeather(string city) => "sunny";
+
+AIAgent agent = chatClient.AsAIAgent(
+    name: identity.Name,
+    instructions: "Help.",
+    tools: [
+        AIFunctionFactory.Create(GetWeather, name: "GetWeather")
+    ]);
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "microsoft-agent-framework-dotnet"
+    )
+
+    assert agent.name == "agent"
+    assert {tool.name for tool in agent.tools} == {"GetWeather"}
+
+
+def test_dotnet_maf_factory_dynamic_name_does_not_capture_nested_tool_name(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r"""
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+private static AIAgent CreateAIAgent(
+    IChatClient chatClient,
+    AgentIdentity identity) =>
+    chatClient.AsAIAgent(
+        name: identity.Name,
+        tools: [
+            AIFunctionFactory.Create(GetWeather, name: "GetWeather"),
+            AIFunctionFactory.Create(GetTime, name: "GetTime")
+        ]);
+
+static string GetWeather(string city) => "sunny";
+static string GetTime(string timezone) => "now";
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "microsoft-agent-framework-dotnet"
+    )
+
+    assert agent.name == "CreateAIAgent"
+    assert {tool.name for tool in agent.tools} == {"GetWeather", "GetTime"}
+
+
+def test_dotnet_maf_chat_client_options_name_remains_supported(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        r"""
+using Microsoft.Agents.AI;
+
+AIAgent agent = chatClient.AsAIAgent(
+    new ChatClientAgentOptions
+    {
+        Name = "OptionsAgent",
+        ChatOptions = new()
+        {
+            Tools = [],
+        },
+    });
+""",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "microsoft-agent-framework-dotnet"
+    )
+    assert agent.name == "OptionsAgent"

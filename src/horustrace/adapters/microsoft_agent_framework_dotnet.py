@@ -576,12 +576,93 @@ def _mcp_client(
     )
 
 
-def _agent_name(expr: str, variable: str) -> str:
-    return (
-        named_string(expr, "name")
-        or named_string(expr, "Name")
-        or variable
+def _agent_call_body(expr: str) -> str | None:
+    """Return the argument body of the source-visible agent constructor call."""
+    masked = mask_non_code(expr)
+    patterns = (
+        r"\.(?:AsAIAgent|CreateAIAgent|AsHarnessAgent|BuildAIAgent)\s*\(",
+        r"\bnew\s+ChatClientAgent\s*\(",
+        r"^\s*new\s*\(",
     )
+    matches = [
+        match
+        for pattern in patterns
+        for match in re.finditer(pattern, masked)
+    ]
+    if not matches:
+        return None
+    match = min(matches, key=lambda item: item.start())
+    open_paren = masked.find("(", match.start())
+    end = balanced_end(masked, open_paren, "(", ")")
+    if end is None:
+        return None
+    return expr[open_paren + 1:end]
+
+
+def _top_level_argument(body: str, names: set[str]) -> str | None:
+    masked = mask_non_code(body)
+    paren = bracket = brace = 0
+    start = 0
+    segments: list[tuple[int, int]] = []
+    for index, ch in enumerate(masked):
+        if ch == "(":
+            paren += 1
+        elif ch == ")":
+            paren = max(0, paren - 1)
+        elif ch == "[":
+            bracket += 1
+        elif ch == "]":
+            bracket = max(0, bracket - 1)
+        elif ch == "{":
+            brace += 1
+        elif ch == "}":
+            brace = max(0, brace - 1)
+        elif ch == "," and paren == bracket == brace == 0:
+            segments.append((start, index))
+            start = index + 1
+    segments.append((start, len(body)))
+
+    for begin, end in segments:
+        segment = body[begin:end].strip()
+        match = re.match(r"(?P<name>[A-Za-z_]\w*)\s*:\s*(?P<value>.*)", segment, re.DOTALL)
+        if match and match.group("name").lower() in names:
+            return match.group("value").strip()
+    return None
+
+
+def _literal_csharp_string(value: str | None) -> str | None:
+    if value is None:
+        return None
+    match = re.fullmatch(r'@?"([^"]*)"', value.strip(), re.DOTALL)
+    return match.group(1).replace('""', '"') if match else None
+
+
+def _agent_name(expr: str, variable: str) -> str:
+    body = _agent_call_body(expr)
+    if body is None:
+        return variable
+
+    explicit = _top_level_argument(body, {"name"})
+    if explicit is not None:
+        return _literal_csharp_string(explicit) or variable
+
+    # Constructor overloads frequently carry the name in ChatClientAgentOptions.
+    # Restrict this fallback to that options object so nested AIFunction names can
+    # never become the agent identity.
+    options_match = re.search(
+        r"\b(?:ChatClientAgentOptions|HarnessAgentOptions)\b",
+        body,
+    )
+    if options_match:
+        brace = body.find("{", options_match.end())
+        if brace >= 0:
+            masked = mask_non_code(body)
+            end = balanced_end(masked, brace, "{", "}")
+            if end is not None:
+                options = body[brace + 1:end]
+                return named_string(options, "Name") or variable
+
+    return variable
 
 
 def _foundry_agent(expr: str, foundry_clients: set[str]) -> bool:
