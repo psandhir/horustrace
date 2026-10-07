@@ -175,6 +175,165 @@ def _kw(call: ast.Call, name: str) -> ast.AST | None:
     return next((item.value for item in call.keywords if item.arg == name), None)
 
 
+_MODEL_CONSTRUCTOR_PROVIDERS = {
+    "AnthropicModel": "anthropic",
+    "BedrockConverseModel": "amazon-bedrock",
+    "CohereModel": "cohere",
+    "GeminiModel": "google",
+    "GoogleModel": "google",
+    "GroqModel": "groq",
+    "HuggingFaceModel": "huggingface",
+    "MistralModel": "mistral",
+    "OllamaModel": "ollama",
+    "OpenAIChatModel": "openai",
+    "OpenAIModel": "openai",
+    "OpenAIResponsesModel": "openai",
+    "OpenRouterModel": "openrouter",
+    "XaiModel": "xai",
+}
+
+_PROVIDER_CONSTRUCTOR_PROVIDERS = {
+    "AnthropicProvider": "anthropic",
+    "BedrockProvider": "amazon-bedrock",
+    "CohereProvider": "cohere",
+    "GoogleCloudProvider": "google-cloud-vertex",
+    "GoogleProvider": "google",
+    "GroqProvider": "groq",
+    "HuggingFaceProvider": "huggingface",
+    "MistralProvider": "mistral",
+    "OllamaProvider": "ollama",
+    "OpenAIProvider": "openai",
+    "OpenRouterProvider": "openrouter",
+    "XaiProvider": "xai",
+}
+
+_PROVIDER_LITERAL_NORMALIZATION = {
+    "bedrock": "amazon-bedrock",
+    "google-cloud": "google-cloud-vertex",
+    "gateway": "pydantic-gateway",
+}
+
+_SELF_HOSTED_MODEL_PROVIDERS = {"ollama", "vllm"}
+
+
+def _assigned_expr(
+    node: ast.AST | None,
+    assignments: dict[str, ast.AST],
+    *,
+    visited: set[str] | None = None,
+) -> ast.AST | None:
+    if not isinstance(node, ast.Name):
+        return node
+    visited = set() if visited is None else set(visited)
+    if node.id in visited:
+        return node
+    visited.add(node.id)
+    value = assignments.get(node.id)
+    if value is None:
+        return node
+    if isinstance(value, ast.Name):
+        return _assigned_expr(value, assignments, visited=visited)
+    return value
+
+
+def _pydantic_model_metadata(
+    node: ast.AST | None,
+    assignments: dict[str, ast.AST],
+    imports: dict[str, str],
+) -> dict[str, Any]:
+    """Preserve source-visible Pydantic model/provider provenance."""
+    if node is None:
+        return {}
+
+    resolved = _assigned_expr(node, assignments)
+    literal = _literal(resolved)
+    if isinstance(literal, str):
+        return {"model": literal}
+
+    if not isinstance(resolved, ast.Call):
+        if isinstance(node, ast.Name):
+            return {
+                "model_reference": node.id,
+                "model_resolution": "unresolved_reference",
+            }
+        return {"model_resolution": "dynamic"}
+
+    constructor = _call_name(resolved.func) or "model"
+    provider = _MODEL_CONSTRUCTOR_PROVIDERS.get(constructor)
+    model_name_node = (
+        resolved.args[0]
+        if resolved.args
+        else (_kw(resolved, "model_name") or _kw(resolved, "model"))
+    )
+    model_name = _literal(_assigned_expr(model_name_node, assignments))
+
+    provider_node = _assigned_expr(_kw(resolved, "provider"), assignments)
+    endpoint = None
+    region = None
+    provider_source = None
+    provider_literal = _literal(provider_node)
+    if isinstance(provider_literal, str):
+        provider = _PROVIDER_LITERAL_NORMALIZATION.get(
+            provider_literal,
+            provider_literal,
+        )
+    elif isinstance(provider_node, ast.Call):
+        provider_constructor = _call_name(provider_node.func) or ""
+        provider = _PROVIDER_CONSTRUCTOR_PROVIDERS.get(
+            provider_constructor,
+            provider,
+        )
+        provider_source = imports.get(provider_constructor)
+        endpoint = _literal(
+            _assigned_expr(
+                _kw(provider_node, "base_url")
+                or _kw(provider_node, "url")
+                or _kw(provider_node, "endpoint"),
+                assignments,
+            )
+        )
+        region = _literal(
+            _assigned_expr(
+                _kw(provider_node, "region")
+                or _kw(provider_node, "region_name")
+                or _kw(provider_node, "location"),
+                assignments,
+            )
+        )
+
+    source_module = imports.get(constructor)
+    metadata: dict[str, Any] = {
+        "model_constructor": constructor,
+        "model_resolution": (
+            "resolved_identifier"
+            if isinstance(model_name, str) and model_name
+            else "provider_only"
+            if provider
+            else "dynamic"
+        ),
+    }
+    if isinstance(model_name, str) and model_name:
+        metadata["model"] = model_name
+    if provider:
+        metadata["model_provider"] = provider
+        metadata["model_hosting"] = (
+            "self_hosted"
+            if provider in _SELF_HOSTED_MODEL_PROVIDERS
+            else "provider_hosted"
+        )
+    if isinstance(endpoint, str) and endpoint:
+        metadata["model_endpoint"] = endpoint
+    if isinstance(region, str) and region:
+        metadata["model_region"] = region
+    if source_module:
+        metadata["model_source_reference"] = f"{source_module}.{constructor}"
+    if provider_source:
+        metadata["model_provider_source_reference"] = (
+            f"{provider_source}.{_call_name(provider_node.func)}"
+        )
+    return metadata
+
+
 def _mapping_key_value_before(
     scope: ast.AST,
     mapping_name: str,
@@ -3083,7 +3242,11 @@ def scan_python_file(path: Path) -> Graph:
         model_node = _kw(call, "model")
         if model_node is None and call.args:
             model_node = call.args[0]
-        model = _literal(model_node)
+        model_metadata = _pydantic_model_metadata(
+            model_node,
+            assignments,
+            imports,
+        )
 
         agent = Agent(
             name=alias,
@@ -3091,7 +3254,7 @@ def scan_python_file(path: Path) -> Graph:
             metadata={
                 "framework": "pydantic-ai",
                 "agent_type": "Agent",
-                "model": model if isinstance(model, str) else None,
+                **model_metadata,
                 "instance_key": f"{path.resolve()}:{call.lineno}:{alias}",
                 **(
                     {

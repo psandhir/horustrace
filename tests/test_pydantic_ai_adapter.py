@@ -2077,3 +2077,89 @@ agent = Agent("openai:gpt-5.2", toolsets=[server])
         tool["name"] == "order_send"
         for tool in server.metadata["discovered_tools"]
     )
+
+
+def test_pydantic_model_object_preserves_provider_endpoint_provenance(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.openai import OpenAIProvider
+
+provider = OpenAIProvider(base_url="https://llm-proxy.example/v1")
+model = OpenAIChatModel("gpt-5-mini", provider=provider)
+agent = Agent(model=model)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = graph.agents[0]
+
+    assert agent.metadata["model"] == "gpt-5-mini"
+    assert agent.metadata["model_provider"] == "openai"
+    assert agent.metadata["model_hosting"] == "provider_hosted"
+    assert agent.metadata["model_endpoint"] == "https://llm-proxy.example/v1"
+    assert agent.metadata["model_constructor"] == "OpenAIChatModel"
+    assert agent.metadata["model_source_reference"] == (
+        "pydantic_ai.models.openai.OpenAIChatModel"
+    )
+    assert agent.metadata["model_provider_source_reference"] == (
+        "pydantic_ai.providers.openai.OpenAIProvider"
+    )
+    assert agent.metadata["model_resolution"] == "resolved_identifier"
+
+
+def test_pydantic_google_cloud_model_preserves_region(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.providers.google_cloud import GoogleCloudProvider
+
+model = GoogleModel(
+    "gemini-2.5-pro",
+    provider=GoogleCloudProvider(
+        project="payments-prod",
+        location="europe-west1",
+    ),
+)
+agent = Agent(model)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = graph.agents[0]
+
+    assert agent.metadata["model"] == "gemini-2.5-pro"
+    assert agent.metadata["model_provider"] == "google-cloud-vertex"
+    assert agent.metadata["model_hosting"] == "provider_hosted"
+    assert agent.metadata["model_region"] == "europe-west1"
+    assert agent.metadata["model_constructor"] == "GoogleModel"
+
+
+def test_pydantic_dynamic_model_reference_stays_unresolved(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+
+def build(model):
+    return Agent(model)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = graph.agents[0]
+
+    assert agent.metadata.get("model") is None
+    assert agent.metadata["model_reference"] == "model"
+    assert agent.metadata["model_resolution"] == "unresolved_reference"
+
