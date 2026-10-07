@@ -1276,3 +1276,77 @@ app_agent = Agent(name="AppShell", tools=[_make_terminal()])
     assert "process.execute" in app_terminal.capabilities
     assert app_terminal.metadata["repository_resolved"] is True
     assert app_terminal.metadata["source_factory"] == "_make_terminal"
+
+
+def test_openai_mcp_subclass_context_manager_binds_function_parameter(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent
+from agents.mcp import MCPServer, MCPServerStdio
+
+
+class PostgresMCPServer(MCPServerStdio):
+    def __init__(self):
+        super().__init__(
+            name="PostgreSQL MCP Server",
+            params={
+                "command": "postgres-mcp",
+                "args": ["stdio"],
+            },
+        )
+
+
+async def run(mcp_server: MCPServer):
+    agent = Agent(
+        name="PostgreSQL Assistant",
+        mcp_servers=[mcp_server],
+    )
+    return agent
+
+
+async def main():
+    async with PostgresMCPServer() as server:
+        await run(server)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "PostgreSQL Assistant")
+    assert len(agent.mcp_servers) == 1
+
+    server = agent.mcp_servers[0]
+    assert server.name == "PostgreSQL MCP Server"
+    assert server.transport == "stdio"
+    assert server.command == "postgres-mcp"
+    assert server.args == ["stdio"]
+    assert server.metadata["repository_resolved"] is True
+    assert server.metadata["binding_origin"] == "source_bound_mcp_parameter_call"
+    assert server.metadata["source_parameter"] == "mcp_server"
+    assert agent.metadata["parameter_bound_mcp_resolved"] is True
+
+
+def test_openai_parameter_mcp_stays_unresolved_without_proven_callsite(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from agents import Agent
+from agents.mcp import MCPServer
+
+
+async def run(mcp_server: MCPServer):
+    return Agent(name="Dynamic", mcp_servers=[mcp_server])
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "Dynamic")
+    server = agent.mcp_servers[0]
+
+    assert server.transport == "unknown"
+    assert server.metadata["transport_unresolved"] is True
+    assert agent.metadata.get("parameter_bound_mcp_resolved") is not True
