@@ -2861,7 +2861,10 @@ def _annotate_cli_run_inputs(
         alias: agent
         for alias, agent in agents.items()
         if agent.location is not None
-        and enclosing_function(agent.location.line) is None
+        and enclosing_function(
+            int(agent.metadata.get("factory_assignment_line") or agent.location.line)
+        )
+        is None
     }
 
     for fn in functions:
@@ -2869,7 +2872,10 @@ def _annotate_cli_run_inputs(
         for alias, agent in agents.items():
             if agent.location is None:
                 continue
-            owner = enclosing_function(agent.location.line)
+            effective_line = int(
+                agent.metadata.get("factory_assignment_line") or agent.location.line
+            )
+            owner = enclosing_function(effective_line)
             if owner is fn:
                 available[alias] = agent
         if not available:
@@ -3214,6 +3220,7 @@ def scan_python_file(path: Path) -> Graph:
     agent_calls: dict[str, ast.Call] = {}
     factory_agent_aliases: set[str] = set()
     factory_alias_sources: dict[str, str] = {}
+    factory_alias_locations: dict[str, SourceLocation] = {}
     factory_returns: dict[str, ast.Call] = {}
     factory_return_toolsets: dict[str, list[ast.AST]] = {}
     factory_alias_toolsets: dict[str, list[ast.AST]] = {}
@@ -3336,6 +3343,7 @@ def scan_python_file(path: Path) -> Graph:
         agent_calls[alias] = returned
         factory_agent_aliases.add(alias)
         factory_alias_sources[alias] = factory_name
+        factory_alias_locations[alias] = _location(path, value)
         if factory_name in factory_return_toolsets:
             factory_alias_toolsets[alias] = list(factory_return_toolsets[factory_name])
         instantiated_factories.add(factory_name)
@@ -3441,6 +3449,18 @@ def scan_python_file(path: Path) -> Graph:
                             "factory_assignment"
                             if factory_alias_sources.get(alias, alias) != alias
                             else "direct_factory_return"
+                        ),
+                        **(
+                            {
+                                "factory_assignment_line": factory_alias_locations[
+                                    alias
+                                ].line,
+                                "factory_assignment_column": factory_alias_locations[
+                                    alias
+                                ].column,
+                            }
+                            if alias in factory_alias_locations
+                            else {}
                         ),
                     }
                     if alias in factory_agent_aliases
