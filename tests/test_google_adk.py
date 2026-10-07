@@ -1883,3 +1883,106 @@ root_agent = AlphaBotAgent()
     assert path.metadata["basis"] == "source_bound_ingress_authority"
     assert path.metadata["destination_provenance"] == "model_selected_url_argument"
 
+
+def test_adk_model_selected_remote_object_ids_become_effective_resource_scope(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "box_tools.py").write_text(
+        """
+from box_ai_agents_toolkit import (
+    box_file_ai_ask,
+    box_file_text_extract,
+    box_folder_list_content,
+    get_ccg_client,
+)
+
+
+def box_read_tool(file_id: str) -> str:
+    client = get_ccg_client()
+    return box_file_text_extract(client, file_id)
+
+
+def box_ask_ai_tool(file_id: str, prompt: str) -> dict:
+    client = get_ccg_client()
+    return box_file_ai_ask(client, file_id, prompt=prompt)
+
+
+def box_list_folder_content_by_folder_id(
+    folder_id: str,
+    is_recursive: bool,
+) -> list[dict]:
+    client = get_ccg_client()
+    return box_folder_list_content(client, folder_id, is_recursive)
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from google.adk.agents import LlmAgent
+
+from box_tools import (
+    box_ask_ai_tool,
+    box_list_folder_content_by_folder_id,
+    box_read_tool,
+)
+
+
+root_agent = LlmAgent(
+    model="gemini-2.0-flash",
+    name="box_generic_agent",
+    tools=[
+        box_read_tool,
+        box_ask_ai_tool,
+        box_list_folder_content_by_folder_id,
+    ],
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "box_generic_agent")
+    by_name = {tool.name: tool for tool in agent.tools}
+
+    read = by_name["box_read_tool"]
+    ask = by_name["box_ask_ai_tool"]
+    list_folder = by_name["box_list_folder_content_by_folder_id"]
+
+    assert read.metadata["model_selected_remote_object"] is True
+    assert read.metadata["model_selected_resource_parameters"] == ["file_id"]
+    assert ask.metadata["model_selected_resource_parameters"] == ["file_id"]
+    assert list_folder.metadata["model_selected_resource_parameters"] == ["folder_id"]
+
+    read_resource = next(
+        item
+        for item in read.resources
+        if item.metadata.get("resource_provenance")
+        == "model_selected_remote_object_id"
+    )
+    assert read_resource.kind == "remote_object"
+    assert read_resource.selector == "<model-selected:file_id>"
+    assert read_resource.access == {"data.read"}
+    assert read_resource.metadata["remote_object_type"] == "file"
+
+    folder_resource = next(
+        item
+        for item in list_folder.resources
+        if item.metadata.get("selector_parameter") == "folder_id"
+    )
+    assert folder_resource.selector == "<model-selected:folder_id>"
+    assert folder_resource.metadata["remote_object_type"] == "folder"
+
+    report = effective_authority_report(graph)
+    relationship = next(
+        item
+        for item in report["relationships"]
+        if item["agent"] == "box_generic_agent"
+        and item["target"]["name"] == "box_read_tool"
+    )
+    assert any(
+        resource["selector"] == "<model-selected:file_id>"
+        and resource["metadata"]["resource_provenance"]
+        == "model_selected_remote_object_id"
+        for resource in relationship["resources"]
+    )
+
