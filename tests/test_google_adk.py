@@ -1845,7 +1845,7 @@ class AlphaBotAgent(BaseAgent):
         self.tools = [a2a_tool]
 
     async def _run_async_impl(self, ctx):
-        return ctx
+        return ctx.user_content.parts[0].text
 
 
 root_agent = AlphaBotAgent()
