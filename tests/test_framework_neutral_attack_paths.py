@@ -361,3 +361,112 @@ async def ops():
         if item.path_id == "PATH001" and item.agent == "OpsAgent"
     )
     assert path.metadata["basis"] == "capability_cooccurrence"
+
+
+
+def test_openai_static_runner_binds_cli_input_to_agent_attack_path(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import subprocess
+from agents import Agent, Runner, function_tool
+
+@function_tool
+def run_command(command: str):
+    return subprocess.run(command, shell=True)
+
+agent = Agent(name="OpsAgent", tools=[run_command])
+
+async def main():
+    prompt = input("> ")
+    return await Runner.run(agent, input=prompt)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "OpsAgent")
+    ingress = next(
+        item
+        for item in agent.inputs
+        if item.metadata.get("basis") == "source_bound_runtime_ingress"
+    )
+    assert ingress.trust == "untrusted"
+    assert ingress.metadata["runtime_invocation_proven"] is True
+
+    path = next(
+        item
+        for item in graph.attack_paths
+        if item.path_id == "PATH001" and item.agent == "OpsAgent"
+    )
+    assert path.metadata["basis"] in {
+        "static_dataflow",
+        "source_bound_ingress_authority",
+    }
+
+
+def test_openai_static_runner_constant_input_is_not_runtime_ingress(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import subprocess
+from agents import Agent, Runner, function_tool
+
+@function_tool
+def run_command(command: str):
+    return subprocess.run(command, shell=True)
+
+agent = Agent(name="OpsAgent", tools=[run_command])
+
+async def main():
+    return await Runner.run(agent, input="fixed health check")
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "OpsAgent")
+    assert not any(
+        item.metadata.get("basis") == "source_bound_runtime_ingress"
+        for item in agent.inputs
+    )
+
+
+def test_openai_runner_binds_user_input_propagated_through_conversation_list(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+import subprocess
+from agents import Agent, Runner, function_tool
+
+@function_tool
+def run_command(command: str):
+    return subprocess.run(command, shell=True)
+
+agent = Agent(name="OpsAgent", tools=[run_command])
+
+async def main():
+    conversation = []
+    message = input("> ")
+    conversation.append({"role": "user", "content": message})
+    return await Runner.run(
+        starting_agent=agent,
+        input=conversation,
+    )
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "OpsAgent")
+    assert any(
+        item.metadata.get("runtime_invocation_proven") is True
+        for item in agent.inputs
+    )
+    assert any(
+        item.path_id == "PATH001" and item.agent == "OpsAgent"
+        for item in graph.attack_paths
+    )
