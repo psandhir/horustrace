@@ -2348,3 +2348,75 @@ agent = Agent("local-wrapper")
         item.metadata.get("framework") == "pydantic-ai"
         for item in graph.agents
     )
+
+
+def test_repository_local_pydantic_agent_subclass_factory_is_detected(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "mcpx_pydantic_ai.py").write_text(
+        """
+import pydantic_ai
+
+
+class Agent(pydantic_ai.Agent):
+    pass
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "example.py").write_text(
+        """
+from mcpx_pydantic_ai import Agent
+from pydantic_ai import capture_run_messages
+
+
+def new_agent(result_type, model="claude-3-5-sonnet-latest"):
+    return Agent(model, result_type=result_type)
+
+
+agent = new_agent(int)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent")
+
+    assert agent.metadata["framework"] == "pydantic-ai"
+    assert agent.metadata["repository_subclass_provenance"] is True
+    assert agent.metadata["framework_base"] == "pydantic_ai.Agent"
+    assert agent.metadata["subclass_module"] == "mcpx_pydantic_ai"
+    assert agent.metadata["subclass_name"] == "Agent"
+    assert agent.metadata["factory_function"] == "new_agent"
+    assert agent.metadata["model_reference"] == "model"
+    assert agent.metadata["model_resolution"] == "unresolved_reference"
+
+
+def test_repository_local_unrelated_agent_subclass_is_not_detected(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "local_agent.py").write_text(
+        """
+class Base:
+    pass
+
+
+class Agent(Base):
+    pass
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "example.py").write_text(
+        """
+from local_agent import Agent
+from pydantic_ai import capture_run_messages
+
+agent = Agent()
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    assert not any(
+        item.metadata.get("repository_subclass_provenance") is True
+        for item in graph.agents
+    )
