@@ -568,4 +568,4 @@ executor = StrandsAgentExecutor(DocAgent())
     # The flow engine can prove this path directly, which is stronger than
     # the source-bound ingress/authority fallback added by this remediation.
     assert path.metadata["basis"] == "static_dataflow"
-    assert path.nodes[-1] == "process.execute"
+    assert path.nodes[-1] == "subprocess.run"
