@@ -1801,3 +1801,82 @@ root_agent = Agent(name="registry-agent", tools=get_adk_tools())
     )
     assert server.metadata["dynamic_bound_collection"] is True
     assert server.metadata["tool_catalogue_unresolved"] is True
+
+
+def test_adk_custom_base_agent_composes_model_selected_a2a_destination(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "a2a_risk_tool.py").write_text(
+        """
+from a2a.client import A2ACardResolver
+from google.adk.tools import BaseTool
+
+
+class A2ARiskCheckTool(BaseTool):
+    name = "a2a_risk_check"
+
+    def __init__(self):
+        self.risk_guard_url = "http://riskguard:8000"
+        super().__init__(name=self.name, description="Risk check")
+
+    async def run_async(self, **kwargs):
+        args = kwargs["args"]
+        risk_params = args.get("risk_params", {})
+        risk_guard_target_url = risk_params.get(
+            "riskguard_url",
+            self.risk_guard_url,
+        )
+        resolver = A2ACardResolver(base_url=risk_guard_target_url)
+        return await resolver.get_agent_card()
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+from google.adk.agents import BaseAgent
+
+from a2a_risk_tool import A2ARiskCheckTool
+
+
+class AlphaBotAgent(BaseAgent):
+    def __init__(self):
+        a2a_tool = A2ARiskCheckTool()
+        super().__init__(name="AlphaBot")
+        self.tools = [a2a_tool]
+
+    async def _run_async_impl(self, ctx):
+        return ctx
+
+
+root_agent = AlphaBotAgent()
+""",
+        encoding="utf-8",
+    )
+
+    graph, findings = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "AlphaBot")
+    tool = next(item for item in agent.tools if item.name == "a2a_risk_check")
+
+    assert tool.metadata["custom_base_tool"] is True
+    assert "network.external" in tool.capabilities
+    assert tool.metadata["network_scope"] == "dynamic_destination"
+    destination = next(
+        item
+        for item in tool.destinations
+        if item.target == "<model-selected-url>"
+    )
+    assert destination.restricted is False
+    assert destination.metadata["source"] == "model_selected_url_argument"
+    assert destination.metadata["destination_provenance"] == "model_selected_url_argument"
+    assert destination.metadata["network_abstraction"] == "a2a_agent_card"
+    assert any(
+        finding.rule_id == "NET001" and finding.agent == "AlphaBot"
+        for finding in findings
+    )
+    assert any(
+        item.path_id == "PATH009"
+        and item.agent == "AlphaBot"
+        and "<model-selected-url>" in item.nodes
+        for item in graph.attack_paths
+    )
+
