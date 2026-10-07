@@ -176,6 +176,14 @@ def _parser() -> argparse.ArgumentParser:
             "violation. Unresolved contract assessments do not fail this gate."
         ),
     )
+    scan_parser.add_argument(
+        "--require-authority-contract",
+        action="store_true",
+        help=(
+            "Return exit code 2 when any discovered agent has no Authority Contract. "
+            "This governed-mode gate is independent of finding severity."
+        ),
+    )
     baseline_parser = sub.add_parser("baseline", help="Create expiring suppressions for current findings")
     baseline_parser.add_argument("path", nargs="?", default=".")
     baseline_parser.add_argument("--output", type=Path,
@@ -449,6 +457,14 @@ def _parser() -> argparse.ArgumentParser:
             "Authority Contract violation or weakens the contract."
         ),
     )
+    diff_parser.add_argument(
+        "--require-authority-contract",
+        action="store_true",
+        help=(
+            "Return exit code 2 when the head revision contains an agent without "
+            "an Authority Contract. The diff also reports newly missing contracts."
+        ),
+    )
     return parser
 
 
@@ -591,6 +607,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.fail_on_policy_violation and (
             report["authority_policy_delta"]["introduced_violations"]
             or report["authority_policy_delta"]["contract_weakenings"]
+        ):
+            return 2
+        if (
+            args.require_authority_contract
+            and report["authority_contract_coverage"]["head"]["agents_without_contract"]
         ):
             return 2
         if args.fail_on != "none":
@@ -1162,6 +1183,12 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.fail_on_policy_violation and authority_contract["summary"]["violations"]:
+        return 2
+
+    if (
+        args.require_authority_contract
+        and authority_contract["summary"]["agents_without_contract"]
+    ):
         return 2
 
     if args.fail_on != "none":
