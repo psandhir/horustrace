@@ -1988,6 +1988,121 @@ def _analyze_function(
     return caps, unique_destinations, scopes
 
 
+def _function_external_resource_id_semantics(
+    modules: dict[str, ModuleInfo],
+    info: ModuleInfo,
+    func: ast.FunctionDef | ast.AsyncFunctionDef,
+    capabilities: set[str],
+) -> tuple[list[ResourceScope], dict[str, object]]:
+    """Bind model-selected external resource IDs to source-visible SDK calls.
+
+    ADK function parameters are model-callable inputs. Preserve identifier scope
+    only when an *_id / *_ids parameter actually reaches an imported external
+    SDK/helper call; repository-local helpers are handled by normal source
+    composition instead of being treated as opaque external authority.
+    """
+    parameters = {
+        arg.arg
+        for arg in [
+            *func.args.posonlyargs,
+            *func.args.args,
+            *func.args.kwonlyargs,
+        ]
+        if arg.arg not in {"self", "cls", "ctx", "context", "tool_context"}
+    }
+    id_parameters = {
+        name
+        for name in parameters
+        if name.endswith("_id") or name.endswith("_ids")
+    }
+    if not id_parameters:
+        return [], {}
+
+    resources: list[ResourceScope] = []
+    seen: set[tuple[str, str, str]] = set()
+    for call in (node for node in ast.walk(func) if isinstance(node, ast.Call)):
+        imported_module: str | None = None
+        imported_symbol: str | None = None
+        if isinstance(call.func, ast.Name):
+            ref = info.imports.get(call.func.id)
+            if ref is not None:
+                imported_module, imported_symbol = ref
+        elif (
+            isinstance(call.func, ast.Attribute)
+            and isinstance(call.func.value, ast.Name)
+        ):
+            ref = info.imports.get(call.func.value.id)
+            if ref is not None:
+                imported_module = ref[0]
+                imported_symbol = call.func.attr
+
+        if not imported_module:
+            continue
+        if _find_module(modules, imported_module) is not None:
+            continue
+
+        values = [*call.args, *(keyword.value for keyword in call.keywords)]
+        used = sorted(
+            name
+            for name in id_parameters
+            if any(_expr_uses_names(value, {name}) for value in values)
+        )
+        if not used:
+            continue
+
+        called = imported_symbol or _name(call.func) or ""
+        call_access = infer_capabilities(called) & {
+            "data.read",
+            "data.write",
+            "destructive.write",
+        }
+        if not call_access:
+            call_access = capabilities & {
+                "data.read",
+                "data.write",
+                "destructive.write",
+            }
+        if not call_access:
+            continue
+
+        provider_root = imported_module.split(".", 1)[0]
+        provider = provider_root.split("_", 1)[0] or provider_root
+        for parameter in used:
+            base = parameter[:-4] if parameter.endswith("_ids") else parameter[:-3]
+            resource_type = base.split("_")[-1] or "resource"
+            key = (provider, resource_type, parameter)
+            if key in seen:
+                continue
+            seen.add(key)
+            resources.append(
+                ResourceScope(
+                    kind="external_resource",
+                    selector=parameter,
+                    access=set(call_access),
+                    classification="external",
+                    location=_loc(info.path, call),
+                    metadata={
+                        "source": "external_sdk_resource_identifier",
+                        "selector_provenance": "model_selected",
+                        "selector_type": "identifier",
+                        "provider": provider,
+                        "external_sdk_module": imported_module,
+                        "external_sdk_symbol": called,
+                        "resource_type": resource_type,
+                    },
+                )
+            )
+
+    if not resources:
+        return [], {}
+    return resources, {
+        "model_selected_external_resource_ids": sorted(
+            {resource.selector for resource in resources}
+        ),
+        "external_resource_scope_source": "source_visible_sdk_identifier",
+    }
+
+
 def _function_tool(
     modules: dict[str, ModuleInfo],
     info: ModuleInfo,
@@ -2000,6 +2115,17 @@ def _function_tool(
         model_callable=True,
     )
     resources, file_metadata = _function_file_transfer_semantics(info, func)
+    external_resources, external_resource_metadata = (
+        _function_external_resource_id_semantics(
+            modules,
+            info,
+            func,
+            caps,
+        )
+    )
+    for resource in external_resources:
+        if resource not in resources:
+            resources.append(resource)
     required_roles, required_role_evidence = _analyze_required_gcp_roles(
         modules,
         info,
@@ -2031,6 +2157,7 @@ def _function_tool(
         "framework": "google-adk",
         "repository_resolved": True,
         **file_metadata,
+        **external_resource_metadata,
     }
     if network_scope:
         metadata["network_scope"] = network_scope
