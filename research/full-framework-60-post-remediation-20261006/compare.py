@@ -221,6 +221,29 @@ def main() -> int:
             f"{float(gate['min_core_fully_resolved_ratio']):.3f}"
         )
 
+    allowed_path_drops = {
+        str(case_id): int(value)
+        for case_id, value in (
+            gate.get("allowed_attack_path_drops") or {}
+        ).items()
+    }
+    max_unapproved_path_drop = int(
+        gate.get("max_unapproved_attack_path_drop", 0)
+    )
+    for case_id, before in baseline.items():
+        after = post.get(case_id)
+        if after is None:
+            continue
+        before_paths = int((before.get("counts") or {}).get("attack_paths") or 0)
+        after_paths = int((after.get("counts") or {}).get("attack_paths") or 0)
+        drop = max(before_paths - after_paths, 0)
+        allowed = allowed_path_drops.get(case_id, 0)
+        if drop > allowed + max_unapproved_path_drop:
+            gate_failures.append(
+                f"{case_id} attack paths dropped {before_paths}->{after_paths}; "
+                f"allowed drop {allowed}"
+            )
+
     post_by_framework = aggregate_cases(post)
     for framework, minimums in gate["framework_minimums"].items():
         observed = post_by_framework.get(framework, {})
