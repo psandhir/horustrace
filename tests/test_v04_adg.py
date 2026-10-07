@@ -177,3 +177,39 @@ agent = Agent(
     assert any(item["after"]["name"] == "web_search" for item in changed)
     assert delta["digest"].startswith("sha256:")
 
+
+def test_aibom_cli_emits_configured_inventory_context(
+    tmp_path: Path,
+) -> None:
+    _project(tmp_path)
+    (tmp_path / ".horustrace.yaml").write_text(
+        """
+version: 1
+inventory:
+  repository_id: github.com/acme/research-agent
+  project: research-platform
+  owner: security@example.com
+  team: ai-security
+  business_service: research
+  environment: production
+  lifecycle: active
+""",
+        encoding="utf-8",
+    )
+    output = tmp_path / "aibom.json"
+
+    assert main(["aibom", str(tmp_path), "--output", str(output)]) == 0
+
+    document = json.loads(output.read_text(encoding="utf-8"))
+    assert document["source"]["repository_id"] == "github.com/acme/research-agent"
+    assert document["source"]["project"] == "research-platform"
+    assert document["ownership"] == {
+        "owner": "security@example.com",
+        "team": "ai-security",
+        "business_service": "research",
+    }
+    agent = document["inventory"]["agent"][0]
+    assert agent["environment"] == "production"
+    assert agent["lifecycle"] == "active"
+    assert agent["ownership"]["team"] == "ai-security"
+
