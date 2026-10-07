@@ -1,0 +1,39 @@
+name: Anthropic Attack Path Parity Fresh Cases
+on:
+  push:
+    branches:
+      - research/attack-path-parity-anthropic-443
+    paths:
+      - ".github/workflows/anthropic-attack-path-parity-443.yml"
+      - "research/cross-framework-holdout-70-20261007/**"
+permissions:
+  contents: read
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        case_id:
+          - hold70-anthropic-01
+          - hold70-anthropic-05
+          - hold70-anthropic-06
+          - hold70-anthropic-08
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - run: |
+          python research/cross-framework-holdout-70-20261007/run_case.py \
+            --case-id "${{ matrix.case_id }}" \
+            --output-dir artifacts
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: anthropic-parity-${{ matrix.case_id }}
+          path: artifacts/${{ matrix.case_id }}/
+          if-no-files-found: warn
+          retention-days: 14
