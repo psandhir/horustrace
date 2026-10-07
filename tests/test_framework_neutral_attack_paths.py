@@ -330,3 +330,34 @@ def main():
         and item.metadata.get("basis") == "source_bound_ingress_authority"
         for item in graph.attack_paths
     )
+
+
+
+def test_fastagent_declared_human_input_is_untrusted_for_shell_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from fast_agent import FastAgent
+
+fast = FastAgent("ops")
+
+@fast.agent(name="OpsAgent", human_input=True, shell=True)
+async def ops():
+    pass
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "OpsAgent")
+    ingress = next(item for item in agent.inputs if item.name == "human_input")
+    assert ingress.trust == "untrusted"
+    assert ingress.metadata["basis"] == "framework_declared_human_input"
+
+    path = next(
+        item
+        for item in graph.attack_paths
+        if item.path_id == "PATH001" and item.agent == "OpsAgent"
+    )
+    assert path.metadata["basis"] == "capability_cooccurrence"
