@@ -1309,10 +1309,12 @@ def _network_call_destination(
     call: ast.Call,
     called: str,
     assignments: dict[str, ast.AST] | None = None,
+    model_selected_names: set[str] | None = None,
 ) -> NetworkDestination | None:
     # urllib.parse/string helpers are not network sinks. Only urlopen performs
     # I/O; Request(...) is a local request-object constructor whose wrapped URL
     # is resolved when it reaches urlopen().
+    a2a_card_resolver = called.endswith("a2acardresolver")
     network_call = (
         any(
             marker in called
@@ -1329,11 +1331,29 @@ def _network_call_destination(
         )
         or called.endswith("urllib.request.urlopen")
         or called == "urlopen"
+        or a2a_card_resolver
     )
     if not network_call:
         return None
 
-    target_node = call.args[0] if call.args else _kw(call, "url")
+    target_node = (
+        _kw(call, "base_url")
+        if a2a_card_resolver
+        else (call.args[0] if call.args else _kw(call, "url"))
+    )
+    if model_selected_names and _expr_uses_names(target_node, model_selected_names):
+        destination = _destination(
+            info.path,
+            call,
+            "<model-selected-url>",
+            restricted=False,
+            source="model_selected_url_argument",
+        )
+        destination.metadata["destination_provenance"] = "model_selected_url_argument"
+        if a2a_card_resolver:
+            destination.metadata["network_abstraction"] = "a2a_agent_card"
+        return destination
+
     target = _resolved_string(info, target_node)
     if target and target.startswith(("http://", "https://")):
         return _destination(
@@ -1589,6 +1609,8 @@ def _analyze_function(
     info: ModuleInfo,
     func: ast.FunctionDef | ast.AsyncFunctionDef,
     visited: set[tuple[str, str]] | None = None,
+    *,
+    model_callable: bool = False,
 ) -> tuple[set[str], list[NetworkDestination], set[str]]:
     visited = set() if visited is None else set(visited)
     key = (info.module, func.name)
@@ -1608,6 +1630,53 @@ def _analyze_function(
             continue
         for name in _assignment_targets(assignment):
             local_assignments[name] = value
+
+    model_selected_names: set[str] = set()
+    if model_callable:
+        excluded = {"self", "cls", "ctx", "context", "tool_context"}
+        model_selected_names.update(
+            arg.arg
+            for arg in [
+                *func.args.posonlyargs,
+                *func.args.args,
+                *func.args.kwonlyargs,
+            ]
+            if arg.arg not in excluded
+        )
+        kwarg_name = func.args.kwarg.arg if func.args.kwarg is not None else None
+
+        def from_tool_args(expr: ast.AST) -> bool:
+            if kwarg_name is None:
+                return False
+            if (
+                isinstance(expr, ast.Subscript)
+                and isinstance(expr.value, ast.Name)
+                and expr.value.id == kwarg_name
+            ):
+                key = _string(expr.slice)
+                return key == "args"
+            if (
+                isinstance(expr, ast.Call)
+                and isinstance(expr.func, ast.Attribute)
+                and isinstance(expr.func.value, ast.Name)
+                and expr.func.value.id == kwarg_name
+                and expr.func.attr == "get"
+                and expr.args
+            ):
+                return _string(expr.args[0]) == "args"
+            return False
+
+        changed = True
+        while changed:
+            changed = False
+            for name, value in local_assignments.items():
+                if name in model_selected_names:
+                    continue
+                if from_tool_args(value) or _expr_uses_names(
+                    value, model_selected_names
+                ):
+                    model_selected_names.add(name)
+                    changed = True
 
     for node in ast.walk(func):
         if isinstance(node, ast.Call):
@@ -1665,6 +1734,7 @@ def _analyze_function(
                 node,
                 called,
                 local_assignments,
+                model_selected_names,
             )
             if network_destination is not None:
                 caps.add("network.external")
