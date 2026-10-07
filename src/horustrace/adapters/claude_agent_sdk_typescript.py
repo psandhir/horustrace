@@ -14,8 +14,11 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
-from horustrace.semantic_contract import set_model_provenance
-from horustrace.semantic_contract import ToolControlState, set_tool_control
+from horustrace.semantic_contract import (
+    ToolControlState,
+    set_model_provenance,
+    set_tool_control,
+)
 
 FRAMEWORK = "claude-agent-sdk"
 _SDK = "@anthropic-ai/claude-agent-sdk"
