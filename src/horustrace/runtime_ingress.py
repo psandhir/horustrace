@@ -1222,7 +1222,11 @@ def _a2a_executor_ingress_targets(
                     result[target.attr] = (value.id, parameters.index(value.id))
         return result
 
-    def wrapper_names(executor_name: str, parameter_index: int) -> set[str]:
+    def wrapper_names(
+        executor_name: str,
+        parameter_name: str,
+        parameter_index: int,
+    ) -> set[str]:
         result: set[str] = set()
         for _, tree, _ in modules.values():
             for node in ast.walk(tree):
@@ -1230,9 +1234,18 @@ def _a2a_executor_ingress_targets(
                     continue
                 if (_call_name(node.func) or "") != executor_name:
                     continue
-                if parameter_index >= len(node.args):
-                    continue
-                value = node.args[parameter_index]
+                value = (
+                    node.args[parameter_index]
+                    if parameter_index < len(node.args)
+                    else next(
+                        (
+                            keyword.value
+                            for keyword in node.keywords
+                            if keyword.arg == parameter_name
+                        ),
+                        None,
+                    )
+                )
                 if isinstance(value, ast.Call):
                     wrapper = _call_name(value.func)
                     if wrapper:
@@ -1248,6 +1261,18 @@ def _a2a_executor_ingress_targets(
             if agent.location is not None
             and start <= agent.location.line <= end
         ]
+
+
+    def unique_agent_in_class(path: Path, class_node: ast.ClassDef) -> Agent | None:
+        start = getattr(class_node, "lineno", 0) or 0
+        end = getattr(class_node, "end_lineno", start) or start
+        matches = {
+            id(agent): agent
+            for agent in agents_by_path.get(path.resolve(), [])
+            if agent.location is not None
+            and start <= agent.location.line <= end
+        }
+        return next(iter(matches.values())) if len(matches) == 1 else None
 
     resolved: list[tuple[Agent, Path, ast.FunctionDef | ast.AsyncFunctionDef, str]] = []
     seen: set[tuple[int, str]] = set()
@@ -1297,8 +1322,12 @@ def _a2a_executor_ingress_targets(
                 ):
                     continue
 
-                _, parameter_index = fields[receiver.attr]
-                wrappers = wrapper_names(executor_name, parameter_index)
+                parameter_name, parameter_index = fields[receiver.attr]
+                wrappers = wrapper_names(
+                    executor_name,
+                    parameter_name,
+                    parameter_index,
+                )
                 for wrapper_name in wrappers:
                     wrapper_defs = class_defs.get(wrapper_name, [])
                     if len(wrapper_defs) != 1:
@@ -1317,6 +1346,12 @@ def _a2a_executor_ingress_targets(
                         for index in tainted_indexes
                         if index < len(wrapper_parameters)
                     }
+                    for keyword in node.keywords:
+                        if (
+                            keyword.arg in wrapper_parameters
+                            and _expr_tainted(keyword.value, tainted)
+                        ):
+                            wrapper_taint.add(keyword.arg)
                     if not wrapper_taint:
                         continue
                     wrapper_tainted = _propagate_taint(
@@ -1324,26 +1359,45 @@ def _a2a_executor_ingress_targets(
                         wrapper_taint,
                     )
 
-                    helper_names: set[str] = set()
-                    direct_agents = agents_in_scope(wrapper_path, wrapper_method)
-                    for inner in ast.walk(wrapper_method):
-                        if isinstance(inner, (ast.Assign, ast.AnnAssign)):
-                            value = inner.value
-                            if (
-                                isinstance(value, ast.Call)
-                                and isinstance(value.func, ast.Attribute)
-                                and isinstance(value.func.value, ast.Name)
-                                and value.func.value.id == "self"
+                    helper_methods: list[
+                        ast.FunctionDef | ast.AsyncFunctionDef
+                    ] = []
+                    pending = [wrapper_method]
+                    visited_methods: set[str] = set()
+                    while pending:
+                        current = pending.pop()
+                        if current.name in visited_methods:
+                            continue
+                        visited_methods.add(current.name)
+                        helper_methods.append(current)
+                        for inner in ast.walk(current):
+                            if not isinstance(inner, ast.Call):
+                                continue
+                            if not (
+                                isinstance(inner.func, ast.Attribute)
+                                and isinstance(inner.func.value, ast.Name)
+                                and inner.func.value.id == "self"
                             ):
-                                helper_names.add(value.func.attr)
+                                continue
+                            helper_method = method(wrapper_class, inner.func.attr)
+                            if (
+                                helper_method is not None
+                                and helper_method.name not in visited_methods
+                            ):
+                                pending.append(helper_method)
 
-                    target_agents = list(direct_agents)
-                    for helper_name in helper_names:
-                        helper_method = method(wrapper_class, helper_name)
-                        if helper_method is not None:
-                            target_agents.extend(
-                                agents_in_scope(wrapper_path, helper_method)
-                            )
+                    target_agents: list[Agent] = []
+                    for helper_method in helper_methods:
+                        target_agents.extend(
+                            agents_in_scope(wrapper_path, helper_method)
+                        )
+                    if not target_agents:
+                        unique_wrapper_agent = unique_agent_in_class(
+                            wrapper_path,
+                            wrapper_class,
+                        )
+                        if unique_wrapper_agent is not None:
+                            target_agents.append(unique_wrapper_agent)
 
                     # Require a source-visible runtime call that consumes the
                     # wrapper's tainted request parameter before binding ingress.

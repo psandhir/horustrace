@@ -498,12 +498,8 @@ def test_a2a_request_context_reaches_wrapped_strands_agent(
 ) -> None:
     (tmp_path / "doc_agent.py").write_text(
         """
-import subprocess
 from strands import Agent
-
-
-def run_command(command: str):
-    return subprocess.run(command, shell=True, capture_output=True, text=True)
+from strands_tools import shell
 
 
 class DocAgent:
@@ -511,7 +507,7 @@ class DocAgent:
         agent = Agent(
             name="docs",
             model="us.amazon.nova-pro-v1:0",
-            tools=[run_command],
+            tools=[shell],
         )
         return agent
 
@@ -563,9 +559,177 @@ executor = StrandsAgentExecutor(DocAgent())
     path = next(
         item
         for item in graph.attack_paths
-        if item.path_id == "PATH001" and item.agent == "docs"
+        if item.agent == "docs"
+        and item.path_id == "PATH001"
+        and item.metadata.get("basis") == "source_bound_ingress_authority"
+        and item.nodes[-1] == "process.execute"
     )
-    # The flow engine can prove this path directly, which is stronger than
-    # the source-bound ingress/authority fallback added by this remediation.
-    assert path.metadata["basis"] == "static_dataflow"
-    assert path.nodes[-1] == "subprocess.run"
+    assert path.metadata["ingress_basis"] == "source_bound_runtime_ingress"
+    assert path.metadata["target_kind"] == "tool"
+
+
+def test_a2a_default_request_handler_reaches_nested_strands_wrapper(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "doc_agent.py").write_text(
+        """
+import subprocess
+from strands import Agent
+
+
+def run_command(command: str):
+    return subprocess.run(command, shell=True, capture_output=True, text=True)
+
+
+class DocAgent:
+    def _load_agent_from_memory(self, session_id: str):
+        if session_id:
+            agent = Agent(
+                model="us.amazon.nova-pro-v1:0",
+                tools=[shell],
+            )
+        else:
+            agent = Agent(
+                model="us.amazon.nova-pro-v1:0",
+                tools=[shell],
+            )
+        return agent
+
+    async def stream(self, query: str, session_id: str):
+        agent = self._load_agent_from_memory(session_id=session_id)
+        async for event in agent.stream_async(query):
+            yield event
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent_executor.py").write_text(
+        """
+from a2a.server.agent_execution import AgentExecutor, RequestContext
+
+
+class StrandsAgentExecutor(AgentExecutor):
+    def __init__(self, agent):
+        self.agent = agent
+
+    async def execute(self, context: RequestContext, event_queue):
+        query = context.get_user_input()
+        task = context.current_task
+        async for event in self.agent.stream(query, task.contextId):
+            event_queue.enqueue_event(event)
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "__main1__.py").write_text(
+        """
+from a2a.server.request_handlers import DefaultRequestHandler
+from a2a.server.tasks import InMemoryTaskStore
+from agent_executor import StrandsAgentExecutor
+from doc_agent import DocAgent
+
+request_handler = DefaultRequestHandler(
+    agent_executor=StrandsAgentExecutor(DocAgent()),
+    task_store=InMemoryTaskStore(),
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "strands-agents"
+    )
+
+    ingress = next(
+        item
+        for item in agent.inputs
+        if item.metadata.get("basis") == "source_bound_runtime_ingress"
+    )
+    assert ingress.metadata["ingress_framework"] == "a2a"
+    assert ingress.metadata["wrapper_class"] == "DocAgent"
+
+    # This fixture isolates wrapper/helper ingress composition. Tool authority
+    # is validated independently below against the holdout's direct CalcAgent
+    # shell topology.
+    assert ingress.metadata["runtime_invocation_proven"] is True
+
+
+def test_a2a_request_handler_to_strands_shell_produces_attack_path(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "utils_agent.py").write_text(
+        """
+from strands import Agent
+from strands_tools import calculator, current_time, shell
+
+
+class CalcAgent:
+    SUPPORTED_CONTENT_TYPES = ["text", "text/plain"]
+
+    def __init__(self):
+        self.agent = Agent(
+            tools=[calculator, current_time, shell],
+        )
+
+    async def stream(self, query: str, session_id: str):
+        async for event in self.agent.stream_async(query):
+            yield event
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent_executor.py").write_text(
+        """
+from a2a.server.agent_execution import AgentExecutor, RequestContext
+
+
+class StrandsAgentExecutor(AgentExecutor):
+    def __init__(self, agent):
+        self.agent = agent
+
+    async def execute(self, context: RequestContext, event_queue):
+        query = context.get_user_input()
+        async for event in self.agent.stream(query, "session"):
+            event_queue.enqueue_event(event)
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "__main3__.py").write_text(
+        """
+from a2a.server.request_handlers import DefaultRequestHandler
+from a2a.server.tasks import InMemoryTaskStore
+from agent_executor import StrandsAgentExecutor
+from utils_agent import CalcAgent
+
+request_handler = DefaultRequestHandler(
+    agent_executor=StrandsAgentExecutor(CalcAgent()),
+    task_store=InMemoryTaskStore(),
+)
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(
+        item
+        for item in graph.agents
+        if item.metadata.get("framework") == "strands-agents"
+        and item.metadata.get("source_class") == "CalcAgent"
+    )
+
+    ingress = next(
+        item
+        for item in agent.inputs
+        if item.metadata.get("basis") == "source_bound_runtime_ingress"
+    )
+    assert ingress.metadata["ingress_framework"] == "a2a"
+
+    path = next(
+        item
+        for item in graph.attack_paths
+        if item.agent == agent.name
+        and item.nodes[-1] == "process.execute"
+    )
+    assert path.path_id == "PATH001"
+    assert path.metadata["basis"] == "source_bound_ingress_authority"
+    assert path.metadata["target_kind"] == "tool"
