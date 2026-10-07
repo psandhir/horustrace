@@ -1576,13 +1576,19 @@ def _assignment_targets(node: ast.AST) -> set[str]:
 
 
 def _function_remote_object_semantics(
+    modules: dict[str, ModuleInfo],
     info: ModuleInfo,
     func: ast.FunctionDef | ast.AsyncFunctionDef,
     capabilities: set[str],
 ) -> tuple[list[ResourceScope], dict[str, object]]:
-    """Prove model-selected remote object IDs used by content operations."""
-    access = capabilities & {"data.read", "data.write", "destructive.write"}
-    if not access:
+    """Prove model-selected remote object IDs reaching external SDK calls.
+
+    Model-callable *_id / *_ids parameters are not sufficient on their own:
+    the identifier must flow to a source-visible imported external operation.
+    Repository-local helpers are excluded so local identifiers do not become
+    invented external authority.
+    """
+    if not capabilities & {"data.read", "data.write", "destructive.write"}:
         return [], {}
 
     params = [
@@ -1611,7 +1617,7 @@ def _function_remote_object_semantics(
     parameter_aliases: dict[str, set[str]] = {
         name: {name} for name in candidate_params
     }
-    for parameter, aliases in parameter_aliases.items():
+    for aliases in parameter_aliases.values():
         changed = True
         while changed:
             changed = False
@@ -1623,12 +1629,17 @@ def _function_remote_object_semantics(
                         aliases.add(name)
                         changed = True
 
-    content_markers = {
+    read_markers = {
         "read",
-        "extract",
-        "download",
+        "get",
         "list",
         "search",
+        "fetch",
+        "retrieve",
+        "load",
+        "download",
+        "export",
+        "extract",
         "ask",
         "content",
         "file",
@@ -1637,59 +1648,118 @@ def _function_remote_object_semantics(
         "object",
         "item",
     }
-    observed: dict[str, SourceLocation] = {}
+    write_markers = {
+        "create",
+        "update",
+        "insert",
+        "upload",
+        "write",
+        "put",
+        "patch",
+        "set",
+        "save",
+    }
+    destructive_markers = {"delete", "remove", "destroy", "purge"}
+
+    resources: list[ResourceScope] = []
+    seen: set[tuple[str, str, str, tuple[str, ...]]] = set()
+    object_types: dict[str, str] = {}
+
     for call in (node for node in ast.walk(func) if isinstance(node, ast.Call)):
         called = (_dotted(call.func) or _name(call.func) or "").lower()
         if not called:
             continue
-        leaf = (_name(call.func) or "").lower()
+
+        import_ref: tuple[str, str] | None = None
+        if isinstance(call.func, ast.Name):
+            import_ref = info.imports.get(call.func.id)
+        else:
+            dotted = _dotted(call.func)
+            if dotted:
+                import_ref = info.imports.get(dotted.split(".", 1)[0])
+        if import_ref is None:
+            continue
+
+        imported_module, imported_symbol = import_ref
+        if _find_module(modules, imported_module) is not None:
+            continue
+        combined = (
+            f"{imported_module}.{imported_symbol}"
+            if imported_symbol
+            else imported_module
+        )
+        if _find_module(modules, combined) is not None:
+            continue
+
         tokens = {
             part
             for part in called.replace(".", "_").split("_")
             if part
         }
-        if not (tokens & content_markers or any(marker in leaf for marker in content_markers)):
-            continue
-        values = [*call.args, *(keyword.value for keyword in call.keywords)]
-        for parameter, aliases in parameter_aliases.items():
-            if any(_expr_uses_names(value, aliases) for value in values):
-                observed.setdefault(parameter, _loc(info.path, call))
-
-    if not observed:
-        return [], {}
-
-    resources: list[ResourceScope] = []
-    object_types: dict[str, str] = {}
-    for parameter, location in sorted(observed.items()):
-        if parameter.startswith("file"):
-            object_type = "file"
-        elif parameter.startswith("folder"):
-            object_type = "folder"
-        elif parameter.startswith("document"):
-            object_type = "document"
+        if tokens & destructive_markers:
+            call_access = {"data.write", "destructive.write"}
+        elif tokens & write_markers:
+            call_access = {"data.write"}
+        elif tokens & read_markers:
+            call_access = {"data.read"}
         else:
-            object_type = "remote_object"
-        object_types[parameter] = object_type
-        resources.append(
-            ResourceScope(
-                kind="remote_object",
-                selector=f"<model-selected:{parameter}>",
-                access=set(access),
-                location=location,
-                metadata={
-                    "source": "model_selected_function_parameter",
-                    "resource_provenance": "model_selected_remote_object_id",
-                    "selector_parameter": parameter,
-                    "remote_object_type": object_type,
-                },
+            continue
+
+        values = [*call.args, *(keyword.value for keyword in call.keywords)]
+        provider_root = imported_module.split(".", 1)[0]
+        provider = provider_root.split("_", 1)[0] or provider_root
+        external_symbol = imported_symbol or called
+
+        for parameter, aliases in parameter_aliases.items():
+            if not any(_expr_uses_names(value, aliases) for value in values):
+                continue
+            if parameter.startswith("file"):
+                object_type = "file"
+            elif parameter.startswith("folder"):
+                object_type = "folder"
+            elif parameter.startswith("document"):
+                object_type = "document"
+            else:
+                object_type = "remote_object"
+            object_types[parameter] = object_type
+            key = (
+                provider,
+                object_type,
+                parameter,
+                tuple(sorted(call_access)),
             )
-        )
+            if key in seen:
+                continue
+            seen.add(key)
+            resources.append(
+                ResourceScope(
+                    kind="remote_object",
+                    selector=f"<model-selected:{parameter}>",
+                    access=set(call_access),
+                    classification="external",
+                    location=_loc(info.path, call),
+                    metadata={
+                        "source": "external_sdk_resource_identifier",
+                        "resource_provenance": "model_selected_remote_object_id",
+                        "selector_provenance": "model_selected",
+                        "selector_parameter": parameter,
+                        "remote_object_type": object_type,
+                        "provider": provider,
+                        "external_sdk_module": imported_module,
+                        "external_sdk_symbol": external_symbol,
+                    },
+                )
+            )
+
+    if not resources:
+        return [], {}
 
     return resources, {
         "model_selected_remote_object": True,
-        "model_selected_resource_parameters": sorted(observed),
+        "model_selected_resource_parameters": sorted(object_types),
         "model_selected_remote_object_types": object_types,
         "resource_provenance": "model_selected_remote_object_id",
+        "external_resource_scope_source": "source_visible_sdk_identifier",
     }
 
 
@@ -2119,6 +2189,7 @@ def _function_tool(
     )
     resources, file_metadata = _function_file_transfer_semantics(info, func)
     remote_resources, remote_metadata = _function_remote_object_semantics(
+        modules,
         info,
         func,
         caps,
