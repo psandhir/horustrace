@@ -68,6 +68,78 @@ DATA_CONNECTION_TYPES = frozenset(
 )
 
 
+_FILESYSTEM_RESOURCE_KINDS = frozenset(
+    {"directory", "file", "filesystem", "local_file", "path", "workspace"}
+)
+_OBJECT_STORE_RESOURCE_KINDS = frozenset(
+    {"blob", "bucket", "gcs", "object", "object_store", "s3"}
+)
+_DATABASE_RESOURCE_KINDS = frozenset(
+    {
+        "bigquery",
+        "cosmos",
+        "cosmosdb",
+        "database",
+        "db",
+        "dynamodb",
+        "firestore",
+        "mysql",
+        "postgres",
+        "postgresql",
+        "sql",
+        "sqlite",
+    }
+)
+_VECTOR_RESOURCE_KINDS = frozenset(
+    {"chroma", "lancedb", "pinecone", "qdrant", "vector", "vector_store", "weaviate"}
+)
+_MESSAGING_RESOURCE_KINDS = frozenset(
+    {"event", "kafka", "messaging", "pubsub", "queue", "sns", "sqs", "topic"}
+)
+_RAG_RESOURCE_KINDS = frozenset(
+    {
+        "data_store",
+        "knowledge_base",
+        "knowledgebase",
+        "rag",
+        "retrieval",
+        "retriever",
+        "search_engine",
+        "vertex-search",
+    }
+)
+_SAAS_RESOURCE_KINDS = frozenset(
+    {"api", "external_resource", "remote_object", "saas"}
+)
+_MEMORY_RESOURCE_KINDS = frozenset({"memory", "memory_store"})
+_CLOUD_RESOURCE_KINDS = frozenset(
+    {"aws_arn", "gcp-project", "lambda", "cloud_resource"}
+)
+
+
+def canonical_data_connection_type(kind: str) -> str:
+    normalized = kind.strip().lower().replace("-", "_")
+    if normalized in _FILESYSTEM_RESOURCE_KINDS:
+        return "filesystem"
+    if normalized in _OBJECT_STORE_RESOURCE_KINDS:
+        return "object_store"
+    if normalized in _DATABASE_RESOURCE_KINDS:
+        return "database"
+    if normalized in _VECTOR_RESOURCE_KINDS:
+        return "vector_store"
+    if normalized in _MESSAGING_RESOURCE_KINDS:
+        return "messaging"
+    if normalized in _RAG_RESOURCE_KINDS:
+        return "rag_source"
+    if normalized in _SAAS_RESOURCE_KINDS:
+        return "saas_api"
+    if normalized in _MEMORY_RESOURCE_KINDS:
+        return "memory"
+    if normalized in _CLOUD_RESOURCE_KINDS:
+        return "cloud_resource"
+    return "unknown"
+
+
 class ModelSemanticKey(str, Enum):
     IDENTIFIER = "model"
     PROVIDER = "model_provider"
@@ -272,10 +344,10 @@ def set_data_resource_provenance(
     """Write canonical data-resource provenance without inventing source facts."""
 
     metadata = resource.metadata
-    if connection_type is not None:
-        if connection_type not in DATA_CONNECTION_TYPES:
-            raise ValueError(f"invalid data connection type: {connection_type!r}")
-        metadata[_data_key(DataResourceSemanticKey.CONNECTION_TYPE)] = connection_type
+    connection_type = connection_type or canonical_data_connection_type(resource.kind)
+    if connection_type not in DATA_CONNECTION_TYPES:
+        raise ValueError(f"invalid data connection type: {connection_type!r}")
+    metadata[_data_key(DataResourceSemanticKey.CONNECTION_TYPE)] = connection_type
 
     values = {
         DataResourceSemanticKey.PROVIDER: provider,
