@@ -66,6 +66,10 @@ def review_case(source_root: Path, destination: Path, case_id: str,
         response, provider_request_id = _call_judge(
             judge, system_prompt=prompt, user_prompt=user_text,
             schema=api_schema(schema), max_retries=2)
+        if not provider_request_id:
+            raise ReviewError(
+                f"{judge.reviewer_id}/{case_id}: provider did not return auditable request ID"
+            )
         validation = validate_review(response, manifest, source_text, schema)
         run_time = datetime.datetime.now(datetime.UTC).isoformat()
         payload = json.dumps(response, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
@@ -79,7 +83,7 @@ def review_case(source_root: Path, destination: Path, case_id: str,
             "provider": judge.provider,
             "model": judge.model,
             "provider_request_id": provider_request_id,
-            "execution_id": provider_request_id or f"{judge.reviewer_id}-{case_id}-{run_time}",
+            "execution_id": provider_request_id,
             "prompt_version": "frozen180-source-review-v1",
             "prompt_sha256": prompt_sha,
             "source_pack_sha256": manifest["source_pack_sha256"],
