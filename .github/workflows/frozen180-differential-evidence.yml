@@ -6,6 +6,8 @@ on:
       - research/frozen180-llm-differential-evidence-20261008
     paths:
       - .github/workflows/frozen180-differential-evidence.yml
+      - scripts/frozen180_source_packet.py
+      - scripts/frozen180_path_evidence.py
   workflow_dispatch:
 
 permissions:
