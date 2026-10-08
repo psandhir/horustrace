@@ -39,9 +39,12 @@ def _assignments(node: ast.AST) -> dict[str, ast.AST]:
             for target in child.targets:
                 if isinstance(target, ast.Name):
                     result[target.id] = child.value
-        elif isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
-            if child.value is not None:
-                result[child.target.id] = child.value
+        elif (
+            isinstance(child, ast.AnnAssign)
+            and isinstance(child.target, ast.Name)
+            and child.value is not None
+        ):
+            result[child.target.id] = child.value
     return result
 
 
@@ -74,9 +77,12 @@ def _profile_path(scope: ast.AST, assignments: dict[str, ast.AST]) -> str | None
         if not isinstance(call, ast.Call) or _call_leaf(call) != "open" or not call.args:
             continue
         first = call.args[0]
-        if isinstance(first, ast.Constant) and isinstance(first.value, str):
-            if first.value.endswith((".yaml", ".yml")):
-                return first.value
+        if (
+            isinstance(first, ast.Constant)
+            and isinstance(first.value, str)
+            and first.value.endswith((".yaml", ".yml"))
+        ):
+            return first.value
     return None
 
 
