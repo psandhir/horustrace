@@ -192,3 +192,80 @@ def test_security_graph_preserves_model_data_identity_lineage(tmp_path: Path) ->
     assert "AUTHORIZES_ACCESS_TO" in edge_kinds
     assert "AUTHORIZES_CONNECTION_TO" in edge_kinds
 
+
+
+def test_security_graph_projection_contract_rejects_dangling_edges() -> None:
+    import pytest
+    from horustrace.security_graph import validate_security_graph_document
+
+    doc = {
+        "topology": {
+            "nodes": [{"id": "agent-1"}],
+            "edges": [{"id": "edge-1", "source": "agent-1", "target": "missing"}],
+            "summary": {"nodes": 1, "edges": 1},
+        },
+        "summary": {
+            "topology_nodes": 1,
+            "topology_edges": 1,
+            "authority_relationships": 0,
+            "flows": 0,
+            "attack_paths": 0,
+        },
+        "effective_authority": {"relationships": []},
+        "flows": [],
+        "attack_paths": [],
+    }
+    with pytest.raises(ValueError, match="dangling reference"):
+        validate_security_graph_document(doc)
+
+
+def test_security_graph_projection_contract_rejects_inflated_counters() -> None:
+    import pytest
+    from horustrace.security_graph import validate_security_graph_document
+
+    doc = {
+        "topology": {
+            "nodes": [{"id": "agent-1"}],
+            "edges": [],
+            "summary": {"nodes": 1, "edges": 0},
+        },
+        "summary": {
+            "topology_nodes": 2,
+            "topology_edges": 0,
+            "authority_relationships": 0,
+            "flows": 0,
+            "attack_paths": 0,
+        },
+        "effective_authority": {"relationships": []},
+        "flows": [],
+        "attack_paths": [],
+    }
+    with pytest.raises(ValueError, match="topology_nodes"):
+        validate_security_graph_document(doc)
+
+
+def test_security_graph_contract_rejects_claims_of_runtime_effectiveness() -> None:
+    import pytest
+    from horustrace.security_graph import validate_security_graph_document
+
+    doc = {
+        "topology": {
+            "nodes": [{"id": "agent-1"}],
+            "edges": [],
+            "summary": {"nodes": 1, "edges": 0},
+        },
+        "summary": {
+            "topology_nodes": 1,
+            "topology_edges": 0,
+            "authority_relationships": 1,
+            "flows": 0,
+            "attack_paths": 0,
+        },
+        "effective_authority": {
+            "relationships": [{"runtime_effectiveness": "verified"}]
+        },
+        "flows": [],
+        "attack_paths": [],
+    }
+    with pytest.raises(ValueError, match="runtime"):
+        validate_security_graph_document(doc)
