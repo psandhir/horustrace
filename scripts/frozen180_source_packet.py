@@ -21,8 +21,16 @@ SKIP = {
     ".git", ".venv", "venv", "__pycache__", ".tox", "site-packages",
     "node_modules", ".next", "dist", "build", "vendor", "generated",
 }
+# Hidden security configuration and agent skill directories are first-party
+# source and must NOT be excluded along with .git and virtualenvs.
+SECURITY_DOT_DIRS = {
+    ".agents", ".claude", ".github", ".cursor", ".codex", ".continue", ".windsurf",
+}
+SECURITY_DOT_FILES = {".mcp.json", ".claude.json", ".env.example", ".cursor.json"}
+SECURITY_FILENAMES = {"Dockerfile", "Containerfile", "Makefile", "Procfile", "SKILL.md"}
 EXT = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cs", ".go", ".java",
-       ".yaml", ".yml", ".toml", ".json", ".md", ".mdx", ".ipynb", ".sh", ".tf"}
+       ".yaml", ".yml", ".toml", ".json", ".jsonc", ".md", ".mdx", ".ipynb",
+       ".sh", ".tf", ".ini", ".cfg"}
 MAX_CHARS = 320000
 MAX_FILES = 180
 MAX_SINGLE_FILE = 85000
@@ -36,21 +44,36 @@ def _candidate_files(scope: Path, application: Path) -> list[Path]:
     for root, folders, filenames in os.walk(scope, followlinks=False):
         folders[:] = [
             folder for folder in folders
-            if folder not in SKIP and not folder.startswith(".")
+            if folder not in SKIP
+            and (not folder.startswith(".") or folder in SECURITY_DOT_DIRS)
             and not (Path(root) / folder).is_symlink()
         ]
         for name in filenames:
             path = Path(root) / name
-            if (path.suffix.lower() in EXT and not name.startswith(".")
+            if ((path.suffix.lower() in EXT or name in SECURITY_FILENAMES
+                 or name in SECURITY_DOT_FILES)
+                    and (not name.startswith(".") or name in SECURITY_DOT_FILES)
                     and not path.is_symlink()):
                 selected.append(path)
     # The original frozen application entrypoint is always first. In large
     # codebases, path sorting must never consume the budget before that file.
     # No scanner signal informs file selection.
-    return sorted(
-        selected,
-        key=lambda p: (p != application, p.suffix.lower() in {".md", ".mdx"}, str(p)),
-    )[:MAX_FILES]
+    def source_priority(path: Path) -> tuple[int, str]:
+        relative = path.relative_to(scope).as_posix().lower()
+        name = path.name.lower()
+        if path == application:
+            return 0, relative
+        if name == "skill.md" or "mcp" in name or "mcp" in relative:
+            return 1, relative
+        if name in {"agents.md", "dockerfile"} or "policy" in relative or "auth" in relative:
+            return 2, relative
+        if path.suffix.lower() in {".py", ".ts", ".tsx", ".cs", ".go", ".java"}:
+            return 3, relative
+        if path.suffix.lower() in {".yaml", ".yml", ".toml", ".json", ".jsonc", ".tf"}:
+            return 4, relative
+        return 5, relative
+
+    return sorted(selected, key=source_priority)[:MAX_FILES]
 
 
 def source_case(case: dict, workspace: Path, out: Path, tier_c: bool) -> dict:
