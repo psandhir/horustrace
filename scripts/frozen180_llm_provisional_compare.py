@@ -12,7 +12,6 @@ import hashlib
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
 
 from scripts.frozen180_llm_review import validate_review
 
