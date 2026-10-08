@@ -67,7 +67,7 @@ def review_case(source_root: Path, destination: Path, case_id: str,
             judge, system_prompt=prompt, user_prompt=user_text,
             schema=api_schema(schema), max_retries=2)
         validation = validate_review(response, manifest, source_text, schema)
-        run_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        run_time = datetime.datetime.now(datetime.UTC).isoformat()
         payload = json.dumps(response, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
         evidence_sha = hashlib.sha256(payload.encode()).hexdigest()
         judge_folder = destination / judge.reviewer_id
