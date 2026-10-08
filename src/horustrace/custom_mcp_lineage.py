@@ -139,6 +139,8 @@ def enrich_custom_profile_mcp_bindings(
         agent for agent in graph.agents
         if agent.metadata.get("framework") == "model-tool-loop"
         and agent.metadata.get("source_class") == "AgentLoop"
+        and agent.location is not None
+        and agent.location.path.resolve() == (root / "core" / "loop.py").resolve()
         and agent.metadata.get("discovery_basis") in {
             "model_tools_selection_dispatch",
             "source_proven_delegated_orchestration",
