@@ -15,7 +15,7 @@ import tempfile
 from collections import Counter
 from pathlib import Path
 
-from scripts.real_world_agent_security_execute import fetch_case
+from scripts.real_world_agent_security_execute import (_merge_primary_agent_attack_paths, fetch_case)
 
 ROOT = Path("research/real-world-agent-security-2026")
 
@@ -28,7 +28,7 @@ def collect_one(case: dict, expected_paths: int, scanner: str,
               "expected_historical_attack_paths": expected_paths,
               "status": "failed", "error": None}
     try:
-        scope, _authority, fetch_error = fetch_case(work, case, tier_c=tier_c)
+        scope, authority_scope, fetch_error = fetch_case(work, case, tier_c=tier_c)
         if fetch_error or scope is None:
             raise RuntimeError(f"source fetch failed: {fetch_error}")
         cmd = [scanner, "security-graph", str(scope)]
@@ -52,11 +52,34 @@ def collect_one(case: dict, expected_paths: int, scanner: str,
         (out / "scan.json").write_text(json.dumps(scan, indent=2) + "\n")
         records = graph.get("attack_paths") if isinstance(graph, dict) else None
         if not isinstance(records, list):
-            records = scan.get("attack_paths") if isinstance(scan, dict) else None
-        if not isinstance(records, list):
             records = []
+        expanded_records = []
+        # The historical runner also scans the bounded sparse-checkout root
+        # when local imports expand the source scope. Without this pass,
+        # source-linked paths in rw-036 and rw-131 falsely disappear.
+        if authority_scope != scope:
+            expanded_cmd = [scanner, "security-graph", str(authority_scope)]
+            if tier_c:
+                expanded_cmd.extend(["--authority-source", str(work / cid)])
+            expanded_run = subprocess.run(expanded_cmd, text=True, capture_output=True,
+                                          timeout=360, check=False)
+            if expanded_run.returncode not in {0, 2}:
+                raise RuntimeError("expanded graph exit " + str(expanded_run.returncode)
+                                   + ": " + expanded_run.stderr[-1500:])
+            expanded = json.loads(expanded_run.stdout)
+            (out / "expanded-security-graph.json").write_text(
+                json.dumps(expanded, indent=2) + "\n")
+            if isinstance(expanded.get("attack_paths"), list):
+                expanded_records = expanded["attack_paths"]
+            nodes = (graph.get("topology") or {}).get("nodes") or []
+            records = _merge_primary_agent_attack_paths(records, expanded_records, nodes)
+        (out / "effective-scanner-attack-paths.json").write_text(
+            json.dumps(records, indent=2) + "\n")
         result.update({
             "status": "ok", "recovered_path_records": len(records),
+            "primary_path_records": len(graph.get("attack_paths") or []),
+            "expanded_path_records": len(expanded_records),
+            "authority_scope_expanded": authority_scope != scope,
             "parity_with_historical_count": len(records) == expected_paths,
             "scanner_evidence_review_status": "not_adjudicated",
             "scanner_result_sections": sorted(scan.keys()),
