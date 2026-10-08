@@ -69,7 +69,7 @@ def _candidate_files(scope: Path, application: Path) -> list[Path]:
                 name.endswith(".prompt")):
             return 2, relative
         if name in {"agents.md", "dockerfile"} or "policy" in relative or "auth" in relative:
-            return 2, relative
+            return 3, relative
         if path.suffix.lower() in {".py", ".ts", ".tsx", ".cs", ".go", ".java"}:
             return 4, relative
         if path.suffix.lower() in {".yaml", ".yml", ".toml", ".json", ".jsonc", ".tf"}:
