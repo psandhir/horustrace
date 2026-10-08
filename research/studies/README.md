@@ -6,7 +6,7 @@ Each directory must contain:
 
 - `cohort.json`: frozen manifest with exact full repository commit SHAs, unique repositories, source-root scope and selection provenance.
 - `study.json`: registry entry pointing to the frozen cohort and the study's GitHub Actions workflow.
-- A workflow under `.github/workflows/` that invokes the reusable `./.github/workflows/reusable-study-quality-gate.yml` job after independent source-only Phase A and scanner-revealed Phase B evidence have been uploaded.
+- A workflow under `.github/workflows/` that invokes the reusable `./.github/workflows/reusable-study-quality-gate.yml` job after per-case scanner evidence, a study-accurate aggregate summary, independent source-only Phase A and scanner-revealed Phase B evidence have been uploaded.
 
 Example `study.json`:
 
