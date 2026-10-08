@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - "scripts/study_evaluation_gate.py"
+      - "scripts/check_study_registry.py"
+      - "tests/test_study_registry.py"
+      - "research/studies/**"
+      - ".github/workflows/reusable-study-quality-gate.yml"
       - "tests/test_study_evaluation_gate.py"
       - "research/STUDY_EVALUATION_CONTRACT.md"
       - ".github/workflows/study-evaluation-contract.yml"
@@ -12,6 +16,10 @@ on:
       - research/lock-study-evaluation-gates-20261008
     paths:
       - "scripts/study_evaluation_gate.py"
+      - "scripts/check_study_registry.py"
+      - "tests/test_study_registry.py"
+      - "research/studies/**"
+      - ".github/workflows/reusable-study-quality-gate.yml"
       - "tests/test_study_evaluation_gate.py"
       - "research/STUDY_EVALUATION_CONTRACT.md"
       - ".github/workflows/study-evaluation-contract.yml"
@@ -31,6 +39,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Syntax validation
-        run: python -m py_compile scripts/study_evaluation_gate.py tests/test_study_evaluation_gate.py
+        run: python -m py_compile scripts/study_evaluation_gate.py scripts/check_study_registry.py tests/test_study_evaluation_gate.py tests/test_study_registry.py
       - name: Gate integration and negative tests
-        run: python -m unittest discover -s tests -p test_study_evaluation_gate.py -v
+        run: |
+          python -m unittest discover -s tests -p test_study_evaluation_gate.py -v
+          python -m unittest discover -s tests -p test_study_registry.py -v
+          python -m scripts.check_study_registry
