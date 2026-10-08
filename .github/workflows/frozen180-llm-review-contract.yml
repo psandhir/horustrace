@@ -79,6 +79,12 @@ jobs:
               assert c["source_coverage"] == "qualified"
           print("All 145 app entrypoints included; no scanner data introduced.")
           PY
+      - name: Validate source-first calibration example against actual pinned source
+        run: |
+          PYTHONPATH=. python scripts/frozen180_llm_review.py \
+            --review research/frozen180-llm-differential-20261008/CALIBRATION_EXAMPLE_RW038.json \
+            --source-manifest evidence/source-only/rw-038/source-manifest.json \
+            --source evidence/source-only/rw-038/source-only.txt
       - name: Publish source-only evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
