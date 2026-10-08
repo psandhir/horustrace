@@ -119,6 +119,7 @@ from horustrace.repository_effect_semantics import enrich_repository_tool_effect
 from horustrace.repository_tool_semantics import enrich_indirect_tool_content_semantics
 from horustrace.rules.builtin import evaluate
 from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
+from horustrace.custom_mcp_lineage import enrich_custom_profile_mcp_bindings
 from horustrace.runtime_viability import annotate_runtime_viability
 from horustrace.semantic_contract import set_source_context, tool_control_enforcing
 from horustrace.semantics import annotate_risk_semantics
@@ -2702,6 +2703,11 @@ def _scan(
     # network/write capabilities and lose child destination/control constraints.
     _propagate_pydantic_delegation(graph)
     _propagate_adk_delegation(graph)
+    enrich_custom_profile_mcp_bindings(
+        graph,
+        root if root.is_dir() else root.parent,
+        approved_python_paths,
+    )
     enrich_public_realtime_mcp_authority(
         graph,
         root if root.is_dir() else root.parent,
