@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from horustrace.cli import main
 from horustrace.models import (
     Agent,
@@ -15,6 +17,7 @@ from horustrace.scanner import scan
 from horustrace.security_graph import (
     AGENT_SECURITY_GRAPH_MODEL,
     build_agent_security_graph,
+    validate_security_graph_document,
 )
 
 
@@ -195,9 +198,6 @@ def test_security_graph_preserves_model_data_identity_lineage(tmp_path: Path) ->
 
 
 def test_security_graph_projection_contract_rejects_dangling_edges() -> None:
-    import pytest
-    from horustrace.security_graph import validate_security_graph_document
-
     doc = {
         "topology": {
             "nodes": [{"id": "agent-1"}],
@@ -220,9 +220,6 @@ def test_security_graph_projection_contract_rejects_dangling_edges() -> None:
 
 
 def test_security_graph_projection_contract_rejects_inflated_counters() -> None:
-    import pytest
-    from horustrace.security_graph import validate_security_graph_document
-
     doc = {
         "topology": {
             "nodes": [{"id": "agent-1"}],
@@ -245,9 +242,6 @@ def test_security_graph_projection_contract_rejects_inflated_counters() -> None:
 
 
 def test_security_graph_contract_rejects_claims_of_runtime_effectiveness() -> None:
-    import pytest
-    from horustrace.security_graph import validate_security_graph_document
-
     doc = {
         "topology": {
             "nodes": [{"id": "agent-1"}],
