@@ -52,6 +52,20 @@ class StudyEvaluationGateTests(unittest.TestCase):
         (self.results_dir / "result.json").write_text(
             json.dumps(self.result), encoding="utf-8"
         )
+        self.aggregate = {
+            "study": "fresh-test", "completed": 1, "errors": 0,
+            "cases": [{
+                "case_id": "case-01", "repo": "some/repo", "sha": SHA,
+                "framework": "anthropic", "counts": self.result["counts"],
+            }],
+            "frameworks": {
+                "anthropic": {
+                    "expected": 1, "completed": 1, "errors": 0,
+                    "agents": 1, "findings": 1, "attack_paths": 1,
+                }
+            },
+        }
+        self.aggregate_file = self.write("aggregate.json", self.aggregate)
         for filename, doc in (
             ("scan.json", {"findings": self.result["findings"]}),
             ("security-graph.json", {"attack_paths": self.result["attack_paths"]}),
@@ -250,7 +264,8 @@ class StudyEvaluationGateTests(unittest.TestCase):
         out = self.root / "report.json"
         with patch.object(sys, "argv", [
             "study_evaluation_gate.py", "--cohort", str(self.cohort_file),
-            "--results", str(self.root / "results"), "--output", str(out),
+            "--results", str(self.root / "results"),
+            "--aggregate-summary", str(self.aggregate_file), "--output", str(out),
         ]), contextlib.redirect_stdout(io.StringIO()):
             exit_code = gate.main()
         report = gate.load(out)
@@ -264,6 +279,7 @@ class StudyEvaluationGateTests(unittest.TestCase):
         with patch.object(sys, "argv", [
             "study_evaluation_gate.py", "--cohort", str(self.cohort_file),
             "--results", str(self.root / "results"),
+            "--aggregate-summary", str(self.aggregate_file),
             "--phase-a", str(self.phase_a_file),
             "--phase-b", str(self.phase_b_file),
             "--output", str(out),
@@ -272,6 +288,24 @@ class StudyEvaluationGateTests(unittest.TestCase):
         report = gate.load(out)
         self.assertEqual(exit_code, 0)
         self.assertEqual(report["release_gate"], "passed")
+
+    def test_aggregate_old_study_label_rejected(self):
+        self.aggregate["study"] = "full-framework-60-20261005"
+        with self.assertRaisesRegex(gate.GateError, "study name differs"):
+            gate.validate_aggregate(
+                self.aggregate, self.cohort,
+                gate.validate_cohort(self.cohort),
+                {"case-01": self.result},
+            )
+
+    def test_aggregate_wrong_expected_cohort_rejected(self):
+        self.aggregate["frameworks"]["anthropic"]["expected"] = 10
+        with self.assertRaisesRegex(gate.GateError, "incorrect expected"):
+            gate.validate_aggregate(
+                self.aggregate, self.cohort,
+                gate.validate_cohort(self.cohort),
+                {"case-01": self.result},
+            )
 
     def test_false_consensus_is_rejected(self):
         self.phase_a["cases"][0]["reviews"][1]["candidate_paths"][0]["verdict"] = "invalid"
@@ -298,6 +332,7 @@ class StudyEvaluationGateTests(unittest.TestCase):
         with patch.object(sys, "argv", [
             "study_evaluation_gate.py", "--cohort", str(self.cohort_file),
             "--results", str(self.root / "results"),
+            "--aggregate-summary", str(self.aggregate_file),
             "--phase-a", str(self.phase_a_file),
             "--phase-b", str(self.phase_b_file),
             "--output", str(out),
@@ -324,6 +359,7 @@ class StudyEvaluationGateTests(unittest.TestCase):
         with patch.object(sys, "argv", [
             "study_evaluation_gate.py", "--cohort", str(self.cohort_file),
             "--results", str(self.root / "results"),
+            "--aggregate-summary", str(self.aggregate_file),
             "--phase-a", str(self.phase_a_file),
             "--phase-b", str(self.phase_b_file),
             "--output", str(out),
@@ -341,6 +377,7 @@ class StudyEvaluationGateTests(unittest.TestCase):
         with patch.object(sys, "argv", [
             "study_evaluation_gate.py", "--cohort", str(self.cohort_file),
             "--results", str(self.root / "results"),
+            "--aggregate-summary", str(self.aggregate_file),
             "--phase-a", str(self.phase_a_file),
             "--phase-b", str(self.phase_b_file),
             "--output", str(out),
