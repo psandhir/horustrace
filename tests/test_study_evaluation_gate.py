@@ -105,6 +105,20 @@ class StudyEvaluationGateTests(unittest.TestCase):
                     "scanner_path_indexes": [0],
                     "rationale": "Same supported path",
                 }],
+                "scanner_attack_path_reviews": [{
+                    "index": 0, "verdict": "supported",
+                    "rationale": "Scanner path source is supported",
+                    "evidence": [{"path": "agent.py", "line": 3}],
+                    "reviewer_attestations": [
+                        {
+                            "reviewer_id": j["reviewer_id"], "provider": j["provider"],
+                            "model": j["model"], "execution_id": "path-" + j["execution_id"],
+                            "verdict": "supported", "independent_review": True,
+                            "rule_metadata_seen": False, "locked": True,
+                            "evidence": [{"path": "agent.py", "line": 3}],
+                        } for j in self.judges
+                    ],
+                }],
                 "finding_reviews": [{
                     "index": 0, "verdict": "supported",
                     "independent_review": True,
@@ -268,6 +282,29 @@ class StudyEvaluationGateTests(unittest.TestCase):
         self.phase_b["cases"][0]["finding_reviews"][0]["reviewer_attestations"].pop()
         with self.assertRaisesRegex(gate.GateError, "two blinded independent"):
             self.validate()
+
+    def test_scanner_attack_path_must_be_precision_reviewed(self):
+        self.phase_b["cases"][0]["scanner_attack_path_reviews"] = []
+        with self.assertRaisesRegex(gate.GateError, "every scanner-emitted"):
+            self.validate()
+
+    def test_unsupported_scanner_path_blocks_quality(self):
+        review = self.phase_b["cases"][0]["scanner_attack_path_reviews"][0]
+        review["verdict"] = "unsupported"
+        for j in review["reviewer_attestations"]:
+            j["verdict"] = "unsupported"
+        self.write("phase-b.json", self.phase_b)
+        out = self.root / "report.json"
+        with patch.object(sys, "argv", [
+            "study_evaluation_gate.py", "--cohort", str(self.cohort_file),
+            "--results", str(self.root / "results"),
+            "--phase-a", str(self.phase_a_file),
+            "--phase-b", str(self.phase_b_file),
+            "--output", str(out),
+        ]), contextlib.redirect_stdout(io.StringIO()):
+            exit_code = gate.main()
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(gate.load(out)["blocking_reasons"]["unsupported_scanner_paths"], 1)
 
     def test_missing_security_graph_rejected(self):
         (self.results_dir / "security-graph.json").unlink()
