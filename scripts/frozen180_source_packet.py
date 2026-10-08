@@ -21,31 +21,62 @@ SKIP = {
     ".git", ".venv", "venv", "__pycache__", ".tox", "site-packages",
     "node_modules", ".next", "dist", "build", "vendor", "generated",
 }
+# Hidden security configuration and agent skill directories are first-party
+# source and must NOT be excluded along with .git and virtualenvs.
+SECURITY_DOT_DIRS = {
+    ".agents", ".claude", ".github", ".cursor", ".codex", ".continue", ".windsurf",
+}
+SECURITY_DOT_FILES = {".mcp.json", ".claude.json", ".env.example", ".cursor.json"}
+SECURITY_FILENAMES = {"Dockerfile", "Containerfile", "Makefile", "Procfile", "SKILL.md"}
 EXT = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cs", ".go", ".java",
-       ".yaml", ".yml", ".toml", ".json", ".md", ".sh", ".tf"}
+       ".yaml", ".yml", ".toml", ".json", ".jsonc", ".md", ".mdx", ".ipynb",
+       ".sh", ".tf", ".ini", ".cfg", ".txt", ".prompt", ".sql", ".xml"}
 MAX_CHARS = 320000
 MAX_FILES = 180
 MAX_SINGLE_FILE = 85000
 ROOT = Path("research/real-world-agent-security-2026")
 
 
-def _candidate_files(scope: Path) -> list[Path]:
+def _candidate_files(scope: Path, application: Path) -> list[Path]:
     if scope.is_file():
         return [scope]
     selected: list[Path] = []
     for root, folders, filenames in os.walk(scope, followlinks=False):
         folders[:] = [
             folder for folder in folders
-            if folder not in SKIP and not folder.startswith(".")
+            if folder not in SKIP
+            and (not folder.startswith(".") or folder in SECURITY_DOT_DIRS)
             and not (Path(root) / folder).is_symlink()
         ]
         for name in filenames:
             path = Path(root) / name
-            if (path.suffix.lower() in EXT and not name.startswith(".")
+            if ((path.suffix.lower() in EXT or name in SECURITY_FILENAMES
+                 or name in SECURITY_DOT_FILES)
+                    and (not name.startswith(".") or name in SECURITY_DOT_FILES)
                     and not path.is_symlink()):
                 selected.append(path)
-    # Deterministic; source files ahead of documentation. No scanner signal.
-    return sorted(selected, key=lambda p: (p.suffix.lower() == ".md", str(p)))[:MAX_FILES]
+    # The original frozen application entrypoint is always first. In large
+    # codebases, path sorting must never consume the budget before that file.
+    # No scanner signal informs file selection.
+    def source_priority(path: Path) -> tuple[int, str]:
+        relative = path.relative_to(scope).as_posix().lower()
+        name = path.name.lower()
+        if path == application:
+            return 0, relative
+        if name == "skill.md" or "mcp" in name or "mcp" in relative:
+            return 1, relative
+        if ("instruction" in relative or "prompt" in relative or
+                name.endswith(".prompt")):
+            return 2, relative
+        if name in {"agents.md", "dockerfile"} or "policy" in relative or "auth" in relative:
+            return 3, relative
+        if path.suffix.lower() in {".py", ".ts", ".tsx", ".cs", ".go", ".java"}:
+            return 4, relative
+        if path.suffix.lower() in {".yaml", ".yml", ".toml", ".json", ".jsonc", ".tf"}:
+            return 5, relative
+        return 6, relative
+
+    return sorted(selected, key=source_priority)[:MAX_FILES]
 
 
 def source_case(case: dict, workspace: Path, out: Path, tier_c: bool) -> dict:
@@ -61,7 +92,8 @@ def source_case(case: dict, workspace: Path, out: Path, tier_c: bool) -> dict:
     }
     if error or scope is None:
         return record
-    files = _candidate_files(scope)
+    application = target_root / case["application_path"]
+    files = _candidate_files(scope, application)
     sections = []
     file_info = []
     remaining = MAX_CHARS
@@ -90,6 +122,15 @@ def source_case(case: dict, workspace: Path, out: Path, tier_c: bool) -> dict:
             omitted += 1
     if scope.is_dir() and len(files) == MAX_FILES:
         omitted += 1
+    application_included = (
+        any(item["path"] == case["application_path"] for item in file_info)
+        if application.is_file() else (
+            any(item["path"].startswith(case["application_path"].rstrip("/") + "/")
+                for item in file_info)
+        )
+    )
+    if not application_included:
+        omitted += 1
     folder = out / case_id
     folder.mkdir(parents=True, exist_ok=True)
     text = "\n\n".join(sections)
@@ -97,7 +138,8 @@ def source_case(case: dict, workspace: Path, out: Path, tier_c: bool) -> dict:
     record.update({
         "source_chars": len(text), "source_pack_sha256": hashlib.sha256(text.encode()).hexdigest(),
         "file_count": len(file_info), "files": file_info, "omitted_or_truncated": omitted,
-        "source_coverage": "qualified" if text else "insufficient",
+        "application_entrypoint_included": application_included,
+        "source_coverage": "qualified" if text and application_included else "insufficient",
     })
     (folder / "source-manifest.json").write_text(json.dumps(record, indent=2) + "\n",
                                                   encoding="utf-8")
@@ -128,7 +170,7 @@ def main() -> int:
             for future in concurrent.futures.as_completed(futures):
                 try:
                     records.append(future.result())
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - isolate per-repository fetch failures
                     c = futures[future]
                     records.append({"case_id": c["case_id"], "repo": c["repo"],
                                     "sha": c["sha"], "framework": c["framework_stratum"],

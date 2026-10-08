@@ -1,0 +1,106 @@
+name: Frozen 180 Independent Source Judges (Opt-in Pilot)
+
+on:
+  workflow_dispatch:
+    inputs:
+      case_ids:
+        description: Comma-separated pinned case IDs, maximum 3 for pilot
+        type: string
+        required: true
+        default: "rw-038,rw-080"
+      openai_model:
+        description: Exact OpenAI Responses API model ID
+        type: string
+        required: true
+      gemini_model:
+        description: Exact Gemini API model ID
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: frozen180-blinded-llm-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  source-only-model-judges:
+    name: Two scanner-blind source reviewers
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      OUT: evidence/independent-phase-a
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Validate opt-in provider credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$OPENAI_API_KEY" || -z "$GEMINI_API_KEY" ]]; then
+            echo "::error::Independent provider secrets unavailable; no fictitious LLM review is generated."
+            exit 1
+          fi
+      - name: Restore scanner-blind source packets, never scanner artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: frozen180-review-source-v2-37801881501-1
+          repository: psandhir/horustrace
+          run-id: 37801881501
+          github-token: ${{ github.token }}
+          path: evidence/source-only
+      - name: Install analysis scripts
+        run: python -m pip install -e .
+      - name: Run both independent blinded model reviews
+        shell: bash
+        env:
+          CASE_IDS: ${{ inputs.case_ids }}
+          MODEL_A: ${{ inputs.openai_model }}
+          MODEL_B: ${{ inputs.gemini_model }}
+        run: |
+          set -euo pipefail
+          [[ "$CASE_IDS" =~ ^rw-[0-9]{3}(,rw-[0-9]{3}){0,2}$ ]] || {
+            echo "::error::Pilot allows 1–3 pinned case IDs"
+            exit 1
+          }
+          IFS=',' read -ra CASE_ARRAY <<< "$CASE_IDS"
+          FLAGS=()
+          for case in "${CASE_ARRAY[@]}"; do
+            FLAGS+=(--case-id "$case")
+          done
+          python scripts/run_frozen180_source_llm_review.py \
+            --source-root evidence/source-only \
+            --output "$OUT" \
+            "${FLAGS[@]}" \
+            --judge-a-model "$MODEL_A" \
+            --judge-b-model "$MODEL_B"
+      - name: Report independent source review
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$OUT/phase-a-pilot-manifest.json" ]]; then
+            python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          p=json.loads(Path("evidence/independent-phase-a/phase-a-pilot-manifest.json").read_text())
+          print("## Source-first independent LLM pilot")
+          print(f"- Reviewer outputs: {p['review_count']}, cases: {p['dual_review_cases']}")
+          print(f"- Prompt SHA256: {p['prompt_sha256']}")
+          print("- Scanner findings shared: none")
+          print("- Final FP/FN: not adjudicated")
+          PY
+          fi
+      - name: Preserve separate locked reviewer evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: frozen180-source-review-phase-a-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/independent-phase-a/
+          if-no-files-found: warn
+          retention-days: 90

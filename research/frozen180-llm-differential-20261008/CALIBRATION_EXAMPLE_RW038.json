@@ -1,0 +1,585 @@
+{
+  "schema_version": 1,
+  "study": "frozen180-llm-source-review-20261008",
+  "case_id": "rw-038",
+  "repo": "elitepunith/apdm-agent",
+  "sha": "c2f30462bc8663bec5c4046dc62006f52889c19a",
+  "framework": "google-adk",
+  "review_scope": {
+    "application_path": "agent.py",
+    "source_pack_sha256": "d9e557ac0b6415f03597904c985bfa80e046a3d47f2060a3b3a5cc8464b8d3b6"
+  },
+  "coverage": {
+    "source_coverage": "qualified",
+    "review_result": "enumerated_candidates",
+    "reviewed_files": [
+      "agent.py",
+      "run.py",
+      "tools/__init__.py",
+      "tools/url_checker.py",
+      "tools/malware_detector.py",
+      "tools/phishing_detector.py",
+      "tools/threat_score.py"
+    ],
+    "omitted_or_truncated": 0,
+    "additional_source_required": [
+      "Runtime network/approval policy and deployed egress restrictions if present"
+    ],
+    "limitations": [
+      "Static-only calibration; no runtime execution",
+      "Bounded pinned source packet is not an exhaustive negative security audit"
+    ]
+  },
+  "entities": [
+    {
+      "id": "a1",
+      "kind": "agent",
+      "name": "APDM",
+      "framework": "google-adk",
+      "source_context": "runtime",
+      "binding_status": "bound",
+      "evidence": [
+        {
+          "path": "agent.py",
+          "line_start": 11,
+          "line_end": 21,
+          "claim": "Google ADK Agent instance with four bound tools",
+          "quote": null
+        },
+        {
+          "path": "run.py",
+          "line_start": 14,
+          "line_end": 21,
+          "claim": "Agent is passed into InMemoryRunner and invoked with CLI user input",
+          "quote": null
+        }
+      ],
+      "attributes": [
+        {
+          "name": "model",
+          "values": [
+            "gemini-2.5-flash-lite"
+          ]
+        },
+        {
+          "name": "bound_tools",
+          "values": [
+            "url_checker_tool",
+            "phishing_detector_tool",
+            "malware_detector_tool",
+            "threat_score_tool"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "m1",
+      "kind": "model",
+      "name": "gemini-2.5-flash-lite",
+      "framework": "google-adk",
+      "source_context": "runtime",
+      "binding_status": "bound",
+      "evidence": [
+        {
+          "path": "agent.py",
+          "line_start": 11,
+          "line_end": 14,
+          "claim": "ADK Gemini model configured for agent",
+          "quote": null
+        }
+      ],
+      "attributes": [
+        {
+          "name": "provider",
+          "values": [
+            "google"
+          ]
+        },
+        {
+          "name": "model_id",
+          "values": [
+            "gemini-2.5-flash-lite"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "i1",
+      "kind": "input",
+      "name": "CLI user message",
+      "framework": "google-adk",
+      "source_context": "cli",
+      "binding_status": "bound",
+      "evidence": [
+        {
+          "path": "run.py",
+          "line_start": 17,
+          "line_end": 21,
+          "claim": "User input is passed to agent InMemoryRunner.run_debug",
+          "quote": null
+        }
+      ],
+      "attributes": [
+        {
+          "name": "trust",
+          "values": [
+            "untrusted_user"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t1",
+      "kind": "tool",
+      "name": "url_checker_tool",
+      "framework": "google-adk",
+      "source_context": "runtime",
+      "binding_status": "bound",
+      "evidence": [
+        {
+          "path": "agent.py",
+          "line_start": 15,
+          "line_end": 17,
+          "claim": "Tool bound in Agent.tools",
+          "quote": null
+        },
+        {
+          "path": "tools/url_checker.py",
+          "line_start": 4,
+          "line_end": 16,
+          "claim": "check_url accepts a url and is wrapped by FunctionTool",
+          "quote": null
+        }
+      ],
+      "attributes": [
+        {
+          "name": "capabilities",
+          "values": [
+            "network.external"
+          ]
+        },
+        {
+          "name": "sink",
+          "values": [
+            "requests.get(url)"
+          ]
+        },
+        {
+          "name": "timeout_seconds",
+          "values": [
+            "5"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t2",
+      "kind": "tool",
+      "name": "phishing_detector_tool",
+      "framework": "google-adk",
+      "source_context": "runtime",
+      "binding_status": "bound",
+      "evidence": [
+        {
+          "path": "agent.py",
+          "line_start": 15,
+          "line_end": 18,
+          "claim": "Phishing tool bound in Agent.tools",
+          "quote": null
+        },
+        {
+          "path": "tools/phishing_detector.py",
+          "line_start": 10,
+          "line_end": 19,
+          "claim": "In-memory keyword scoring FunctionTool",
+          "quote": null
+        }
+      ],
+      "attributes": [
+        {
+          "name": "capabilities",
+          "values": []
+        },
+        {
+          "name": "effect",
+          "values": [
+            "in-memory text analysis"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t3",
+      "kind": "tool",
+      "name": "malware_detector_tool",
+      "framework": "google-adk",
+      "source_context": "runtime",
+      "binding_status": "bound",
+      "evidence": [
+        {
+          "path": "agent.py",
+          "line_start": 15,
+          "line_end": 19,
+          "claim": "Malware tool bound in Agent.tools",
+          "quote": null
+        },
+        {
+          "path": "tools/malware_detector.py",
+          "line_start": 10,
+          "line_end": 27,
+          "claim": "Domain list check and FunctionTool registration",
+          "quote": null
+        }
+      ],
+      "attributes": [
+        {
+          "name": "capabilities",
+          "values": []
+        },
+        {
+          "name": "effect",
+          "values": [
+            "in-memory domain matching"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t4",
+      "kind": "tool",
+      "name": "threat_score_tool",
+      "framework": "google-adk",
+      "source_context": "runtime",
+      "binding_status": "bound",
+      "evidence": [
+        {
+          "path": "agent.py",
+          "line_start": 15,
+          "line_end": 20,
+          "claim": "Threat score tool bound in Agent.tools",
+          "quote": null
+        },
+        {
+          "path": "tools/threat_score.py",
+          "line_start": 4,
+          "line_end": 16,
+          "claim": "In-memory score computation",
+          "quote": null
+        }
+      ],
+      "attributes": [
+        {
+          "name": "capabilities",
+          "values": []
+        },
+        {
+          "name": "effect",
+          "values": [
+            "in-memory scoring"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d1",
+      "kind": "destination",
+      "name": "model-selected URL",
+      "framework": "google-adk",
+      "source_context": "runtime",
+      "binding_status": "bound",
+      "evidence": [
+        {
+          "path": "tools/url_checker.py",
+          "line_start": 4,
+          "line_end": 7,
+          "claim": "HTTP request target comes from url argument",
+          "quote": null
+        }
+      ],
+      "attributes": [
+        {
+          "name": "constraint",
+          "values": [
+            "host allowlist not visible in function"
+          ]
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "r1",
+      "agent_id": "a1",
+      "target_id": "t1",
+      "target_kind": "tool",
+      "target_name": "url_checker_tool",
+      "capabilities": [
+        "network.external"
+      ],
+      "identity": null,
+      "resources": [],
+      "destinations": [
+        "model-selected URL"
+      ],
+      "approval": "unresolved",
+      "guardrails": "unresolved",
+      "resolution": "partially_resolved",
+      "source_context": "runtime",
+      "evidence": [
+        {
+          "path": "agent.py",
+          "line_start": 15,
+          "line_end": 17,
+          "claim": "ADK Agent binds URL tool",
+          "quote": null
+        },
+        {
+          "path": "tools/url_checker.py",
+          "line_start": 4,
+          "line_end": 7,
+          "claim": "Tool performs external HTTP fetch",
+          "quote": null
+        }
+      ],
+      "limitations": [
+        "No source-evidenced runtime identity or host restriction in supplied scope"
+      ]
+    },
+    {
+      "id": "r2",
+      "agent_id": "a1",
+      "target_id": "t2",
+      "target_kind": "tool",
+      "target_name": "phishing_detector_tool",
+      "capabilities": [],
+      "identity": null,
+      "resources": [],
+      "destinations": [],
+      "approval": "unresolved",
+      "guardrails": "unresolved",
+      "resolution": "partially_resolved",
+      "source_context": "runtime",
+      "evidence": [
+        {
+          "path": "agent.py",
+          "line_start": 18,
+          "line_end": 18,
+          "claim": "Named tool is bound to APDM",
+          "quote": null
+        }
+      ],
+      "limitations": [
+        "No privileged external effect shown for this bound tool"
+      ]
+    },
+    {
+      "id": "r3",
+      "agent_id": "a1",
+      "target_id": "t3",
+      "target_kind": "tool",
+      "target_name": "malware_detector_tool",
+      "capabilities": [],
+      "identity": null,
+      "resources": [],
+      "destinations": [],
+      "approval": "unresolved",
+      "guardrails": "unresolved",
+      "resolution": "partially_resolved",
+      "source_context": "runtime",
+      "evidence": [
+        {
+          "path": "agent.py",
+          "line_start": 19,
+          "line_end": 19,
+          "claim": "Named tool is bound to APDM",
+          "quote": null
+        }
+      ],
+      "limitations": [
+        "No privileged external effect shown for this bound tool"
+      ]
+    },
+    {
+      "id": "r4",
+      "agent_id": "a1",
+      "target_id": "t4",
+      "target_kind": "tool",
+      "target_name": "threat_score_tool",
+      "capabilities": [],
+      "identity": null,
+      "resources": [],
+      "destinations": [],
+      "approval": "unresolved",
+      "guardrails": "unresolved",
+      "resolution": "partially_resolved",
+      "source_context": "runtime",
+      "evidence": [
+        {
+          "path": "agent.py",
+          "line_start": 20,
+          "line_end": 20,
+          "claim": "Named tool is bound to APDM",
+          "quote": null
+        }
+      ],
+      "limitations": [
+        "No privileged external effect shown for this bound tool"
+      ]
+    }
+  ],
+  "authority_contracts": [],
+  "findings": [
+    {
+      "id": "f1",
+      "issue_type": "model_selected_url",
+      "title": "Agent-bound URL check accepts unconstrained destination",
+      "message": "The ADK agent can invoke a tool whose url argument is forwarded into requests.get without an in-function destination allowlist. That supports potential server-side fetch authority, but endpoint trust and external controls are unknown.",
+      "agent_id": "a1",
+      "authority_relationship_ids": [
+        "r1"
+      ],
+      "severity": "medium",
+      "assessment": "heuristic_risk",
+      "support_status": "conditional",
+      "confidence": "potential",
+      "source_context": "runtime",
+      "owasp_agentic": [
+        "ASI02"
+      ],
+      "evidence": [
+        {
+          "path": "agent.py",
+          "line_start": 15,
+          "line_end": 17,
+          "claim": "Agent binds URL checking tool",
+          "quote": null
+        },
+        {
+          "path": "tools/url_checker.py",
+          "line_start": 4,
+          "line_end": 7,
+          "claim": "HTTP GET takes the provided URL",
+          "quote": null
+        }
+      ],
+      "controls": [
+        "Five-second HTTP timeout is present; it does not restrict reachable hosts"
+      ],
+      "limitations": [
+        "No independent runtime authentication, network policy or user-to-tool argument transfer is proven from static source"
+      ],
+      "recommendation": "Validate URL schemes and resolved destinations, restrict local/link-local addresses and redirects, enforce an explicit destination allowlist at the tool boundary"
+    }
+  ],
+  "attack_paths": [
+    {
+      "id": "p1",
+      "title": "Potential user-influenced URL fetch through bound ADK tool",
+      "agent_id": "a1",
+      "ingress": "CLI user message",
+      "steps": [
+        {
+          "order": 1,
+          "kind": "ingress",
+          "label": "CLI user message",
+          "entity_id": "i1",
+          "evidence": [
+            {
+              "path": "run.py",
+              "line_start": 17,
+              "line_end": 21,
+              "claim": "CLI input passed to agent runner",
+              "quote": null
+            }
+          ]
+        },
+        {
+          "order": 2,
+          "kind": "agent",
+          "label": "APDM",
+          "entity_id": "a1",
+          "evidence": [
+            {
+              "path": "run.py",
+              "line_start": 14,
+              "line_end": 21,
+              "claim": "Agent run loop receives input",
+              "quote": null
+            }
+          ]
+        },
+        {
+          "order": 3,
+          "kind": "tool",
+          "label": "url_checker_tool",
+          "entity_id": "t1",
+          "evidence": [
+            {
+              "path": "agent.py",
+              "line_start": 15,
+              "line_end": 17,
+              "claim": "Tool is agent bound",
+              "quote": null
+            }
+          ]
+        },
+        {
+          "order": 4,
+          "kind": "sink",
+          "label": "requests.get(url)",
+          "entity_id": null,
+          "evidence": [
+            {
+              "path": "tools/url_checker.py",
+              "line_start": 4,
+              "line_end": 7,
+              "claim": "Tool uses its url argument as HTTP destination",
+              "quote": null
+            }
+          ]
+        }
+      ],
+      "sink": "requests.get(url)",
+      "sink_kind": "server_side_fetch",
+      "data_movement": [
+        "CLI user message enters model; an agent-callable tool accepts a URL. Exact value propagation from a particular user message into the tool parameter is not statically proven."
+      ],
+      "severity": "medium",
+      "assessment": "potential_risk",
+      "confidence": "potential",
+      "support_status": "conditional",
+      "reachability": "proven_agent_reachable",
+      "control_status": "unresolved",
+      "source_context": "runtime",
+      "basis": "agent_tool_reachability",
+      "exploitability": "not_verified",
+      "evidence": [
+        {
+          "path": "run.py",
+          "line_start": 17,
+          "line_end": 21,
+          "claim": "Untrusted CLI input",
+          "quote": null
+        },
+        {
+          "path": "agent.py",
+          "line_start": 15,
+          "line_end": 17,
+          "claim": "Agent tool binding",
+          "quote": null
+        },
+        {
+          "path": "tools/url_checker.py",
+          "line_start": 4,
+          "line_end": 7,
+          "claim": "Dynamic server-side HTTP request",
+          "quote": null
+        }
+      ],
+      "limitations": [
+        "No runtime host reachability or control enforcement proven",
+        "Model selection may not flow directly from CLI input into any particular URL parameter"
+      ]
+    }
+  ]
+}

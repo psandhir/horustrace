@@ -1,0 +1,95 @@
+name: Frozen 180 LLM Source Review Contract
+
+on:
+  push:
+    branches:
+      - research/frozen180-source-llm-review-contract-20261008
+    paths:
+      - ".github/workflows/frozen180-llm-review-contract.yml"
+      - "scripts/frozen180_source_packet.py"
+      - "scripts/frozen180_llm_review.py"
+      - "scripts/frozen180_llm_provisional_compare.py"
+      - "scripts/run_frozen180_source_llm_review.py"
+      - "tests/test_frozen180_llm_review.py"
+      - "tests/test_frozen180_llm_compare.py"
+      - "research/frozen180-llm-differential-20261008/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frozen180-llm-source-review-contract
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate review schema and prompt integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e '.[dev]'
+      - run: ruff check scripts/frozen180_llm_review.py scripts/frozen180_source_packet.py scripts/frozen180_llm_provisional_compare.py scripts/run_frozen180_source_llm_review.py tests/test_frozen180_llm_review.py tests/test_frozen180_llm_compare.py
+      - run: pytest -q tests/test_frozen180_llm_review.py tests/test_frozen180_llm_compare.py
+      - name: Check JSON schema validity and no scanner-output fields in model prompt
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path("research/frozen180-llm-differential-20261008")
+          prompt = (root / "SOURCE_REVIEW_PROMPT_V1.md").read_bytes()
+          schema = json.loads((root / "source-review.schema.json").read_text())
+          assert schema["properties"]["study"]["const"] == "frozen180-llm-source-review-20261008"
+          for forbidden in ("scanner_sha", "scanner_path_id", "scanner_finding_index", "rule_id"):
+              assert forbidden not in schema["properties"]
+          print("Frozen source-only prompt SHA-256:", hashlib.sha256(prompt).hexdigest())
+          PY
+
+  source-evidence:
+    name: Rebuild 145 entrypoint-complete source packets
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Rebuild source-only evidence from original frozen SHAs
+        run: PYTHONPATH=. python scripts/frozen180_source_packet.py --output evidence/source-only --workers 6
+      - name: Fail on missing entrypoints or contaminated source packs
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("evidence/source-only")
+          report=json.loads((root / "manifest.json").read_text())
+          assert report["active_cases"] == 145
+          assert report["case_statuses"] == {"ok": 145}
+          gaps=[c["case_id"] for c in report["cases"]
+                if not c.get("application_entrypoint_included")]
+          if gaps:
+              raise SystemExit(f"missing application entrypoints: {gaps}")
+          for c in report["cases"]:
+              assert c["source_output_seen"] is False
+              assert c["source_coverage"] == "qualified"
+          print("All 145 app entrypoints included; no scanner data introduced.")
+          PY
+      - name: Validate source-first calibration example against actual pinned source
+        run: |
+          PYTHONPATH=. python scripts/frozen180_llm_review.py \
+            --review research/frozen180-llm-differential-20261008/CALIBRATION_EXAMPLE_RW038.json \
+            --source-manifest evidence/source-only/rw-038/source-manifest.json \
+            --source evidence/source-only/rw-038/source-only.txt
+      - name: Publish source-only evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: frozen180-review-source-v2-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/source-only/
+          if-no-files-found: error
+          retention-days: 90

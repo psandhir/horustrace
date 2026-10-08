@@ -1,0 +1,924 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/psandhir/horustrace/blob/main/research/frozen180-llm-differential-20261008/source-review.schema.json",
+  "title": "Independent source-only HorusScan-aligned case assessment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "study",
+    "case_id",
+    "repo",
+    "sha",
+    "framework",
+    "review_scope",
+    "coverage",
+    "entities",
+    "relationships",
+    "authority_contracts",
+    "findings",
+    "attack_paths"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "study": {
+      "const": "frozen180-llm-source-review-20261008"
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repo": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "framework": {
+      "type": "string",
+      "enum": [
+        "google-adk",
+        "openai-agents",
+        "pydantic-ai",
+        "fastagent",
+        "mcp-custom"
+      ]
+    },
+    "review_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "application_path",
+        "source_pack_sha256"
+      ],
+      "properties": {
+        "application_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_pack_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "coverage": {
+      "$ref": "#/$defs/coverage"
+    },
+    "entities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entity"
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relationship"
+      }
+    },
+    "authority_contracts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/contract"
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "attack_paths": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/attack"
+      }
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "line_start",
+        "line_end",
+        "claim",
+        "quote"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "line_start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "line_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "claim": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quote": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "framework",
+        "source_context",
+        "binding_status",
+        "evidence",
+        "attributes"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "agent",
+            "model",
+            "tool",
+            "mcp_server",
+            "skill",
+            "identity",
+            "resource",
+            "destination",
+            "input"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "framework": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_context": {
+          "type": "string",
+          "enum": [
+            "agent_tool",
+            "cli",
+            "test",
+            "example",
+            "tutorial",
+            "notebook",
+            "template-generated",
+            "application_support",
+            "runtime",
+            "unknown"
+          ]
+        },
+        "binding_status": {
+          "type": "string",
+          "enum": [
+            "bound",
+            "declared_only",
+            "configured_only",
+            "unresolved"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "values"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "agent_id",
+        "target_id",
+        "target_kind",
+        "target_name",
+        "capabilities",
+        "identity",
+        "resources",
+        "destinations",
+        "approval",
+        "guardrails",
+        "resolution",
+        "source_context",
+        "evidence",
+        "limitations"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agent_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_kind": {
+          "type": "string",
+          "enum": [
+            "tool",
+            "mcp_server",
+            "skill",
+            "agent",
+            "resource",
+            "destination"
+          ]
+        },
+        "target_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "identity": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "destinations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "approval": {
+          "type": "string",
+          "enum": [
+            "present",
+            "absent",
+            "unresolved",
+            "not_applicable"
+          ]
+        },
+        "guardrails": {
+          "type": "string",
+          "enum": [
+            "present",
+            "absent",
+            "unresolved",
+            "not_applicable"
+          ]
+        },
+        "resolution": {
+          "type": "string",
+          "enum": [
+            "fully_resolved",
+            "partially_resolved",
+            "unknown"
+          ]
+        },
+        "source_context": {
+          "type": "string",
+          "enum": [
+            "agent_tool",
+            "cli",
+            "test",
+            "example",
+            "tutorial",
+            "notebook",
+            "template-generated",
+            "application_support",
+            "runtime",
+            "unknown"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "agent_id",
+        "clause",
+        "dimension",
+        "status",
+        "expected",
+        "observed",
+        "evidence",
+        "limitations"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agent_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "clause": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dimension": {
+          "type": "string",
+          "enum": [
+            "capabilities",
+            "skills",
+            "resources",
+            "destinations",
+            "identity",
+            "approval",
+            "mcp_tool",
+            "other"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "compliant",
+            "violation",
+            "unresolved"
+          ]
+        },
+        "expected": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "observed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "issue_type",
+        "title",
+        "message",
+        "agent_id",
+        "authority_relationship_ids",
+        "severity",
+        "assessment",
+        "support_status",
+        "confidence",
+        "source_context",
+        "owasp_agentic",
+        "evidence",
+        "controls",
+        "limitations",
+        "recommendation"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issue_type": {
+          "type": "string",
+          "enum": [
+            "approval_gap",
+            "privileged_execution",
+            "destructive_write",
+            "state_changing_tool",
+            "computer_control",
+            "unsafe_mcp",
+            "mcp_authentication",
+            "mcp_transport",
+            "mcp_allowlist",
+            "mcp_privileged_surface",
+            "credential_exposure",
+            "policy_violation",
+            "authority_excess",
+            "network_egress",
+            "model_selected_url",
+            "filesystem_escape",
+            "cross_owner_mutation",
+            "sensitive_data_exposure",
+            "sensitive_data_to_external",
+            "untrusted_input_to_execution",
+            "prompt_injection",
+            "skill_instruction_abuse",
+            "memory_poisoning",
+            "unsafe_delegation",
+            "delegation_control_bypass",
+            "unsafe_remote_agent",
+            "persistence_or_stealth",
+            "execution_and_egress",
+            "other"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agent_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "authority_relationship_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low",
+            "informational",
+            "unresolved"
+          ]
+        },
+        "assessment": {
+          "type": "string",
+          "enum": [
+            "static_configuration",
+            "policy_violation",
+            "heuristic_risk",
+            "potential_risk"
+          ]
+        },
+        "support_status": {
+          "type": "string",
+          "enum": [
+            "source_supported",
+            "conditional",
+            "unresolved"
+          ]
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "potential",
+            "supported",
+            "authority_confirmed"
+          ]
+        },
+        "source_context": {
+          "type": "string",
+          "enum": [
+            "agent_tool",
+            "cli",
+            "test",
+            "example",
+            "tutorial",
+            "notebook",
+            "template-generated",
+            "application_support",
+            "runtime",
+            "unknown"
+          ]
+        },
+        "owasp_agentic": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ASI01",
+              "ASI02",
+              "ASI03",
+              "ASI04",
+              "ASI05",
+              "ASI06",
+              "ASI07",
+              "ASI08",
+              "ASI09",
+              "ASI10"
+            ]
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "controls": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "recommendation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order",
+        "kind",
+        "label",
+        "entity_id",
+        "evidence"
+      ],
+      "properties": {
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "ingress",
+            "agent",
+            "delegation",
+            "tool",
+            "mcp",
+            "data",
+            "resource",
+            "sink",
+            "control",
+            "other"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        }
+      }
+    },
+    "attack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "agent_id",
+        "ingress",
+        "steps",
+        "sink",
+        "sink_kind",
+        "data_movement",
+        "severity",
+        "assessment",
+        "confidence",
+        "reachability",
+        "control_status",
+        "source_context",
+        "basis",
+        "exploitability",
+        "evidence",
+        "limitations",
+        "support_status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agent_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ingress": {
+          "type": "string",
+          "minLength": 1
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        },
+        "sink": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sink_kind": {
+          "type": "string",
+          "enum": [
+            "process_execute",
+            "code_execute",
+            "state_mutation",
+            "destructive_write",
+            "filesystem_read",
+            "filesystem_write",
+            "network_egress",
+            "server_side_fetch",
+            "credential_read",
+            "memory_persistence",
+            "cross_owner_write",
+            "other"
+          ]
+        },
+        "data_movement": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low",
+            "informational",
+            "unresolved"
+          ]
+        },
+        "assessment": {
+          "type": "string",
+          "enum": [
+            "potential_risk",
+            "policy_violation"
+          ]
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "potential",
+            "supported",
+            "authority_confirmed"
+          ]
+        },
+        "reachability": {
+          "type": "string",
+          "enum": [
+            "proven_agent_reachable",
+            "proven_non_agent",
+            "unknown"
+          ]
+        },
+        "control_status": {
+          "type": "string",
+          "enum": [
+            "present",
+            "absent",
+            "unresolved",
+            "not_applicable"
+          ]
+        },
+        "source_context": {
+          "type": "string",
+          "enum": [
+            "agent_tool",
+            "cli",
+            "test",
+            "example",
+            "tutorial",
+            "notebook",
+            "template-generated",
+            "application_support",
+            "runtime",
+            "unknown"
+          ]
+        },
+        "basis": {
+          "type": "string",
+          "enum": [
+            "static_dataflow",
+            "source_proven_tool_dataflow",
+            "agent_tool_reachability",
+            "delegated_authority",
+            "heuristic_combo",
+            "other"
+          ]
+        },
+        "exploitability": {
+          "type": "string",
+          "enum": [
+            "not_verified"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "support_status": {
+          "type": "string",
+          "enum": [
+            "source_supported",
+            "conditional",
+            "unresolved"
+          ]
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_coverage",
+        "review_result",
+        "reviewed_files",
+        "omitted_or_truncated",
+        "additional_source_required",
+        "limitations"
+      ],
+      "properties": {
+        "source_coverage": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "qualified",
+            "insufficient"
+          ]
+        },
+        "review_result": {
+          "type": "string",
+          "enum": [
+            "enumerated_candidates",
+            "reviewed_no_candidate",
+            "source_incomplete"
+          ]
+        },
+        "reviewed_files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "omitted_or_truncated": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "additional_source_required": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
