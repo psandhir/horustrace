@@ -120,6 +120,8 @@ Use the following root keys (arrays must be [] when empty):
 - `entities`: agents, models, tools, mcp_servers, skills, identities,
   resources, destinations, inputs; each includes a unique local ID, name,
   runtime/source context, source-backed status, evidence.
+  `attributes` is a list of `{name, values}` objects, not a free-form JSON
+  dictionary; `values` is always a list of strings, even for one value.
 - `relationships`: agent source ID, target kind/name/ID, effective
   capabilities, approval/guardrail status, identity/resources/destinations,
   resolution and evidence.
