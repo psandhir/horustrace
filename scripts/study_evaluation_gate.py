@@ -300,6 +300,48 @@ def review_phase_b(doc: dict, cohort: dict, cases: dict, results: dict,
                 require(not indices, f"{case_id}.{pid}: missed path cannot have scanner match")
             counts[state] += 1
             by_framework[cases[case_id]["framework"]][state] += 1
+        # Precision direction: every scanner-emitted attack path must be
+        # independently reviewed, including paths absent from judge discovery.
+        path_reviews = row.get("scanner_attack_path_reviews")
+        require(isinstance(path_reviews, list),
+                f"{case_id}: scanner_attack_path_reviews list required")
+        reviewed_path_indexes = set()
+        for path_review in path_reviews:
+            require(isinstance(path_review, dict),
+                    f"{case_id}: malformed scanner attack path review")
+            index = path_review.get("index")
+            require(isinstance(index, int) and 0 <= index < len(scanner_paths)
+                    and index not in reviewed_path_indexes,
+                    f"{case_id}: invalid/duplicate scanner attack path index {index}")
+            require(path_review.get("verdict") in FINDING_VERDICTS,
+                    f"{case_id}.scanner_path[{index}]: verdict required")
+            require(bool(path_review.get("rationale")),
+                    f"{case_id}.scanner_path[{index}]: rationale required")
+            evidence(path_review.get("evidence"), f"{case_id}.scanner_path[{index}]")
+            path_judges = unique_rows(path_review.get("reviewer_attestations"),
+                                     "reviewer_id", f"{case_id}.scanner_path[{index}].judges")
+            require(len(path_judges) >= 2,
+                    f"{case_id}.scanner_path[{index}]: two independent reviewers required")
+            path_execution_ids = []
+            for judge_id, opinion in path_judges.items():
+                require(opinion.get("independent_review") is True and
+                        opinion.get("rule_metadata_seen") is False and
+                        opinion.get("locked") is True and
+                        opinion.get("verdict") == path_review["verdict"],
+                        f"{case_id}.scanner_path[{index}]: reviewer verdict mismatch")
+                require(bool(opinion.get("execution_id")) and
+                        bool(opinion.get("model")) and bool(opinion.get("provider")),
+                        f"{case_id}.scanner_path[{index}]: missing reviewer provenance")
+                path_execution_ids.append(opinion["execution_id"])
+                evidence(opinion.get("evidence"),
+                         f"{case_id}.scanner_path[{index}].{judge_id}")
+            require(len(set(path_execution_ids)) == len(path_execution_ids),
+                    f"{case_id}.scanner_path[{index}]: duplicate reviewer execution IDs")
+            reviewed_path_indexes.add(index)
+            counts["scanner_paths_reviewed"] += 1
+            counts["scanner_paths_" + path_review["verdict"]] += 1
+        require(len(reviewed_path_indexes) == len(scanner_paths),
+                f"{case_id}: every scanner-emitted attack path must be adjudicated")
         findings = results[case_id]["findings"]
         finding_reviews = row.get("finding_reviews")
         require(isinstance(finding_reviews, list),
@@ -340,6 +382,7 @@ def review_phase_b(doc: dict, cohort: dict, cases: dict, results: dict,
                     f"{case_id}[{index}]: duplicate finding execution IDs")
             seen[index] = review
             counts["findings_reviewed"] += 1
+            counts["findings_" + review["verdict"]] += 1
             if review["verdict"] == "unsupported":
                 counts["unsupported_findings"] += 1
         for (rule, severity), indices in strata.items():
@@ -400,22 +443,22 @@ def main() -> int:
             report["adjudication_gate"] = "passed"
             report.update(outcome)
             counts = outcome["counts"]
-            missing = counts.get("missed", 0)
-            partial = counts.get("partial", 0)
-            unsupported = counts.get("unsupported_findings", 0)
-            unreviewed = counts.get("pending_escalations", 0)
-            incomplete = counts.get("insufficient_source_cases", 0)
-            report["release_gate"] = (
-                "passed" if not any((missing, partial, unsupported, unreviewed, incomplete))
-                else "blocked"
-            )
-            report["blocking_reasons"] = {
-                "confirmed_candidate_misses": missing,
-                "partial_valid_path_coverage": partial,
-                "unsupported_sampled_findings": unsupported,
-                "pending_escalations": unreviewed,
-                "insufficient_source_cases": incomplete,
+            blockers = {
+                "confirmed_candidate_misses": counts.get("missed", 0),
+                "partial_valid_path_coverage": counts.get("partial", 0),
+                "unsupported_scanner_paths": counts.get("scanner_paths_unsupported", 0),
+                "partial_scanner_paths": counts.get("scanner_paths_partial", 0),
+                "unresolved_scanner_paths": counts.get("scanner_paths_unresolved", 0),
+                "unsupported_sampled_findings": counts.get("findings_unsupported", 0),
+                "partial_sampled_findings": counts.get("findings_partial", 0),
+                "unresolved_sampled_findings": counts.get("findings_unresolved", 0),
+                "pending_escalations": counts.get("pending_escalations", 0),
+                "insufficient_source_cases": counts.get("insufficient_source_cases", 0),
             }
+            report["blocking_reasons"] = blockers
+            report["release_gate"] = (
+                "passed" if not any(blockers.values()) else "blocked"
+            )
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n",
