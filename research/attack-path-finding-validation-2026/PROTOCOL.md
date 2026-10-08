@@ -1,5 +1,8 @@
 # Human-Adjudicated Attack-Path and Finding Validation Protocol
 
+> **Scope clarification (2026-10-08):** This document defines human-grounded review for the historical validation effort. New independent source-cohort studies must also comply with [the shared study evaluation contract](../STUDY_EVALUATION_CONTRACT.md), which permits two independently locked **LLM** reviewers for automated source adjudication with escalation. Such evidence must **not** be labelled two-human-reviewer ground truth.
+
+
 ## Objective
 
 Measure two product-quality questions that the automated frozen source reference cannot answer exhaustively:
