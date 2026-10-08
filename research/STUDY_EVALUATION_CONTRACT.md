@@ -65,6 +65,8 @@ Phase B required fields:
 - cases: every case; candidate_assessments covering all consensus candidates with matched|partial|missed|invalid|unresolved and rationale. Matched and partial must cite valid scanner_path_indexes; missed must not.
 - finding_reviews with scanner finding index, verdict supported|partial|unsupported|unresolved, rationale, path+line evidence and two or more independent locked reviewer_attestations with distinct reviewer_id and execution_id, model, provider, rule_metadata_seen=false, matching verdict and evidence. All critical/high and at least 25% (minimum one) per other rule and severity group must be reviewed. An empty list is mandatory when there are no findings.
 
+Every Phase B case must also provide scanner_attack_path_reviews covering **every emitted scanner path**, including paths the LLM did not propose. Each includes scanner path index, supported|partial|unsupported|unresolved verdict, source evidence, rationale and two independent locked, scanner-rule-metadata-blind reviewer attestations. Unsupported, partial and unresolved scanner paths block quality release. This is the **attack-path precision direction**, complementing the source-first candidate comparison for potential recall misses.
+
 The gate emits gate-report.json with selection_gate, execution_gate, adjudication_gate, release_gate, warnings and counts. It exits nonzero when results have not been adjudicated, source evidence is insufficient, an accepted path is missed, confirmed false positives remain in sample or review escalation is pending. A **quality gate failure may be an important successful study finding** and must be reported, not suppressed.
 
 ## Additional integrity controls and limitations
@@ -80,7 +82,7 @@ The gate emits gate-report.json with selection_gate, execution_gate, adjudicatio
 
 All *new* cohort PRs must publish a G0 valid frozen manifest, G1 result bundles, and explicit G2/G3 evaluation state before claiming security quality. Integrate the reusable gate into the study's aggregate job; do not copy a hardcoded expected-case count or study name from an earlier aggregator.
 
-**October pilot-12 remains a retrospective baseline and is not independently blind-adjudicated.** It should report G1 pass, G2 not run, G3 blocked until a new prospective blinded review is completed.
+**October pilot-12 remains a retrospective baseline and is not independently blind-adjudicated.** Its original scanner execution succeeded (12/12), but it did not capture every new v1 G1 provenance field or run G2. Accordingly, it is **not** v1 quality-approved; the v1 quality gate remains blocked until the missing evidence and prospective blinded reviews are completed.
 
 ## Reusable GitHub Actions integration
 
