@@ -97,3 +97,66 @@ class AgentLoop:
         "tool_catalogue",
         "tool_dispatch",
     }
+
+
+def test_custom_planner_skill_orchestrator_is_an_agent(tmp_path: Path) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+class AgenticChatbot:
+    def __init__(self, planner, joke_skill, recipe_skill):
+        self.planner = planner
+        self.joke_skill = joke_skill
+        self.recipe_skill = recipe_skill
+
+    def respond(self, history, user_message):
+        plan = self.planner.plan(history=history, user_message=user_message)
+        if plan.action == "joke":
+            return self.joke_skill.run(plan, history, user_message)
+        return self.recipe_skill.run(plan, history, user_message)
+""",
+        encoding="utf-8",
+    )
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agentic_chatbot")
+    assert agent.metadata["discovery_basis"] == "source_proven_delegated_orchestration"
+    assert agent.metadata["discovery_signals"] == ["delegated_planner", "skill_dispatch"]
+
+
+def test_custom_planner_to_mcp_loop_is_an_agent(tmp_path: Path) -> None:
+    (tmp_path / "loop.py").write_text(
+        """
+from core.strategy import decide_next_action
+
+class AgentLoop:
+    def __init__(self, dispatcher):
+        self.mcp = dispatcher
+        self.tools = dispatcher.get_all_tools()
+
+    async def run(self, context, perception):
+        plan = await decide_next_action(
+            context=context, perception=perception, all_tools=self.tools
+        )
+        response = await self.mcp.call_tool(plan.name, plan.arguments)
+        return response
+""",
+        encoding="utf-8",
+    )
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "agent_loop")
+    assert agent.metadata["discovery_basis"] == "source_proven_delegated_orchestration"
+    assert agent.metadata["discovery_signals"] == ["delegated_planner", "mcp_dispatch"]
+
+
+def test_named_planner_without_tool_dispatch_is_not_agent(tmp_path: Path) -> None:
+    (tmp_path / "planner.py").write_text(
+        """
+class AgentPlannerCache:
+    def __init__(self, planner):
+        self.planner = planner
+    def respond(self, value):
+        return self.planner.plan(value)
+""",
+        encoding="utf-8",
+    )
+    graph, _ = scan(tmp_path)
+    assert not any(agent.name == "agent_planner_cache" for agent in graph.agents)
