@@ -2642,6 +2642,11 @@ def _scan(
         root if root.is_dir() else root.parent,
     )
     resolve_fast_agent_mcp_references(graph)
+    enrich_custom_profile_mcp_bindings(
+        graph,
+        root if root.is_dir() else root.parent,
+        approved_python_paths,
+    )
     reconstruct_mcp_authority(graph, approved_python_paths)
     resolve_local_stdio_implementations(
         graph,
@@ -2703,11 +2708,6 @@ def _scan(
     # network/write capabilities and lose child destination/control constraints.
     _propagate_pydantic_delegation(graph)
     _propagate_adk_delegation(graph)
-    enrich_custom_profile_mcp_bindings(
-        graph,
-        root if root.is_dir() else root.parent,
-        approved_python_paths,
-    )
     enrich_public_realtime_mcp_authority(
         graph,
         root if root.is_dir() else root.parent,
