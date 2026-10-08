@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
 from scripts.frozen180_llm_review import ReviewError, validate_review
+from scripts.frozen180_source_packet import _candidate_files
 
 SCHEMA_PATH = (
     Path(__file__).resolve().parents[1]
@@ -65,6 +67,29 @@ class SourceOnlyReviewSchemaTests(unittest.TestCase):
 
     def check_valid(self, review, manifest):
         return validate_review(review, manifest, SOURCE, self.schema)
+
+    def test_hidden_skill_mcp_and_primary_entrypoint_in_source_packet(self):
+        with tempfile.TemporaryDirectory() as dirname:
+            root = Path(dirname)
+            entrypoint = root / "agent.py"
+            entrypoint.write_text("agent = Agent()")
+            skill = root / ".agents/skills/booking/SKILL.md"
+            skill.parent.mkdir(parents=True)
+            skill.write_text("Use booking safely")
+            mcp = root / ".mcp.json"
+            mcp.write_text('{"servers": []}')
+            workflow = root / ".github/workflows/deploy.yml"
+            workflow.parent.mkdir(parents=True)
+            workflow.write_text("name: deploy")
+            git_file = root / ".git/internal.py"
+            git_file.parent.mkdir(parents=True)
+            git_file.write_text("ignore")
+            found = _candidate_files(root, entrypoint)
+            self.assertEqual(found[0], entrypoint)
+            self.assertIn(skill, found)
+            self.assertIn(mcp, found)
+            self.assertIn(workflow, found)
+            self.assertNotIn(git_file, found)
 
     def test_valid_source_only_inventory(self):
         r, m = fixture()
