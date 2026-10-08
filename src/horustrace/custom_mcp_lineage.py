@@ -12,6 +12,7 @@ from pathlib import Path
 
 import yaml
 
+from horustrace.limits import ScanLimitError, validate_yaml_safety
 from horustrace.models import Graph, MCPServer, SourceLocation
 
 
@@ -160,8 +161,10 @@ def enrich_custom_profile_mcp_bindings(
         if not config_path.is_relative_to(root) or not config_path.is_file():
             continue
         try:
-            loaded = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError, yaml.YAMLError):
+            profile_text = config_path.read_text(encoding="utf-8")
+            validate_yaml_safety(profile_text)
+            loaded = yaml.safe_load(profile_text)
+        except (OSError, UnicodeDecodeError, yaml.YAMLError, ScanLimitError):
             continue
         if not isinstance(loaded, dict) or not isinstance(loaded.get("mcp_servers"), list):
             continue
