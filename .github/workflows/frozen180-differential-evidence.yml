@@ -1,0 +1,117 @@
+name: Frozen 180 Source and Path Evidence Recovery
+
+on:
+  push:
+    branches:
+      - research/frozen180-llm-differential-evidence-20261008
+    paths:
+      - .github/workflows/frozen180-differential-evidence.yml
+      - scripts/frozen180_source_packet.py
+      - scripts/frozen180_path_evidence.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: frozen180-differential-evidence
+  cancel-in-progress: false
+
+jobs:
+  source-blind:
+    name: Assemble 145 scanner-blind source packets
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Frozen 180 validation
+        run: python scripts/real_world_agent_security_study.py --validate-only
+      - name: Create source-only packets without scanner data
+        run: |
+          PYTHONPATH=. python scripts/frozen180_source_packet.py \
+            --output evidence/source-only --workers 6
+      - name: Report limitations
+        if: always()
+        run: |
+          if [[ -f evidence/source-only/manifest.json ]]; then
+            python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          p=json.loads(Path('evidence/source-only/manifest.json').read_text())
+          print("## Frozen 180: source-only evidence (no LLM reviews yet)")
+          print(f"- Active cases: {p['active_cases']}; 35 deprecated LangGraph cases excluded")
+          print(f"- Packet statuses: {p['case_statuses']}")
+          print("- Blinded LLM Phase A: **not executed**")
+          print("- All packets bounded; missing source must remain unresolved")
+          PY
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: frozen180-blind-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/source-only/
+          if-no-files-found: warn
+          retention-days: 90
+
+  full-path-evidence:
+    name: Reconstruct 45 scanner attack-path records
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      SCANNER_SHA: 58a2d14ac6456b3f2e2f726484e33763352d6f17
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Download original replay artifact (coordinator only)
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: historical-frozen180-37781876075-1
+          repository: psandhir/horustrace
+          run-id: 37781876075
+          github-token: ${{ github.token }}
+          path: historical-run
+      - name: Install exact frozen replay scanner SHA
+        run: |
+          set -euo pipefail
+          python -m venv /tmp/horus-review-venv
+          git init -q /tmp/horus-review-src
+          git -C /tmp/horus-review-src remote add origin https://github.com/psandhir/horustrace.git
+          git -C /tmp/horus-review-src fetch -q --depth=1 origin "$SCANNER_SHA"
+          git -C /tmp/horus-review-src checkout -q --detach FETCH_HEAD
+          test "$(git -C /tmp/horus-review-src rev-parse HEAD)" = "$SCANNER_SHA"
+          /tmp/horus-review-venv/bin/pip install -q /tmp/horus-review-src
+      - name: Reconstruct scanner graph and rule evidence
+        run: |
+          PYTHONPATH=. python scripts/frozen180_path_evidence.py \
+            --historical-result historical-run/result.json \
+            --scanner /tmp/horus-review-venv/bin/horustrace \
+            --scanner-sha "$SCANNER_SHA" \
+            --output evidence/scanner-paths --workers 4
+      - name: Report recovered chains, never adjudicate automatically
+        if: always()
+        run: |
+          if [[ -f evidence/scanner-paths/manifest.json ]]; then
+            python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          p=json.loads(Path('evidence/scanner-paths/manifest.json').read_text())
+          print("## Frozen 180: scanner path evidence (coordinator only)")
+          print(f"- Historical paths requiring review: {p['attack_paths_in_legacy_result']}")
+          print(f"- Successful source cases: {p['status_counts']}")
+          print(f"- Count-parity cases: {p['parity_cases']}/{p['source_case_count']}")
+          print("- Source-validated TP/FP/FN: **not yet adjudicated**")
+          PY
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: frozen180-scanner-paths-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/scanner-paths/
+          if-no-files-found: warn
+          retention-days: 90
