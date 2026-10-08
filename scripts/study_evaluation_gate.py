@@ -401,15 +401,17 @@ def main() -> int:
             report.update(outcome)
             counts = outcome["counts"]
             missing = counts.get("missed", 0)
+            partial = counts.get("partial", 0)
             unsupported = counts.get("unsupported_findings", 0)
             unreviewed = counts.get("pending_escalations", 0)
             incomplete = counts.get("insufficient_source_cases", 0)
             report["release_gate"] = (
-                "passed" if not any((missing, unsupported, unreviewed, incomplete))
+                "passed" if not any((missing, partial, unsupported, unreviewed, incomplete))
                 else "blocked"
             )
             report["blocking_reasons"] = {
                 "confirmed_candidate_misses": missing,
+                "partial_valid_path_coverage": partial,
                 "unsupported_sampled_findings": unsupported,
                 "pending_escalations": unreviewed,
                 "insufficient_source_cases": incomplete,
