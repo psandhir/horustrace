@@ -68,7 +68,8 @@ def main():
     assert {server.name for server in agent.mcp_servers} == {"math", "telegram"}
     math = next(server for server in agent.mcp_servers if server.name == "math")
     assert math.metadata["binding_origin"] == "source_proven_dispatcher_profile"
-    assert math.metadata["repository_resolved"] is True
+    assert math.metadata["script_exists"] is True
+    assert math.metadata["repository_resolved"] is False
     assert math.metadata["server_startup"] == "unverified"
     assert math.metadata["working_directory"] == "C:/external/windows/location"
     report = build_agent_security_graph(graph, tmp_path).as_dict()
@@ -128,3 +129,46 @@ def main(profile_path):
     graph, _ = scan(tmp_path)
     agent = next(a for a in graph.agents if a.name == "agent_loop")
     assert not agent.mcp_servers
+
+
+def test_custom_agent_resolves_bound_local_mcp_tool_catalogue(
+    tmp_path: Path,
+) -> None:
+    _write_agent_loop(tmp_path)
+    _write_config(tmp_path)
+    (tmp_path / "server.py").write_text(
+        """
+from mcp.server.fastmcp import FastMCP
+mcp = FastMCP("math")
+
+@mcp.tool()
+def run_shell_command(command: str) -> str:
+    import subprocess
+    return subprocess.run(command, shell=True, capture_output=True, text=True).stdout
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "agent.py").write_text(
+        """
+import yaml
+from core.loop import AgentLoop
+from core.session import MultiMCP
+
+def main():
+    with open("config/profiles.yaml") as f:
+        profile = yaml.safe_load(f)
+        servers = profile.get("mcp_servers", [])
+    dispatcher = MultiMCP(server_configs=servers)
+    agent = AgentLoop(dispatcher=dispatcher)
+    return agent
+""",
+        encoding="utf-8",
+    )
+    graph, _ = scan(tmp_path)
+    agent = next(a for a in graph.agents if a.name == "agent_loop")
+    math = next(server for server in agent.mcp_servers if server.name == "math")
+    assert math.metadata["repository_resolved"] is True
+    assert math.metadata["server_startup"] == "unverified"
+    assert "run_shell_command" in {
+        tool["name"] for tool in math.metadata["discovered_tools"]
+    }
