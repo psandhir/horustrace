@@ -1,0 +1,92 @@
+name: Reusable Study Quality Release Gate
+
+on:
+  workflow_call:
+    inputs:
+      cohort_path:
+        description: Repository-relative frozen cohort JSON path
+        required: true
+        type: string
+      case_artifact_pattern:
+        description: Pattern for per-case evidence artifacts from the caller run
+        required: true
+        type: string
+      aggregate_artifact:
+        description: Study-specific aggregate evidence artifact with summary.json
+        required: true
+        type: string
+      aggregate_filename:
+        required: false
+        type: string
+        default: summary.json
+      phase_a_artifact:
+        description: Locked source-only independent Phase A artifact
+        required: true
+        type: string
+      phase_b_artifact:
+        description: Scanner-revealed Phase B comparison artifact
+        required: true
+        type: string
+      phase_a_filename:
+        required: false
+        type: string
+        default: locked-source-review.json
+      phase_b_filename:
+        required: false
+        type: string
+        default: revealed-alignment.json
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  quality-gate:
+    name: Gate independent study for release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: ${{ inputs.case_artifact_pattern }}
+          path: downloaded
+          merge-multiple: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.aggregate_artifact }}
+          path: aggregate
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.phase_a_artifact }}
+          path: adjudication/phase-a
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.phase_b_artifact }}
+          path: adjudication/phase-b
+      - name: Validate frozen source and adjudication evidence
+        env:
+          COHORT_PATH: ${{ inputs.cohort_path }}
+          AGGREGATE_FILENAME: ${{ inputs.aggregate_filename }}
+          PHASE_A_FILENAME: ${{ inputs.phase_a_filename }}
+          PHASE_B_FILENAME: ${{ inputs.phase_b_filename }}
+        run: |
+          set -euo pipefail
+          python scripts/study_evaluation_gate.py \
+            --cohort "$COHORT_PATH" \
+            --results downloaded \
+            --aggregate-summary "aggregate/$AGGREGATE_FILENAME" \
+            --phase-a "adjudication/phase-a/$PHASE_A_FILENAME" \
+            --phase-b "adjudication/phase-b/$PHASE_B_FILENAME" \
+            --output gate-report.json
+      - name: Publish auditable gate report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: study-quality-gate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: gate-report.json
+          if-no-files-found: warn
+          retention-days: 90
