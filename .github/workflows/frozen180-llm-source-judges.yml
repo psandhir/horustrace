@@ -12,12 +12,10 @@ on:
         description: Exact OpenAI Responses API model ID
         type: string
         required: true
-        default: "gpt-5.6-sol"
       gemini_model:
         description: Exact Gemini API model ID
         type: string
         required: true
-        default: "gemini-3.8-flash"
 
 permissions:
   contents: read
