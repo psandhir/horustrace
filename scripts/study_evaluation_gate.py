@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Fail-closed evidence gates for independent HorusScan source-cohort studies.
 
 The gate validates *bookkeeping and provenance*, not the semantic correctness of a
@@ -48,7 +47,7 @@ def digest(path: Path) -> str:
 def timestamp(value: object, label: str) -> datetime:
     require(isinstance(value, str), f"{label}: ISO timestamp required")
     try:
-        t = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        t = datetime.fromisoformat(value)
     except ValueError as exc:
         raise GateError(f"{label}: invalid timestamp") from exc
     require(t.tzinfo is not None, f"{label}: timestamp must have timezone")
@@ -131,11 +130,11 @@ def read_results(root: Path, cohort: dict, cases: dict[str, dict]) -> tuple[dict
         for kind, count in (("findings", "findings"), ("attack_paths", "attack_paths")):
             require(isinstance(item.get(kind), list) and len(item[kind]) == counts[count],
                     f"{case_id}: {kind} count does not match evidence")
-        for revision in revisions:
+        for revision, observed in revisions.items():
             value = item.get(revision)
             require(isinstance(value, str) and SHA40.fullmatch(value) is not None,
                     f"{case_id}: missing full {revision}")
-            revisions[revision].add(value)
+            observed.add(value)
         source_file = path.with_name("source-pack.txt")
         require(source_file.is_file(), f"{case_id}: missing source pack")
         source_chars = len(source_file.read_text(encoding="utf-8"))
