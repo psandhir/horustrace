@@ -15,7 +15,7 @@ Existing review documents differ on mandatory human vs automated reviewers. The 
 | Gate | Evidence | Passing means |
 |---|---|---|
 | G0 — Cohort selection | Source-selected, immutable unique repo/SHA/application roots, framework evidence, overlap register | Selection is valid independently of scanner results |
-| G1 — Execution | Result, source pack, security graph, authority/contract output and job status per case; same pinned SHA and scanner/harness revision | Scanner execution completed, **not** scanner accuracy |
+| G1 — Execution | Result, nonempty source pack, scan JSON, security graph JSON, effective-authority JSON, authority-contract JSON and job status per case; same pinned SHA and complete scanner/harness commit revisions | Scanner execution completed, **not** scanner accuracy |
 | G2 — Independent adjudication | Blinded source-only independent reviewers, immutable prompt/model/execution IDs, candidate union, source evidence, disagreement escalation; post-lock scan comparison and finding precision sample | An auditable comparison is available |
 | G3 — Quality release | G2 plus missed valid paths, FP/finding samples and unresolved high-impact cases | Quality threshold satisfied, not runtime exploitability proven |
 
@@ -58,12 +58,12 @@ python scripts/study_evaluation_gate.py \
 Phase A required fields:
 - study, cohort_sha256 (digest of exact manifest), scanner_output_seen=false, locked_at.
 - reviewers: at least two distinct reviewer_id and execution_id, provider, model, prompt_version, prompt_sha256, independent_review=true, scanner_output_seen=false, locked=true and locked_at.
-- cases: every frozen case, same commit SHA and source_coverage=complete|qualified|insufficient; limitations if not complete; reviews for every judge (locked, blind, source_evidence path+line, candidate_paths with stable candidate_id and evidence); consensus_paths containing all unique candidate IDs, verdict valid|invalid|unresolved, review_status agreement|escalated|pending, rationale and evidence.
+- cases: every frozen case, same commit SHA and source_coverage=complete|qualified|insufficient; limitations if not complete; reviews for every judge (locked, blind, source_evidence path+line, explicit coverage_assertion=enumerated_candidates|reviewed_no_qualifying_chains, candidate_paths with stable candidate_id, verdict, rationale and evidence). Consensus_paths contain every unique candidate ID, verdict valid|invalid|unresolved, review_status agreement|escalated|pending, rationale and evidence. An agreement requires both judge verdicts to match the consensus; an escalated decision requires a locked, scanner-blind third independent reviewer and source evidence. When a bounded source pack was truncated, a case marked complete additionally needs supplementary_source_checked=true and supplementary_source_evidence.
 
 Phase B required fields:
-- study, phase_a_sha256 (digest of exact immutable locked source review), scanner_sha (full commit SHA), revealed_at later than Phase A locked_at.
+- study, phase_a_sha256 (digest of exact immutable locked source review), scanner_sha (full commit SHA matching every per-case result), revealed_at later than Phase A locked_at. Every case result also records scanner_sha and harness_sha (both full commit SHAs).
 - cases: every case; candidate_assessments covering all consensus candidates with matched|partial|missed|invalid|unresolved and rationale. Matched and partial must cite valid scanner_path_indexes; missed must not.
-- finding_reviews with scanner finding index, verdict supported|partial|unsupported|unresolved, rationale, path+line evidence and independent_review=true. All critical/high and at least 25% (minimum one) per other rule and severity group must be reviewed. An empty list is mandatory when there are no findings.
+- finding_reviews with scanner finding index, verdict supported|partial|unsupported|unresolved, rationale, path+line evidence and two or more independent locked reviewer_attestations with distinct reviewer_id and execution_id, model, provider, rule_metadata_seen=false, matching verdict and evidence. All critical/high and at least 25% (minimum one) per other rule and severity group must be reviewed. An empty list is mandatory when there are no findings.
 
 The gate emits gate-report.json with selection_gate, execution_gate, adjudication_gate, release_gate, warnings and counts. It exits nonzero when results have not been adjudicated, source evidence is insufficient, an accepted path is missed, confirmed false positives remain in sample or review escalation is pending. A **quality gate failure may be an important successful study finding** and must be reported, not suppressed.
 
@@ -81,3 +81,23 @@ The gate emits gate-report.json with selection_gate, execution_gate, adjudicatio
 All *new* cohort PRs must publish a G0 valid frozen manifest, G1 result bundles, and explicit G2/G3 evaluation state before claiming security quality. Integrate the reusable gate into the study's aggregate job; do not copy a hardcoded expected-case count or study name from an earlier aggregator.
 
 **October pilot-12 remains a retrospective baseline and is not independently blind-adjudicated.** It should report G1 pass, G2 not run, G3 blocked until a new prospective blinded review is completed.
+
+## Reusable GitHub Actions integration
+
+New scanner cohort workflows should add a downstream job that calls .github/workflows/reusable-study-quality-gate.yml after **scanner cases**, **independent Phase-A reviews** and **Phase-B finding/path reviews** have all uploaded artifacts in the *same workflow run*:
+
+~~~yaml
+quality_release:
+  needs: [scan, phase_a, phase_b]
+  if: always()
+  uses: ./.github/workflows/reusable-study-quality-gate.yml
+  with:
+    cohort_path: research/studies/example/cohort.json
+    case_artifact_pattern: case-*
+    phase_a_artifact: locked-source-review
+    phase_b_artifact: revealed-comparison
+~~~
+
+The caller must publish phase_a_file=locked-source-review.json and phase_b_file=revealed-alignment.json (or pass explicit filename inputs). Their evidence metadata must match the exact frozen repository SHAs and scanner/harness SHAs. If the judge workflow has not been run, the quality job is red by design, even if every scan job passed.
+
+For **new** studies, use the registered directory convention research/studies/STUDY_ID/{cohort.json,study.json}; the associated workflow must call this reusable gate. Historical study directories are grandfathered as archival evidence, not retroactively relabelled quality-approved.
