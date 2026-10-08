@@ -162,6 +162,42 @@ def read_results(root: Path, cohort: dict, cases: dict[str, dict]) -> tuple[dict
     return results, warnings
 
 
+def validate_aggregate(summary: dict, cohort: dict, cases: dict, results: dict) -> None:
+    """Fail on copied old-study labels, incorrect expected counts or misaggregation."""
+    require(summary.get("study") == cohort["study"],
+            "aggregate: study name differs from frozen cohort")
+    require(summary.get("completed") == len(cases) and summary.get("errors") == 0,
+            "aggregate: completed/error counts disagree with frozen cohort")
+    agg_cases = unique_rows(summary.get("cases"), "case_id", "aggregate.cases")
+    require(set(agg_cases) == set(cases), "aggregate: case IDs mismatch")
+    for case_id, row in agg_cases.items():
+        require(row.get("repo") == cases[case_id]["repo"] and
+                row.get("sha") == cases[case_id]["sha"] and
+                row.get("framework") == cases[case_id]["framework"],
+                f"aggregate: wrong repository identity for {case_id}")
+        for count in ("agents", "findings", "attack_paths"):
+            require((row.get("counts") or {}).get(count) ==
+                    results[case_id]["counts"][count],
+                    f"aggregate: {case_id} {count} differs from case evidence")
+    frameworks = summary.get("frameworks")
+    require(isinstance(frameworks, dict), "aggregate: framework counts missing")
+    totals = Counter(case["framework"] for case in cases.values())
+    require(set(frameworks) == set(totals),
+            "aggregate: framework families mismatch")
+    for framework, expected in totals.items():
+        group = frameworks[framework]
+        require(isinstance(group, dict) and
+                group.get("expected") == expected and
+                group.get("completed") == expected and
+                group.get("errors") == 0,
+                f"aggregate: incorrect expected/completed count for {framework}")
+        members = [result for result in results.values()
+                   if result["framework"] == framework]
+        for key in ("agents", "findings", "attack_paths"):
+            require(group.get(key) == sum(r["counts"][key] for r in members),
+                    f"aggregate: {framework} {key} total mismatch")
+
+
 def evidence(entries: object, label: str) -> None:
     require(isinstance(entries, list) and bool(entries), f"{label}: source evidence required")
     for entry in entries:
@@ -407,6 +443,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cohort", type=Path, required=True)
     parser.add_argument("--results", type=Path, help="Directory with per-case result.json and source-pack.txt")
+    parser.add_argument("--aggregate-summary", type=Path, help="Study-specific aggregate/summary.json")
     parser.add_argument("--phase-a", type=Path, help="Locked scanner-blind reviewer JSON")
     parser.add_argument("--phase-b", type=Path, help="Scanner-revealed alignment and precision review JSON")
     parser.add_argument("--output", type=Path, help="Evidence gate report JSON")
@@ -420,6 +457,9 @@ def main() -> int:
     }
     if args.results is not None:
         results, warnings = read_results(args.results, cohort, cases)
+        require(args.aggregate_summary is not None,
+                "results: --aggregate-summary required to validate expected counts and study identity")
+        validate_aggregate(load(args.aggregate_summary), cohort, cases, results)
         report["execution_gate"] = "passed"
         report["warnings"].extend(warnings)
         report["scanner_paths"] = sum(len(x["attack_paths"]) for x in results.values())
