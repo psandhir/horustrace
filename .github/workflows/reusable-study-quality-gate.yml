@@ -11,6 +11,14 @@ on:
         description: Pattern for per-case evidence artifacts from the caller run
         required: true
         type: string
+      aggregate_artifact:
+        description: Study-specific aggregate evidence artifact with summary.json
+        required: true
+        type: string
+      aggregate_filename:
+        required: false
+        type: string
+        default: summary.json
       phase_a_artifact:
         description: Locked source-only independent Phase A artifact
         required: true
@@ -49,6 +57,10 @@ jobs:
           merge-multiple: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
+          name: ${{ inputs.aggregate_artifact }}
+          path: aggregate
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
           name: ${{ inputs.phase_a_artifact }}
           path: adjudication/phase-a
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -58,6 +70,7 @@ jobs:
       - name: Validate frozen source and adjudication evidence
         env:
           COHORT_PATH: ${{ inputs.cohort_path }}
+          AGGREGATE_FILENAME: ${{ inputs.aggregate_filename }}
           PHASE_A_FILENAME: ${{ inputs.phase_a_filename }}
           PHASE_B_FILENAME: ${{ inputs.phase_b_filename }}
         run: |
@@ -65,6 +78,7 @@ jobs:
           python scripts/study_evaluation_gate.py \
             --cohort "$COHORT_PATH" \
             --results downloaded \
+            --aggregate-summary "aggregate/$AGGREGATE_FILENAME" \
             --phase-a "adjudication/phase-a/$PHASE_A_FILENAME" \
             --phase-b "adjudication/phase-b/$PHASE_B_FILENAME" \
             --output gate-report.json
