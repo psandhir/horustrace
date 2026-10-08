@@ -62,6 +62,7 @@ from horustrace.authority_source import (
 from horustrace.config import ScanConfig
 from horustrace.config import apply as apply_config
 from horustrace.coverage import add_diagnostic, diagnose_dynamic_constructs, diagnose_python
+from horustrace.custom_mcp_lineage import enrich_custom_profile_mcp_bindings
 from horustrace.destination_provenance import normalize_destination_resource_provenance
 from horustrace.entrypoint_provenance import annotate_flow_entrypoints
 from horustrace.flow import analyze_repository_flows
@@ -119,7 +120,6 @@ from horustrace.repository_effect_semantics import enrich_repository_tool_effect
 from horustrace.repository_tool_semantics import enrich_indirect_tool_content_semantics
 from horustrace.rules.builtin import evaluate
 from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
-from horustrace.custom_mcp_lineage import enrich_custom_profile_mcp_bindings
 from horustrace.runtime_viability import annotate_runtime_viability
 from horustrace.semantic_contract import set_source_context, tool_control_enforcing
 from horustrace.semantics import annotate_risk_semantics
