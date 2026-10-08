@@ -112,6 +112,7 @@ def read_results(root: Path, cohort: dict, cases: dict[str, dict]) -> tuple[dict
             f"results: expected {len(cases)} result.json, found {len(result_files)}")
     results = {}
     warnings = []
+    revisions = {"scanner_sha": set(), "harness_sha": set()}
     for path in result_files:
         item = load(path)
         case_id = item.get("case_id")
@@ -130,6 +131,11 @@ def read_results(root: Path, cohort: dict, cases: dict[str, dict]) -> tuple[dict
         for kind, count in (("findings", "findings"), ("attack_paths", "attack_paths")):
             require(isinstance(item.get(kind), list) and len(item[kind]) == counts[count],
                     f"{case_id}: {kind} count does not match evidence")
+        for revision in revisions:
+            value = item.get(revision)
+            require(isinstance(value, str) and SHA40.fullmatch(value) is not None,
+                    f"{case_id}: missing full {revision}")
+            revisions[revision].add(value)
         source_file = path.with_name("source-pack.txt")
         require(source_file.is_file(), f"{case_id}: missing source pack")
         source_chars = len(source_file.read_text(encoding="utf-8"))
@@ -137,7 +143,21 @@ def read_results(root: Path, cohort: dict, cases: dict[str, dict]) -> tuple[dict
                 f"{case_id}: source pack is empty or inconsistent")
         if source_chars >= 230000 or "...[truncated]..." in source_file.read_text(encoding="utf-8"):
             warnings.append(f"{case_id}: source pack may be incomplete; review must qualify scope")
+        for filename, field in (("scan.json", "findings"),
+                                ("security-graph.json", "attack_paths")):
+            doc_path = path.with_name(filename)
+            require(doc_path.is_file(), f"{case_id}: missing {filename}")
+            doc = load(doc_path)
+            require(isinstance(doc.get(field), list)
+                    and len(doc[field]) == len(item[field]),
+                    f"{case_id}: {filename} differs from reported {field}")
+        for filename in ("effective-authority.json", "authority-contract.json"):
+            doc_path = path.with_name(filename)
+            require(doc_path.is_file(), f"{case_id}: missing {filename}")
+            load(doc_path)
         results[case_id] = item
+    for revision, values in revisions.items():
+        require(len(values) == 1, f"results: inconsistent {revision} across cases")
     require(set(results) == set(cases), "results: case IDs do not match cohort")
     return results, warnings
 
@@ -189,9 +209,19 @@ def review_phase_a(doc: dict, cohort: dict, cases: dict[str, dict], cohort_sha: 
             evidence(review.get("source_evidence"), f"{case_id}.{rid}.source_evidence")
             require(isinstance(review.get("candidate_paths"), list),
                     f"{case_id}.{rid}: candidate_paths must be list (empty is valid)")
+            require(review.get("coverage_assertion") in
+                    {"enumerated_candidates", "reviewed_no_qualifying_chains"},
+                    f"{case_id}.{rid}: explicit positive/negative coverage assertion required")
+            if not review["candidate_paths"]:
+                require(review["coverage_assertion"] == "reviewed_no_qualifying_chains",
+                        f"{case_id}.{rid}: empty review needs a negative-control assertion")
             for path in review["candidate_paths"]:
                 require(isinstance(path, dict) and bool(path.get("candidate_id")),
                         f"{case_id}.{rid}: path needs stable candidate_id")
+                require(path.get("verdict") in VERDICTS,
+                        f"{case_id}.{rid}: candidate reviewer verdict required")
+                require(bool(path.get("rationale")),
+                        f"{case_id}.{rid}: candidate rationale required")
                 proposed_ids.add(path["candidate_id"])
                 evidence(path.get("evidence"), f"{case_id}.{rid}.{path['candidate_id']}")
         consensus = unique_rows(row.get("consensus_paths"), "candidate_id",
@@ -205,6 +235,22 @@ def review_phase_a(doc: dict, cohort: dict, cases: dict[str, dict], cohort_sha: 
                     f"{case_id}.{pid}: review status required")
             evidence(finding.get("evidence"), f"{case_id}.{pid}.consensus")
             require(bool(finding.get("rationale")), f"{case_id}.{pid}: rationale required")
+            if finding["review_status"] == "agreement":
+                opinions = [next((p["verdict"] for p in r["candidate_paths"]
+                                 if p["candidate_id"] == pid), None)
+                            for r in reviews.values()]
+                require(all(v == finding["verdict"] for v in opinions),
+                        f"{case_id}.{pid}: claimed agreement without both judge verdicts")
+            if finding["review_status"] == "escalated":
+                escalation = finding.get("escalation_review") or {}
+                require(escalation.get("independent_review") is True and
+                        escalation.get("scanner_output_seen") is False and
+                        escalation.get("locked") is True and
+                        escalation.get("verdict") == finding["verdict"] and
+                        escalation.get("reviewer_id") not in judges and
+                        bool(escalation.get("reviewer_id")),
+                        f"{case_id}.{pid}: third independent escalation required")
+                evidence(escalation.get("evidence"), f"{case_id}.{pid}.escalation")
     return reviewed_cases
 
 
@@ -217,6 +263,8 @@ def review_phase_b(doc: dict, cohort: dict, cases: dict, results: dict,
             "phase B: full scanner commit SHA required")
     require(timestamp(doc.get("revealed_at"), "phase B reveal") >
             timestamp(lock_time, "phase A lock"), "phase B: scanner revealed before phase A lock")
+    require({item["scanner_sha"] for item in results.values()} == {doc["scanner_sha"]},
+            "phase B: scanner SHA differs from executed cases")
     reviewed = unique_rows(doc.get("cases"), "case_id", "phase B cases")
     require(set(reviewed) == set(cases), "phase B: must cover every case")
     counts = Counter()
@@ -271,8 +319,25 @@ def review_phase_b(doc: dict, cohort: dict, cases: dict, results: dict,
                     f"{case_id}[{index}]: finding verdict required")
             require(bool(review.get("rationale")), f"{case_id}[{index}]: rationale required")
             evidence(review.get("evidence"), f"{case_id}[{index}].evidence")
-            require(review.get("independent_review") is True,
-                    f"{case_id}[{index}]: independent finding review required")
+            attestations = unique_rows(review.get("reviewer_attestations"),
+                                       "reviewer_id", f"{case_id}[{index}].reviewers")
+            require(len(attestations) >= 2,
+                    f"{case_id}[{index}]: two blinded independent finding judges required")
+            run_ids = []
+            for judge_id, attestation in attestations.items():
+                require(attestation.get("independent_review") is True and
+                        attestation.get("rule_metadata_seen") is False and
+                        attestation.get("locked") is True and
+                        attestation.get("verdict") == review["verdict"],
+                        f"{case_id}[{index}]: independent blinded finding verdict mismatch")
+                require(bool(attestation.get("execution_id")) and
+                        bool(attestation.get("model")) and bool(attestation.get("provider")),
+                        f"{case_id}[{index}]: missing reviewer provenance")
+                run_ids.append(attestation["execution_id"])
+                evidence(attestation.get("evidence"),
+                         f"{case_id}[{index}].{judge_id}.evidence")
+            require(len(set(run_ids)) == len(run_ids),
+                    f"{case_id}[{index}]: duplicate finding execution IDs")
             seen[index] = review
             counts["findings_reviewed"] += 1
             if review["verdict"] == "unsupported":
