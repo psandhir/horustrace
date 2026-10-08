@@ -364,3 +364,65 @@ async def refine():
     refine = next(agent for agent in graph.agents if agent.name == "refine")
     assert refine.metadata["framework"] == "fast-agent"
     assert refine.metadata["delegates_to"] == ["writer"]
+
+
+def test_fast_agent_declared_get_skills_bind_to_exact_packages(tmp_path: Path) -> None:
+    """FastAgent can reuse literal skill manifests through shared expressions."""
+    for name in ("user-context", "terminal-execution", "scrape-web"):
+        package = tmp_path / ".fast-agent" / "skills" / name
+        package.mkdir(parents=True)
+        (package / "SKILL.md").write_text(
+            f"---\nname: {name}\ndescription: Test {name}\n---\n# {name}\n",
+            encoding="utf-8",
+        )
+    (tmp_path / "agent.py").write_text(
+        """
+from fast_agent import FastAgent
+fast = FastAgent("Skill Graph")
+SKILLS_DIR = ".fast-agent/skills"
+def get_skills(*names):
+    return names
+CORE_SKILLS = get_skills("user-context")
+
+@fast.agent(name="master", skills=CORE_SKILLS + get_skills("terminal-execution", "scrape-web"))
+async def master():
+    pass
+
+@fast.agent(name="child", skills=CORE_SKILLS + get_skills("scrape-web"))
+async def child():
+    pass
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    master = next(agent for agent in graph.agents if agent.name == "master")
+    child = next(agent for agent in graph.agents if agent.name == "child")
+    assert master.metadata["skills"] == [
+        "user-context", "terminal-execution", "scrape-web"
+    ]
+    assert child.metadata["skills"] == ["user-context", "scrape-web"]
+    assert {skill.name for skill in master.skills} == {
+        "user-context", "terminal-execution", "scrape-web"
+    }
+    assert {skill.name for skill in child.skills} == {"user-context", "scrape-web"}
+
+
+def test_fast_agent_dynamic_skill_expression_remains_unresolved(tmp_path: Path) -> None:
+    (tmp_path / "agent.py").write_text(
+        """
+from fast_agent import FastAgent
+fast = FastAgent("Unknown Skills")
+def runtime_skills():
+    return load_remote_skills()
+@fast.agent(name="conditional", skills=["known-skill"] + runtime_skills())
+async def agent():
+    pass
+""",
+        encoding="utf-8",
+    )
+    graph, _ = scan(tmp_path)
+    agent = next(a for a in graph.agents if a.name == "conditional")
+    assert agent.metadata["skills"] == ["known-skill"]
+    assert agent.metadata["dynamic_skill_sources"] is True
+    assert any(d.code == "unresolved_skill" for d in graph.coverage.diagnostics)
