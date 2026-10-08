@@ -132,7 +132,8 @@ Use the following root keys (arrays must be [] when empty):
 - `attack_paths`: independent local path ID, agent and ingress, ordered
   source/agent/tool/delegate/sink steps with source evidence, sink effect, data
   movement, control status, static reachability, severity, exploitability
-  `not_verified`, limitations and evidence.
+  `not_verified`, support_status (source_supported/conditional/unresolved),
+  limitations and evidence.
 - `coverage`: `source_coverage` (complete/qualified/insufficient),
   `review_result` (enumerated_candidates/reviewed_no_candidate/
   source_incomplete), missing evidence and unresolved aspects. Never
