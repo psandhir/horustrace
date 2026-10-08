@@ -84,6 +84,51 @@ def _attack_path(path: AttackPath, root: Path) -> dict[str, Any]:
     }
 
 
+
+def validate_security_graph_document(document: dict[str, Any]) -> None:
+    """Enforce referential integrity and non-inflated ASG summary counters.
+
+    A discovered object is not a bound relationship. This contract protects
+    downstream reporting from dangling topology edges and stale summary counts.
+    """
+    topology = document["topology"]
+    nodes = topology["nodes"]
+    edges = topology["edges"]
+    node_ids = [node["id"] for node in nodes]
+    edge_ids = [edge["id"] for edge in edges]
+    if len(set(node_ids)) != len(node_ids):
+        raise ValueError("ASG topology contains duplicate node IDs")
+    if len(set(edge_ids)) != len(edge_ids):
+        raise ValueError("ASG topology contains duplicate edge IDs")
+    known_nodes = set(node_ids)
+    for edge in edges:
+        if edge["source"] not in known_nodes or edge["target"] not in known_nodes:
+            raise ValueError(
+                f"ASG topology edge {edge['id']!r} has a dangling reference"
+            )
+    summary = document["summary"]
+    topology_summary = topology["summary"]
+    expected_counts = {
+        "topology_nodes": len(nodes),
+        "topology_edges": len(edges),
+        "authority_relationships": len(
+            document["effective_authority"].get("relationships", [])
+        ),
+        "flows": len(document["flows"]),
+        "attack_paths": len(document["attack_paths"]),
+    }
+    for key, expected in expected_counts.items():
+        if summary[key] != expected:
+            raise ValueError(f"ASG {key} counter disagrees with emitted objects")
+    if topology_summary["nodes"] != len(nodes) or topology_summary["edges"] != len(edges):
+        raise ValueError("ASG topology summary disagrees with emitted nodes or edges")
+    for relationship in document["effective_authority"].get("relationships", []):
+        if relationship.get("runtime_effectiveness") != "not_verified":
+            raise ValueError(
+                "Static authority relationships must not claim verified runtime execution"
+            )
+
+
 @dataclass(frozen=True, slots=True)
 class AgentSecurityGraph:
     document: dict[str, Any]
@@ -147,4 +192,5 @@ def build_agent_security_graph(graph: Graph, root: Path) -> AgentSecurityGraph:
             "coverage": _relativize_locations(graph.coverage.as_dict(), root),
         },
     }
+    validate_security_graph_document(document)
     return AgentSecurityGraph(document)
