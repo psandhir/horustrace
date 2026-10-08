@@ -9,6 +9,7 @@ import argparse
 import concurrent.futures
 import hashlib
 import json
+import os
 import shutil
 import tempfile
 from collections import Counter
@@ -31,11 +32,18 @@ ROOT = Path("research/real-world-agent-security-2026")
 def _candidate_files(scope: Path) -> list[Path]:
     if scope.is_file():
         return [scope]
-    selected = [
-        p for p in scope.rglob("*")
-        if p.is_file() and p.suffix.lower() in EXT
-        and not any(part in SKIP or part.startswith(".") for part in p.relative_to(scope).parts)
-    ]
+    selected: list[Path] = []
+    for root, folders, filenames in os.walk(scope, followlinks=False):
+        folders[:] = [
+            folder for folder in folders
+            if folder not in SKIP and not folder.startswith(".")
+            and not (Path(root) / folder).is_symlink()
+        ]
+        for name in filenames:
+            path = Path(root) / name
+            if (path.suffix.lower() in EXT and not name.startswith(".")
+                    and not path.is_symlink()):
+                selected.append(path)
     # Deterministic; source files ahead of documentation. No scanner signal.
     return sorted(selected, key=lambda p: (p.suffix.lower() == ".md", str(p)))[:MAX_FILES]
 
