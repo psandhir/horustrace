@@ -30,7 +30,7 @@ SECURITY_DOT_FILES = {".mcp.json", ".claude.json", ".env.example", ".cursor.json
 SECURITY_FILENAMES = {"Dockerfile", "Containerfile", "Makefile", "Procfile", "SKILL.md"}
 EXT = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cs", ".go", ".java",
        ".yaml", ".yml", ".toml", ".json", ".jsonc", ".md", ".mdx", ".ipynb",
-       ".sh", ".tf", ".ini", ".cfg"}
+       ".sh", ".tf", ".ini", ".cfg", ".txt", ".prompt", ".sql", ".xml"}
 MAX_CHARS = 320000
 MAX_FILES = 180
 MAX_SINGLE_FILE = 85000
@@ -65,13 +65,16 @@ def _candidate_files(scope: Path, application: Path) -> list[Path]:
             return 0, relative
         if name == "skill.md" or "mcp" in name or "mcp" in relative:
             return 1, relative
+        if ("instruction" in relative or "prompt" in relative or
+                name.endswith(".prompt")):
+            return 2, relative
         if name in {"agents.md", "dockerfile"} or "policy" in relative or "auth" in relative:
             return 2, relative
         if path.suffix.lower() in {".py", ".ts", ".tsx", ".cs", ".go", ".java"}:
-            return 3, relative
-        if path.suffix.lower() in {".yaml", ".yml", ".toml", ".json", ".jsonc", ".tf"}:
             return 4, relative
-        return 5, relative
+        if path.suffix.lower() in {".yaml", ".yml", ".toml", ".json", ".jsonc", ".tf"}:
+            return 5, relative
+        return 6, relative
 
     return sorted(selected, key=source_priority)[:MAX_FILES]
 
