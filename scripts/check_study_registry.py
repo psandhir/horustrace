@@ -60,8 +60,9 @@ def check(repo: Path) -> list[str]:
                           re.escape(required_cohort_path) + r"\s*$",
                           workflow, re.MULTILINE) is not None,
                 f"{manifest}: workflow quality gate must name the frozen cohort")
-        require("phase_a_artifact:" in workflow and "phase_b_artifact:" in workflow,
-                f"{manifest}: both review phase artifacts required")
+        require("aggregate_artifact:" in workflow and
+                "phase_a_artifact:" in workflow and "phase_b_artifact:" in workflow,
+                f"{manifest}: aggregate and both review phase artifacts required")
         checked.append(name)
     return checked
 
