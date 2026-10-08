@@ -144,7 +144,7 @@ def main() -> int:
             for future in concurrent.futures.as_completed(futures):
                 try:
                     records.append(future.result())
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - isolate per-repository fetch failures
                     c = futures[future]
                     records.append({"case_id": c["case_id"], "repo": c["repo"],
                                     "sha": c["sha"], "framework": c["framework_stratum"],
