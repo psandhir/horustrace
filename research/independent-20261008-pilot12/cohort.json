@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "study": "independent-20261008-pilot12",
-  "status": "pilot_candidate_validation_pending",
+  "status": "pilot_application_root_corrected",
   "locked_at": "2026-10-08",
   "scanner_baseline": "31ae0d788a3179c238bc9b84ac829ac318d4a7a5",
   "selection": {
@@ -136,10 +136,10 @@
       "framework": "microsoft",
       "repo": "khanasif1/demo-microsoft-agent-framework",
       "sha": "d2a200f52fcdf18988a25a7e55b899a3ac3bb0b3",
-      "application_path": ".",
+      "application_path": "_src",
       "evidence_path": null,
       "surface": null,
-      "source_signal": null,
+      "source_signal": "Exclude session_backup/Library vendored Python packages: only _src contains authored application examples",
       "provenance_case_id": null
     }
   ]
