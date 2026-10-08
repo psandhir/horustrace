@@ -45,7 +45,7 @@ def fixture():
         "entities": [{
             "id": "agent-1", "kind": "agent", "name": "assistant",
             "framework": "pydantic-ai", "source_context": "runtime",
-            "binding_status": "bound", "evidence": [evidence()], "attributes": {},
+            "binding_status": "bound", "evidence": [evidence()], "attributes": [],
         }],
         "relationships": [], "authority_contracts": [], "findings": [],
         "attack_paths": [],
@@ -142,7 +142,7 @@ class SourceOnlyReviewSchemaTests(unittest.TestCase):
         with self.assertRaisesRegex(ReviewError, "unexpected"):
             self.check_valid(r, m)
         r, m = fixture()
-        r["entities"][0]["attributes"]["comment"] = "AGT040"
+        r["entities"][0]["attributes"].append({"name": "comment", "values": ["AGT040"]})
         with self.assertRaisesRegex(ReviewError, "rule identifier"):
             self.check_valid(r, m)
 
