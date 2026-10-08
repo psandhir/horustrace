@@ -1,5 +1,8 @@
 # Reviewer Guide — Attack Path and Finding Validation
 
+> **Scope clarification (2026-10-08):** This guide specifies LLM reviewer mechanics. For new independent cohorts, [the shared study evaluation contract](../STUDY_EVALUATION_CONTRACT.md) adds compulsory G0/G1/G2/G3 execution and release gates. A successful LLM workflow alone does not establish scanner-quality success or independent human-grounded truth.
+
+
 This study uses **two independent blinded LLM judges by default**, with targeted
 human escalation for disagreements, low-confidence/unresolved cases, and optional
 high-severity spot checks. The original frozen Phase-A source packet remains
