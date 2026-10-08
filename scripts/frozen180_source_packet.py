@@ -22,14 +22,14 @@ SKIP = {
     "node_modules", ".next", "dist", "build", "vendor", "generated",
 }
 EXT = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cs", ".go", ".java",
-       ".yaml", ".yml", ".toml", ".json", ".md", ".sh", ".tf"}
+       ".yaml", ".yml", ".toml", ".json", ".md", ".mdx", ".ipynb", ".sh", ".tf"}
 MAX_CHARS = 320000
 MAX_FILES = 180
 MAX_SINGLE_FILE = 85000
 ROOT = Path("research/real-world-agent-security-2026")
 
 
-def _candidate_files(scope: Path) -> list[Path]:
+def _candidate_files(scope: Path, application: Path) -> list[Path]:
     if scope.is_file():
         return [scope]
     selected: list[Path] = []
@@ -44,8 +44,13 @@ def _candidate_files(scope: Path) -> list[Path]:
             if (path.suffix.lower() in EXT and not name.startswith(".")
                     and not path.is_symlink()):
                 selected.append(path)
-    # Deterministic; source files ahead of documentation. No scanner signal.
-    return sorted(selected, key=lambda p: (p.suffix.lower() == ".md", str(p)))[:MAX_FILES]
+    # The original frozen application entrypoint is always first. In large
+    # codebases, path sorting must never consume the budget before that file.
+    # No scanner signal informs file selection.
+    return sorted(
+        selected,
+        key=lambda p: (p != application, p.suffix.lower() in {".md", ".mdx"}, str(p)),
+    )[:MAX_FILES]
 
 
 def source_case(case: dict, workspace: Path, out: Path, tier_c: bool) -> dict:
@@ -61,7 +66,8 @@ def source_case(case: dict, workspace: Path, out: Path, tier_c: bool) -> dict:
     }
     if error or scope is None:
         return record
-    files = _candidate_files(scope)
+    application = target_root / case["application_path"]
+    files = _candidate_files(scope, application)
     sections = []
     file_info = []
     remaining = MAX_CHARS
@@ -90,6 +96,15 @@ def source_case(case: dict, workspace: Path, out: Path, tier_c: bool) -> dict:
             omitted += 1
     if scope.is_dir() and len(files) == MAX_FILES:
         omitted += 1
+    application_included = (
+        any(item["path"] == case["application_path"] for item in file_info)
+        if application.is_file() else (
+            any(item["path"].startswith(case["application_path"].rstrip("/") + "/")
+                for item in file_info)
+        )
+    )
+    if not application_included:
+        omitted += 1
     folder = out / case_id
     folder.mkdir(parents=True, exist_ok=True)
     text = "\n\n".join(sections)
@@ -97,7 +112,8 @@ def source_case(case: dict, workspace: Path, out: Path, tier_c: bool) -> dict:
     record.update({
         "source_chars": len(text), "source_pack_sha256": hashlib.sha256(text.encode()).hexdigest(),
         "file_count": len(file_info), "files": file_info, "omitted_or_truncated": omitted,
-        "source_coverage": "qualified" if text else "insufficient",
+        "application_entrypoint_included": application_included,
+        "source_coverage": "qualified" if text and application_included else "insufficient",
     })
     (folder / "source-manifest.json").write_text(json.dumps(record, indent=2) + "\n",
                                                   encoding="utf-8")
