@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import unittest
+from pathlib import Path
 
 from scripts.frozen180_llm_provisional_compare import _candidate_matches, compare_case
 from scripts.run_frozen180_source_llm_review import api_schema, make_input
@@ -78,6 +80,33 @@ class ProvisionalComparisonTests(unittest.TestCase):
         result = api_schema(schema)
         self.assertNotIn("title", result)
         self.assertEqual(result["properties"]["agent"], {"type": "string"})
+
+    def test_api_schema_every_object_has_strict_shape(self):
+        """OpenAI strict structured outputs rejects open-ended nested objects."""
+        path = (
+            Path(__file__).resolve().parents[1]
+            / "research/frozen180-llm-differential-20261008/source-review.schema.json"
+        )
+        wire = api_schema(json.loads(path.read_text()))
+
+        def check(node):
+            if isinstance(node, list):
+                for child in node:
+                    check(child)
+                return
+            if not isinstance(node, dict):
+                return
+            if node.get("type") == "object":
+                self.assertIs(node.get("additionalProperties"), False)
+                self.assertEqual(set(node.get("required", [])),
+                                 set(node.get("properties", {})))
+            for child in node.values():
+                check(child)
+
+        check(wire)
+        attrs = wire["$defs"]["entity"]["properties"]["attributes"]
+        self.assertEqual(attrs["type"], "array")
+        self.assertEqual(set(attrs["items"]["required"]), {"name", "values"})
 
     def test_model_input_contains_no_scan_or_ground_truth_metadata(self):
         m = {
