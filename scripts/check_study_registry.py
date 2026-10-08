@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Enforce reusable evidence gate adoption for new registered research studies.
 
 Historical research directories are intentionally out of scope. New studies must
