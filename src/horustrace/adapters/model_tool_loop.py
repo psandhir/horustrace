@@ -433,16 +433,16 @@ def _delegated_orchestration_evidence(node: ast.ClassDef) -> list[str]:
         for child in ast.walk(node) if isinstance(child, ast.Call)
     }
     planner = any(
-        call.endswith(".planner.plan") or call.endswith(".planner.run")
+        call.endswith((".planner.plan", ".planner.run"))
         or call == "decide_next_action"
         for call in calls
     )
     skill_dispatch = any(
-        call.endswith("_skill.run") or call.endswith(".skills.run")
+        call.endswith(("_skill.run", ".skills.run"))
         for call in calls
     )
     mcp_dispatch = any(
-        call.endswith(".mcp.call_tool") or call.endswith(".dispatcher.call_tool")
+        call.endswith((".mcp.call_tool", ".dispatcher.call_tool"))
         for call in calls
     )
     if planner and skill_dispatch:
