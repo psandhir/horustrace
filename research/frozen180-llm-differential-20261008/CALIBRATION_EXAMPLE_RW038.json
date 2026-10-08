@@ -7,7 +7,7 @@
   "framework": "google-adk",
   "review_scope": {
     "application_path": "agent.py",
-    "source_pack_sha256": "249460fd12f8c2e12a3442a8db5d32a2bd9e453e9865133ab3bb0bf847df6955"
+    "source_pack_sha256": "d9e557ac0b6415f03597904c985bfa80e046a3d47f2060a3b3a5cc8464b8d3b6"
   },
   "coverage": {
     "source_coverage": "qualified",
