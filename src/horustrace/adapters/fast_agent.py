@@ -217,6 +217,53 @@ def _string_sequence(
     return values
 
 
+
+def _declared_skill_names(
+    expr: ast.AST | None,
+    assignments: dict[str, ast.AST],
+    *,
+    visited: frozenset[str] = frozenset(),
+) -> tuple[list[str], bool]:
+    """Resolve literal FastAgent skill declarations; preserve dynamic uncertainty.
+
+    Supports get_skills("a", "b"), literal string lists, shared constants,
+    and combinations such as CORE_SKILLS + get_skills("terminal-execution").
+    Never guesses names from unknown helper calls or runtime expressions.
+    """
+    if expr is None:
+        return [], False
+    if isinstance(expr, ast.Name):
+        if expr.id in visited or expr.id not in assignments:
+            return [], True
+        return _declared_skill_names(
+            assignments[expr.id], assignments, visited=visited | {expr.id}
+        )
+    if isinstance(expr, ast.Call):
+        if _call_name(expr.func) != "get_skills" or expr.keywords:
+            return [], True
+        names = [_literal(arg) for arg in expr.args]
+        if not all(isinstance(name, str) for name in names):
+            return [], True
+        return list(names), False
+    if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Add):
+        left, dynamic_left = _declared_skill_names(expr.left, assignments, visited=visited)
+        right, dynamic_right = _declared_skill_names(expr.right, assignments, visited=visited)
+        return list(dict.fromkeys([*left, *right])), dynamic_left or dynamic_right
+    if isinstance(expr, (ast.List, ast.Tuple, ast.Set)):
+        names: list[str] = []
+        dynamic = False
+        for item in expr.elts:
+            value = _literal(item)
+            if isinstance(value, str):
+                names.append(value)
+            else:
+                nested, unresolved = _declared_skill_names(item, assignments, visited=visited)
+                names.extend(nested)
+                dynamic = dynamic or unresolved
+        return list(dict.fromkeys(names)), dynamic
+    return [], True
+
+
 def _literal_mapping(expr: ast.AST | None) -> dict[str, list[str]] | None:
     value = _literal(expr)
     if not isinstance(value, dict):
@@ -501,6 +548,22 @@ def scan_python_file(path: Path) -> Graph:
                 metadata["delegates_to"] = delegates_to
             if servers:
                 metadata["mcp_server_refs"] = servers
+            skills_expr = _kw(call, "skills") if call is not None else None
+            if skills_expr is not None:
+                named_skills, dynamic_skills = _declared_skill_names(skills_expr, assignments)
+                if named_skills:
+                    metadata["skills"] = named_skills
+                if dynamic_skills:
+                    metadata["dynamic_skill_sources"] = True
+                    add_diagnostic(
+                        graph.coverage,
+                        ScanDiagnostic(
+                            "unresolved_skill",
+                            "FastAgent skill declarations were only partially resolved.",
+                            _location(path, decorator),
+                            details={"framework": "fast-agent", "construct": "skills"},
+                        ),
+                    )
             if dynamic_servers:
                 metadata["dynamic_mcp_servers"] = True
                 add_diagnostic(
