@@ -52,9 +52,9 @@ jobs:
       - name: Restore scanner-blind source packets, never scanner artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: frozen180-review-source-v2-37797207324-1
+          name: frozen180-review-source-v2-37798568422-1
           repository: psandhir/horustrace
-          run-id: 37797207324
+          run-id: 37798568422
           github-token: ${{ github.token }}
           path: evidence/source-only
       - name: Install analysis scripts
