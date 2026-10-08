@@ -11,7 +11,6 @@ from unittest.mock import patch
 
 from scripts import study_evaluation_gate as gate
 
-
 SHA = "a" * 40
 SCANNER_SHA = "b" * 40
 PROMPT_SHA = "c" * 64
