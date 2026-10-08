@@ -372,7 +372,7 @@ def test_fast_agent_declared_get_skills_bind_to_exact_packages(tmp_path: Path) -
         package = tmp_path / ".fast-agent" / "skills" / name
         package.mkdir(parents=True)
         (package / "SKILL.md").write_text(
-            f"---\\nname: {name}\\ndescription: Test {name}\\n---\\n# {name}\\n",
+            f"---\nname: {name}\ndescription: Test {name}\n---\n# {name}\n",
             encoding="utf-8",
         )
     (tmp_path / "agent.py").write_text(
