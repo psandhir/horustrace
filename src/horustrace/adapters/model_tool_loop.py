@@ -420,6 +420,38 @@ def _snake_name(value: str) -> str:
     return converted or value.lower()
 
 
+
+def _delegated_orchestration_evidence(node: ast.ClassDef) -> list[str]:
+    """Recognize source-proven planner/skill or planner/MCP execution loops.
+
+    Some custom agents delegate model calls to an injected Planner or to helper
+    modules. Do not require an inline llm.chat() call in the orchestrator class;
+    instead require both planning and a concrete tool or skill dispatch.
+    """
+    calls = {
+        (_dotted(child.func) or _call_name(child.func) or "").lower()
+        for child in ast.walk(node) if isinstance(child, ast.Call)
+    }
+    planner = any(
+        call.endswith((".planner.plan", ".planner.run"))
+        or call == "decide_next_action"
+        for call in calls
+    )
+    skill_dispatch = any(
+        call.endswith(("_skill.run", ".skills.run"))
+        for call in calls
+    )
+    mcp_dispatch = any(
+        call.endswith((".mcp.call_tool", ".dispatcher.call_tool"))
+        for call in calls
+    )
+    if planner and skill_dispatch:
+        return ["delegated_planner", "skill_dispatch"]
+    if planner and mcp_dispatch:
+        return ["delegated_planner", "mcp_dispatch"]
+    return []
+
+
 def _custom_class_agents(path: Path, tree: ast.AST) -> list[Agent]:
     if _uses_known_framework(tree):
         return []
@@ -436,7 +468,10 @@ def _custom_class_agents(path: Path, tree: ast.AST) -> list[Agent]:
         )
         if not class_named_agent and not source_proven_mcp_loop:
             continue
-        if not all(signals.values()):
+        delegated_signals = (
+            _delegated_orchestration_evidence(node) if class_named_agent else []
+        )
+        if not all(signals.values()) and not delegated_signals:
             continue
         name = _snake_name(node.name)
         location = _location(path, node)
@@ -453,9 +488,14 @@ def _custom_class_agents(path: Path, tree: ast.AST) -> list[Agent]:
             metadata={
                 "framework": "model-tool-loop",
                 "agent_type": "custom_model_tool_loop",
-                "discovery_basis": "model_tools_selection_dispatch",
-                "discovery_signals": sorted(
-                    key for key, present in signals.items() if present
+                "discovery_basis": (
+                    "source_proven_delegated_orchestration"
+                    if delegated_signals and not all(signals.values())
+                    else "model_tools_selection_dispatch"
+                ),
+                "discovery_signals": (
+                    delegated_signals if delegated_signals and not all(signals.values())
+                    else sorted(key for key, present in signals.items() if present)
                 ),
                 "semantic_entity_id": semantic_id,
                 "semantic_entity_kind": SemanticEntityKind.AGENT.value,
