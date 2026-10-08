@@ -41,6 +41,7 @@ class StudyEvaluationGateTests(unittest.TestCase):
             "schema_version": 1, "study": "fresh-test", "case_id": "case-01",
             "repo": "some/repo", "sha": SHA, "framework": "anthropic",
             "application_path": ".", "source_pack_chars": 13,
+            "scanner_sha": SCANNER_SHA, "harness_sha": SCANNER_SHA,
             "counts": {"agents": 1, "findings": 1, "attack_paths": 1, "diagnostics": 0},
             "attack_paths": [{"path_id": "PATH001", "nodes": ["input", "bash"]}],
             "findings": [{"rule_id": "AGT040", "severity": "high"}],
@@ -51,6 +52,13 @@ class StudyEvaluationGateTests(unittest.TestCase):
         (self.results_dir / "result.json").write_text(
             json.dumps(self.result), encoding="utf-8"
         )
+        for filename, doc in (
+            ("scan.json", {"findings": self.result["findings"]}),
+            ("security-graph.json", {"attack_paths": self.result["attack_paths"]}),
+            ("effective-authority.json", {"summary": {}}),
+            ("authority-contract.json", {"summary": {}}),
+        ):
+            (self.results_dir / filename).write_text(json.dumps(doc), encoding="utf-8")
         self.judges = [{
             "reviewer_id": key,
             "provider": "openai" if key == "judge-1" else "google",
@@ -70,7 +78,9 @@ class StudyEvaluationGateTests(unittest.TestCase):
                     "reviewer_id": judge["reviewer_id"], "locked": True,
                     "scanner_output_seen": False,
                     "source_evidence": [{"path": "agent.py", "line": 1}],
+                    "coverage_assertion": "enumerated_candidates",
                     "candidate_paths": [{
+                        "verdict": "valid", "rationale": "Source-to-sink provenance",
                         "candidate_id": "candidate-1",
                         "evidence": [{"path": "agent.py", "line": 3}],
                     }],
@@ -98,6 +108,16 @@ class StudyEvaluationGateTests(unittest.TestCase):
                 "finding_reviews": [{
                     "index": 0, "verdict": "supported",
                     "independent_review": True,
+                    "reviewer_attestations": [
+                        {
+                            "reviewer_id": j["reviewer_id"],
+                            "provider": j["provider"], "model": j["model"],
+                            "execution_id": "finding-" + j["execution_id"],
+                            "verdict": "supported", "independent_review": True,
+                            "rule_metadata_seen": False, "locked": True,
+                            "evidence": [{"path": "agent.py", "line": 4}],
+                        } for j in self.judges
+                    ],
                     "rationale": "Observed action and control",
                     "evidence": [{"path": "agent.py", "line": 4}],
                 }],
@@ -205,6 +225,8 @@ class StudyEvaluationGateTests(unittest.TestCase):
 
     def test_invalid_path_verdict_not_counted_as_miss(self):
         self.phase_a["cases"][0]["consensus_paths"][0]["verdict"] = "invalid"
+        for r in self.phase_a["cases"][0]["reviews"]:
+            r["candidate_paths"][0]["verdict"] = "invalid"
         self.phase_b["cases"][0]["candidate_assessments"][0].update(
             outcome="invalid", scanner_path_indexes=[]
         )
@@ -236,6 +258,27 @@ class StudyEvaluationGateTests(unittest.TestCase):
         report = gate.load(out)
         self.assertEqual(exit_code, 0)
         self.assertEqual(report["release_gate"], "passed")
+
+    def test_false_consensus_is_rejected(self):
+        self.phase_a["cases"][0]["reviews"][1]["candidate_paths"][0]["verdict"] = "invalid"
+        with self.assertRaisesRegex(gate.GateError, "claimed agreement"):
+            self.validate()
+
+    def test_finding_requires_two_independent_judges(self):
+        self.phase_b["cases"][0]["finding_reviews"][0]["reviewer_attestations"].pop()
+        with self.assertRaisesRegex(gate.GateError, "two blinded independent"):
+            self.validate()
+
+    def test_missing_security_graph_rejected(self):
+        (self.results_dir / "security-graph.json").unlink()
+        with self.assertRaisesRegex(gate.GateError, "security-graph.json"):
+            gate.read_results(self.root / "results", self.cohort, gate.validate_cohort(self.cohort))
+
+    def test_missing_scanner_revision_rejected(self):
+        del self.result["scanner_sha"]
+        (self.results_dir / "result.json").write_text(json.dumps(self.result))
+        with self.assertRaisesRegex(gate.GateError, "scanner_sha"):
+            gate.read_results(self.root / "results", self.cohort, gate.validate_cohort(self.cohort))
 
     def test_source_valid_miss_blocks_quality(self):
         self.phase_b["cases"][0]["candidate_assessments"][0].update(
