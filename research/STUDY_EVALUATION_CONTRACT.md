@@ -44,12 +44,14 @@ python scripts/study_evaluation_gate.py --cohort research/STUDY/cohort.json
 python scripts/study_evaluation_gate.py \
   --cohort research/STUDY/cohort.json \
   --results downloaded \
+  --aggregate-summary aggregate/summary.json \
   --output gate-report.json
 
 # G2/G3: full release, requires independently locked source-only Phase A
 python scripts/study_evaluation_gate.py \
   --cohort research/STUDY/cohort.json \
   --results downloaded \
+  --aggregate-summary aggregate/summary.json \
   --phase-a locked-source-review.json \
   --phase-b revealed-alignment.json \
   --output gate-report.json
@@ -66,6 +68,8 @@ Phase B required fields:
 - finding_reviews with scanner finding index, verdict supported|partial|unsupported|unresolved, rationale, path+line evidence and two or more independent locked reviewer_attestations with distinct reviewer_id and execution_id, model, provider, rule_metadata_seen=false, matching verdict and evidence. All critical/high and at least 25% (minimum one) per other rule and severity group must be reviewed. An empty list is mandatory when there are no findings.
 
 Every Phase B case must also provide scanner_attack_path_reviews covering **every emitted scanner path**, including paths the LLM did not propose. Each includes scanner path index, supported|partial|unsupported|unresolved verdict, source evidence, rationale and two independent locked, scanner-rule-metadata-blind reviewer attestations. Unsupported, partial and unresolved scanner paths block quality release. This is the **attack-path precision direction**, complementing the source-first candidate comparison for potential recall misses.
+
+The aggregate summary must match the exact cohort study ID, completed case count, per-framework expected denominators and per-case reported counts. The G1 check rejects stale aggregate labels (for example, a 12-repository pilot accidentally named as a frozen 60-repository study).
 
 The gate emits gate-report.json with selection_gate, execution_gate, adjudication_gate, release_gate, warnings and counts. It exits nonzero when results have not been adjudicated, source evidence is insufficient, an accepted path is missed, confirmed false positives remain in sample or review escalation is pending. A **quality gate failure may be an important successful study finding** and must be reported, not suppressed.
 
@@ -96,6 +100,7 @@ quality_release:
   with:
     cohort_path: research/studies/example/cohort.json
     case_artifact_pattern: case-*
+    aggregate_artifact: study-aggregate
     phase_a_artifact: locked-source-review
     phase_b_artifact: revealed-comparison
 ~~~
