@@ -280,6 +280,21 @@ class StudyEvaluationGateTests(unittest.TestCase):
         with self.assertRaisesRegex(gate.GateError, "scanner_sha"):
             gate.read_results(self.root / "results", self.cohort, gate.validate_cohort(self.cohort))
 
+    def test_partial_valid_path_blocks_quality(self):
+        self.phase_b["cases"][0]["candidate_assessments"][0]["outcome"] = "partial"
+        self.write("phase-b.json", self.phase_b)
+        out = self.root / "report.json"
+        with patch.object(sys, "argv", [
+            "study_evaluation_gate.py", "--cohort", str(self.cohort_file),
+            "--results", str(self.root / "results"),
+            "--phase-a", str(self.phase_a_file),
+            "--phase-b", str(self.phase_b_file),
+            "--output", str(out),
+        ]), contextlib.redirect_stdout(io.StringIO()):
+            exit_code = gate.main()
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(gate.load(out)["blocking_reasons"]["partial_valid_path_coverage"], 1)
+
     def test_source_valid_miss_blocks_quality(self):
         self.phase_b["cases"][0]["candidate_assessments"][0].update(
             outcome="missed", scanner_path_indexes=[]
