@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "study": "independent-20261008-pilot12",
+  "status": "pilot_candidate_validation_pending",
+  "locked_at": "2026-10-08",
+  "scanner_baseline": "31ae0d788a3179c238bc9b84ac829ac318d4a7a5",
+  "selection": {
+    "target_repositories": 12,
+    "method": "New GitHub repository discovery on 2026-10-08, excluding frozen-60 members; fixed HEAD SHAs before scanner execution. Candidate framework usage must be verified during source adjudication.",
+    "current_main_output_used_for_selection": false
+  },
+  "cases": [
+    {
+      "case_id": "ind-google-adk-01",
+      "framework": "google-adk",
+      "repo": "AhsanAyaz/ai-agents-google-adk",
+      "sha": "d9543491ed0605b4e91b6ff0e7617db7ed708087",
+      "application_path": ".",
+      "evidence_path": null,
+      "surface": null,
+      "source_signal": null,
+      "provenance_case_id": null
+    },
+    {
+      "case_id": "ind-google-adk-02",
+      "framework": "google-adk",
+      "repo": "mongodb-developer/MongoDB-ADK-Agents",
+      "sha": "351289956aa22eaae92491526dcee7c9eed84c2e",
+      "application_path": ".",
+      "evidence_path": null,
+      "surface": null,
+      "source_signal": null,
+      "provenance_case_id": null
+    },
+    {
+      "case_id": "ind-pydantic-ai-01",
+      "framework": "pydantic-ai",
+      "repo": "coleam00/PydanticAI-Research-Agent",
+      "sha": "6462e3be4aa8bfd1a6224fe390b9422e6ae47f38",
+      "application_path": ".",
+      "evidence_path": null,
+      "surface": null,
+      "source_signal": null,
+      "provenance_case_id": null
+    },
+    {
+      "case_id": "ind-pydantic-ai-02",
+      "framework": "pydantic-ai",
+      "repo": "vstorm-co/pydantic-deepagents",
+      "sha": "650b592b6accd7dc994226abbaa0cf717527e457",
+      "application_path": ".",
+      "evidence_path": null,
+      "surface": null,
+      "source_signal": null,
+      "provenance_case_id": null
+    },
+    {
+      "case_id": "ind-openai-agents-01",
+      "framework": "openai-agents",
+      "repo": "openai/openai-cs-agents-demo",
+      "sha": "bd7bfca0f5abf50529370814c3e7c88542011925",
+      "application_path": ".",
+      "evidence_path": null,
+      "surface": null,
+      "source_signal": null,
+      "provenance_case_id": null
+    },
+    {
+      "case_id": "ind-openai-agents-02",
+      "framework": "openai-agents",
+      "repo": "qx-labs/agents-deep-research",
+      "sha": "5e7f4b2321b20bf04c72a405688ab9980887c603",
+      "application_path": ".",
+      "evidence_path": null,
+      "surface": null,
+      "source_signal": null,
+      "provenance_case_id": null
+    },
+    {
+      "case_id": "ind-amazon-01",
+      "framework": "amazon",
+      "repo": "aws-samples/sample-agentic-platform",
+      "sha": "3013ce28c58c3a6242a8fc8bcfcfc133a4e3f82e",
+      "application_path": ".",
+      "evidence_path": null,
+      "surface": null,
+      "source_signal": null,
+      "provenance_case_id": null
+    },
+    {
+      "case_id": "ind-amazon-02",
+      "framework": "amazon",
+      "repo": "aws-samples/sample-Advanced-Strands-Agents-with-MCP",
+      "sha": "e482961172cc86294570526faa9510f3995e89fd",
+      "application_path": ".",
+      "evidence_path": null,
+      "surface": null,
+      "source_signal": null,
+      "provenance_case_id": null
+    },
+    {
+      "case_id": "ind-anthropic-01",
+      "framework": "anthropic",
+      "repo": "anthropics/claude-agent-sdk-demos",
+      "sha": "826b268506a5f3707623c9e6140b200befcbebae",
+      "application_path": ".",
+      "evidence_path": null,
+      "surface": null,
+      "source_signal": null,
+      "provenance_case_id": null
+    },
+    {
+      "case_id": "ind-anthropic-02",
+      "framework": "anthropic",
+      "repo": "raroque/boop-agent",
+      "sha": "31979130b1371acd9defbea115279a06c63c1fb4",
+      "application_path": ".",
+      "evidence_path": null,
+      "surface": null,
+      "source_signal": null,
+      "provenance_case_id": null
+    },
+    {
+      "case_id": "ind-microsoft-01",
+      "framework": "microsoft",
+      "repo": "Azure-Samples/interview-coach-agent-framework",
+      "sha": "a448cb2d67d51777527c1a578857c29391c41351",
+      "application_path": ".",
+      "evidence_path": null,
+      "surface": null,
+      "source_signal": null,
+      "provenance_case_id": null
+    },
+    {
+      "case_id": "ind-microsoft-02",
+      "framework": "microsoft",
+      "repo": "khanasif1/demo-microsoft-agent-framework",
+      "sha": "d2a200f52fcdf18988a25a7e55b899a3ac3bb0b3",
+      "application_path": ".",
+      "evidence_path": null,
+      "surface": null,
+      "source_signal": null,
+      "provenance_case_id": null
+    }
+  ]
+}
