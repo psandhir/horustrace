@@ -22,12 +22,18 @@ STUDY = "frozen180-llm-source-review-20261008"
 def api_schema(schema: dict[str, Any]) -> dict[str, Any]:
     """Keep OpenAI structured-output schema subset; local validation stays strict."""
     drop = {"$schema", "$id", "title", "minLength", "minimum", "pattern", "description"}
-    def walk(value: Any) -> Any:
+
+    def walk(value: Any, *, property_names: bool = False) -> Any:
         if isinstance(value, list):
             return [walk(x) for x in value]
         if isinstance(value, dict):
-            return {k: walk(v) for k, v in value.items() if k not in drop}
+            return {
+                k: walk(v, property_names=False if property_names else k == "properties")
+                for k, v in value.items()
+                if property_names or k not in drop
+            }
         return value
+
     return walk(schema)
 
 
