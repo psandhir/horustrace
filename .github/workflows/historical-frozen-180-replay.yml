@@ -1,0 +1,172 @@
+name: Historical Cohort Replay 01 — Frozen 180
+
+on:
+  push:
+    branches:
+      - research/historical-cohort-replay-20261008
+    paths:
+      - ".github/workflows/historical-frozen-180-replay.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: historical-cohort-replay-01-frozen180
+  cancel-in-progress: false
+
+jobs:
+  replay-frozen-180:
+    name: Replay original frozen 180
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      SCANNER_SHA: "58a2d14ac6456b3f2e2f726484e33763352d6f17"
+      STUDY_ROOT: "research/real-world-agent-security-2026"
+      OUT: "historical-replay/frozen180"
+
+    steps:
+      - name: Checkout pinned replay harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4 pin
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v5 pin
+        with:
+          python-version: "3.12"
+
+      - name: Verify untouched frozen historical cohort
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_security_study.py --validate-only
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("research/real-world-agent-security-2026")
+          cohort = json.loads((root / "cohort.json").read_text())
+          old = json.loads((root / "results/frozen-baseline.json").read_text())
+          assert cohort["cohort_frozen"] is True
+          assert cohort["ground_truth_locked"] is True
+          assert len(cohort["cases"]) == 180
+          assert old["study"] == cohort["study"]
+          assert old["scanner_sha"] == cohort["scanner_freeze_sha"]
+          assert len(old["cases"]) == 180
+          assert cohort["ground_truth_reference"]["summary"]["cases"] == 180
+          print("Pinned frozen 180, baseline and historical source reference verified.")
+          PY
+
+      - name: Install exact current-main scanner commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=/tmp/horustrace-replay-src
+          VENV=/tmp/horustrace-replay-venv
+          git init -q "$SRC"
+          git -C "$SRC" remote add origin https://github.com/psandhir/horustrace.git
+          git -C "$SRC" fetch --quiet --depth=1 origin "$SCANNER_SHA"
+          git -C "$SRC" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "$SRC" rev-parse HEAD)" = "$SCANNER_SHA"
+          python -m venv "$VENV"
+          "$VENV/bin/pip" install --disable-pip-version-check "$SRC"
+          "$VENV/bin/horustrace" --version
+          mkdir -p "$OUT"
+          printf '%s\n' "$SCANNER_SHA" > "$OUT/scanner-sha.txt"
+          git rev-parse HEAD > "$OUT/harness-sha.txt"
+
+      - name: Execute current scanner against 180 exact source SHAs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_security_execute.py \
+            --mode postfix \
+            --scanner /tmp/horustrace-replay-venv/bin/horustrace \
+            --scanner-sha "$SCANNER_SHA" \
+            --workers 8 \
+            --output-json "$OUT/result.json" \
+            --output-markdown "$OUT/result.md"
+
+      - name: Compare directly with the historical locked baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_security_compare.py \
+            --baseline "$STUDY_ROOT/results/frozen-baseline.json" \
+            --candidate "$OUT/result.json" \
+            --output-json "$OUT/comparison.json" \
+            --output-markdown "$OUT/comparison.md"
+          cat "$OUT/comparison.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Score registered semantic parity assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_semantic_benchmark.py \
+            "$STUDY_ROOT/semantic-benchmark/benchmark-v1.json" \
+            --result "$OUT/result.json" \
+            --output "$OUT/semantic-parity.json"
+
+      - name: Record replay status and evaluation limitations
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          out = Path(os.environ["OUT"])
+          base = Path(os.environ["STUDY_ROOT"])
+          manifest = json.loads((base / "cohort.json").read_text())
+          old = json.loads((base / "results/frozen-baseline.json").read_text())
+          run_path = out / "result.json"
+          current = json.loads(run_path.read_text()) if run_path.is_file() else None
+          summary = current.get("summary", {}) if current else {}
+          rows = current.get("cases", []) if current else []
+          expected = len(manifest["cases"])
+          state = (
+              "completed_with_no_failed_cases"
+              if current and len(rows) == expected and summary.get("failed_cases") == 0
+              else ("completed_with_gaps" if current else "no_result")
+          )
+          report = {
+              "schema_version": 1,
+              "type": "historical_replay_not_fresh_holdout",
+              "study": manifest["study"],
+              "source_cohort_cases_expected": expected,
+              "cases_reported": len(rows),
+              "scanner_sha": os.environ["SCANNER_SHA"],
+              "original_scanner_sha": old["scanner_sha"],
+              "original_summary": old["summary"],
+              "candidate_summary": summary,
+              "legacy_execution_status": state,
+              "new_v1_source_evidence_gate": "not_applied_legacy_format",
+              "prospective_blind_llm_adjudication": "not_performed",
+              "quality_release": "not_validated",
+              "source_reference": manifest["ground_truth_reference"],
+              "notes": [
+                  "A green execution job is not proof of security accuracy.",
+                  "The original frozen reference uses automated dual-pass review rather than independent human adjudication.",
+                  "Source revisions, cohort membership and historic truth must not be modified to improve metrics."
+              ]
+          }
+          (out / "evaluation-status.json").write_text(
+              json.dumps(report, indent=2, sort_keys=True) + "\n"
+          )
+          print("## Historical cohort replay #1", file=open(os.environ["GITHUB_STEP_SUMMARY"], "a"))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              print(f"- Frozen cases: **{expected}**; reported: **{len(rows)}**", file=f)
+              print(f"- Execution: **{state}**", file=f)
+              print(f"- Current scanner: \`{os.environ['SCANNER_SHA']}\`", file=f)
+              print("- Independent prospective LLM adjudication: **not performed**", file=f)
+              print("- Scanner quality release: **not validated**", file=f)
+          PY
+
+      - name: Upload audit evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4 pin
+        with:
+          name: historical-frozen180-${{ github.run_id }}-${{ github.run_attempt }}
+          path: historical-replay/frozen180/
+          if-no-files-found: warn
+          retention-days: 90
