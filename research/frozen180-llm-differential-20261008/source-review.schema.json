@@ -693,7 +693,8 @@
         "basis",
         "exploitability",
         "evidence",
-        "limitations"
+        "limitations",
+        "support_status"
       ],
       "properties": {
         "id": {
@@ -833,6 +834,14 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "support_status": {
+          "type": "string",
+          "enum": [
+            "source_supported",
+            "conditional",
+            "unresolved"
+          ]
         }
       }
     },
