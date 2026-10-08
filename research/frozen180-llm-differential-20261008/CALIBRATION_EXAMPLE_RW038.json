@@ -54,15 +54,23 @@
           "quote": null
         }
       ],
-      "attributes": {
-        "model": "gemini-2.5-flash-lite",
-        "bound_tools": [
-          "url_checker_tool",
-          "phishing_detector_tool",
-          "malware_detector_tool",
-          "threat_score_tool"
-        ]
-      }
+      "attributes": [
+        {
+          "name": "model",
+          "values": [
+            "gemini-2.5-flash-lite"
+          ]
+        },
+        {
+          "name": "bound_tools",
+          "values": [
+            "url_checker_tool",
+            "phishing_detector_tool",
+            "malware_detector_tool",
+            "threat_score_tool"
+          ]
+        }
+      ]
     },
     {
       "id": "m1",
@@ -80,10 +88,20 @@
           "quote": null
         }
       ],
-      "attributes": {
-        "provider": "google",
-        "model_id": "gemini-2.5-flash-lite"
-      }
+      "attributes": [
+        {
+          "name": "provider",
+          "values": [
+            "google"
+          ]
+        },
+        {
+          "name": "model_id",
+          "values": [
+            "gemini-2.5-flash-lite"
+          ]
+        }
+      ]
     },
     {
       "id": "i1",
@@ -101,9 +119,14 @@
           "quote": null
         }
       ],
-      "attributes": {
-        "trust": "untrusted_user"
-      }
+      "attributes": [
+        {
+          "name": "trust",
+          "values": [
+            "untrusted_user"
+          ]
+        }
+      ]
     },
     {
       "id": "t1",
@@ -128,13 +151,26 @@
           "quote": null
         }
       ],
-      "attributes": {
-        "capabilities": [
-          "network.external"
-        ],
-        "sink": "requests.get(url)",
-        "timeout_seconds": 5
-      }
+      "attributes": [
+        {
+          "name": "capabilities",
+          "values": [
+            "network.external"
+          ]
+        },
+        {
+          "name": "sink",
+          "values": [
+            "requests.get(url)"
+          ]
+        },
+        {
+          "name": "timeout_seconds",
+          "values": [
+            "5"
+          ]
+        }
+      ]
     },
     {
       "id": "t2",
@@ -159,10 +195,18 @@
           "quote": null
         }
       ],
-      "attributes": {
-        "capabilities": [],
-        "effect": "in-memory text analysis"
-      }
+      "attributes": [
+        {
+          "name": "capabilities",
+          "values": []
+        },
+        {
+          "name": "effect",
+          "values": [
+            "in-memory text analysis"
+          ]
+        }
+      ]
     },
     {
       "id": "t3",
@@ -187,10 +231,18 @@
           "quote": null
         }
       ],
-      "attributes": {
-        "capabilities": [],
-        "effect": "in-memory domain matching"
-      }
+      "attributes": [
+        {
+          "name": "capabilities",
+          "values": []
+        },
+        {
+          "name": "effect",
+          "values": [
+            "in-memory domain matching"
+          ]
+        }
+      ]
     },
     {
       "id": "t4",
@@ -215,10 +267,18 @@
           "quote": null
         }
       ],
-      "attributes": {
-        "capabilities": [],
-        "effect": "in-memory scoring"
-      }
+      "attributes": [
+        {
+          "name": "capabilities",
+          "values": []
+        },
+        {
+          "name": "effect",
+          "values": [
+            "in-memory scoring"
+          ]
+        }
+      ]
     },
     {
       "id": "d1",
@@ -236,9 +296,14 @@
           "quote": null
         }
       ],
-      "attributes": {
-        "constraint": "host allowlist not visible in function"
-      }
+      "attributes": [
+        {
+          "name": "constraint",
+          "values": [
+            "host allowlist not visible in function"
+          ]
+        }
+      ]
     }
   ],
   "relationships": [
