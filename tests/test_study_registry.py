@@ -45,6 +45,7 @@ jobs:
     with:
       cohort_path: research/studies/test-01/cohort.json
       case_artifact_pattern: case-*
+      aggregate_artifact: cohort-aggregate
       phase_a_artifact: blind-judges
       phase_b_artifact: revealed-scores
 """
