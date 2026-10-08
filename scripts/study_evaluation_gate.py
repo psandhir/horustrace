@@ -384,6 +384,17 @@ def main() -> int:
         if args.phase_a and args.phase_b:
             phase_a = load(args.phase_a)
             phase_a_cases = review_phase_a(phase_a, cohort, cases, digest(args.cohort))
+            truncated_case_ids = {
+                warning.split(":", 1)[0] for warning in warnings
+            }
+            for case_id in truncated_case_ids:
+                review = phase_a_cases[case_id]
+                if review["source_coverage"] == "complete":
+                    require(review.get("supplementary_source_checked") is True,
+                            f"{case_id}: claimed complete review of truncated source pack "
+                            "without supplementary source inspection")
+                    evidence(review.get("supplementary_source_evidence"),
+                             f"{case_id}.supplementary_source_evidence")
             outcome = review_phase_b(load(args.phase_b), cohort, cases, results,
                                      phase_a_cases, digest(args.phase_a), phase_a["locked_at"])
             report["adjudication_gate"] = "passed"
