@@ -1341,3 +1341,35 @@ def test_authority_console_displays_source_completeness_and_unknown_inventory(
     assert "Without observed relationships:" in rendered
     assert "Runtime effectiveness:          NOT VERIFIED" in rendered
     assert "No effective agent authority relationships detected." in rendered
+    assert "isolated [unknown] inventory=not_observed" in rendered
+
+
+def test_authority_console_renders_skill_and_delegation_without_approval_fields(
+    tmp_path: Path,
+) -> None:
+    graph = Graph(
+        agents=[
+            Agent(
+                name="planner",
+                skills=[Skill(name="review")],
+                tools=[
+                    Tool(
+                        name="delegate:worker",
+                        kind="delegated_agent",
+                        capabilities={"agent.delegate"},
+                        metadata={
+                            "authority_binding": "delegation_projection",
+                            "delegate_target": "worker",
+                        },
+                    )
+                ],
+            ),
+            Agent(name="worker"),
+        ]
+    )
+    rendered = render_effective_authority_console(graph, tmp_path)
+    assert "planner -> skill:review" in rendered
+    assert "planner -> delegation:worker" in rendered
+    assert "worker [unknown] inventory=not_observed" in rendered
+    assert "mechanism=unknown" in rendered
+    assert "runtime=not_verified" in rendered
