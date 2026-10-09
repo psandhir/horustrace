@@ -1373,3 +1373,38 @@ def test_authority_console_renders_skill_and_delegation_without_approval_fields(
     assert "worker [unknown] inventory=not_observed" in rendered
     assert "mechanism=unknown" in rendered
     assert "runtime=not_verified" in rendered
+
+
+def test_authority_completeness_instance_refs_are_workspace_portable(
+    tmp_path: Path,
+) -> None:
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    first = Graph(
+        agents=[
+            Agent(
+                name="worker",
+                location=SourceLocation(first_root / "src" / "worker.py", line=8),
+                tools=[Tool(name="lookup", kind="function", capabilities={"data.read"})],
+            )
+        ]
+    )
+    second = Graph(
+        agents=[
+            Agent(
+                name="worker",
+                location=SourceLocation(second_root / "src" / "worker.py", line=8),
+                tools=[Tool(name="lookup", kind="function", capabilities={"data.read"})],
+            )
+        ]
+    )
+    first_diag = effective_authority_report(first)["authority_completeness"]
+    second_diag = effective_authority_report(second)["authority_completeness"]
+    assert first_diag == second_diag
+    assert str(first_root) not in str(first_diag)
+    assert str(second_root) not in str(second_diag)
+    assert first_diag["agents"][0]["agent_instance_key"] == "report-agent:0"
+    assert first_diag["agents"][0]["agent_instance_key_basis"] == (
+        "report_local_index"
+    )
+    assert first_diag["summary"]["relationships_not_attributed_to_unique_agent"] == 0
