@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from horustrace.models import Agent, Graph, ResourceScope, Skill, Tool
+from horustrace.models import Agent, Graph, MCPServer, ResourceScope, Skill, Tool
 from horustrace.semantic_contract import (
     DataConnectionResolution,
     ModelResolution,
@@ -217,4 +217,23 @@ def test_skill_resource_provenance_obeys_shared_semantic_contract() -> None:
     valid = ResourceScope(kind="database", selector="<unknown>")
     set_data_resource_provenance(valid, resolution="not_exposed", limitation="runtime-only selector")
     agent.skills[0].resources = [valid]
+    assert validate_graph_semantics(Graph(agents=[agent])) == []
+
+
+@pytest.mark.parametrize("field", ["allowed_tools", "denied_tools"])
+def test_mcp_tool_filter_entries_must_be_nonempty_strings(field: str) -> None:
+    server = MCPServer(name="remote", transport="stdio")
+    setattr(server, field, ["read", ""])
+    agent = Agent(name="agent", mcp_servers=[server])
+    assert any(field in error for error in validate_graph_semantics(Graph(agents=[agent])))
+
+
+def test_skill_tool_and_capability_declarations_are_canonical() -> None:
+    skill = Skill(name="review", allowed_tools={"", "read"}, capabilities={"data.read"})
+    agent = Agent(name="agent", skills=[skill])
+    assert any("allowed_tools" in error for error in validate_graph_semantics(Graph(agents=[agent])))
+    skill.allowed_tools = {"read"}
+    skill.capabilities = {"data.read", ""}
+    assert any("capabilities" in error for error in validate_graph_semantics(Graph(agents=[agent])))
+    skill.capabilities = {"data.read"}
     assert validate_graph_semantics(Graph(agents=[agent])) == []
