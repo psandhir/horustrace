@@ -90,3 +90,40 @@ def test_adapter_semantic_contract_rejects_noncanonical_control_metadata() -> No
 
     with pytest.raises(ValueError, match="enforcing_tool_control"):
         adapter.validate_graph(graph)
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"model": 42},
+        {"model_provider": ""},
+        {"model_endpoint": ["https://example.com"]},
+        {"model_source_reference": {"path": "app.py"}},
+        {"model_provenance_limitation": "   "},
+    ],
+)
+def test_adapter_semantic_contract_rejects_invalid_model_provenance_types(metadata) -> None:
+    adapter = PythonFrameworkAdapter("test-adapter", _never_detects, _empty_scan)
+    graph = Graph(agents=[Agent(name="invalid-model", metadata=metadata)])
+
+    with pytest.raises(ValueError, match="must be a non-empty string"):
+        adapter.validate_graph(graph)
+
+
+def test_adapter_semantic_contract_allows_source_backed_model_provenance() -> None:
+    adapter = PythonFrameworkAdapter("test-adapter", _never_detects, _empty_scan)
+    graph = Graph(
+        agents=[
+            Agent(
+                name="valid-model",
+                metadata={
+                    "model": "gpt-4.1",
+                    "model_provider": "openai",
+                    "model_resolution": "resolved_identifier",
+                    "model_source_reference": "app.py:12",
+                },
+            )
+        ]
+    )
+
+    adapter.validate_graph(graph)
