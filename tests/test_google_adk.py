@@ -2092,3 +2092,66 @@ def test_adk_agenttool_unresolved_constructor_does_not_guess_by_name(
     assert boundary["resolution"] == "unresolved_source_constructor"
     assert boundary["agent_instance_key"] is None
     assert path.exists()
+
+
+def test_adk_synthetic_delegation_never_crosses_same_named_entrypoints(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        'from google.adk.agents import Agent\n'
+        'from google.adk.tools import google_search\n'
+        'from google.adk.tools.agent_tool import AgentTool\n'
+        'worker = Agent(name="shared", tools=[google_search])\n'
+        'handoff = AgentTool(agent=worker)\n'
+        'root_agent = Agent(name="manager-a", tools=[handoff])\n',
+        "a.py",
+    )
+    write(
+        tmp_path,
+        'from google.adk.agents import Agent\n'
+        'from google.adk.tools.agent_tool import AgentTool\n'
+        'from google.adk.tools.bash_tool import ExecuteBashTool\n'
+        'worker = Agent(name="shared", tools=[ExecuteBashTool()])\n'
+        'handoff = AgentTool(agent=worker)\n'
+        'root_agent = Agent(name="manager-b", tools=[handoff])\n',
+        "b.py",
+    )
+    graph, _ = scan(tmp_path)
+    parents = {
+        agent.name: agent
+        for agent in graph.agents
+        if agent.name.startswith("manager-")
+    }
+    assert set(parents) == {"manager-a", "manager-b"}
+    for parent in parents.values():
+        projected = [
+            tool for tool in parent.tools
+            if tool.metadata.get("authority_binding") == "delegation_projection"
+        ]
+        assert len(projected) == 1
+        assert projected[0].metadata["delegate_target_instance_key"]
+        assert projected[0].metadata["delegate_target"] == "shared"
+
+    a = next(
+        tool for tool in parents["manager-a"].tools
+        if tool.metadata.get("authority_binding") == "delegation_projection"
+    )
+    b = next(
+        tool for tool in parents["manager-b"].tools
+        if tool.metadata.get("authority_binding") == "delegation_projection"
+    )
+    assert "process.execute" not in a.capabilities
+    assert "process.execute" in b.capabilities
+    report = effective_authority_report(graph)
+    delegation = [
+        item for item in report["relationships"]
+        if item["target"] == {"kind": "delegation", "name": "shared"}
+    ]
+    assert len(delegation) == 2
+    assert all(
+        item["semantics"]["delegation_boundary"]["resolution"] == "unique_agent"
+        and item["semantics"]["delegation_boundary"]["reference_basis"]
+        == "source_instance"
+        for item in delegation
+    )

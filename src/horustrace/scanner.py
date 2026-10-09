@@ -64,6 +64,7 @@ from horustrace.config import apply as apply_config
 from horustrace.coverage import add_diagnostic, diagnose_dynamic_constructs, diagnose_python
 from horustrace.custom_mcp_lineage import enrich_custom_profile_mcp_bindings
 from horustrace.destination_provenance import normalize_destination_resource_provenance
+from horustrace.effective_authority import _agent_instance_key
 from horustrace.entrypoint_provenance import annotate_flow_entrypoints
 from horustrace.flow import analyze_repository_flows
 from horustrace.heuristics import PRIVILEGED_CAPABILITIES
@@ -1588,73 +1589,107 @@ def _consolidate_agents(graph: Graph) -> None:
 
 
 def _propagate_adk_delegation(graph: Graph) -> None:
-    """Propagate child-agent effective authority into delegating ADK parents.
+    """Project source-backed ADK reachability without crossing agent instances.
 
-    This turns sub_agents/AgentTool relationships into concrete capabilities so
-    Layers 2-5 can reason about privilege reachable through delegation.
+    Names are not identities. Repeated agent names across entrypoints must not
+    influence child capability/resource projection or graph traversal.
     """
-    by_name = {agent.name: agent for agent in graph.agents}
-    # ADK Agent Config and multi-file Python projects often refer to children by
-    # config/module name rather than the child's runtime `name`. Build stable
-    # aliases from source locations so privilege still propagates cross-file.
-    by_alias: dict[str, Agent] = dict(by_name)
+    names: dict[str, list[Agent]] = {}
+    aliases: dict[str, list[Agent]] = {}
+
+    def register(index: dict[str, list[Agent]], label: str, agent: Agent) -> None:
+        if label and all(item is not agent for item in index.get(label, [])):
+            index.setdefault(label, []).append(agent)
+
     for agent in graph.agents:
+        register(names, agent.name, agent)
         if agent.location:
             source = agent.location.path
-            aliases = {source.stem, source.parent.name}
-            aliases.update({f"{a}_agent" for a in list(aliases) if a and a != "."})
-            aliases.add(str(source.resolve()))
-            for alias in aliases:
-                if alias and alias not in by_alias:
-                    by_alias[alias] = agent
-    # Resolve edges before adding synthetic tools. Traverse original authority
-    # for each edge so results are independent of scan order and cycles terminate.
-    children: dict[str, list[Agent]] = {}
+            labels = {source.stem, source.parent.name, str(source.resolve())}
+            labels.update(
+                f"{label}_agent" for label in list(labels) if label and label != "."
+            )
+            for label in labels:
+                register(aliases, label, agent)
+
+    children: dict[int, list[Agent]] = {id(agent): [] for agent in graph.agents}
     for parent in graph.agents:
-        children[parent.name] = []
-        for target_name in parent.metadata.get("delegates_to") or []:
-            target = str(target_name)
-            child = by_name.get(target) or by_alias.get(target)
-            if child is None:
-                base = target.removesuffix("_agent")
-                child = by_alias.get(base) or by_alias.get(f"{base}_agent")
-            if child is None:
-                add_diagnostic(graph.coverage, ScanDiagnostic(
-                    "unresolved_delegation", "Delegated agent could not be resolved.", parent.location,
-                ))
-            if (
-                child is not None and child is not parent
-                and child.name not in {a.name for a in children[parent.name]}
-            ):
-                children[parent.name].append(child)
+        for raw in parent.metadata.get("delegates_to") or []:
+            target = str(raw)
+            scoped_tools = [
+                tool for tool in parent.tools
+                if tool.metadata.get("delegate_target") == target
+                and type(tool.metadata.get("delegate_target_source_line")) is int
+                and tool.location is not None
+            ]
+            matched: list[Agent] = []
+            if scoped_tools:
+                for tool in scoped_tools:
+                    line = tool.metadata["delegate_target_source_line"]
+                    candidates = [
+                        agent for agent in names.get(target, [])
+                        if agent.location is not None
+                        and agent.location.path.resolve() == tool.location.path.resolve()
+                        and agent.location.line == line
+                    ]
+                    if len(candidates) == 1:
+                        matched.extend(candidates)
+                    else:
+                        add_diagnostic(graph.coverage, ScanDiagnostic(
+                            "unresolved_delegation",
+                            "Source-bound delegated agent constructor is ambiguous or absent.",
+                            tool.location,
+                        ))
+            else:
+                candidates = names.get(target, [])
+                if not candidates:
+                    candidates = aliases.get(target, [])
+                if not candidates:
+                    base = target.removesuffix("_agent")
+                    candidates = aliases.get(base, []) or aliases.get(f"{base}_agent", [])
+                if len(candidates) == 1:
+                    matched.extend(candidates)
+                else:
+                    add_diagnostic(graph.coverage, ScanDiagnostic(
+                        "unresolved_delegation",
+                        "Delegated agent cannot be resolved to a unique source instance.",
+                        parent.location,
+                    ))
+            for child in matched:
+                if child is not parent and all(
+                    existing is not child for existing in children[id(parent)]
+                ):
+                    children[id(parent)].append(child)
 
     authority = {
-        a.name: (
-            set(a.capabilities),
-            a.effective_resources,
-            a.effective_destinations,
-            context(a),
-            list(a.tools),
+        id(agent): (
+            set(agent.capabilities),
+            agent.effective_resources,
+            agent.effective_destinations,
+            context(agent),
+            list(agent.tools),
         )
-        for a in graph.agents
+        for agent in graph.agents
     }
     for parent in graph.agents:
-        for child in children[parent.name]:
-            provenance = [EvidenceFact(parent.name, f"delegates_to={child.name}",
-                                       "inferred", parent.location)]
+        for child in children[id(parent)]:
+            provenance = [
+                EvidenceFact(parent.name, f"delegates_to={child.name}", "inferred", parent.location)
+            ]
             capabilities = {"agent.delegate"}
             resources: list[ResourceScope] = []
             destinations: list[NetworkDestination] = []
             privileged_tools: list[Tool] = []
             network_outbound_tools: list[Tool] = []
             pending = [child]
-            visited = {parent.name}
+            visited = {id(parent)}
             while pending:
                 reachable = pending.pop()
-                if reachable.name in visited:
+                key = id(reachable)
+                if key in visited:
                     continue
-                visited.add(reachable.name)
-                caps, scopes, targets, original_facts, original_tools = authority[reachable.name]
+                visited.add(key)
+                caps, scopes, targets, original_facts, original_tools = authority[key]
                 for original_tool in original_tools:
                     if (
                         original_tool.capabilities & PRIVILEGED_CAPABILITIES
@@ -1666,37 +1701,43 @@ def _propagate_adk_delegation(graph: Graph) -> None:
                         and original_tool not in network_outbound_tools
                     ):
                         network_outbound_tools.append(original_tool)
-                provenance.extend(f for f in original_facts if f not in provenance)
+                provenance.extend(
+                    fact for fact in original_facts if fact not in provenance
+                )
                 capabilities.update(caps)
-                if children[reachable.name]:
+                if children[key]:
                     capabilities.add("agent.delegate")
-                for resource in scopes:
+                for scope in scopes:
                     copied = ResourceScope(
-                        kind=resource.kind, selector=resource.selector,
-                        access=set(resource.access), classification=resource.classification,
-                        location=resource.location,
-                        metadata={**resource.metadata, "via_agent": reachable.name},
-                        provenance=list(resource.provenance),
+                        kind=scope.kind,
+                        selector=scope.selector,
+                        access=set(scope.access),
+                        classification=scope.classification,
+                        location=scope.location,
+                        metadata={**scope.metadata, "via_agent": reachable.name},
+                        provenance=list(scope.provenance),
                     )
                     if copied not in resources:
                         resources.append(copied)
                 for destination in targets:
-                    copied_destination = NetworkDestination(
-                        target=destination.target, direction=destination.direction,
-                        restricted=destination.restricted, location=destination.location,
+                    copied = NetworkDestination(
+                        target=destination.target,
+                        direction=destination.direction,
+                        restricted=destination.restricted,
+                        location=destination.location,
                         metadata={**destination.metadata, "via_agent": reachable.name},
                         provenance=list(destination.provenance),
                     )
-                    if copied_destination not in destinations:
-                        destinations.append(copied_destination)
-                pending.extend(children[reachable.name])
+                    if copied not in destinations:
+                        destinations.append(copied)
+                pending.extend(children[key])
             delegated_approval = (
                 True
                 if privileged_tools
                 and all(tool.approval is True for tool in privileged_tools)
                 else None
             )
-            constrained_network_scopes = {
+            constrained_scopes = {
                 "fixed_managed_service",
                 "fixed_provider_network",
                 "operator_configured_destination",
@@ -1706,35 +1747,36 @@ def _propagate_adk_delegation(graph: Graph) -> None:
                 str(tool.metadata.get("network_scope") or "")
                 for tool in network_outbound_tools
             }
-            all_network_constrained = bool(network_outbound_tools) and all(
-                scope in constrained_network_scopes for scope in network_scopes
+            network_bounded = bool(network_outbound_tools) and all(
+                scope in constrained_scopes for scope in network_scopes
             )
-            delegated_network_scope = "inherited"
-            if all_network_constrained:
-                delegated_network_scope = (
+            network_scope = "inherited"
+            if network_bounded:
+                network_scope = (
                     next(iter(network_scopes))
-                    if len(network_scopes) == 1
-                    else "explicit_destination"
+                    if len(network_scopes) == 1 else "explicit_destination"
                 )
             parent.tools.append(Tool(
-                name=f"delegate:{child.name}", kind="delegated_agent",
-                capabilities=capabilities, approval=delegated_approval,
+                name=f"delegate:{child.name}",
+                kind="delegated_agent",
+                capabilities=capabilities,
+                approval=delegated_approval,
                 guardrails=tool_control_enforcing(child.metadata),
-                resources=resources, destinations=destinations, location=parent.location,
+                resources=resources,
+                destinations=destinations,
+                location=parent.location,
                 provenance=provenance,
                 metadata={
                     "framework": parent.metadata.get("framework", "generic"),
                     "delegate_target": child.name,
-                    # Synthetic summary for delegated reachability. The real
-                    # authority relationship is DELEGATES_TO, not Agent -> Tool.
+                    "delegate_target_instance_key": _agent_instance_key(child),
                     "authority_binding": "delegation_projection",
                     "authority_binding_basis": "adk_delegates_to",
                     "transitive": True,
                     "approval_inherited": delegated_approval is True,
-                    "network_scope": delegated_network_scope,
+                    "network_scope": network_scope,
                 },
             ))
-
 
 
 def _propagate_pydantic_delegation(graph: Graph) -> None:
