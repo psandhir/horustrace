@@ -187,12 +187,20 @@ def _delegation_target_binding(graph: Graph, tool: Tool) -> dict[str, Any] | Non
         basis = "projection_name"
 
     source_line = tool.metadata.get("delegate_target_source_line")
+    source_instance = tool.metadata.get("delegate_target_instance_key")
+    instance_scoped = isinstance(source_instance, str) and bool(source_instance)
     scoped = (
         type(source_line) is int
         and source_line > 0
         and tool.location is not None
     )
-    if scoped:
+    if instance_scoped:
+        matches = [
+            agent for agent in graph.agents
+            if agent.name == reference and _agent_instance_key(agent) == source_instance
+        ]
+        basis = "source_instance"
+    elif scoped:
         # A source-object reference outranks repository-wide name matching.
         # Fail closed if that constructor is absent or ambiguous: never
         # reinterpret the reference as some unrelated same-named agent.
@@ -212,6 +220,7 @@ def _delegation_target_binding(graph: Graph, tool: Tool) -> dict[str, Any] | Non
     resolution = (
         "unique_agent" if len(matches) == 1
         else "ambiguous_agent" if len(matches) > 1
+        else "unresolved_source_instance" if instance_scoped
         else "unresolved_source_constructor" if scoped
         else "unresolved_agent" if reference is not None
         else "not_declared"
