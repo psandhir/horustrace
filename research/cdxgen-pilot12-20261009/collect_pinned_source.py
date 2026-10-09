@@ -15,7 +15,31 @@ from pathlib import Path
 
 PILOT=Path(__file__).resolve().parents[1] / "independent-20261008-pilot12"
 sys.path.insert(0,str(PILOT))
-from run_case import CONFIG, clone_case, application_root  # noqa: E402
+import subprocess
+
+CONFIG=json.loads((PILOT / "cohort.json").read_text(encoding="utf-8"))
+
+def run(argv):
+    p=subprocess.run(argv,text=True,capture_output=True,timeout=1200)
+    if p.returncode:raise RuntimeError(f"git failed: {p.stderr[-3000:]}")
+    return p.stdout.strip()
+
+def clone_case(root,case):
+    target=root/"target"
+    run(["git","init","-q",str(target)])
+    run(["git","-C",str(target),"remote","add","origin",f"https://github.com/{case['repo']}.git"])
+    run(["git","-C",str(target),"fetch","--quiet","--depth=1","--filter=blob:none","origin",case["sha"]])
+    run(["git","-C",str(target),"checkout","--quiet","--detach","FETCH_HEAD"])
+    if run(["git","-C",str(target),"rev-parse","HEAD"])!=case["sha"]:
+        raise ValueError("target SHA mismatch")
+    return target
+
+def application_root(target,case):
+    app=(target / (case.get("application_path") or ".")).resolve()
+    app.relative_to(target.resolve())
+    if not app.exists():raise ValueError("missing application root")
+    return app
+
 
 def props(x,name):
     return [p.get("value") for p in x.get("properties",[]) if isinstance(p,dict) and p.get("name")==name]
