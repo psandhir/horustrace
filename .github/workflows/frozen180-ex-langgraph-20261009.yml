@@ -1,0 +1,197 @@
+name: Frozen 180 Minus LangGraph (145) P1 Post-Fix Study
+
+on:
+  push:
+    branches:
+      - study/frozen180-ex-langgraph-20261009
+    paths:
+      - ".github/workflows/frozen180-ex-langgraph-20261009.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frozen180-ex-langgraph-20261009
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Pinned 145-case non-LangGraph scanner regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      SCANNER_SHA: a1bbdc3a391a1377726ce9d80a8b9b80b633ea51
+      STUDY_ROOT: research/real-world-agent-security-2026
+      STUDY_OUTPUT: evidence/frozen180-ex-langgraph-20261009
+    steps:
+      - name: Check out immutable study harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Validate original frozen cohort and independently locked source truth
+        run: python scripts/real_world_agent_security_study.py --validate-only
+
+      - name: Create isolated 145-case cohort and matching baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$STUDY_OUTPUT"
+          cp -a "$STUDY_ROOT" "$RUNNER_TEMP/cohort-145"
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          from collections import Counter
+          from pathlib import Path
+          sys.path.insert(0, "scripts")
+          from real_world_agent_security_execute import aggregate, render_markdown
+          original_root = Path(os.environ["STUDY_ROOT"])
+          subset_root = Path(os.environ["RUNNER_TEMP"]) / "cohort-145"
+          output = Path(os.environ["STUDY_OUTPUT"])
+          cohort = json.loads((original_root / "cohort.json").read_text())
+          cases = cohort["cases"]
+          assert len(cases) == 180
+          excluded = [c for c in cases if c["framework_stratum"] == "langgraph"]
+          assert len(excluded) == 35
+          selected = [c for c in cases if c["framework_stratum"] != "langgraph"]
+          assert len(selected) == 145
+          ids = {c["case_id"] for c in selected}
+          assert len({(c["repo"].lower(), c["sha"]) for c in selected}) == 145
+          cohort["cases"] = selected
+          cohort["tier_b_case_ids"] = [i for i in cohort["tier_b_case_ids"] if i in ids]
+          cohort["tier_c_case_ids"] = [i for i in cohort["tier_c_case_ids"] if i in ids]
+          cohort["target_unique_repositories"] = 145
+          (subset_root / "cohort.json").write_text(json.dumps(cohort, indent=2) + "\n")
+          manifest = {
+              "original_cases": 180,
+              "excluded_langgraph": 35,
+              "selected_cases": len(selected),
+              "frameworks": dict(sorted(Counter(c["framework_stratum"] for c in selected).items())),
+              "scanner_sha": os.environ["SCANNER_SHA"],
+              "case_ids": [c["case_id"] for c in selected],
+              "excluded_case_ids": [c["case_id"] for c in excluded],
+              "pinned_refs_unchanged": True,
+              "source_truth_unchanged": True,
+              "original_baseline_unchanged": True
+          }
+          (output / "selection.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          baseline = json.loads((original_root / "results/frozen-baseline.json").read_text())
+          baseline_cases = [c for c in baseline["cases"] if c["case_id"] in ids]
+          assert len(baseline_cases) == 145
+          assert all(c["framework"] != "langgraph" for c in baseline_cases)
+          baseline_subset = aggregate(baseline_cases, baseline["scanner_sha"], cohort, execution_mode="baseline")
+          (output / "baseline-145.json").write_text(json.dumps(baseline_subset, indent=2, sort_keys=True) + "\n")
+          (output / "baseline-145.md").write_text(render_markdown(baseline_subset))
+          print("Pinned non-LangGraph cohort", manifest["frameworks"])
+          PY
+
+      - name: Install exact merged main scanner SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/scanner-src"
+          git -C "$RUNNER_TEMP/scanner-src" remote add origin https://github.com/psandhir/horustrace.git
+          git -C "$RUNNER_TEMP/scanner-src" fetch -q --depth=1 origin "$SCANNER_SHA"
+          git -C "$RUNNER_TEMP/scanner-src" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/scanner-src" rev-parse HEAD)" = "$SCANNER_SHA"
+          python -m venv "$RUNNER_TEMP/scanner-venv"
+          "$RUNNER_TEMP/scanner-venv/bin/pip" install --disable-pip-version-check "$RUNNER_TEMP/scanner-src"
+          "$RUNNER_TEMP/scanner-venv/bin/horustrace" --version
+
+      - name: Rescan exact pinned sources for all 145 retained cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_security_execute.py \
+            --root "$RUNNER_TEMP/cohort-145" \
+            --mode postfix \
+            --scanner "$RUNNER_TEMP/scanner-venv/bin/horustrace" \
+            --scanner-sha "$SCANNER_SHA" \
+            --workers 8 \
+            --output-json "$STUDY_OUTPUT/candidate-145.json" \
+            --output-markdown "$STUDY_OUTPUT/candidate-145.md"
+
+      - name: Produce equivalent cohort deltas and per-repository finding differences
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_security_compare.py \
+            --baseline "$STUDY_OUTPUT/baseline-145.json" \
+            --candidate "$STUDY_OUTPUT/candidate-145.json" \
+            --output-json "$STUDY_OUTPUT/comparison-145.json" \
+            --output-markdown "$STUDY_OUTPUT/comparison-145.md"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          out = Path(os.environ["STUDY_OUTPUT"])
+          old = json.loads((out / "baseline-145.json").read_text())
+          new = json.loads((out / "candidate-145.json").read_text())
+          assert old["cohort_cases"] == new["cohort_cases"] == 145
+          assert all(c["framework"] != "langgraph" for c in new["cases"])
+          baseline = {c["case_id"]: c for c in old["cases"]}
+          rows = []
+          for c in new["cases"]:
+              prior = baseline[c["case_id"]]
+              p = prior.get("observed") or {}
+              n = c.get("observed") or {}
+              rows.append({
+                  "case_id": c["case_id"],
+                  "repo": c["repo"],
+                  "framework": c["framework"],
+                  "prior_status": prior["status"],
+                  "status": c["status"],
+                  "findings_before": int(p.get("findings") or 0),
+                  "findings_after": int(n.get("findings") or 0),
+                  "attack_paths_before": int(p.get("attack_paths") or 0),
+                  "attack_paths_after": int(n.get("attack_paths") or 0),
+                  "analysis_incomplete_before": bool(p.get("analysis_incomplete")),
+                  "analysis_incomplete_after": bool(n.get("analysis_incomplete")),
+                  "authority_resolution_before": p.get("authority_resolution") or {},
+                  "authority_resolution_after": n.get("authority_resolution") or {}
+              })
+          (out / "per-repository-delta.json").write_text(json.dumps(rows, indent=2) + "\n")
+          lines = [
+              "# Frozen 180 excluding LangGraph: pinned 145-case rerun",
+              "",
+              f"- Scanner SHA: `{new['scanner_sha']}`",
+              f"- Successful scans: {new['summary']['successful_cases']}/145",
+              f"- Findings: {old['summary']['findings']} → {new['summary']['findings']}",
+              f"- Attack paths: {old['summary']['attack_paths']} → {new['summary']['attack_paths']}",
+              "- LangGraph cases: 35 excluded; no replacement repositories",
+              "- Baseline: original frozen-180 result reaggregated over identical 145 cases",
+              "- Runtime exploitability and full findings TP/FP: not independently verified",
+              "",
+              "## Framework comparison",
+              "",
+              "| Framework | Cases | Scan successes | Findings (before → after) | Attack paths (before → after) |",
+              "| --- | ---: | ---: | ---: | ---: |"
+          ]
+          for f, curr in sorted(new["per_framework"].items()):
+              prev = old["per_framework"][f]
+              lines.append(f"| {f} | {curr['cases']} | {curr['successful']} | {prev['findings']} → {curr['findings']} | {prev['attack_paths']} → {curr['attack_paths']} |")
+          lines += ["", "## Per-repo changes", "", "| Case | Repository | Findings Δ | Attack paths Δ | Scan |", "| --- | --- | ---: | ---: | --- |"]
+          for r in rows:
+              lines.append(f"| {r['case_id']} | {r['repo']} | {r['findings_after']-r['findings_before']:+d} | {r['attack_paths_after']-r['attack_paths_before']:+d} | {r['status']} |")
+          (out / "study-summary.md").write_text("\n".join(lines) + "\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as fp:
+              fp.write("\n".join(lines[:19]) + "\n")
+          PY
+
+      - name: Check original locked artifacts were not changed
+        if: always()
+        run: git diff --exit-code -- research/real-world-agent-security-2026
+
+      - name: Upload full study and comparator evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: frozen180-ex-langgraph-145-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/frozen180-ex-langgraph-20261009/
+          if-no-files-found: warn
+          retention-days: 90
