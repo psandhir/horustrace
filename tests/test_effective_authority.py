@@ -531,3 +531,25 @@ def test_effective_authority_marks_partial_csharp_source_effects(
     assert relationship["semantics"]["source_effect_unresolved_calls"] == [
         "Send"
     ]
+
+
+def test_duplicate_local_identity_does_not_assign_arbitrary_permissions(tmp_path: Path) -> None:
+    graph = _graph(tmp_path)
+    graph.agents[0].identities.append(
+        Identity(name="support-agent", provider="aws", permissions={"admin:*"})
+    )
+    report = effective_authority_report(graph)
+    for kind, target in (("tool", "update_ticket"), ("mcp_server", "github")):
+        relationship = _relationship(report, kind, target)
+        assert relationship["identity"] is None
+        assert "identity" in relationship["unresolved"]
+
+
+def test_unique_local_identity_shadows_graph_identity(tmp_path: Path) -> None:
+    graph = _graph(tmp_path)
+    graph.identities.append(
+        Identity(name="support-agent", provider="aws", permissions={"admin:*"})
+    )
+    relationship = _relationship(effective_authority_report(graph), "tool", "update_ticket")
+    assert relationship["identity"]["provider"] == "gcp"
+    assert relationship["identity"]["roles"] == ["roles/viewer"]
