@@ -14,11 +14,11 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
-
 from horustrace.semantic_contract import (
     DataConnectionResolution,
     set_data_resource_provenance,
 )
+
 
 def _graph(root: Path) -> Graph:
     location = SourceLocation(root / "agent.py", line=7)
