@@ -1,0 +1,98 @@
+name: cdxgen vs HorusScan — Independent Pilot 12
+
+on:
+  push:
+    branches:
+      - research/cdxgen-pilot12-20261009
+    paths:
+      - .github/workflows/cdxgen-pilot12.yml
+      - research/cdxgen-pilot12-20261009/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  paired-inventory:
+    name: ${{ matrix.case_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        case_id:
+          - ind-google-adk-01
+          - ind-google-adk-02
+          - ind-pydantic-ai-01
+          - ind-pydantic-ai-02
+          - ind-openai-agents-01
+          - ind-openai-agents-02
+          - ind-amazon-01
+          - ind-amazon-02
+          - ind-anthropic-01
+          - ind-anthropic-02
+          - ind-microsoft-01
+          - ind-microsoft-02
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install pinned cdxgen and HorusScan
+        run: |
+          npm install -g --ignore-scripts @cdxgen/cdxgen@13.3.0
+          cdxgen --version
+          python -m pip install -e .
+      - name: Paired source-only scan of exact-SHA case
+        env:
+          CDXGEN_HUGGINGFACE_REMOTE: "false"
+        run: |
+          python research/cdxgen-pilot12-20261009/run_case.py \
+            --case-id "${{ matrix.case_id }}" \
+            --output-dir artifacts
+      - name: Upload original BOMs and HorusScan graph
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdxgen-pilot12-${{ matrix.case_id }}
+          path: artifacts/${{ matrix.case_id }}/
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    if: always()
+    needs: paired-inventory
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cdxgen-pilot12-*
+          path: downloaded
+      - name: Aggregate inventory comparison and coverage status
+        run: |
+          python research/cdxgen-pilot12-20261009/aggregate.py \
+            --input downloaded --output aggregate
+          cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload cohort-level summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdxgen-pilot12-summary
+          path: aggregate/
+          if-no-files-found: warn
+          retention-days: 30
