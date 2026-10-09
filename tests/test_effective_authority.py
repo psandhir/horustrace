@@ -1108,3 +1108,102 @@ def test_projection_fallback_and_missing_target_are_not_silent(tmp_path: Path) -
     )
     assert missing["dimensions"]["delegation_target"] == "unknown"
     assert "delegation_target" in missing["unresolved"]
+
+
+def test_tool_control_assurance_separates_source_and_runtime_enforcement(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    agent = graph.agents[0]
+    agent.metadata.update(
+        {
+            "tool_control_state": "enforcing",
+            "tool_control_enforcing": True,
+            "tool_control_mechanism": "adk_before_tool_callback",
+        }
+    )
+    tool = agent.tools[0]
+    tool.guardrails = True
+    relationship = _relationship(
+        effective_authority_report(graph), "tool", "update_ticket"
+    )
+    assurance = relationship["semantics"]["control_assurance"]
+
+    assert assurance["approval_declaration"] == "required"
+    assert assurance["guardrails_declared"] is True
+    assert assurance["source_control_state"] == "enforcing"
+    assert assurance["inherited_control_source"] is True
+    assert assurance["runtime_approval_enforcement"] == "not_verified"
+    assert assurance["runtime_guardrail_enforcement"] == "not_verified"
+    assert relationship["approval"]["required"] is True
+    assert relationship["runtime_effectiveness"] == "not_verified"
+
+
+def test_observer_callbacks_and_explicit_no_approval_are_not_enforcement(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    agent = graph.agents[0]
+    agent.metadata.update(
+        {
+            "callbacks": {"before_tool_callback": "log_only"},
+            "tool_control_state": "non_enforcing",
+            "tool_control_enforcing": False,
+        }
+    )
+    agent.tools[0].approval = False
+    relationship = _relationship(
+        effective_authority_report(graph), "tool", "update_ticket"
+    )
+    assurance = relationship["semantics"]["control_assurance"]
+
+    assert assurance["approval_declaration"] == "not_required"
+    assert assurance["source_control_state"] == "non_enforcing"
+    assert assurance["inherited_control_source"] is False
+    assert assurance["guardrails_declared"] is False
+    assert assurance["runtime_approval_enforcement"] == "not_verified"
+    assert relationship["approval"]["required"] is False
+
+
+def test_mcp_conditional_approval_and_guardrail_registration_not_verified(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    server = graph.agents[0].mcp_servers[0]
+    server.approval = None
+    server.guardrails = True
+    server.metadata["conditional_approval"] = True
+    server.metadata["per_call_approval"] = True
+    server.metadata["tool_input_guardrails"] = ["validate_input"]
+    server.metadata["tool_output_guardrails"] = ["redact_output"]
+    relationship = _relationship(effective_authority_report(graph), "mcp_server", "github")
+    assurance = relationship["semantics"]["control_assurance"]
+
+    assert relationship["dimensions"]["approval"] == "partially_resolved"
+    assert "approval_condition" in relationship["unresolved"]
+    assert assurance["approval_declaration"] == "conditional"
+    assert assurance["per_call_approval_declaration"] == "declared"
+    assert assurance["guardrails_declared"] is True
+    assert assurance["input_guardrails_declared"] is True
+    assert assurance["output_guardrails_declared"] is True
+    assert assurance["source_control_state"] == "not_exposed"
+    assert assurance["runtime_approval_enforcement"] == "not_verified"
+    assert assurance["runtime_guardrail_enforcement"] == "not_verified"
+
+
+def test_skill_instructions_do_not_imply_enforced_controls(tmp_path: Path) -> None:
+    graph = _graph(tmp_path)
+    graph.agents[0].skills.append(
+        Skill(name="review-workflow", allowed_tools={"shell"})
+    )
+    relationship = _relationship(
+        effective_authority_report(graph), "skill", "review-workflow"
+    )
+    assurance = relationship["semantics"]["control_assurance"]
+
+    assert assurance["approval_declaration"] == "unknown"
+    assert assurance["guardrails_declared"] is False
+    assert assurance["source_control_state"] == "not_exposed"
+    assert assurance["runtime_approval_enforcement"] == "not_verified"
+    assert assurance["runtime_guardrail_enforcement"] == "not_verified"
+    assert relationship["semantics"]["declared_tool_authority_promoted"] is False
