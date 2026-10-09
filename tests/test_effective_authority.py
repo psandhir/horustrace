@@ -816,3 +816,161 @@ def test_resource_scope_mixed_and_missing_cases_do_not_overclaim(
     )
     assert invalid["dimensions"]["resources"] == "unknown"
     assert invalid["resources"][0]["selector_resolution"] == "broad_or_unknown"
+
+
+def test_dynamic_egress_target_is_not_claimed_as_fixed(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    location = SourceLocation(tmp_path / "network.py", line=21)
+    graph.agents[0].tools[0].destinations = [
+        NetworkDestination(
+            target="https://${SERVICE_HOST}/v1",
+            restricted=True,
+            location=location,
+            provenance=[
+                EvidenceFact(
+                    subject="service-host",
+                    fact="endpoint host supplied by runtime environment",
+                    origin="source_code",
+                    location=location,
+                )
+            ],
+        )
+    ]
+    relationship = _relationship(
+        effective_authority_report(graph), "tool", "update_ticket"
+    )
+    assert relationship["dimensions"]["destinations"] == "partially_resolved"
+    assert "destination_target" in relationship["unresolved"]
+    destination = relationship["destinations"][0]
+    assert destination["target"] == "https://${SERVICE_HOST}/v1"
+    assert destination["target_authority_status"] == "partially_resolved"
+    assert destination["restriction_enforcement"] == "not_verified"
+    assert destination["provenance"][0]["origin"] == "source_code"
+    assert destination["provenance"][0]["location"]["line"] == 21
+
+
+def test_operator_configured_mcp_endpoint_is_not_resolved(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    server = graph.agents[0].mcp_servers[0]
+    server.url = None
+    server.metadata["dynamic_mcp_endpoint_basis"] = "operator_configuration"
+    server.metadata["configuration_source"] = "runtime_settings"
+    server.metadata["dynamic_mcp_endpoint"] = False
+    relationship = _relationship(
+        effective_authority_report(graph), "mcp_server", "github"
+    )
+    assert relationship["dimensions"]["destinations"] == "partially_resolved"
+    assert "destination_target" in relationship["unresolved"]
+    assert relationship["semantics"]["destination_binding_resolution"] == (
+        "operator_configured"
+    )
+    assert relationship["capabilities"] == ["mcp.remote", "network.external"]
+    assert relationship["destinations"][0]["target"] == "<operator-configured-mcp>"
+    assert relationship["destinations"][0]["target_authority_status"] == (
+        "partially_resolved"
+    )
+    assert relationship["destinations"][0]["restriction_enforcement"] == (
+        "not_verified"
+    )
+
+
+def test_environment_allowed_hosts_bound_mcp_egress_without_runtime_claim(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    server = graph.agents[0].mcp_servers[0]
+    server.url = None
+    server.metadata["network_scope"] = "environment_allowlist"
+    server.metadata["environment_allowed_hosts"] = ["mcp.internal.example"]
+    relationship = _relationship(
+        effective_authority_report(graph), "mcp_server", "github"
+    )
+    assert relationship["dimensions"]["destinations"] == "resolved"
+    assert relationship["semantics"]["destination_binding_resolution"] == (
+        "host_allowlist"
+    )
+    assert relationship["capabilities"] == ["mcp.remote", "network.external"]
+    assert relationship["destinations"][0]["target"] == "mcp.internal.example"
+    assert relationship["destinations"][0]["restriction_enforcement"] == (
+        "not_verified"
+    )
+
+
+def test_skill_egress_wildcard_is_unknown_not_resolved(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    graph.agents[0].skills = [
+        Skill(
+            name="external-fetch",
+            destinations=[
+                NetworkDestination(target="*", restricted=False)
+            ],
+        )
+    ]
+    relationship = _relationship(
+        effective_authority_report(graph), "skill", "external-fetch"
+    )
+    assert relationship["dimensions"]["destinations"] == "unknown"
+    assert "destination_target" in relationship["unresolved"]
+    assert relationship["destinations"][0]["target_authority_status"] == "unknown"
+
+
+def test_fixed_destination_preserves_resolved_scope(tmp_path: Path) -> None:
+    report = effective_authority_report(_graph(tmp_path))
+    for kind, target in (("tool", "update_ticket"), ("mcp_server", "github")):
+        relationship = _relationship(report, kind, target)
+        assert relationship["dimensions"]["destinations"] == "resolved"
+        assert relationship["destinations"][0]["restriction_enforcement"] == (
+            "not_verified"
+        )
+        assert "destination_target" not in relationship["unresolved"]
+
+
+def test_mcp_wildcard_host_allowlist_remains_unknown(tmp_path: Path) -> None:
+    graph = _graph(tmp_path)
+    server = graph.agents[0].mcp_servers[0]
+    server.url = None
+    server.metadata["network_scope"] = "environment_allowlist"
+    server.metadata["environment_allowed_hosts"] = ["*"]
+    relationship = _relationship(
+        effective_authority_report(graph), "mcp_server", "github"
+    )
+    assert relationship["dimensions"]["destinations"] == "unknown"
+    assert "destinations" in relationship["unresolved"]
+    assert relationship["semantics"]["destination_binding_resolution"] == (
+        "host_allowlist"
+    )
+    assert relationship["destinations"][0]["target"] == "*"
+    assert relationship["destinations"][0]["target_authority_status"] == "unknown"
+    assert relationship["destinations"][0]["restriction_enforcement"] == (
+        "not_verified"
+    )
+
+
+def test_mcp_dynamic_local_command_is_not_a_fixed_destination(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    server = graph.agents[0].mcp_servers[0]
+    server.url = None
+    server.command = "${MCP_COMMAND}"
+    relationship = _relationship(
+        effective_authority_report(graph), "mcp_server", "github"
+    )
+    assert relationship["dimensions"]["destinations"] == "partially_resolved"
+    assert "destination_target" in relationship["unresolved"]
+    assert relationship["semantics"]["destination_binding_resolution"] == (
+        "local_command"
+    )
+    assert relationship["destinations"][0]["target"] == "${MCP_COMMAND}"
+    assert relationship["destinations"][0]["target_authority_status"] == (
+        "partially_resolved"
+    )
+    assert relationship["destinations"][0]["restriction_enforcement"] == (
+        "not_verified"
+    )

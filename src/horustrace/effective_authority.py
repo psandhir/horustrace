@@ -12,7 +12,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from horustrace.models import Agent, Graph, Identity, MCPServer, ResourceScope, Skill, Tool
+from horustrace.models import (
+    Agent,
+    Graph,
+    Identity,
+    MCPServer,
+    NetworkDestination,
+    ResourceScope,
+    Skill,
+    Tool,
+)
 from horustrace.semantic_contract import (
     DataConnectionResolution,
     source_context,
@@ -91,6 +100,47 @@ def _resource(resource: ResourceScope) -> dict[str, Any]:
         "metadata": dict(resource.metadata),
         "provenance": [fact.as_dict() for fact in resource.provenance],
         "location": _location(resource.location),
+    }
+
+
+def _destination_target_status(target: str) -> str:
+    """Classify static destination specificity, not runtime network enforcement."""
+    normalized = target.strip().lower()
+    if normalized in {"", "*", "<unknown>", "unknown"}:
+        return "unknown"
+    if (
+        (normalized.startswith("<") and normalized.endswith(">"))
+        or "${" in normalized
+        or "{{" in normalized
+        or "}}" in normalized
+        or normalized.startswith("*.")
+        or "://*." in normalized
+    ):
+        return "partially_resolved"
+    return "resolved"
+
+
+def _destination_scope_status(destinations: list[NetworkDestination]) -> str:
+    if not destinations:
+        return "unknown"
+    statuses = [_destination_target_status(item.target) for item in destinations]
+    if all(status == "resolved" for status in statuses):
+        return "resolved"
+    if all(status == "unknown" for status in statuses):
+        return "unknown"
+    return "partially_resolved"
+
+
+def _destination(destination: NetworkDestination) -> dict[str, Any]:
+    return {
+        "target": destination.target,
+        "direction": destination.direction,
+        "restricted": destination.restricted,
+        "target_authority_status": _destination_target_status(destination.target),
+        "restriction_enforcement": "not_verified",
+        "metadata": dict(destination.metadata),
+        "provenance": [fact.as_dict() for fact in destination.provenance],
+        "location": _location(destination.location),
     }
 
 
@@ -497,7 +547,7 @@ def _tool_relationship(
             else "unknown"
         ),
         "resources": _resource_scope_status(tool.resources),
-        "destinations": "resolved" if tool.destinations else "unknown",
+        "destinations": _destination_scope_status(tool.destinations),
     }
     if dynamic_availability:
         dimensions["availability"] = "partially_resolved"
@@ -524,6 +574,8 @@ def _tool_relationship(
         unresolved.append("resource_selector")
     if not tool.destinations:
         unresolved.append("destinations")
+    elif dimensions["destinations"] != "resolved":
+        unresolved.append("destination_target")
 
     identity_doc = None
     if identity is not None:
@@ -532,16 +584,7 @@ def _tool_relationship(
             unresolved.append("credential_source")
             dimensions["identity"] = "partially_resolved"
 
-    destinations = tuple(
-        {
-            "target": destination.target,
-            "direction": destination.direction,
-            "restricted": destination.restricted,
-            "metadata": dict(destination.metadata),
-            "location": _location(destination.location),
-        }
-        for destination in tool.destinations
-    )
+    destinations = tuple(_destination(item) for item in tool.destinations)
 
     return EffectiveAuthorityRelationship(
         relationship_id=_stable_relationship_id(agent.name, "tool", tool.name),
@@ -738,13 +781,19 @@ def _mcp_relationship(
         ),
         "resources": _resource_scope_status(server.resources),
         "destinations": (
-            "resolved"
-            if (
-                server.url
-                or server.command
-                or operator_configured_remote
-                or environment_bounded_remote
+            _destination_target_status(server.url)
+            if server.url
+            else "partially_resolved"
+            if operator_configured_remote
+            else _destination_scope_status(
+                [
+                    NetworkDestination(target=host)
+                    for host in environment_allowed_hosts
+                ]
             )
+            if environment_bounded_remote
+            else _destination_target_status(server.command)
+            if server.command
             else "unknown"
         ),
         "tool_scope": tool_scope_status,
@@ -759,13 +808,10 @@ def _mcp_relationship(
         unresolved.append("resources")
     elif dimensions["resources"] != "resolved":
         unresolved.append("resource_selector")
-    if (
-        not server.url
-        and not server.command
-        and not operator_configured_remote
-        and not environment_bounded_remote
-    ):
+    if dimensions["destinations"] == "unknown":
         unresolved.append("destinations")
+    elif dimensions["destinations"] == "partially_resolved":
+        unresolved.append("destination_target")
 
     identity_doc = None
     if identity is not None:
@@ -782,6 +828,8 @@ def _mcp_relationship(
                 "direction": "outbound",
                 "restricted": True,
                 "kind": "fixed_remote_endpoint",
+                "target_authority_status": _destination_target_status(server.url),
+                "restriction_enforcement": "not_verified",
                 "location": _location(server.location),
             }
         )
@@ -792,6 +840,8 @@ def _mcp_relationship(
                 "direction": "outbound",
                 "restricted": True,
                 "kind": "operator_configured_remote_endpoint",
+                "target_authority_status": "partially_resolved",
+                "restriction_enforcement": "not_verified",
                 "configuration_source": server.metadata.get(
                     "configuration_source"
                 ),
@@ -805,6 +855,8 @@ def _mcp_relationship(
                 "direction": "outbound",
                 "restricted": True,
                 "kind": "environment_allowed_host",
+                "target_authority_status": _destination_target_status(target),
+                "restriction_enforcement": "not_verified",
                 "constraint_basis": "managed_environment_allowed_hosts",
                 "location": _location(server.location),
             }
@@ -817,6 +869,8 @@ def _mcp_relationship(
                 "direction": "local",
                 "restricted": True,
                 "kind": "fixed_local_command",
+                "target_authority_status": _destination_target_status(server.command),
+                "restriction_enforcement": "not_verified",
                 "args": list(server.args),
                 "location": _location(server.location),
             }
@@ -824,7 +878,12 @@ def _mcp_relationship(
 
     base_capabilities = (
         {"mcp.remote", "network.external"}
-        if server.url or dynamic_remote
+        if (
+            server.url
+            or dynamic_remote
+            or operator_configured_remote
+            or environment_bounded_remote
+        )
         else {"mcp.local"}
     )
     capabilities = tuple(
@@ -867,6 +926,21 @@ def _mcp_relationship(
                 "reference": server.identity,
                 "resolution": identity_binding_resolution,
             },
+            "destination_binding_resolution": (
+                "fixed_endpoint"
+                if server.url and dimensions["destinations"] == "resolved"
+                else "dynamic_endpoint"
+                if server.url
+                else "operator_configured"
+                if operator_configured_remote
+                else "host_allowlist"
+                if environment_bounded_remote
+                else "local_command"
+                if server.command
+                else "dynamic_endpoint"
+                if dynamic_remote
+                else "unknown"
+            ),
             "binding_origin": (
                 server.metadata.get("binding_origin")
                 or "framework_agent_configuration"
@@ -919,14 +993,14 @@ def _skill_relationship(
     """Expose a source-proven Skill binding without promoting declarations to authority."""
     capability_status = "resolved" if skill.capabilities else "unknown"
     resource_status = _resource_scope_status(skill.resources)
-    destination_status = "resolved" if skill.destinations else "unknown"
+    destination_status = _destination_scope_status(skill.destinations)
     unresolved: list[str] = []
     if skill.allowed_tools and not skill.capabilities:
         unresolved.append("skill_effective_capabilities")
     if skill.resources and resource_status != "resolved":
         unresolved.append("resource_selector")
-    if skill.destinations:
-        destination_status = "resolved"
+    if skill.destinations and destination_status != "resolved":
+        unresolved.append("destination_target")
 
     return EffectiveAuthorityRelationship(
         relationship_id=_stable_relationship_id(agent.name, "skill", skill.name),
@@ -940,16 +1014,7 @@ def _skill_relationship(
         approval={},
         tool_scope=None,
         resources=tuple(_resource(resource) for resource in skill.resources),
-        destinations=tuple(
-            {
-                "target": destination.target,
-                "direction": destination.direction,
-                "restricted": destination.restricted,
-                "metadata": dict(destination.metadata),
-                "location": _location(destination.location),
-            }
-            for destination in skill.destinations
-        ),
+        destinations=tuple(_destination(item) for item in skill.destinations),
         semantics={
             "binding_origin": skill.metadata.get("binding_origin"),
             "binding_source_path": skill.metadata.get("binding_source_path"),
