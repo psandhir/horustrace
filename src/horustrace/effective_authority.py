@@ -1553,6 +1553,23 @@ def render_effective_authority_console(graph: Graph, root: Path) -> str:
         ),
         "",
     ]
+    for agent in diagnostics["agents"]:
+        lines.append(
+            "  "
+            f"{agent['agent']} [{agent['framework']}] "
+            f"inventory={agent['relationship_inventory']}; "
+            f"relationships={agent['relationships']}; "
+            f"runtime=not_verified"
+        )
+        if agent["unresolved_reasons"]:
+            lines.append(
+                "    unresolved: "
+                + ", ".join(
+                    f"{name}={count}"
+                    for name, count in agent["unresolved_reasons"].items()
+                )
+            )
+    lines.append("")
     if not report["relationships"]:
         lines.append("No effective agent authority relationships detected.")
         return "\n".join(lines)
@@ -1579,8 +1596,9 @@ def render_effective_authority_console(graph: Graph, root: Path) -> str:
         approval = item["approval"]
         lines.append(
             "  approval: "
-            f"required={approval['required']}; guardrails={approval['guardrails']}; "
-            f"mechanism={approval['mechanism'] or 'unknown'}"
+            f"required={approval.get('required')}; "
+            f"guardrails={approval.get('guardrails')}; "
+            f"mechanism={approval.get('mechanism') or 'unknown'}"
         )
         if item["tool_scope"]:
             scope = item["tool_scope"]
