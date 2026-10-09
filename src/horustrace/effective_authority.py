@@ -12,7 +12,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from horustrace.models import Agent, Graph, Identity, MCPServer, ResourceScope, Skill, Tool
+from horustrace.models import (
+    Agent,
+    Graph,
+    Identity,
+    MCPServer,
+    NetworkDestination,
+    ResourceScope,
+    Skill,
+    Tool,
+)
 from horustrace.semantic_contract import (
     DataConnectionResolution,
     source_context,
@@ -104,7 +113,7 @@ def _destination_target_status(target: str) -> str:
         or "${" in normalized
         or "{{" in normalized
         or "}}" in normalized
-        or normalized.startswith("*.") 
+        or normalized.startswith("*.")
     ):
         return "partially_resolved"
     return "resolved"
