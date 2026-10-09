@@ -237,3 +237,15 @@ def test_skill_tool_and_capability_declarations_are_canonical() -> None:
     assert any("capabilities" in error for error in validate_graph_semantics(Graph(agents=[agent])))
     skill.capabilities = {"data.read"}
     assert validate_graph_semantics(Graph(agents=[agent])) == []
+
+
+@pytest.mark.parametrize("target", ["", "   ", 0, [], {}])
+def test_delegated_agent_target_must_be_nonblank_string(target) -> None:
+    tool = Tool(name="delegate", kind="delegated_agent", metadata={"delegate_target": target})
+    errors = validate_graph_semantics(Graph(agents=[Agent(name="parent", tools=[tool])]))
+    assert any("delegate_target" in error for error in errors)
+
+
+def test_delegated_agent_target_accepts_proven_name() -> None:
+    tool = Tool(name="delegate", kind="delegated_agent", metadata={"delegate_target": "child"})
+    assert validate_graph_semantics(Graph(agents=[Agent(name="parent", tools=[tool])])) == []
