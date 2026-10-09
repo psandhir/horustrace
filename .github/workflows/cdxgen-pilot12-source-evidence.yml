@@ -6,6 +6,12 @@ on:
     paths:
       - .github/workflows/cdxgen-pilot12-source-evidence.yml
       - research/cdxgen-pilot12-20261009/collect_pinned_source.py
+  pull_request:
+    branches: [research/independent-20261008-pilot12]
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/cdxgen-pilot12-source-evidence.yml
+      - research/cdxgen-pilot12-20261009/collect_pinned_source.py
   workflow_dispatch:
 
 permissions:
