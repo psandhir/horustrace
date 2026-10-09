@@ -2,10 +2,6 @@ from pathlib import Path
 
 from horustrace.adg import build_adg
 from horustrace.effective_authority import effective_authority_report
-from horustrace.semantic_contract import (
-    DataConnectionResolution,
-    set_data_resource_provenance,
-)
 from horustrace.models import (
     Agent,
     EvidenceFact,
@@ -19,6 +15,10 @@ from horustrace.models import (
     Tool,
 )
 
+from horustrace.semantic_contract import (
+    DataConnectionResolution,
+    set_data_resource_provenance,
+)
 
 def _graph(root: Path) -> Graph:
     location = SourceLocation(root / "agent.py", line=7)
