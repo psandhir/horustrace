@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from horustrace.effective_authority import effective_authority_report
 from horustrace.scanner import scan
 
 
@@ -112,3 +113,80 @@ remote = RemoteA2aAgent(
     assert tool.metadata["network_scope"] == "operator_configured_destination"
     assert tool.metadata["configuration_source"] == "REMOTE_AGENT_CARD"
     assert tool.destinations[0].restricted is True
+
+
+def test_engine_mcp_registry_urls_are_source_correlated_but_not_enforced(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        "from google.adk.agents import Agent\n"
+        "from idun_agent_engine.mcp import get_adk_tools\n"
+        'root_agent = Agent(name="mcp_adk", tools=get_adk_tools())\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "config.yaml").write_text(
+        'agent:\n  type: ADK\n  config:\n    agent: "./agent.py:root_agent"\n'
+        "mcp_servers:\n"
+        "  - name: docs\n    transport: streamable_http\n"
+        "    url: https://docs.example.test/mcp\n"
+        "  - name: data\n    transport: streamable_http\n"
+        "    url: https://data.example.test/mcp\n",
+        encoding="utf-8",
+    )
+    graph, findings = scan(tmp_path)
+    report = effective_authority_report(graph)
+    relation = next(
+        x for x in report["relationships"]
+        if x["agent"] == "mcp_adk"
+        and x["target"] == {"kind": "mcp_server", "name": "get_adk_tools"}
+    )
+    expected = {"https://docs.example.test/mcp", "https://data.example.test/mcp"}
+    assert {x["target"] for x in relation["destinations"]} == expected
+    assert all(x["kind"] == "configured_registry_endpoint" for x in relation["destinations"])
+    assert all(x["restriction_enforcement"] == "not_verified" for x in relation["destinations"])
+    assert all(x["restricted"] is False for x in relation["destinations"])
+    assert relation["dimensions"]["destinations"] == "partially_resolved"
+    assert relation["semantics"]["destination_binding_resolution"] == (
+        "configured_registry_endpoints"
+    )
+    assert relation["runtime_effectiveness"] == "not_verified"
+    risk = [
+        x for x in findings
+        if x.rule_id == "NET002" and x.agent == "mcp_adk"
+    ]
+    assert risk
+    assert "configured" in risk[0].title.lower()
+    assert any(
+        part.startswith("configured_mcp_endpoints=")
+        and all(url in part for url in expected)
+        for part in risk[0].evidence
+    )
+
+
+def test_mcp_registry_not_attributed_without_exact_application_reference(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "agent.py").write_text(
+        "from google.adk.agents import Agent\n"
+        "from idun_agent_engine.mcp import get_adk_tools\n"
+        'root_agent = Agent(name="mcp_adk", tools=get_adk_tools())\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "config.yaml").write_text(
+        'agent:\n  type: ADK\n  config:\n    agent: "./other.py:root_agent"\n'
+        "mcp_servers:\n"
+        "  - name: unrelated\n    url: https://unrelated.example.test/mcp\n",
+        encoding="utf-8",
+    )
+    graph, _ = scan(tmp_path)
+    report = effective_authority_report(graph)
+    assert not any(
+        destination["target"] == "https://unrelated.example.test/mcp"
+        for relation in report["relationships"]
+        for destination in relation["destinations"]
+    )
+    assert not any(
+        relation["semantics"].get("destination_binding_resolution")
+        == "configured_registry_endpoints"
+        for relation in report["relationships"]
+    )

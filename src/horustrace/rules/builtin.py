@@ -1479,6 +1479,20 @@ def evaluate(graph: Graph) -> list[Finding]:
                     item.relationship_id
                     for item in unresolved_destination_authorities
                 )
+                registry_configured = [
+                    item for item in unresolved_destination_authorities
+                    if item.semantics.get("destination_binding_resolution")
+                    == "configured_registry_endpoints"
+                ]
+                declared_registry_targets = sorted({
+                    str(destination.get("target"))
+                    for item in registry_configured
+                    for destination in item.destinations
+                    if destination.get("kind") == "configured_registry_endpoint"
+                })
+                config_only_gap = bool(registry_configured) and (
+                    len(registry_configured) == len(unresolved_destination_authorities)
+                )
                 evidence = [
                     "capabilities="
                     + ",".join(
@@ -1491,13 +1505,30 @@ def evaluate(graph: Graph) -> list[Finding]:
                 evidence.extend(
                     f"authority_relationship={item}" for item in linked
                 )
+                if declared_registry_targets:
+                    evidence.append(
+                        "configured_mcp_endpoints="
+                        + ",".join(declared_registry_targets)
+                    )
+                    evidence.append("runtime_registry_enforcement=not_verified")
                 findings.append(
                     Finding(
                         "NET002",
                         Severity.MEDIUM,
-                        "Outbound capability has no destination constraint",
-                        f"Agent '{agent.name}' has external network/write capability but no explicit destination allowlist was detected.",
-                        "Declare and enforce permitted destinations for outbound tools.",
+                        (
+                            "Configured MCP endpoints lack verified egress enforcement"
+                            if config_only_gap
+                            else "Outbound capability has no destination constraint"
+                        ),
+                        (
+                            f"Agent '{agent.name}' has source-declared MCP registry "
+                            "endpoints but the runtime destination boundary is unverified."
+                            if config_only_gap
+                            else f"Agent '{agent.name}' has external network/write capability "
+                            "without a verified explicit destination allowlist."
+                        ),
+                        "Verify deployed MCP registry membership and enforce "
+                        "destination restrictions for outbound tools.",
                         layer=4,
                         location=agent.location,
                         agent=agent.name,
