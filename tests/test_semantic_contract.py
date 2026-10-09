@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from horustrace.models import Agent, Graph, ResourceScope, Tool
+from horustrace.models import Agent, Graph, ResourceScope, Skill, Tool
 from horustrace.semantic_contract import (
     DataConnectionResolution,
     ModelResolution,
@@ -201,3 +201,20 @@ def test_data_resource_not_exposed_requires_limitation() -> None:
 
     assert any("data_connection_limitation" in error for error in errors)
 
+
+
+def test_skill_resource_provenance_obeys_shared_semantic_contract() -> None:
+    invalid = ResourceScope(
+        kind="database",
+        selector="<unknown>",
+        metadata={"data_connection_resolution": "not_exposed"},
+    )
+    agent = Agent(name="agent", skills=[Skill(name="lookup", resources=[invalid])])
+
+    errors = validate_graph_semantics(Graph(agents=[agent]))
+    assert any("skill 'lookup'" in error and "data_connection_limitation" in error for error in errors)
+
+    valid = ResourceScope(kind="database", selector="<unknown>")
+    set_data_resource_provenance(valid, resolution="not_exposed", limitation="runtime-only selector")
+    agent.skills[0].resources = [valid]
+    assert validate_graph_semantics(Graph(agents=[agent])) == []

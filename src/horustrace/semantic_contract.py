@@ -540,6 +540,15 @@ def validate_agent_semantics(agent: Agent) -> list[str]:
                 )
             )
 
+    for skill in agent.skills:
+        for resource in skill.resources:
+            errors.extend(
+                validate_data_resource_semantics(
+                    resource,
+                    owner=f"agent {agent.name!r} skill {skill.name!r}",
+                )
+            )
+
     for server in agent.mcp_servers:
         for resource in server.resources:
             errors.extend(
