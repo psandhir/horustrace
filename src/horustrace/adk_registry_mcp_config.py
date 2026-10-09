@@ -11,7 +11,7 @@ from typing import Any
 
 import yaml
 
-from horustrace.models import Graph
+from horustrace.models import Graph, MCPServer
 
 
 def _entrypoint(path: Path, root: Path, doc: Any) -> tuple[Path, str] | None:
@@ -83,10 +83,34 @@ def correlate_adk_registry_mcp_config(
         # Multiple competing registries for a single entrypoint are ambiguous.
         if len(config_sets) != 1:
             continue
-        for server in agent.mcp_servers:
-            if server.name != "get_adk_tools":
-                continue
-            server.metadata["configured_mcp_endpoints"] = config_sets[0]
-            server.metadata["network_scope"] = "registry_configured_destinations"
-            server.metadata["registry_configuration_resolution"] = "declared_only"
-            server.metadata["runtime_registry_membership_verified"] = False
+        registry_tools = [
+            tool for tool in agent.tools
+            if tool.kind == "dynamic_tool_collection"
+            and str(tool.metadata.get("catalogue_source") or "").rsplit(".", 1)[-1]
+            == "get_adk_tools"
+        ]
+        server = next(
+            (item for item in agent.mcp_servers if item.name == "get_adk_tools"),
+            None,
+        )
+        if server is None and registry_tools:
+            # The imported factory is a source-proven, non-enumerable MCP
+            # catalogue; only its explicit ADK application config supplies
+            # static target candidates. Do not invent callable tool names.
+            server = MCPServer(
+                name="get_adk_tools",
+                transport="unknown",
+                location=registry_tools[0].location,
+                metadata={
+                    "framework": "google-adk",
+                    "tool_catalogue_unresolved": True,
+                    "registry_origin": "source_bound_dynamic_tool_collection",
+                },
+            )
+            agent.mcp_servers.append(server)
+        if server is None:
+            continue
+        server.metadata["configured_mcp_endpoints"] = config_sets[0]
+        server.metadata["network_scope"] = "registry_configured_destinations"
+        server.metadata["registry_configuration_resolution"] = "declared_only"
+        server.metadata["runtime_registry_membership_verified"] = False
