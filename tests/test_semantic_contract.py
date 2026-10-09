@@ -249,3 +249,15 @@ def test_delegated_agent_target_must_be_nonblank_string(target) -> None:
 def test_delegated_agent_target_accepts_proven_name() -> None:
     tool = Tool(name="delegate", kind="delegated_agent", metadata={"delegate_target": "child"})
     assert validate_graph_semantics(Graph(agents=[Agent(name="parent", tools=[tool])])) == []
+
+
+@pytest.mark.parametrize("value", ["true", 1, [], {}])
+def test_mcp_catalogue_uncertainty_requires_boolean(value) -> None:
+    server = MCPServer(name="remote", transport="stdio", metadata={"tool_catalogue_unresolved": value})
+    errors = validate_graph_semantics(Graph(agents=[Agent(name="agent", mcp_servers=[server])]))
+    assert any("tool_catalogue_unresolved must be boolean" in error for error in errors)
+
+
+def test_mcp_catalogue_uncertainty_preserves_explicit_unknown_state() -> None:
+    server = MCPServer(name="remote", transport="stdio", metadata={"tool_catalogue_unresolved": True})
+    assert validate_graph_semantics(Graph(agents=[Agent(name="agent", mcp_servers=[server])])) == []
