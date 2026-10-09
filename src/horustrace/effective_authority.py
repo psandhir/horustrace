@@ -1277,12 +1277,13 @@ def _unique_portable_relationship_ids(
         return relationships
 
     paths = [
-        loc.path.resolve()
-        for loc in (
-            [agent.location for agent in graph.agents]
-            + [item.location for item in relationships if item.location is not None]
-        )
-        if loc is not None
+        agent.location.path.resolve()
+        for agent in graph.agents
+        if agent.location is not None
+    ] + [
+        Path(item.location["path"]).resolve()
+        for item in relationships
+        if item.location is not None and item.location.get("path")
     ]
     # Each path's parent, not the complete filename, forms the scan-local base.
     # This works when a scanner runs against an equivalent checked-out repo
