@@ -14,7 +14,9 @@ from typing import Any
 
 from horustrace.models import Agent, Graph, Identity, MCPServer, ResourceScope, Skill, Tool
 from horustrace.semantic_contract import (
+    DataConnectionResolution,
     source_context,
+    source_data_connection_resolution,
     tool_control_enforcing,
     tool_control_mechanism,
 )
@@ -54,13 +56,40 @@ def _location(value: Any) -> dict[str, Any] | None:
     }
 
 
+def _resource_selector_status(resource: ResourceScope) -> str:
+    resolution = source_data_connection_resolution(resource)
+    if resolution is DataConnectionResolution.RESOLVED:
+        return "resolved"
+    if resolution in {
+        DataConnectionResolution.MODEL_SELECTED,
+        DataConnectionResolution.DYNAMIC,
+    }:
+        return "partially_resolved"
+    return "unknown"
+
+
+def _resource_scope_status(resources: list[ResourceScope]) -> str:
+    if not resources:
+        return "unknown"
+    states = [_resource_selector_status(resource) for resource in resources]
+    if all(state == "resolved" for state in states):
+        return "resolved"
+    if all(state == "unknown" for state in states):
+        return "unknown"
+    return "partially_resolved"
+
+
 def _resource(resource: ResourceScope) -> dict[str, Any]:
     return {
         "kind": resource.kind,
         "selector": resource.selector,
+        "selector_resolution": source_data_connection_resolution(resource).value,
+        "selector_authority_status": _resource_selector_status(resource),
         "access": sorted(resource.access),
+        "access_resolution": "declared" if resource.access else "unknown",
         "classification": resource.classification,
         "metadata": dict(resource.metadata),
+        "provenance": [fact.as_dict() for fact in resource.provenance],
         "location": _location(resource.location),
     }
 
@@ -467,7 +496,7 @@ def _tool_relationship(
             if approval_resolved
             else "unknown"
         ),
-        "resources": "resolved" if tool.resources else "unknown",
+        "resources": _resource_scope_status(tool.resources),
         "destinations": "resolved" if tool.destinations else "unknown",
     }
     if dynamic_availability:
@@ -491,6 +520,8 @@ def _tool_relationship(
         unresolved.append("source_effects")
     if not tool.resources:
         unresolved.append("resources")
+    elif dimensions["resources"] != "resolved":
+        unresolved.append("resource_selector")
     if not tool.destinations:
         unresolved.append("destinations")
 
@@ -705,7 +736,7 @@ def _mcp_relationship(
             if server.approval is not None
             else "unknown"
         ),
-        "resources": "resolved" if server.resources else "unknown",
+        "resources": _resource_scope_status(server.resources),
         "destinations": (
             "resolved"
             if (
@@ -726,6 +757,8 @@ def _mcp_relationship(
         unresolved.append("approval")
     if not server.resources:
         unresolved.append("resources")
+    elif dimensions["resources"] != "resolved":
+        unresolved.append("resource_selector")
     if (
         not server.url
         and not server.command
@@ -885,13 +918,13 @@ def _skill_relationship(
 ) -> EffectiveAuthorityRelationship:
     """Expose a source-proven Skill binding without promoting declarations to authority."""
     capability_status = "resolved" if skill.capabilities else "unknown"
-    resource_status = "resolved" if skill.resources else "unknown"
+    resource_status = _resource_scope_status(skill.resources)
     destination_status = "resolved" if skill.destinations else "unknown"
     unresolved: list[str] = []
     if skill.allowed_tools and not skill.capabilities:
         unresolved.append("skill_effective_capabilities")
-    if skill.resources:
-        resource_status = "resolved"
+    if skill.resources and resource_status != "resolved":
+        unresolved.append("resource_selector")
     if skill.destinations:
         destination_status = "resolved"
 

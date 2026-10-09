@@ -327,6 +327,27 @@ def _selector_resolution(selector: str) -> DataConnectionResolution:
     return DataConnectionResolution.RESOLVED
 
 
+def source_data_connection_resolution(
+    resource: ResourceScope,
+) -> DataConnectionResolution:
+    """Get conservative selector certainty from source-backed resource evidence.
+
+    Prefer a producer's canonical resolution, which can identify dynamic or
+    model-selected selectors that look like ordinary strings. Unknown explicit
+    values fail closed instead of being overridden by a concrete-looking
+    selector. Resources without a canonical declaration fall back to their
+    source-visible selector.
+    """
+    if _data_key(DataResourceSemanticKey.RESOLUTION) in resource.metadata:
+        return (
+            data_connection_resolution(resource)
+            or DataConnectionResolution.BROAD_OR_UNKNOWN
+        )
+    if not resource.selector.strip():
+        return DataConnectionResolution.BROAD_OR_UNKNOWN
+    return _selector_resolution(resource.selector)
+
+
 def set_data_resource_provenance(
     resource: ResourceScope,
     *,
