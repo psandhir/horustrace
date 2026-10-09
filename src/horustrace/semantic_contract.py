@@ -519,7 +519,9 @@ def validate_agent_semantics(agent: Agent) -> list[str]:
                 f"agent {agent.name!r} tool {tool.name!r}: "
                 "delegate_target must be a non-empty string"
             )
-        if tool.kind == "delegated_agent" and not delegate_target:
+        if tool.kind == "delegated_agent" and (
+            not isinstance(delegate_target, str) or not delegate_target.strip()
+        ):
             errors.append(
                 f"agent {agent.name!r} tool {tool.name!r}: "
                 "delegated_agent must declare delegate_target"
