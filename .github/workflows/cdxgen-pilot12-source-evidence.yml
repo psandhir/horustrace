@@ -1,0 +1,86 @@
+name: cdxgen pilot12 pinned source evidence
+
+on:
+  push:
+    branches: [research/cdxgen-pilot12-20261009]
+    paths:
+      - .github/workflows/cdxgen-pilot12-source-evidence.yml
+      - research/cdxgen-pilot12-20261009/collect_pinned_source.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  source-only-evidence:
+    name: ${{ matrix.case_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      max-parallel: 4
+      fail-fast: false
+      matrix:
+        case_id: [ind-google-adk-01, ind-google-adk-02, ind-pydantic-ai-01, ind-pydantic-ai-02, ind-openai-agents-01, ind-openai-agents-02, ind-amazon-01, ind-amazon-02, ind-anthropic-01, ind-anthropic-02, ind-microsoft-01, ind-microsoft-02]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download matching immutable scan artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cdxgen-pilot12-${{ matrix.case_id }}
+          run-id: 37931118359
+          github-token: ${{ github.token }}
+          path: raw
+      - name: Read pinned source without executing application code
+        run: |
+          python research/cdxgen-pilot12-20261009/collect_pinned_source.py \
+            --case-id "${{ matrix.case_id }}" \
+            --input raw \
+            --output checked
+      - name: Archive model source anchors and skill symlinks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdxgen-source-review-${{ matrix.case_id }}
+          path: checked/
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    needs: source-only-evidence
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cdxgen-source-review-*
+          path: source-evidence
+      - name: Validate all twelve cases present
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=list(Path("source-evidence").rglob("source-evidence.json"))
+          print(f"Case records: {len(p)}/12")
+          counts=[json.loads(f.read_text()) for f in p]
+          seen={x["case_id"] for x in counts}
+          print(f"Model records: {sum(x['cdx_model_records'] for x in counts)}")
+          print(f"Read source anchors: {sum(x['source_anchor_reads'] for x in counts)}")
+          print(f"Unresolved source anchors: {sum(x['source_anchor_unresolved'] for x in counts)}")
+          assert len(seen)==12 and len(p)==12,"missing or duplicate case"
+          assert sum(x["cdx_model_records"] for x in counts)==108,"source/BOM model-record mismatch"
+          assert not sum(x["source_anchor_unresolved"] for x in counts),"unresolved source anchors"
+          PY
+      - name: Archive consolidated source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdxgen-source-review-aggregate
+          path: source-evidence/
+          if-no-files-found: warn
+          retention-days: 30
