@@ -2,6 +2,10 @@ from pathlib import Path
 
 from horustrace.adg import build_adg
 from horustrace.effective_authority import effective_authority_report
+from horustrace.semantic_contract import (
+    DataConnectionResolution,
+    set_data_resource_provenance,
+)
 from horustrace.models import (
     Agent,
     EvidenceFact,
@@ -10,6 +14,7 @@ from horustrace.models import (
     MCPServer,
     NetworkDestination,
     ResourceScope,
+    Skill,
     SourceLocation,
     Tool,
 )
@@ -691,3 +696,123 @@ def test_missing_identity_does_not_invent_iam_authority(tmp_path: Path) -> None:
     assert relationship["semantics"]["identity_binding"]["resolution"] == (
         "unresolved_reference"
     )
+
+
+def test_dynamic_resource_selector_keeps_source_evidence_and_partial_authority(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    location = SourceLocation(tmp_path / "storage.py", line=17)
+    resource = ResourceScope(
+        kind="bucket",
+        selector="current-bucket",
+        access={"data.read"},
+        location=location,
+        provenance=[
+            EvidenceFact(
+                subject="bucket",
+                fact="selector supplied through runtime configuration",
+                origin="source_code",
+                location=location,
+            )
+        ],
+    )
+    # The rendered selector looks concrete, but the producer can prove it is
+    # dynamically selected. Respect the explicit canonical resolution.
+    set_data_resource_provenance(
+        resource,
+        resolution=DataConnectionResolution.DYNAMIC,
+        source_reference="storage.py:17",
+    )
+    graph.agents[0].tools[0].resources = [resource]
+    relationship = _relationship(
+        effective_authority_report(graph), "tool", "update_ticket"
+    )
+
+    assert relationship["dimensions"]["resources"] == "partially_resolved"
+    assert "resource_selector" in relationship["unresolved"]
+    projected = relationship["resources"][0]
+    assert projected["selector"] == "current-bucket"
+    assert projected["selector_resolution"] == "dynamic"
+    assert projected["selector_authority_status"] == "partially_resolved"
+    assert projected["access"] == ["data.read"]
+    assert projected["access_resolution"] == "declared"
+    assert projected["provenance"] == [
+        {
+            "subject": "bucket",
+            "fact": "selector supplied through runtime configuration",
+            "origin": "source_code",
+            "location": {
+                "path": str(location.path),
+                "line": 17,
+                "column": 1,
+            },
+        }
+    ]
+    assert relationship["runtime_effectiveness"] == "not_verified"
+
+
+def test_resource_certainty_is_shared_by_mcp_servers_and_skills(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    unresolved = ResourceScope(
+        kind="database",
+        selector="<model-selected-data-store>",
+        access={"data.read"},
+    )
+    graph.agents[0].mcp_servers[0].resources = [unresolved]
+    graph.agents[0].skills = [
+        Skill(
+            name="retrieve",
+            resources=[ResourceScope(kind="bucket", selector="*")],
+        )
+    ]
+    report = effective_authority_report(graph)
+    mcp = _relationship(report, "mcp_server", "github")
+    skill = _relationship(report, "skill", "retrieve")
+    assert mcp["resources"][0]["selector_resolution"] == "model_selected"
+    assert mcp["dimensions"]["resources"] == "partially_resolved"
+    assert "resource_selector" in mcp["unresolved"]
+    assert skill["resources"][0]["selector_resolution"] == "broad_or_unknown"
+    assert skill["dimensions"]["resources"] == "unknown"
+    assert "resource_selector" in skill["unresolved"]
+
+
+def test_resource_scope_mixed_and_missing_cases_do_not_overclaim(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    fixed = ResourceScope(
+        kind="bucket", selector="production-reports", access={"data.read"}
+    )
+    undisclosed = ResourceScope(kind="bucket", selector="bucket-from-configuration")
+    set_data_resource_provenance(
+        undisclosed,
+        resolution=DataConnectionResolution.NOT_EXPOSED,
+        limitation="resource name is not visible at source review",
+    )
+    graph.agents[0].tools[0].resources = [fixed, undisclosed]
+    relationship = _relationship(
+        effective_authority_report(graph), "tool", "update_ticket"
+    )
+    assert relationship["dimensions"]["resources"] == "partially_resolved"
+    assert relationship["resources"][0]["selector_resolution"] == "resolved"
+    assert relationship["resources"][1]["selector_resolution"] == "not_exposed"
+    assert relationship["resources"][1]["access_resolution"] == "unknown"
+
+    graph.agents[0].tools[0].resources = [fixed]
+    fixed_only = _relationship(
+        effective_authority_report(graph), "tool", "update_ticket"
+    )
+    assert fixed_only["dimensions"]["resources"] == "resolved"
+    assert "resource_selector" not in fixed_only["unresolved"]
+
+    # Malformed explicit metadata must not be treated as resolved just because
+    # the selector is a plausible literal.
+    fixed.metadata["data_connection_resolution"] = "invalid"
+    invalid = _relationship(
+        effective_authority_report(graph), "tool", "update_ticket"
+    )
+    assert invalid["dimensions"]["resources"] == "unknown"
+    assert invalid["resources"][0]["selector_resolution"] == "broad_or_unknown"
