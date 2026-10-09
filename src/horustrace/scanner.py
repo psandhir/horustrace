@@ -52,6 +52,7 @@ from horustrace.adapters.microsoft_foundry import scan_foundry_config
 from horustrace.adapters.registry import detect_python_frameworks, scan_python_file
 from horustrace.adapters.repository_adk import enrich_repository_graph
 from horustrace.adg import build_adg
+from horustrace.adk_registry_mcp_config import correlate_adk_registry_mcp_config
 from horustrace.adk_skill_semantics import enrich_adk_skill_authority
 from horustrace.amazon_repository_authority import enrich_amazon_repository_authority
 from horustrace.analysis import build_attack_paths
@@ -2694,6 +2695,11 @@ def _scan(
         graph,
         root if root.is_dir() else root.parent,
         approved_python_paths,
+    )
+    correlate_adk_registry_mcp_config(
+        graph,
+        root if root.is_dir() else root.parent,
+        [item for item in candidates if item.suffix.lower() in {".yaml", ".yml"}],
     )
     normalize_destination_resource_provenance(graph)
     if llm_semantic_config is not None:
