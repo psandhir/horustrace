@@ -1680,10 +1680,18 @@ def _tool_from_call(
     if name == "AgentTool":
         target_node = _arg(call, 0, "agent")
         target = _call_name(target_node) or _string(target_node) or "unknown-agent"
+        binding: dict[str, Any] = {}
         if isinstance(target_node, ast.Name) and target_node.id in calls:
             target_call = calls[target_node.id]
             if (_call_name(target_call.func) or "") in AGENT_TYPES:
                 target = _string(_kw(target_call, "name")) or target
+                # The AST reference identifies the exact constructor, even
+                # when several application entrypoints reuse the same name.
+                # Only record a binding for an actual agent constructor.
+                binding = {
+                    "delegate_target_source_line": target_call.lineno,
+                    "delegate_target_source_alias": target_node.id,
+                }
         return Tool(
             name=alias,
             kind="adk_agent_tool",
@@ -1692,6 +1700,7 @@ def _tool_from_call(
             metadata={
                 "framework": "google-adk",
                 "delegate_target": target,
+                **binding,
                 "include_plugins": _bool(_kw(call, "include_plugins")),
                 "skip_summarization": _bool(_kw(call, "skip_summarization")),
             },

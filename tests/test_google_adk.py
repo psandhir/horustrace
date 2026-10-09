@@ -2031,3 +2031,64 @@ root_agent = LlmAgent(
         for resource in tool.resources
     )
 
+
+
+def test_adk_agenttool_lexical_constructor_beats_duplicate_repository_names(
+    tmp_path: Path,
+) -> None:
+    for module in ("a", "b"):
+        write(
+            tmp_path,
+            (
+                "from google.adk.agents import Agent\n"
+                "from google.adk.tools.agent_tool import AgentTool\n"
+                'worker = Agent(name="worker", model="gemini-test")\n'
+                "handoff = AgentTool(agent=worker)\n"
+                f'root_agent = Agent(name="manager-{module}", '
+                'model="gemini-test", tools=[handoff])\n'
+            ),
+            f"{module}.py",
+        )
+
+    graph, _ = scan(tmp_path)
+    report = effective_authority_report(graph)
+    scoped = [
+        item for item in report["relationships"]
+        if item["target"] == {"kind": "tool", "name": "handoff"}
+    ]
+    assert len(scoped) == 2
+    assert {item["agent"] for item in scoped} == {"manager-a", "manager-b"}
+    for relation in scoped:
+        boundary = relation["semantics"]["delegation_boundary"]
+        assert boundary["resolution"] == "unique_agent"
+        assert boundary["reference_basis"] == "source_constructor"
+        assert boundary["source_constructor_line"] == 3
+        assert relation["core_dimensions"]["delegation_target"] == "resolved"
+        assert boundary["child_authority_promoted"] is False
+        assert boundary["child_permission_inheritance"] == "not_proven"
+
+
+def test_adk_agenttool_unresolved_constructor_does_not_guess_by_name(
+    tmp_path: Path,
+) -> None:
+    path = write(tmp_path, (
+        "from google.adk.agents import Agent\n"
+        "from google.adk.tools.agent_tool import AgentTool\n"
+        'worker = Agent(name="worker")\n'
+        "handoff = AgentTool(agent=worker)\n"
+        'root_agent = Agent(name="manager", tools=[handoff])\n'
+    ))
+    graph, _ = scan(tmp_path)
+    wrapper = next(
+        tool for agent in graph.agents if agent.name == "manager"
+        for tool in agent.tools if tool.name == "handoff"
+    )
+    wrapper.metadata["delegate_target_source_line"] = 99
+    boundary = next(
+        item["semantics"]["delegation_boundary"]
+        for item in effective_authority_report(graph)["relationships"]
+        if item["target"] == {"kind": "tool", "name": "handoff"}
+    )
+    assert boundary["resolution"] == "unresolved_source_constructor"
+    assert boundary["agent_instance_key"] is None
+    assert path.exists()
