@@ -4,6 +4,7 @@ from horustrace.adg import build_adg
 from horustrace.effective_authority import effective_authority_report
 from horustrace.models import (
     Agent,
+    EvidenceFact,
     Graph,
     Identity,
     MCPServer,
@@ -553,3 +554,83 @@ def test_unique_local_identity_shadows_graph_identity(tmp_path: Path) -> None:
     relationship = _relationship(effective_authority_report(graph), "tool", "update_ticket")
     assert relationship["identity"]["provider"] == "gcp"
     assert relationship["identity"]["roles"] == ["roles/viewer"]
+
+
+def test_identity_source_provenance_is_preserved_for_tool_and_mcp(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    identity = graph.agents[0].identities[0]
+    location = SourceLocation(tmp_path / "deployment.yaml", line=12)
+    identity.provenance.append(
+        EvidenceFact(
+            subject="support-agent",
+            fact="identity bound through declared workload configuration",
+            origin="source_config",
+            location=location,
+        )
+    )
+    report = effective_authority_report(graph)
+    for kind, target in (("tool", "update_ticket"), ("mcp_server", "github")):
+        relationship = _relationship(report, kind, target)
+        assert relationship["identity"]["location"]["path"].endswith("agent.py")
+        assert relationship["identity"]["provenance"] == [
+            {
+                "subject": "support-agent",
+                "fact": "identity bound through declared workload configuration",
+                "origin": "source_config",
+                "location": {
+                    "path": str(location.path),
+                    "line": 12,
+                    "column": 1,
+                },
+            }
+        ]
+        assert relationship["semantics"]["identity_binding"] == {
+            "reference": "support-agent",
+            "resolution": "agent_local",
+        }
+        assert relationship["runtime_effectiveness"] == "not_verified"
+
+
+def test_identity_scope_and_missing_reference_are_not_conflated(tmp_path: Path) -> None:
+    graph = _graph(tmp_path)
+    graph.identities = list(graph.agents[0].identities)
+    graph.agents[0].identities = []
+    report = effective_authority_report(graph)
+    tool = _relationship(report, "tool", "update_ticket")
+    assert tool["semantics"]["identity_binding"] == {
+        "reference": "support-agent",
+        "resolution": "graph_wide",
+    }
+    assert tool["identity"]["name"] == "support-agent"
+    assert tool["identity"]["provenance"] == []
+
+    graph.agents[0].tools[0].identity = "not-present"
+    missing = _relationship(
+        effective_authority_report(graph), "tool", "update_ticket"
+    )
+    assert missing["identity"] is None
+    assert missing["semantics"]["identity_binding"] == {
+        "reference": "not-present",
+        "resolution": "unresolved_reference",
+    }
+    assert "identity" in missing["unresolved"]
+
+
+def test_ambiguous_identity_reports_resolution_without_iam_attribution(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    graph.agents[0].identities.append(
+        Identity(name="support-agent", provider="aws", permissions={"admin:*"})
+    )
+    report = effective_authority_report(graph)
+    for kind, target in (("tool", "update_ticket"), ("mcp_server", "github")):
+        relationship = _relationship(report, kind, target)
+        assert relationship["identity"] is None
+        assert relationship["semantics"]["identity_binding"] == {
+            "reference": "support-agent",
+            "resolution": "ambiguous_agent_local",
+        }
+        assert relationship["dimensions"]["identity"] == "unknown"
