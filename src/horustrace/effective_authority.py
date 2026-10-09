@@ -1345,7 +1345,11 @@ def _authority_completeness_diagnostics(
             {
                 "agent": agent.name,
                 "agent_index": index,
-                "agent_instance_key": key,
+                # Keep the internal source-qualified key for fail-closed
+                # relationship attribution, but never export absolute workspace
+                # paths: graph digests and exported reports must be portable.
+                "agent_instance_key": f"report-agent:{index}",
+                "agent_instance_key_basis": "report_local_index",
                 "framework": framework,
                 "source_context": source_context(agent.metadata),
                 "grouping_resolution": (
