@@ -866,6 +866,12 @@ def _mcp_relationship(
         server.metadata.get("dynamic_mcp_endpoint_basis")
         == "operator_configuration"
     )
+    registry_endpoints = [
+        item for item in server.metadata.get("configured_mcp_endpoints") or []
+        if isinstance(item, dict)
+        and isinstance(item.get("target"), str)
+        and item["target"]
+    ]
     environment_allowed_hosts = [
         str(item)
         for item in server.metadata.get("environment_allowed_hosts") or []
@@ -895,6 +901,8 @@ def _mcp_relationship(
         "destinations": (
             _destination_target_status(server.url)
             if server.url
+            else "partially_resolved"
+            if registry_endpoints
             else "partially_resolved"
             if operator_configured_remote
             else _destination_scope_status(
@@ -945,6 +953,23 @@ def _mcp_relationship(
                 "location": _location(server.location),
             }
         )
+    elif registry_endpoints:
+        destinations.extend(
+            {
+                "target": item["target"],
+                "direction": "outbound",
+                "restricted": False,
+                "kind": "configured_registry_endpoint",
+                "target_authority_status": _destination_target_status(item["target"]),
+                "restriction_enforcement": "not_verified",
+                "registry_membership_verified": False,
+                "configuration_source": item.get("config_path"),
+                "server_name": item.get("name"),
+                "transport": item.get("transport"),
+                "location": _location(server.location),
+            }
+            for item in registry_endpoints
+        )
     elif operator_configured_remote:
         destinations.append(
             {
@@ -994,6 +1019,7 @@ def _mcp_relationship(
             server.url
             or dynamic_remote
             or operator_configured_remote
+            or bool(registry_endpoints)
             or environment_bounded_remote
         )
         else {"mcp.local"}
@@ -1051,6 +1077,8 @@ def _mcp_relationship(
                 if server.url and dimensions["destinations"] == "resolved"
                 else "dynamic_endpoint"
                 if server.url
+                else "configured_registry_endpoints"
+                if registry_endpoints
                 else "operator_configured"
                 if operator_configured_remote
                 else "host_allowlist"
