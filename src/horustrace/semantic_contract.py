@@ -468,6 +468,16 @@ def validate_agent_semantics(agent: Agent) -> list[str]:
             f"{raw_model_resolution!r}"
         )
 
+    for field in ModelSemanticKey:
+        if field in {ModelSemanticKey.HOSTING, ModelSemanticKey.RESOLUTION}:
+            continue
+        key = _model_key(field)
+        value = metadata.get(key)
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            errors.append(
+                f"agent {agent.name!r}: {key} must be a non-empty string"
+            )
+
     hosting = metadata.get(_model_key(ModelSemanticKey.HOSTING))
     if hosting is not None and hosting not in MODEL_HOSTING_STATES:
         errors.append(
