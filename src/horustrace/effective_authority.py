@@ -8,7 +8,10 @@ always reported as not_verified.
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+import json
+import os
+from collections import Counter
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +23,7 @@ from horustrace.models import (
     NetworkDestination,
     ResourceScope,
     Skill,
+    SourceLocation,
     Tool,
 )
 from horustrace.semantic_contract import (
@@ -186,13 +190,42 @@ def _delegation_target_binding(graph: Graph, tool: Tool) -> dict[str, Any] | Non
         reference = tool.name.removeprefix("delegate:").strip() or None
         basis = "projection_name"
 
-    matches = [
-        agent for agent in graph.agents
-        if reference is not None and agent.name == reference
-    ]
+    source_line = tool.metadata.get("delegate_target_source_line")
+    source_instance = tool.metadata.get("delegate_target_instance_key")
+    instance_scoped = isinstance(source_instance, str) and bool(source_instance)
+    scoped = (
+        type(source_line) is int
+        and source_line > 0
+        and tool.location is not None
+    )
+    if instance_scoped:
+        matches = [
+            agent for agent in graph.agents
+            if agent.name == reference and _agent_instance_key(agent) == source_instance
+        ]
+        basis = "source_instance"
+    elif scoped:
+        # A source-object reference outranks repository-wide name matching.
+        # Fail closed if that constructor is absent or ambiguous: never
+        # reinterpret the reference as some unrelated same-named agent.
+        matches = [
+            agent for agent in graph.agents
+            if agent.name == reference
+            and agent.location is not None
+            and agent.location.path.resolve() == tool.location.path.resolve()
+            and agent.location.line == source_line
+        ]
+        basis = "source_constructor"
+    else:
+        matches = [
+            agent for agent in graph.agents
+            if reference is not None and agent.name == reference
+        ]
     resolution = (
         "unique_agent" if len(matches) == 1
         else "ambiguous_agent" if len(matches) > 1
+        else "unresolved_source_instance" if instance_scoped
+        else "unresolved_source_constructor" if scoped
         else "unresolved_agent" if reference is not None
         else "not_declared"
     )
@@ -200,6 +233,7 @@ def _delegation_target_binding(graph: Graph, tool: Tool) -> dict[str, Any] | Non
         "target_reference": reference,
         "reference_basis": basis if reference is not None else "not_declared",
         "resolution": resolution,
+        "source_constructor_line": source_line if scoped else None,
         "agent_instance_key": (
             _agent_instance_key(matches[0]) if len(matches) == 1 else None
         ),
@@ -1286,6 +1320,78 @@ def _delegation_relationship(
     )
 
 
+def _unique_portable_relationship_ids(
+    graph: Graph,
+    relationships: list[EffectiveAuthorityRelationship],
+) -> list[EffectiveAuthorityRelationship]:
+    """Disambiguate source occurrences without changing singleton IDs.
+
+    A relationship's public ID previously hashed only (agent name, target
+    kind, target name), silently colliding across same-named agent instances.
+    Retain legacy IDs when unique; add a deterministic workspace-relative
+    qualifier only for collisions. Never hash an absolute source path.
+    """
+    counts = Counter(item.relationship_id for item in relationships)
+    if all(count == 1 for count in counts.values()):
+        return relationships
+
+    paths = [
+        agent.location.path.resolve()
+        for agent in graph.agents
+        if agent.location is not None
+    ] + [
+        Path(item.location["path"]).resolve()
+        for item in relationships
+        if item.location is not None and item.location.get("path")
+    ]
+    # Each path's parent, not the complete filename, forms the scan-local base.
+    # This works when a scanner runs against an equivalent checked-out repo
+    # under a different absolute workspace directory.
+    base = Path(os.path.commonpath([str(path.parent) for path in paths])) if paths else None
+    agents_by_key: dict[str, list[Agent]] = {}
+    for agent in graph.agents:
+        agents_by_key.setdefault(_agent_instance_key(agent), []).append(agent)
+
+    def loc_key(location: Any) -> tuple[str, int, int]:
+        if location is None:
+            return ("<unknown>", 0, 0)
+        path = Path(location.path).resolve()
+        relative = path.relative_to(base).as_posix() if base else path.name
+        return (relative, location.line or 0, location.column or 0)
+
+    used: dict[str, int] = {}
+    output: list[EffectiveAuthorityRelationship] = []
+    for item in relationships:
+        if counts[item.relationship_id] == 1:
+            output.append(item)
+            continue
+        owner = agents_by_key.get(item.agent_instance_key, [])
+        owner_key = loc_key(owner[0].location) if len(owner) == 1 else ("<ambiguous-agent>", 0, 0)
+        discriminator = {
+            "agent": item.agent,
+            "source": owner_key,
+            "target": (item.target_kind, item.target_name),
+            "location": loc_key(
+                # Relationship locations are already serialized. Reconstruct
+                # without attaching an absolute workspace address to the ID.
+                SourceLocation(
+                    path=Path(item.location["path"]),
+                    line=item.location.get("line"),
+                    column=item.location.get("column"),
+                ) if item.location else None
+            ),
+        }
+        payload = json.dumps(discriminator, sort_keys=True, separators=(",", ":"))
+        digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+        candidate = f"{item.relationship_id}:{digest}"
+        occurrence = used.get(candidate, 0)
+        used[candidate] = occurrence + 1
+        if occurrence:
+            candidate = f"{candidate}:{occurrence + 1}"
+        output.append(replace(item, relationship_id=candidate))
+    return output
+
+
 def effective_authority_relationships(
     graph: Graph,
 ) -> list[EffectiveAuthorityRelationship]:
@@ -1304,7 +1410,7 @@ def effective_authority_relationships(
         result.extend(_skill_catalogue_relationships(agent))
         for server in agent.mcp_servers:
             result.append(_mcp_relationship(graph, agent, server))
-    return sorted(
+    ordered = sorted(
         result,
         key=lambda item: (
             item.agent,
@@ -1313,6 +1419,7 @@ def effective_authority_relationships(
             item.relationship_id,
         ),
     )
+    return _unique_portable_relationship_ids(graph, ordered)
 
 
 def _counter(values: list[str]) -> dict[str, int]:

@@ -1408,3 +1408,81 @@ def test_authority_completeness_instance_refs_are_workspace_portable(
         "report_local_index"
     )
     assert first_diag["summary"]["relationships_not_attributed_to_unique_agent"] == 0
+
+
+def test_duplicate_relationship_names_get_unique_portable_source_ids(
+    tmp_path: Path,
+) -> None:
+    def make(root: Path) -> Graph:
+        return Graph(
+            agents=[
+                Agent(
+                    name="worker",
+                    location=SourceLocation(root / "entry_a.py", line=5),
+                    tools=[
+                        Tool(
+                            name="lookup",
+                            kind="function",
+                            capabilities={"data.read"},
+                            location=SourceLocation(root / "entry_a.py", line=8),
+                        )
+                    ],
+                ),
+                Agent(
+                    name="worker",
+                    location=SourceLocation(root / "entry_b.py", line=5),
+                    tools=[
+                        Tool(
+                            name="lookup",
+                            kind="function",
+                            capabilities={"data.read"},
+                            location=SourceLocation(root / "entry_b.py", line=8),
+                        )
+                    ],
+                ),
+            ]
+        )
+
+    first = effective_authority_report(make(tmp_path / "first"))
+    second = effective_authority_report(make(tmp_path / "second"))
+    ids = [item["relationship_id"] for item in first["relationships"]]
+    assert len(ids) == 2
+    assert len(set(ids)) == 2
+    assert ids == [item["relationship_id"] for item in second["relationships"]]
+    assert all(str(tmp_path) not in item for item in ids)
+
+
+def test_same_location_duplicate_occurrences_are_not_dropped(
+    tmp_path: Path,
+) -> None:
+    loc = SourceLocation(tmp_path / "same.py", line=9)
+    graph = Graph(
+        agents=[
+            Agent(
+                name="repeat",
+                location=loc,
+                tools=[
+                    Tool(name="same", kind="function", capabilities={"data.read"}, location=loc),
+                    Tool(name="same", kind="function", capabilities={"data.read"}, location=loc),
+                ],
+            )
+        ]
+    )
+    relationships = effective_authority_report(graph)["relationships"]
+    assert len(relationships) == 2
+    assert len({item["relationship_id"] for item in relationships}) == 2
+
+
+def test_unique_relationship_id_is_unchanged(tmp_path: Path) -> None:
+    graph = Graph(
+        agents=[
+            Agent(
+                name="sole",
+                location=SourceLocation(tmp_path / "sole.py", line=1),
+                tools=[Tool(name="read", kind="function", capabilities={"data.read"})],
+            )
+        ]
+    )
+    relation = effective_authority_report(graph)["relationships"][0]
+    assert relation["relationship_id"].startswith("authority-v1:")
+    assert relation["relationship_id"].count(":") == 1
