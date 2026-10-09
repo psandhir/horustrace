@@ -65,16 +65,45 @@ def _resource(resource: ResourceScope) -> dict[str, Any]:
     }
 
 
-def _identity(graph: Graph, agent: Agent, name: str | None) -> Identity | None:
+def _resolve_identity_binding(
+    graph: Graph, agent: Agent, name: str | None
+) -> tuple[Identity | None, str]:
+    """Resolve an explicit identity reference without arbitrarily picking a match."""
     if not name:
-        return None
-    # Agent-local identities shadow graph-wide identities. Within either
-    # scope, duplicate names cannot be bound to one authority unambiguously.
-    local = [identity for identity in agent.identities if identity.name == name]
+        return None, "not_declared"
+    # Agent-local definitions take precedence; do not fall back to global
+    # definitions when a local reference is ambiguous.
+    local = [item for item in agent.identities if item.name == name]
+    if len(local) > 1:
+        return None, "ambiguous_agent_local"
     if local:
-        return local[0] if len(local) == 1 else None
-    global_matches = [identity for identity in graph.identities if identity.name == name]
-    return global_matches[0] if len(global_matches) == 1 else None
+        return local[0], "agent_local"
+    global_matches = [item for item in graph.identities if item.name == name]
+    if len(global_matches) > 1:
+        return None, "ambiguous_graph_wide"
+    if global_matches:
+        return global_matches[0], "graph_wide"
+    return None, "unresolved_reference"
+
+
+def _identity(graph: Graph, agent: Agent, name: str | None) -> Identity | None:
+    """Compatibility helper for consumers of the normalized identity lookup."""
+    return _resolve_identity_binding(graph, agent, name)[0]
+
+
+def _identity_document(identity: Identity) -> dict[str, Any]:
+    """Serialize only identity evidence actually present in the normalized graph."""
+    return {
+        "name": identity.name,
+        "provider": identity.provider,
+        "credential_source": identity.credential_source,
+        "roles": sorted(identity.roles),
+        "permissions": sorted(identity.permissions),
+        "oauth_scopes": sorted(identity.oauth_scopes),
+        "resource_scope": identity.resource_scope,
+        "location": _location(identity.location),
+        "provenance": [fact.as_dict() for fact in identity.provenance],
+    }
 
 
 def _adg_evidence(
@@ -383,7 +412,9 @@ def _tool_relationship(
     agent: Agent,
     tool: Tool,
 ) -> EffectiveAuthorityRelationship:
-    identity = _identity(graph, agent, tool.identity)
+    identity, identity_binding_resolution = _resolve_identity_binding(
+        graph, agent, tool.identity
+    )
     inherited_control = tool_control_enforcing(agent.metadata)
     conditional_approval = tool.metadata.get("conditional_approval") is True
     approval_resolved = tool.approval is not None or inherited_control
@@ -439,15 +470,7 @@ def _tool_relationship(
 
     identity_doc = None
     if identity is not None:
-        identity_doc = {
-            "name": identity.name,
-            "provider": identity.provider,
-            "credential_source": identity.credential_source,
-            "roles": sorted(identity.roles),
-            "permissions": sorted(identity.permissions),
-            "oauth_scopes": sorted(identity.oauth_scopes),
-            "resource_scope": identity.resource_scope,
-        }
+        identity_doc = _identity_document(identity)
         if identity.credential_source is None:
             unresolved.append("credential_source")
             dimensions["identity"] = "partially_resolved"
@@ -501,6 +524,10 @@ def _tool_relationship(
         resources=tuple(_resource(resource) for resource in tool.resources),
         destinations=destinations,
         semantics={
+            "identity_binding": {
+                "reference": tool.identity,
+                "resolution": identity_binding_resolution,
+            },
             "binding_origin": (
                 tool.metadata.get("binding_origin")
                 or tool.metadata.get("authority_binding_basis")
@@ -619,7 +646,9 @@ def _mcp_relationship(
     agent: Agent,
     server: MCPServer,
 ) -> EffectiveAuthorityRelationship:
-    identity = _identity(graph, agent, server.identity)
+    identity, identity_binding_resolution = _resolve_identity_binding(
+        graph, agent, server.identity
+    )
     tool_scope, unresolved, tool_scope_status = _mcp_tool_scope(server)
     operator_configured_remote = (
         server.metadata.get("dynamic_mcp_endpoint_basis")
@@ -681,15 +710,7 @@ def _mcp_relationship(
 
     identity_doc = None
     if identity is not None:
-        identity_doc = {
-            "name": identity.name,
-            "provider": identity.provider,
-            "credential_source": identity.credential_source,
-            "roles": sorted(identity.roles),
-            "permissions": sorted(identity.permissions),
-            "oauth_scopes": sorted(identity.oauth_scopes),
-            "resource_scope": identity.resource_scope,
-        }
+        identity_doc = _identity_document(identity)
         if identity.credential_source is None:
             unresolved.append("credential_source")
             dimensions["identity"] = "partially_resolved"
@@ -783,6 +804,10 @@ def _mcp_relationship(
         resources=tuple(_resource(resource) for resource in server.resources),
         destinations=tuple(destinations),
         semantics={
+            "identity_binding": {
+                "reference": server.identity,
+                "resolution": identity_binding_resolution,
+            },
             "binding_origin": (
                 server.metadata.get("binding_origin")
                 or "framework_agent_configuration"
