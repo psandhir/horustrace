@@ -23,6 +23,7 @@ from horustrace.models import (
     NetworkDestination,
     ResourceScope,
     Skill,
+    SourceLocation,
     Tool,
 )
 from horustrace.semantic_contract import (
