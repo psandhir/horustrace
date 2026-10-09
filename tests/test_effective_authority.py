@@ -1,7 +1,10 @@
 from pathlib import Path
 
 from horustrace.adg import build_adg
-from horustrace.effective_authority import effective_authority_report
+from horustrace.effective_authority import (
+    effective_authority_report,
+    render_effective_authority_console,
+)
 from horustrace.models import (
     Agent,
     EvidenceFact,
@@ -1207,3 +1210,201 @@ def test_skill_instructions_do_not_imply_enforced_controls(tmp_path: Path) -> No
     assert assurance["runtime_approval_enforcement"] == "not_verified"
     assert assurance["runtime_guardrail_enforcement"] == "not_verified"
     assert relationship["semantics"]["declared_tool_authority_promoted"] is False
+
+
+def test_authority_completeness_counts_dimensions_without_inferring_grants(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    graph.agents[0].metadata["framework"] = "google-adk"
+    report = effective_authority_report(graph)
+    diagnostics = report["authority_completeness"]
+    summary = diagnostics["summary"]
+
+    assert diagnostics["enforcement"] == "measurement_only"
+    assert diagnostics["runtime_effectiveness"] == "not_verified"
+    assert summary["agents"] == 1
+    assert summary["agent_instances_with_relationships"] == 1
+    assert summary["agent_instances_without_relationships"] == 0
+    assert summary["relationships"] == 2
+    assert summary["relationships_not_attributed_to_unique_agent"] == 0
+    assert summary["dimensions"]["target"] == {"resolved": 2}
+    assert summary["dimensions"]["capabilities"] == {"resolved": 2}
+    assert summary["dimensions"]["resources"] == {
+        "resolved": 1,
+        "unknown": 1,
+    }
+    assert summary["unresolved_reasons"]["resources"] == 1
+    assert diagnostics["by_framework"]["google-adk"]["agents"] == 1
+    assert diagnostics["by_framework"]["google-adk"]["attributed_relationships"] == 2
+
+    agent = diagnostics["agents"][0]
+    assert agent["agent"] == "support"
+    assert agent["framework"] == "google-adk"
+    assert agent["relationship_inventory"] == "observed"
+    assert agent["by_target_kind"] == {"mcp_server": 1, "tool": 1}
+    assert len(agent["relationship_ids"]) == 2
+    assert agent["runtime_effectiveness"] == "not_verified"
+    assert report["summary"]["relationships"] == 2  # Existing counts remain stable.
+
+
+def test_authority_completeness_unobserved_agent_is_not_certified_safe(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    graph.agents.append(
+        Agent(
+            name="empty-agent",
+            location=SourceLocation(tmp_path / "empty.py", line=9),
+            metadata={"framework": "openai-agents"},
+        )
+    )
+    diagnostics = effective_authority_report(graph)["authority_completeness"]
+    summary = diagnostics["summary"]
+
+    assert summary["agents"] == 2
+    assert summary["agent_instances_with_relationships"] == 1
+    assert summary["agent_instances_without_relationships"] == 1
+    assert summary["relationships"] == 2
+    empty = next(item for item in diagnostics["agents"] if item["agent"] == "empty-agent")
+    assert empty["relationship_inventory"] == "not_observed"
+    assert empty["relationships"] == 0
+    assert empty["core_resolution"] == {}
+    assert empty["detail_resolution"] == {}
+    assert empty["dimensions"] == {}
+    assert empty["runtime_effectiveness"] == "not_verified"
+    assert diagnostics["by_framework"]["openai-agents"]["attributed_relationships"] == 0
+
+
+def test_ambiguous_agent_instances_do_not_receive_arbitrary_authority(
+    tmp_path: Path,
+) -> None:
+    first = Agent(
+        name="duplicate",
+        tools=[Tool(name="admin", kind="function", capabilities={"data.delete"})],
+    )
+    second = Agent(name="duplicate")
+    graph = Graph(agents=[first, second])
+    report = effective_authority_report(graph)
+    diagnostics = report["authority_completeness"]
+    summary = diagnostics["summary"]
+
+    assert report["summary"]["relationships"] == 1
+    assert summary["relationships"] == 1
+    assert summary["agent_instances_with_ambiguous_attribution"] == 2
+    assert summary["relationships_not_attributed_to_unique_agent"] == 1
+    assert summary["agent_instances_without_relationships"] == 0
+    for item in diagnostics["agents"]:
+        assert item["grouping_resolution"] == "ambiguous_instance_key"
+        assert item["relationship_inventory"] == "ambiguous_attribution"
+        assert item["relationships"] == 0
+        assert item["relationship_ids"] == []
+
+
+def test_agent_instances_with_same_name_but_distinct_locations_stay_separate(
+    tmp_path: Path,
+) -> None:
+    graph = Graph(
+        agents=[
+            Agent(
+                name="worker",
+                location=SourceLocation(tmp_path / "worker_a.py", line=5),
+                tools=[Tool(name="read", kind="function", capabilities={"data.read"})],
+                metadata={"framework": "openai-agents"},
+            ),
+            Agent(
+                name="worker",
+                location=SourceLocation(tmp_path / "worker_b.py", line=7),
+                tools=[Tool(name="write", kind="function", capabilities={"data.write"})],
+                metadata={"framework": "pydantic-ai"},
+            ),
+        ]
+    )
+    diagnostics = effective_authority_report(graph)["authority_completeness"]
+    agents = diagnostics["agents"]
+    assert len(agents) == 2
+    assert agents[0]["agent_instance_key"] != agents[1]["agent_instance_key"]
+    assert all(item["relationship_inventory"] == "observed" for item in agents)
+    assert agents[0]["by_target_kind"] == {"tool": 1}
+    assert agents[1]["by_target_kind"] == {"tool": 1}
+    assert diagnostics["by_framework"]["openai-agents"]["attributed_relationships"] == 1
+    assert diagnostics["by_framework"]["pydantic-ai"]["attributed_relationships"] == 1
+
+
+def test_authority_console_displays_source_completeness_and_unknown_inventory(
+    tmp_path: Path,
+) -> None:
+    graph = Graph(agents=[Agent(name="isolated")])
+    rendered = render_effective_authority_console(graph, tmp_path)
+    assert "Authority completeness (source evidence only)" in rendered
+    assert "Agent instances:" in rendered
+    assert "Without observed relationships:" in rendered
+    assert "Runtime effectiveness:          NOT VERIFIED" in rendered
+    assert "No effective agent authority relationships detected." in rendered
+    assert "isolated [unknown] inventory=not_observed" in rendered
+
+
+def test_authority_console_renders_skill_and_delegation_without_approval_fields(
+    tmp_path: Path,
+) -> None:
+    graph = Graph(
+        agents=[
+            Agent(
+                name="planner",
+                skills=[Skill(name="review")],
+                tools=[
+                    Tool(
+                        name="delegate:worker",
+                        kind="delegated_agent",
+                        capabilities={"agent.delegate"},
+                        metadata={
+                            "authority_binding": "delegation_projection",
+                            "delegate_target": "worker",
+                        },
+                    )
+                ],
+            ),
+            Agent(name="worker"),
+        ]
+    )
+    rendered = render_effective_authority_console(graph, tmp_path)
+    assert "planner -> skill:review" in rendered
+    assert "planner -> delegation:worker" in rendered
+    assert "worker [unknown] inventory=not_observed" in rendered
+    assert "mechanism=unknown" in rendered
+    assert "runtime=not_verified" in rendered
+
+
+def test_authority_completeness_instance_refs_are_workspace_portable(
+    tmp_path: Path,
+) -> None:
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    first = Graph(
+        agents=[
+            Agent(
+                name="worker",
+                location=SourceLocation(first_root / "src" / "worker.py", line=8),
+                tools=[Tool(name="lookup", kind="function", capabilities={"data.read"})],
+            )
+        ]
+    )
+    second = Graph(
+        agents=[
+            Agent(
+                name="worker",
+                location=SourceLocation(second_root / "src" / "worker.py", line=8),
+                tools=[Tool(name="lookup", kind="function", capabilities={"data.read"})],
+            )
+        ]
+    )
+    first_diag = effective_authority_report(first)["authority_completeness"]
+    second_diag = effective_authority_report(second)["authority_completeness"]
+    assert first_diag == second_diag
+    assert str(first_root) not in str(first_diag)
+    assert str(second_root) not in str(second_diag)
+    assert first_diag["agents"][0]["agent_instance_key"] == "report-agent:0"
+    assert first_diag["agents"][0]["agent_instance_key_basis"] == (
+        "report_local_index"
+    )
+    assert first_diag["summary"]["relationships_not_attributed_to_unique_agent"] == 0
