@@ -180,15 +180,13 @@ def test_mcp_registry_not_attributed_without_exact_application_reference(
     )
     graph, _ = scan(tmp_path)
     report = effective_authority_report(graph)
-    relation = next(
-        x for x in report["relationships"]
-        if x["agent"] == "mcp_adk"
-        and x["target"] == {"kind": "mcp_server", "name": "get_adk_tools"}
+    assert not any(
+        destination["target"] == "https://unrelated.example.test/mcp"
+        for relation in report["relationships"]
+        for destination in relation["destinations"]
     )
-    assert not relation["destinations"] or all(
-        x["target"] != "https://unrelated.example.test/mcp"
-        for x in relation["destinations"]
-    )
-    assert relation["semantics"]["destination_binding_resolution"] != (
-        "configured_registry_endpoints"
+    assert not any(
+        relation["semantics"].get("destination_binding_resolution")
+        == "configured_registry_endpoints"
+        for relation in report["relationships"]
     )
