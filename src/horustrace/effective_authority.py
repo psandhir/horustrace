@@ -1287,6 +1287,143 @@ def effective_authority_relationships(
     )
 
 
+def _counter(values: list[str]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        counts[value] = counts.get(value, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _dimension_diagnostics(
+    relationships: list[EffectiveAuthorityRelationship],
+) -> dict[str, dict[str, int]]:
+    """Count only dimensions emitted by applicable source-visible constructs."""
+    dimensions: dict[str, list[str]] = {}
+    for relationship in relationships:
+        for dimension, status in relationship.dimensions.items():
+            dimensions.setdefault(dimension, []).append(status)
+    return {
+        dimension: _counter(statuses)
+        for dimension, statuses in sorted(dimensions.items())
+    }
+
+
+def _authority_completeness_diagnostics(
+    graph: Graph,
+    relationships: list[EffectiveAuthorityRelationship],
+) -> dict[str, Any]:
+    """Explain attribution and uncertainty, not actual runtime permission reachability."""
+    keys = [_agent_instance_key(agent) for agent in graph.agents]
+    key_counts = _counter(keys)
+    ambiguous_keys = {
+        key for key, count in key_counts.items() if count > 1
+    }
+    relationship_groups: dict[str, list[EffectiveAuthorityRelationship]] = {}
+    for relation in relationships:
+        relationship_groups.setdefault(relation.agent_instance_key, []).append(relation)
+
+    agents: list[dict[str, Any]] = []
+    framework_agent_counts: dict[str, int] = {}
+    framework_relationships: dict[str, list[EffectiveAuthorityRelationship]] = {}
+    matched_relationships: set[int] = set()
+    for index, agent in enumerate(graph.agents):
+        key = keys[index]
+        # Identical instance keys cannot justify allocating authority evidence
+        # to either agent. Preserve the ambiguity explicitly.
+        matches = (
+            relationship_groups.get(key, [])
+            if key not in ambiguous_keys
+            else []
+        )
+        matched_relationships.update(id(item) for item in matches)
+        framework = agent.metadata.get("framework")
+        if not isinstance(framework, str) or not framework.strip():
+            framework = "unknown"
+        framework_agent_counts[framework] = framework_agent_counts.get(framework, 0) + 1
+        framework_relationships.setdefault(framework, []).extend(matches)
+        agents.append(
+            {
+                "agent": agent.name,
+                "agent_index": index,
+                "agent_instance_key": key,
+                "framework": framework,
+                "source_context": source_context(agent.metadata),
+                "grouping_resolution": (
+                    "ambiguous_instance_key"
+                    if key in ambiguous_keys else "unique_instance_key"
+                ),
+                "relationship_inventory": (
+                    "ambiguous_attribution"
+                    if key in ambiguous_keys else
+                    "observed" if matches else "not_observed"
+                ),
+                "relationships": len(matches),
+                "relationship_ids": [item.relationship_id for item in matches],
+                "by_target_kind": _counter([item.target_kind for item in matches]),
+                "core_resolution": _counter([item.core_resolution for item in matches]),
+                "detail_resolution": _counter([item.resolution for item in matches]),
+                "dimensions": _dimension_diagnostics(matches),
+                "unresolved_reasons": _counter(
+                    [reason for item in matches for reason in item.unresolved]
+                ),
+                "runtime_effectiveness": "not_verified",
+            }
+        )
+
+    frameworks = {
+        framework: {
+            "agents": framework_agent_counts[framework],
+            "attributed_relationships": len(framework_relationships[framework]),
+            "dimensions": _dimension_diagnostics(framework_relationships[framework]),
+            "unresolved_reasons": _counter([
+                reason
+                for item in framework_relationships[framework]
+                for reason in item.unresolved
+            ]),
+        }
+        for framework in sorted(framework_agent_counts)
+    }
+
+    return {
+        "scope": "source_derived_effective_authority",
+        "enforcement": "measurement_only",
+        "runtime_effectiveness": "not_verified",
+        "interpretation": (
+            "Dimension counts describe source-backed reporting completeness, "
+            "not verified permissions or proof that unobserved authority is absent."
+        ),
+        "summary": {
+            "agents": len(graph.agents),
+            "agent_instances_with_relationships": sum(
+                item["relationship_inventory"] == "observed" for item in agents
+            ),
+            "agent_instances_without_relationships": sum(
+                item["relationship_inventory"] == "not_observed" for item in agents
+            ),
+            "agent_instances_with_ambiguous_attribution": sum(
+                item["grouping_resolution"] == "ambiguous_instance_key"
+                for item in agents
+            ),
+            "relationships": len(relationships),
+            "relationships_not_attributed_to_unique_agent": sum(
+                id(item) not in matched_relationships for item in relationships
+            ),
+            "core_resolution": _counter([
+                item.core_resolution for item in relationships
+            ]),
+            "detail_resolution": _counter([
+                item.resolution for item in relationships
+            ]),
+            "dimensions": _dimension_diagnostics(relationships),
+            "unresolved_reasons": _counter([
+                reason for item in relationships for reason in item.unresolved
+            ]),
+        },
+        "by_framework": frameworks,
+        "agents": agents,
+    }
+
+
 def effective_authority_report(graph: Graph) -> dict[str, Any]:
     relationships = effective_authority_relationships(graph)
     resolution_counts = {
@@ -1364,12 +1501,16 @@ def effective_authority_report(graph: Graph) -> dict[str, Any]:
             ),
         },
         "relationships": [item.as_dict() for item in relationships],
+        "authority_completeness": _authority_completeness_diagnostics(
+            graph, relationships
+        ),
     }
 
 
 def render_effective_authority_console(graph: Graph, root: Path) -> str:
     report = effective_authority_report(graph)
     summary = report["summary"]
+    diagnostics = report["authority_completeness"]
     lines = [
         "HorusTrace Effective Authority",
         "=" * 30,
@@ -1392,6 +1533,24 @@ def render_effective_authority_console(graph: Graph, root: Path) -> str:
         f"Destination evidence:         {summary['relationships_with_destination_evidence']}",
         f"Resource evidence:            {summary['relationships_with_resource_evidence']}",
         "Runtime effectiveness:          NOT VERIFIED",
+        "",
+        "Authority completeness (source evidence only):",
+        (
+            "  Agent instances:             "
+            f"{diagnostics['summary']['agents']}"
+        ),
+        (
+            "  With observed relationships: "
+            f"{diagnostics['summary']['agent_instances_with_relationships']}"
+        ),
+        (
+            "  Without observed relationships: "
+            f"{diagnostics['summary']['agent_instances_without_relationships']}"
+        ),
+        (
+            "  Ambiguous attribution:       "
+            f"{diagnostics['summary']['agent_instances_with_ambiguous_attribution']}"
+        ),
         "",
     ]
     if not report["relationships"]:
