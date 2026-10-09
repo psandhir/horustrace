@@ -974,3 +974,137 @@ def test_mcp_dynamic_local_command_is_not_a_fixed_destination(
     assert relationship["destinations"][0]["restriction_enforcement"] == (
         "not_verified"
     )
+
+
+def test_delegation_target_resolves_without_inheriting_child_privileges(
+    tmp_path: Path,
+) -> None:
+    location = SourceLocation(tmp_path / "agents.py", line=6)
+    parent = Agent(
+        name="manager",
+        tools=[
+            Tool(
+                name="delegate:worker",
+                kind="delegated_agent",
+                capabilities={"agent.delegate"},
+                metadata={
+                    "authority_binding": "delegation_projection",
+                    "delegate_target": "worker",
+                    "transitive": True,
+                },
+                location=location,
+            )
+        ],
+        location=location,
+    )
+    child = Agent(
+        name="worker",
+        identities=[
+            Identity(
+                name="child-admin",
+                provider="aws",
+                permissions={"iam:*"},
+                credential_source="workload_identity",
+            )
+        ],
+        tools=[
+            Tool(
+                name="delete_resource",
+                kind="function",
+                capabilities={"data.delete"},
+                identity="child-admin",
+                resources=[
+                    ResourceScope(kind="bucket", selector="production")
+                ],
+                destinations=[
+                    NetworkDestination(target="https://api.example.test")
+                ],
+            )
+        ],
+        location=SourceLocation(tmp_path / "worker.py", line=8),
+    )
+    graph = Graph(agents=[parent, child])
+    report = effective_authority_report(graph)
+    delegation = _relationship(report, "delegation", "worker")
+    boundary = delegation["semantics"]["delegation_boundary"]
+
+    assert delegation["identity"] is None
+    assert delegation["resources"] == []
+    assert delegation["destinations"] == []
+    assert delegation["capabilities"] == ["agent.delegate"]
+    assert boundary["resolution"] == "unique_agent"
+    assert boundary["target_reference"] == "worker"
+    assert boundary["agent_instance_key"] is not None
+    assert boundary["child_identity_inheritance"] == "not_proven"
+    assert boundary["child_permission_inheritance"] == "not_proven"
+    assert boundary["child_authority_promoted"] is False
+    assert delegation["semantics"]["transitive"] is True
+    assert delegation["semantics"]["transitive_authority_verified"] is False
+    assert delegation["dimensions"]["delegation_target"] == "resolved"
+    assert delegation["core_dimensions"]["delegation_target"] == "resolved"
+
+    child_tool = _relationship(report, "tool", "delete_resource")
+    assert child_tool["identity"]["permissions"] == ["iam:*"]
+    assert child_tool["resources"][0]["selector"] == "production"
+    assert "iam:*" not in str(delegation)
+
+
+def test_delegated_tool_missing_and_duplicate_targets_fail_closed(
+    tmp_path: Path,
+) -> None:
+    parent = Agent(
+        name="supervisor",
+        tools=[
+            Tool(
+                name="route",
+                kind="delegated_agent",
+                capabilities={"agent.delegate"},
+                metadata={"delegate_target": "worker"},
+            )
+        ],
+    )
+    graph = Graph(agents=[parent])
+    missing = _relationship(effective_authority_report(graph), "tool", "route")
+    assert missing["semantics"]["delegation_boundary"]["resolution"] == (
+        "unresolved_agent"
+    )
+    assert missing["dimensions"]["delegation_target"] == "unknown"
+    assert "delegation_target" in missing["core_unresolved"]
+    assert missing["core_resolution"] == "partially_resolved"
+
+    graph.agents.extend([Agent(name="worker"), Agent(name="worker")])
+    ambiguous = _relationship(effective_authority_report(graph), "tool", "route")
+    assert ambiguous["semantics"]["delegation_boundary"]["resolution"] == (
+        "ambiguous_agent"
+    )
+    assert ambiguous["semantics"]["delegation_boundary"]["agent_instance_key"] is None
+    assert ambiguous["dimensions"]["delegation_target"] == "unknown"
+    assert "delegation_target" in ambiguous["unresolved"]
+
+
+def test_projection_fallback_and_missing_target_are_not_silent(tmp_path: Path) -> None:
+    projected = Tool(
+        name="delegate:researcher",
+        kind="function",
+        capabilities={"agent.delegate"},
+        metadata={"authority_binding": "delegation_projection"},
+    )
+    parent = Agent(name="manager", tools=[projected])
+    report = effective_authority_report(Graph(agents=[parent, Agent(name="researcher")]))
+    relationship = _relationship(report, "delegation", "researcher")
+    boundary = relationship["semantics"]["delegation_boundary"]
+    assert boundary["resolution"] == "unique_agent"
+    assert boundary["reference_basis"] == "projection_name"
+    assert boundary["child_authority_promoted"] is False
+
+    projected.name = "invoke-helper"
+    missing = _relationship(
+        effective_authority_report(Graph(agents=[parent])),
+        "delegation",
+        "<unresolved-delegation>",
+    )
+    assert missing["semantics"]["delegation_boundary"]["resolution"] == (
+        "not_declared"
+    )
+    assert missing["dimensions"]["delegation_target"] == "unknown"
+    assert "delegation_target" in missing["unresolved"]
