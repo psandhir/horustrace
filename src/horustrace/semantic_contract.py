@@ -564,6 +564,14 @@ def validate_agent_semantics(agent: Agent) -> list[str]:
             )
 
     for server in agent.mcp_servers:
+        unresolved_catalogue = server.metadata.get("tool_catalogue_unresolved")
+        if unresolved_catalogue is not None and not isinstance(unresolved_catalogue, bool):
+            errors.append(
+                f"agent {agent.name!r} mcp {server.name!r}: "
+                "tool_catalogue_unresolved must be boolean"
+            )
+
+    for server in agent.mcp_servers:
         for field in ("allowed_tools", "denied_tools"):
             values = getattr(server, field)
             if any(not isinstance(name, str) or not name.strip() for name in values):
