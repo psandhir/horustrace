@@ -26,9 +26,9 @@ from horustrace.semantic_contract import (
     DataConnectionResolution,
     source_context,
     source_data_connection_resolution,
-    tool_control_state,
     tool_control_enforcing,
     tool_control_mechanism,
+    tool_control_state,
 )
 
 EFFECTIVE_AUTHORITY_SCHEMA_VERSION = 1
@@ -610,6 +610,7 @@ def _tool_relationship(
     )
     inherited_control = tool_control_enforcing(agent.metadata)
     conditional_approval = tool.metadata.get("conditional_approval") is True
+    source_control_state = tool_control_state(agent.metadata)
     approval_resolved = tool.approval is not None or inherited_control
     dynamic_availability = (
         tool.metadata.get("availability_condition_unresolved") is True
@@ -730,9 +731,8 @@ def _tool_relationship(
                 guardrails=tool.guardrails,
                 conditional_approval=conditional_approval,
                 source_state=(
-                    tool_control_state(agent.metadata).value
-                    if tool_control_state(agent.metadata) is not None
-                    else None
+                    source_control_state.value
+                    if source_control_state is not None else None
                 ),
                 inherited_control=inherited_control,
             ),
