@@ -634,3 +634,60 @@ def test_ambiguous_identity_reports_resolution_without_iam_attribution(
             "resolution": "ambiguous_agent_local",
         }
         assert relationship["dimensions"]["identity"] == "unknown"
+
+
+def test_identity_authority_keeps_iam_roles_permissions_and_oauth_separate(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    identity = graph.agents[0].identities[0]
+    identity.permissions = {"storage.objects.get"}
+    identity.oauth_scopes = {"https://www.googleapis.com/auth/cloud-platform"}
+    identity.resource_scope = "projects/demo-prod/buckets/reports"
+
+    report = effective_authority_report(graph)
+    expected = {
+        "declared_roles": ["roles/viewer"],
+        "declared_permissions": ["storage.objects.get"],
+        "declared_oauth_scopes": [
+            "https://www.googleapis.com/auth/cloud-platform"
+        ],
+        "resource_scope": "projects/demo-prod/buckets/reports",
+        "resource_scope_resolution": "declared",
+        "role_permission_expansion": "unresolved",
+        "oauth_scopes_are_iam_permissions": False,
+        "runtime_effectiveness": "not_verified",
+    }
+    for kind, target in (("tool", "update_ticket"), ("mcp_server", "github")):
+        relationship = _relationship(report, kind, target)
+        assert relationship["identity"]["authority_evidence"] == expected
+        assert relationship["identity"]["permissions"] == ["storage.objects.get"]
+        assert relationship["runtime_effectiveness"] == "not_verified"
+
+
+def test_identity_role_only_does_not_imply_permission_or_global_scope(
+    tmp_path: Path,
+) -> None:
+    report = effective_authority_report(_graph(tmp_path))
+    for kind, target in (("tool", "update_ticket"), ("mcp_server", "github")):
+        relationship = _relationship(report, kind, target)
+        iam = relationship["identity"]["authority_evidence"]
+        assert iam["declared_roles"] == ["roles/viewer"]
+        assert iam["declared_permissions"] == []
+        assert iam["declared_oauth_scopes"] == []
+        assert iam["resource_scope"] is None
+        assert iam["resource_scope_resolution"] == "unknown"
+        assert iam["role_permission_expansion"] == "unresolved"
+        assert iam["runtime_effectiveness"] == "not_verified"
+
+
+def test_missing_identity_does_not_invent_iam_authority(tmp_path: Path) -> None:
+    graph = _graph(tmp_path)
+    graph.agents[0].tools[0].identity = "missing"
+    relationship = _relationship(
+        effective_authority_report(graph), "tool", "update_ticket"
+    )
+    assert relationship["identity"] is None
+    assert relationship["semantics"]["identity_binding"]["resolution"] == (
+        "unresolved_reference"
+    )
