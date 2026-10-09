@@ -1,0 +1,118 @@
+name: Post Frozen-180 Three Historical Cohort Regressions
+
+on:
+  push:
+    branches:
+      - study/post180-three-cohorts-20261009
+    paths:
+      - ".github/workflows/post180-three-cohorts-20261009.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Queue behind the already-running 145-case non-LangGraph study.
+concurrency:
+  group: frozen180-ex-langgraph-20261009
+  cancel-in-progress: false
+
+jobs:
+  historical-regressions:
+    name: Holdout 10 then Fresh 16 then Full Framework 60
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      PINNED_SCANNER_SHA: a1bbdc3a391a1377726ce9d80a8b9b80b633ea51
+      EVIDENCE_DIR: evidence/post180-three-cohorts-20261009
+    steps:
+      - name: Check out fixed study harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Validate harness syntax and historical source manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile scripts/post180_three_cohorts_rerun.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          hold = json.loads(Path("research/gpt-horustrace-differential-2026/unseen-holdout-adk-pydantic-10-v2-cohort.json").read_text())["cases"]
+          fresh = json.loads(Path("research/fresh-unseen-generalization-20/cohort.json").read_text())["cases"]
+          sixty = json.loads(Path("research/full-framework-60-20261005/cohort.json").read_text())["cases"]
+          assert len(hold) == 10 and len(fresh) == 20 and len(sixty) == 60
+          assert sum(c["framework"] == "langgraph" for c in fresh) == 4
+          assert not any(c["framework"] == "langgraph" for c in hold + sixty)
+          print("Historical immutable manifests: 10 + 16 non-LangGraph + 60 validated.")
+          PY
+
+      - name: Install exactly the current merged-main scanner commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/horusscan-pinned"
+          git -C "$RUNNER_TEMP/horusscan-pinned" remote add origin https://github.com/psandhir/horustrace.git
+          git -C "$RUNNER_TEMP/horusscan-pinned" fetch -q --depth=1 origin "$PINNED_SCANNER_SHA"
+          git -C "$RUNNER_TEMP/horusscan-pinned" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/horusscan-pinned" rev-parse HEAD)" = "$PINNED_SCANNER_SHA"
+          python -m venv "$RUNNER_TEMP/horusscan-venv"
+          "$RUNNER_TEMP/horusscan-venv/bin/pip" install --disable-pip-version-check "$RUNNER_TEMP/horusscan-pinned"
+          echo "$RUNNER_TEMP/horusscan-venv/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/horusscan-venv/bin/horustrace" --version
+
+      - name: Replay three exact-SHA historical cohorts sequentially
+        shell: bash
+        run: |
+          set +e
+          python scripts/post180_three_cohorts_rerun.py --cohort holdout10 --workers 5
+          holdout_status=$?
+          python scripts/post180_three_cohorts_rerun.py --cohort fresh16 --workers 5
+          fresh_status=$?
+          python scripts/post180_three_cohorts_rerun.py --cohort full60 --workers 6
+          full_status=$?
+          mkdir -p "$EVIDENCE_DIR"
+          python - "$holdout_status" "$fresh_status" "$full_status" <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+          out = Path(os.environ["EVIDENCE_DIR"])
+          labels = ("holdout10", "fresh16", "full60")
+          statuses = {name: int(code) for name, code in zip(labels, sys.argv[1:])}
+          (out / "suite-status.json").write_text(json.dumps({
+              "scanner_sha": os.environ["PINNED_SCANNER_SHA"],
+              "historical_regression": True,
+              "cohort_order": list(labels),
+              "statuses": statuses,
+              "all_successful": all(code == 0 for code in statuses.values()),
+              "accuracy_adjudicated": False
+          }, indent=2) + "\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("\n## Three-cohort run status\n\n")
+              for key, value in statuses.items():
+                  f.write(f"- {key}: {'completed' if value == 0 else 'failed / partial'}\n")
+              f.write("\nInterpret count deltas only after source-backed adjudication.\n")
+          PY
+          if [[ $holdout_status -ne 0 || $fresh_status -ne 0 || $full_status -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Preserve exact case, comparison and failure evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: post180-three-historical-cohorts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            evidence/post180-three-cohorts-20261009/**/selection.json
+            evidence/post180-three-cohorts-20261009/**/report.json
+            evidence/post180-three-cohorts-20261009/**/report.md
+            evidence/post180-three-cohorts-20261009/**/result.json
+            evidence/post180-three-cohorts-20261009/**/error.json
+            evidence/post180-three-cohorts-20261009/**/run.log
+            evidence/post180-three-cohorts-20261009/suite-status.json
+          if-no-files-found: warn
+          retention-days: 90
