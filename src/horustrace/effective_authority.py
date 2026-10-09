@@ -91,6 +91,31 @@ def _identity(graph: Graph, agent: Agent, name: str | None) -> Identity | None:
     return _resolve_identity_binding(graph, agent, name)[0]
 
 
+def _identity_authority_evidence(identity: Identity) -> dict[str, Any]:
+    """Separate declared IAM constructs without inferring effective grants.
+
+    Source-level role names do not prove their permission expansion, OAuth
+    scopes are not IAM permissions, and a missing resource scope is unknown
+    rather than global. Deployment-time authority is reconciled separately.
+    """
+    return {
+        "declared_roles": sorted(identity.roles),
+        "declared_permissions": sorted(identity.permissions),
+        "declared_oauth_scopes": sorted(identity.oauth_scopes),
+        "resource_scope": identity.resource_scope,
+        "resource_scope_resolution": (
+            "declared"
+            if isinstance(identity.resource_scope, str) and identity.resource_scope.strip()
+            else "unknown"
+        ),
+        "role_permission_expansion": (
+            "unresolved" if identity.roles else "not_applicable"
+        ),
+        "oauth_scopes_are_iam_permissions": False,
+        "runtime_effectiveness": "not_verified",
+    }
+
+
 def _identity_document(identity: Identity) -> dict[str, Any]:
     """Serialize only identity evidence actually present in the normalized graph."""
     return {
@@ -101,6 +126,7 @@ def _identity_document(identity: Identity) -> dict[str, Any]:
         "permissions": sorted(identity.permissions),
         "oauth_scopes": sorted(identity.oauth_scopes),
         "resource_scope": identity.resource_scope,
+        "authority_evidence": _identity_authority_evidence(identity),
         "location": _location(identity.location),
         "provenance": [fact.as_dict() for fact in identity.provenance],
     }
