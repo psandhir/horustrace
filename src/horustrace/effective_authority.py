@@ -68,10 +68,13 @@ def _resource(resource: ResourceScope) -> dict[str, Any]:
 def _identity(graph: Graph, agent: Agent, name: str | None) -> Identity | None:
     if not name:
         return None
-    for identity in [*agent.identities, *graph.identities]:
-        if identity.name == name:
-            return identity
-    return None
+    # Agent-local identities shadow graph-wide identities. Within either
+    # scope, duplicate names cannot be bound to one authority unambiguously.
+    local = [identity for identity in agent.identities if identity.name == name]
+    if local:
+        return local[0] if len(local) == 1 else None
+    global_matches = [identity for identity in graph.identities if identity.name == name]
+    return global_matches[0] if len(global_matches) == 1 else None
 
 
 def _adg_evidence(
