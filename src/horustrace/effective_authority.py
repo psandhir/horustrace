@@ -26,6 +26,7 @@ from horustrace.semantic_contract import (
     DataConnectionResolution,
     source_context,
     source_data_connection_resolution,
+    tool_control_state,
     tool_control_enforcing,
     tool_control_mechanism,
 )
@@ -207,6 +208,51 @@ def _delegation_target_binding(graph: Graph, tool: Tool) -> dict[str, Any] | Non
         "child_permission_inheritance": "not_proven",
         "child_authority_promoted": False,
         "runtime_effectiveness": "not_verified",
+    }
+
+
+def _control_assurance(
+    *,
+    approval: bool | None,
+    guardrails: bool,
+    conditional_approval: bool = False,
+    source_state: str | None = None,
+    inherited_control: bool = False,
+    per_call_approval: bool | None = None,
+    input_guardrails: bool = False,
+    output_guardrails: bool = False,
+) -> dict[str, Any]:
+    """Distinguish source-visible controls from runtime-enforcement evidence.
+
+    Approval flags and guardrail registration are declarations, not proof that
+    the controls executed at runtime. Canonical agent tool-control state can
+    describe source-level enforcement while runtime behavior remains unverified.
+    """
+    approval_declaration = (
+        "conditional"
+        if conditional_approval
+        else "required"
+        if approval is True
+        else "not_required"
+        if approval is False
+        else "unknown"
+    )
+    return {
+        "approval_declaration": approval_declaration,
+        "guardrails_declared": guardrails,
+        "source_control_state": source_state or "not_exposed",
+        "inherited_control_source": inherited_control,
+        "per_call_approval_declaration": (
+            "declared"
+            if per_call_approval is True
+            else "not_declared"
+            if per_call_approval is False
+            else "unknown"
+        ),
+        "input_guardrails_declared": input_guardrails,
+        "output_guardrails_declared": output_guardrails,
+        "runtime_approval_enforcement": "not_verified",
+        "runtime_guardrail_enforcement": "not_verified",
     }
 
 
@@ -679,6 +725,17 @@ def _tool_relationship(
                 "reference": tool.identity,
                 "resolution": identity_binding_resolution,
             },
+            "control_assurance": _control_assurance(
+                approval=tool.approval,
+                guardrails=tool.guardrails,
+                conditional_approval=conditional_approval,
+                source_state=(
+                    tool_control_state(agent.metadata).value
+                    if tool_control_state(agent.metadata) is not None
+                    else None
+                ),
+                inherited_control=inherited_control,
+            ),
             **(
                 {"delegation_boundary": delegation_binding}
                 if delegation_binding is not None else {}
@@ -981,6 +1038,14 @@ def _mcp_relationship(
                 "reference": server.identity,
                 "resolution": identity_binding_resolution,
             },
+            "control_assurance": _control_assurance(
+                approval=server.approval,
+                guardrails=server.guardrails,
+                conditional_approval=conditional_approval,
+                per_call_approval=server.metadata.get("per_call_approval"),
+                input_guardrails=bool(server.metadata.get("tool_input_guardrails")),
+                output_guardrails=bool(server.metadata.get("tool_output_guardrails")),
+            ),
             "destination_binding_resolution": (
                 "fixed_endpoint"
                 if server.url and dimensions["destinations"] == "resolved"
@@ -1071,6 +1136,10 @@ def _skill_relationship(
         resources=tuple(_resource(resource) for resource in skill.resources),
         destinations=tuple(_destination(item) for item in skill.destinations),
         semantics={
+            "control_assurance": _control_assurance(
+                approval=None,
+                guardrails=False,
+            ),
             "binding_origin": skill.metadata.get("binding_origin"),
             "binding_source_path": skill.metadata.get("binding_source_path"),
             "source": skill.source,
