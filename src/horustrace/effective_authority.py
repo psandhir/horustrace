@@ -114,6 +114,7 @@ def _destination_target_status(target: str) -> str:
         or "{{" in normalized
         or "}}" in normalized
         or normalized.startswith("*.")
+        or "://*." in normalized
     ):
         return "partially_resolved"
     return "resolved"
