@@ -170,6 +170,46 @@ def _identity(graph: Graph, agent: Agent, name: str | None) -> Identity | None:
     return _resolve_identity_binding(graph, agent, name)[0]
 
 
+def _delegation_target_binding(graph: Graph, tool: Tool) -> dict[str, Any] | None:
+    """Describe a source-declared agent handoff without inheriting child authority."""
+    raw = tool.metadata.get("delegate_target")
+    projected = tool.metadata.get("authority_binding") == "delegation_projection"
+    if tool.kind != "delegated_agent" and not projected and raw is None:
+        return None
+
+    reference: str | None = None
+    basis = "delegate_target"
+    if isinstance(raw, str) and raw.strip():
+        reference = raw.strip()
+    elif projected and tool.name.startswith("delegate:"):
+        reference = tool.name.removeprefix("delegate:").strip() or None
+        basis = "projection_name"
+
+    matches = [
+        agent for agent in graph.agents
+        if reference is not None and agent.name == reference
+    ]
+    resolution = (
+        "unique_agent" if len(matches) == 1
+        else "ambiguous_agent" if len(matches) > 1
+        else "unresolved_agent" if reference is not None
+        else "not_declared"
+    )
+    return {
+        "target_reference": reference,
+        "reference_basis": basis if reference is not None else "not_declared",
+        "resolution": resolution,
+        "agent_instance_key": (
+            _agent_instance_key(matches[0]) if len(matches) == 1 else None
+        ),
+        # An edge proves potential invocation, never identity or IAM inheritance.
+        "child_identity_inheritance": "not_proven",
+        "child_permission_inheritance": "not_proven",
+        "child_authority_promoted": False,
+        "runtime_effectiveness": "not_verified",
+    }
+
+
 def _identity_authority_evidence(identity: Identity) -> dict[str, Any]:
     """Separate declared IAM constructs without inferring effective grants.
 
@@ -419,6 +459,8 @@ def _core_dimension_names(
     )
     if target_kind == "tool" and "source_effects" in dimensions:
         configured.append("source_effects")
+    if target_kind in {"tool", "delegation"} and "delegation_target" in dimensions:
+        configured.append("delegation_target")
     return tuple(name for name in configured if name in dimensions)
 
 
@@ -549,6 +591,13 @@ def _tool_relationship(
         "resources": _resource_scope_status(tool.resources),
         "destinations": _destination_scope_status(tool.destinations),
     }
+    delegation_binding = _delegation_target_binding(graph, tool)
+    if delegation_binding is not None:
+        dimensions["delegation_target"] = (
+            "resolved"
+            if delegation_binding["resolution"] == "unique_agent"
+            else "unknown"
+        )
     if dynamic_availability:
         dimensions["availability"] = "partially_resolved"
     if tool.metadata.get("tool_catalogue_unresolved") is True:
@@ -558,6 +607,8 @@ def _tool_relationship(
         dimensions["source_effects"] = source_effect_status
     if not tool.capabilities:
         unresolved.append("capabilities")
+    if delegation_binding is not None and dimensions["delegation_target"] != "resolved":
+        unresolved.append("delegation_target")
     if identity is None:
         unresolved.append("identity")
     if conditional_approval:
@@ -628,6 +679,10 @@ def _tool_relationship(
                 "reference": tool.identity,
                 "resolution": identity_binding_resolution,
             },
+            **(
+                {"delegation_boundary": delegation_binding}
+                if delegation_binding is not None else {}
+            ),
             "binding_origin": (
                 tool.metadata.get("binding_origin")
                 or tool.metadata.get("authority_binding_basis")
@@ -1104,10 +1159,8 @@ def _delegation_relationship(
 ) -> EffectiveAuthorityRelationship:
     """Expose source-proven delegated reachability as first-class authority."""
     base = _tool_relationship(graph, agent, tool)
-    target = str(
-        tool.metadata.get("delegate_target")
-        or tool.name.removeprefix("delegate:")
-    )
+    boundary = base.semantics.get("delegation_boundary") or {}
+    target = boundary.get("target_reference") or "<unresolved-delegation>"
     return EffectiveAuthorityRelationship(
         relationship_id=_stable_relationship_id(
             agent.name, "delegation", target
@@ -1127,6 +1180,7 @@ def _delegation_relationship(
             **base.semantics,
             "delegation_projection": True,
             "transitive": tool.metadata.get("transitive") is True,
+            "transitive_authority_verified": False,
         },
         dimensions=base.dimensions,
         unresolved=base.unresolved,
