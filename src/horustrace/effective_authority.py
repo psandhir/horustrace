@@ -783,10 +783,17 @@ def _mcp_relationship(
         "destinations": (
             _destination_target_status(server.url)
             if server.url
-            else "resolved"
-            if server.command or environment_bounded_remote
             else "partially_resolved"
             if operator_configured_remote
+            else _destination_scope_status(
+                [
+                    NetworkDestination(target=host)
+                    for host in environment_allowed_hosts
+                ]
+            )
+            if environment_bounded_remote
+            else _destination_target_status(server.command)
+            if server.command
             else "unknown"
         ),
         "tool_scope": tool_scope_status,
@@ -848,7 +855,7 @@ def _mcp_relationship(
                 "direction": "outbound",
                 "restricted": True,
                 "kind": "environment_allowed_host",
-                "target_authority_status": "resolved",
+                "target_authority_status": _destination_target_status(target),
                 "restriction_enforcement": "not_verified",
                 "constraint_basis": "managed_environment_allowed_hosts",
                 "location": _location(server.location),
@@ -862,7 +869,7 @@ def _mcp_relationship(
                 "direction": "local",
                 "restricted": True,
                 "kind": "fixed_local_command",
-                "target_authority_status": "resolved",
+                "target_authority_status": _destination_target_status(server.command),
                 "restriction_enforcement": "not_verified",
                 "args": list(server.args),
                 "location": _location(server.location),
@@ -924,10 +931,10 @@ def _mcp_relationship(
                 if server.url and dimensions["destinations"] == "resolved"
                 else "dynamic_endpoint"
                 if server.url
-                else "host_allowlist"
-                if environment_bounded_remote
                 else "operator_configured"
                 if operator_configured_remote
+                else "host_allowlist"
+                if environment_bounded_remote
                 else "local_command"
                 if server.command
                 else "dynamic_endpoint"
