@@ -541,6 +541,18 @@ def validate_agent_semantics(agent: Agent) -> list[str]:
             )
 
     for skill in agent.skills:
+        if any(not isinstance(name, str) or not name.strip() for name in skill.allowed_tools):
+            errors.append(
+                f"agent {agent.name!r} skill {skill.name!r}: "
+                "allowed_tools entries must be non-empty strings"
+            )
+        if any(not isinstance(cap, str) or not cap.strip() for cap in skill.capabilities):
+            errors.append(
+                f"agent {agent.name!r} skill {skill.name!r}: "
+                "capabilities entries must be non-empty strings"
+            )
+
+    for skill in agent.skills:
         for resource in skill.resources:
             errors.extend(
                 validate_data_resource_semantics(
@@ -548,6 +560,15 @@ def validate_agent_semantics(agent: Agent) -> list[str]:
                     owner=f"agent {agent.name!r} skill {skill.name!r}",
                 )
             )
+
+    for server in agent.mcp_servers:
+        for field in ("allowed_tools", "denied_tools"):
+            values = getattr(server, field)
+            if any(not isinstance(name, str) or not name.strip() for name in values):
+                errors.append(
+                    f"agent {agent.name!r} mcp {server.name!r}: "
+                    f"{field} entries must be non-empty strings"
+                )
 
     for server in agent.mcp_servers:
         for resource in server.resources:
