@@ -929,3 +929,48 @@ def test_fixed_destination_preserves_resolved_scope(tmp_path: Path) -> None:
             "not_verified"
         )
         assert "destination_target" not in relationship["unresolved"]
+
+
+def test_mcp_wildcard_host_allowlist_remains_unknown(tmp_path: Path) -> None:
+    graph = _graph(tmp_path)
+    server = graph.agents[0].mcp_servers[0]
+    server.url = None
+    server.metadata["network_scope"] = "environment_allowlist"
+    server.metadata["environment_allowed_hosts"] = ["*"]
+    relationship = _relationship(
+        effective_authority_report(graph), "mcp_server", "github"
+    )
+    assert relationship["dimensions"]["destinations"] == "unknown"
+    assert "destinations" in relationship["unresolved"]
+    assert relationship["semantics"]["destination_binding_resolution"] == (
+        "host_allowlist"
+    )
+    assert relationship["destinations"][0]["target"] == "*"
+    assert relationship["destinations"][0]["target_authority_status"] == "unknown"
+    assert relationship["destinations"][0]["restriction_enforcement"] == (
+        "not_verified"
+    )
+
+
+def test_mcp_dynamic_local_command_is_not_a_fixed_destination(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    server = graph.agents[0].mcp_servers[0]
+    server.url = None
+    server.command = "${MCP_COMMAND}"
+    relationship = _relationship(
+        effective_authority_report(graph), "mcp_server", "github"
+    )
+    assert relationship["dimensions"]["destinations"] == "partially_resolved"
+    assert "destination_target" in relationship["unresolved"]
+    assert relationship["semantics"]["destination_binding_resolution"] == (
+        "local_command"
+    )
+    assert relationship["destinations"][0]["target"] == "${MCP_COMMAND}"
+    assert relationship["destinations"][0]["target_authority_status"] == (
+        "partially_resolved"
+    )
+    assert relationship["destinations"][0]["restriction_enforcement"] == (
+        "not_verified"
+    )
