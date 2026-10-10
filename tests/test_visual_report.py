@@ -414,6 +414,35 @@ def test_visual_report_light_theme_pastel_bars_are_presentation_only(
     assert "--ok:#63d6a0" in html
 
 
+def test_visual_report_uses_offline_semantic_icon_design_system(tmp_path: Path) -> None:
+    graph, findings = _graph(tmp_path)
+    before = build_visual_report(graph, findings, tmp_path)
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+    after = build_visual_report(graph, findings, tmp_path)
+
+    assert before == after
+    assert "const ICONS=Object.freeze" in html
+    assert "function uiIcon(name)" in html
+    assert "Object.prototype.hasOwnProperty.call(ICONS,name)" in html
+    assert "aria-hidden=\"true\"" in html
+    for name in (
+        "overview", "agents", "findings", "policy", "owasp", "attack",
+        "contracts", "evidence",
+    ):
+        assert f'data-icon="{name}"' in html
+    assert "uiIcon(btn.dataset.icon)" in html
+    assert "uiIcon(ICON_FOR_METRIC[label]" in html
+    assert "uiIcon(ICON_FOR_SECTION[title])" in html
+    assert 'class="metric-top"' in html
+    assert 'class="metric-icon"' in html
+    assert 'class="report-context"' in html
+    assert "Agent Security Workbench" in html
+    assert "<script src=" not in html
+    assert "<link rel=" not in html
+    assert "default-src 'none'" in html
+
+
 def test_visual_report_projects_attack_path_chain(tmp_path: Path) -> None:
     location = SourceLocation(tmp_path / "agent.py", line=10)
     agent = Agent(name="Slack Agent", location=location)
