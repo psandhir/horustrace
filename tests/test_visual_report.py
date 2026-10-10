@@ -8,8 +8,8 @@ from horustrace.models import (
     AttackPath,
     AuthorityContract,
     AuthorityScope,
-    Finding,
     EvidenceFact,
+    Finding,
     Graph,
     Identity,
     NetworkDestination,
@@ -147,7 +147,7 @@ def test_visual_report_summarises_source_local_provenance_without_losing_facts(
         "origin": "observed",
         "location": {"path": "agent.py", "line": 14, "column": 1},
         "summary": (
-            "Capabilities: network.external, process.execute; "
+            "Capabilities: external network access, process execution; "
             "Controls: approval configured, guardrail hook detected"
         ),
     }]
@@ -167,7 +167,7 @@ def test_visual_report_provenance_separates_subjects_and_preserves_unknowns(
     assert location is not None
     findings[0].provenance = [
         EvidenceFact("tool_a", "approval_configuration=None", "observed", location),
-        EvidenceFact("tool_a", "guardrail_hook_detected=False", "observed", location),
+        EvidenceFact("tool_a", "guardrail_hook_detected=False", "inferred", location),
         EvidenceFact("tool_b", "capability=data.write", "observed", location),
         EvidenceFact("tool_c", "capability=network.external", "observed", location),
         EvidenceFact("unrelated", "capability=process.execute", "observed",
@@ -183,6 +183,9 @@ def test_visual_report_provenance_separates_subjects_and_preserves_unknowns(
     by_subject = {item["subject"]: item["summary"] for item in digest["items"]}
     assert "approval configuration unresolved" in by_subject["tool_a"]
     assert "guardrail hook not detected" in by_subject["tool_a"]
+    assert next(item for item in digest["items"] if item["subject"] == "tool_a")[
+        "origin"
+    ] == "observed + inferred"
     assert "unrelated" not in str(digest)
 
 
