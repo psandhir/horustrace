@@ -549,6 +549,11 @@ svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} 
 .authority-chart-row .severity-chart-fill.fully_resolved{{background:var(--accent)}}
 .authority-chart-row .severity-chart-fill.partially_resolved{{background:var(--warn)}}
 .authority-chart-row .severity-chart-fill.unknown{{background:var(--unknown)}}
+.owasp-chart{{margin-bottom:15px}}
+.owasp-chart-row .severity-chart-fill.finding{{background:var(--critical)}}
+.owasp-chart-row .severity-chart-fill.no_runtime_findings{{background:var(--medium)}}
+.owasp-chart-row .severity-chart-fill.no_mapped_findings{{background:var(--accent)}}
+.owasp-chart-row .severity-chart-fill.not_assessed{{background:var(--unknown)}}
 .coverage-track{{height:8px;background:#09101e;border-radius:999px;overflow:hidden;border:1px solid var(--line);margin-top:9px}} .coverage-fill{{height:100%;background:var(--ok);border-radius:inherit}} .footer{{color:var(--muted2);font-size:10px;margin:30px 0 3px;padding-top:14px;border-top:1px solid #ffffff0a}}
 @media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}
 @media(max-width:1000px){{.shell{{grid-template-columns:220px minmax(0,1fr)}} main{{padding:26px 24px}} .graph-wrap{{grid-template-columns:1fr}} .inspector{{max-height:280px}}}}
@@ -665,6 +670,20 @@ function findingCard(f){{
  (f.recommendation?'<details><summary>Remediation</summary><p>'+esc(f.recommendation)+'</p></details>':"")+'</article>';
 }}
 
+function owaspAssessmentChart(categories){{
+ const statuses=[["finding","Runtime findings"],["no_runtime_findings","Non-runtime mapped findings"],["no_mapped_findings","No mapped findings"],["not_assessed","Not assessed"]];
+ if(!categories.length)return '<div class="empty">No OWASP assessment categories were supplied with this report.</div>';
+ const max=Math.max(1,...statuses.map(([key])=>categories.filter(c=>owaspStatusLabel(c).replaceAll(" ","_")===key).length));
+ const rows=statuses.map(([key,label])=>{{
+  const count=categories.filter(c=>owaspStatusLabel(c).replaceAll(" ","_")===key).length;
+  const width=count?Math.max(3,Math.round(100*count/max)):0;
+  return '<button type="button" class="severity-chart-row authority-chart-row owasp-chart-row" data-drill="owasp:status.'+key+'" aria-label="'+esc(label)+': '+number(count)+' of '+number(categories.length)+' OWASP categories. View matching categories.">'+
+   '<span class="severity-chart-head"><span class="severity-chart-label">'+esc(label)+'</span><span class="severity-chart-count">'+number(count)+' / '+number(categories.length)+'</span></span>'+
+   '<span class="severity-chart-track" aria-hidden="true"><span class="severity-chart-fill '+key+'" style="width:'+width+'%"></span></span></button>';
+ }}).join("");
+ return '<div class="severity-chart owasp-chart" role="group" aria-label="OWASP Agentic Top 10 assessment states">'+rows+
+ '<p class="severity-chart-caption">Detector coverage is not proof of security. Not assessed means no enabled mapped detector; no mapped findings does not imply safe.</p></div>';
+}}
 function renderDashboard(){{
  const s=DATA.summary,state=assessmentState(s),root=document.getElementById("dashboard");
  const attention=DATA.agents.filter(a=>a.summary.findings||a.summary.contract_violations||a.summary.contract_unresolved||a.summary.attack_paths).sort((a,b)=>agentPriority(b)-agentPriority(a)).slice(0,10);
@@ -676,6 +695,7 @@ function renderDashboard(){{
  '<div class="cards">'+metric("Active findings",s.findings,(s.severity?.critical||s.severity?.high)?"high":"","Critical "+number(s.severity?.critical||0)+" · High "+number(s.severity?.high||0))+metric("Policy violations",s.policy_violations,s.policy_violations?"critical":"","policy:all","Configured HorusTrace policy rules")+metric("Contract violations",s.contract_violations,s.contract_violations?"critical":"","contracts:violation",number(s.contract_unresolved)+" unresolved checks")+metric("OWASP categories with findings",s.owasp_categories_with_findings,s.owasp_categories_with_findings?"warn":"","owasp:all",number(s.owasp_categories_not_assessed)+" not assessed")+metric("Agents",s.agents,"","agents:all",number(s.write_capable_relationships)+" write-capable relationships")+metric("Attack paths",s.attack_paths,"","attack:all","Static evidence; exploitability not verified")+'</div>'+
  sectionHead("Priority review queue","Agents ordered by static review priority.")+agentTable(attention)+
  '<div class="grid2"><div>'+sectionHead("Finding severity","Active findings by scanner severity.") +severityChart(s.severity)+'</div><div>'+sectionHead("Effective agency","Reconstructed authority and destination scope.")+authorityResolutionChart(DATA.agents)+'<div class="panel">'+drillList([drillRow("Authority relationships",s.authority_relationships,"agents:authority"),drillRow("Not fully resolved",s.authority_not_fully_resolved,"agents:unresolved","warn"),drillRow("Write-capable relationships",s.write_capable_relationships,"agents:write"),drillRow("Unique destinations",s.destinations,"agents:destinations")])+'</div></div></div>'+
+ sectionHead("OWASP assessment states","Mapped detector coverage and finding categories; not an assurance score.")+owaspAssessmentChart(DATA.owasp_agentic.categories||[])+
  '<div class="grid2"><div>'+sectionHead("Environment inventory","Security-relevant components found in the scan.")+'<div class="cards">'+metric("Tools",s.tools,"","agents:tools")+metric("Skills",s.skills,"","agents:skills",number(s.bound_skills)+" bound · "+number(s.unbound_skills)+" unbound")+metric("MCP servers",s.mcp_servers,"","agents:mcp")+metric("Identities",s.identities,"","agents:identities")+metric("Resources",s.resources,"","agents:resources")+'</div></div><div>'+sectionHead("Agent contracts","Declared authority compared with effective authority.")+'<div class="panel">'+drillList(['<div class="drill-row" style="cursor:default"><span>Overall status</span><span>'+badge(DATA.assurance.authority_contract.status)+'</span></div>',drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),drillRow("Violations",s.contract_violations,"contracts:violation","critical"),drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")])+'</div></div></div>';
  bindDashboardDrill(root);bindAgentRows(root);
 }}
@@ -933,9 +953,12 @@ function owaspStatusLabel(item){{
 }}
 function renderOwasp(risk="all"){{
  const report=DATA.owasp_agentic,categories=report.categories||[];
- const rows=categories.map(item=>'<tr class="clickable" role="button" tabindex="0" data-owasp="'+esc(item.id)+'"><td><div class="row-title">'+esc(item.id)+" "+esc(item.title)+'</div><div class="row-sub">'+esc((item.mapped_rules||[]).join(", ")||"no enabled mapped detector")+'</div></td><td>'+badge(owaspStatusLabel(item).replaceAll(" ","_"))+'</td><td>'+number(item.runtime_finding_count)+'</td><td>'+number(item.finding_count)+'</td><td>'+esc(item.highest_severity||"—")+'</td><td>'+number((item.affected_agents||[]).length)+'</td></tr>').join("");
- const selected=risk!=="all"?categories.find(item=>item.id===risk):null;
+ const statusMode=String(risk).startsWith("status.")?String(risk).slice(7):null;
+ const shownCategories=statusMode?categories.filter(item=>owaspStatusLabel(item).replaceAll(" ","_")===statusMode):categories;
+ const rows=shownCategories.map(item=>'<tr class="clickable" role="button" tabindex="0" data-owasp="'+esc(item.id)+'"><td><div class="row-title">'+esc(item.id)+" "+esc(item.title)+'</div><div class="row-sub">'+esc((item.mapped_rules||[]).join(", ")||"no enabled mapped detector")+'</div></td><td>'+badge(owaspStatusLabel(item).replaceAll(" ","_"))+'</td><td>'+number(item.runtime_finding_count)+'</td><td>'+number(item.finding_count)+'</td><td>'+esc(item.highest_severity||"—")+'</td><td>'+number((item.affected_agents||[]).length)+'</td></tr>').join("");
+ const selected=risk!=="all"&&!statusMode?categories.find(item=>item.id===risk):null;
  const mapped=selected?DATA.findings.filter(f=>(f.standards?.owasp_agentic||[]).includes(selected.id)):[];
+ const scope=statusMode?'<div class="filter-banner"><span>Assessment filter: '+esc(statusMode.replaceAll("_"," "))+' · '+number(shownCategories.length)+' categories</span><button class="back" id="owasp-clear">Show all categories</button></div>':"";
  const detail=selected?sectionHead(selected.id+" "+selected.title,"Mapped detector evidence for the selected OWASP category.",'<button class="back" id="owasp-clear">Show all</button>')+
    '<div class="cards">'+metric("Total findings",selected.finding_count)+metric("Runtime findings",selected.runtime_finding_count)+metric("Affected agents",(selected.affected_agents||[]).length)+metric("Enabled mapped rules",(selected.mapped_rules||[]).length)+'</div>'+
    (mapped.length?mapped.map(findingCard).join(""):'<div class="empty">No mapped findings fired for this category.</div>'):"";
@@ -943,7 +966,7 @@ function renderOwasp(risk="all"){{
  const root=document.getElementById("owasp");
  root.innerHTML=pageHead("Standards posture","OWASP Agentic Top 10","Detector-level status for every OWASP Top 10 for Agentic Applications 2026 category. NOT ASSESSED means HorusTrace has no enabled mapped detector.",badge(a.status))+
  '<div class="cards">'+metric("Categories with findings",a.categories_with_findings,a.categories_with_findings?"warn":"")+metric("Runtime finding categories",a.categories_with_runtime_findings)+metric("Mapped detector categories",a.categories_with_mapped_detectors)+metric("Not assessed",a.categories_not_assessed,a.categories_not_assessed?"warn":"")+'</div>'+
- '<div class="panel flush table-wrap"><table><thead><tr><th>OWASP category</th><th>Status</th><th>Runtime findings</th><th>Total findings</th><th>Highest</th><th>Agents</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+detail;
+ scope+'<div class="panel flush table-wrap"><table><thead><tr><th>OWASP category</th><th>Status</th><th>Runtime findings</th><th>Total findings</th><th>Highest</th><th>Agents</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+detail;
  root.querySelectorAll("[data-owasp]").forEach(row=>{{const activate=()=>renderOwasp(row.dataset.owasp);row.addEventListener("click",activate);row.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});}});
  const clear=root.querySelector("#owasp-clear");if(clear)clear.addEventListener("click",()=>renderOwasp("all"));
 }}
