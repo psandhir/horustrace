@@ -493,11 +493,11 @@ def render_visual_report_html(
 --radius:12px;--radius-lg:16px}}
 
 /* Light is the default. Dark remains available without network, dependencies or rebuild. */
-html[data-theme="light"]{{--bg:#f5f7fb;--sidebar:#ffffff;--surface:#ffffff;--surface2:#edf3fa;
---surface3:#eaf0f7;--text:#18273f;--muted:#4f6077;--muted2:#627189;
---line:#d8e1eb;--line-strong:#b6c7da;--accent:#205caa;--accent-soft:#e8f1ff;
---critical:#aa2637;--high:#994718;--medium:#855900;--low:#175f9a;
---ok:#166743;--warn:#785209;--unknown:#52617a;--shadow:0 12px 32px #20355010;
+html[data-theme="light"]{{--bg:#f8fafc;--sidebar:#ffffff;--surface:#ffffff;--surface2:#f0f4f8;
+--surface3:#edf2f7;--text:#1b2b46;--muted:#54647a;--muted2:#68778e;
+--line:#dce4ec;--line-strong:#bfcddb;--accent:#285f99;--accent-soft:#ecf3fb;
+--critical:#b12645;--high:#244068;--medium:#244068;--low:#245b58;
+--ok:#196a50;--warn:#244068;--unknown:#53647c;--shadow:0 12px 32px #2035500d;
 color-scheme:light}}
 html[data-theme="dark"]{{color-scheme:dark}}
 .theme-switch{{padding:11px 8px 15px;display:flex;flex-direction:column;gap:6px}}
@@ -515,19 +515,19 @@ html[data-theme="light"] .nav button.active{{border-color:#c7dbf2}}
 html[data-theme="light"] .nav button.active::before{{box-shadow:0 0 0 4px #205caa16}}
 html[data-theme="light"] .assessment-banner{{background:linear-gradient(135deg,#fff,#f1f6fc);border-color:var(--line-strong)}}
 html[data-theme="light"] .assessment-banner.critical{{background:linear-gradient(135deg,#fff2f3,#fff)}}
-html[data-theme="light"] .assessment-banner.high{{background:linear-gradient(135deg,#fff4ed,#fff)}}
-html[data-theme="light"] .assessment-banner.warn{{background:linear-gradient(135deg,#fff9e6,#fff)}}
+html[data-theme="light"] .assessment-banner.high{{background:linear-gradient(135deg,#fff7f7,#fff)}}
+html[data-theme="light"] .assessment-banner.warn{{background:linear-gradient(135deg,#f2f6fc,#fff)}}
 html[data-theme="light"] .card{{box-shadow:0 5px 18px #20355008}}
 html[data-theme="light"] .card.drill:hover{{border-color:var(--line-strong)}}
 html[data-theme="light"] th{{background:#eef3f9}}
 html[data-theme="light"] tr.clickable:hover,html[data-theme="light"] .drill-row:hover{{background:#eaf2fc}}
 html[data-theme="light"] .badge{{background:#edf3fa}}
 html[data-theme="light"] .badge.critical{{border-color:#e5aab4}}
-html[data-theme="light"] .badge.high{{border-color:#dfaf91}}
-html[data-theme="light"] .badge.medium{{border-color:#dbc284}}
+html[data-theme="light"] .badge.high{{border-color:#e6c4d0}}
+html[data-theme="light"] .badge.medium{{border-color:#dfd1db}}
 html[data-theme="light"] .badge.violation{{background:#fff1f3;border-color:#e9b3bc}}
 html[data-theme="light"] .badge.compliant{{background:#eaf7ef;border-color:#a1d5b8}}
-html[data-theme="light"] .badge.unresolved{{background:#fff8e8;border-color:#dfc891}}
+html[data-theme="light"] .badge.unresolved{{background:#f1f5fa;border-color:#d5dfe8}}
 html[data-theme="light"] .badge.declared{{border-color:#b4c9eb}}
 html[data-theme="light"] .filter-chip.active{{border-color:#acc5e5}}
 html[data-theme="light"] .filter-banner{{background:#edf4fc;border-color:var(--line-strong)}}
@@ -543,7 +543,7 @@ html[data-theme="light"] .node rect{{fill:#edf3fb;stroke:#7895b8}}
 html[data-theme="light"] .node.agent rect{{fill:#e1edff;stroke:#306fba}}
 html[data-theme="light"] .node.identity rect{{fill:#f0e8fa;stroke:#8063ae}}
 html[data-theme="light"] .node.resource rect{{fill:#e3f5eb;stroke:#388562}}
-html[data-theme="light"] .node.destination rect{{fill:#fff0df;stroke:#a86a2b}}
+html[data-theme="light"] .node.destination rect{{fill:#fff0f2;stroke:#bb768c}}
 html[data-theme="light"] .path-step{{background:var(--surface3)}}
 html[data-theme="light"] .empty{{background:#f3f7fb}}
 html[data-theme="light"] .coverage-track{{background:#e5edf6}}
@@ -614,7 +614,7 @@ svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} 
 .owasp-chart-row .severity-chart-fill.not_assessed{{background:var(--unknown)}}
 .coverage-track{{height:8px;background:#09101e;border-radius:999px;overflow:hidden;border:1px solid var(--line);margin-top:9px}} .coverage-fill{{height:100%;background:var(--ok);border-radius:inherit}} .footer{{color:var(--muted2);font-size:10px;margin:30px 0 3px;padding-top:14px;border-top:1px solid #ffffff0a}}
 /* Soft presentation-style status bars, light theme only. Semantic text remains contrast-safe. */
-html[data-theme="light"]{{--bar-risk:#EFB7B7;--bar-warning:#F4D1AE;--bar-good:#BFDCC8;--bar-unknown:#C7D0DB}}
+html[data-theme="light"]{{--bar-risk:#EFB5C2;--bar-warning:#F6D4C8;--bar-good:#B9DECD;--bar-unknown:#CED9E4}}
 html[data-theme="light"] .severity-chart-track{{background:#EFF2F6}}
 html[data-theme="light"] .severity-chart-fill{{box-shadow:inset 0 0 0 1px #31415912}}
 html[data-theme="light"] .severity-chart-fill.critical{{background:var(--bar-risk)}}
@@ -642,7 +642,7 @@ html[data-theme="light"] .severity-chart-row[data-tone="finding"][data-present="
 html[data-theme="light"] .severity-chart-row[data-tone="high"][data-present="true"],
 html[data-theme="light"] .severity-chart-row[data-tone="medium"][data-present="true"],
 html[data-theme="light"] .severity-chart-row[data-tone="partially_resolved"][data-present="true"],
-html[data-theme="light"] .severity-chart-row[data-tone="no_runtime_findings"][data-present="true"]{{background:#fff8f1}}
+html[data-theme="light"] .severity-chart-row[data-tone="no_runtime_findings"][data-present="true"]{{background:#fff9f7}}
 html[data-theme="light"] .severity-chart-row[data-tone="low"][data-present="true"],
 html[data-theme="light"] .severity-chart-row[data-tone="fully_resolved"][data-present="true"],
 html[data-theme="light"] .severity-chart-row[data-tone="no_mapped_findings"][data-present="true"]{{background:#f4faf6}}
@@ -659,10 +659,10 @@ html[data-theme="light"] .severity-chart-row[data-tone="no_runtime_findings"] .s
 html[data-theme="light"] .severity-chart-row[data-tone="low"] .severity-chart-label::before,
 html[data-theme="light"] .severity-chart-row[data-tone="fully_resolved"] .severity-chart-label::before,
 html[data-theme="light"] .severity-chart-row[data-tone="no_mapped_findings"] .severity-chart-label::before{{background:var(--bar-good)}}
-html[data-theme="light"] .badge.critical,html[data-theme="light"] .badge.violation{{background:#fde9eb;border-color:#efb7b7}}
-html[data-theme="light"] .badge.high,html[data-theme="light"] .badge.medium,
-html[data-theme="light"] .badge.unresolved{{background:#fff1df;border-color:#f4d1ae}}
-html[data-theme="light"] .badge.compliant{{background:#e8f6ed;border-color:#bfdcc8}}
+html[data-theme="light"] .badge.critical,html[data-theme="light"] .badge.violation{{background:#fdebf0;border-color:#efb5c2}}
+html[data-theme="light"] .badge.high,html[data-theme="light"] .badge.medium{{background:#fff4f1;border-color:#f6d4c8}}
+html[data-theme="light"] .badge.unresolved{{background:#f1f5fa;border-color:#d5dfe8}}
+html[data-theme="light"] .badge.compliant{{background:#eaf7f0;border-color:#b9decd}}
 
 @media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}
 @media(max-width:1000px){{.shell{{grid-template-columns:220px minmax(0,1fr)}} main{{padding:26px 24px}} .graph-wrap{{grid-template-columns:1fr}} .inspector{{max-height:280px}}}}
