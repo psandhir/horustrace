@@ -168,29 +168,41 @@ def _attack_path_view(
 
 
 def _finding_provenance_digest(finding: Finding, root: Path) -> dict[str, Any]:
-    """Summarise source-local facts for humans without altering audit evidence.
+    """Summarise attributed source facts without conflating different locations.
 
-    Findings may carry an agent's complete provenance context. Only facts at
-    the finding's own source line are suitable for an inline explanation;
-    other facts remain available in the full provenance drill-down.
+    A fact at the finding's own location is immediately relevant. For a
+    cross-file rule (e.g., denied policy plus observed tool capability), we
+    also show separately located facts when their subject/value appears in
+    the finding's explanation. Raw facts remain available for audit.
     """
     location = finding.location
-    if location is None:
-        return {"items": [], "additional_contexts": 0}
-
-    grouped: dict[str, list[Any]] = {}
-    for fact in finding.provenance:
-        source = fact.location
-        if (source is None or source.path != location.path
-                or source.line != location.line
-                or fact.fact == "agent_configuration_detected"):
-            continue
-        grouped.setdefault(fact.subject, []).append(fact)
-
-    items: list[dict[str, Any]] = []
     search_text = " ".join(
         [finding.title, finding.message, *finding.evidence]
     ).lower()
+    grouped: dict[tuple[str, str, int, int], list[Any]] = {}
+    for fact in finding.provenance:
+        source = fact.location
+        if source is None or fact.fact == "agent_configuration_detected":
+            continue
+        same_source = (
+            location is not None
+            and source.path == location.path
+            and source.line == location.line
+        )
+        subject_relevant = (
+            len(fact.subject) > 2 and fact.subject.lower() in search_text
+        )
+        value_relevant = (
+            "=" in fact.fact
+            and len(fact.fact.split("=", 1)[1]) > 2
+            and fact.fact.split("=", 1)[1].lower() in search_text
+        )
+        if not (same_source or subject_relevant or value_relevant):
+            continue
+        key = (fact.subject, str(source.path), source.line, source.column)
+        grouped.setdefault(key, []).append(fact)
+
+    items: list[dict[str, Any]] = []
     capability_labels = {
         "network.external": "external network access",
         "process.execute": "process execution",
@@ -199,7 +211,7 @@ def _finding_provenance_digest(finding: Finding, root: Path) -> dict[str, Any]:
         "external.write": "external writes",
         "computer.control": "computer control",
     }
-    for subject, source_facts in grouped.items():
+    for (subject, path, line, column), source_facts in grouped.items():
         raw_facts = [fact.fact for fact in source_facts]
         origin = " + ".join(dict.fromkeys(fact.origin for fact in source_facts))
         capabilities: list[str] = []
@@ -258,9 +270,9 @@ def _finding_provenance_digest(finding: Finding, root: Path) -> dict[str, Any]:
             "subject": subject,
             "origin": origin,
             "location": {
-                "path": _relative_path(str(location.path), root),
-                "line": location.line,
-                "column": location.column,
+                "path": _relative_path(path, root),
+                "line": line,
+                "column": column,
             },
             "summary": "; ".join(parts),
             "_relevance": relevance,
