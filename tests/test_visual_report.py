@@ -223,11 +223,11 @@ def test_visual_report_has_interactive_severity_chart(tmp_path: Path) -> None:
 
     assert 'function severityChart(s)' in html
     assert 'aria-label="Findings by scanner severity"' in html
-    assert 'class="severity-chart-row" role="button" tabindex="0"' in html
+    assert 'class="severity-chart-row" data-tone="\'+key+\'"' in html
     assert 'data-drill="findings:' in html
     assert '["low","Low"],["info","Info"]' in html
     assert 'filters=["all","critical","high","medium","low","info"]' in html
-    assert "Static scan evidence only; exploitability is not verified." in html
+    assert "Filled bars represent detected findings; exploitability is not verified." in html
     assert report["summary"]["severity"] == {
         "critical": 0,
         "high": 1,
