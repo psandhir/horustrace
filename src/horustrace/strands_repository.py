@@ -592,9 +592,12 @@ def _agentcore_runtime_invocation(function: ast.AST) -> bool:
             for target in child.targets:
                 if isinstance(target, ast.Name):
                     url_assignments[target.id] = child.value
-        elif isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
-            if child.value is not None:
-                url_assignments[child.target.id] = child.value
+        elif (
+            isinstance(child, ast.AnnAssign)
+            and isinstance(child.target, ast.Name)
+            and child.value is not None
+        ):
+            url_assignments[child.target.id] = child.value
 
     def endpoint_text(expression: ast.AST) -> str:
         # One repository-local assignment is sufficient for source-backed
