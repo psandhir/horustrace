@@ -206,11 +206,10 @@ def _relevant_provenance(agent, finding, attack_path):
             if destination.target in nodes:
                 add(destination, lambda fact: key_is(
                     fact, "destination", "restriction_declaration"))
-        if finding.rule_id == "PATH003":
-            # Co-occurrence PATH003 uses a generic destination label; when
-            # present the broad agent egress declaration qualifies that leg.
-            if "external destination" in nodes:
-                broad_destinations()
+        # Co-occurrence PATH003 uses a generic destination label; when
+        # present the broad agent egress declaration qualifies that leg.
+        if finding.rule_id == "PATH003" and "external destination" in nodes:
+            broad_destinations()
         return result
 
     # Generic conservative fallback for other rules: match explicit evidence
@@ -232,7 +231,8 @@ def _relevant_provenance(agent, finding, attack_path):
             and getattr(entity, "location", None) == finding.location
         )
         named = getattr(entity, "name", None) in tokens
-        add(entity, lambda fact: fact.fact in tokens or (
+        add(entity, lambda fact, named=named, exact_location=exact_location:
+            fact.fact in tokens or (
             named and key_is(fact, "capability", "approval_configuration",
                              "guardrail_hook_detected", "transport", "role", "permission")
         ) or (
