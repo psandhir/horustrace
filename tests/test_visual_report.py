@@ -134,7 +134,11 @@ def test_visual_report_component_inventory_preserves_binding_and_controls(
 
     html = render_visual_report_html(graph, findings, tmp_path)
     assert 'data-view="components"' in html
-    assert 'function renderComponents(kind="mcp",selectedId=null)' in html
+    assert 'function renderComponents(kind="mcp",selectedId=null,agentScope=null)' in html
+    assert 'data-inventory-open' in html
+    assert 'data-inventory-agent-findings' in html
+    assert 'data-inventory-supply' in html
+    assert 'data-agent-inventory' in html
     assert 'data-inventory-row' in html
     assert 'data-inventory-agent' in html
     assert 'components:mcp' in html
