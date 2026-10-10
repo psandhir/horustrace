@@ -614,7 +614,18 @@ def validate_agent_semantics(agent: Agent) -> list[str]:
 
 
 def validate_graph_semantics(graph: Graph) -> list[str]:
+    """Validate shared semantics for bound AND inventory-only discoveries.
+
+    Unbound components are first-class inventory evidence; rejecting invalid
+    canonical fields must not require inventing an agent binding.
+    """
     errors: list[str] = []
     for agent in graph.agents:
         errors.extend(validate_agent_semantics(agent))
+    for tool in graph.unbound_tools:
+        errors.extend(validate_agent_semantics(Agent(name="<unbound_tool>", tools=[tool])))
+    for skill in graph.unbound_skills:
+        errors.extend(validate_agent_semantics(Agent(name="<unbound_skill>", skills=[skill])))
+    for server in [*graph.unbound_mcp_servers, *graph.unresolved_mcp_references]:
+        errors.extend(validate_agent_semantics(Agent(name="<unbound_mcp>", mcp_servers=[server])))
     return errors
