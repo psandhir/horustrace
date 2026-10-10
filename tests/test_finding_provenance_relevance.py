@@ -179,3 +179,40 @@ def test_generic_finding_at_agent_location_does_not_inherit_other_tools():
     attach_findings(graph, [generic])
     assert len(generic.provenance) < len(context(graph.agents[0]))
     assert not any("unrelated_" in fact.fact for fact in generic.provenance)
+
+
+def test_delegated_path_omits_unrelated_child_capabilities_and_approvals():
+    graph, findings = _fixture()
+    agent = graph.agents[0]
+    location = SourceLocation(Path("agent.py"), line=26)
+    delegate = Tool(
+        name="delegate:worker",
+        kind="delegated_agent",
+        location=location,
+        provenance=[
+            EvidenceFact("shell", "capability=process.execute", "observed", location),
+            EvidenceFact("shell", "approval_configuration=None", "observed", location),
+            EvidenceFact("publish", "capability=external.write", "observed", location),
+            EvidenceFact("publish", "approval_configuration=False", "observed", location),
+            EvidenceFact("publish", "guardrail_hook_detected=False", "observed", location),
+        ],
+    )
+    agent.tools.append(delegate)
+    nodes = ["finance", "demo", "delegate:worker", "external destination"]
+    graph.attack_paths.append(AttackPath(
+        path_id="PATH003", title="Delegated external write", agent="demo",
+        nodes=nodes, severity=Severity.CRITICAL, rationale="Potential authority",
+        location=location, metadata={"basis": "capability_cooccurrence"},
+    ))
+    delegated = Finding(
+        rule_id="PATH003", severity=Severity.CRITICAL, title="Delegated",
+        message="Delegated", recommendation="Review", layer=5,
+        agent="demo", location=location, evidence=[" -> ".join(nodes)],
+    )
+    attach_findings(graph, [delegated])
+    supporting = {(f.subject, f.fact) for f in delegated.provenance}
+    assert ("publish", "capability=external.write") in supporting
+    assert ("publish", "approval_configuration=False") in supporting
+    assert ("shell", "capability=process.execute") not in supporting
+    assert ("shell", "approval_configuration=None") not in supporting
+
