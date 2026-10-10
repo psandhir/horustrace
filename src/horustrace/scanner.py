@@ -169,10 +169,13 @@ _NON_AGENT_FLOW_CONTEXTS = {
 
 
 def _annotate_authority_source_contexts(graph: Graph, root: Path) -> None:
-    """Attach scan-root-relative source context to normalized agents."""
+    """Attach scan-root-relative context to agents and MCP inventory entries."""
     for agent in graph.agents:
         path = agent.location.path if agent.location is not None else None
         set_source_context(agent.metadata, classify_source_context(path, root=root))
+    for server in [*graph.all_mcp_servers(), *graph.unresolved_mcp_references]:
+        path = server.location.path if server.location is not None else None
+        set_source_context(server.metadata, classify_source_context(path, root=root))
 
 
 def _finding_source_context(graph: Graph, finding: object, root: Path) -> str:
@@ -2890,7 +2893,8 @@ def _scan(
         for reachability in AgentReachability
     }
 
-    mcp_unresolved = unresolved_mcp_summary(graph)["summary"]
+    _annotate_authority_source_contexts(graph, analysis_root)
+    mcp_unresolved = unresolved_mcp_summary(graph, root=analysis_root)["summary"]
 
     graph.coverage.resolution = {
         "tools": {
@@ -2968,7 +2972,6 @@ def _scan(
     if skill_llm_semantic_stats is not None:
         graph.coverage.resolution["skill_semantic_llm"] = skill_llm_semantic_stats
 
-    _annotate_authority_source_contexts(graph, analysis_root)
     annotate_risk_semantics(graph)
     graph.attack_paths = build_attack_paths(graph)
     for attack_path in graph.attack_paths:
