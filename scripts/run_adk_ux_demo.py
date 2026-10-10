@@ -139,6 +139,20 @@ def produce_report(output_dir: Path) -> tuple[dict, list[str]]:
         "policy_violations", "contract_violations",
     ):
         lines.append(f"| {label.replace('_', ' ').capitalize()} | {results[label]} |")
+    lines.extend(["", "## Findings by severity", "", "| Severity | Findings | Distribution |", "| --- | ---: | --- |"])
+    severity = summary["severity"]
+    max_severity = max((severity.get(level, 0) for level in ("critical", "high", "medium", "low", "info")), default=0)
+    for level in ("critical", "high", "medium", "low", "info"):
+        count = severity.get(level, 0)
+        width = round(count / max_severity * 12) if max_severity else 0
+        # A text-only preview is safe to render directly in a GitHub Actions job summary.
+        lines.append(f"| {level.title()} | {count} | {'▰' * width}{'▱' * (12 - width)} |")
+
+    lines.extend(["", "## Authority-resolution evidence", "", "| Status | Relationships |", "| --- | ---: |"])
+    resolutions = [rel.get("resolution") for agent in report["agents"] for rel in agent.get("effective_authority", [])]
+    for status in ("fully_resolved", "partially_resolved", "unknown"):
+        lines.append(f"| {status.replace('_', ' ').title()} | {resolutions.count(status)} |")
+
     lines.extend(["", "## OWASP risk categories with runtime-mapped findings", ""])
     lines.extend(f"- {name}" for name in results["owasp_risk_categories"])
     if not results["owasp_risk_categories"]:
