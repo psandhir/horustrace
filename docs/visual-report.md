@@ -67,7 +67,21 @@ an agent. Every discovered agent has a security profile with six views:
 
 The report also includes repository-level findings, organisation-policy posture,
 OWASP Top 10 status, attack paths, contract posture, and scan-coverage diagnostics.
-Finding cards show their assessment class and any OWASP mappings. Navigation,
+Finding cards show their assessment class, OWASP mappings, and a short
+**source context** summary when the finding has provenance at its exact source
+location. Repeated capability and control attributes for the same subject are
+combined into one line, distinguishing observed, declared, and inferred evidence.
+Approval and guardrail observations describe static configuration, not proven
+runtime enforcement. Only two relevant source-context groups are shown inline;
+the **finding-specific** provenance list and the finding's original evidence
+remain in separate collapsed disclosures for technical review. The complete,
+unchanged set of source facts for an agent remains separately available under
+its **Evidence → Full agent evidence inventory** disclosure. Findings never
+inherit all facts belonging to the agent: association uses rule evidence,
+source references and matched attack-path nodes. If an association is unresolved,
+no unrelated facts are substituted as proof.
+
+Navigation,
 drill-down rows, and filters are keyboard
 accessible; full-screen agency maps can be dismissed with Escape; and reduced-motion
 preferences are respected.

@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from collections import Counter
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -116,6 +117,8 @@ def _destination_target_status(target: str) -> str:
     if (
         (normalized.startswith("<") and normalized.endswith(">"))
         or "${" in normalized
+        # Source f-string placeholders (e.g. {region}) are not fixed hosts.
+        or re.search(r"(?<!\{)\{[a-z_][a-z0-9_.:-]*\}(?!\})", normalized)
         or "{{" in normalized
         or "}}" in normalized
         or normalized.startswith("*.")
