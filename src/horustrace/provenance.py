@@ -95,6 +95,190 @@ def context(agent):
     return facts
 
 
+
+def _evidence_values(finding, key):
+    """Read rule evidence without treating arbitrary message text as a source reference."""
+    values = []
+    prefix = key + "="
+    for item in finding.evidence:
+        if item.startswith(prefix):
+            values.extend(value.strip() for value in item[len(prefix):].split(",") if value.strip())
+    return set(values)
+
+
+def _relevant_provenance(agent, finding, attack_path):
+    """Attach facts supporting this finding; never substitute the agent-wide inventory.
+
+    Rule-evidence names and path nodes are explicit references. Matching the
+    finding's agent location alone is insufficient: many different entities
+    may share that location, particularly manifest-derived constructs.
+    """
+    result = []
+
+    def add(entity, predicate=None):
+        if entity is None:
+            return
+        for fact in getattr(entity, "provenance", ()):
+            if (predicate is None or predicate(fact)) and fact not in result:
+                result.append(fact)
+
+    def key_is(fact, *keys):
+        return any(fact.fact.startswith(key + "=") for key in keys)
+
+    def capability_is(fact, allowed):
+        return fact.fact.startswith("capability=") and fact.fact[11:] in allowed
+
+    def source_named(names):
+        for source in agent.sensitive_data_sources:
+            if source.name in names or source.selector in names:
+                add(source, lambda fact: key_is(fact, "classification", "capability", "resource_selector"))
+
+    def outbound_fact_selector(tool):
+        # Delegated tools can carry provenance from every child construct.
+        # Keep only the child subjects with actual outbound evidence.
+        outbound_subjects = {
+            fact.subject for fact in tool.provenance
+            if capability_is(fact, {"network.external", "external.write"})
+            or fact.fact in {
+                "transport=streamable-http", "transport=streamable_http",
+                "transport=sse", "transport=http",
+            }
+        }
+        return lambda fact: (
+            capability_is(fact, {"network.external", "external.write"})
+            or (
+                fact.subject in outbound_subjects
+                and key_is(fact, "approval_configuration",
+                           "guardrail_hook_detected", "transport")
+            )
+        )
+
+    def outbound_named(names):
+        for tool in agent.tools:
+            if tool.name in names:
+                add(tool, outbound_fact_selector(tool))
+                for destination in tool.destinations:
+                    add(destination, lambda fact: key_is(fact, "destination"))
+        for server in agent.mcp_servers:
+            if server.name in names:
+                add(server, lambda fact: key_is(fact, "transport", "approval_configuration"))
+
+    def broad_destinations():
+        for destination in agent.network:
+            if not destination.restricted or destination.target in {"*", "**"}:
+                add(destination, lambda fact: key_is(fact, "destination", "restriction_declaration"))
+        for tool in agent.tools:
+            for destination in tool.destinations:
+                if not destination.restricted or destination.target in {"*", "**"}:
+                    add(destination, lambda fact: key_is(fact, "destination", "restriction_declaration"))
+
+    if finding.rule_id == "CAP002":
+        denied = _evidence_values(finding, "denied")
+        add(agent.policy, lambda fact: fact.fact.startswith("denied=")
+            and fact.fact[7:] in denied)
+        for tool in agent.tools:
+            add(tool, lambda fact: capability_is(fact, denied))
+        for source in agent.data_sources:
+            add(source, lambda fact: capability_is(fact, denied))
+        for server in agent.mcp_servers:
+            if "network.external" in denied and server.url:
+                add(server, lambda fact: key_is(fact, "transport"))
+        return result
+
+    if finding.rule_id == "CAP004":
+        # Command execution plus network authority are the two triggering
+        # classes. Delegation carries the original child-tool provenance,
+        # which must retain its precise child source location.
+        relevant = {"process.execute", "network.external"}
+        for tool in agent.tools:
+            add(tool, lambda fact: capability_is(fact, relevant))
+        for server in agent.mcp_servers:
+            if server.url:
+                add(server, lambda fact: key_is(fact, "transport"))
+        return result
+
+    if finding.rule_id == "AGT010":
+        source_named(_evidence_values(finding, "sensitive"))
+        outbound_named(_evidence_values(finding, "outbound"))
+        return result
+
+    if finding.rule_id == "DATA003":
+        source_named(_evidence_values(finding, "sensitive"))
+        broad_destinations()
+        # Where no destination is declared, the outbound capability itself
+        # is the available source evidence (absence is not a provenance fact).
+        for tool in agent.tools:
+            if not tool.destinations:
+                add(tool, lambda fact: capability_is(
+                    fact, {"network.external", "external.write"}))
+        return result
+
+    if finding.rule_id.startswith("PATH"):
+        if attack_path is None:
+            return result
+        # Path-specific evidence must belong to the actual matched path, not
+        # to a different PATH occurrence for the same agent.
+        nodes = set(attack_path.nodes)
+        source_named(nodes)
+        for source in agent.inputs:
+            if source.name in nodes:
+                add(source, lambda fact: key_is(fact, "input_trust", "input_kind"))
+        for tool in agent.tools:
+            if tool.name in nodes:
+                if finding.rule_id == "PATH003":
+                    add(tool, outbound_fact_selector(tool))
+                else:
+                    add(tool, lambda fact: key_is(
+                        fact, "capability", "approval_configuration",
+                        "guardrail_hook_detected"))
+                for destination in tool.destinations:
+                    add(destination, lambda fact: key_is(fact, "destination"))
+        for server in agent.mcp_servers:
+            if server.name in nodes:
+                add(server, lambda fact: key_is(
+                    fact, "transport", "authentication_configuration", "approval_configuration"))
+        for destination in agent.network:
+            if destination.target in nodes:
+                add(destination, lambda fact: key_is(
+                    fact, "destination", "restriction_declaration"))
+        # Co-occurrence PATH003 uses a generic destination label; when
+        # present the broad agent egress declaration qualifies that leg.
+        if finding.rule_id == "PATH003" and "external destination" in nodes:
+            broad_destinations()
+        return result
+
+    # Generic conservative fallback for other rules: match explicit evidence
+    # tokens to source facts or exact entity names. It is better to expose an
+    # unresolved evidence association than imply 55 unrelated facts prove it.
+    tokens = set()
+    for entry in finding.evidence:
+        if "=" in entry:
+            key, value = entry.split("=", 1)
+            tokens.add(entry)
+            if key not in {"flow_id", "authority_relationship"}:
+                tokens.update(value.split(","))
+    for entity in [
+        agent, agent.policy, *agent.tools, *agent.skills, *agent.mcp_servers,
+        *agent.identities, *agent.inputs, *agent.data_sources, *agent.network,
+    ]:
+        exact_location = (
+            finding.location is not None
+            and getattr(entity, "location", None) == finding.location
+        )
+        named = getattr(entity, "name", None) in tokens
+        add(entity, lambda fact, named=named, exact_location=exact_location:
+            fact.fact in tokens or (
+            named and key_is(fact, "capability", "approval_configuration",
+                             "guardrail_hook_detected", "transport", "role", "permission")
+        ) or (
+            exact_location and finding.layer in {1, 3}
+            and key_is(fact, "capability", "approval_configuration",
+                       "guardrail_hook_detected", "authentication_configuration",
+                       "role", "permission", "oauth_scope", "credential_source")
+        ))
+    return result
+
+
 def attach_findings(graph, findings):
     by_name = {agent.name: agent for agent in graph.agents}
     for finding in findings:
@@ -102,23 +286,12 @@ def attach_findings(graph, findings):
             'owasp_agentic': list(get_rule_metadata(finding.rule_id).owasp_agentic),
         }
         agent = by_name.get(finding.agent)
-        if agent:
-            if finding.layer in {1, 3}:
-                entities = [*agent.tools, *agent.skills, *agent.mcp_servers, *agent.identities]
-                selected = [entity for entity in entities if entity.location == finding.location]
-                finding.provenance = ([fact for entity in selected for fact in entity.provenance]
-                                      if selected else list(agent.provenance))
-            else:
-                finding.provenance = context(agent)
-        else:
-            entities = [
-                *graph.all_tools(),
-                *graph.all_skills(),
-                *graph.all_mcp_servers(),
-                *graph.all_identities(),
-            ]
-            finding.provenance = [fact for entity in entities if entity.location == finding.location
-                                  for fact in entity.provenance]
+        # Preserve the previous assessment semantics separately from the
+        # evidence display; changing provenance presentation must not change
+        # scan conclusions or findings counts.
+        legacy_inferred = bool(agent and any(
+            fact.origin == 'inferred' for fact in context(agent)
+        ))
         attack_path = None
         if finding.rule_id.startswith('PATH'):
             attack_path = next((
@@ -127,6 +300,22 @@ def attach_findings(graph, findings):
                 and path.agent == finding.agent
                 and " -> ".join(path.nodes) in finding.evidence
             ), None)
+        if agent:
+            finding.provenance = _relevant_provenance(agent, finding, attack_path)
+        else:
+            # Unbound constructs retain only source-local evidence.
+            entities = [
+                *graph.all_tools(), *graph.all_skills(),
+                *graph.all_mcp_servers(), *graph.all_identities(),
+            ]
+            finding.provenance = [
+                fact for entity in entities
+                if entity.location == finding.location
+                for fact in entity.provenance
+            ]
+            legacy_inferred = any(
+                fact.origin == 'inferred' for fact in finding.provenance
+            )
         if finding.rule_id.startswith('PATH') or finding.rule_id in {'AGT010', 'DATA003'}:
             finding.assessment = 'potential_risk'
         if finding.rule_id.startswith('PATH'):
@@ -148,7 +337,7 @@ def attach_findings(graph, findings):
             )
         elif get_rule_metadata(finding.rule_id).assessment == 'policy_violation':
             finding.assessment = 'policy_violation'
-        elif finding.rule_id == 'IDN001' or any(f.origin == 'inferred' for f in finding.provenance):
+        elif finding.rule_id == 'IDN001' or legacy_inferred:
             finding.assessment = 'heuristic_risk'
         runtime_limit = 'Runtime authorization and control effectiveness are not verified by this static scan.'
         if runtime_limit not in finding.limitations:

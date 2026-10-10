@@ -8,10 +8,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+import os
+from collections import Counter
+from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Any
 
 from horustrace.models import Graph, MCPServer, SourceLocation
+from horustrace.source_context import SOURCE_CONTEXTS, classify_source_context
 
 MCP_UNRESOLVED_REFERENCE_SCHEMA_VERSION = 1
 
@@ -134,6 +138,7 @@ class UnresolvedMCPReference:
     reason: str
     resolution_class: str
     source: str
+    source_context: str
     location: dict[str, Any] | None
     candidate_declarations: tuple[dict[str, Any], ...]
     evidence_gaps: tuple[str, ...]
@@ -151,6 +156,7 @@ class UnresolvedMCPReference:
             "reason": self.reason,
             "resolution_class": self.resolution_class,
             "source": self.source,
+            "source_context": self.source_context,
             "location": self.location,
             "candidate_declarations": list(self.candidate_declarations),
             "evidence_gaps": list(self.evidence_gaps),
@@ -210,7 +216,57 @@ def _evidence_gaps(server: MCPServer, reason: str) -> tuple[str, ...]:
     return tuple(sorted(gaps))
 
 
-def unresolved_mcp_references(graph: Graph) -> list[UnresolvedMCPReference]:
+def _portable_unique_reference_ids(
+    references: list[UnresolvedMCPReference],
+) -> list[UnresolvedMCPReference]:
+    """Disambiguate identical declaration aliases without absolute-workspace IDs.
+
+    Public IDs stay unchanged for single occurrences; repeated test fixtures
+    and repeated server declarations receive source-relative qualifiers.
+    """
+    counts = Counter(item.reference_id for item in references)
+    if all(n == 1 for n in counts.values()):
+        return references
+    paths = [
+        Path(item.location["path"]).resolve()
+        for item in references
+        if item.location is not None and item.location.get("path")
+    ]
+    base = (
+        Path(os.path.commonpath([str(path.parent) for path in paths]))
+        if paths else None
+    )
+    used: Counter[str] = Counter()
+    output: list[UnresolvedMCPReference] = []
+    for item in references:
+        if counts[item.reference_id] == 1:
+            output.append(item)
+            continue
+        path_text = "<unknown>"
+        if item.location and item.location.get("path"):
+            path = Path(item.location["path"]).resolve()
+            path_text = path.relative_to(base).as_posix() if base else path.name
+        qualifier = {
+            "source": path_text,
+            "line": (item.location or {}).get("line"),
+            "column": (item.location or {}).get("column"),
+            "reference_kind": item.reference_kind,
+            "server": item.server,
+        }
+        digest = hashlib.sha256(
+            json.dumps(qualifier, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()[:16]
+        candidate = f"{item.reference_id}:{digest}"
+        used[candidate] += 1
+        if used[candidate] > 1:
+            candidate = f"{candidate}:{used[candidate]}"
+        output.append(replace(item, reference_id=candidate))
+    return output
+
+
+def unresolved_mcp_references(
+    graph: Graph, *, root: Path | None = None,
+) -> list[UnresolvedMCPReference]:
     """Return deterministic reason records for every unresolved MCP observation."""
     concrete = list(graph.unbound_mcp_servers)
     observations = [
@@ -273,6 +329,14 @@ def unresolved_mcp_references(graph: Graph) -> list[UnresolvedMCPReference]:
                 reason=reason,
                 resolution_class=resolution_class,
                 source=source,
+                source_context=(
+                    str(server.metadata["source_context"])
+                    if server.metadata.get("source_context") in SOURCE_CONTEXTS
+                    else classify_source_context(
+                        server.location.path if server.location is not None else None,
+                        root=root,
+                    )
+                ),
                 location=_location(server.location),
                 candidate_declarations=tuple(
                     sorted(
@@ -293,7 +357,7 @@ def unresolved_mcp_references(graph: Graph) -> list[UnresolvedMCPReference]:
             )
         )
 
-    return sorted(
+    ordered = sorted(
         result,
         key=lambda item: (
             item.reason,
@@ -302,12 +366,17 @@ def unresolved_mcp_references(graph: Graph) -> list[UnresolvedMCPReference]:
             item.server,
             item.transport,
             item.reference_id,
+            (item.location or {}).get("path") or "",
+            (item.location or {}).get("line") or 0,
         ),
     )
+    return _portable_unique_reference_ids(ordered)
 
 
-def unresolved_mcp_summary(graph: Graph) -> dict[str, Any]:
-    references = unresolved_mcp_references(graph)
+def unresolved_mcp_summary(
+    graph: Graph, *, root: Path | None = None,
+) -> dict[str, Any]:
+    references = unresolved_mcp_references(graph, root=root)
     reasons = sorted({item.reason for item in references})
     classes = sorted({item.resolution_class for item in references})
     declarations = [
@@ -325,6 +394,9 @@ def unresolved_mcp_summary(graph: Graph) -> dict[str, Any]:
             "unresolved_references": len(references),
             "server_declarations": len(declarations),
             "agent_references": len(agent_references),
+            "by_source_context": dict(sorted(Counter(
+                item.source_context for item in references
+            ).items())),
             "by_reason": {
                 reason: sum(item.reason == reason for item in references)
                 for reason in reasons

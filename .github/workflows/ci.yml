@@ -83,6 +83,71 @@ jobs:
           --fail-on-excess-authority
           --fail-on-deployed-policy-violation
 
+  provenance-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e .
+      - name: Regenerate vulnerable ADK report
+        run: |
+          horustrace report examples/google-adk-vulnerable --output provenance-demo.html
+          horustrace scan examples/google-adk-vulnerable --format json --output provenance-demo.json --fail-on none
+      - name: Compare finding provenance
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          with open("provenance-demo.json", encoding="utf-8") as handle:
+              report = json.load(handle)
+          target = {"AGT010", "CAP002", "DATA003", "PATH003"}
+          findings = [f for f in report["findings"] if f["rule_id"] in target]
+          lines = [
+              "## Finding-specific provenance rerun",
+              "",
+              "| Finding | Agent | Supporting facts |",
+              "|---|---|---:|",
+          ]
+          for finding in findings:
+              lines.append(
+                  f"| {finding['rule_id']} | {finding.get('agent') or 'n/a'} | "
+                  f"{len(finding.get('provenance') or [])} |"
+              )
+          lines.append("")
+          lines.append(
+              "Original source facts remain available in the "
+              "agent-level Evidence tab; scanner findings are unchanged."
+          )
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("\n".join(lines) + "\n")
+          if len(findings) < 2:
+              raise SystemExit("Demo must expose multiple provenance-checked findings")
+          grouped = {}
+          for finding in findings:
+              grouped.setdefault(finding.get("agent"), []).append(finding)
+          for group in grouped.values():
+              if len(group) > 1:
+                  fact_signatures = [
+                      frozenset(
+                          (item.get("subject"), item.get("fact"), item.get("origin"))
+                          for item in finding.get("provenance") or []
+                      )
+                      for finding in group
+                  ]
+                  if len(set(fact_signatures)) == 1 and fact_signatures[0]:
+                      raise SystemExit("Multiple distinct findings share identical agent-wide provenance")
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: provenance-demo-report
+          path: |
+            provenance-demo.html
+            provenance-demo.json
+
   package:
     runs-on: ubuntu-latest
     steps:
