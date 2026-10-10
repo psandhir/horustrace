@@ -203,7 +203,10 @@ class MCPClient:
     assert server.metadata["tool_catalogue_dynamic"] is True
     assert server.metadata["endpoint_selection_actor"] == "caller_or_operator"
     assert server.allowed_tools == []
-    assert not agent.capabilities
+    assert "mcp.remote" in agent.capabilities
+    assert "network.external" in agent.capabilities
+    assert "mcp.local" not in agent.capabilities
+    assert not agent.tools
 
     from horustrace.mcp_effective import effective_mcp_authority_report
 
