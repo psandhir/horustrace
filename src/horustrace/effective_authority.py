@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from collections import Counter
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -116,6 +117,8 @@ def _destination_target_status(target: str) -> str:
     if (
         (normalized.startswith("<") and normalized.endswith(">"))
         or "${" in normalized
+        # Source f-string placeholders (e.g. {region}) are not fixed hosts.
+        or re.search(r"(?<!\{)\{[a-z_][a-z0-9_.:-]*\}(?!\})", normalized)
         or "{{" in normalized
         or "}}" in normalized
         or normalized.startswith("*.")
@@ -780,6 +783,20 @@ def _tool_relationship(
                 or tool.metadata.get("source")
             ),
             "delegate_target": tool.metadata.get("delegate_target"),
+            **(
+                {
+                    "delegation_transport": tool.metadata.get("delegation_transport"),
+                    "delegation_target_resolution": tool.metadata.get(
+                        "delegation_target_resolution"
+                    ),
+                    "credential_forwarding": tool.metadata.get(
+                        "credential_forwarding"
+                    ),
+                }
+                if tool.metadata.get("authority_binding_basis")
+                == "source_proven_agentcore_http_invocation"
+                else {}
+            ),
             "dynamic_authority": tool.metadata.get("dynamic_authority"),
             "tool_catalogue_unresolved": tool.metadata.get(
                 "tool_catalogue_unresolved"
