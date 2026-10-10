@@ -177,20 +177,30 @@ def _finding_provenance_digest(finding: Finding, root: Path) -> dict[str, Any]:
     if location is None:
         return {"items": [], "additional_contexts": 0}
 
-    grouped: dict[tuple[str, str], list[str]] = {}
+    grouped: dict[str, list[Any]] = {}
     for fact in finding.provenance:
         source = fact.location
         if (source is None or source.path != location.path
                 or source.line != location.line
                 or fact.fact == "agent_configuration_detected"):
             continue
-        grouped.setdefault((fact.subject, fact.origin), []).append(fact.fact)
+        grouped.setdefault(fact.subject, []).append(fact)
 
     items: list[dict[str, Any]] = []
     search_text = " ".join(
         [finding.title, finding.message, *finding.evidence]
     ).lower()
-    for (subject, origin), raw_facts in grouped.items():
+    capability_labels = {
+        "network.external": "external network access",
+        "process.execute": "process execution",
+        "data.read": "data read access",
+        "data.write": "data write access",
+        "external.write": "external writes",
+        "computer.control": "computer control",
+    }
+    for subject, source_facts in grouped.items():
+        raw_facts = [fact.fact for fact in source_facts]
+        origin = " + ".join(dict.fromkeys(fact.origin for fact in source_facts))
         capabilities: list[str] = []
         controls: list[str] = []
         attributes: list[str] = []
@@ -223,7 +233,9 @@ def _finding_provenance_digest(finding: Finding, root: Path) -> dict[str, Any]:
         parts = []
         if capabilities:
             parts.append(
-                "Capabilities: " + ", ".join(capabilities[:4])
+                "Capabilities: " + ", ".join(
+                    capability_labels.get(value, value) for value in capabilities[:4]
+                )
                 + (f" (+{len(capabilities) - 4} more)" if len(capabilities) > 4 else "")
             )
         if controls:
