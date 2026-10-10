@@ -165,6 +165,99 @@ def _attack_path_view(
     }
 
 
+
+def _finding_provenance_digest(finding: Finding, root: Path) -> dict[str, Any]:
+    """Summarise source-local facts for humans without altering audit evidence.
+
+    Findings may carry an agent's complete provenance context. Only facts at
+    the finding's own source line are suitable for an inline explanation;
+    other facts remain available in the full provenance drill-down.
+    """
+    location = finding.location
+    if location is None:
+        return {"items": [], "additional_contexts": 0}
+
+    grouped: dict[tuple[str, str], list[str]] = {}
+    for fact in finding.provenance:
+        source = fact.location
+        if (source is None or source.path != location.path
+                or source.line != location.line
+                or fact.fact == "agent_configuration_detected"):
+            continue
+        grouped.setdefault((fact.subject, fact.origin), []).append(fact.fact)
+
+    items: list[dict[str, Any]] = []
+    search_text = " ".join(
+        [finding.title, finding.message, *finding.evidence]
+    ).lower()
+    for (subject, origin), raw_facts in grouped.items():
+        capabilities: list[str] = []
+        controls: list[str] = []
+        attributes: list[str] = []
+        for raw in dict.fromkeys(raw_facts):
+            if "=" not in raw:
+                attributes.append(raw.replace("_", " "))
+                continue
+            key, value = raw.split("=", 1)
+            if key == "capability":
+                capabilities.append(value)
+            elif key == "approval_configuration":
+                controls.append({
+                    "True": "approval configured",
+                    "False": "approval not detected",
+                    "None": "approval configuration unresolved",
+                }.get(value, f"approval configuration: {value}"))
+            elif key == "guardrail_hook_detected":
+                controls.append({
+                    "True": "guardrail hook detected",
+                    "False": "guardrail hook not detected",
+                }.get(value, f"guardrail hook: {value}"))
+            elif key == "authentication_configuration":
+                controls.append({
+                    "True": "authentication configured",
+                    "False": "authentication configuration not detected",
+                }.get(value, f"authentication configuration: {value}"))
+            else:
+                attributes.append(f"{key.replace('_', ' ')}: {value}")
+
+        parts = []
+        if capabilities:
+            parts.append(
+                "Capabilities: " + ", ".join(capabilities[:4])
+                + (f" (+{len(capabilities) - 4} more)" if len(capabilities) > 4 else "")
+            )
+        if controls:
+            parts.append("Controls: " + ", ".join(controls))
+        if attributes:
+            parts.append(
+                "Other observations: " + "; ".join(attributes[:2])
+                + (f" (+{len(attributes) - 2} more)" if len(attributes) > 2 else "")
+            )
+        if not parts:
+            continue
+        relevance = (
+            (4 if len(subject) > 2 and subject.lower() in search_text else 0)
+            + min(4, sum(2 for fact in raw_facts if fact.lower() in search_text))
+            + (1 if capabilities else 0)
+        )
+        items.append({
+            "subject": subject,
+            "origin": origin,
+            "location": {
+                "path": _relative_path(str(location.path), root),
+                "line": location.line,
+                "column": location.column,
+            },
+            "summary": "; ".join(parts),
+            "_relevance": relevance,
+        })
+
+    items.sort(key=lambda item: item["_relevance"], reverse=True)
+    for item in items:
+        del item["_relevance"]
+    return {"items": items[:2], "additional_contexts": max(0, len(items) - 2)}
+
+
 def build_visual_report(
     graph: Graph,
     findings: list[Finding],
@@ -175,7 +268,13 @@ def build_visual_report(
     authority = _relativize(effective_authority_report(graph), root)
     contract = _relativize(authority_contract_report(graph), root)
     security_graph = build_agent_security_graph(graph, root).as_dict()
-    findings_docs = [_relativize(item.as_dict(), root) for item in findings]
+    findings_docs = [
+        {
+            **_relativize(item.as_dict(), root),
+            "provenance_digest": _finding_provenance_digest(item, root),
+        }
+        for item in findings
+    ]
     attack_paths = security_graph.get("attack_paths", [])
     flows_by_id = {
         str(item.get("flow_id")): item
@@ -526,6 +625,7 @@ main{{padding:32px 38px 42px;max-width:1560px;width:100%;min-width:0}} h1{{font-
 .agent-tab{{display:none}} .agent-tab.active{{display:block}} .kv{{display:grid;grid-template-columns:170px minmax(0,1fr);gap:7px 14px}} .kv div:nth-child(odd){{color:var(--muted)}} .kv div:nth-child(even){{min-width:0;overflow-wrap:anywhere}}
 .drill-list{{display:flex;flex-direction:column;gap:2px}} .drill-row{{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;cursor:pointer;border-radius:7px;padding:7px 8px;margin:0 -8px;color:inherit}} .drill-row:hover{{background:#ffffff08}} .drill-value{{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;font-weight:700}} .drill-value::after{{content:"›";color:var(--muted);font-size:16px;line-height:1;opacity:.7}}
 .filter-banner{{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#101a31;border:1px solid #344566;border-radius:9px;padding:9px 11px;margin:12px 0}}
+.source-context{{margin:12px 0;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface3)}} .source-context-title{{font-size:11px;font-weight:800;margin-bottom:6px}} .source-note{{font-size:12px;padding:5px 0;overflow-wrap:anywhere}} .source-note+.source-note{{border-top:1px solid var(--line)}} .source-note-heading{{margin-bottom:2px}} .source-context .small{{font-size:11px}}
 .finding{{border-left:3px solid var(--line);padding:14px 15px;margin:10px 0;background:var(--surface);border-radius:9px;border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}} .finding[data-sev="critical"]{{border-left-color:var(--critical)}} .finding[data-sev="high"]{{border-left-color:var(--high)}} .finding[data-sev="medium"]{{border-left-color:var(--medium)}} .finding[data-sev="low"]{{border-left-color:var(--low)}} .finding-head{{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}} .finding-title{{display:flex;gap:7px;align-items:center;flex-wrap:wrap}} .finding-name{{font-size:14px;font-weight:760;margin-top:7px}} .finding-meta{{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0 0;color:var(--muted);font-size:11px}} .finding p{{color:#d8dfeb}}
 code,pre{{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}} code{{background:#ffffff0b;padding:2px 5px;border-radius:5px}} details{{margin-top:8px;border-top:1px solid #ffffff0a;padding-top:7px}} details summary{{cursor:pointer;color:#c9d4e5;font-weight:650;font-size:12px}} pre{{white-space:pre-wrap;word-break:break-word;background:#09101e;border:1px solid var(--line);padding:12px;border-radius:8px;max-height:340px;overflow:auto}}
 .map-toolbar{{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:8px 0 10px}} .map-toolbar input{{min-width:250px;flex:1;background:#09101e;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 9px}} .map-btn{{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;padding:7px 9px;cursor:pointer;font-size:12px}} .map-btn:hover{{border-color:#52688f;background:var(--surface2)}} .map-hint{{font-size:11px;color:var(--muted);margin:-2px 0 10px}}
@@ -607,13 +707,17 @@ function severityCards(s,interactive=false){{
 }}
 function findingCard(f){{
  const evidence=(f.evidence||[]).map(x=>"<li>"+esc(x)+"</li>").join("");
- const prov=(f.provenance||[]).map(x=>"<li>"+esc(x.origin)+": "+esc(x.fact)+(x.location?" — "+loc(x.location):"")+"</li>").join("");
+ const prov=(f.provenance||[]).map(x=>"<li>"+esc(x.subject)+": "+esc(x.origin)+": "+esc(x.fact)+(x.location?" — "+loc(x.location):"")+"</li>").join("");
+ const notes=(f.provenance_digest?.items||[]).map(x=>'<div class="source-note"><div class="source-note-heading"><strong>'+esc(x.subject)+'</strong><span class="muted"> · '+esc(x.origin)+' · '+loc(x.location)+'</span></div><div>'+esc(x.summary)+'</div></div>').join("");
+ const additional=f.provenance_digest?.additional_contexts||0;
+ const context=notes?'<div class="source-context"><div class="source-context-title">Source context <span class="muted">· static evidence, not verified enforcement</span></div>'+notes+(additional?'<div class="muted small">+'+number(additional)+' more source context(s) at this location in full provenance</div>':"")+'</div>':"";
  const agent=f.agent?'<span class="pill">agent: '+esc(f.agent)+'</span>':"";
  const policy=f.assessment==="policy_violation"?'<span class="pill">policy violation</span>':"";
  const owasp=(f.standards?.owasp_agentic||[]).map(x=>'<span class="pill">OWASP '+esc(x)+'</span>').join("");
  return '<article class="finding" data-sev="'+esc(f.severity)+'"><div class="finding-head"><div><div class="finding-title"><strong>'+esc(f.rule_id)+'</strong><span class="badge '+esc(f.severity)+'">'+esc(String(f.severity).toUpperCase())+'</span>'+agent+'</div><div class="finding-name">'+esc(f.title)+'</div></div><span class="muted small">'+loc(f.location)+'</span></div>'+
- '<div class="finding-meta"><span>'+esc(f.assessment||"static")+' assessment</span>'+policy+owasp+'</div><p>'+esc(f.message)+'</p>'+
- (evidence?'<details><summary>Evidence</summary><ul>'+evidence+'</ul></details>':"")+(prov?'<details><summary>Provenance</summary><ul>'+prov+'</ul></details>':"")+
+ '<div class="finding-meta"><span>'+esc(f.assessment||"static")+' assessment</span>'+policy+owasp+'</div><p>'+esc(f.message)+'</p>'+context+
+ (evidence?'<details><summary>Finding evidence ('+number(f.evidence.length)+')</summary><ul>'+evidence+'</ul></details>':"")+
+ (prov?'<details><summary>Full provenance ('+number(f.provenance.length)+' raw facts)</summary><ul>'+prov+'</ul></details>':"")+
  (f.recommendation?'<details><summary>Remediation</summary><p>'+esc(f.recommendation)+'</p></details>':"")+'</article>';
 }}
 
