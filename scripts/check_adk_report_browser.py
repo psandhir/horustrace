@@ -99,29 +99,56 @@ def check_report(html_file: Path) -> dict[str, object]:
             assert page.locator("#owasp.active #owasp-detail").count() == 1
             checks.append("OWASP category opens attributable agent and scoped findings")
 
-            # Component inventory works offline, including component-to-agent navigation.
-            page.locator('nav.nav button[data-view="components"]').click()
-            page.locator('#components [data-inventory-kind="tools"]').click()
-            assert page.locator('#components [data-inventory-row]').count() > 0
-            assert page.locator('#components [data-inventory-kind="skills"]').count() == 1
-            rows = page.locator('#components [data-inventory-row]')
-            bound_component = False
-            for index in range(rows.count()):
-                rows.nth(index).focus()
-                rows.nth(index).press("Enter")
-                assert page.locator('#components #inventory-detail').count() == 1
-                if page.locator('#components [data-inventory-agent]').count():
-                    bound_component = True
-                    break
-            assert bound_component, "No bound tools found in the vulnerable ADK report"
-            page.locator('#components [data-inventory-agent]').first.click()
-            assert page.locator("#agent-detail.active").count() == 1
+            # Dashboard metrics must open a real component inventory, not a filtered agent list.
+            page.locator('nav.nav button[data-view="dashboard"]').click()
+            page.locator('#dashboard [data-drill="components:tools"]').click()
+            assert page.locator('#components.active [data-inventory-kind="tools"].active').count() == 1
+
+            # Explicit detail action, source evidence, agent security, and return route.
+            assert page.locator('#components [data-inventory-open]').count() > 0
+            first_tool = page.locator('#components [data-inventory-open]').first
+            first_tool.focus()
+            first_tool.press("Enter")
+            assert page.locator('#components.active #inventory-detail').count() == 1
+            assert page.locator('#inventory-detail').get_attribute("tabindex") == "-1"
+            assert "Configuration and source evidence" in page.locator('#inventory-detail').inner_text()
+            assert "Supply chain context" in page.locator('#inventory-detail').inner_text()
+            assert "Connected agents and security review" in page.locator('#inventory-detail').inner_text()
+
+            # Some tools are unbound; find one with a proven agent binding.
+            if not page.locator('#inventory-detail [data-inventory-agent]').count():
+                page.locator("#inventory-clear").click()
+                for index in range(page.locator('#components [data-inventory-open]').count()):
+                    page.locator('#components [data-inventory-open]').nth(index).click()
+                    if page.locator('#inventory-detail [data-inventory-agent]').count():
+                        break
+                    page.locator("#inventory-clear").click()
+            assert page.locator('#inventory-detail [data-inventory-agent]').count() > 0
+            page.locator('#inventory-detail [data-inventory-agent-findings]').first.click()
+            assert page.locator('#agent-detail.active #tab-findings.active').count() == 1
             page.locator("#back-agents").click()
-            assert page.locator("#components.active #inventory-detail").count() == 1
-            checks.append("Component inventory opens bound tool and returns from agent")
+            assert page.locator('#components.active #inventory-detail').count() == 1
+            checks.append("Component details and scoped agent security navigation work")
+
+            # MCP detail should work independently of the Tools view.
             page.locator('#components [data-inventory-kind="mcp"]').click()
-            assert page.locator('#components [data-inventory-row]').count() > 0
-            checks.append("MCP inventory and skill tab accessible in offline report")
+            assert page.locator('#components [data-inventory-open]').count() > 0
+            page.locator('#components [data-inventory-open]').first.click()
+            assert page.locator('#components.active #inventory-detail').count() == 1
+            assert "Transport" in page.locator('#inventory-detail').inner_text()
+            assert "Allowed tools" in page.locator('#inventory-detail').inner_text()
+            page.locator("#inventory-clear").click()
+            assert page.locator('#components #inventory-detail').count() == 0
+            checks.append("MCP inventory opens and closes configuration detail")
+
+            # Skill tab and explicit drilldown are tested when skills are present.
+            page.locator('#components [data-inventory-kind="skills"]').click()
+            skill_count = page.locator('#components [data-inventory-open]').count()
+            if skill_count:
+                page.locator('#components [data-inventory-open]').first.click()
+                assert page.locator('#components.active #inventory-detail').count() == 1
+                assert "Skill source" in page.locator('#inventory-detail').inner_text()
+            checks.append("Skill inventory supports an accessible details action or empty state")
 
             # Canonical ADG supply chain is navigable without graph reconstruction.
             page.locator('nav.nav button[data-view="supply"]').click()
