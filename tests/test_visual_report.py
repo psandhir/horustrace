@@ -1,4 +1,9 @@
+import re
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 from horustrace.adg import build_adg
 from horustrace.cli import main
@@ -230,6 +235,51 @@ def test_visual_report_has_interactive_severity_chart(tmp_path: Path) -> None:
         "low": 0,
         "info": 0,
     }
+
+
+def test_visual_report_authority_resolution_and_coverage_states(tmp_path: Path) -> None:
+    graph, findings = _graph(tmp_path)
+    before = build_visual_report(graph, findings, tmp_path)
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+    after = build_visual_report(graph, findings, tmp_path)
+
+    assert before == after
+    assert 'function authorityResolutionChart(agents)' in html
+    assert 'aria-label="Effective authority resolution"' in html
+    assert 'data-drill="agents:' in html
+    assert '["fully_resolved","Fully resolved"]' in html
+    assert '["partially_resolved","Partially resolved"]' in html
+    assert '["unknown","Unknown"]' in html
+    assert 'some(r=>r.resolution===mode)' in html
+    assert 'if(el.tagName!=="BUTTON")' in html
+    assert 'function scanCoverageStatus(incomplete)' in html
+    assert 'No reported coverage gaps' in html
+    assert 'Coverage incomplete' in html
+    assert 'Not available (no files considered)' in html
+    assert 'Resolution does not imply least privilege' in html
+    assert 'No effective-authority relationships were reconstructed' in html
+    assert 'default-src &#39;none&#39;' not in html
+
+
+def test_visual_report_inline_javascript_is_syntactically_valid(tmp_path: Path) -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is not available to validate offline report JavaScript")
+
+    graph, findings = _graph(tmp_path)
+    html = render_visual_report_html(graph, findings, tmp_path)
+    scripts = re.findall(r"<script(?:\s+[^>]*)?>(.*?)</script>", html, flags=re.DOTALL)
+    assert len(scripts) == 2  # Embedded JSON data and one self-contained application script.
+    check = subprocess.run(
+        [node, "--check"],
+        input=scripts[-1],
+        text=True,
+        capture_output=True,
+        timeout=15,
+        check=False,
+    )
+    assert check.returncode == 0, check.stderr
 
 
 def test_visual_report_projects_attack_path_chain(tmp_path: Path) -> None:
