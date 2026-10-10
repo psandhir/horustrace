@@ -1,7 +1,7 @@
 import shutil
 import subprocess
-from pathlib import Path
 from html.parser import HTMLParser
+from pathlib import Path
 
 import pytest
 
