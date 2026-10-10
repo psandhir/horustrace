@@ -533,7 +533,7 @@ def test_visual_report_html_is_self_contained(tmp_path: Path) -> None:
 
     assert "<!doctype html>" in html
     assert VISUAL_REPORT_MODEL in html
-    assert "Effective Agency Report" in html
+    assert "Agent Security Workbench" in html
     assert "Agency map" in html
     assert "Agent contracts" in html
     assert "Organisation policy" in html
