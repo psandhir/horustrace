@@ -68,6 +68,96 @@ def _agent_location(agent: Any, root: Path) -> dict[str, Any] | None:
     }
 
 
+
+def _component_location(location: Any, root: Path) -> dict[str, Any] | None:
+    if location is None:
+        return None
+    return {
+        "path": _relative_path(str(location.path), root),
+        "line": location.line,
+        "column": location.column,
+    }
+
+
+def _component_resources(resources: list[Any]) -> list[dict[str, Any]]:
+    return [
+        {"kind": r.kind, "selector": r.selector, "access": sorted(r.access)}
+        for r in resources
+    ]
+
+
+def _component_inventories(graph: Graph, root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Inventory *instances*, not distinct names, preserving bound/unbound state.
+
+    Agent attribution is only asserted for explicitly bound objects. We do not
+    infer that every finding on an agent applies to all its connected tools.
+    """
+    tools: list[dict[str, Any]] = []
+    servers: list[dict[str, Any]] = []
+
+    def add_tool(item: Any, agent: str | None) -> None:
+        tools.append({
+            "name": item.name,
+            "kind": item.kind,
+            "binding_state": "bound" if agent else "unbound",
+            "bound_agents": [agent] if agent else [],
+            "location": _component_location(item.location, root),
+            "capabilities": sorted(item.capabilities),
+            "approval": item.approval,
+            "guardrails": item.guardrails,
+            "identity": item.identity,
+            "resources": _component_resources(item.resources),
+            "destinations": [d.target for d in item.destinations],
+        })
+
+    def add_server(item: Any, agent: str | None, unresolved: bool = False) -> None:
+        servers.append({
+            "name": item.name,
+            "transport": item.transport,
+            "binding_state": (
+                "unresolved_reference" if unresolved else ("bound" if agent else "unbound")
+            ),
+            "bound_agents": [agent] if agent else [],
+            "location": _component_location(item.location, root),
+            # Avoid embedding URL query strings or execution arguments in the HTML.
+            "endpoint": item.url.split("?", 1)[0].split("#", 1)[0] if item.url else None,
+            "command": item.command,
+            "authenticated": item.authenticated,
+            "approval": item.approval,
+            "guardrails": item.guardrails,
+            "allowed_tools": sorted(item.allowed_tools),
+            "denied_tools": sorted(item.denied_tools),
+            "identity": item.identity,
+            "resources": _component_resources(item.resources),
+        })
+
+    for agent in graph.agents:
+        for tool in agent.tools:
+            add_tool(tool, agent.name)
+        for server in agent.mcp_servers:
+            add_server(server, agent.name)
+    for tool in graph.unbound_tools:
+        add_tool(tool, None)
+    for server in graph.unbound_mcp_servers:
+        add_server(server, None)
+    for server in graph.unresolved_mcp_references:
+        add_server(server, None, unresolved=True)
+
+    def finish(items: list[dict[str, Any]], prefix: str) -> list[dict[str, Any]]:
+        items.sort(key=lambda item: (
+            item["name"],
+            (item.get("location") or {}).get("path", ""),
+            (item.get("location") or {}).get("line", 0),
+            item["bound_agents"],
+            item["binding_state"],
+        ))
+        for index, item in enumerate(items):
+            item["id"] = f"{prefix}-{index}"
+        return items
+
+    return finish(tools, "tool"), finish(servers, "mcp")
+
+
 def _write_capable(relationship: dict[str, Any]) -> bool:
     markers = ("write", "create", "update", "delete", "admin", "execute", "shell", "mutation")
     values: list[str] = [str(item) for item in relationship.get("capabilities", [])]
@@ -492,6 +582,10 @@ def build_visual_report(
                     ),
                     "allowed_tools": sorted(skill.allowed_tools),
                     "scripts": list(skill.scripts),
+                    "capabilities": sorted(skill.capabilities),
+                    "source": skill.source,
+                    "resources": _component_resources(skill.resources),
+                    "destinations": [d.target for d in skill.destinations],
                     "bound_agents": [],
                     "binding_state": "bound",
                 },
@@ -521,6 +615,10 @@ def build_visual_report(
                 ),
                 "allowed_tools": sorted(skill.allowed_tools),
                 "scripts": list(skill.scripts),
+                "capabilities": sorted(skill.capabilities),
+                "source": skill.source,
+                "resources": _component_resources(skill.resources),
+                "destinations": [d.target for d in skill.destinations],
                 "bound_agents": [],
                 "binding_state": "unbound",
             },
@@ -529,6 +627,9 @@ def build_visual_report(
         skill_inventory.values(),
         key=lambda item: (item["name"], (item.get("location") or {}).get("path", "")),
     )
+    for index, skill in enumerate(skills):
+        skill["id"] = f"skill-{index}"
+    tools, mcp_servers = _component_inventories(graph, root)
 
     owasp = build_owasp_agentic_summary(
         findings,
@@ -546,6 +647,9 @@ def build_visual_report(
             "bound_skills": sum(len(agent.skills) for agent in graph.agents),
             "unbound_skills": len(graph.unbound_skills),
             "mcp_servers": len(graph.all_mcp_servers()),
+            "unbound_tools": len(graph.unbound_tools),
+            "unbound_mcp_servers": len(graph.unbound_mcp_servers),
+            "unresolved_mcp_references": len(graph.unresolved_mcp_references),
             "identities": len(graph.all_identities()),
             "resources": len(all_resources),
             "destinations": len(all_destinations),
@@ -572,6 +676,8 @@ def build_visual_report(
         },
         "agents": agents,
         "skills": skills,
+        "tools": tools,
+        "mcp_servers": mcp_servers,
         "findings": findings_docs,
         "assurance": assurance,
         "authority_contract": contract,
@@ -840,6 +946,39 @@ html[data-theme="light"] .page-title-row .ui-icon{{color:#21639b}}
 @media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}
 @media(max-width:1000px){{.shell{{grid-template-columns:220px minmax(0,1fr)}} main{{padding:26px 24px}} .graph-wrap{{grid-template-columns:1fr}} .inspector{{max-height:280px}}}}
 @media(max-width:760px){{.shell{{grid-template-columns:1fr}} aside{{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:12px}} .brand-row{{padding-bottom:11px;margin-bottom:9px}} .nav-label,.sidebar-meta{{display:none}} .nav{{display:flex;flex-direction:row;overflow:auto;gap:4px}} .nav button{{width:auto;white-space:nowrap;padding:8px 10px}} .nav button::before{{display:none}} main{{padding:20px 14px 30px}} .grid2,.assessment-banner{{grid-template-columns:1fr}} .assessment-side{{justify-content:flex-start}} .assessment-count{{text-align:left}} .page-head{{flex-direction:column}} .page-actions{{justify-content:flex-start}} .sevbar{{grid-template-columns:repeat(2,1fr)}} .kv{{grid-template-columns:1fr}} .graph{{height:440px}} .graph-wrap.expanded{{inset:4px;padding:8px;grid-template-columns:1fr}} .graph-wrap.expanded .inspector{{display:none}} .tabs{{position:static}}}}
+
+/* Source-backed agent supply chain (not an inferred runtime execution diagram). */
+.supply-toolbar{{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0}}
+.supply-select{{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;max-width:100%;min-width:160px}}
+.supply-viewport{{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface2);max-height:685px;min-height:365px}}
+.supply-diagram{{display:block;min-width:1090px;background:var(--surface);}}
+.supply-diagram text{{fill:var(--text);font-size:12px}}
+.supply-diagram .supply-col-title{{font-size:11px;fill:var(--muted);font-weight:800;letter-spacing:.07em}}
+.supply-node rect{{fill:var(--surface3);stroke:var(--line-strong);stroke-width:1.4}}
+.supply-node[data-kind="agent"] rect,.supply-node[data-kind="workflow_node"] rect{{fill:#e6f0fb;stroke:#7da9d2}}
+.supply-node[data-kind="mcp_server"] rect,.supply-node[data-kind="tool"] rect,.supply-node[data-kind="delegation"] rect{{fill:#e9f0ff;stroke:#9ab4d3}}
+.supply-node[data-kind="skill"] rect,.supply-node[data-kind="model"] rect{{fill:#f0eaff;stroke:#b5a1d4}}
+.supply-node[data-kind="identity"] rect,.supply-node[data-kind="approval_control"] rect,.supply-node[data-kind="policy_control"] rect{{fill:#e7f5ed;stroke:#84bc9c}}
+.supply-node[data-kind="network_destination"] rect,.supply-node[data-kind="data_resource"] rect{{fill:#fff0e4;stroke:#d5aa87}}
+.supply-node text{{fill:#23354a}}
+.supply-node .supply-kind{{font-size:10px;fill:#526783}}
+.supply-node{{cursor:pointer}}
+.supply-node:hover rect,.supply-node.selected rect{{stroke-width:2.8}}
+.supply-edge{{fill:none;stroke:#7893ae;stroke-width:1.5;opacity:.62;cursor:pointer}}
+.supply-edge.authority{{stroke:#668f80;stroke-dasharray:5 4}}
+.supply-edge.data{{stroke:#ce9574}}
+.supply-edge:hover,.supply-edge.selected{{stroke-width:3;opacity:1}}
+.supply-inspector{{min-height:165px}}
+.supply-relationship{{padding:8px 0;border-bottom:1px solid var(--line);font-size:12px}}
+.supply-relationship:last-child{{border-bottom:0}}
+.supply-note{{font-size:11px;color:var(--muted);margin:9px 0}}
+html[data-theme="dark"] .supply-node[data-kind="agent"] rect,html[data-theme="dark"] .supply-node[data-kind="workflow_node"] rect{{fill:#182c46}}
+html[data-theme="dark"] .supply-node[data-kind="mcp_server"] rect,html[data-theme="dark"] .supply-node[data-kind="tool"] rect,html[data-theme="dark"] .supply-node[data-kind="delegation"] rect{{fill:#222f4b}}
+html[data-theme="dark"] .supply-node[data-kind="skill"] rect,html[data-theme="dark"] .supply-node[data-kind="model"] rect{{fill:#302946}}
+html[data-theme="dark"] .supply-node[data-kind="identity"] rect,html[data-theme="dark"] .supply-node[data-kind="approval_control"] rect,html[data-theme="dark"] .supply-node[data-kind="policy_control"] rect{{fill:#1f382e}}
+html[data-theme="dark"] .supply-node[data-kind="network_destination"] rect,html[data-theme="dark"] .supply-node[data-kind="data_resource"] rect{{fill:#403123}}
+html[data-theme="dark"] .supply-node text{{fill:#e2e9f2}}
+html[data-theme="dark"] .supply-node .supply-kind{{fill:#a6b8d0}}
 </style>
 </head>
 <body>
@@ -850,6 +989,8 @@ html[data-theme="light"] .page-title-row .ui-icon{{color:#21639b}}
   <nav class="nav" aria-label="Report sections">
     <button class="active" data-view="dashboard" data-icon="overview">Dashboard</button>
     <button data-view="agents" data-icon="agents">Agents</button>
+    <button data-view="components" data-icon="resources">Components</button>
+    <button data-view="supply" data-icon="attack">Supply chain</button>
     <button data-view="findings" data-icon="findings">Findings</button>
     <button data-view="policy" data-icon="policy">Organisation policy</button>
     <button data-view="owasp" data-icon="owasp">OWASP Top 10</button>
@@ -867,7 +1008,7 @@ html[data-theme="light"] .page-title-row .ui-icon{{color:#21639b}}
   <div class="sidebar-meta"><strong>Offline security evidence</strong><span title="{escape(root.name or '.')}">Scope: {escape(root.name or '.')}</span><span>Schema v{VISUAL_REPORT_SCHEMA_VERSION}</span></div>
 </aside>
 <main>
-  <section id="dashboard" class="view active"></section><section id="agents" class="view"></section><section id="agent-detail" class="view"></section>
+  <section id="dashboard" class="view active"></section><section id="agents" class="view"></section><section id="agent-detail" class="view"></section><section id="components" class="view"></section><section id="supply" class="view"></section>
   <section id="findings" class="view"></section><section id="policy" class="view"></section><section id="owasp" class="view"></section><section id="attack" class="view"></section><section id="contracts" class="view"></section><section id="evidence" class="view"></section>
   <div class="footer">Static evidence only · Runtime effectiveness is not verified · No report data leaves this file.</div>
 </main>
@@ -926,7 +1067,8 @@ const ICON_FOR_METRIC=Object.freeze({{
 const ICON_FOR_SECTION=Object.freeze({{
  "Priority review queue":"findings","Finding severity":"chart","Effective agency":"attack",
  "OWASP assessment states":"owasp","Environment inventory":"resources",
- "Agent contracts":"contracts","Coverage status":"coverage","Skill inventory":"skills"
+ "Agent contracts":"contracts","Coverage status":"coverage","Skill inventory":"skills",
+ "Components":"resources","Affected agents":"agents","Supply chain":"attack"
 }});
 document.querySelectorAll(".nav button[data-icon]").forEach(btn=>btn.insertAdjacentHTML("afterbegin",uiIcon(btn.dataset.icon)));
 function showView(id){{
@@ -1037,7 +1179,7 @@ function renderDashboard(){{
  sectionHead("Priority review queue","Agents ordered by static review priority.")+agentTable(attention)+
  '<div class="grid2"><div>'+sectionHead("Finding severity","Active findings by scanner severity.") +severityChart(s.severity)+'</div><div>'+sectionHead("Effective agency","Reconstructed authority and destination scope.")+authorityResolutionChart(DATA.agents)+'<div class="panel">'+drillList([drillRow("Authority relationships",s.authority_relationships,"agents:authority"),drillRow("Not fully resolved",s.authority_not_fully_resolved,"agents:unresolved","warn"),drillRow("Write-capable relationships",s.write_capable_relationships,"agents:write"),drillRow("Unique destinations",s.destinations,"agents:destinations")])+'</div></div></div>'+
  sectionHead("OWASP assessment states","Mapped detector coverage and finding categories; not an assurance score.")+owaspAssessmentChart(DATA.owasp_agentic.categories||[])+
- '<div class="grid2"><div>'+sectionHead("Environment inventory","Security-relevant components found in the scan.")+'<div class="cards">'+metric("Tools",s.tools,"","agents:tools")+metric("Skills",s.skills,"","agents:skills",number(s.bound_skills)+" bound · "+number(s.unbound_skills)+" unbound")+metric("MCP servers",s.mcp_servers,"","agents:mcp")+metric("Identities",s.identities,"","agents:identities")+metric("Resources",s.resources,"","agents:resources")+'</div></div><div>'+sectionHead("Agent contracts","Declared authority compared with effective authority.")+'<div class="panel">'+drillList(['<div class="drill-row" style="cursor:default"><span>Overall status</span><span>'+badge(DATA.assurance.authority_contract.status)+'</span></div>',drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),drillRow("Violations",s.contract_violations,"contracts:violation","critical"),drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")])+'</div></div></div>';
+ '<div class="grid2"><div>'+sectionHead("Environment inventory","Security-relevant components found in the scan.")+'<div class="cards">'+metric("Tools",s.tools,"","components:tools")+metric("Skills",s.skills,"","components:skills",number(s.bound_skills)+" bound · "+number(s.unbound_skills)+" unbound")+metric("MCP servers",s.mcp_servers,"","components:mcp")+metric("Identities",s.identities,"","agents:identities")+metric("Resources",s.resources,"","agents:resources")+'</div></div><div>'+sectionHead("Agent contracts","Declared authority compared with effective authority.")+'<div class="panel">'+drillList(['<div class="drill-row" style="cursor:default"><span>Overall status</span><span>'+badge(DATA.assurance.authority_contract.status)+'</span></div>',drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),drillRow("Violations",s.contract_violations,"contracts:violation","critical"),drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")])+'</div></div></div>';
  bindDashboardDrill(root);bindAgentRows(root);
 }}
 
@@ -1059,6 +1201,8 @@ function drillLabel(kind,value){{
 function routeDrill(action){{
  const [kind,value="all"]=String(action).split(":",2);
  if(kind==="agents"){{renderAgents(value);showView("agents");}}
+ else if(kind==="components"){{renderComponents(value);showView("components");}}
+ else if(kind==="supply"){{renderSupplyChain();showView("supply");}}
  else if(kind==="findings"){{renderFindings(value);showView("findings");}}
  else if(kind==="policy"){{renderPolicy();showView("policy");}}
  else if(kind==="owasp"){{renderOwasp(value);showView("owasp");}}
@@ -1099,6 +1243,214 @@ function renderAgents(mode="all"){{
  root.innerHTML=pageHead("Inventory","Agents","Review effective agency, attack paths, findings and Authority Contract posture for each discovered agent.")+banner+'<div class="toolbar"><div class="toolbar-left"><div class="filter-chips">'+chips+'</div></div><div class="toolbar-right"><input id="agent-search" class="search" aria-label="Search agents" placeholder="Search agents, frameworks, identities or resources"></div></div><div class="muted small" id="agent-count">'+number(scoped.length)+' agents</div><div id="agent-table">'+agentTable(scoped)+'</div>';
  bindAgentRows(root);root.querySelectorAll("[data-agent-filter]").forEach(btn=>btn.addEventListener("click",()=>renderAgents(btn.dataset.agentFilter)));if(mode!=="all")root.querySelector("#clear-agent-filter").addEventListener("click",()=>renderAgents("all"));
  root.querySelector("#agent-search").addEventListener("input",e=>{{const q=e.target.value.trim().toLowerCase();const items=scoped.filter(a=>JSON.stringify([a.name,a.framework,a.location,a.skills,a.resources,a.identities,a.destinations,a.findings]).toLowerCase().includes(q));root.querySelector("#agent-count").textContent=number(items.length)+" agents";root.querySelector("#agent-table").innerHTML=agentTable(items);bindAgentRows(root);}});
+}}
+
+function inventoryEntries(kind){{
+ return kind==="tools"?(DATA.tools||[]):kind==="skills"?(DATA.skills||[]):(DATA.mcp_servers||[]);
+}}
+function inventoryControl(value){{
+ return value===true?"Configured/detected (not verified)":value===false?"Not detected":"Unresolved";
+}}
+function inventorySummary(item,kind){{
+ if(kind==="mcp")return item.endpoint||item.command||"Endpoint unresolved";
+ if(kind==="tools")return (item.capabilities||[]).join(", ")||"Capabilities unresolved";
+ return (item.allowed_tools||[]).join(", ")||"No allowed tools declared";
+}}
+function inventoryTable(items,kind){{
+ if(!items.length)return '<div class="empty">No matching components in this scan.</div>';
+ const rows=items.map(item=>'<tr class="clickable" role="button" tabindex="0" data-inventory-row="'+esc(item.id)+'">'+
+ '<td><div class="row-title">'+esc(item.name)+'</div><div class="row-sub">'+esc(kind==="mcp"?(item.transport||"unknown transport"):kind==="tools"?(item.kind||"tool"):(item.source||"skill"))+' · '+loc(item.location)+'</div></td>'+
+ '<td>'+badge(item.binding_state)+'</td><td>'+esc((item.bound_agents||[]).join(", ")||"—")+'</td>'+
+ '<td>'+esc(inventorySummary(item,kind))+'</td><td class="row-chevron">›</td></tr>').join("");
+ return '<div class="panel flush table-wrap"><table aria-label="'+esc(kind)+' inventory"><thead><tr><th>Component</th><th>Binding</th><th>Agent(s)</th><th>Capabilities / endpoint</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}}
+function inventoryDetail(item,kind){{
+ const format=(values)=>values&&values.length?values.join(", "):"—";
+ const resource=(item.resources||[]).map(r=>r.kind+": "+r.selector+" ("+format(r.access)+")").join("; ")||"—";
+ const meta=[["Binding",item.binding_state],["Source",item.location?(item.location.path+":"+(item.location.line||1)):"n/a"]];
+ if(kind==="mcp")meta.push(["Transport",item.transport||"unresolved"],["Endpoint (query omitted)",item.endpoint||"—"],["Command (arguments omitted)",item.command||"—"],["Authentication",inventoryControl(item.authenticated)],["Approval",inventoryControl(item.approval)],["Guardrail hook",inventoryControl(item.guardrails)],["Allowed tools",format(item.allowed_tools)],["Denied tools",format(item.denied_tools)],["Identity",item.identity||"unresolved"]);
+ else if(kind==="tools")meta.push(["Tool kind",item.kind||"—"],["Capabilities",format(item.capabilities)],["Destinations",format(item.destinations)],["Approval",inventoryControl(item.approval)],["Guardrail hook",inventoryControl(item.guardrails)],["Identity",item.identity||"unresolved"]);
+ else meta.push(["Description",item.description||"—"],["Skill source",item.source||"unknown"],["Capabilities",format(item.capabilities)],["Allowed tools",format(item.allowed_tools)],["Scripts",format(item.scripts)],["Destinations",format(item.destinations)]);
+ meta.push(["Resources",resource]);
+ const details=meta.map(([label,value])=>'<div>'+esc(label)+'</div><div>'+esc(value)+'</div>').join("");
+ const agents=(item.bound_agents||[]).map(name=>'<button class="filter-chip" type="button" data-inventory-agent="'+encodeURIComponent(name)+'">'+uiIcon("agents")+esc(name)+' ↗</button>').join("");
+ return '<div id="inventory-detail">'+sectionHead(item.name,"Source-backed instance: "+kind,'<button type="button" id="inventory-clear" class="back">Close detail</button>')+
+ '<div class="panel"><div class="kv">'+details+'</div></div>'+
+ sectionHead("Connected agents","A binding does not mean that every agent finding applies to this component.")+
+ (agents?'<div class="filter-chips">'+agents+'</div>':'<div class="empty">No source-proven agent binding.</div>')+'</div>';
+}}
+function renderComponents(kind="mcp",selectedId=null){{
+ if(!["mcp","tools","skills"].includes(kind))kind="mcp";
+ const root=document.getElementById("components"),items=inventoryEntries(kind),selected=items.find(item=>item.id===selectedId);
+ const tabs=[["mcp","MCP servers"],["tools","Tools"],["skills","Skills"]].map(([key,label])=>
+ '<button type="button" class="filter-chip '+(kind===key?"active":"")+'" data-inventory-kind="'+key+'">'+uiIcon(key==="mcp"?"mcp":key)+esc(label)+' ('+number(inventoryEntries(key).length)+')</button>').join("");
+ root.innerHTML=pageHead("Repository inventory","Components","Search discovered component instances, bindings and source evidence. This is a static inventory, not live deployment discovery.")+
+ '<div class="cards">'+metric("MCP servers",(DATA.mcp_servers||[]).filter(x=>x.binding_state!=="unresolved_reference").length)+metric("Tools",(DATA.tools||[]).length)+metric("Skills",(DATA.skills||[]).length)+metric("Unresolved references",(DATA.mcp_servers||[]).filter(x=>x.binding_state==="unresolved_reference").length)+'</div>'+
+ '<div class="toolbar"><div class="filter-chips">'+tabs+'</div><div class="toolbar-right"><input id="inventory-search" class="search" aria-label="Search inventory" placeholder="Search component, capability, agent or file"></div></div>'+
+ (selected?inventoryDetail(selected,kind):"")+
+ '<div class="toolbar"><div class="filter-chips">'+[["all","All"],["bound","Bound"],["unbound","Unbound"],["unresolved_reference","Unresolved"]].map(([key,label])=>'<button type="button" class="filter-chip '+(key==="all"?"active":"")+'" data-inventory-filter="'+key+'">'+label+'</button>').join("")+'</div><span class="muted small" id="inventory-count"></span></div><div id="inventory-table"></div>';
+ let filter="all";const input=root.querySelector("#inventory-search");
+ const update=()=>{{
+  const q=input.value.toLowerCase().trim();
+  const scoped=items.filter(item=>(filter==="all"||item.binding_state===filter)&&(!q||JSON.stringify(item).toLowerCase().includes(q)));
+  root.querySelector("#inventory-count").textContent=number(scoped.length)+" detected instances";
+  root.querySelector("#inventory-table").innerHTML=inventoryTable(scoped,kind);
+  root.querySelectorAll("[data-inventory-row]").forEach(row=>{{
+   const activate=()=>{{renderComponents(kind,row.dataset.inventoryRow);const detail=root.querySelector("#inventory-detail");if(detail)detail.scrollIntoView({{block:"start"}});}};
+   row.addEventListener("click",activate);
+   row.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});
+  }});
+ }};
+ root.querySelectorAll("[data-inventory-kind]").forEach(btn=>btn.addEventListener("click",()=>renderComponents(btn.dataset.inventoryKind)));
+ root.querySelectorAll("[data-inventory-filter]").forEach(btn=>btn.addEventListener("click",()=>{{filter=btn.dataset.inventoryFilter;root.querySelectorAll("[data-inventory-filter]").forEach(x=>x.classList.toggle("active",x===btn));update();}}));
+ input.addEventListener("input",update);
+ const clear=root.querySelector("#inventory-clear");if(clear)clear.addEventListener("click",()=>renderComponents(kind));
+ root.querySelectorAll("[data-inventory-agent]").forEach(btn=>btn.addEventListener("click",()=>openAgent(decodeURIComponent(btn.dataset.inventoryAgent),"overview",null,{{kind,id:selected.id}})));
+ update();
+}}
+
+
+/* Canonical ADG topology is embedded in security_graph; no heuristic edges are created. */
+const SUPPLY_LAYER_EDGES=Object.freeze({{
+ execution:new Set(["INVOKES","DELEGATES_TO","WORKFLOW_FLOWS_TO","CONTROL_FLOWS_TO","USES_SKILL","USES_MODEL","USES_PROMPT","IMPLEMENTS_CONTROL"]),
+ data:new Set(["READS_FROM","WRITES_TO","RECEIVES_INPUT_FROM","READS_MEMORY","WRITES_MEMORY","CONNECTS_TO","DATA_FLOWS_TO"]),
+ authority:new Set(["USES_IDENTITY","CAN_REACH_AUTHORITY","AUTHORIZES_ACCESS_TO","AUTHORIZES_CONNECTION_TO","GUARDED_BY","IMPLEMENTS_CONTROL"])
+}});
+function supplyColumn(kind){{
+ if(["agent","workflow_node"].includes(kind))return 0;
+ if(["tool","mcp_server","skill","model","prompt","delegation","capability"].includes(kind))return 1;
+ if(["identity","approval_control","policy_control"].includes(kind))return 2;
+ return 3;
+}}
+function supplyTopologyVisible(focus="all",layer="all",query=""){{
+ const topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[],edges=topology.edges||[];
+ const byId=new Map(nodes.map(node=>[node.id,node]));
+ const filtered=layer==="all"?edges:edges.filter(edge=>SUPPLY_LAYER_EDGES[layer]?.has(edge.kind));
+ const scope=new Set();
+ if(focus==="all")nodes.forEach(node=>scope.add(node.id));
+ else if(byId.has(focus)){{
+  scope.add(focus);
+  const direct=filtered.filter(e=>e.source===focus||((e.target===focus)&&["DELEGATES_TO","WORKFLOW_FLOWS_TO"].includes(e.kind)));
+  direct.forEach(e=>{{scope.add(e.source);scope.add(e.target);}});
+  const firstHop=new Set(direct.filter(e=>e.source===focus).map(e=>e.target));
+  filtered.forEach(e=>{{if(firstHop.has(e.source)){{scope.add(e.source);scope.add(e.target);}}}});
+ }}
+ let scopedEdges=filtered.filter(e=>scope.has(e.source)&&scope.has(e.target));
+ let scopedNodes=nodes.filter(node=>scope.has(node.id));
+ const q=String(query||"").trim().toLowerCase();
+ if(q){{
+  const hits=new Set(scopedNodes.filter(n=>(n.name+" "+n.kind+" "+(n.framework||"")).toLowerCase().includes(q)).map(n=>n.id));
+  const context=new Set(hits);
+  scopedEdges.forEach(e=>{{if(hits.has(e.source)||hits.has(e.target)){{context.add(e.source);context.add(e.target);}}}});
+  scopedNodes=scopedNodes.filter(n=>context.has(n.id));
+  scopedEdges=scopedEdges.filter(e=>context.has(e.source)&&context.has(e.target));
+ }}
+ const candidates=scopedNodes.length,possibleEdges=scopedEdges.length;
+ /* A deterministic bounded rendering keeps a self-contained offline report usable. */
+ const limit=72;
+ scopedNodes.sort((a,b)=>supplyColumn(a.kind)-supplyColumn(b.kind)||a.name.localeCompare(b.name)||a.id.localeCompare(b.id));
+ scopedNodes=scopedNodes.slice(0,limit);
+ const visibleIds=new Set(scopedNodes.map(n=>n.id));
+ scopedEdges=scopedEdges.filter(e=>visibleIds.has(e.source)&&visibleIds.has(e.target));
+ const edgeLimit=180;
+ const shownEdges=scopedEdges.length;
+ scopedEdges=scopedEdges.slice(0,edgeLimit);
+ return {{nodes:scopedNodes,edges:scopedEdges,candidates,possibleEdges,shownEdges,byId}};
+}}
+function supplySvg(view,selectedId){{
+ const groups=[[],[],[],[]];
+ view.nodes.forEach(n=>groups[supplyColumn(n.kind)].push(n));
+ const width=1180, colX=[20,314,608,902], nodeWidth=248, rowHeight=69;
+ const height=Math.max(400,Math.max(...groups.map(g=>g.length))*rowHeight+66);
+ const coords=new Map();
+ const columns=["Agents & workflow","Tools / MCP / models / skills","Identities & controls","Data & destinations"];
+ const headers=columns.map((label,i)=>'<text class="supply-col-title" x="'+(colX[i]+3)+'" y="26">'+esc(label)+'</text>').join("");
+ const graphNodes=groups.map((group,col)=>group.map((n,index)=>{{
+  const x=colX[col],y=47+index*rowHeight;coords.set(n.id,{{x,y}});
+  const selected=selectedId===n.id;
+  const title=n.name.length>29?n.name.slice(0,26)+"…":n.name;
+  return '<g class="supply-node '+(selected?"selected":"")+'" data-kind="'+esc(n.kind)+'" data-supply-node="'+esc(n.id)+'" role="button" tabindex="0" aria-label="'+esc(n.kind+" "+n.name)+'" transform="translate('+x+','+y+')">'+
+   '<rect width="'+nodeWidth+'" height="51" rx="9"></rect><text x="11" y="20" font-weight="700">'+esc(title)+'</text><text class="supply-kind" x="11" y="38">'+esc(n.kind.replaceAll("_"," "))+'</text></g>';
+ }}).join("")).join("");
+ const links=view.edges.map(e=>{{
+  const a=coords.get(e.source),b=coords.get(e.target);if(!a||!b)return "";
+  const forward=b.x>a.x, same=b.x===a.x;
+  const x1=a.x+(forward?nodeWidth:(same?nodeWidth/2:0)),y1=a.y+26,x2=b.x+(forward?0:(same?nodeWidth/2:nodeWidth)),y2=b.y+26;
+  const bend=forward?65:-65;
+  const d=same?("M"+x1+" "+y1+" C"+(x1+105)+" "+y1+" "+(x2+105)+" "+y2+" "+x2+" "+y2):
+   ("M"+x1+" "+y1+" C"+(x1+bend)+" "+y1+" "+(x2-bend)+" "+y2+" "+x2+" "+y2);
+  const group=SUPPLY_LAYER_EDGES.authority.has(e.kind)?"authority":SUPPLY_LAYER_EDGES.data.has(e.kind)?"data":"";
+  return '<path class="supply-edge '+group+(selectedId===e.id?" selected":"")+'" d="'+d+'" marker-end="url(#supply-arrow)" data-supply-edge="'+esc(e.id)+'" role="button" tabindex="0" aria-label="'+esc(e.kind+" from "+(view.byId.get(e.source)?.name||"unknown")+" to "+(view.byId.get(e.target)?.name||"unknown"))+'"><title>'+esc(e.kind)+'</title></path>';
+ }}).join("");
+ return '<svg class="supply-diagram" width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'" role="group" aria-label="Source-backed agent dependency topology">'+
+ '<defs><marker id="supply-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#7f98ad"></path></marker></defs>'+
+ headers+links+graphNodes+'</svg>';
+}}
+function supplyInspector(selectedId,focus,layer,view){{
+ const topology=DATA.security_graph?.topology||{{}},byId=new Map((topology.nodes||[]).map(n=>[n.id,n]));
+ const edge=(topology.edges||[]).find(e=>e.id===selectedId);
+ const node=byId.get(selectedId);
+ if(!edge&&!node)return '<div class="muted">Select a node or a relationship to inspect its source evidence and exact dependency semantics.</div>';
+ if(edge){{
+  const source=byId.get(edge.source),target=byId.get(edge.target),attrs=edge.attributes||{{}};
+  const descriptions=[["Relationship",edge.kind.replaceAll("_"," ")],["From",source?.name||"unknown"],["To",target?.name||"unknown"],["Source location",edge.location?.path?(edge.location.path+":"+(edge.location.line||1)):"n/a"]];
+  ["basis","via_agent","flow_id","route"].forEach(key=>{{if(attrs[key]!=null)descriptions.push([key.replaceAll("_"," "),String(attrs[key])]);}});
+  return '<h3>Dependency evidence</h3><div class="kv small">'+descriptions.map(([a,b])=>'<div>'+esc(a)+'</div><div>'+esc(b)+'</div>').join("")+'</div>'+
+ '<p class="supply-note">The edge represents detected static configuration or analysis, not verified runtime activity.</p>';
+ }}
+ const attrs=node.attributes||{{}};
+ const properties=[["Type",node.kind],["Framework",node.framework||"unknown"],["Source location",node.location?.path?(node.location.path+":"+(node.location.line||1)):"n/a"]];
+ const safeKeys=["tool_kind","capabilities","binding_state","binding_origin","model_key","model_provider","transport","authenticated","approval","provider","roles","permissions","source","allowed_tools","resolution","persistent","workflow","route","basis","credential_source","discovery_basis","has_scripts"];
+ for(const key of safeKeys){{
+  const value=attrs[key];if(value===undefined||value===null)continue;
+  properties.push([key.replaceAll("_"," "),Array.isArray(value)?value.map(String).join(", "):String(value)]);
+ }}
+ const neighbors=(topology.edges||[]).filter(e=>e.source===node.id||e.target===node.id);
+ const navAgent=node.kind==="agent"&&DATA.agents.filter(a=>a.name===node.name).length===1?
+ '<button type="button" class="back" id="supply-open-agent">Open agent security profile ↗</button>':"";
+ return '<h3>'+esc(node.name)+'</h3><div class="kv small">'+properties.map(([a,b])=>'<div>'+esc(a)+'</div><div>'+esc(b)+'</div>').join("")+'</div>'+
+ '<div style="margin-top:11px">'+navAgent+'</div>'+
+ '<div class="supply-note">'+number(neighbors.length)+' recorded incident relationships (across all filters).</div>'+
+ neighbors.slice(0,8).map(e=>'<div class="supply-relationship">'+esc(e.kind.replaceAll("_"," "))+' — '+esc((byId.get(e.source===node.id?e.target:e.source)?.name)||"unknown")+'</div>').join("")+
+ (neighbors.length>8?'<div class="muted small">+'+number(neighbors.length-8)+' more; filter the topology to inspect.</div>':"");
+}}
+function renderSupplyChain(focus="all",layer="all",selectedId=null,query=""){{
+ const root=document.getElementById("supply"),topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[],edges=topology.edges||[];
+ const agents=nodes.filter(n=>n.kind==="agent");
+ const selection=[["all","All discovered agents"],...agents.map(n=>[n.id,n.name])];
+ const options=selection.map(([id,label])=>'<option value="'+esc(id)+'"'+(id===focus?" selected":"")+'>'+esc(label)+'</option>').join("");
+ const layers=[["all","All relationships"],["execution","Invocation & delegation"],["data","Data & destinations"],["authority","Authority & controls"]];
+ const chips=layers.map(([id,label])=>'<button type="button" class="filter-chip '+(layer===id?"active":"")+'" data-supply-layer="'+id+'">'+esc(label)+'</button>').join("");
+ const view=supplyTopologyVisible(focus,layer,query);
+ const delegation=edges.filter(e=>e.kind==="DELEGATES_TO").length;
+ const undisplayed=view.candidates-view.nodes.length,unshown=view.possibleEdges-view.edges.length;
+ const warning=(undisplayed||unshown)?'<p class="supply-note">Diagram displays '+number(view.nodes.length)+' of '+number(view.candidates)+' selected nodes and '+number(view.edges.length)+' of '+number(view.possibleEdges)+' applicable relationships. Choose an agent or search to inspect omitted connections.</p>':"";
+ root.innerHTML=pageHead("Cross-agent dependencies","Supply chain","Navigate the canonical Agent Dependency Graph: agent delegation, tools, MCP, skills, model dependencies, data and reachable authority. Relationships describe static evidence, not live executions.")+
+ '<div class="cards">'+metric("Agents",agents.length)+metric("Dependency nodes",nodes.length)+metric("Relationships",edges.length)+metric("Delegations",delegation)+'</div>'+
+ '<div class="supply-toolbar"><label class="small" for="supply-focus">Scope</label><select class="supply-select" id="supply-focus" aria-label="Focus supply chain on agent">'+options+'</select>'+
+ '<input class="search" id="supply-search" aria-label="Search supply chain" placeholder="Find agent, model, tool, MCP, skill or resource" value="'+esc(query)+'"></div>'+
+ '<div class="filter-chips" role="group" aria-label="Relationship categories">'+chips+'</div>'+
+ '<p class="supply-note">Dashed green: source-reconstructed authority. Orange: data and destination. All lines are directed static relationships; line presence does not prove runtime invocation.</p>'+
+ warning+'<div class="supply-viewport">'+(view.nodes.length?supplySvg(view,selectedId):'<div class="empty">No nodes matched this scope and filter.</div>')+'</div>'+
+ sectionHead("Dependency inspector","Select an individual node or edge for traceable relationships and source locations.")+
+ '<div class="panel supply-inspector" id="supply-inspector">'+supplyInspector(selectedId,focus,layer,view)+'</div>';
+ root.querySelector("#supply-focus").addEventListener("change",event=>renderSupplyChain(event.target.value,layer));
+ root.querySelectorAll("[data-supply-layer]").forEach(btn=>btn.addEventListener("click",()=>renderSupplyChain(focus,btn.dataset.supplyLayer)));
+ const search=root.querySelector("#supply-search");
+ search.addEventListener("input",()=>{{const value=search.value;const start=search.selectionStart;renderSupplyChain(focus,layer,null,value);const next=root.querySelector("#supply-search");next.focus();next.setSelectionRange(start,start);}});
+ const wire=(selector,key)=>root.querySelectorAll(selector).forEach(item=>{{
+  const activate=()=>{{const chosen=item.dataset[key];const panel=root.querySelector("#supply-inspector");if(!chosen||!panel)return;
+    root.querySelectorAll(".supply-node,.supply-edge").forEach(x=>x.classList.toggle("selected",x===item));
+    panel.innerHTML=supplyInspector(chosen,focus,layer,view);
+    const open=panel.querySelector("#supply-open-agent");
+    if(open)open.addEventListener("click",()=>{{const node=nodes.find(n=>n.id===chosen);if(node)openAgent(node.name,"overview",null,null,{{focus,layer,selected:chosen}});}});
+  }};
+  item.addEventListener("click",activate);
+  item.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});
+ }});
+ wire("[data-supply-node]","supplyNode");wire("[data-supply-edge]","supplyEdge");
+ const initial=root.querySelector("#supply-open-agent");
+ if(initial)initial.addEventListener("click",()=>{{const node=nodes.find(n=>n.id===selectedId);if(node)openAgent(node.name,"overview",null,null,{{focus,layer,selected:selectedId}});}});
 }}
 
 function contractItem(item){{
@@ -1260,13 +1612,13 @@ function renderAgentEvidence(a){{
  '<div>Resolution</div><div>'+badge(r.resolution)+'</div><div>Source</div><div>'+loc(r.location)+'</div><div>Unresolved dimensions</div><div>'+esc((r.unresolved||[]).join(", ")||"none")+'</div></div>'+
  '<details><summary>Full evidence</summary><pre>'+esc(JSON.stringify({{evidence:r.evidence,dimensions:r.dimensions,approval:r.approval,semantics:r.semantics}},null,2))+'</pre></details></div>').join("");
 }}
-function openAgent(name,initialTab="overview",owaspRisk=null){{
+function openAgent(name,initialTab="overview",owaspRisk=null,inventoryFocus=null,supplyFocus=null){{
  const a=DATA.agents.find(x=>x.name===name); if(!a)return; const root=document.getElementById("agent-detail");
  root.innerHTML='<button class="breadcrumb" id="back-agents">← Back to agents</button><div class="agent-head"><div><div class="eyebrow">Agent security profile</div><h1>'+esc(a.name)+'</h1><div class="muted">'+esc(a.framework)+' · '+loc(a.location)+'</div></div><div class="page-actions">'+agentAttention(a)+badge(a.summary.contract_status)+'</div></div>'+
  '<div class="tabs" role="tablist"><button class="active" data-tab="overview">Overview</button><button data-tab="map">Agency map <span class="tab-count">'+number(a.summary.authority_relationships)+'</span></button><button data-tab="paths">Attack paths <span class="tab-count">'+number(a.summary.attack_paths)+'</span></button><button data-tab="findings">Findings <span class="tab-count">'+number(a.summary.findings)+'</span></button><button data-tab="contract">Contract <span class="tab-count">'+number(a.summary.contract_violations+a.summary.contract_unresolved)+'</span></button><button data-tab="evidence">Evidence</button></div>'+
  '<div id="tab-overview" class="agent-tab active">'+renderAgentOverview(a)+'</div><div id="tab-map" class="agent-tab">'+renderGraph(a)+'</div><div id="tab-paths" class="agent-tab">'+renderAgentPaths(a)+'</div><div id="tab-findings" class="agent-tab">'+renderAgentFindings(a,owaspRisk)+'</div><div id="tab-contract" class="agent-tab">'+renderAgentContract(a)+'</div><div id="tab-evidence" class="agent-tab">'+renderAgentEvidence(a)+'</div>';
- root.querySelector("#back-agents").textContent=owaspRisk?"← Back to OWASP "+owaspRisk:"← Back to agents";
- root.querySelector("#back-agents").addEventListener("click",()=>{{if(owaspRisk){{renderOwasp(owaspRisk);showView("owasp");}}else showView("agents");}});
+ root.querySelector("#back-agents").textContent=owaspRisk?"← Back to OWASP "+owaspRisk:(inventoryFocus?"← Back to components":(supplyFocus?"← Back to supply chain":"← Back to agents"));
+ root.querySelector("#back-agents").addEventListener("click",()=>{{if(owaspRisk){{renderOwasp(owaspRisk);showView("owasp");}}else if(inventoryFocus){{renderComponents(inventoryFocus.kind,inventoryFocus.id);showView("components");}}else if(supplyFocus){{renderSupplyChain(supplyFocus.focus,supplyFocus.layer,supplyFocus.selected);showView("supply");}}else showView("agents");}});
  const clearOwasp=root.querySelector("#clear-agent-owasp");
  if(clearOwasp)clearOwasp.addEventListener("click",()=>{{root.querySelector("#tab-findings").innerHTML=renderAgentFindings(a);}});
  root.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>{{
@@ -1375,7 +1727,7 @@ function renderEvidence(){{
  sectionHead("Diagnostics","Coverage or parsing conditions that may affect completeness.")+(diags.length?diags.map(d=>'<div class="finding" data-sev="medium"><div class="finding-title"><strong>'+esc(d.diagnostic_id||d.code)+'</strong><span class="badge medium">diagnostic</span></div><p>'+esc(d.message)+'</p><div class="muted small">'+loc(d.location)+'</div></div>').join(""):'<div class="empty">No detected coverage diagnostics.</div>');
 }}
 
-renderDashboard();renderAgents();renderFindings();renderPolicy();renderOwasp();renderAttack();renderContracts();renderEvidence();
+renderDashboard();renderAgents();renderComponents();renderSupplyChain();renderFindings();renderPolicy();renderOwasp();renderAttack();renderContracts();renderEvidence();
 </script>
 </body>
 </html>

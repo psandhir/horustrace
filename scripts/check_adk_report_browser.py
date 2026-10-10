@@ -38,6 +38,8 @@ def check_report(html_file: Path) -> dict[str, object]:
 
             tabs = (
                 ("agents", "#agents .row-title"),
+                ("components", "#components #inventory-table"),
+                ("supply", "#supply .supply-diagram"),
                 ("findings", "#findings .finding"),
                 ("policy", "#policy .panel"),
                 ("owasp", "#owasp tbody tr"),
@@ -96,6 +98,49 @@ def check_report(html_file: Path) -> dict[str, object]:
             page.locator("#back-agents").click()
             assert page.locator("#owasp.active #owasp-detail").count() == 1
             checks.append("OWASP category opens attributable agent and scoped findings")
+
+            # Component inventory works offline, including component-to-agent navigation.
+            page.locator('nav.nav button[data-view="components"]').click()
+            page.locator('#components [data-inventory-kind="tools"]').click()
+            assert page.locator('#components [data-inventory-row]').count() > 0
+            assert page.locator('#components [data-inventory-kind="skills"]').count() == 1
+            rows = page.locator('#components [data-inventory-row]')
+            bound_component = False
+            for index in range(rows.count()):
+                rows.nth(index).focus()
+                rows.nth(index).press("Enter")
+                assert page.locator('#components #inventory-detail').count() == 1
+                if page.locator('#components [data-inventory-agent]').count():
+                    bound_component = True
+                    break
+            assert bound_component, "No bound tools found in the vulnerable ADK report"
+            page.locator('#components [data-inventory-agent]').first.click()
+            assert page.locator("#agent-detail.active").count() == 1
+            page.locator("#back-agents").click()
+            assert page.locator("#components.active #inventory-detail").count() == 1
+            checks.append("Component inventory opens bound tool and returns from agent")
+            page.locator('#components [data-inventory-kind="mcp"]').click()
+            assert page.locator('#components [data-inventory-row]').count() > 0
+            checks.append("MCP inventory and skill tab accessible in offline report")
+
+            # Canonical ADG supply chain is navigable without graph reconstruction.
+            page.locator('nav.nav button[data-view="supply"]').click()
+            assert page.locator("#supply.active .supply-diagram").count() == 1
+            assert page.locator("#supply [data-supply-node]").count() > 0
+            assert page.locator("#supply [data-supply-edge]").count() > 0
+            agent_node = page.locator('#supply [data-supply-node][data-kind="agent"]').first
+            agent_node.focus()
+            agent_node.press("Enter")
+            assert page.locator("#supply-inspector").inner_text().strip()
+            assert page.locator("#supply-open-agent").count() == 1
+            page.locator("#supply-open-agent").click()
+            assert page.locator("#agent-detail.active").count() == 1
+            page.locator("#back-agents").click()
+            assert page.locator("#supply.active .supply-diagram").count() == 1
+            page.locator('#supply [data-supply-layer="execution"]').click()
+            assert page.locator("#supply.active .supply-diagram").count() == 1
+            page.locator("#supply-focus").select_option("all")
+            checks.append("Supply chain graph supports keyboard, source inspection, layers and agent return")
 
             page.locator('[data-theme-choice="dark"]').click()
             assert page.locator("html").get_attribute("data-theme") == "dark"
