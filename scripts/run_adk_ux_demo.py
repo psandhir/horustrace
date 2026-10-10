@@ -62,6 +62,20 @@ def produce_report(output_dir: Path) -> tuple[dict, list[str]]:
         "contract_violations": summary["contract_violations"],
         "coverage_incomplete": summary["analysis_incomplete"],
         "agent_names": sorted(names),
+        "findings_with_raw_provenance": sum(
+            bool(f.get("provenance")) for f in report["findings"]
+        ),
+        "raw_provenance_facts": sum(
+            len(f.get("provenance", [])) for f in report["findings"]
+        ),
+        "findings_with_source_context": sum(
+            bool(f.get("provenance_digest", {}).get("items"))
+            for f in report["findings"]
+        ),
+        "source_context_groups": sum(
+            len(f.get("provenance_digest", {}).get("items", []))
+            for f in report["findings"]
+        ),
     }
     (output_dir / "adk-acceptance-metrics.json").write_text(
         json.dumps(results, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -137,6 +151,8 @@ def produce_report(output_dir: Path) -> tuple[dict, list[str]]:
         "destinations", "effective_authority_relationships", "findings",
         "attack_paths", "owasp_categories_with_runtime_findings",
         "policy_violations", "contract_violations",
+        "findings_with_raw_provenance", "raw_provenance_facts",
+        "findings_with_source_context", "source_context_groups",
     ):
         lines.append(f"| {label.replace('_', ' ').capitalize()} | {results[label]} |")
     lines.extend([
@@ -164,11 +180,45 @@ def produce_report(output_dir: Path) -> tuple[dict, list[str]]:
     for status in ("fully_resolved", "partially_resolved", "unknown"):
         lines.append(f"| {status.replace('_', ' ').title()} | {resolutions.count(status)} |")
 
+    baseline = {
+        "agents": 2,
+        "tools": 8,
+        "mcp_servers": 1,
+        "findings": 37,
+        "attack_paths": 8,
+        "owasp_categories_with_runtime_findings": 5,
+        "findings_with_source_context": 37,
+        "raw_provenance_facts": 1180,
+        "source_context_groups": 51,
+    }
+    lines.extend([
+        "", "## Previous ADK demo comparison", "",
+        "Reference: 10 October 2026, run 38068838157, source-context report.",
+        "Counts are indicators for investigation, not security scores.",
+        "",
+        "| Metric | Previous | Latest | Change |",
+        "| --- | ---: | ---: | ---: |",
+    ])
+    for key, prior in baseline.items():
+        current = results[key]
+        lines.append(
+            f"| {key.replace('_', ' ').capitalize()} | {prior} | {current} | "
+            f"{current - prior:+d} |"
+        )
+    lines.append("")
+    lines.append(
+        "Any change in findings, attack paths, or provenance coverage requires "
+        "source-backed explanation before being labelled a regression or improvement."
+    )
+
     lines.extend(["", "## OWASP risk categories with runtime-mapped findings", ""])
     lines.extend(f"- {name}" for name in results["owasp_risk_categories"])
     if not results["owasp_risk_categories"]:
         lines.append("- None detected (acceptance failure)")
     lines.extend([
+        "",
+        "Source context counts only same-file/same-line evidence. Raw provenance "
+        "remains expandable. Source-context groups are not unique vulnerabilities.",
         "",
         "OWASP mappings describe detector findings, not independent certification "
         "or a formal OWASP violation. Policy and Authority Contract violations "
