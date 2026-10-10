@@ -185,6 +185,18 @@ def _relevant_provenance(agent, finding, attack_path):
                 add(server, lambda fact: key_is(fact, "transport"))
         return result
 
+    if finding.rule_id == "CAP004":
+        # Command execution plus network authority are the two triggering
+        # classes. Delegation carries the original child-tool provenance,
+        # which must retain its precise child source location.
+        relevant = {"process.execute", "network.external"}
+        for tool in agent.tools:
+            add(tool, lambda fact: capability_is(fact, relevant))
+        for server in agent.mcp_servers:
+            if server.url:
+                add(server, lambda fact: key_is(fact, "transport"))
+        return result
+
     if finding.rule_id == "AGT010":
         source_named(_evidence_values(finding, "sensitive"))
         outbound_named(_evidence_values(finding, "outbound"))
