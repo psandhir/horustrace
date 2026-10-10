@@ -142,6 +142,47 @@ def test_visual_report_component_inventory_preserves_binding_and_controls(
     assert 'components:skills' in html
 
 
+def test_visual_report_supply_chain_uses_canonical_adg_edges(tmp_path: Path) -> None:
+    graph, findings = _graph(tmp_path)
+    graph.agents[0].metadata["delegates_to"] = ["worker"]
+    graph.agents.append(
+        Agent(
+            name="worker",
+            location=SourceLocation(tmp_path / "worker.py", line=3),
+            metadata={"framework": "openai-agents"},
+        )
+    )
+    graph.adg = build_adg(graph, tmp_path)
+    report = build_visual_report(graph, findings, tmp_path)
+    topology = report["security_graph"]["topology"]
+    nodes = {node["id"]: node for node in topology["nodes"]}
+    assert {node["name"] for node in nodes.values() if node["kind"] == "agent"} == {
+        "support", "worker",
+    }
+    kinds = {edge["kind"] for edge in topology["edges"]}
+    assert "DELEGATES_TO" in kinds
+    assert "INVOKES" in kinds
+    assert "USES_IDENTITY" in kinds
+    for edge in topology["edges"]:
+        assert edge["source"] in nodes
+        assert edge["target"] in nodes
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+    assert 'data-view="supply"' in html
+    assert 'id="supply" class="view"' in html
+    assert "function renderSupplyChain(" in html
+    assert "function supplyTopologyVisible(" in html
+    assert 'aria-label="Source-backed agent dependency topology"' in html
+    assert "CAN_REACH_AUTHORITY" in html
+    assert "No nodes matched this scope and filter." in html
+    assert "static relationships" in html
+    assert before_supply_graph_identical(report, graph, findings, tmp_path)
+
+
+def before_supply_graph_identical(report: dict, graph: Graph, findings: list[Finding], root: Path) -> bool:
+    return report == build_visual_report(graph, findings, root)
+
+
 def test_visual_report_projects_effective_agency_and_contract(tmp_path: Path) -> None:
     graph, findings = _graph(tmp_path)
 
