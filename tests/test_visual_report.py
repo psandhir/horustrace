@@ -220,7 +220,8 @@ def test_visual_report_supply_chain_uses_canonical_adg_edges(tmp_path: Path) -> 
     assert 'aria-label="Source-backed agent dependency topology"' in html
     assert "CAN_REACH_AUTHORITY" in html
     assert "No nodes matched this scope and filter." in html
-    assert "static relationships" in html
+    assert "Static evidence does not prove runtime execution." in html
+    assert "canonical RECEIVES_INPUT_FROM relation keeps its original endpoints" in html
     assert before_supply_graph_identical(report, graph, findings, tmp_path)
 
 
