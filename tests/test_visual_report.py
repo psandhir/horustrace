@@ -355,6 +355,51 @@ def test_visual_report_light_palette_text_contrast(tmp_path: Path) -> None:
         assert contrast(colors[foreground], colors["surface"]) >= 4.5, foreground
 
 
+def test_visual_report_light_theme_pastel_bars_are_presentation_only(
+    tmp_path: Path,
+) -> None:
+    graph, findings = _graph(tmp_path)
+    before = build_visual_report(graph, findings, tmp_path)
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+    after = build_visual_report(graph, findings, tmp_path)
+
+    assert before == after
+    # Pastels are used only for graphical fills. Severity text keeps the
+    # stronger contrast-safe foreground colors already tested above.
+    for token, color in (
+        ("risk", "#EFB7B7"), ("warning", "#F4D1AE"),
+        ("good", "#BFDCC8"), ("unknown", "#C7D0DB"),
+    ):
+        assert f"--bar-{token}:{color}" in html
+
+    for selector, token in (
+        (".severity-chart-fill.critical", "risk"),
+        (".severity-chart-fill.high", "warning"),
+        (".severity-chart-fill.medium", "warning"),
+        (".severity-chart-fill.low", "good"),
+        (".severity-chart-fill.info", "unknown"),
+        (".authority-chart-row .severity-chart-fill.fully_resolved", "good"),
+        (".authority-chart-row .severity-chart-fill.partially_resolved", "warning"),
+        (".authority-chart-row .severity-chart-fill.unknown", "unknown"),
+        (".owasp-chart-row .severity-chart-fill.finding", "risk"),
+        (".owasp-chart-row .severity-chart-fill.no_runtime_findings", "warning"),
+        (".owasp-chart-row .severity-chart-fill.no_mapped_findings", "good"),
+        (".owasp-chart-row .severity-chart-fill.not_assessed", "unknown"),
+        (".coverage-fill", "good"),
+        (".coverage-fill.incomplete", "warning"),
+    ):
+        assert f'html[data-theme="light"] {selector}' in html
+        assert f"background:var(--bar-{token})" in html
+
+    assert '<div class="coverage-fill \'+(c.incomplete?' in html
+    assert "c.incomplete?'incomplete':''" in html
+    # The original dark semantic colors are unaffected.
+    assert "--critical:#ff707a" in html
+    assert "--high:#ff9e66" in html
+    assert "--ok:#63d6a0" in html
+
+
 def test_visual_report_projects_attack_path_chain(tmp_path: Path) -> None:
     location = SourceLocation(tmp_path / "agent.py", line=10)
     agent = Agent(name="Slack Agent", location=location)
