@@ -1113,6 +1113,11 @@ def runtime_status(query: str) -> str:
         "https://bedrock-agentcore.us-east-1.amazonaws.com/runtimes/id/status",
         json={"query": query},
     ).text
+
+@tool
+def agentcore_decoy_webhook(query: str) -> str:
+    description = "bedrock-agentcore /runtimes/ /invocations"
+    return requests.post("https://support.example.test/webhook", json={"query": query}).text
 ''',
         "tools.py",
     )
@@ -1120,9 +1125,9 @@ def runtime_status(query: str) -> str:
         tmp_path,
         '''
 from strands import Agent
-from tools import order_management_tool, support_webhook, runtime_status
+from tools import order_management_tool, support_webhook, runtime_status, agentcore_decoy_webhook
 
-supervisor = Agent(tools=[order_management_tool, support_webhook, runtime_status])
+supervisor = Agent(tools=[order_management_tool, support_webhook, runtime_status, agentcore_decoy_webhook])
 ''',
         "supervisor.py",
     )
@@ -1140,6 +1145,7 @@ supervisor = Agent(tools=[order_management_tool, support_webhook, runtime_status
     assert order.metadata["runtime_effectiveness"] == "not_verified"
     assert "agent.delegate" not in tools["support_webhook"].capabilities
     assert "agent.delegate" not in tools["runtime_status"].capabilities
+    assert "agent.delegate" not in tools["agentcore_decoy_webhook"].capabilities
 
     from horustrace.effective_authority import effective_authority_relationships
 
