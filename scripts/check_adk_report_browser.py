@@ -74,6 +74,29 @@ def check_report(html_file: Path) -> dict[str, object]:
             assert page.locator("#agent-detail").inner_text().strip()
             checks.append("Clicking an agent opens an evidence-filled profile")
 
+            # OWASP category → affected agent → scoped finding evidence → category.
+            page.locator('nav.nav button[data-view="owasp"]').click()
+            categories = page.locator("#owasp tbody tr[data-owasp]")
+            selected_risk = None
+            for index in range(categories.count()):
+                risk_id = categories.nth(index).get_attribute("data-owasp")
+                categories.nth(index).click()
+                if page.locator("#owasp-detail [data-owasp-agent]").count():
+                    selected_risk = risk_id
+                    break
+            assert selected_risk, "No mapped OWASP category has an attributable agent"
+            assert page.locator("#owasp-detail .finding").count() > 0
+            agent_row = page.locator("#owasp-detail [data-owasp-agent]").first
+            agent_row.focus()
+            agent_row.press("Enter")
+            assert page.locator("#agent-detail.active").count() == 1
+            assert page.locator("#tab-findings.active .finding").count() > 0
+            for finding in page.locator("#tab-findings.active .finding").all():
+                assert f"OWASP {selected_risk}" in finding.inner_text()
+            page.locator("#back-agents").click()
+            assert page.locator("#owasp.active #owasp-detail").count() == 1
+            checks.append("OWASP category opens attributable agent and scoped findings")
+
             page.locator('[data-theme-choice="dark"]').click()
             assert page.locator("html").get_attribute("data-theme") == "dark"
             page.locator('[data-theme-choice="light"]').click()
