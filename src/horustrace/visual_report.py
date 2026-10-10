@@ -238,6 +238,7 @@ def _finding_provenance_digest(finding: Finding, root: Path) -> dict[str, Any]:
         relevance = (
             (4 if len(subject) > 2 and subject.lower() in search_text else 0)
             + min(4, sum(2 for fact in raw_facts if fact.lower() in search_text))
+            + (2 if controls else 0)
             + (1 if capabilities else 0)
         )
         items.append({
