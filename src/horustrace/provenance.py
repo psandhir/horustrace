@@ -301,6 +301,9 @@ def attach_findings(graph, findings):
                 if entity.location == finding.location
                 for fact in entity.provenance
             ]
+            legacy_inferred = any(
+                fact.origin == 'inferred' for fact in finding.provenance
+            )
         if finding.rule_id.startswith('PATH') or finding.rule_id in {'AGT010', 'DATA003'}:
             finding.assessment = 'potential_risk'
         if finding.rule_id.startswith('PATH'):
