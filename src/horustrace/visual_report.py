@@ -811,7 +811,7 @@ function metric(label,value,cls="",drill="",detail=""){{
  return '<div class="card'+attrs+'"><div class="metric-top"><div class="metric-label">'+esc(label)+'</div><span class="metric-icon">'+uiIcon(ICON_FOR_METRIC[label]||"chart")+'</span></div><div class="metric '+cls+'">'+number(value)+'</div>'+(detail?'<div class="metric-detail">'+esc(detail)+'</div>':"")+'</div>';
 }}
 function pageHead(eyebrow,title,copy,actions=""){{return '<div class="page-head"><div><div class="eyebrow">'+esc(eyebrow)+'</div><div class="page-title-row">'+uiIcon(ICON_FOR_SECTION[title]||"overview")+'<h1>'+esc(title)+'</h1></div><div class="muted">'+esc(copy)+'</div></div>'+(actions?'<div class="page-actions">'+actions+'</div>':"")+'</div>';}}
-function sectionHead(title,copy="",action=""){{return '<div class="section-head"><div><div class="section-title-row">'+uiIcon(ICON_FOR_SECTION[title])+'<h2>'+esc(title)+'</h2></div>+(copy?'<p>'+esc(copy)+'</p>':"")+'</div>'+action+'</div>';}}
+function sectionHead(title,copy="",action=""){{return '<div class="section-head"><div><div class="section-title-row">'+uiIcon(ICON_FOR_SECTION[title])+'<h2>'+esc(title)+'</h2></div>'+(copy?'<p>'+esc(copy)+'</p>':"")+'</div>'+action+'</div>';}}
 function scanCoverageStatus(incomplete){{
  const label=incomplete?"Coverage incomplete":"No reported coverage gaps";
  return '<span class="badge '+(incomplete?"unresolved":"")+'" aria-label="Scan completeness: '+label+'">'+label+'</span>';
