@@ -579,6 +579,48 @@ def _resolve_class(
     return None
 
 
+
+def _agentcore_runtime_invocation(function: ast.AST) -> bool:
+    """Recognize a source-proven AgentCore *agent invocation*, not generic HTTP.
+
+    The remote runtime ID may be loaded from SSM at execution time.  This
+    predicate establishes a delegation boundary without inventing its target,
+    permissions, or effective runtime identity.
+    """
+    literals = {
+        child.value.lower()
+        for child in ast.walk(function)
+        if isinstance(child, ast.Constant) and isinstance(child.value, str)
+    }
+    endpoint = "\n".join(sorted(literals))
+    if not (
+        "bedrock-agentcore" in endpoint
+        and "/runtimes/" in endpoint
+        and "/invocations" in endpoint
+    ):
+        return False
+    return any(
+        isinstance(child, ast.Call)
+        and isinstance(child.func, ast.Attribute)
+        and isinstance(child.func.value, ast.Name)
+        and child.func.value.id in {"requests", "httpx"}
+        and child.func.attr == "post"
+        for child in ast.walk(function)
+    )
+
+
+def _agentcore_credential_flow(function: ast.AST) -> str:
+    """Describe only directly visible JWT forwarding; do not infer validity."""
+    text = ast.unparse(function)
+    if (
+        "Authorization" in text
+        and "jwt_token" in text
+        and ("data=payload" in text or "json=payload" in text)
+    ):
+        return "jwt_token_forwarded_to_remote_agent"
+    return "not_verified"
+
+
 def _function_tool(
     modules: dict[str, _ModuleInfo],
     info: _ModuleInfo,
@@ -602,6 +644,18 @@ def _function_tool(
             "import_module": target.module,
         },
     )
+    if _agentcore_runtime_invocation(function):
+        tool.capabilities.add("agent.delegate")
+        tool.metadata.update({
+            "authority_binding": "delegation_projection",
+            "authority_binding_basis": "source_proven_agentcore_http_invocation",
+            # This is a source-edge discriminator, not a real remote agent ID.
+            "delegate_target": f"<dynamic-agentcore-runtime:{function.name}>",
+            "delegation_target_resolution": "runtime_configured_unresolved",
+            "delegation_transport": "bedrock_agentcore_runtime_http",
+            "credential_forwarding": _agentcore_credential_flow(function),
+            "runtime_effectiveness": "not_verified",
+        })
     text = ast.unparse(function)
     _attach_literal_destinations(tool, text)
     _attach_literal_resources(tool, text)
