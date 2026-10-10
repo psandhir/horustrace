@@ -664,6 +664,49 @@ html[data-theme="light"] .badge.high,html[data-theme="light"] .badge.medium{{bac
 html[data-theme="light"] .badge.unresolved{{background:#f1f5fa;border-color:#d5dfe8}}
 html[data-theme="light"] .badge.compliant{{background:#eaf7f0;border-color:#b9decd}}
 
+
+/* Security workbench: neutral surface, intentional accent and source-safe inline icons. */
+.ui-icon{{width:17px;height:17px;flex:none;vertical-align:-3px;stroke:currentColor}}
+.nav button{{display:flex;align-items:center;gap:11px;padding:10px 11px}}
+.nav button::before{{display:none}}
+.nav button .ui-icon{{opacity:.78}}
+.nav button.active .ui-icon{{opacity:1}}
+.metric-top{{display:flex;align-items:start;justify-content:space-between;gap:8px;min-height:29px}}
+.metric-top .metric-label{{font-size:12px;line-height:1.35;margin-top:2px}}
+.metric-icon{{height:33px;width:33px;flex:none;display:grid;place-items:center;border-radius:9px;
+background:var(--surface3);color:var(--muted)}}
+.metric{{margin-top:5px}}
+.metric-detail{{white-space:normal;overflow-wrap:anywhere;line-height:1.4}}
+.page-title-row,.section-title-row{{display:flex;align-items:center;gap:10px}}
+.page-title-row .ui-icon{{width:22px;height:22px;color:var(--accent)}}
+.section-title-row .ui-icon{{color:var(--muted2)}}
+.report-context{{font-size:10px;text-transform:uppercase;font-weight:800;letter-spacing:.1em;
+color:var(--muted);display:flex;align-items:center;gap:8px;margin-bottom:10px}}
+.report-context::before{{content:"";display:inline-block;width:7px;height:7px;
+border-radius:50%;background:var(--accent)}}
+html[data-theme="light"]{{--bg:#f7f9fc;--sidebar:#ffffff;--surface:#ffffff;--surface2:#f1f5f9;
+--surface3:#f0f4f8;--line:#dce5ee;--line-strong:#bfcfdf;--accent:#21639b;--accent-soft:#eaf3fc}}
+html[data-theme="light"] aside{{box-shadow:2px 0 12px #182d4308}}
+html[data-theme="light"] .nav button{{font-size:13px;font-weight:650}}
+html[data-theme="light"] .nav button.active{{background:#e8f2f9;border-color:#d3e4ef;
+color:#184d73;box-shadow:inset 3px 0 #377da8}}
+html[data-theme="light"] .nav button:hover:not(.active){{background:#f3f7fa}}
+html[data-theme="light"] .metric-icon{{background:#eef4f8;color:#376a89}}
+html[data-theme="light"] .card{{border-color:#dce5ed;box-shadow:0 3px 12px #203b5b08}}
+html[data-theme="light"] .card.drill:hover{{border-color:#9fbfd4;box-shadow:0 5px 18px #1e527011}}
+html[data-theme="light"] .card:focus-visible{{outline:2px solid var(--accent);outline-offset:2px}}
+html[data-theme="light"] .assessment-banner{{background:#fff;border-left:4px solid #89abc0;
+border-color:#dce5ec;box-shadow:0 4px 16px #182d4308}}
+html[data-theme="light"] .assessment-banner.critical{{background:linear-gradient(110deg,#fff8fa,#fff 60%);
+border-left:4px solid #b12645}}
+html[data-theme="light"] .assessment-banner.high{{background:linear-gradient(110deg,#fff8fa,#fff 60%);
+border-left:4px solid #bd5670}}
+html[data-theme="light"] .assessment-banner.warn{{background:linear-gradient(110deg,#f5faff,#fff 60%);
+border-left:4px solid #377da8}}
+html[data-theme="light"] .assessment-banner:focus-visible{{outline:2px solid var(--accent);outline-offset:2px}}
+html[data-theme="light"] .section-title-row .ui-icon{{color:#31718e}}
+html[data-theme="light"] .page-title-row .ui-icon{{color:#21639b}}
+@media(max-width:760px){{.nav button .ui-icon{{width:16px;height:16px}}}}
 @media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}
 @media(max-width:1000px){{.shell{{grid-template-columns:220px minmax(0,1fr)}} main{{padding:26px 24px}} .graph-wrap{{grid-template-columns:1fr}} .inspector{{max-height:280px}}}}
 @media(max-width:760px){{.shell{{grid-template-columns:1fr}} aside{{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:12px}} .brand-row{{padding-bottom:11px;margin-bottom:9px}} .nav-label,.sidebar-meta{{display:none}} .nav{{display:flex;flex-direction:row;overflow:auto;gap:4px}} .nav button{{width:auto;white-space:nowrap;padding:8px 10px}} .nav button::before{{display:none}} main{{padding:20px 14px 30px}} .grid2,.assessment-banner{{grid-template-columns:1fr}} .assessment-side{{justify-content:flex-start}} .assessment-count{{text-align:left}} .page-head{{flex-direction:column}} .page-actions{{justify-content:flex-start}} .sevbar{{grid-template-columns:repeat(2,1fr)}} .kv{{grid-template-columns:1fr}} .graph{{height:440px}} .graph-wrap.expanded{{inset:4px;padding:8px;grid-template-columns:1fr}} .graph-wrap.expanded .inspector{{display:none}} .tabs{{position:static}}}}
@@ -672,17 +715,17 @@ html[data-theme="light"] .badge.compliant{{background:#eaf7f0;border-color:#b9de
 <body>
 <div class="shell">
 <aside>
-  <div class="brand-row"><div class="brand-mark" aria-hidden="true">HT</div><div class="brand">HorusTrace<small>Effective Agency Report</small></div></div>
+  <div class="brand-row"><div class="brand-mark" aria-hidden="true">HT</div><div class="brand">HorusTrace<small>Agent Security Workbench</small></div></div>
   <div class="nav-label">Assessment</div>
   <nav class="nav" aria-label="Report sections">
-    <button class="active" data-view="dashboard">Dashboard</button>
-    <button data-view="agents">Agents</button>
-    <button data-view="findings">Findings</button>
-    <button data-view="policy">Organisation policy</button>
-    <button data-view="owasp">OWASP Top 10</button>
-    <button data-view="attack">Attack paths</button>
-    <button data-view="contracts">Agent contracts</button>
-    <button data-view="evidence">Scan evidence</button>
+    <button class="active" data-view="dashboard" data-icon="overview">Dashboard</button>
+    <button data-view="agents" data-icon="agents">Agents</button>
+    <button data-view="findings" data-icon="findings">Findings</button>
+    <button data-view="policy" data-icon="policy">Organisation policy</button>
+    <button data-view="owasp" data-icon="owasp">OWASP Top 10</button>
+    <button data-view="attack" data-icon="attack">Attack paths</button>
+    <button data-view="contracts" data-icon="contracts">Agent contracts</button>
+    <button data-view="evidence" data-icon="evidence">Scan evidence</button>
   </nav>
   <div class="theme-switch" role="group" aria-label="Report color theme">
     <span class="theme-switch-label">Appearance</span>
@@ -720,6 +763,42 @@ const loc=(v)=>v&&v.path?esc(v.path)+":"+esc(v.line||1):"n/a";
 const badge=(s)=>'<span class="badge '+esc(s)+'">'+esc(String(s).replaceAll("_"," "))+'</span>';
 const number=(v)=>Number(v||0).toLocaleString();
 const severityRank=(s)=>({{critical:5,high:4,medium:3,low:2,info:1}}[String(s||"").toLowerCase()]||0);
+
+/* Small audited static SVG dictionary; no CDN, icon font, or scan-controlled SVG. */
+const ICONS=Object.freeze({{
+ overview:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+ agents:'<circle cx="12" cy="7" r="3"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/>',
+ findings:'<path d="M12 3 2 20h20L12 3Z"/><path d="M12 9v5m0 4h.01"/>',
+ policy:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>',
+ owasp:'<path d="M4 5h4m4 0h8M4 12h4m4 0h8M4 19h4m4 0h8"/>',
+ attack:'<circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><path d="M7 6 11 17m6-11-4 11M7 5h10"/>',
+ contracts:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8m-8 5 2 2 5-5"/>',
+ evidence:'<path d="M7 3h7l5 5v12H5V5a2 2 0 0 1 2-2Zm7 0v5h5M8 13h8M8 17h5"/>',
+ tools:'<path d="M15 7a4 4 0 0 0-5 5L4 18l2 2 6-6a4 4 0 0 0 5-5l-3 2-2-2 3-2Z"/>',
+ skills:'<path d="M12 6a8 8 0 0 0-9-1v15a8 8 0 0 1 9 1 8 8 0 0 1 9-1V5a8 8 0 0 0-9 1Zm0 0v15"/>',
+ mcp:'<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6h.01M7 17h.01M12 10v4"/>',
+ identities:'<circle cx="8" cy="9" r="4"/><path d="M12 9h10m-4 0v4m-3-4v3"/>',
+ resources:'<path d="m12 2 9 5-9 5-9-5 9-5Zm-9 10 9 5 9-5M3 17l9 5 9-5"/>',
+ chart:'<path d="M4 20V9m6 11V4m6 16v-7m5 7H2"/>',
+ coverage:'<path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/><path d="m9 12 2 2 4-4"/>'
+}});
+function uiIcon(name){{
+ const graphic=Object.prototype.hasOwnProperty.call(ICONS,name)?ICONS[name]:"";
+ return graphic?'<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+graphic+'</svg>':"";
+}}
+const ICON_FOR_METRIC=Object.freeze({{
+ "Active findings":"findings","Policy violations":"policy","Contract violations":"contracts",
+ "OWASP categories with findings":"owasp","Agents":"agents","Attack paths":"attack",
+ "Tools":"tools","Skills":"skills","MCP servers":"mcp","Identities":"identities",
+ "Resources":"resources","Critical":"findings","High":"findings","Medium":"findings",
+ "Low":"findings","Files considered":"coverage","Files scanned":"coverage"
+}});
+const ICON_FOR_SECTION=Object.freeze({{
+ "Priority review queue":"findings","Finding severity":"chart","Effective agency":"attack",
+ "OWASP assessment states":"owasp","Environment inventory":"resources",
+ "Agent contracts":"contracts","Coverage status":"coverage","Skill inventory":"skills"
+}});
+document.querySelectorAll(".nav button[data-icon]").forEach(btn=>btn.insertAdjacentHTML("afterbegin",uiIcon(btn.dataset.icon)));
 function showView(id){{
  const navId=id==="agent-detail"?"agents":id;
  document.querySelectorAll(".view").forEach(el=>el.classList.toggle("active",el.id===id));
@@ -729,10 +808,10 @@ function showView(id){{
 document.querySelectorAll(".nav button").forEach(btn=>btn.addEventListener("click",()=>showView(btn.dataset.view)));
 function metric(label,value,cls="",drill="",detail=""){{
  const attrs=drill?' drill" role="button" tabindex="0" data-drill="'+esc(drill):'"';
- return '<div class="card'+attrs+'"><div class="metric '+cls+'">'+number(value)+'</div><div class="metric-label">'+esc(label)+'</div>'+(detail?'<div class="metric-detail">'+esc(detail)+'</div>':"")+'</div>';
+ return '<div class="card'+attrs+'"><div class="metric-top"><div class="metric-label">'+esc(label)+'</div><span class="metric-icon">'+uiIcon(ICON_FOR_METRIC[label]||"chart")+'</span></div><div class="metric '+cls+'">'+number(value)+'</div>'+(detail?'<div class="metric-detail">'+esc(detail)+'</div>':"")+'</div>';
 }}
-function pageHead(eyebrow,title,copy,actions=""){{return '<div class="page-head"><div><div class="eyebrow">'+esc(eyebrow)+'</div><h1>'+esc(title)+'</h1><div class="muted">'+esc(copy)+'</div></div>'+(actions?'<div class="page-actions">'+actions+'</div>':"")+'</div>';}}
-function sectionHead(title,copy="",action=""){{return '<div class="section-head"><div><h2>'+esc(title)+'</h2>'+(copy?'<p>'+esc(copy)+'</p>':"")+'</div>'+action+'</div>';}}
+function pageHead(eyebrow,title,copy,actions=""){{return '<div class="page-head"><div><div class="eyebrow">'+esc(eyebrow)+'</div><div class="page-title-row">'+uiIcon(ICON_FOR_SECTION[title]||"overview")+'<h1>'+esc(title)+'</h1></div><div class="muted">'+esc(copy)+'</div></div>'+(actions?'<div class="page-actions">'+actions+'</div>':"")+'</div>';}}
+function sectionHead(title,copy="",action=""){{return '<div class="section-head"><div><div class="section-title-row">'+uiIcon(ICON_FOR_SECTION[title])+'<h2>'+esc(title)+'</h2></div>+(copy?'<p>'+esc(copy)+'</p>':"")+'</div>'+action+'</div>';}}
 function scanCoverageStatus(incomplete){{
  const label=incomplete?"Coverage incomplete":"No reported coverage gaps";
  return '<span class="badge '+(incomplete?"unresolved":"")+'" aria-label="Scan completeness: '+label+'">'+label+'</span>';
@@ -818,7 +897,7 @@ function renderDashboard(){{
  const drillRow=(label,value,drill,cls="")=>'<div class="drill-row" role="button" tabindex="0" data-drill="'+esc(drill)+'"><span>'+esc(label)+'</span><span class="drill-value '+esc(cls)+'">'+number(value)+'</span></div>';
  const drillList=(rows)=>'<div class="drill-list">'+rows.join("")+'</div>';
  const primaryDrill=(s.severity?.critical||0)?"findings:critical":((s.severity?.high||0)?"findings:high":(s.contract_violations?"contracts:violation":"findings:all"));
- root.innerHTML=pageHead("Repository overview","Security assessment","Prioritised static evidence for effective authority, findings, attack paths and declared agent contracts.",scanCoverageStatus(s.analysis_incomplete))+
+ root.innerHTML='<div class="report-context">Repository security · Source-backed assessment</div>'+pageHead("Repository overview","Security assessment","Prioritised static evidence for effective authority, findings, attack paths and declared agent contracts.",scanCoverageStatus(s.analysis_incomplete))+
  '<div class="assessment-banner '+esc(state.tone)+'" data-drill="'+primaryDrill+'" role="button" tabindex="0"><div><div class="eyebrow">Assessment signal</div><div class="assessment-title '+esc(state.tone)+'">'+esc(state.label)+'</div><div class="assessment-copy">'+esc(state.copy)+'</div></div><div class="assessment-side"><div class="assessment-count">'+number(state.count)+'<small>'+esc(state.unit)+'</small></div></div></div>'+
  '<div class="cards">'+metric("Active findings",s.findings,(s.severity?.critical||s.severity?.high)?"high":"","Critical "+number(s.severity?.critical||0)+" · High "+number(s.severity?.high||0))+metric("Policy violations",s.policy_violations,s.policy_violations?"critical":"","policy:all","Configured HorusTrace policy rules")+metric("Contract violations",s.contract_violations,s.contract_violations?"critical":"","contracts:violation",number(s.contract_unresolved)+" unresolved checks")+metric("OWASP categories with findings",s.owasp_categories_with_findings,s.owasp_categories_with_findings?"warn":"","owasp:all",number(s.owasp_categories_not_assessed)+" not assessed")+metric("Agents",s.agents,"","agents:all",number(s.write_capable_relationships)+" write-capable relationships")+metric("Attack paths",s.attack_paths,"","attack:all","Static evidence; exploitability not verified")+'</div>'+
  sectionHead("Priority review queue","Agents ordered by static review priority.")+agentTable(attention)+
