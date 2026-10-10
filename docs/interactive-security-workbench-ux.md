@@ -109,4 +109,6 @@ Acceptance: deterministic event/state tests; canceled/failed/incomplete scans ar
 
 ## Current stage
 
-This commit documents the delivery plan only. It does not implement UI features or claim that CI has passed.
+The branch includes an initial UX-02 thin slice: a keyboard-operable finding-severity bar chart that routes into the existing findings filters, includes the informational category, and uses static scan counts without backend inference. The existing machine-readable report projection is unchanged by this feature.
+
+This is a first implementation step, not completion of UX-01–UX-06. CI and runtime accessibility validation remain release gates.
