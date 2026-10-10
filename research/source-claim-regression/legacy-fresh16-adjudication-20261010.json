@@ -1,0 +1,477 @@
+{
+  "schema_version": 1,
+  "baseline": "Fresh-16 original pinned October 2 2026",
+  "compare_revision": "c6cdd89b962d7432df4473527d822e8336d5f288",
+  "interpretation": "Direct pinned-source review has narrowed 14 historical partial claims; it does not establish runtime exploitability or independent ground-truth recall. Historically false-positive verdicts remain single-reviewer.",
+  "historical_source_reviews": "research/fresh-unseen-generalization-20/adjudication-second-pass.csv",
+  "lost_claims": [
+    {
+      "case_id": "gen-adk-003",
+      "finding_index": 7,
+      "rule_id": "NET001",
+      "historical_verdict": "partial",
+      "reason_category": "fixed_destination_scope",
+      "source_evidence": {
+        "path": "agent.py",
+        "line": 27
+      },
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "tools.py",
+        "line": 199
+      },
+      "source_review_rationale": "The package lookup interpolates a package name under fixed https://pypi.org/pypi/... and https://search.maven.org/solrsearch/select? hosts, rather than allowing a model-selected network host."
+    },
+    {
+      "case_id": "gen-mcp-001",
+      "finding_index": 0,
+      "rule_id": "AGT051",
+      "historical_verdict": "false_positive",
+      "reason_category": "env_placeholder_not_secret",
+      "source_evidence": {
+        "path": ".mcp.json",
+        "line": 1
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-mcp-001",
+      "finding_index": 1,
+      "rule_id": "AGT032",
+      "historical_verdict": "true_positive",
+      "reason_category": "source_supported",
+      "source_evidence": {
+        "path": ".mcp.json",
+        "line": 1
+      },
+      "status": "unbound_mcp_configuration_scope_review"
+    },
+    {
+      "case_id": "gen-mcp-003",
+      "finding_index": 0,
+      "rule_id": "NET001",
+      "historical_verdict": "partial",
+      "reason_category": "test_operator_destination",
+      "source_evidence": {
+        "path": "tests/integration/conftest.py",
+        "line": 160
+      },
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "tests/integration/conftest.py",
+        "line": 153
+      },
+      "source_review_rationale": "MCP_SERVER_URL is a test/CI environment variable consumed in pytest async contextmanager fixtures for streamable HTTP or SSE; its unknown host and tool catalogue are not source-proven live agent authority."
+    },
+    {
+      "case_id": "gen-mcp-003",
+      "finding_index": 1,
+      "rule_id": "NET001",
+      "historical_verdict": "partial",
+      "reason_category": "test_operator_destination",
+      "source_evidence": {
+        "path": "tests/integration/conftest.py",
+        "line": 184
+      },
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "tests/integration/conftest.py",
+        "line": 153
+      },
+      "source_review_rationale": "MCP_SERVER_URL is a test/CI environment variable consumed in pytest async contextmanager fixtures for streamable HTTP or SSE; its unknown host and tool catalogue are not source-proven live agent authority."
+    },
+    {
+      "case_id": "gen-mcp-003",
+      "finding_index": 2,
+      "rule_id": "AGT032",
+      "historical_verdict": "partial",
+      "reason_category": "test_context",
+      "source_evidence": {
+        "path": "tests/integration/conftest.py",
+        "line": 160
+      },
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "tests/integration/conftest.py",
+        "line": 153
+      },
+      "source_review_rationale": "MCP_SERVER_URL is a test/CI environment variable consumed in pytest async contextmanager fixtures for streamable HTTP or SSE; its unknown host and tool catalogue are not source-proven live agent authority."
+    },
+    {
+      "case_id": "gen-mcp-003",
+      "finding_index": 3,
+      "rule_id": "AGT032",
+      "historical_verdict": "partial",
+      "reason_category": "test_context",
+      "source_evidence": {
+        "path": "tests/integration/conftest.py",
+        "line": 184
+      },
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "tests/integration/conftest.py",
+        "line": 153
+      },
+      "source_review_rationale": "MCP_SERVER_URL is a test/CI environment variable consumed in pytest async contextmanager fixtures for streamable HTTP or SSE; its unknown host and tool catalogue are not source-proven live agent authority."
+    },
+    {
+      "case_id": "gen-oai-001",
+      "finding_index": 0,
+      "rule_id": "NET002",
+      "historical_verdict": "false_positive",
+      "reason_category": "provider_managed_destination",
+      "source_evidence": {
+        "path": "openai_agents/workflows/research_agents/search_agent.py",
+        "line": 15
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-oai-003",
+      "finding_index": 0,
+      "rule_id": "NET001",
+      "historical_verdict": "true_positive",
+      "reason_category": "source_supported",
+      "source_evidence": {
+        "path": "client.py",
+        "line": 25
+      },
+      "status": "recovered_with_source_bound_agent"
+    },
+    {
+      "case_id": "gen-oai-004",
+      "finding_index": 0,
+      "rule_id": "AGT020",
+      "historical_verdict": "false_positive",
+      "reason_category": "unbound_tool",
+      "source_evidence": {
+        "path": "examples/langgraph/langgraph_example.ipynb",
+        "line": 38
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-oai-004",
+      "finding_index": 1,
+      "rule_id": "AGT020",
+      "historical_verdict": "false_positive",
+      "reason_category": "unbound_tool",
+      "source_evidence": {
+        "path": "examples/langgraph/langgraph_example.py",
+        "line": 34
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-oai-004",
+      "finding_index": 4,
+      "rule_id": "AGT022",
+      "historical_verdict": "partial",
+      "reason_category": "demo_internal_state",
+      "source_evidence": {
+        "path": "examples/openai_agents/customer_service_agent.ipynb",
+        "line": 76
+      },
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 103
+      },
+      "source_review_rationale": "The update_seat function mutates RunContextWrapper context fields, not source-proven persistent seat inventory, and is contained in examples/."
+    },
+    {
+      "case_id": "gen-oai-004",
+      "finding_index": 5,
+      "rule_id": "AGT022",
+      "historical_verdict": "partial",
+      "reason_category": "demo_internal_state",
+      "source_evidence": {
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 94
+      },
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 103
+      },
+      "source_review_rationale": "The update_seat function mutates RunContextWrapper context fields, not source-proven persistent seat inventory, and is contained in examples/."
+    },
+    {
+      "case_id": "gen-oai-004",
+      "finding_index": 10,
+      "rule_id": "AGT040",
+      "historical_verdict": "partial",
+      "reason_category": "demo_internal_state",
+      "source_evidence": {
+        "path": "examples/openai_agents/customer_service_agent.ipynb",
+        "line": 76
+      },
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 103
+      },
+      "source_review_rationale": "The update_seat function mutates RunContextWrapper context fields, not source-proven persistent seat inventory, and is contained in examples/."
+    },
+    {
+      "case_id": "gen-oai-004",
+      "finding_index": 11,
+      "rule_id": "AGT040",
+      "historical_verdict": "partial",
+      "reason_category": "demo_internal_state",
+      "source_evidence": {
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 94
+      },
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 103
+      },
+      "source_review_rationale": "The update_seat function mutates RunContextWrapper context fields, not source-proven persistent seat inventory, and is contained in examples/."
+    },
+    {
+      "case_id": "gen-oai-004",
+      "finding_index": 12,
+      "rule_id": "AGT040",
+      "historical_verdict": "partial",
+      "reason_category": "delegated_authority_scope",
+      "source_evidence": {
+        "path": "examples/openai_agents/customer_service_agent.ipynb",
+        "line": 129
+      },
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 151
+      },
+      "source_review_rationale": "The Triage Agent declares a source-visible handoff to Seat Booking Agent, but its delegated write is the example's in-memory context mutation, not proved external side-effect authority."
+    },
+    {
+      "case_id": "gen-oai-004",
+      "finding_index": 13,
+      "rule_id": "AGT040",
+      "historical_verdict": "partial",
+      "reason_category": "delegated_authority_scope",
+      "source_evidence": {
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 144
+      },
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 151
+      },
+      "source_review_rationale": "The Triage Agent declares a source-visible handoff to Seat Booking Agent, but its delegated write is the example's in-memory context mutation, not proved external side-effect authority."
+    },
+    {
+      "case_id": "gen-oai-004",
+      "finding_index": 16,
+      "rule_id": "CAP005",
+      "historical_verdict": "partial",
+      "reason_category": "delegated_authority_scope",
+      "source_evidence": {
+        "path": "examples/openai_agents/customer_service_agent.ipynb",
+        "line": 129
+      },
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 151
+      },
+      "source_review_rationale": "The Triage Agent declares a source-visible handoff to Seat Booking Agent, but its delegated write is the example's in-memory context mutation, not proved external side-effect authority."
+    },
+    {
+      "case_id": "gen-oai-004",
+      "finding_index": 17,
+      "rule_id": "CAP005",
+      "historical_verdict": "partial",
+      "reason_category": "delegated_authority_scope",
+      "source_evidence": {
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 144
+      },
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 151
+      },
+      "source_review_rationale": "The Triage Agent declares a source-visible handoff to Seat Booking Agent, but its delegated write is the example's in-memory context mutation, not proved external side-effect authority."
+    },
+    {
+      "case_id": "gen-oai-004",
+      "finding_index": 18,
+      "rule_id": "NET002",
+      "historical_verdict": "false_positive",
+      "reason_category": "provider_managed_destination",
+      "source_evidence": {
+        "path": "examples/openai_agents/agents_tools.ipynb",
+        "line": 136
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-oai-004",
+      "finding_index": 19,
+      "rule_id": "NET002",
+      "historical_verdict": "false_positive",
+      "reason_category": "provider_managed_destination",
+      "source_evidence": {
+        "path": "examples/openai_agents/agents_tools.py",
+        "line": 170
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-oai-004",
+      "finding_index": 20,
+      "rule_id": "NET002",
+      "historical_verdict": "false_positive",
+      "reason_category": "provider_managed_destination",
+      "source_evidence": {
+        "path": "examples/openai_agents/agents_tools.ipynb",
+        "line": 182
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-oai-004",
+      "finding_index": 21,
+      "rule_id": "NET002",
+      "historical_verdict": "false_positive",
+      "reason_category": "provider_managed_destination",
+      "source_evidence": {
+        "path": "examples/openai_agents/agents_tools.py",
+        "line": 220
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-pyd-001",
+      "finding_index": 0,
+      "rule_id": "PATH001",
+      "historical_verdict": "false_positive",
+      "reason_category": "mcp_bootstrap_not_agent_authority",
+      "source_evidence": {
+        "path": "agent.py",
+        "line": 54
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-pyd-001",
+      "finding_index": 2,
+      "rule_id": "PATH006",
+      "historical_verdict": "false_positive",
+      "reason_category": "mcp_bootstrap_not_agent_authority",
+      "source_evidence": {
+        "path": "agent.py",
+        "line": 73
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-pyd-002",
+      "finding_index": 0,
+      "rule_id": "AGT020",
+      "historical_verdict": "false_positive",
+      "reason_category": "capability_misclassification",
+      "source_evidence": {
+        "path": "examples/tool_enabled_agent/agent.py",
+        "line": 187
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-pyd-002",
+      "finding_index": 1,
+      "rule_id": "CAP004",
+      "historical_verdict": "false_positive",
+      "reason_category": "capability_misclassification",
+      "source_evidence": {
+        "path": "examples/tool_enabled_agent/agent.py",
+        "line": 98
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-pyd-002",
+      "finding_index": 6,
+      "rule_id": "AGT040",
+      "historical_verdict": "false_positive",
+      "reason_category": "capability_misclassification",
+      "source_evidence": {
+        "path": "agents/email_agent.py",
+        "line": 172
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-pyd-002",
+      "finding_index": 12,
+      "rule_id": "NET002",
+      "historical_verdict": "false_positive",
+      "reason_category": "provider_fixed_destination",
+      "source_evidence": {
+        "path": "agents/email_agent.py",
+        "line": 49
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-pyd-002",
+      "finding_index": 13,
+      "rule_id": "NET002",
+      "historical_verdict": "false_positive",
+      "reason_category": "provider_fixed_destination",
+      "source_evidence": {
+        "path": "agents/research_agent.py",
+        "line": 52
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-pyd-002",
+      "finding_index": 14,
+      "rule_id": "NET002",
+      "historical_verdict": "false_positive",
+      "reason_category": "provider_fixed_destination",
+      "source_evidence": {
+        "path": "examples/main_agent_reference/research_agent.py",
+        "line": 52
+      },
+      "status": "historical_false_positive"
+    },
+    {
+      "case_id": "gen-pyd-002",
+      "finding_index": 15,
+      "rule_id": "NET002",
+      "historical_verdict": "partial",
+      "reason_category": "test_context",
+      "source_evidence": {
+        "path": "examples/testing_examples/test_agent_patterns.py",
+        "line": 38
+      },
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/testing_examples/test_agent_patterns.py",
+        "line": 69
+      },
+      "source_review_rationale": "The network-looking API call is a mock dependency api_client.post inside testing_examples, not a source-proven production egress destination."
+    }
+  ]
+}
