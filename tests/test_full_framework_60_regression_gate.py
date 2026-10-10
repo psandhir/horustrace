@@ -45,6 +45,7 @@ def _write_result(
     *,
     agents: int = 1,
     core_resolution: str = "fully_resolved",
+    attack_paths: int = 0,
 ) -> None:
     case = root / case_id
     case.mkdir(parents=True)
@@ -54,6 +55,7 @@ def _write_result(
             "agents": agents,
             "authority_relationships": 1,
             "unknown_authority": int(core_resolution == "unknown"),
+            "attack_paths": attack_paths,
         }
     )
     relationship = {
@@ -70,7 +72,10 @@ def _write_result(
                 "counts": counts,
                 "authority_relationships": [relationship],
                 "findings": [],
-                "attack_paths": [],
+                "attack_paths": [
+                    {"rule_id": "PATH001", "index": index}
+                    for index in range(attack_paths)
+                ],
             }
         ),
         encoding="utf-8",
@@ -90,6 +95,8 @@ def _write_gate(path: Path, *, ratio: float = 1.0) -> None:
                     "min_total_agents": 2,
                     "min_total_authority_relationships": 2,
                     "min_core_fully_resolved_ratio": ratio,
+                    "attack_path_floor_by_case": {},
+                    "min_attack_path_floor_total": 0,
                     "framework_minimums": {
                         "google-adk": {
                             "agents": 2,
@@ -167,3 +174,43 @@ def test_frozen_regression_gate_fails_zero_agent_and_core_unknown(
     failures = report["regression_gate"]["failures"]
     assert any("zero-agent" in item for item in failures)
     assert any("core-unknown" in item for item in failures)
+
+
+def test_corrected_attack_path_floor_blocks_material_loss(
+    tmp_path: Path,
+) -> None:
+    _write_baseline(tmp_path / "baseline.csv", ["case-1", "case-2"])
+    gate_path = tmp_path / "gate.json"
+    _write_gate(gate_path)
+    doc = json.loads(gate_path.read_text(encoding="utf-8"))
+    doc["gate"]["attack_path_floor_by_case"] = {"case-1": 2}
+    doc["gate"]["min_attack_path_floor_total"] = 2
+    gate_path.write_text(json.dumps(doc), encoding="utf-8")
+    _write_result(tmp_path / "results", "case-1", attack_paths=1)
+    _write_result(tmp_path / "results", "case-2")
+
+    result = _run(tmp_path)
+    assert result.returncode == 1
+    report = json.loads(
+        (tmp_path / "output" / "comparison.json").read_text(encoding="utf-8")
+    )
+    assert any(
+        "case-1 attack paths 1 below post-remediation" in item
+        for item in report["regression_gate"]["failures"]
+    )
+
+
+def test_corrected_attack_path_floor_accepts_retained_paths(
+    tmp_path: Path,
+) -> None:
+    _write_baseline(tmp_path / "baseline.csv", ["case-1", "case-2"])
+    gate_path = tmp_path / "gate.json"
+    _write_gate(gate_path)
+    doc = json.loads(gate_path.read_text(encoding="utf-8"))
+    doc["gate"]["attack_path_floor_by_case"] = {"case-1": 2}
+    doc["gate"]["min_attack_path_floor_total"] = 2
+    gate_path.write_text(json.dumps(doc), encoding="utf-8")
+    _write_result(tmp_path / "results", "case-1", attack_paths=2)
+    _write_result(tmp_path / "results", "case-2")
+
+    assert _run(tmp_path).returncode == 0
