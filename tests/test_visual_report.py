@@ -394,8 +394,8 @@ def test_visual_report_light_theme_pastel_bars_are_presentation_only(
 
     assert '<div class="coverage-fill \'+(c.incomplete?' in html
     assert "c.incomplete?'incomplete':''" in html
-    assert 'data-tone="'+key+'"' in html
-    assert 'data-present="'+(count>0)+'"' in html
+    assert "data-tone=\"'+key+'\"" in html
+    assert "data-present=\"'+(count>0)+'\"" in html
     assert 'html[data-theme="light"] .severity-chart-track' in html
     assert 'height:14px' in html
     assert 'html[data-theme="light"] .severity-chart-label::before' in html
