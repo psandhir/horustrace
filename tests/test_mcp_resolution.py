@@ -35,6 +35,7 @@ def test_unbound_declaration_has_static_reason(tmp_path: Path) -> None:
         "unresolved_references": 1,
         "server_declarations": 1,
         "agent_references": 0,
+        "by_source_context": {"runtime": 1},
         "by_reason": {"declaration_not_agent_bound": 1},
         "declaration_by_reason": {"declaration_not_agent_bound": 1},
         "agent_reference_by_reason": {},
@@ -272,3 +273,65 @@ def test_reference_id_excludes_destination_and_checkout_path(
     assert first_reference["destination"] != second_reference["destination"]
     assert first_reference["location"] != second_reference["location"]
     assert first_reference["reference_id"] == second_reference["reference_id"]
+
+
+def test_repeated_mcp_declarations_have_unique_portable_reference_ids(
+    tmp_path: Path,
+) -> None:
+    """Pinned LinkedIn MCP test fixtures duplicate server names many times."""
+    from horustrace.mcp_resolution import unresolved_mcp_references
+
+    def records(root: Path):
+        return unresolved_mcp_references(Graph(unbound_mcp_servers=[
+            MCPServer(
+                name="test",
+                transport="server",
+                location=SourceLocation(root / "tests" / "test_tools.py", line=22),
+                metadata={"framework": "mcp", "source": "FastMCP"},
+            ),
+            MCPServer(
+                name="test",
+                transport="server",
+                location=SourceLocation(root / "tests" / "test_tools.py", line=77),
+                metadata={"framework": "mcp", "source": "FastMCP"},
+            ),
+            MCPServer(
+                name="live",
+                transport="server",
+                location=SourceLocation(root / "src" / "server.py", line=8),
+                metadata={"framework": "mcp", "source": "FastMCP"},
+            ),
+        ]))
+
+    first = records(tmp_path / "checkout-a")
+    second = records(tmp_path / "checkout-b")
+    assert len({item.reference_id for item in first}) == 3
+    assert [item.reference_id for item in first] == [
+        item.reference_id for item in second
+    ]
+    repeated = [item for item in first if item.server == "test"]
+    assert len(repeated) == 2
+    assert all(item.source_context == "test" for item in repeated)
+    assert next(item for item in first if item.server == "live").source_context == (
+        "runtime"
+    )
+    report = unresolved_mcp_summary(Graph(unbound_mcp_servers=[
+        MCPServer(
+            name="test", transport="server",
+            location=SourceLocation(tmp_path / "tests" / "test_tools.py", line=22),
+            metadata={"framework": "mcp", "source": "FastMCP"},
+        ),
+        MCPServer(
+            name="live", transport="server",
+            location=SourceLocation(tmp_path / "src" / "server.py", line=8),
+            metadata={"framework": "mcp", "source": "FastMCP"},
+        ),
+    ]))
+    assert report["summary"]["by_source_context"] == {
+        "runtime": 1, "test": 1
+    }
+    assert [item["source_context"] for item in report["references"]] == [
+        "runtime", "test"
+    ] or [item["source_context"] for item in report["references"]] == [
+        "test", "runtime"
+    ]
