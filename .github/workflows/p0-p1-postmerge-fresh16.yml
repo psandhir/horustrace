@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: p0-p1-postmerge-fresh16
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   scan:
