@@ -68,6 +68,23 @@ def check_report(html_file: Path) -> dict[str, object]:
             assert page.locator("#findings .finding").count() > 0
             checks.append("Clickable severity bar drills into actual findings")
 
+            # PR #495: a finding shows concise source-local context without
+            # forcing reviewers through every raw provenance entry.
+            note = page.locator("#findings .source-context .source-note").first
+            assert note.count() == 1, "No inline source-local provenance is visible"
+            assert note.inner_text().strip(), "Source-local provenance summary is empty"
+            raw = page.locator("#findings details").filter(
+                has_text="Full provenance ("
+            ).first
+            assert raw.count() == 1, "Raw audit provenance disclosure is missing"
+            assert raw.get_attribute("open") is None, (
+                "Raw provenance should be collapsed by default"
+            )
+            raw.locator("summary").click()
+            assert raw.get_attribute("open") is not None
+            assert raw.locator("li").count() > 0
+            checks.append("Source-local digest and expandable raw provenance work")
+
             page.locator('nav.nav button[data-view="agents"]').click()
             page.locator("#agents [data-agent]").first.click()
             assert page.locator("#agent-detail.active").count() == 1
