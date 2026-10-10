@@ -581,33 +581,52 @@ def _resolve_class(
 
 
 def _agentcore_runtime_invocation(function: ast.AST) -> bool:
-    """Recognize a source-proven AgentCore *agent invocation*, not generic HTTP.
+    """Match the AgentCore endpoint supplied to a direct HTTP POST.
 
-    The remote runtime ID may be loaded from SSM at execution time.  This
-    predicate establishes a delegation boundary without inventing its target,
-    permissions, or effective runtime identity.
+    A mention of AgentCore elsewhere in the function is not evidence of
+    delegation; the actual POST URL must contain the invocation endpoint.
     """
-    literals = {
-        child.value.lower()
-        for child in ast.walk(function)
-        if isinstance(child, ast.Constant) and isinstance(child.value, str)
-    }
-    endpoint = "\n".join(sorted(literals))
-    if not (
-        "bedrock-agentcore" in endpoint
-        and "/runtimes/" in endpoint
-        and "/invocations" in endpoint
-    ):
-        return False
-    return any(
-        isinstance(child, ast.Call)
-        and isinstance(child.func, ast.Attribute)
-        and isinstance(child.func.value, ast.Name)
-        and child.func.value.id in {"requests", "httpx"}
-        and child.func.attr == "post"
-        for child in ast.walk(function)
-    )
+    url_assignments: dict[str, ast.AST] = {}
+    for child in ast.walk(function):
+        if isinstance(child, ast.Assign):
+            for target in child.targets:
+                if isinstance(target, ast.Name):
+                    url_assignments[target.id] = child.value
+        elif isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
+            if child.value is not None:
+                url_assignments[child.target.id] = child.value
 
+    def endpoint_text(expression: ast.AST) -> str:
+        # One repository-local assignment is sufficient for source-backed
+        # confirmation; do not infer aliases, external values, or runtime URLs.
+        if isinstance(expression, ast.Name):
+            expression = url_assignments.get(expression.id, expression)
+        return "".join(
+            part.value
+            for part in ast.walk(expression)
+            if isinstance(part, ast.Constant) and isinstance(part.value, str)
+        ).lower()
+
+    for child in ast.walk(function):
+        if not (
+            isinstance(child, ast.Call)
+            and isinstance(child.func, ast.Attribute)
+            and isinstance(child.func.value, ast.Name)
+            and child.func.value.id in {"requests", "httpx"}
+            and child.func.attr == "post"
+        ):
+            continue
+        urls = child.args[:1] or [
+            keyword.value for keyword in child.keywords if keyword.arg == "url"
+        ]
+        for url in urls:
+            candidate = endpoint_text(url)
+            if all(
+                marker in candidate
+                for marker in ("bedrock-agentcore", "/runtimes/", "/invocations")
+            ):
+                return True
+    return False
 
 def _agentcore_credential_flow(function: ast.AST) -> str:
     """Describe only directly visible JWT forwarding; do not infer validity."""
