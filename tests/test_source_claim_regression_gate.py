@@ -3,6 +3,7 @@ from pathlib import Path
 
 from scripts.source_claim_regression_gate import (
     _read_decisions,
+    _load_reference_manifest,
     _source_path,
     compare,
 )
@@ -118,3 +119,26 @@ def test_decisions_require_concrete_source_evidence(tmp_path: Path) -> None:
         "corrected_false_positive"
     )
     assert _source_path(_claim("AGT022")) == "pkg/agent.py"
+
+
+def test_locked_postmerge_reference_is_exact_complete_and_unadjudicated() -> None:
+    manifest = (
+        Path(__file__).parents[1]
+        / "research"
+        / "source-claim-regression"
+        / "postmerge-fresh16-claims.json"
+    )
+    baseline, reviews = _load_reference_manifest(manifest)
+    assert len(baseline) == 16
+    assert sum(len(case["findings"]) for case in baseline.values()) == 49
+    assert len(reviews) == 49
+    assert all(item["verdict"] == "unresolved" for item in reviews.values())
+
+    same = compare(baseline, baseline, reviews, {})
+    assert same["passed"] is True
+    dropped = {key: {**value, "findings": [], "counts": {"findings": 0}}
+               for key, value in baseline.items()}
+    report = compare(baseline, dropped, reviews, {})
+    assert report["passed"] is False
+    assert len(report["removed_claims"]) == 49
+    assert any("unadjudicated" in failure for failure in report["gate_failures"])
