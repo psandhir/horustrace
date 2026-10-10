@@ -368,8 +368,8 @@ def test_visual_report_light_theme_pastel_bars_are_presentation_only(
     # Pastels are used only for graphical fills. Severity text keeps the
     # stronger contrast-safe foreground colors already tested above.
     for token, color in (
-        ("risk", "#EFB7B7"), ("warning", "#F4D1AE"),
-        ("good", "#BFDCC8"), ("unknown", "#C7D0DB"),
+        ("risk", "#EFB5C2"), ("warning", "#F6D4C8"),
+        ("good", "#B9DECD"), ("unknown", "#CED9E4"),
     ):
         assert f"--bar-{token}:{color}" in html
 
@@ -401,6 +401,12 @@ def test_visual_report_light_theme_pastel_bars_are_presentation_only(
     assert 'html[data-theme="light"] .severity-chart-label::before' in html
     assert 'html[data-theme="light"] .badge.critical' in html
     assert 'html[data-theme="light"] .badge.unresolved' in html
+    # No brown/ochre semantic ink in the light theme.
+    for old_ink in ("#994718", "#855900", "#785209"):
+        assert old_ink not in html
+    assert "--high:#244068;--medium:#244068" in html
+    assert "--warn:#244068" in html
+    assert "--bg:#f8fafc" in html
     assert 'Coloured markers identify severity even when a count is zero' in html
     # The original dark semantic colors are unaffected.
     assert "--critical:#ff707a" in html
