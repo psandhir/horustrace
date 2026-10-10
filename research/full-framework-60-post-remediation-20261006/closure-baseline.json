@@ -9,7 +9,10 @@
     "core_fully_resolved": 479,
     "core_partially_resolved": 127,
     "core_unknown": 0,
-    "core_fully_resolved_ratio": 0.790429
+    "core_fully_resolved_ratio": 0.790429,
+    "attack_paths": 14,
+    "final_scanner_revision": "586d95c66c8fe3e98e86b8f2aeb4601feddf4b8b",
+    "final_workflow_run": 37529141432
   },
   "gate": {
     "expected_cases": 60,
@@ -20,12 +23,41 @@
     "min_total_authority_relationships": 484,
     "min_core_fully_resolved_ratio": 0.75,
     "framework_minimums": {
-      "amazon": {"agents": 22, "authority_relationships": 115},
-      "anthropic": {"agents": 24, "authority_relationships": 116},
-      "google-adk": {"agents": 59, "authority_relationships": 81},
-      "microsoft": {"agents": 16, "authority_relationships": 30},
-      "openai-agents": {"agents": 65, "authority_relationships": 114},
-      "pydantic-ai": {"agents": 11, "authority_relationships": 27}
+      "amazon": {
+        "agents": 22,
+        "authority_relationships": 115
+      },
+      "anthropic": {
+        "agents": 24,
+        "authority_relationships": 116
+      },
+      "google-adk": {
+        "agents": 59,
+        "authority_relationships": 81
+      },
+      "microsoft": {
+        "agents": 16,
+        "authority_relationships": 30
+      },
+      "openai-agents": {
+        "agents": 65,
+        "authority_relationships": 114
+      },
+      "pydantic-ai": {
+        "agents": 11,
+        "authority_relationships": 27
+      }
+    },
+    "min_attack_path_floor_total": 14,
+    "attack_path_floor_by_case": {
+      "ff60-anthropic-03": 5,
+      "ff60-google-adk-03": 1,
+      "ff60-google-adk-04": 2,
+      "ff60-google-adk-05": 1,
+      "ff60-openai-agents-10": 1,
+      "ff60-pydantic-ai-01": 2,
+      "ff60-pydantic-ai-02": 1,
+      "ff60-pydantic-ai-06": 1
     }
   }
 }
