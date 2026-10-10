@@ -91,6 +91,7 @@ from horustrace.microsoft_repository_authority import (
     enrich_microsoft_repository_authority,
     parse_microsoft_authority_json,
 )
+from horustrace.pipeline_contract import PipelineCheckpoints
 from horustrace.models import (
     Agent,
     AgentReachability,
@@ -2428,6 +2429,7 @@ def _scan(
     root = path.resolve()
     containment_root = canonical_root(root)
     graph = Graph()
+    pipeline = PipelineCheckpoints()
     llm_semantic_stats: dict[str, object] | None = None
     skill_llm_semantic_stats: dict[str, object] | None = None
 
@@ -2655,6 +2657,7 @@ def _scan(
         elif candidate.name == ".env" or candidate.name.startswith(".env."):
             _merge(graph, scan_adk_env(candidate), candidate)
 
+    pipeline.record("discovered", graph)
     _consolidate_global_identities(graph)
     enrich_strands_repository_graph(
         graph,
@@ -2773,6 +2776,7 @@ def _scan(
             llm_semantic_config,
         )
     diagnose_dynamic_constructs(graph)
+    pipeline.record("normalized", graph)
     for agent in graph.agents:
         if agent.metadata.get("dynamic_control_flow"):
             add_diagnostic(
@@ -2972,6 +2976,7 @@ def _scan(
     if skill_llm_semantic_stats is not None:
         graph.coverage.resolution["skill_semantic_llm"] = skill_llm_semantic_stats
 
+    pipeline.record("flows_resolved", graph)
     annotate_risk_semantics(graph)
     graph.attack_paths = build_attack_paths(graph)
     for attack_path in graph.attack_paths:
@@ -2998,7 +3003,9 @@ def _scan(
                 "runtime_limitation",
                 "Declared static authority is source-proven, but live runtime reachability is blocked by the pinned source error.",
             )
+    pipeline.record("attack_paths", graph)
     graph.adg = build_adg(graph, analysis_root)
+    pipeline.record("adg", graph)
     findings = evaluate(graph)
     for finding in findings:
         same_name_agents = [
@@ -3059,4 +3066,5 @@ def _scan(
     findings, graph.suppressed_findings, graph.suppression_diagnostics = apply_suppressions(
         findings, root if root.is_dir() else root.parent, suppression_file,
     )
+    pipeline.record("findings", graph, finding_count=len(findings))
     return graph, findings
