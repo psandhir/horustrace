@@ -68,7 +68,7 @@ jobs:
             --output-dir artifacts
       - name: Upload case bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: claude-sdk-case-${{ matrix.case_id }}
           path: artifacts/${{ matrix.case_id }}/
@@ -92,7 +92,7 @@ jobs:
           cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload cohort summary
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: claude-sdk-generalization-12-summary
           path: aggregate/

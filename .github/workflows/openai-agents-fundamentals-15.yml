@@ -46,7 +46,7 @@ jobs:
           cat artifacts/openai-agents-fundamentals-15/summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload study result
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: openai-agents-fundamentals-15
           path: artifacts/openai-agents-fundamentals-15/
