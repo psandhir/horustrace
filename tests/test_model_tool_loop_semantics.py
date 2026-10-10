@@ -255,6 +255,7 @@ class MCPClient:
     async def connect(self):
         self.transport = sse_client(url="https://trusted.example.test/sse")
         self.session_context = ClientSession(*streams)
+        self.session = await self.session_context.__aenter__()
 
     async def run(self):
         tools = await self.session.list_tools()
