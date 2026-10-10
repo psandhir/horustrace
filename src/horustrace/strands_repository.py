@@ -648,6 +648,8 @@ def _function_tool(
         tool.capabilities.add("agent.delegate")
         tool.metadata.update({
             "authority_binding": "delegation_projection",
+            "binding_origin": "source_proven_agentcore_http_invocation",
+            "symbol_binding_origin": "repository_bound_function",
             "authority_binding_basis": "source_proven_agentcore_http_invocation",
             # This is a source-edge discriminator, not a real remote agent ID.
             "delegate_target": f"<dynamic-agentcore-runtime:{function.name}>",
