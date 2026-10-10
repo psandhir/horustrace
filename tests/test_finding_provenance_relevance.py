@@ -182,7 +182,7 @@ def test_generic_finding_at_agent_location_does_not_inherit_other_tools():
 
 
 def test_delegated_path_omits_unrelated_child_capabilities_and_approvals():
-    graph, findings = _fixture()
+    graph, _ = _fixture()
     agent = graph.agents[0]
     location = SourceLocation(Path("agent.py"), line=26)
     delegate = Tool(
