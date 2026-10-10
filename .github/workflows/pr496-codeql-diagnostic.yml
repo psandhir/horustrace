@@ -1,0 +1,21 @@
+name: PR496 CodeQL diagnostic (temporary)
+on:
+  push:
+    branches:
+      - ux/security-workbench-design-system
+    paths:
+      - .github/workflows/pr496-codeql-diagnostic.yml
+permissions:
+  contents: read
+  security-events: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print only open PR496 alert rule and source location
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -H 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=open&pr=496&per_page=100" \
+            --jq '.[] | {number, rule_id: .rule.id, severity: .rule.security_severity_level, path: .most_recent_instance.location.path, start_line: .most_recent_instance.location.start_line}' 
