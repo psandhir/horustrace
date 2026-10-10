@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "evidence" / "post180-three-cohorts-20261009"
-SCANNER_SHA = "a1bbdc3a391a1377726ce9d80a8b9b80b633ea51"
+SCANNER_SHA = "b250b63900f1ebaacc925dfd7fb84b4d79a3f1fb"
 RUNNER = ROOT / "research/full-framework-60-20261005/run_case.py"
 SOURCES = {
     "holdout10": ROOT / "research/gpt-horustrace-differential-2026/unseen-holdout-adk-pydantic-10-v2-cohort.json",
