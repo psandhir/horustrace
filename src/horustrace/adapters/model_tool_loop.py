@@ -413,6 +413,122 @@ def _dynamic_stdio_mcp(path: Path, node: ast.ClassDef) -> MCPServer | None:
     )
 
 
+
+def _dynamic_sse_mcp(path: Path, node: ast.ClassDef) -> MCPServer | None:
+    """Bind a source-visible SSE ClientSession to the custom model/tool loop.
+
+    The endpoint and tool catalogue may both be selected at runtime. Only
+    the session relationship is claimed: individual operations, permissions,
+    authentication and the chosen host are not inferred.
+    """
+    calls = [child for child in ast.walk(node) if isinstance(child, ast.Call)]
+    session_catalogues = {
+        _dotted(call.func.value)
+        for call in calls
+        if isinstance(call.func, ast.Attribute) and call.func.attr == "list_tools"
+    }
+    session_dispatches = {
+        _dotted(call.func.value)
+        for call in calls
+        if isinstance(call.func, ast.Attribute) and call.func.attr == "call_tool"
+    }
+    shared_sessions = {
+        receiver
+        for receiver in session_catalogues & session_dispatches
+        if receiver and receiver.startswith("self.")
+    }
+    if not shared_sessions:
+        return None
+
+    # Reconstruct the concrete class attribute holding the ClientSession.
+    # Presence of ClientSession and an unrelated call_tool() is not enough.
+    assignments = [
+        child for child in ast.walk(node)
+        if isinstance(child, (ast.Assign, ast.AnnAssign))
+        and child.value is not None
+    ]
+    session_contexts: set[str] = set()
+    session_receivers: set[str] = set()
+    for assignment in assignments:
+        value = assignment.value
+        targets = (
+            assignment.targets if isinstance(assignment, ast.Assign)
+            else [assignment.target]
+        )
+        names = {
+            dotted for target in targets
+            if (dotted := _dotted(target)) and dotted.startswith("self.")
+        }
+        if isinstance(value, ast.Call) and _call_name(value.func) == "ClientSession":
+            session_contexts.update(names)
+            session_receivers.update(names)
+    for assignment in assignments:
+        value = assignment.value
+        if isinstance(value, ast.Await):
+            value = value.value
+        if not isinstance(value, ast.Call) or not isinstance(value.func, ast.Attribute):
+            continue
+        if (
+            value.func.attr != "__aenter__"
+            or _dotted(value.func.value) not in session_contexts
+        ):
+            continue
+        targets = (
+            assignment.targets if isinstance(assignment, ast.Assign)
+            else [assignment.target]
+        )
+        session_receivers.update(
+            dotted for target in targets
+            if (dotted := _dotted(target)) and dotted.startswith("self.")
+        )
+    shared_sessions &= session_receivers
+    if not shared_sessions:
+        return None
+
+    sse_calls = [
+        call for call in calls
+        if _call_name(call.func) == "sse_client"
+    ]
+    if not sse_calls:
+        return None
+    if not any(
+        _is_model_callable(call.func)
+        and any(keyword.arg == "tools" for keyword in call.keywords)
+        for call in calls
+    ):
+        return None
+
+    # A literal URL is source-declared. A function parameter/expression is
+    # caller-configurable, NOT necessarily selected by the model.
+    sse_call = sse_calls[0]
+    url_expression = next(
+        (keyword.value for keyword in sse_call.keywords if keyword.arg == "url"),
+        sse_call.args[0] if sse_call.args else None,
+    )
+    literal_url = _literal_string(url_expression)
+    dynamic = literal_url is None
+    return MCPServer(
+        name="<dynamic-sse-mcp>" if dynamic else "<source-sse-mcp>",
+        transport="sse",
+        url=literal_url,
+        authenticated=None,
+        location=_location(path, sse_call),
+        metadata={
+            "framework": "model-tool-loop",
+            "binding_origin": "source_proven_mcp_session_loop",
+            "session_receivers": sorted(shared_sessions),
+            "dynamic_mcp_endpoint": dynamic,
+            "dynamic_mcp_endpoint_basis": (
+                "caller_configuration" if dynamic else "source_literal"
+            ),
+            "endpoint_selection_actor": "caller_or_operator" if dynamic else "source",
+            "tool_catalogue_dynamic": True,
+            "repository_resolved": False,
+            "runtime_enforcement_verified": False,
+        },
+    )
+
+
 def _snake_name(value: str) -> str:
     if value.lower() == "agent":
         return "agent"
@@ -511,6 +627,8 @@ def _custom_class_agents(path: Path, tree: ast.AST) -> list[Agent]:
             ]
         else:
             dynamic_mcp = _dynamic_stdio_mcp(path, node)
+            if dynamic_mcp is None:
+                dynamic_mcp = _dynamic_sse_mcp(path, node)
             if dynamic_mcp is not None:
                 agent.mcp_servers.append(dynamic_mcp)
                 agent.metadata["dynamic_mcp_servers"] = True
