@@ -7,7 +7,7 @@ This is a claim-level audit of the original October 2 Fresh-16 (76 findings) aga
 | Previously adjudicated category | Claims missing at exact identity | Required action |
 |---|---:|---|
 | False positive | 16 | Preserve absence unless source evidence changes |
-| Partial | 14 | Validate narrowed scope independently, avoid count restoration |
+| Partial | 14 | Pinned-source scope review performed; runtime exploitability not independently verified |
 | True positive | 2 | Recover correct source binding or explicitly scope as unbound |
 | **Total** | **32** | |
 
@@ -18,19 +18,19 @@ The mismatch includes claims whose source location / agent relationship moved. T
 - **`gen-oai-003`, old NET001 `client.py:25`**: source proves `sse_client(url=server_url)` then `ClientSession`, `list_tools` and model-selected `call_tool` in one custom loop. The October 10 scan now binds that dynamic MCP session to `m_c_p_client` and emits a more accurately attributed NET001. **Recovered with stronger provenance**, not an outstanding missing agent authority.
 - **`gen-mcp-001`, old AGT032 `.mcp.json:1`**: repo/IDE Greptile configuration declares HTTPS and an environment-supplied authorization placeholder, without an explicit tool allowlist. The declaration was unbound to a runtime agent. **Inventory/configuration gap requires policy scoping**; historical true-positive rating is not sufficient evidence of *effective agent* authority. Do not reinstate an agent-risk finding without an agent relationship. The old AGT051 embedded-secret alert is correctly excluded because `Bearer ${GREPTILE_API_KEY}` is a variable reference, not a literal credential.
 
-## Partial-claim adjudication queue (14)
+## Partial-claim pinned-source scope review (14)
 
 | Cases and original indices | Prior claim(s) | Investigation status |
 |---|---|---|
-| `gen-adk-003:7` | NET001 on an agent calling package/version checks | **Source-specific destination review:** fixed PyPI/Maven hosts should not be described as model-selected destinations |
-| `gen-mcp-003:0,1,2,3` | NET001 ×2; AGT032 ×2 | **Test/operator configuration:** locations are `tests/integration/conftest.py:160,184`; verify inventory applicability independently, not as agent reachability |
-| `gen-oai-004:4,5,10,11` | AGT022 ×2; AGT040 ×2 | **Run-context mutation:** `Seat Booking Agent` writes `context.context.seat_number` in example code, not a source-proven external airline write. Context mutation remains a semantic effect |
-| `gen-oai-004:12,13,16,17` | AGT040 ×2; CAP005 ×2 | **Delegation/source-context:** `Triage Agent` handoff exists in example source; verify inventory/delegation without promoting sample-only or run-context effects to external authority |
-| `gen-pyd-002:15` | NET002 | **Test-only context:** `examples/testing_examples/test_agent_patterns.py:38` is not enough to assert live unconstrained outbound egress |
+| `gen-adk-003:7` | NET001 on an agent calling package/version checks | **Reviewed `tools.py:199,223`:** fixed PyPI/Maven hosts; variable package name is not a model-selected network host |
+| `gen-mcp-003:0,1,2,3` | NET001 ×2; AGT032 ×2 | **Reviewed `tests/integration/conftest.py:153-185`:** transport URL is CI/test `MCP_SERVER_URL`, consumed by pytest fixtures; not proven live agent reachability |
+| `gen-oai-004:4,5,10,11` | AGT022 ×2; AGT040 ×2 | **Reviewed `examples/openai_agents/customer_service_agent.py:93-107`:** seat tool mutates `context.context.seat_number`, not a persistent airline data store |
+| `gen-oai-004:12,13,16,17` | AGT040 ×2; CAP005 ×2 | **Reviewed `examples/openai_agents/customer_service_agent.py:144-155`:** real handoff declared, but target's effect is example-local context; keep handoff inventory without assuming real airline write |
+| `gen-pyd-002:15` | NET002 | **Reviewed `examples/testing_examples/test_agent_patterns.py:38,61-70`:** API client is a `Mock` test dependency; no proven production egress |
 
 Other Pydantic `gen-pyd-002:0,1,6,12,13,14` were historically adjudicated false positives from capability/source-scope inference; these should not be restored by default.
 
-**Decision discipline:** unresolved partial claims are not yet recorded as approved `scope_narrowed` or `corrected_false_positive` dispositions in the enforced reference. A source-pack excerpt may be truncated; inspect full pinned source when a claim needs code-level adjudication. The claim-level gate from P0 protects *current* reported claims independently.
+**Decision discipline:** all 14 partial historical claim identities now have explicit pinned-source scope rationale in the ledger; this is a source-review checkpoint, **not** independent runtime verification or a claim that every scanner omission is correct. They are not blanket waiver entries in the enforced postmerge reference. The P0 claim gate protects current findings independently.
 
 ## Evidence and next verification
 
