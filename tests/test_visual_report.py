@@ -536,7 +536,7 @@ def test_visual_report_owasp_assessment_status_chart(tmp_path: Path) -> None:
     assert 'scope+\'<div class="panel flush table-wrap">' in html
     assert 'function owaspAgentRows(mapped)' in html
     assert 'data-owasp-agent=' in html
-    assert 'function openAgent(name,initialTab="overview",owaspRisk=null)' in html
+    assert 'function openAgent(name,initialTab="overview",owaspRisk=null,' in html
     assert 'id="owasp-detail"' in html
     assert 'detail+scope+' in html
     assert 'OWASP category' in html
