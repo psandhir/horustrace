@@ -755,6 +755,15 @@ def evaluate(graph: Graph) -> list[Finding]:
         if agent.metadata.get("a2a_exposed") and privileged_tools and not safety_control:
             findings.append(Finding("ADK011", Severity.HIGH, "Privileged ADK agent is exposed over A2A without detected safety control", f"Agent '{agent.name}' is exposed using A2A and has privileged capabilities, but no security callback/plugin was detected.", "Authenticate/authorize the A2A endpoint, validate remote input, and enforce tool-level policy before privileged actions.", layer=1, location=agent.location, agent=agent.name, evidence=["a2a_exposed=true", "privileged=" + ",".join(t.name for t in privileged_tools)]))
 
+    # A separately discovered IDE/config declaration may repeat an endpoint
+    # already bound to an agent. The bound finding covers the same transport
+    # defect; do not count a duplicate configuration-only observation.
+    bound_mcp_urls = {
+        server.url
+        for agent in graph.agents
+        for server in agent.mcp_servers
+        if server.url
+    }
     for server in graph.all_mcp_servers():
         server_authority = mcp_authority_by_object.get(id(server))
         if (
@@ -777,6 +786,7 @@ def evaluate(graph: Graph) -> list[Finding]:
                 server.url
                 and urlparse(server.url).scheme.lower() == "http"
                 and not _is_loopback_url(server.url)
+                and server.url not in bound_mcp_urls
             ):
                 findings.append(
                     Finding(
