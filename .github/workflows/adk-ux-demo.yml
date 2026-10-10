@@ -3,7 +3,7 @@ name: ADK UX Demo Acceptance
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, ux/adk-provenance-495-v2-preview-20261010]
     paths:
       - .github/workflows/adk-ux-demo.yml
       - scripts/run_adk_ux_demo.py
