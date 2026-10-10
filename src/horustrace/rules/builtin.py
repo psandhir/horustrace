@@ -764,6 +764,7 @@ def evaluate(graph: Graph) -> list[Finding]:
         for server in agent.mcp_servers
         if server.url
     }
+    mcp_network_gaps_already_reported: set[str] = set()
     for server in graph.all_mcp_servers():
         server_authority = mcp_authority_by_object.get(id(server))
         if (
@@ -887,6 +888,13 @@ def evaluate(graph: Graph) -> list[Finding]:
                 server.metadata.get("dynamic_mcp_endpoint_basis")
                 not in {"operator_configuration", "environment_allowlist"}
             ):
+                # The same MCP authority must not trigger the more generic
+                # agent-level NET002 for this identical egress gap. Other
+                # independent outbound authorities still remain reportable.
+                if server_authority is not None:
+                    mcp_network_gaps_already_reported.add(
+                        server_authority.relationship_id
+                    )
                 findings.append(
                     Finding(
                         "NET001",
@@ -904,6 +912,8 @@ def evaluate(graph: Graph) -> list[Finding]:
                         evidence=[
                             "destination=dynamic",
                             f"transport={server.transport}",
+                            "endpoint_selection_actor="
+                            + str(server.metadata.get("endpoint_selection_actor") or "unknown"),
                         ],
                         authority_relationship_id=(
                             server_authority.relationship_id
@@ -1534,6 +1544,14 @@ def evaluate(graph: Graph) -> list[Finding]:
                         network_tools_by_name[item.target_name]
                     )
                 )
+            ]
+            # Deduplicate the same unresolved dynamic MCP egress issue
+            # already emitted as specific NET001 at the MCP server. Preserve
+            # NET002 when an independent tool/authority remains unresolved.
+            unresolved_destination_authorities = [
+                item
+                for item in unresolved_destination_authorities
+                if item.relationship_id not in mcp_network_gaps_already_reported
             ]
             authority_destination_gap = bool(unresolved_destination_authorities)
             legacy_destination_gap = (
