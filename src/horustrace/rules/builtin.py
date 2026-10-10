@@ -761,9 +761,65 @@ def evaluate(graph: Graph) -> list[Finding]:
             server.metadata.get("binding_state") == "unbound"
             and server_authority is None
         ):
-            # Repository/IDE MCP configuration is inventory until source proves
-            # that an agent can invoke it. Keep visibility without projecting
-            # developer configuration into application effective authority.
+            # Unbound MCP declarations are NOT effective agent authority.
+            # However, explicit configuration defects (plaintext remote URL,
+            # embedded credential, or an explicitly wildcard tool surface) are
+            # independently source-backed. Report them as configuration-only
+            # observations; do not infer runtime reachability or missing
+            # authentication/allowlist enforcement from silence.
+            config_evidence = [
+                "assessment_scope=mcp_configuration",
+                "binding_state=unbound",
+                "agent_reachability=not_proven",
+                "runtime_effectiveness=not_verified",
+            ]
+            if server.url and urlparse(server.url).scheme.lower() == "http":
+                if not _is_loopback_url(server.url):
+                    findings.append(
+                        Finding(
+                            "AGT031",
+                            Severity.MEDIUM,
+                            "Unencrypted remote MCP endpoint in configuration",
+                            f"Unbound MCP configuration '{server.name}' declares a plaintext remote URL.",
+                            "Configure HTTPS/WSS before the server is used; verify deployment and binding separately.",
+                            layer=1,
+                            location=server.location,
+                            evidence=[*config_evidence, f"url={server.url}"],
+                        )
+                    )
+            literal_credentials = list(
+                server.metadata.get("literal_credential_sources") or []
+            )
+            if literal_credentials:
+                findings.append(
+                    Finding(
+                        "AGT051",
+                        Severity.HIGH,
+                        "Literal credential in MCP configuration",
+                        f"Unbound MCP configuration '{server.name}' embeds literal credential material.",
+                        "Remove committed credentials and inject secrets at runtime.",
+                        layer=1,
+                        location=server.location,
+                        evidence=[
+                            *config_evidence,
+                            "sources=" + ",".join(sorted(literal_credentials)),
+                            "credential_values=redacted",
+                        ],
+                    )
+                )
+            if server.metadata.get("broad_tool_surface"):
+                findings.append(
+                    Finding(
+                        "AGT052",
+                        Severity.MEDIUM,
+                        "MCP configuration enables all tools",
+                        f"Unbound MCP configuration '{server.name}' explicitly enables all tools.",
+                        "Restrict the configured tool surface before binding it to an agent.",
+                        layer=1,
+                        location=server.location,
+                        evidence=[*config_evidence, "configured_tools=all"],
+                    )
+                )
             continue
         if server.url:
             parsed = urlparse(server.url)
