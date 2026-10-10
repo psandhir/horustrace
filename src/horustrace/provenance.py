@@ -133,11 +133,30 @@ def _relevant_provenance(agent, finding, attack_path):
             if source.name in names or source.selector in names:
                 add(source, lambda fact: key_is(fact, "classification", "capability", "resource_selector"))
 
+    def outbound_fact_selector(tool):
+        # Delegated tools can carry provenance from every child construct.
+        # Keep only the child subjects with actual outbound evidence.
+        outbound_subjects = {
+            fact.subject for fact in tool.provenance
+            if capability_is(fact, {"network.external", "external.write"})
+            or fact.fact in {
+                "transport=streamable-http", "transport=streamable_http",
+                "transport=sse", "transport=http",
+            }
+        }
+        return lambda fact: (
+            capability_is(fact, {"network.external", "external.write"})
+            or (
+                fact.subject in outbound_subjects
+                and key_is(fact, "approval_configuration",
+                           "guardrail_hook_detected", "transport")
+            )
+        )
+
     def outbound_named(names):
         for tool in agent.tools:
             if tool.name in names:
-                add(tool, lambda fact: capability_is(fact, {"network.external", "external.write"})
-                    or key_is(fact, "approval_configuration"))
+                add(tool, outbound_fact_selector(tool))
                 for destination in tool.destinations:
                     add(destination, lambda fact: key_is(fact, "destination"))
         for server in agent.mcp_servers:
@@ -194,8 +213,12 @@ def _relevant_provenance(agent, finding, attack_path):
                 add(source, lambda fact: key_is(fact, "input_trust", "input_kind"))
         for tool in agent.tools:
             if tool.name in nodes:
-                add(tool, lambda fact: key_is(
-                    fact, "capability", "approval_configuration", "guardrail_hook_detected"))
+                if finding.rule_id == "PATH003":
+                    add(tool, outbound_fact_selector(tool))
+                else:
+                    add(tool, lambda fact: key_is(
+                        fact, "capability", "approval_configuration",
+                        "guardrail_hook_detected"))
                 for destination in tool.destinations:
                     add(destination, lambda fact: key_is(fact, "destination"))
         for server in agent.mcp_servers:
