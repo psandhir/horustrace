@@ -478,7 +478,7 @@ def render_visual_report_html(
     payload = _json_for_html(report)
     title = escape(f"HorusTrace Security Report — {root.name or '.'}")
     return f"""<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -491,6 +491,64 @@ def render_visual_report_html(
 --accent:#86aefb;--accent-soft:#172846;--critical:#ff707a;--high:#ff9e66;--medium:#f6cd62;
 --low:#73bdf4;--ok:#63d6a0;--warn:#f1c75b;--unknown:#a8b3c7;--shadow:0 14px 38px #00000038;
 --radius:12px;--radius-lg:16px}}
+
+/* Light is the default. Dark remains available without network, dependencies or rebuild. */
+html[data-theme="light"]{{--bg:#f5f7fb;--sidebar:#ffffff;--surface:#ffffff;--surface2:#edf3fa;
+--surface3:#eaf0f7;--text:#18273f;--muted:#4f6077;--muted2:#627189;
+--line:#d8e1eb;--line-strong:#b6c7da;--accent:#205caa;--accent-soft:#e8f1ff;
+--critical:#aa2637;--high:#994718;--medium:#855900;--low:#175f9a;
+--ok:#166743;--warn:#785209;--unknown:#52617a;--shadow:0 12px 32px #20355010;
+color-scheme:light}}
+html[data-theme="dark"]{{color-scheme:dark}}
+.theme-switch{{padding:11px 8px 15px;display:flex;flex-direction:column;gap:6px}}
+.theme-switch-label{{color:var(--muted2);font-size:10px;text-transform:uppercase;letter-spacing:.11em;font-weight:800}}
+.theme-choices{{display:flex;padding:3px;gap:4px;background:var(--surface3);border:1px solid var(--line);border-radius:10px}}
+.theme-choices button{{flex:1;border:1px solid transparent;border-radius:7px;padding:6px 9px;
+background:transparent;color:var(--muted);font-size:12px;font-weight:750;cursor:pointer}}
+.theme-choices button[aria-pressed="true"]{{background:var(--surface);border-color:var(--line-strong);
+box-shadow:0 2px 6px #121d3220;color:var(--text)}}
+.theme-choices button:hover{{color:var(--text)}}
+html[data-theme="light"] .brand-row,html[data-theme="light"] .sidebar-meta{{border-color:var(--line)}}
+html[data-theme="light"] .brand-mark{{color:#fff}}
+html[data-theme="light"] .nav button::before{{background:#8295b0}}
+html[data-theme="light"] .nav button.active{{border-color:#c7dbf2}}
+html[data-theme="light"] .nav button.active::before{{box-shadow:0 0 0 4px #205caa16}}
+html[data-theme="light"] .assessment-banner{{background:linear-gradient(135deg,#fff,#f1f6fc);border-color:var(--line-strong)}}
+html[data-theme="light"] .assessment-banner.critical{{background:linear-gradient(135deg,#fff2f3,#fff)}}
+html[data-theme="light"] .assessment-banner.high{{background:linear-gradient(135deg,#fff4ed,#fff)}}
+html[data-theme="light"] .assessment-banner.warn{{background:linear-gradient(135deg,#fff9e6,#fff)}}
+html[data-theme="light"] .card{{box-shadow:0 5px 18px #20355008}}
+html[data-theme="light"] .card.drill:hover{{border-color:var(--line-strong)}}
+html[data-theme="light"] th{{background:#eef3f9}}
+html[data-theme="light"] tr.clickable:hover,html[data-theme="light"] .drill-row:hover{{background:#eaf2fc}}
+html[data-theme="light"] .badge{{background:#edf3fa}}
+html[data-theme="light"] .badge.critical{{border-color:#e5aab4}}
+html[data-theme="light"] .badge.high{{border-color:#dfaf91}}
+html[data-theme="light"] .badge.medium{{border-color:#dbc284}}
+html[data-theme="light"] .badge.violation{{background:#fff1f3;border-color:#e9b3bc}}
+html[data-theme="light"] .badge.compliant{{background:#eaf7ef;border-color:#a1d5b8}}
+html[data-theme="light"] .badge.unresolved{{background:#fff8e8;border-color:#dfc891}}
+html[data-theme="light"] .badge.declared{{border-color:#b4c9eb}}
+html[data-theme="light"] .filter-chip.active{{border-color:#acc5e5}}
+html[data-theme="light"] .filter-banner{{background:#edf4fc;border-color:var(--line-strong)}}
+html[data-theme="light"] .finding p{{color:var(--text)}}
+html[data-theme="light"] code,html[data-theme="light"] .badge{{background-color:var(--surface3)}}
+html[data-theme="light"] details{{border-color:var(--line)}}
+html[data-theme="light"] details summary{{color:var(--text)}}
+html[data-theme="light"] pre,html[data-theme="light"] .map-toolbar input{{background:var(--surface3)}}
+html[data-theme="light"] .graph{{background:#f8fafd}}
+html[data-theme="light"] svg text{{fill:var(--text)}}
+html[data-theme="light"] .edge{{stroke:#647b9b}}
+html[data-theme="light"] .node rect{{fill:#edf3fb;stroke:#7895b8}}
+html[data-theme="light"] .node.agent rect{{fill:#e1edff;stroke:#306fba}}
+html[data-theme="light"] .node.identity rect{{fill:#f0e8fa;stroke:#8063ae}}
+html[data-theme="light"] .node.resource rect{{fill:#e3f5eb;stroke:#388562}}
+html[data-theme="light"] .node.destination rect{{fill:#fff0df;stroke:#a86a2b}}
+html[data-theme="light"] .path-step{{background:var(--surface3)}}
+html[data-theme="light"] .empty{{background:#f3f7fb}}
+html[data-theme="light"] .coverage-track{{background:#e5edf6}}
+html[data-theme="light"] .footer{{border-color:var(--line)}}
+@media(max-width:760px){{.theme-switch{{padding:10px 0 3px}} .theme-choices{{max-width:250px}}}}
 *{{box-sizing:border-box}} html{{scroll-behavior:smooth}} body{{margin:0;font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,
 BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}}
 button,input{{font:inherit}} button{{color:inherit}} button:focus-visible,input:focus-visible,[tabindex]:focus-visible{{outline:2px solid var(--accent);outline-offset:2px}}
@@ -575,6 +633,13 @@ svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} 
     <button data-view="contracts">Agent contracts</button>
     <button data-view="evidence">Scan evidence</button>
   </nav>
+  <div class="theme-switch" role="group" aria-label="Report color theme">
+    <span class="theme-switch-label">Appearance</span>
+    <div class="theme-choices">
+      <button type="button" data-theme-choice="light" aria-pressed="true">Light</button>
+      <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
   <div class="sidebar-meta"><strong>Offline security evidence</strong><span title="{escape(root.name or '.')}">Scope: {escape(root.name or '.')}</span><span>Schema v{VISUAL_REPORT_SCHEMA_VERSION}</span></div>
 </aside>
 <main>
@@ -587,6 +652,18 @@ svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} 
 <script>
 "use strict";
 const DATA=JSON.parse(document.getElementById("horus-data").textContent);
+const THEME_STORAGE_KEY="horustrace-report-theme";
+function setTheme(choice){{
+ const next=choice==="dark"?"dark":"light";
+ document.documentElement.setAttribute("data-theme",next);
+ document.querySelectorAll("[data-theme-choice]").forEach(btn=>btn.setAttribute("aria-pressed",String(btn.dataset.themeChoice===next)));
+ try{{window.localStorage.setItem(THEME_STORAGE_KEY,next);}}catch(_error){{/* file:// or restricted browser storage */}}
+}}
+let initialTheme="light";
+try{{initialTheme=window.localStorage.getItem(THEME_STORAGE_KEY)||"light";}}catch(_error){{/* offline file storage can be disabled */}}
+setTheme(initialTheme);
+document.querySelectorAll("[data-theme-choice]").forEach(btn=>btn.addEventListener("click",()=>setTheme(btn.dataset.themeChoice)));
+
 const esc=(v)=>String(v??"").replace(/[&<>"']/g,c=>({{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}}[c]));
 const loc=(v)=>v&&v.path?esc(v.path)+":"+esc(v.line||1):"n/a";
 const badge=(s)=>'<span class="badge '+esc(s)+'">'+esc(String(s).replaceAll("_"," "))+'</span>';
