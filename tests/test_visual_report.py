@@ -1,4 +1,9 @@
+import shutil
+import subprocess
+from html.parser import HTMLParser
 from pathlib import Path
+
+import pytest
 
 from horustrace.adg import build_adg
 from horustrace.cli import main
@@ -333,6 +338,254 @@ def test_visual_report_dashboard_has_contextual_drilldowns(tmp_path: Path) -> No
     assert 'function agentMatchesFilter(a,mode)' in html
 
 
+def test_visual_report_has_interactive_severity_chart(tmp_path: Path) -> None:
+    graph, findings = _graph(tmp_path)
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+    report = build_visual_report(graph, findings, tmp_path)
+
+    assert 'function severityChart(s)' in html
+    assert 'aria-label="Findings by scanner severity"' in html
+    assert 'class="severity-chart-row" data-tone="\'+key+\'"' in html
+    assert 'data-drill="findings:' in html
+    assert '["low","Low"],["info","Info"]' in html
+    assert 'filters=["all","critical","high","medium","low","info"]' in html
+    assert "Filled bars represent detected findings; exploitability is not verified." in html
+    assert report["summary"]["severity"] == {
+        "critical": 0,
+        "high": 1,
+        "medium": 0,
+        "low": 0,
+        "info": 0,
+    }
+
+
+def test_visual_report_authority_resolution_and_coverage_states(tmp_path: Path) -> None:
+    graph, findings = _graph(tmp_path)
+    before = build_visual_report(graph, findings, tmp_path)
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+    after = build_visual_report(graph, findings, tmp_path)
+
+    assert before == after
+    assert 'function authorityResolutionChart(agents)' in html
+    assert 'aria-label="Effective authority resolution"' in html
+    assert 'data-drill="agents:' in html
+    assert '["fully_resolved","Fully resolved"]' in html
+    assert '["partially_resolved","Partially resolved"]' in html
+    assert '["unknown","Unknown"]' in html
+    assert 'some(r=>r.resolution===mode)' in html
+    assert 'if(el.tagName!=="BUTTON")' in html
+    assert 'function scanCoverageStatus(incomplete)' in html
+    assert 'No reported coverage gaps' in html
+    assert 'Coverage incomplete' in html
+    assert 'Not available (no files considered)' in html
+    assert 'Resolution does not imply least privilege' in html
+    assert 'No effective-authority relationships were reconstructed' in html
+    assert 'default-src &#39;none&#39;' not in html
+
+
+def test_visual_report_inline_javascript_is_syntactically_valid(tmp_path: Path) -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is not available to validate offline report JavaScript")
+
+    graph, findings = _graph(tmp_path)
+    html = render_visual_report_html(graph, findings, tmp_path)
+    class InlineScripts(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__()
+            self.scripts: list[str] = []
+            self.in_script = False
+
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            if tag == "script":
+                self.scripts.append("")
+                self.in_script = True
+
+        def handle_data(self, data: str) -> None:
+            if self.in_script:
+                self.scripts[-1] += data
+
+        def handle_endtag(self, tag: str) -> None:
+            if tag == "script":
+                self.in_script = False
+
+    parser = InlineScripts()
+    parser.feed(html)
+    assert len(parser.scripts) == 2  # JSON payload and standalone application script.
+    check = subprocess.run(
+        [node, "--check"],
+        input=parser.scripts[-1],
+        text=True,
+        capture_output=True,
+        timeout=15,
+        check=False,
+    )
+    assert check.returncode == 0, check.stderr
+
+
+def test_visual_report_owasp_assessment_status_chart(tmp_path: Path) -> None:
+    graph, findings = _graph(tmp_path)
+    before = build_visual_report(graph, findings, tmp_path)
+    html = render_visual_report_html(graph, findings, tmp_path)
+
+    assert 'function owaspAssessmentChart(categories)' in html
+    assert 'aria-label="OWASP Agentic Top 10 assessment states"' in html
+    assert 'data-drill="owasp:status.' in html
+    assert '["finding","Runtime findings"]' in html
+    assert '["no_runtime_findings","Mapped findings (none runtime-classified)"]' in html
+    assert '["no_mapped_findings","No mapped findings"]' in html
+    assert '["not_assessed","Not assessed"]' in html
+    assert 'const shownCategories=statusMode?categories.filter(' in html
+    assert 'scope+\'<div class="panel flush table-wrap">' in html
+    assert 'Detector coverage is not proof of security' in html
+    assert 'Not assessed means no enabled mapped detector' in html
+    assert before == build_visual_report(graph, findings, tmp_path)
+
+
+def test_visual_report_supports_accessible_light_and_dark_themes(tmp_path: Path) -> None:
+    graph, findings = _graph(tmp_path)
+    expected = build_visual_report(graph, findings, tmp_path)
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+
+    assert '<html lang="en" data-theme="light">' in html
+    assert 'role="group" aria-label="Report color theme"' in html
+    assert 'data-theme-choice="light" aria-pressed="true"' in html
+    assert 'data-theme-choice="dark" aria-pressed="false"' in html
+    assert 'function setTheme(choice)' in html
+    assert 'document.documentElement.setAttribute("data-theme",next)' in html
+    assert 'btn.setAttribute("aria-pressed",String(btn.dataset.themeChoice===next))' in html
+    assert 'window.localStorage.getItem(THEME_STORAGE_KEY)' in html
+    assert 'window.localStorage.setItem(THEME_STORAGE_KEY,next)' in html
+    assert 'initialTheme="light"' in html
+    assert 'try{' in html and 'catch(_error){' in html
+    assert 'html[data-theme="light"] .assessment-banner' in html
+    assert 'html[data-theme="light"] .node.agent rect' in html
+    assert 'html[data-theme="light"] .finding p' in html
+    assert 'html[data-theme="light"] pre' in html
+    assert 'default-src &#39;none&#39;' not in html
+    assert "default-src 'none'" in html
+    assert "<script src=" not in html
+    assert "<link rel=" not in html
+    assert expected == build_visual_report(graph, findings, tmp_path)
+
+
+def test_visual_report_light_palette_text_contrast(tmp_path: Path) -> None:
+    """Guard legibility of the light palette; non-color labels still indicate risk."""
+    import re
+
+    graph, findings = _graph(tmp_path)
+    html = render_visual_report_html(graph, findings, tmp_path)
+    match = re.search(r'html\[data-theme="light"\]\{([^}]+)\}', html)
+    assert match is not None
+    colors = dict(re.findall(r'--([\w-]+):(#(?:[0-9a-fA-F]{6}));', match.group(1)))
+
+    def luminance(value: str) -> float:
+        channels = [int(value[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+        return sum(a * b for a, b in zip(linear, (0.2126, 0.7152, 0.0722)))
+
+    def contrast(left: str, right: str) -> float:
+        high, low = sorted((luminance(left), luminance(right)), reverse=True)
+        return (high + 0.05) / (low + 0.05)
+
+    for foreground in (
+        "text", "muted", "muted2", "accent", "critical", "high",
+        "medium", "low", "ok", "warn", "unknown",
+    ):
+        assert contrast(colors[foreground], colors["surface"]) >= 4.5, foreground
+
+
+def test_visual_report_light_theme_pastel_bars_are_presentation_only(
+    tmp_path: Path,
+) -> None:
+    graph, findings = _graph(tmp_path)
+    before = build_visual_report(graph, findings, tmp_path)
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+    after = build_visual_report(graph, findings, tmp_path)
+
+    assert before == after
+    # Pastels are used only for graphical fills. Severity text keeps the
+    # stronger contrast-safe foreground colors already tested above.
+    for token, color in (
+        ("risk", "#EFB5C2"), ("warning", "#F6D4C8"),
+        ("good", "#B9DECD"), ("unknown", "#CED9E4"),
+    ):
+        assert f"--bar-{token}:{color}" in html
+
+    for selector, token in (
+        (".severity-chart-fill.critical", "risk"),
+        (".severity-chart-fill.high", "warning"),
+        (".severity-chart-fill.medium", "warning"),
+        (".severity-chart-fill.low", "good"),
+        (".severity-chart-fill.info", "unknown"),
+        (".authority-chart-row .severity-chart-fill.fully_resolved", "good"),
+        (".authority-chart-row .severity-chart-fill.partially_resolved", "warning"),
+        (".authority-chart-row .severity-chart-fill.unknown", "unknown"),
+        (".owasp-chart-row .severity-chart-fill.finding", "risk"),
+        (".owasp-chart-row .severity-chart-fill.no_runtime_findings", "warning"),
+        (".owasp-chart-row .severity-chart-fill.no_mapped_findings", "good"),
+        (".owasp-chart-row .severity-chart-fill.not_assessed", "unknown"),
+        (".coverage-fill", "good"),
+        (".coverage-fill.incomplete", "warning"),
+    ):
+        assert f'html[data-theme="light"] {selector}' in html
+        assert f"background:var(--bar-{token})" in html
+
+    assert '<div class="coverage-fill \'+(c.incomplete?' in html
+    assert "c.incomplete?'incomplete':''" in html
+    assert "data-tone=\"'+key+'\"" in html
+    assert "data-present=\"'+(count>0)+'\"" in html
+    assert 'html[data-theme="light"] .severity-chart-track' in html
+    assert 'height:14px' in html
+    assert 'html[data-theme="light"] .severity-chart-label::before' in html
+    assert 'html[data-theme="light"] .badge.critical' in html
+    assert 'html[data-theme="light"] .badge.unresolved' in html
+    # No brown/ochre semantic ink in the light theme.
+    for old_ink in ("#994718", "#855900", "#785209"):
+        assert old_ink not in html
+    assert "--high:#244068;--medium:#244068" in html
+    assert "--warn:#244068" in html
+    assert "--bg:#f8fafc" in html
+    assert 'Coloured markers identify severity even when a count is zero' in html
+    # The original dark semantic colors are unaffected.
+    assert "--critical:#ff707a" in html
+    assert "--high:#ff9e66" in html
+    assert "--ok:#63d6a0" in html
+
+
+def test_visual_report_uses_offline_semantic_icon_design_system(tmp_path: Path) -> None:
+    graph, findings = _graph(tmp_path)
+    before = build_visual_report(graph, findings, tmp_path)
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+    after = build_visual_report(graph, findings, tmp_path)
+
+    assert before == after
+    assert "const ICONS=Object.freeze" in html
+    assert "function uiIcon(name)" in html
+    assert "Object.prototype.hasOwnProperty.call(ICONS,name)" in html
+    assert "aria-hidden=\"true\"" in html
+    for name in (
+        "overview", "agents", "findings", "policy", "owasp", "attack",
+        "contracts", "evidence",
+    ):
+        assert f'data-icon="{name}"' in html
+    assert "uiIcon(btn.dataset.icon)" in html
+    assert "uiIcon(ICON_FOR_METRIC[label]" in html
+    assert "uiIcon(ICON_FOR_SECTION[title])" in html
+    assert 'class="metric-top"' in html
+    assert 'class="metric-icon"' in html
+    assert 'class="report-context"' in html
+    assert "Agent Security Workbench" in html
+    assert "<script src=" not in html
+    assert "<link rel=" not in html
+    assert "default-src 'none'" in html
+
+
 def test_visual_report_projects_attack_path_chain(tmp_path: Path) -> None:
     location = SourceLocation(tmp_path / "agent.py", line=10)
     agent = Agent(name="Slack Agent", location=location)
@@ -423,7 +676,7 @@ def test_visual_report_html_is_self_contained(tmp_path: Path) -> None:
 
     assert "<!doctype html>" in html
     assert VISUAL_REPORT_MODEL in html
-    assert "Effective Agency Report" in html
+    assert "Agent Security Workbench" in html
     assert "Agency map" in html
     assert "Agent contracts" in html
     assert "Organisation policy" in html

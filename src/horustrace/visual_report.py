@@ -607,7 +607,7 @@ def render_visual_report_html(
     payload = _json_for_html(report)
     title = escape(f"HorusTrace Security Report — {root.name or '.'}")
     return f"""<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -620,6 +620,64 @@ def render_visual_report_html(
 --accent:#86aefb;--accent-soft:#172846;--critical:#ff707a;--high:#ff9e66;--medium:#f6cd62;
 --low:#73bdf4;--ok:#63d6a0;--warn:#f1c75b;--unknown:#a8b3c7;--shadow:0 14px 38px #00000038;
 --radius:12px;--radius-lg:16px}}
+
+/* Light is the default. Dark remains available without network, dependencies or rebuild. */
+html[data-theme="light"]{{--bg:#f8fafc;--sidebar:#ffffff;--surface:#ffffff;--surface2:#f0f4f8;
+--surface3:#edf2f7;--text:#1b2b46;--muted:#54647a;--muted2:#68778e;
+--line:#dce4ec;--line-strong:#bfcddb;--accent:#285f99;--accent-soft:#ecf3fb;
+--critical:#b12645;--high:#244068;--medium:#244068;--low:#245b58;
+--ok:#196a50;--warn:#244068;--unknown:#53647c;--shadow:0 12px 32px #2035500d;
+color-scheme:light}}
+html[data-theme="dark"]{{color-scheme:dark}}
+.theme-switch{{padding:11px 8px 15px;display:flex;flex-direction:column;gap:6px}}
+.theme-switch-label{{color:var(--muted2);font-size:10px;text-transform:uppercase;letter-spacing:.11em;font-weight:800}}
+.theme-choices{{display:flex;padding:3px;gap:4px;background:var(--surface3);border:1px solid var(--line);border-radius:10px}}
+.theme-choices button{{flex:1;border:1px solid transparent;border-radius:7px;padding:6px 9px;
+background:transparent;color:var(--muted);font-size:12px;font-weight:750;cursor:pointer}}
+.theme-choices button[aria-pressed="true"]{{background:var(--surface);border-color:var(--line-strong);
+box-shadow:0 2px 6px #121d3220;color:var(--text)}}
+.theme-choices button:hover{{color:var(--text)}}
+html[data-theme="light"] .brand-row,html[data-theme="light"] .sidebar-meta{{border-color:var(--line)}}
+html[data-theme="light"] .brand-mark{{color:#fff}}
+html[data-theme="light"] .nav button::before{{background:#8295b0}}
+html[data-theme="light"] .nav button.active{{border-color:#c7dbf2}}
+html[data-theme="light"] .nav button.active::before{{box-shadow:0 0 0 4px #205caa16}}
+html[data-theme="light"] .assessment-banner{{background:linear-gradient(135deg,#fff,#f1f6fc);border-color:var(--line-strong)}}
+html[data-theme="light"] .assessment-banner.critical{{background:linear-gradient(135deg,#fff2f3,#fff)}}
+html[data-theme="light"] .assessment-banner.high{{background:linear-gradient(135deg,#fff7f7,#fff)}}
+html[data-theme="light"] .assessment-banner.warn{{background:linear-gradient(135deg,#f2f6fc,#fff)}}
+html[data-theme="light"] .card{{box-shadow:0 5px 18px #20355008}}
+html[data-theme="light"] .card.drill:hover{{border-color:var(--line-strong)}}
+html[data-theme="light"] th{{background:#eef3f9}}
+html[data-theme="light"] tr.clickable:hover,html[data-theme="light"] .drill-row:hover{{background:#eaf2fc}}
+html[data-theme="light"] .badge{{background:#edf3fa}}
+html[data-theme="light"] .badge.critical{{border-color:#e5aab4}}
+html[data-theme="light"] .badge.high{{border-color:#e6c4d0}}
+html[data-theme="light"] .badge.medium{{border-color:#dfd1db}}
+html[data-theme="light"] .badge.violation{{background:#fff1f3;border-color:#e9b3bc}}
+html[data-theme="light"] .badge.compliant{{background:#eaf7ef;border-color:#a1d5b8}}
+html[data-theme="light"] .badge.unresolved{{background:#f1f5fa;border-color:#d5dfe8}}
+html[data-theme="light"] .badge.declared{{border-color:#b4c9eb}}
+html[data-theme="light"] .filter-chip.active{{border-color:#acc5e5}}
+html[data-theme="light"] .filter-banner{{background:#edf4fc;border-color:var(--line-strong)}}
+html[data-theme="light"] .finding p{{color:var(--text)}}
+html[data-theme="light"] code,html[data-theme="light"] .badge{{background-color:var(--surface3)}}
+html[data-theme="light"] details{{border-color:var(--line)}}
+html[data-theme="light"] details summary{{color:var(--text)}}
+html[data-theme="light"] pre,html[data-theme="light"] .map-toolbar input{{background:var(--surface3)}}
+html[data-theme="light"] .graph{{background:#f8fafd}}
+html[data-theme="light"] svg text{{fill:var(--text)}}
+html[data-theme="light"] .edge{{stroke:#647b9b}}
+html[data-theme="light"] .node rect{{fill:#edf3fb;stroke:#7895b8}}
+html[data-theme="light"] .node.agent rect{{fill:#e1edff;stroke:#306fba}}
+html[data-theme="light"] .node.identity rect{{fill:#f0e8fa;stroke:#8063ae}}
+html[data-theme="light"] .node.resource rect{{fill:#e3f5eb;stroke:#388562}}
+html[data-theme="light"] .node.destination rect{{fill:#fff0f2;stroke:#bb768c}}
+html[data-theme="light"] .path-step{{background:var(--surface3)}}
+html[data-theme="light"] .empty{{background:#f3f7fb}}
+html[data-theme="light"] .coverage-track{{background:#e5edf6}}
+html[data-theme="light"] .footer{{border-color:var(--line)}}
+@media(max-width:760px){{.theme-switch{{padding:10px 0 3px}} .theme-choices{{max-width:250px}}}}
 *{{box-sizing:border-box}} html{{scroll-behavior:smooth}} body{{margin:0;font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,
 BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}}
 button,input{{font:inherit}} button{{color:inherit}} button:focus-visible,input:focus-visible,[tabindex]:focus-visible{{outline:2px solid var(--accent);outline-offset:2px}}
@@ -663,7 +721,122 @@ code,pre{{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospac
 .dot{{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}} .empty{{padding:28px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px;background:#0b1321}} .back{{border:1px solid var(--line);background:var(--surface);color:var(--text);padding:7px 10px;border-radius:8px;cursor:pointer}} .small{{font-size:11px}} .nowrap{{white-space:nowrap}} .sevbar{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}}
 svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} .edge{{stroke:#65728c;stroke-width:1.4;opacity:.72}} .node rect{{fill:#16213a;stroke:#42516f;stroke-width:1}} .node.agent rect{{fill:#1b3157;stroke:#78a8ff}} .node.identity rect{{fill:#2b2545;stroke:#a895ff}} .node.resource rect{{fill:#21362f;stroke:#63d69f}} .node.destination rect{{fill:#3a2d22;stroke:#f1b36a}} .node.unresolved rect{{stroke-dasharray:5 4}} .node{{cursor:pointer;transition:opacity .12s}} .node:hover rect{{stroke-width:2}} .node.dim{{opacity:.16}} .node.match rect,.node.selected rect{{stroke-width:3}} .edge.dim{{opacity:.08}} .edge.selected{{stroke-width:2.5;opacity:1}} .label2{{fill:var(--muted);font-size:10px}}
 .path-card{{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:12px 0}} .path-head{{display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap}} .path-chain{{display:flex;flex-direction:column;align-items:flex-start;margin-top:15px;padding-left:8px}} .path-step{{min-width:260px;max-width:680px;background:#0d1628;border:1px solid var(--line);border-radius:9px;padding:9px 11px}} .path-step.agent{{border-color:#78a8ff}} .path-step.secret{{border-color:#c98cff}} .path-step.destination{{border-color:#f1b36a}} .path-step.input,.path-step.source{{border-color:#8ab4ff}} .path-role{{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:2px;font-weight:800}} .path-arrow{{height:22px;margin-left:28px;border-left:2px solid #6d7e9f}} .path-arrow.dashed{{border-left-style:dashed}} .path-meta{{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}}
+.severity-chart{{display:grid;gap:8px;padding:14px 15px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}}
+.severity-chart-row{{padding:7px 8px;border:1px solid transparent;border-radius:8px;cursor:pointer}}
+.severity-chart-row:hover,.severity-chart-row:focus-visible{{background:var(--surface2);border-color:var(--line-strong)}}
+.severity-chart-head{{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:5px;font-size:12px}}
+.severity-chart-label{{font-weight:720}} .severity-chart-count{{font-weight:800;font-variant-numeric:tabular-nums}}
+.severity-chart-track{{display:block;height:9px;border:1px solid var(--line);background:var(--surface3);border-radius:999px;overflow:hidden}}
+.severity-chart-fill{{display:block;height:100%;border-radius:999px;background:var(--muted2)}}
+.severity-chart-fill.critical{{background:var(--critical)}} .severity-chart-fill.high{{background:var(--high)}}
+.severity-chart-fill.medium{{background:var(--medium)}} .severity-chart-fill.low{{background:var(--low)}}
+.severity-chart-fill.info{{background:var(--unknown)}}
+.severity-chart-caption{{margin:2px 8px 0;font-size:10px;color:var(--muted)}}
+.authority-chart{{margin-bottom:12px}}
+.authority-chart-row{{display:block;width:100%;background:transparent;text-align:left;color:var(--text);font:inherit;appearance:none}}
+.authority-chart-row .severity-chart-fill.fully_resolved{{background:var(--accent)}}
+.authority-chart-row .severity-chart-fill.partially_resolved{{background:var(--warn)}}
+.authority-chart-row .severity-chart-fill.unknown{{background:var(--unknown)}}
+.owasp-chart{{margin-bottom:15px}}
+.owasp-chart-row .severity-chart-fill.finding{{background:var(--critical)}}
+.owasp-chart-row .severity-chart-fill.no_runtime_findings{{background:var(--medium)}}
+.owasp-chart-row .severity-chart-fill.no_mapped_findings{{background:var(--accent)}}
+.owasp-chart-row .severity-chart-fill.not_assessed{{background:var(--unknown)}}
 .coverage-track{{height:8px;background:#09101e;border-radius:999px;overflow:hidden;border:1px solid var(--line);margin-top:9px}} .coverage-fill{{height:100%;background:var(--ok);border-radius:inherit}} .footer{{color:var(--muted2);font-size:10px;margin:30px 0 3px;padding-top:14px;border-top:1px solid #ffffff0a}}
+/* Soft presentation-style status bars, light theme only. Semantic text remains contrast-safe. */
+html[data-theme="light"]{{--bar-risk:#EFB5C2;--bar-warning:#F6D4C8;--bar-good:#B9DECD;--bar-unknown:#CED9E4}}
+html[data-theme="light"] .severity-chart-track{{background:#EFF2F6}}
+html[data-theme="light"] .severity-chart-fill{{box-shadow:inset 0 0 0 1px #31415912}}
+html[data-theme="light"] .severity-chart-fill.critical{{background:var(--bar-risk)}}
+html[data-theme="light"] .severity-chart-fill.high,
+html[data-theme="light"] .severity-chart-fill.medium{{background:var(--bar-warning)}}
+html[data-theme="light"] .severity-chart-fill.low{{background:var(--bar-good)}}
+html[data-theme="light"] .severity-chart-fill.info{{background:var(--bar-unknown)}}
+html[data-theme="light"] .authority-chart-row .severity-chart-fill.fully_resolved{{background:var(--bar-good)}}
+html[data-theme="light"] .authority-chart-row .severity-chart-fill.partially_resolved{{background:var(--bar-warning)}}
+html[data-theme="light"] .authority-chart-row .severity-chart-fill.unknown{{background:var(--bar-unknown)}}
+html[data-theme="light"] .owasp-chart-row .severity-chart-fill.finding{{background:var(--bar-risk)}}
+html[data-theme="light"] .owasp-chart-row .severity-chart-fill.no_runtime_findings{{background:var(--bar-warning)}}
+html[data-theme="light"] .owasp-chart-row .severity-chart-fill.no_mapped_findings{{background:var(--bar-good)}}
+html[data-theme="light"] .owasp-chart-row .severity-chart-fill.not_assessed{{background:var(--bar-unknown)}}
+html[data-theme="light"] .coverage-fill{{background:var(--bar-good)}}
+html[data-theme="light"] .coverage-fill.incomplete{{background:var(--bar-warning)}}
+
+/* Light-mode chart rows: semantic dots persist at zero; bars show actual counts. */
+html[data-theme="light"] .severity-chart-row{{padding:10px 12px;border-radius:10px}}
+html[data-theme="light"] .severity-chart-head{{font-size:13px;margin-bottom:9px}}
+html[data-theme="light"] .severity-chart-track{{height:14px;background:#f0f2f1;border:1px solid #e0e5e2}}
+html[data-theme="light"] .severity-chart-fill{{box-shadow:none}}
+html[data-theme="light"] .severity-chart-row[data-tone="critical"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="finding"][data-present="true"]{{background:#fff6f6}}
+html[data-theme="light"] .severity-chart-row[data-tone="high"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="medium"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="partially_resolved"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="no_runtime_findings"][data-present="true"]{{background:#fff9f7}}
+html[data-theme="light"] .severity-chart-row[data-tone="low"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="fully_resolved"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="no_mapped_findings"][data-present="true"]{{background:#f4faf6}}
+html[data-theme="light"] .severity-chart-row[data-present="false"]{{opacity:.78}}
+html[data-theme="light"] .severity-chart-label::before{{content:"";display:inline-block;width:11px;height:11px;
+border-radius:4px;margin-right:9px;vertical-align:-1px;background:var(--bar-unknown);
+border:1px solid #31415912}}
+html[data-theme="light"] .severity-chart-row[data-tone="critical"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="finding"] .severity-chart-label::before{{background:var(--bar-risk)}}
+html[data-theme="light"] .severity-chart-row[data-tone="high"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="medium"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="partially_resolved"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="no_runtime_findings"] .severity-chart-label::before{{background:var(--bar-warning)}}
+html[data-theme="light"] .severity-chart-row[data-tone="low"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="fully_resolved"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="no_mapped_findings"] .severity-chart-label::before{{background:var(--bar-good)}}
+html[data-theme="light"] .badge.critical,html[data-theme="light"] .badge.violation{{background:#fdebf0;border-color:#efb5c2}}
+html[data-theme="light"] .badge.high,html[data-theme="light"] .badge.medium{{background:#fff4f1;border-color:#f6d4c8}}
+html[data-theme="light"] .badge.unresolved{{background:#f1f5fa;border-color:#d5dfe8}}
+html[data-theme="light"] .badge.compliant{{background:#eaf7f0;border-color:#b9decd}}
+
+
+/* Security workbench: neutral surface, intentional accent and source-safe inline icons. */
+.ui-icon{{width:17px;height:17px;flex:none;vertical-align:-3px;stroke:currentColor}}
+.nav button{{display:flex;align-items:center;gap:11px;padding:10px 11px}}
+.nav button::before{{display:none}}
+.nav button .ui-icon{{opacity:.78}}
+.nav button.active .ui-icon{{opacity:1}}
+.metric-top{{display:flex;align-items:start;justify-content:space-between;gap:8px;min-height:29px}}
+.metric-top .metric-label{{font-size:12px;line-height:1.35;margin-top:2px}}
+.metric-icon{{height:33px;width:33px;flex:none;display:grid;place-items:center;border-radius:9px;
+background:var(--surface3);color:var(--muted)}}
+.metric{{margin-top:5px}}
+.metric-detail{{white-space:normal;overflow-wrap:anywhere;line-height:1.4}}
+.page-title-row,.section-title-row{{display:flex;align-items:center;gap:10px}}
+.page-title-row .ui-icon{{width:22px;height:22px;color:var(--accent)}}
+.section-title-row .ui-icon{{color:var(--muted2)}}
+.report-context{{font-size:10px;text-transform:uppercase;font-weight:800;letter-spacing:.1em;
+color:var(--muted);display:flex;align-items:center;gap:8px;margin-bottom:10px}}
+.report-context::before{{content:"";display:inline-block;width:7px;height:7px;
+border-radius:50%;background:var(--accent)}}
+html[data-theme="light"]{{--bg:#f7f9fc;--sidebar:#ffffff;--surface:#ffffff;--surface2:#f1f5f9;
+--surface3:#f0f4f8;--line:#dce5ee;--line-strong:#bfcfdf;--accent:#21639b;--accent-soft:#eaf3fc}}
+html[data-theme="light"] aside{{box-shadow:2px 0 12px #182d4308}}
+html[data-theme="light"] .nav button{{font-size:13px;font-weight:650}}
+html[data-theme="light"] .nav button.active{{background:#e8f2f9;border-color:#d3e4ef;
+color:#184d73;box-shadow:inset 3px 0 #377da8}}
+html[data-theme="light"] .nav button:hover:not(.active){{background:#f3f7fa}}
+html[data-theme="light"] .metric-icon{{background:#eef4f8;color:#376a89}}
+html[data-theme="light"] .card{{border-color:#dce5ed;box-shadow:0 3px 12px #203b5b08}}
+html[data-theme="light"] .card.drill:hover{{border-color:#9fbfd4;box-shadow:0 5px 18px #1e527011}}
+html[data-theme="light"] .card:focus-visible{{outline:2px solid var(--accent);outline-offset:2px}}
+html[data-theme="light"] .assessment-banner{{background:#fff;border-left:4px solid #89abc0;
+border-color:#dce5ec;box-shadow:0 4px 16px #182d4308}}
+html[data-theme="light"] .assessment-banner.critical{{background:linear-gradient(110deg,#fff8fa,#fff 60%);
+border-left:4px solid #b12645}}
+html[data-theme="light"] .assessment-banner.high{{background:linear-gradient(110deg,#fff8fa,#fff 60%);
+border-left:4px solid #bd5670}}
+html[data-theme="light"] .assessment-banner.warn{{background:linear-gradient(110deg,#f5faff,#fff 60%);
+border-left:4px solid #377da8}}
+html[data-theme="light"] .assessment-banner:focus-visible{{outline:2px solid var(--accent);outline-offset:2px}}
+html[data-theme="light"] .section-title-row .ui-icon{{color:#31718e}}
+html[data-theme="light"] .page-title-row .ui-icon{{color:#21639b}}
+@media(max-width:760px){{.nav button .ui-icon{{width:16px;height:16px}}}}
 @media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}
 @media(max-width:1000px){{.shell{{grid-template-columns:220px minmax(0,1fr)}} main{{padding:26px 24px}} .graph-wrap{{grid-template-columns:1fr}} .inspector{{max-height:280px}}}}
 @media(max-width:760px){{.shell{{grid-template-columns:1fr}} aside{{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:12px}} .brand-row{{padding-bottom:11px;margin-bottom:9px}} .nav-label,.sidebar-meta{{display:none}} .nav{{display:flex;flex-direction:row;overflow:auto;gap:4px}} .nav button{{width:auto;white-space:nowrap;padding:8px 10px}} .nav button::before{{display:none}} main{{padding:20px 14px 30px}} .grid2,.assessment-banner{{grid-template-columns:1fr}} .assessment-side{{justify-content:flex-start}} .assessment-count{{text-align:left}} .page-head{{flex-direction:column}} .page-actions{{justify-content:flex-start}} .sevbar{{grid-template-columns:repeat(2,1fr)}} .kv{{grid-template-columns:1fr}} .graph{{height:440px}} .graph-wrap.expanded{{inset:4px;padding:8px;grid-template-columns:1fr}} .graph-wrap.expanded .inspector{{display:none}} .tabs{{position:static}}}}
@@ -672,18 +845,25 @@ svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} 
 <body>
 <div class="shell">
 <aside>
-  <div class="brand-row"><div class="brand-mark" aria-hidden="true">HT</div><div class="brand">HorusTrace<small>Effective Agency Report</small></div></div>
+  <div class="brand-row"><div class="brand-mark" aria-hidden="true">HT</div><div class="brand">HorusTrace<small>Agent Security Workbench</small></div></div>
   <div class="nav-label">Assessment</div>
   <nav class="nav" aria-label="Report sections">
-    <button class="active" data-view="dashboard">Dashboard</button>
-    <button data-view="agents">Agents</button>
-    <button data-view="findings">Findings</button>
-    <button data-view="policy">Organisation policy</button>
-    <button data-view="owasp">OWASP Top 10</button>
-    <button data-view="attack">Attack paths</button>
-    <button data-view="contracts">Agent contracts</button>
-    <button data-view="evidence">Scan evidence</button>
+    <button class="active" data-view="dashboard" data-icon="overview">Dashboard</button>
+    <button data-view="agents" data-icon="agents">Agents</button>
+    <button data-view="findings" data-icon="findings">Findings</button>
+    <button data-view="policy" data-icon="policy">Organisation policy</button>
+    <button data-view="owasp" data-icon="owasp">OWASP Top 10</button>
+    <button data-view="attack" data-icon="attack">Attack paths</button>
+    <button data-view="contracts" data-icon="contracts">Agent contracts</button>
+    <button data-view="evidence" data-icon="evidence">Scan evidence</button>
   </nav>
+  <div class="theme-switch" role="group" aria-label="Report color theme">
+    <span class="theme-switch-label">Appearance</span>
+    <div class="theme-choices">
+      <button type="button" data-theme-choice="light" aria-pressed="true">Light</button>
+      <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
   <div class="sidebar-meta"><strong>Offline security evidence</strong><span title="{escape(root.name or '.')}">Scope: {escape(root.name or '.')}</span><span>Schema v{VISUAL_REPORT_SCHEMA_VERSION}</span></div>
 </aside>
 <main>
@@ -696,11 +876,59 @@ svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} 
 <script>
 "use strict";
 const DATA=JSON.parse(document.getElementById("horus-data").textContent);
+const THEME_STORAGE_KEY="horustrace-report-theme";
+function setTheme(choice){{
+ const next=choice==="dark"?"dark":"light";
+ document.documentElement.setAttribute("data-theme",next);
+ document.querySelectorAll("[data-theme-choice]").forEach(btn=>btn.setAttribute("aria-pressed",String(btn.dataset.themeChoice===next)));
+ try{{window.localStorage.setItem(THEME_STORAGE_KEY,next);}}catch(_error){{/* file:// or restricted browser storage */}}
+}}
+let initialTheme="light";
+try{{initialTheme=window.localStorage.getItem(THEME_STORAGE_KEY)||"light";}}catch(_error){{/* offline file storage can be disabled */}}
+setTheme(initialTheme);
+document.querySelectorAll("[data-theme-choice]").forEach(btn=>btn.addEventListener("click",()=>setTheme(btn.dataset.themeChoice)));
+
 const esc=(v)=>String(v??"").replace(/[&<>"']/g,c=>({{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}}[c]));
 const loc=(v)=>v&&v.path?esc(v.path)+":"+esc(v.line||1):"n/a";
 const badge=(s)=>'<span class="badge '+esc(s)+'">'+esc(String(s).replaceAll("_"," "))+'</span>';
 const number=(v)=>Number(v||0).toLocaleString();
 const severityRank=(s)=>({{critical:5,high:4,medium:3,low:2,info:1}}[String(s||"").toLowerCase()]||0);
+
+/* Small audited static SVG dictionary; no CDN, icon font, or scan-controlled SVG. */
+const ICONS=Object.freeze({{
+ overview:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+ agents:'<circle cx="12" cy="7" r="3"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/>',
+ findings:'<path d="M12 3 2 20h20L12 3Z"/><path d="M12 9v5m0 4h.01"/>',
+ policy:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>',
+ owasp:'<path d="M4 5h4m4 0h8M4 12h4m4 0h8M4 19h4m4 0h8"/>',
+ attack:'<circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><path d="M7 6 11 17m6-11-4 11M7 5h10"/>',
+ contracts:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8m-8 5 2 2 5-5"/>',
+ evidence:'<path d="M7 3h7l5 5v12H5V5a2 2 0 0 1 2-2Zm7 0v5h5M8 13h8M8 17h5"/>',
+ tools:'<path d="M15 7a4 4 0 0 0-5 5L4 18l2 2 6-6a4 4 0 0 0 5-5l-3 2-2-2 3-2Z"/>',
+ skills:'<path d="M12 6a8 8 0 0 0-9-1v15a8 8 0 0 1 9 1 8 8 0 0 1 9-1V5a8 8 0 0 0-9 1Zm0 0v15"/>',
+ mcp:'<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6h.01M7 17h.01M12 10v4"/>',
+ identities:'<circle cx="8" cy="9" r="4"/><path d="M12 9h10m-4 0v4m-3-4v3"/>',
+ resources:'<path d="m12 2 9 5-9 5-9-5 9-5Zm-9 10 9 5 9-5M3 17l9 5 9-5"/>',
+ chart:'<path d="M4 20V9m6 11V4m6 16v-7m5 7H2"/>',
+ coverage:'<path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/><path d="m9 12 2 2 4-4"/>'
+}});
+function uiIcon(name){{
+ const graphic=Object.prototype.hasOwnProperty.call(ICONS,name)?ICONS[name]:"";
+ return graphic?'<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+graphic+'</svg>':"";
+}}
+const ICON_FOR_METRIC=Object.freeze({{
+ "Active findings":"findings","Policy violations":"policy","Contract violations":"contracts",
+ "OWASP categories with findings":"owasp","Agents":"agents","Attack paths":"attack",
+ "Tools":"tools","Skills":"skills","MCP servers":"mcp","Identities":"identities",
+ "Resources":"resources","Critical":"findings","High":"findings","Medium":"findings",
+ "Low":"findings","Files considered":"coverage","Files scanned":"coverage"
+}});
+const ICON_FOR_SECTION=Object.freeze({{
+ "Priority review queue":"findings","Finding severity":"chart","Effective agency":"attack",
+ "OWASP assessment states":"owasp","Environment inventory":"resources",
+ "Agent contracts":"contracts","Coverage status":"coverage","Skill inventory":"skills"
+}});
+document.querySelectorAll(".nav button[data-icon]").forEach(btn=>btn.insertAdjacentHTML("afterbegin",uiIcon(btn.dataset.icon)));
 function showView(id){{
  const navId=id==="agent-detail"?"agents":id;
  document.querySelectorAll(".view").forEach(el=>el.classList.toggle("active",el.id===id));
@@ -710,10 +938,14 @@ function showView(id){{
 document.querySelectorAll(".nav button").forEach(btn=>btn.addEventListener("click",()=>showView(btn.dataset.view)));
 function metric(label,value,cls="",drill="",detail=""){{
  const attrs=drill?' drill" role="button" tabindex="0" data-drill="'+esc(drill):'"';
- return '<div class="card'+attrs+'"><div class="metric '+cls+'">'+number(value)+'</div><div class="metric-label">'+esc(label)+'</div>'+(detail?'<div class="metric-detail">'+esc(detail)+'</div>':"")+'</div>';
+ return '<div class="card'+attrs+'"><div class="metric-top"><div class="metric-label">'+esc(label)+'</div><span class="metric-icon">'+uiIcon(ICON_FOR_METRIC[label]||"chart")+'</span></div><div class="metric '+cls+'">'+number(value)+'</div>'+(detail?'<div class="metric-detail">'+esc(detail)+'</div>':"")+'</div>';
 }}
-function pageHead(eyebrow,title,copy,actions=""){{return '<div class="page-head"><div><div class="eyebrow">'+esc(eyebrow)+'</div><h1>'+esc(title)+'</h1><div class="muted">'+esc(copy)+'</div></div>'+(actions?'<div class="page-actions">'+actions+'</div>':"")+'</div>';}}
-function sectionHead(title,copy="",action=""){{return '<div class="section-head"><div><h2>'+esc(title)+'</h2>'+(copy?'<p>'+esc(copy)+'</p>':"")+'</div>'+action+'</div>';}}
+function pageHead(eyebrow,title,copy,actions=""){{return '<div class="page-head"><div><div class="eyebrow">'+esc(eyebrow)+'</div><div class="page-title-row">'+uiIcon(ICON_FOR_SECTION[title]||"overview")+'<h1>'+esc(title)+'</h1></div><div class="muted">'+esc(copy)+'</div></div>'+(actions?'<div class="page-actions">'+actions+'</div>':"")+'</div>';}}
+function sectionHead(title,copy="",action=""){{return '<div class="section-head"><div><div class="section-title-row">'+uiIcon(ICON_FOR_SECTION[title])+'<h2>'+esc(title)+'</h2></div>'+(copy?'<p>'+esc(copy)+'</p>':"")+'</div>'+action+'</div>';}}
+function scanCoverageStatus(incomplete){{
+ const label=incomplete?"Coverage incomplete":"No reported coverage gaps";
+ return '<span class="badge '+(incomplete?"unresolved":"")+'" aria-label="Scan completeness: '+label+'">'+label+'</span>';
+}}
 function assessmentState(s){{
  if((s.severity?.critical||0)>0)return {{tone:"critical",label:"Critical review required",count:s.severity.critical,unit:"critical findings",copy:"Critical static findings were detected. Review the affected agents and evidence before deployment or approval."}};
  if((s.severity?.high||0)>0)return {{tone:"high",label:"High-priority review",count:s.severity.high,unit:"high findings",copy:"High-severity static findings were detected. Prioritise the affected agents and attack paths."}};
@@ -735,6 +967,34 @@ function severityCards(s,interactive=false){{
  metric("High",s.high,"high",interactive?"findings:high":"")+metric("Medium",s.medium,"medium",interactive?"findings:medium":"")+
  metric("Low",s.low,"low",interactive?"findings:low":"")+'</div>';
 }}
+function severityChart(s){{
+ const levels=[["critical","Critical"],["high","High"],["medium","Medium"],["low","Low"],["info","Info"]];
+ const max=Math.max(1,...levels.map(([key])=>Number(s?.[key]||0)));
+ const rows=levels.map(([key,label])=>{{
+  const count=Math.max(0,Number(s?.[key]||0));
+  const width=count?Math.max(3,Math.round(100*count/max)):0;
+  return '<div class="severity-chart-row" data-tone="'+key+'" data-present="'+(count>0)+'" role="button" tabindex="0" data-drill="findings:'+key+'" aria-label="'+esc(label)+': '+number(count)+' active findings. Open filtered findings.">'+
+   '<span class="severity-chart-head"><span class="severity-chart-label">'+esc(label)+'</span><span class="severity-chart-count">'+number(count)+'</span></span>'+
+   '<span class="severity-chart-track" aria-hidden="true"><span class="severity-chart-fill '+key+'" style="width:'+width+'%"></span></span></div>';
+ }}).join("");
+ return '<div class="severity-chart" role="group" aria-label="Findings by scanner severity">'+rows+
+  '<p class="severity-chart-caption">Coloured markers identify severity even when a count is zero. Filled bars represent detected findings; exploitability is not verified.</p></div>';
+}}
+function authorityResolutionChart(agents){{
+ const relationships=agents.flatMap(a=>a.effective_authority||[]);
+ const levels=[["fully_resolved","Fully resolved"],["partially_resolved","Partially resolved"],["unknown","Unknown"]];
+ if(!relationships.length)return '<div class="panel"><p class="muted">No effective-authority relationships were reconstructed. This is not evidence that agent authority is safe or absent.</p></div>';
+ const max=Math.max(1,...levels.map(([key])=>relationships.filter(r=>r.resolution===key).length));
+ const rows=levels.map(([key,label])=>{{
+  const count=relationships.filter(r=>r.resolution===key).length;
+  const width=count?Math.max(3,Math.round(count/max*100)):0;
+  return '<button type="button" class="severity-chart-row authority-chart-row" data-tone="'+key+'" data-present="'+(count>0)+'" data-drill="agents:'+key+'" aria-label="'+esc(label)+': '+number(count)+' authority relationships. View affected agents.">'+
+   '<span class="severity-chart-head"><span class="severity-chart-label">'+esc(label)+'</span><span class="severity-chart-count">'+number(count)+'</span></span>'+
+   '<span class="severity-chart-track" aria-hidden="true"><span class="severity-chart-fill '+key+'" style="width:'+width+'%"></span></span></button>';
+ }}).join("");
+ return '<div class="severity-chart authority-chart" role="group" aria-label="Effective authority resolution">'+rows+
+   '<p class="severity-chart-caption">'+number(relationships.length)+' relationships. Selecting a bar shows agents with matching relationships. Resolution does not imply least privilege, policy compliance or runtime validation.</p></div>';
+}}
 function findingCard(f){{
  const evidence=(f.evidence||[]).map(x=>"<li>"+esc(x)+"</li>").join("");
  const prov=(f.provenance||[]).map(x=>"<li>"+esc(x.subject)+": "+esc(x.origin)+": "+esc(x.fact)+(x.location?" — "+loc(x.location):"")+"</li>").join("");
@@ -751,17 +1011,32 @@ function findingCard(f){{
  (f.recommendation?'<details><summary>Remediation</summary><p>'+esc(f.recommendation)+'</p></details>':"")+'</article>';
 }}
 
+function owaspAssessmentChart(categories){{
+ const statuses=[["finding","Runtime findings"],["no_runtime_findings","Mapped findings (none runtime-classified)"],["no_mapped_findings","No mapped findings"],["not_assessed","Not assessed"]];
+ if(!categories.length)return '<div class="empty">No OWASP assessment categories were supplied with this report.</div>';
+ const max=Math.max(1,...statuses.map(([key])=>categories.filter(c=>owaspStatusLabel(c).replaceAll(" ","_")===key).length));
+ const rows=statuses.map(([key,label])=>{{
+  const count=categories.filter(c=>owaspStatusLabel(c).replaceAll(" ","_")===key).length;
+  const width=count?Math.max(3,Math.round(100*count/max)):0;
+  return '<button type="button" class="severity-chart-row authority-chart-row owasp-chart-row" data-tone="'+key+'" data-present="'+(count>0)+'" data-drill="owasp:status.'+key+'" aria-label="'+esc(label)+': '+number(count)+' of '+number(categories.length)+' OWASP categories. View matching categories.">'+
+   '<span class="severity-chart-head"><span class="severity-chart-label">'+esc(label)+'</span><span class="severity-chart-count">'+number(count)+' / '+number(categories.length)+'</span></span>'+
+   '<span class="severity-chart-track" aria-hidden="true"><span class="severity-chart-fill '+key+'" style="width:'+width+'%"></span></span></button>';
+ }}).join("");
+ return '<div class="severity-chart owasp-chart" role="group" aria-label="OWASP Agentic Top 10 assessment states">'+rows+
+ '<p class="severity-chart-caption">Detector coverage is not proof of security. Not assessed means no enabled mapped detector; no mapped findings does not imply safe.</p></div>';
+}}
 function renderDashboard(){{
  const s=DATA.summary,state=assessmentState(s),root=document.getElementById("dashboard");
  const attention=DATA.agents.filter(a=>a.summary.findings||a.summary.contract_violations||a.summary.contract_unresolved||a.summary.attack_paths).sort((a,b)=>agentPriority(b)-agentPriority(a)).slice(0,10);
  const drillRow=(label,value,drill,cls="")=>'<div class="drill-row" role="button" tabindex="0" data-drill="'+esc(drill)+'"><span>'+esc(label)+'</span><span class="drill-value '+esc(cls)+'">'+number(value)+'</span></div>';
  const drillList=(rows)=>'<div class="drill-list">'+rows.join("")+'</div>';
  const primaryDrill=(s.severity?.critical||0)?"findings:critical":((s.severity?.high||0)?"findings:high":(s.contract_violations?"contracts:violation":"findings:all"));
- root.innerHTML=pageHead("Repository overview","Security assessment","Prioritised static evidence for effective authority, findings, attack paths and declared agent contracts.",badge(s.analysis_incomplete?"unresolved":"compliant"))+
+ root.innerHTML='<div class="report-context">Repository security · Source-backed assessment</div>'+pageHead("Repository overview","Security assessment","Prioritised static evidence for effective authority, findings, attack paths and declared agent contracts.",scanCoverageStatus(s.analysis_incomplete))+
  '<div class="assessment-banner '+esc(state.tone)+'" data-drill="'+primaryDrill+'" role="button" tabindex="0"><div><div class="eyebrow">Assessment signal</div><div class="assessment-title '+esc(state.tone)+'">'+esc(state.label)+'</div><div class="assessment-copy">'+esc(state.copy)+'</div></div><div class="assessment-side"><div class="assessment-count">'+number(state.count)+'<small>'+esc(state.unit)+'</small></div></div></div>'+
  '<div class="cards">'+metric("Active findings",s.findings,(s.severity?.critical||s.severity?.high)?"high":"","Critical "+number(s.severity?.critical||0)+" · High "+number(s.severity?.high||0))+metric("Policy violations",s.policy_violations,s.policy_violations?"critical":"","policy:all","Configured HorusTrace policy rules")+metric("Contract violations",s.contract_violations,s.contract_violations?"critical":"","contracts:violation",number(s.contract_unresolved)+" unresolved checks")+metric("OWASP categories with findings",s.owasp_categories_with_findings,s.owasp_categories_with_findings?"warn":"","owasp:all",number(s.owasp_categories_not_assessed)+" not assessed")+metric("Agents",s.agents,"","agents:all",number(s.write_capable_relationships)+" write-capable relationships")+metric("Attack paths",s.attack_paths,"","attack:all","Static evidence; exploitability not verified")+'</div>'+
  sectionHead("Priority review queue","Agents ordered by static review priority.")+agentTable(attention)+
- '<div class="grid2"><div>'+sectionHead("Finding severity","Active findings by scanner severity.")+severityCards(s.severity,true)+'</div><div>'+sectionHead("Effective agency","Reconstructed authority and destination scope.")+'<div class="panel">'+drillList([drillRow("Authority relationships",s.authority_relationships,"agents:authority"),drillRow("Not fully resolved",s.authority_not_fully_resolved,"agents:unresolved","warn"),drillRow("Write-capable relationships",s.write_capable_relationships,"agents:write"),drillRow("Unique destinations",s.destinations,"agents:destinations")])+'</div></div></div>'+
+ '<div class="grid2"><div>'+sectionHead("Finding severity","Active findings by scanner severity.") +severityChart(s.severity)+'</div><div>'+sectionHead("Effective agency","Reconstructed authority and destination scope.")+authorityResolutionChart(DATA.agents)+'<div class="panel">'+drillList([drillRow("Authority relationships",s.authority_relationships,"agents:authority"),drillRow("Not fully resolved",s.authority_not_fully_resolved,"agents:unresolved","warn"),drillRow("Write-capable relationships",s.write_capable_relationships,"agents:write"),drillRow("Unique destinations",s.destinations,"agents:destinations")])+'</div></div></div>'+
+ sectionHead("OWASP assessment states","Mapped detector coverage and finding categories; not an assurance score.")+owaspAssessmentChart(DATA.owasp_agentic.categories||[])+
  '<div class="grid2"><div>'+sectionHead("Environment inventory","Security-relevant components found in the scan.")+'<div class="cards">'+metric("Tools",s.tools,"","agents:tools")+metric("Skills",s.skills,"","agents:skills",number(s.bound_skills)+" bound · "+number(s.unbound_skills)+" unbound")+metric("MCP servers",s.mcp_servers,"","agents:mcp")+metric("Identities",s.identities,"","agents:identities")+metric("Resources",s.resources,"","agents:resources")+'</div></div><div>'+sectionHead("Agent contracts","Declared authority compared with effective authority.")+'<div class="panel">'+drillList(['<div class="drill-row" style="cursor:default"><span>Overall status</span><span>'+badge(DATA.assurance.authority_contract.status)+'</span></div>',drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),drillRow("Violations",s.contract_violations,"contracts:violation","critical"),drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")])+'</div></div></div>';
  bindDashboardDrill(root);bindAgentRows(root);
 }}
@@ -772,6 +1047,7 @@ function drillLabel(kind,value){{
   "agents:identities":"Agents with resolved identities","agents:resources":"Agents reaching resources",
   "agents:authority":"Agents with effective authority","agents:unresolved":"Agents with unresolved authority",
   "agents:write":"Agents with write-capable authority","agents:destinations":"Agents with external destinations",
+   "agents:fully_resolved":"Agents with fully resolved relationships","agents:partially_resolved":"Agents with partially resolved relationships","agents:unknown":"Agents with unknown relationships",
   "findings:all":"All findings","findings:critical":"Critical findings","findings:high":"High findings",
   "findings:medium":"Medium findings","findings:low":"Low findings","policy:all":"Organisation policy violations",
   "owasp:all":"OWASP Agentic Top 10","contracts:declared":"Agents with declared contracts",
@@ -793,7 +1069,7 @@ function bindDashboardDrill(root=document){{
  root.querySelectorAll("[data-drill]").forEach(el=>{{
    const activate=()=>routeDrill(el.dataset.drill);
    el.addEventListener("click",activate);
-   el.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});
+   if(el.tagName!=="BUTTON")el.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});
  }});
 }}
 function agentTable(items){{
@@ -811,12 +1087,13 @@ function agentMatchesFilter(a,mode){{
  if(mode==="attack")return a.summary.attack_paths>0;
  if(mode==="contract")return a.summary.contract_violations>0||a.summary.contract_unresolved>0;
  if(mode==="tools")return a.summary.tools>0;if(mode==="skills")return a.summary.skills>0;if(mode==="mcp")return a.summary.mcp_servers>0;if(mode==="identities")return a.summary.identities>0;if(mode==="resources")return a.summary.resources>0;if(mode==="authority")return a.summary.authority_relationships>0;
+ if(["fully_resolved","partially_resolved","unknown"].includes(mode))return (a.effective_authority||[]).some(r=>r.resolution===mode);
  if(mode==="unresolved")return (a.effective_authority||[]).some(r=>r.resolution!=="fully_resolved");if(mode==="write")return a.summary.write_capable_relationships>0;if(mode==="destinations")return a.summary.destinations>0;return true;
 }}
 
 function renderAgents(mode="all"){{
  const root=document.getElementById("agents"),scoped=DATA.agents.filter(a=>agentMatchesFilter(a,mode)).sort((a,b)=>agentPriority(b)-agentPriority(a)||a.name.localeCompare(b.name));
- const filters=[["all","All"],["attention","Needs attention"],["attack","Attack paths"],["write","Write-capable"],["contract","Contract issues"]];
+ const filters=[["all","All"],["attention","Needs attention"],["attack","Attack paths"],["write","Write-capable"],["contract","Contract issues"],["fully_resolved","Fully resolved"],["partially_resolved","Partially resolved"],["unknown","Unknown"]];
  const chips=filters.map(([value,label])=>'<button class="filter-chip '+(mode===value?"active":"")+'" data-agent-filter="'+value+'">'+esc(label)+'</button>').join("");
  const banner=mode==="all"?"":'<div class="filter-banner"><span>'+esc(drillLabel("agents",mode))+' · '+number(scoped.length)+' agents</span><button class="back" id="clear-agent-filter">Clear filter</button></div>';
  root.innerHTML=pageHead("Inventory","Agents","Review effective agency, attack paths, findings and Authority Contract posture for each discovered agent.")+banner+'<div class="toolbar"><div class="toolbar-left"><div class="filter-chips">'+chips+'</div></div><div class="toolbar-right"><input id="agent-search" class="search" aria-label="Search agents" placeholder="Search agents, frameworks, identities or resources"></div></div><div class="muted small" id="agent-count">'+number(scoped.length)+' agents</div><div id="agent-table">'+agentTable(scoped)+'</div>';
@@ -992,7 +1269,7 @@ function openAgent(name){{
 }}
 
 function renderFindings(severity="all"){{
- const root=document.getElementById("findings"),filters=["all","critical","high","medium","low"];
+ const root=document.getElementById("findings"),filters=["all","critical","high","medium","low","info"];
  const chips=filters.map(value=>'<button class="filter-chip '+(severity===value?"active":"")+'" data-finding-filter="'+value+'">'+esc(value==="all"?"All":value[0].toUpperCase()+value.slice(1))+'</button>').join("");
  root.innerHTML=pageHead("Risk review","Findings","Search and triage active scanner findings. Severity is scanner-assigned static evidence, not runtime exploitability.")+
  '<div class="toolbar"><div class="toolbar-left"><div class="filter-chips">'+chips+'</div></div><div class="toolbar-right"><input id="finding-search" class="search" aria-label="Search findings" placeholder="Search rule, title, agent, message or file"></div></div><div class="muted small" id="finding-count"></div><div id="finding-list"></div>';
@@ -1019,9 +1296,12 @@ function owaspStatusLabel(item){{
 }}
 function renderOwasp(risk="all"){{
  const report=DATA.owasp_agentic,categories=report.categories||[];
- const rows=categories.map(item=>'<tr class="clickable" role="button" tabindex="0" data-owasp="'+esc(item.id)+'"><td><div class="row-title">'+esc(item.id)+" "+esc(item.title)+'</div><div class="row-sub">'+esc((item.mapped_rules||[]).join(", ")||"no enabled mapped detector")+'</div></td><td>'+badge(owaspStatusLabel(item).replaceAll(" ","_"))+'</td><td>'+number(item.runtime_finding_count)+'</td><td>'+number(item.finding_count)+'</td><td>'+esc(item.highest_severity||"—")+'</td><td>'+number((item.affected_agents||[]).length)+'</td></tr>').join("");
- const selected=risk!=="all"?categories.find(item=>item.id===risk):null;
+ const statusMode=String(risk).startsWith("status.")?String(risk).slice(7):null;
+ const shownCategories=statusMode?categories.filter(item=>owaspStatusLabel(item).replaceAll(" ","_")===statusMode):categories;
+ const rows=shownCategories.map(item=>'<tr class="clickable" role="button" tabindex="0" data-owasp="'+esc(item.id)+'"><td><div class="row-title">'+esc(item.id)+" "+esc(item.title)+'</div><div class="row-sub">'+esc((item.mapped_rules||[]).join(", ")||"no enabled mapped detector")+'</div></td><td>'+badge(owaspStatusLabel(item).replaceAll(" ","_"))+'</td><td>'+number(item.runtime_finding_count)+'</td><td>'+number(item.finding_count)+'</td><td>'+esc(item.highest_severity||"—")+'</td><td>'+number((item.affected_agents||[]).length)+'</td></tr>').join("");
+ const selected=risk!=="all"&&!statusMode?categories.find(item=>item.id===risk):null;
  const mapped=selected?DATA.findings.filter(f=>(f.standards?.owasp_agentic||[]).includes(selected.id)):[];
+ const scope=statusMode?'<div class="filter-banner"><span>Assessment filter: '+esc(statusMode.replaceAll("_"," "))+' · '+number(shownCategories.length)+' categories</span><button class="back" id="owasp-clear">Show all categories</button></div>':"";
  const detail=selected?sectionHead(selected.id+" "+selected.title,"Mapped detector evidence for the selected OWASP category.",'<button class="back" id="owasp-clear">Show all</button>')+
    '<div class="cards">'+metric("Total findings",selected.finding_count)+metric("Runtime findings",selected.runtime_finding_count)+metric("Affected agents",(selected.affected_agents||[]).length)+metric("Enabled mapped rules",(selected.mapped_rules||[]).length)+'</div>'+
    (mapped.length?mapped.map(findingCard).join(""):'<div class="empty">No mapped findings fired for this category.</div>'):"";
@@ -1029,7 +1309,7 @@ function renderOwasp(risk="all"){{
  const root=document.getElementById("owasp");
  root.innerHTML=pageHead("Standards posture","OWASP Agentic Top 10","Detector-level status for every OWASP Top 10 for Agentic Applications 2026 category. NOT ASSESSED means HorusTrace has no enabled mapped detector.",badge(a.status))+
  '<div class="cards">'+metric("Categories with findings",a.categories_with_findings,a.categories_with_findings?"warn":"")+metric("Runtime finding categories",a.categories_with_runtime_findings)+metric("Mapped detector categories",a.categories_with_mapped_detectors)+metric("Not assessed",a.categories_not_assessed,a.categories_not_assessed?"warn":"")+'</div>'+
- '<div class="panel flush table-wrap"><table><thead><tr><th>OWASP category</th><th>Status</th><th>Runtime findings</th><th>Total findings</th><th>Highest</th><th>Agents</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+detail;
+ scope+'<div class="panel flush table-wrap"><table><thead><tr><th>OWASP category</th><th>Status</th><th>Runtime findings</th><th>Total findings</th><th>Highest</th><th>Agents</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+detail;
  root.querySelectorAll("[data-owasp]").forEach(row=>{{const activate=()=>renderOwasp(row.dataset.owasp);row.addEventListener("click",activate);row.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});}});
  const clear=root.querySelector("#owasp-clear");if(clear)clear.addEventListener("click",()=>renderOwasp("all"));
 }}
@@ -1054,12 +1334,12 @@ function renderContracts(mode="all"){{
 }}
 
 function renderEvidence(){{
- const c=DATA.coverage,diags=c.diagnostics||[],considered=Number(c.files_considered||0),scanned=Number(c.files_scanned||0),pct=considered?Math.max(0,Math.min(100,Math.round(scanned/considered*100))):0;
+ const c=DATA.coverage,diags=c.diagnostics||[],considered=Number(c.files_considered||0),scanned=Number(c.files_scanned||0),pct=considered?Math.max(0,Math.min(100,Math.round(scanned/considered*100))):null;
  const skills=DATA.skills||[];
  const skillRows=skills.map(s=>'<tr><td><div class="row-title">'+esc(s.name)+'</div><div class="row-sub">'+loc(s.location)+'</div></td><td>'+badge(s.binding_state)+'</td><td>'+esc((s.bound_agents||[]).join(", ")||"—")+'</td><td>'+esc((s.allowed_tools||[]).join(", ")||"—")+'</td><td>'+number((s.scripts||[]).length)+'</td></tr>').join("");
- document.getElementById("evidence").innerHTML=pageHead("Trust & provenance","Scan evidence","Coverage, diagnostics and report provenance used to qualify the assessment.",badge(c.incomplete?"unresolved":"compliant"))+
+ document.getElementById("evidence").innerHTML=pageHead("Trust & provenance","Scan evidence","Coverage, diagnostics and report provenance used to qualify the assessment.",scanCoverageStatus(c.incomplete))+
  '<div class="cards">'+metric("Files considered",c.files_considered)+metric("Files scanned",c.files_scanned)+metric("Files skipped",c.files_skipped)+metric("Files failed",c.files_failed,c.files_failed?"high":"")+'</div>'+
- sectionHead("Coverage status","Use coverage gaps to qualify confidence in scanner conclusions.")+'<div class="panel"><div class="kv"><div>Status</div><div>'+badge(c.incomplete?"unresolved":"compliant")+'</div><div>Scan completion</div><div>'+number(pct)+'%<div class="coverage-track"><div class="coverage-fill" style="width:'+pct+'%"></div></div></div><div>ASG digest</div><div><code>'+esc(DATA.security_graph.digest)+'</code></div><div>Suppressed findings</div><div>'+number(DATA.suppressed_findings.length)+'</div><div>Report model</div><div><code>'+esc(DATA.model)+' / schema '+esc(DATA.schema_version)+'</code></div></div></div>'+
+ sectionHead("Coverage status","Use coverage gaps to qualify confidence in scanner conclusions.")+'<div class="panel"><div class="kv"><div>Status</div><div>'+scanCoverageStatus(c.incomplete)+'</div><div>Scan completion</div><div>'+(pct===null?'Not available (no files considered)':number(pct)+'%<div class="coverage-track"><div class="coverage-fill '+(c.incomplete?'incomplete':'')+'" style="width:'+pct+'%"></div></div>')+'</div><div>ASG digest</div><div><code>'+esc(DATA.security_graph.digest)+'</code></div><div>Suppressed findings</div><div>'+number(DATA.suppressed_findings.length)+'</div><div>Report model</div><div><code>'+esc(DATA.model)+' / schema '+esc(DATA.schema_version)+'</code></div></div></div>'+
  sectionHead("Skill inventory","Portable agent skills discovered in the repository. Unbound means discovered but not source-proven as available to an agent.")+(skillRows?'<div class="panel flush table-wrap"><table><thead><tr><th>Skill</th><th>Binding</th><th>Agents</th><th>Allowed tools</th><th>Scripts</th></tr></thead><tbody>'+skillRows+'</tbody></table></div>':'<div class="empty">No Agent Skills were discovered.</div>')+
  sectionHead("Diagnostics","Coverage or parsing conditions that may affect completeness.")+(diags.length?diags.map(d=>'<div class="finding" data-sev="medium"><div class="finding-title"><strong>'+esc(d.diagnostic_id||d.code)+'</strong><span class="badge medium">diagnostic</span></div><p>'+esc(d.message)+'</p><div class="muted small">'+loc(d.location)+'</div></div>').join(""):'<div class="empty">No detected coverage diagnostics.</div>');
 }}
