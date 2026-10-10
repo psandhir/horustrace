@@ -631,6 +631,39 @@ html[data-theme="light"] .owasp-chart-row .severity-chart-fill.no_mapped_finding
 html[data-theme="light"] .owasp-chart-row .severity-chart-fill.not_assessed{{background:var(--bar-unknown)}}
 html[data-theme="light"] .coverage-fill{{background:var(--bar-good)}}
 html[data-theme="light"] .coverage-fill.incomplete{{background:var(--bar-warning)}}
+
+/* Light-mode chart rows: semantic dots persist at zero; bars show actual counts. */
+html[data-theme="light"] .severity-chart-row{{padding:10px 12px;border-radius:10px}}
+html[data-theme="light"] .severity-chart-head{{font-size:13px;margin-bottom:9px}}
+html[data-theme="light"] .severity-chart-track{{height:14px;background:#f0f2f1;border:1px solid #e0e5e2}}
+html[data-theme="light"] .severity-chart-fill{{box-shadow:none}}
+html[data-theme="light"] .severity-chart-row[data-tone="critical"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="finding"][data-present="true"]{{background:#fff6f6}}
+html[data-theme="light"] .severity-chart-row[data-tone="high"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="medium"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="partially_resolved"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="no_runtime_findings"][data-present="true"]{{background:#fff8f1}}
+html[data-theme="light"] .severity-chart-row[data-tone="low"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="fully_resolved"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="no_mapped_findings"][data-present="true"]{{background:#f4faf6}}
+html[data-theme="light"] .severity-chart-row[data-present="false"]{{opacity:.78}}
+html[data-theme="light"] .severity-chart-label::before{{content:"";display:inline-block;width:11px;height:11px;
+border-radius:4px;margin-right:9px;vertical-align:-1px;background:var(--bar-unknown);
+border:1px solid #31415912}}
+html[data-theme="light"] .severity-chart-row[data-tone="critical"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="finding"] .severity-chart-label::before{{background:var(--bar-risk)}}
+html[data-theme="light"] .severity-chart-row[data-tone="high"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="medium"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="partially_resolved"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="no_runtime_findings"] .severity-chart-label::before{{background:var(--bar-warning)}}
+html[data-theme="light"] .severity-chart-row[data-tone="low"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="fully_resolved"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="no_mapped_findings"] .severity-chart-label::before{{background:var(--bar-good)}}
+html[data-theme="light"] .badge.critical,html[data-theme="light"] .badge.violation{{background:#fde9eb;border-color:#efb7b7}}
+html[data-theme="light"] .badge.high,html[data-theme="light"] .badge.medium,
+html[data-theme="light"] .badge.unresolved{{background:#fff1df;border-color:#f4d1ae}}
+html[data-theme="light"] .badge.compliant{{background:#e8f6ed;border-color:#bfdcc8}}
+
 @media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}
 @media(max-width:1000px){{.shell{{grid-template-columns:220px minmax(0,1fr)}} main{{padding:26px 24px}} .graph-wrap{{grid-template-columns:1fr}} .inspector{{max-height:280px}}}}
 @media(max-width:760px){{.shell{{grid-template-columns:1fr}} aside{{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:12px}} .brand-row{{padding-bottom:11px;margin-bottom:9px}} .nav-label,.sidebar-meta{{display:none}} .nav{{display:flex;flex-direction:row;overflow:auto;gap:4px}} .nav button{{width:auto;white-space:nowrap;padding:8px 10px}} .nav button::before{{display:none}} main{{padding:20px 14px 30px}} .grid2,.assessment-banner{{grid-template-columns:1fr}} .assessment-side{{justify-content:flex-start}} .assessment-count{{text-align:left}} .page-head{{flex-direction:column}} .page-actions{{justify-content:flex-start}} .sevbar{{grid-template-columns:repeat(2,1fr)}} .kv{{grid-template-columns:1fr}} .graph{{height:440px}} .graph-wrap.expanded{{inset:4px;padding:8px;grid-template-columns:1fr}} .graph-wrap.expanded .inspector{{display:none}} .tabs{{position:static}}}}
@@ -731,12 +764,12 @@ function severityChart(s){{
  const rows=levels.map(([key,label])=>{{
   const count=Math.max(0,Number(s?.[key]||0));
   const width=count?Math.max(3,Math.round(100*count/max)):0;
-  return '<div class="severity-chart-row" role="button" tabindex="0" data-drill="findings:'+key+'" aria-label="'+esc(label)+': '+number(count)+' active findings. Open filtered findings.">'+
+  return '<div class="severity-chart-row" data-tone="'+key+'" data-present="'+(count>0)+'" role="button" tabindex="0" data-drill="findings:'+key+'" aria-label="'+esc(label)+': '+number(count)+' active findings. Open filtered findings.">'+
    '<span class="severity-chart-head"><span class="severity-chart-label">'+esc(label)+'</span><span class="severity-chart-count">'+number(count)+'</span></span>'+
    '<span class="severity-chart-track" aria-hidden="true"><span class="severity-chart-fill '+key+'" style="width:'+width+'%"></span></span></div>';
  }}).join("");
  return '<div class="severity-chart" role="group" aria-label="Findings by scanner severity">'+rows+
-  '<p class="severity-chart-caption">Static scan evidence only; exploitability is not verified.</p></div>';
+  '<p class="severity-chart-caption">Coloured markers identify severity even when a count is zero. Filled bars represent detected findings; exploitability is not verified.</p></div>';
 }}
 function authorityResolutionChart(agents){{
  const relationships=agents.flatMap(a=>a.effective_authority||[]);
@@ -746,7 +779,7 @@ function authorityResolutionChart(agents){{
  const rows=levels.map(([key,label])=>{{
   const count=relationships.filter(r=>r.resolution===key).length;
   const width=count?Math.max(3,Math.round(count/max*100)):0;
-  return '<button type="button" class="severity-chart-row authority-chart-row" data-drill="agents:'+key+'" aria-label="'+esc(label)+': '+number(count)+' authority relationships. View affected agents.">'+
+  return '<button type="button" class="severity-chart-row authority-chart-row" data-tone="'+key+'" data-present="'+(count>0)+'" data-drill="agents:'+key+'" aria-label="'+esc(label)+': '+number(count)+' authority relationships. View affected agents.">'+
    '<span class="severity-chart-head"><span class="severity-chart-label">'+esc(label)+'</span><span class="severity-chart-count">'+number(count)+'</span></span>'+
    '<span class="severity-chart-track" aria-hidden="true"><span class="severity-chart-fill '+key+'" style="width:'+width+'%"></span></span></button>';
  }}).join("");
@@ -772,7 +805,7 @@ function owaspAssessmentChart(categories){{
  const rows=statuses.map(([key,label])=>{{
   const count=categories.filter(c=>owaspStatusLabel(c).replaceAll(" ","_")===key).length;
   const width=count?Math.max(3,Math.round(100*count/max)):0;
-  return '<button type="button" class="severity-chart-row authority-chart-row owasp-chart-row" data-drill="owasp:status.'+key+'" aria-label="'+esc(label)+': '+number(count)+' of '+number(categories.length)+' OWASP categories. View matching categories.">'+
+  return '<button type="button" class="severity-chart-row authority-chart-row owasp-chart-row" data-tone="'+key+'" data-present="'+(count>0)+'" data-drill="owasp:status.'+key+'" aria-label="'+esc(label)+': '+number(count)+' of '+number(categories.length)+' OWASP categories. View matching categories.">'+
    '<span class="severity-chart-head"><span class="severity-chart-label">'+esc(label)+'</span><span class="severity-chart-count">'+number(count)+' / '+number(categories.length)+'</span></span>'+
    '<span class="severity-chart-track" aria-hidden="true"><span class="severity-chart-fill '+key+'" style="width:'+width+'%"></span></span></button>';
  }}).join("");
