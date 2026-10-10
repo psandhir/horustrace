@@ -150,6 +150,17 @@ def check_report(html_file: Path) -> dict[str, object]:
                 assert "Skill source" in page.locator('#inventory-detail').inner_text()
             checks.append("Skill inventory supports an accessible details action or empty state")
 
+            # Every agent exposes first-class routes into its own component inventory.
+            page.locator('nav.nav button[data-view="agents"]').click()
+            page.locator('#agents [data-agent]').first.click()
+            assert page.locator('#agent-detail.active [data-agent-inventory="tools"]').count() == 1
+            page.locator('#agent-detail [data-agent-inventory="tools"]').click()
+            assert page.locator('#components.active #inventory-scope-back').count() == 1
+            assert "Components connected to" in page.locator('#components').inner_text()
+            page.locator('#inventory-scope-back').click()
+            assert page.locator('#agent-detail.active').count() == 1
+            checks.append("Agent-to-components filtered drilldown and return navigation work")
+
             # Canonical ADG supply chain is navigable without graph reconstruction.
             page.locator('nav.nav button[data-view="supply"]').click()
             assert page.locator("#supply.active .supply-diagram").count() == 1
