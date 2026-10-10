@@ -6,6 +6,7 @@ on:
       - study/post180-three-cohorts-20261009
     paths:
       - ".github/workflows/post180-three-cohorts-20261009.yml"
+      - "scripts/post180_three_cohorts_rerun.py"
   workflow_dispatch:
 
 permissions:
