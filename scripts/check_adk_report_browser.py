@@ -144,11 +144,25 @@ def check_report(html_file: Path) -> dict[str, object]:
             # Skill tab and explicit drilldown are tested when skills are present.
             page.locator('#components [data-inventory-kind="skills"]').click()
             skill_count = page.locator('#components [data-inventory-open]').count()
-            if skill_count:
-                page.locator('#components [data-inventory-open]').first.click()
-                assert page.locator('#components.active #inventory-detail').count() == 1
-                assert "Skill source" in page.locator('#inventory-detail').inner_text()
-            checks.append("Skill inventory supports an accessible details action or empty state")
+            if not skill_count:
+                # The ADK demo contains no packaged skills; exercise the UI with
+                # a clearly synthetic in-browser record, not a scanner claim.
+                page.evaluate("""() => {
+                    DATA.skills.push({
+                        id: "skill-ui-test", name: "synthetic-ui-skill",
+                        description: "UI navigation regression fixture",
+                        source: "test-only", binding_state: "unbound",
+                        bound_agents: [], allowed_tools: ["safe.read"],
+                        scripts: [], capabilities: [], resources: [],
+                        destinations: [], location: {path: "SKILL.md", line: 1}
+                    });
+                    renderComponents("skills");
+                }""")
+            page.locator('#components [data-inventory-open]').first.click()
+            assert page.locator('#components.active #inventory-detail').count() == 1
+            assert "Skill source" in page.locator('#inventory-detail').inner_text()
+            page.locator('#inventory-clear').click()
+            checks.append("Skill inventory opens and closes detail, including synthetic UI fixture if needed")
 
             # Every agent exposes first-class routes into its own component inventory.
             page.locator('nav.nav button[data-view="agents"]').click()
