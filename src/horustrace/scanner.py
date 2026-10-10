@@ -91,7 +91,6 @@ from horustrace.microsoft_repository_authority import (
     enrich_microsoft_repository_authority,
     parse_microsoft_authority_json,
 )
-from horustrace.pipeline_contract import PipelineCheckpoints
 from horustrace.models import (
     Agent,
     AgentReachability,
@@ -108,6 +107,7 @@ from horustrace.models import (
     Tool,
 )
 from horustrace.path_safety import canonical_root, is_within_root
+from horustrace.pipeline_contract import PipelineCheckpoints
 from horustrace.provenance import annotate, attach_findings, context
 from horustrace.pydantic_repository import enrich_pydantic_repository_graph
 from horustrace.rag_semantics import enrich_streamlit_rag_directory_semantics
