@@ -1210,6 +1210,70 @@ function renderAgents(mode="all"){{
  root.querySelector("#agent-search").addEventListener("input",e=>{{const q=e.target.value.trim().toLowerCase();const items=scoped.filter(a=>JSON.stringify([a.name,a.framework,a.location,a.skills,a.resources,a.identities,a.destinations,a.findings]).toLowerCase().includes(q));root.querySelector("#agent-count").textContent=number(items.length)+" agents";root.querySelector("#agent-table").innerHTML=agentTable(items);bindAgentRows(root);}});
 }}
 
+function inventoryEntries(kind){{
+ return kind==="tools"?(DATA.tools||[]):kind==="skills"?(DATA.skills||[]):(DATA.mcp_servers||[]);
+}}
+function inventoryControl(value){{
+ return value===true?"Configured/detected (not verified)":value===false?"Not detected":"Unresolved";
+}}
+function inventorySummary(item,kind){{
+ if(kind==="mcp")return item.endpoint||item.command||"Endpoint unresolved";
+ if(kind==="tools")return (item.capabilities||[]).join(", ")||"Capabilities unresolved";
+ return (item.allowed_tools||[]).join(", ")||"No allowed tools declared";
+}}
+function inventoryTable(items,kind){{
+ if(!items.length)return '<div class="empty">No matching components in this scan.</div>';
+ const rows=items.map(item=>'<tr class="clickable" role="button" tabindex="0" data-inventory-row="'+esc(item.id)+'">'+
+ '<td><div class="row-title">'+esc(item.name)+'</div><div class="row-sub">'+esc(kind==="mcp"?(item.transport||"unknown transport"):kind==="tools"?(item.kind||"tool"):(item.source||"skill"))+' · '+loc(item.location)+'</div></td>'+
+ '<td>'+badge(item.binding_state)+'</td><td>'+esc((item.bound_agents||[]).join(", ")||"—")+'</td>'+
+ '<td>'+esc(inventorySummary(item,kind))+'</td><td class="row-chevron">›</td></tr>').join("");
+ return '<div class="panel flush table-wrap"><table aria-label="'+esc(kind)+' inventory"><thead><tr><th>Component</th><th>Binding</th><th>Agent(s)</th><th>Capabilities / endpoint</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}}
+function inventoryDetail(item,kind){{
+ const format=(values)=>values&&values.length?values.join(", "):"—";
+ const resource=(item.resources||[]).map(r=>r.kind+": "+r.selector+" ("+format(r.access)+")").join("; ")||"—";
+ const meta=[["Binding",item.binding_state],["Source",item.location?(item.location.path+":"+(item.location.line||1)):"n/a"]];
+ if(kind==="mcp")meta.push(["Transport",item.transport||"unresolved"],["Endpoint (query omitted)",item.endpoint||"—"],["Command (arguments omitted)",item.command||"—"],["Authentication",inventoryControl(item.authenticated)],["Approval",inventoryControl(item.approval)],["Guardrail hook",inventoryControl(item.guardrails)],["Allowed tools",format(item.allowed_tools)],["Denied tools",format(item.denied_tools)],["Identity",item.identity||"unresolved"]);
+ else if(kind==="tools")meta.push(["Tool kind",item.kind||"—"],["Capabilities",format(item.capabilities)],["Destinations",format(item.destinations)],["Approval",inventoryControl(item.approval)],["Guardrail hook",inventoryControl(item.guardrails)],["Identity",item.identity||"unresolved"]);
+ else meta.push(["Description",item.description||"—"],["Skill source",item.source||"unknown"],["Capabilities",format(item.capabilities)],["Allowed tools",format(item.allowed_tools)],["Scripts",format(item.scripts)],["Destinations",format(item.destinations)]);
+ meta.push(["Resources",resource]);
+ const details=meta.map(([label,value])=>'<div>'+esc(label)+'</div><div>'+esc(value)+'</div>').join("");
+ const agents=(item.bound_agents||[]).map(name=>'<button class="filter-chip" type="button" data-inventory-agent="'+encodeURIComponent(name)+'">'+uiIcon("agents")+esc(name)+' ↗</button>').join("");
+ return '<div id="inventory-detail">'+sectionHead(item.name,"Source-backed instance: "+kind,'<button type="button" id="inventory-clear" class="back">Close detail</button>')+
+ '<div class="panel"><div class="kv">'+details+'</div></div>'+
+ sectionHead("Connected agents","A binding does not mean that every agent finding applies to this component.")+
+ (agents?'<div class="filter-chips">'+agents+'</div>':'<div class="empty">No source-proven agent binding.</div>')+'</div>';
+}}
+function renderComponents(kind="mcp",selectedId=null){{
+ if(!["mcp","tools","skills"].includes(kind))kind="mcp";
+ const root=document.getElementById("components"),items=inventoryEntries(kind),selected=items.find(item=>item.id===selectedId);
+ const tabs=[["mcp","MCP servers"],["tools","Tools"],["skills","Skills"]].map(([key,label])=>
+ '<button type="button" class="filter-chip '+(kind===key?"active":"")+'" data-inventory-kind="'+key+'">'+uiIcon(key==="mcp"?"mcp":key)+esc(label)+' ('+number(inventoryEntries(key).length)+')</button>').join("");
+ root.innerHTML=pageHead("Repository inventory","Components","Search discovered component instances, bindings and source evidence. This is a static inventory, not live deployment discovery.")+
+ '<div class="cards">'+metric("MCP servers",(DATA.mcp_servers||[]).filter(x=>x.binding_state!=="unresolved_reference").length)+metric("Tools",(DATA.tools||[]).length)+metric("Skills",(DATA.skills||[]).length)+metric("Unresolved references",(DATA.mcp_servers||[]).filter(x=>x.binding_state==="unresolved_reference").length)+'</div>'+
+ '<div class="toolbar"><div class="filter-chips">'+tabs+'</div><div class="toolbar-right"><input id="inventory-search" class="search" aria-label="Search inventory" placeholder="Search component, capability, agent or file"></div></div>'+
+ (selected?inventoryDetail(selected,kind):"")+
+ '<div class="toolbar"><div class="filter-chips">'+[["all","All"],["bound","Bound"],["unbound","Unbound"],["unresolved_reference","Unresolved"]].map(([key,label])=>'<button type="button" class="filter-chip '+(key==="all"?"active":"")+'" data-inventory-filter="'+key+'">'+label+'</button>').join("")+'</div><span class="muted small" id="inventory-count"></span></div><div id="inventory-table"></div>';
+ let filter="all";const input=root.querySelector("#inventory-search");
+ const update=()=>{{
+  const q=input.value.toLowerCase().trim();
+  const scoped=items.filter(item=>(filter==="all"||item.binding_state===filter)&&(!q||JSON.stringify(item).toLowerCase().includes(q)));
+  root.querySelector("#inventory-count").textContent=number(scoped.length)+" detected instances";
+  root.querySelector("#inventory-table").innerHTML=inventoryTable(scoped,kind);
+  root.querySelectorAll("[data-inventory-row]").forEach(row=>{{
+   const activate=()=>{{renderComponents(kind,row.dataset.inventoryRow);const detail=root.querySelector("#inventory-detail");if(detail)detail.scrollIntoView({{block:"start"}});}};
+   row.addEventListener("click",activate);
+   row.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});
+  }});
+ }};
+ root.querySelectorAll("[data-inventory-kind]").forEach(btn=>btn.addEventListener("click",()=>renderComponents(btn.dataset.inventoryKind)));
+ root.querySelectorAll("[data-inventory-filter]").forEach(btn=>btn.addEventListener("click",()=>{{filter=btn.dataset.inventoryFilter;root.querySelectorAll("[data-inventory-filter]").forEach(x=>x.classList.toggle("active",x===btn));update();}}));
+ input.addEventListener("input",update);
+ const clear=root.querySelector("#inventory-clear");if(clear)clear.addEventListener("click",()=>renderComponents(kind));
+ root.querySelectorAll("[data-inventory-agent]").forEach(btn=>btn.addEventListener("click",()=>openAgent(decodeURIComponent(btn.dataset.inventoryAgent),"overview",null,{{kind,id:selected.id}})));
+ update();
+}}
+
 function contractItem(item){{
  return '<div class="finding" data-sev="'+(item.status==="violation"?"high":"medium")+'"><div class="finding-title">'+badge(item.status)+
  '<strong>'+esc(item.clause)+'</strong><span>'+esc(item.reason)+'</span></div><div class="kv small"><div>Dimension</div><div>'+esc(item.dimension)+'</div>'+
