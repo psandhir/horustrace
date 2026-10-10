@@ -1,4 +1,4 @@
-name: Post Frozen-180 Three Historical Cohort Regressions
+name: Post P0 P1 Historical Cohort Regressions
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     env:
-      PINNED_SCANNER_SHA: a1bbdc3a391a1377726ce9d80a8b9b80b633ea51
+      PINNED_SCANNER_SHA: b250b63900f1ebaacc925dfd7fb84b4d79a3f1fb
       EVIDENCE_DIR: evidence/post180-three-cohorts-20261009
     steps:
       - name: Check out fixed study harness
