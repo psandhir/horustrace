@@ -33,6 +33,17 @@ jobs:
         shell: bash
         run: |
           if [ -f adk-ux-report/adk-acceptance-summary.md ]; then
+            {
+              echo "## View the ADK security report"
+              echo ""
+              echo "The findings, severity distribution, authority breakdown, and OWASP results are shown directly below."
+              echo "For interactive charts and drilldowns, download **adk-ux-security-workbench** from"
+              echo "[this run's Artifacts section](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}#artifacts),"
+              echo "then open **adk-security-workbench.html** in a browser."
+              echo ""
+              echo "GitHub Actions summaries do not execute standalone HTML/JavaScript reports."
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
             cat adk-ux-report/adk-acceptance-summary.md >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Upload offline HTML, projection, metrics and acceptance summary

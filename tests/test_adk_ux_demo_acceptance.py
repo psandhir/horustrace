@@ -44,3 +44,7 @@ def test_adk_vulnerable_demo_populates_interactive_security_report(tmp_path: Pat
     assert "<script src=" not in html
     assert "<link rel=" not in html
     assert "## Acceptance checks" in summary
+    assert "## Findings by severity" in summary
+    assert "## Authority-resolution evidence" in summary
+    assert "| Severity | Findings | Distribution |" in summary
+    assert "| Status | Relationships |" in summary

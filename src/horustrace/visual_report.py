@@ -478,7 +478,7 @@ def render_visual_report_html(
     payload = _json_for_html(report)
     title = escape(f"HorusTrace Security Report — {root.name or '.'}")
     return f"""<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -491,6 +491,64 @@ def render_visual_report_html(
 --accent:#86aefb;--accent-soft:#172846;--critical:#ff707a;--high:#ff9e66;--medium:#f6cd62;
 --low:#73bdf4;--ok:#63d6a0;--warn:#f1c75b;--unknown:#a8b3c7;--shadow:0 14px 38px #00000038;
 --radius:12px;--radius-lg:16px}}
+
+/* Light is the default. Dark remains available without network, dependencies or rebuild. */
+html[data-theme="light"]{{--bg:#f8fafc;--sidebar:#ffffff;--surface:#ffffff;--surface2:#f0f4f8;
+--surface3:#edf2f7;--text:#1b2b46;--muted:#54647a;--muted2:#68778e;
+--line:#dce4ec;--line-strong:#bfcddb;--accent:#285f99;--accent-soft:#ecf3fb;
+--critical:#b12645;--high:#244068;--medium:#244068;--low:#245b58;
+--ok:#196a50;--warn:#244068;--unknown:#53647c;--shadow:0 12px 32px #2035500d;
+color-scheme:light}}
+html[data-theme="dark"]{{color-scheme:dark}}
+.theme-switch{{padding:11px 8px 15px;display:flex;flex-direction:column;gap:6px}}
+.theme-switch-label{{color:var(--muted2);font-size:10px;text-transform:uppercase;letter-spacing:.11em;font-weight:800}}
+.theme-choices{{display:flex;padding:3px;gap:4px;background:var(--surface3);border:1px solid var(--line);border-radius:10px}}
+.theme-choices button{{flex:1;border:1px solid transparent;border-radius:7px;padding:6px 9px;
+background:transparent;color:var(--muted);font-size:12px;font-weight:750;cursor:pointer}}
+.theme-choices button[aria-pressed="true"]{{background:var(--surface);border-color:var(--line-strong);
+box-shadow:0 2px 6px #121d3220;color:var(--text)}}
+.theme-choices button:hover{{color:var(--text)}}
+html[data-theme="light"] .brand-row,html[data-theme="light"] .sidebar-meta{{border-color:var(--line)}}
+html[data-theme="light"] .brand-mark{{color:#fff}}
+html[data-theme="light"] .nav button::before{{background:#8295b0}}
+html[data-theme="light"] .nav button.active{{border-color:#c7dbf2}}
+html[data-theme="light"] .nav button.active::before{{box-shadow:0 0 0 4px #205caa16}}
+html[data-theme="light"] .assessment-banner{{background:linear-gradient(135deg,#fff,#f1f6fc);border-color:var(--line-strong)}}
+html[data-theme="light"] .assessment-banner.critical{{background:linear-gradient(135deg,#fff2f3,#fff)}}
+html[data-theme="light"] .assessment-banner.high{{background:linear-gradient(135deg,#fff7f7,#fff)}}
+html[data-theme="light"] .assessment-banner.warn{{background:linear-gradient(135deg,#f2f6fc,#fff)}}
+html[data-theme="light"] .card{{box-shadow:0 5px 18px #20355008}}
+html[data-theme="light"] .card.drill:hover{{border-color:var(--line-strong)}}
+html[data-theme="light"] th{{background:#eef3f9}}
+html[data-theme="light"] tr.clickable:hover,html[data-theme="light"] .drill-row:hover{{background:#eaf2fc}}
+html[data-theme="light"] .badge{{background:#edf3fa}}
+html[data-theme="light"] .badge.critical{{border-color:#e5aab4}}
+html[data-theme="light"] .badge.high{{border-color:#e6c4d0}}
+html[data-theme="light"] .badge.medium{{border-color:#dfd1db}}
+html[data-theme="light"] .badge.violation{{background:#fff1f3;border-color:#e9b3bc}}
+html[data-theme="light"] .badge.compliant{{background:#eaf7ef;border-color:#a1d5b8}}
+html[data-theme="light"] .badge.unresolved{{background:#f1f5fa;border-color:#d5dfe8}}
+html[data-theme="light"] .badge.declared{{border-color:#b4c9eb}}
+html[data-theme="light"] .filter-chip.active{{border-color:#acc5e5}}
+html[data-theme="light"] .filter-banner{{background:#edf4fc;border-color:var(--line-strong)}}
+html[data-theme="light"] .finding p{{color:var(--text)}}
+html[data-theme="light"] code,html[data-theme="light"] .badge{{background-color:var(--surface3)}}
+html[data-theme="light"] details{{border-color:var(--line)}}
+html[data-theme="light"] details summary{{color:var(--text)}}
+html[data-theme="light"] pre,html[data-theme="light"] .map-toolbar input{{background:var(--surface3)}}
+html[data-theme="light"] .graph{{background:#f8fafd}}
+html[data-theme="light"] svg text{{fill:var(--text)}}
+html[data-theme="light"] .edge{{stroke:#647b9b}}
+html[data-theme="light"] .node rect{{fill:#edf3fb;stroke:#7895b8}}
+html[data-theme="light"] .node.agent rect{{fill:#e1edff;stroke:#306fba}}
+html[data-theme="light"] .node.identity rect{{fill:#f0e8fa;stroke:#8063ae}}
+html[data-theme="light"] .node.resource rect{{fill:#e3f5eb;stroke:#388562}}
+html[data-theme="light"] .node.destination rect{{fill:#fff0f2;stroke:#bb768c}}
+html[data-theme="light"] .path-step{{background:var(--surface3)}}
+html[data-theme="light"] .empty{{background:#f3f7fb}}
+html[data-theme="light"] .coverage-track{{background:#e5edf6}}
+html[data-theme="light"] .footer{{border-color:var(--line)}}
+@media(max-width:760px){{.theme-switch{{padding:10px 0 3px}} .theme-choices{{max-width:250px}}}}
 *{{box-sizing:border-box}} html{{scroll-behavior:smooth}} body{{margin:0;font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,
 BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}}
 button,input{{font:inherit}} button{{color:inherit}} button:focus-visible,input:focus-visible,[tabindex]:focus-visible{{outline:2px solid var(--accent);outline-offset:2px}}
@@ -555,6 +613,57 @@ svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} 
 .owasp-chart-row .severity-chart-fill.no_mapped_findings{{background:var(--accent)}}
 .owasp-chart-row .severity-chart-fill.not_assessed{{background:var(--unknown)}}
 .coverage-track{{height:8px;background:#09101e;border-radius:999px;overflow:hidden;border:1px solid var(--line);margin-top:9px}} .coverage-fill{{height:100%;background:var(--ok);border-radius:inherit}} .footer{{color:var(--muted2);font-size:10px;margin:30px 0 3px;padding-top:14px;border-top:1px solid #ffffff0a}}
+/* Soft presentation-style status bars, light theme only. Semantic text remains contrast-safe. */
+html[data-theme="light"]{{--bar-risk:#EFB5C2;--bar-warning:#F6D4C8;--bar-good:#B9DECD;--bar-unknown:#CED9E4}}
+html[data-theme="light"] .severity-chart-track{{background:#EFF2F6}}
+html[data-theme="light"] .severity-chart-fill{{box-shadow:inset 0 0 0 1px #31415912}}
+html[data-theme="light"] .severity-chart-fill.critical{{background:var(--bar-risk)}}
+html[data-theme="light"] .severity-chart-fill.high,
+html[data-theme="light"] .severity-chart-fill.medium{{background:var(--bar-warning)}}
+html[data-theme="light"] .severity-chart-fill.low{{background:var(--bar-good)}}
+html[data-theme="light"] .severity-chart-fill.info{{background:var(--bar-unknown)}}
+html[data-theme="light"] .authority-chart-row .severity-chart-fill.fully_resolved{{background:var(--bar-good)}}
+html[data-theme="light"] .authority-chart-row .severity-chart-fill.partially_resolved{{background:var(--bar-warning)}}
+html[data-theme="light"] .authority-chart-row .severity-chart-fill.unknown{{background:var(--bar-unknown)}}
+html[data-theme="light"] .owasp-chart-row .severity-chart-fill.finding{{background:var(--bar-risk)}}
+html[data-theme="light"] .owasp-chart-row .severity-chart-fill.no_runtime_findings{{background:var(--bar-warning)}}
+html[data-theme="light"] .owasp-chart-row .severity-chart-fill.no_mapped_findings{{background:var(--bar-good)}}
+html[data-theme="light"] .owasp-chart-row .severity-chart-fill.not_assessed{{background:var(--bar-unknown)}}
+html[data-theme="light"] .coverage-fill{{background:var(--bar-good)}}
+html[data-theme="light"] .coverage-fill.incomplete{{background:var(--bar-warning)}}
+
+/* Light-mode chart rows: semantic dots persist at zero; bars show actual counts. */
+html[data-theme="light"] .severity-chart-row{{padding:10px 12px;border-radius:10px}}
+html[data-theme="light"] .severity-chart-head{{font-size:13px;margin-bottom:9px}}
+html[data-theme="light"] .severity-chart-track{{height:14px;background:#f0f2f1;border:1px solid #e0e5e2}}
+html[data-theme="light"] .severity-chart-fill{{box-shadow:none}}
+html[data-theme="light"] .severity-chart-row[data-tone="critical"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="finding"][data-present="true"]{{background:#fff6f6}}
+html[data-theme="light"] .severity-chart-row[data-tone="high"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="medium"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="partially_resolved"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="no_runtime_findings"][data-present="true"]{{background:#fff9f7}}
+html[data-theme="light"] .severity-chart-row[data-tone="low"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="fully_resolved"][data-present="true"],
+html[data-theme="light"] .severity-chart-row[data-tone="no_mapped_findings"][data-present="true"]{{background:#f4faf6}}
+html[data-theme="light"] .severity-chart-row[data-present="false"]{{opacity:.78}}
+html[data-theme="light"] .severity-chart-label::before{{content:"";display:inline-block;width:11px;height:11px;
+border-radius:4px;margin-right:9px;vertical-align:-1px;background:var(--bar-unknown);
+border:1px solid #31415912}}
+html[data-theme="light"] .severity-chart-row[data-tone="critical"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="finding"] .severity-chart-label::before{{background:var(--bar-risk)}}
+html[data-theme="light"] .severity-chart-row[data-tone="high"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="medium"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="partially_resolved"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="no_runtime_findings"] .severity-chart-label::before{{background:var(--bar-warning)}}
+html[data-theme="light"] .severity-chart-row[data-tone="low"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="fully_resolved"] .severity-chart-label::before,
+html[data-theme="light"] .severity-chart-row[data-tone="no_mapped_findings"] .severity-chart-label::before{{background:var(--bar-good)}}
+html[data-theme="light"] .badge.critical,html[data-theme="light"] .badge.violation{{background:#fdebf0;border-color:#efb5c2}}
+html[data-theme="light"] .badge.high,html[data-theme="light"] .badge.medium{{background:#fff4f1;border-color:#f6d4c8}}
+html[data-theme="light"] .badge.unresolved{{background:#f1f5fa;border-color:#d5dfe8}}
+html[data-theme="light"] .badge.compliant{{background:#eaf7f0;border-color:#b9decd}}
+
 @media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}
 @media(max-width:1000px){{.shell{{grid-template-columns:220px minmax(0,1fr)}} main{{padding:26px 24px}} .graph-wrap{{grid-template-columns:1fr}} .inspector{{max-height:280px}}}}
 @media(max-width:760px){{.shell{{grid-template-columns:1fr}} aside{{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:12px}} .brand-row{{padding-bottom:11px;margin-bottom:9px}} .nav-label,.sidebar-meta{{display:none}} .nav{{display:flex;flex-direction:row;overflow:auto;gap:4px}} .nav button{{width:auto;white-space:nowrap;padding:8px 10px}} .nav button::before{{display:none}} main{{padding:20px 14px 30px}} .grid2,.assessment-banner{{grid-template-columns:1fr}} .assessment-side{{justify-content:flex-start}} .assessment-count{{text-align:left}} .page-head{{flex-direction:column}} .page-actions{{justify-content:flex-start}} .sevbar{{grid-template-columns:repeat(2,1fr)}} .kv{{grid-template-columns:1fr}} .graph{{height:440px}} .graph-wrap.expanded{{inset:4px;padding:8px;grid-template-columns:1fr}} .graph-wrap.expanded .inspector{{display:none}} .tabs{{position:static}}}}
@@ -575,6 +684,13 @@ svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} 
     <button data-view="contracts">Agent contracts</button>
     <button data-view="evidence">Scan evidence</button>
   </nav>
+  <div class="theme-switch" role="group" aria-label="Report color theme">
+    <span class="theme-switch-label">Appearance</span>
+    <div class="theme-choices">
+      <button type="button" data-theme-choice="light" aria-pressed="true">Light</button>
+      <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
   <div class="sidebar-meta"><strong>Offline security evidence</strong><span title="{escape(root.name or '.')}">Scope: {escape(root.name or '.')}</span><span>Schema v{VISUAL_REPORT_SCHEMA_VERSION}</span></div>
 </aside>
 <main>
@@ -587,6 +703,18 @@ svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} 
 <script>
 "use strict";
 const DATA=JSON.parse(document.getElementById("horus-data").textContent);
+const THEME_STORAGE_KEY="horustrace-report-theme";
+function setTheme(choice){{
+ const next=choice==="dark"?"dark":"light";
+ document.documentElement.setAttribute("data-theme",next);
+ document.querySelectorAll("[data-theme-choice]").forEach(btn=>btn.setAttribute("aria-pressed",String(btn.dataset.themeChoice===next)));
+ try{{window.localStorage.setItem(THEME_STORAGE_KEY,next);}}catch(_error){{/* file:// or restricted browser storage */}}
+}}
+let initialTheme="light";
+try{{initialTheme=window.localStorage.getItem(THEME_STORAGE_KEY)||"light";}}catch(_error){{/* offline file storage can be disabled */}}
+setTheme(initialTheme);
+document.querySelectorAll("[data-theme-choice]").forEach(btn=>btn.addEventListener("click",()=>setTheme(btn.dataset.themeChoice)));
+
 const esc=(v)=>String(v??"").replace(/[&<>"']/g,c=>({{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}}[c]));
 const loc=(v)=>v&&v.path?esc(v.path)+":"+esc(v.line||1):"n/a";
 const badge=(s)=>'<span class="badge '+esc(s)+'">'+esc(String(s).replaceAll("_"," "))+'</span>';
@@ -636,12 +764,12 @@ function severityChart(s){{
  const rows=levels.map(([key,label])=>{{
   const count=Math.max(0,Number(s?.[key]||0));
   const width=count?Math.max(3,Math.round(100*count/max)):0;
-  return '<div class="severity-chart-row" role="button" tabindex="0" data-drill="findings:'+key+'" aria-label="'+esc(label)+': '+number(count)+' active findings. Open filtered findings.">'+
+  return '<div class="severity-chart-row" data-tone="'+key+'" data-present="'+(count>0)+'" role="button" tabindex="0" data-drill="findings:'+key+'" aria-label="'+esc(label)+': '+number(count)+' active findings. Open filtered findings.">'+
    '<span class="severity-chart-head"><span class="severity-chart-label">'+esc(label)+'</span><span class="severity-chart-count">'+number(count)+'</span></span>'+
    '<span class="severity-chart-track" aria-hidden="true"><span class="severity-chart-fill '+key+'" style="width:'+width+'%"></span></span></div>';
  }}).join("");
  return '<div class="severity-chart" role="group" aria-label="Findings by scanner severity">'+rows+
-  '<p class="severity-chart-caption">Static scan evidence only; exploitability is not verified.</p></div>';
+  '<p class="severity-chart-caption">Coloured markers identify severity even when a count is zero. Filled bars represent detected findings; exploitability is not verified.</p></div>';
 }}
 function authorityResolutionChart(agents){{
  const relationships=agents.flatMap(a=>a.effective_authority||[]);
@@ -651,7 +779,7 @@ function authorityResolutionChart(agents){{
  const rows=levels.map(([key,label])=>{{
   const count=relationships.filter(r=>r.resolution===key).length;
   const width=count?Math.max(3,Math.round(count/max*100)):0;
-  return '<button type="button" class="severity-chart-row authority-chart-row" data-drill="agents:'+key+'" aria-label="'+esc(label)+': '+number(count)+' authority relationships. View affected agents.">'+
+  return '<button type="button" class="severity-chart-row authority-chart-row" data-tone="'+key+'" data-present="'+(count>0)+'" data-drill="agents:'+key+'" aria-label="'+esc(label)+': '+number(count)+' authority relationships. View affected agents.">'+
    '<span class="severity-chart-head"><span class="severity-chart-label">'+esc(label)+'</span><span class="severity-chart-count">'+number(count)+'</span></span>'+
    '<span class="severity-chart-track" aria-hidden="true"><span class="severity-chart-fill '+key+'" style="width:'+width+'%"></span></span></button>';
  }}).join("");
@@ -677,7 +805,7 @@ function owaspAssessmentChart(categories){{
  const rows=statuses.map(([key,label])=>{{
   const count=categories.filter(c=>owaspStatusLabel(c).replaceAll(" ","_")===key).length;
   const width=count?Math.max(3,Math.round(100*count/max)):0;
-  return '<button type="button" class="severity-chart-row authority-chart-row owasp-chart-row" data-drill="owasp:status.'+key+'" aria-label="'+esc(label)+': '+number(count)+' of '+number(categories.length)+' OWASP categories. View matching categories.">'+
+  return '<button type="button" class="severity-chart-row authority-chart-row owasp-chart-row" data-tone="'+key+'" data-present="'+(count>0)+'" data-drill="owasp:status.'+key+'" aria-label="'+esc(label)+': '+number(count)+' of '+number(categories.length)+' OWASP categories. View matching categories.">'+
    '<span class="severity-chart-head"><span class="severity-chart-label">'+esc(label)+'</span><span class="severity-chart-count">'+number(count)+' / '+number(categories.length)+'</span></span>'+
    '<span class="severity-chart-track" aria-hidden="true"><span class="severity-chart-fill '+key+'" style="width:'+width+'%"></span></span></button>';
  }}).join("");
@@ -996,7 +1124,7 @@ function renderEvidence(){{
  const skillRows=skills.map(s=>'<tr><td><div class="row-title">'+esc(s.name)+'</div><div class="row-sub">'+loc(s.location)+'</div></td><td>'+badge(s.binding_state)+'</td><td>'+esc((s.bound_agents||[]).join(", ")||"—")+'</td><td>'+esc((s.allowed_tools||[]).join(", ")||"—")+'</td><td>'+number((s.scripts||[]).length)+'</td></tr>').join("");
  document.getElementById("evidence").innerHTML=pageHead("Trust & provenance","Scan evidence","Coverage, diagnostics and report provenance used to qualify the assessment.",scanCoverageStatus(c.incomplete))+
  '<div class="cards">'+metric("Files considered",c.files_considered)+metric("Files scanned",c.files_scanned)+metric("Files skipped",c.files_skipped)+metric("Files failed",c.files_failed,c.files_failed?"high":"")+'</div>'+
- sectionHead("Coverage status","Use coverage gaps to qualify confidence in scanner conclusions.")+'<div class="panel"><div class="kv"><div>Status</div><div>'+scanCoverageStatus(c.incomplete)+'</div><div>Scan completion</div><div>'+(pct===null?'Not available (no files considered)':number(pct)+'%<div class="coverage-track"><div class="coverage-fill" style="width:'+pct+'%"></div></div>')+'</div><div>ASG digest</div><div><code>'+esc(DATA.security_graph.digest)+'</code></div><div>Suppressed findings</div><div>'+number(DATA.suppressed_findings.length)+'</div><div>Report model</div><div><code>'+esc(DATA.model)+' / schema '+esc(DATA.schema_version)+'</code></div></div></div>'+
+ sectionHead("Coverage status","Use coverage gaps to qualify confidence in scanner conclusions.")+'<div class="panel"><div class="kv"><div>Status</div><div>'+scanCoverageStatus(c.incomplete)+'</div><div>Scan completion</div><div>'+(pct===null?'Not available (no files considered)':number(pct)+'%<div class="coverage-track"><div class="coverage-fill '+(c.incomplete?'incomplete':'')+'" style="width:'+pct+'%"></div></div>')+'</div><div>ASG digest</div><div><code>'+esc(DATA.security_graph.digest)+'</code></div><div>Suppressed findings</div><div>'+number(DATA.suppressed_findings.length)+'</div><div>Report model</div><div><code>'+esc(DATA.model)+' / schema '+esc(DATA.schema_version)+'</code></div></div></div>'+
  sectionHead("Skill inventory","Portable agent skills discovered in the repository. Unbound means discovered but not source-proven as available to an agent.")+(skillRows?'<div class="panel flush table-wrap"><table><thead><tr><th>Skill</th><th>Binding</th><th>Agents</th><th>Allowed tools</th><th>Scripts</th></tr></thead><tbody>'+skillRows+'</tbody></table></div>':'<div class="empty">No Agent Skills were discovered.</div>')+
  sectionHead("Diagnostics","Coverage or parsing conditions that may affect completeness.")+(diags.length?diags.map(d=>'<div class="finding" data-sev="medium"><div class="finding-title"><strong>'+esc(d.diagnostic_id||d.code)+'</strong><span class="badge medium">diagnostic</span></div><p>'+esc(d.message)+'</p><div class="muted small">'+loc(d.location)+'</div></div>').join(""):'<div class="empty">No detected coverage diagnostics.</div>');
 }}
