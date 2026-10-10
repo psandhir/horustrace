@@ -17,6 +17,7 @@ from horustrace.models import (
     Finding,
     Graph,
     Identity,
+    MCPServer,
     NetworkDestination,
     ResourceScope,
     Severity,
@@ -86,6 +87,59 @@ def _graph(root: Path) -> tuple[Graph, list[Finding]]:
         )
     ]
     return graph, findings
+
+
+def test_visual_report_component_inventory_preserves_binding_and_controls(
+    tmp_path: Path,
+) -> None:
+    graph, findings = _graph(tmp_path)
+    location = SourceLocation(tmp_path / "agent.py", line=16)
+    graph.agents[0].mcp_servers = [
+        MCPServer(
+            name="ticket_mcp",
+            transport="http",
+            url="https://internal.example/mcp?token=secret",
+            authenticated=True,
+            allowed_tools=["read_ticket"],
+            location=location,
+        )
+    ]
+    graph.unbound_tools = [
+        Tool(name="debug_helper", kind="function", location=location)
+    ]
+    graph.unbound_mcp_servers = [
+        MCPServer(name="orphan_mcp", transport="stdio", command="orphan-cmd", location=location)
+    ]
+    graph.unresolved_mcp_references = [
+        MCPServer(name="unknown_mcp", transport="unknown", location=location)
+    ]
+
+    report = build_visual_report(graph, findings, tmp_path)
+    assert report["summary"]["tools"] == 2
+    assert report["summary"]["mcp_servers"] == 2
+    assert report["summary"]["unresolved_mcp_references"] == 1
+    by_tool = {item["name"]: item for item in report["tools"]}
+    assert by_tool["update_ticket"]["bound_agents"] == ["support"]
+    assert by_tool["update_ticket"]["capabilities"] == ["data.write"]
+    assert by_tool["debug_helper"]["binding_state"] == "unbound"
+    by_server = {item["name"]: item for item in report["mcp_servers"]}
+    assert by_server["ticket_mcp"]["bound_agents"] == ["support"]
+    assert by_server["ticket_mcp"]["authenticated"] is True
+    assert by_server["ticket_mcp"]["endpoint"] == "https://internal.example/mcp"
+    assert by_server["orphan_mcp"]["binding_state"] == "unbound"
+    assert by_server["unknown_mcp"]["binding_state"] == "unresolved_reference"
+    assert all(item["id"] for item in report["tools"] + report["mcp_servers"])
+    assert all(item["location"]["path"] == "agent.py" for item in report["mcp_servers"])
+    assert "secret" not in str(report["mcp_servers"])
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+    assert 'data-view="components"' in html
+    assert 'function renderComponents(kind="mcp",selectedId=null)' in html
+    assert 'data-inventory-row' in html
+    assert 'data-inventory-agent' in html
+    assert 'components:mcp' in html
+    assert 'components:tools' in html
+    assert 'components:skills' in html
 
 
 def test_visual_report_projects_effective_agency_and_contract(tmp_path: Path) -> None:
