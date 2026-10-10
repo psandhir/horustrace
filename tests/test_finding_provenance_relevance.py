@@ -216,3 +216,21 @@ def test_delegated_path_omits_unrelated_child_capabilities_and_approvals():
     assert ("shell", "capability=process.execute") not in supporting
     assert ("shell", "approval_configuration=None") not in supporting
 
+
+
+def test_unbound_inferred_evidence_retains_heuristic_assessment():
+    location = SourceLocation(Path("tool.py"), line=8)
+    unbound = Tool(
+        name="outside_tool", kind="function", location=location,
+        provenance=[EvidenceFact(
+            "outside_tool", "capability=network.external", "inferred", location,
+        )],
+    )
+    finding = Finding(
+        rule_id="NET001", severity=Severity.HIGH, title="Egress",
+        message="Network", recommendation="Constrain egress",
+        layer=4, location=location, evidence=["network.external"],
+    )
+    attach_findings(Graph(unbound_tools=[unbound]), [finding])
+    assert len(finding.provenance) == 1
+    assert finding.assessment == "heuristic_risk"
