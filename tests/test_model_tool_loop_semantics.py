@@ -270,3 +270,31 @@ class MCPClient:
     assert server.url == "https://trusted.example.test/sse"
     assert server.metadata["dynamic_mcp_endpoint"] is False
     assert server.metadata["endpoint_selection_actor"] == "source"
+
+
+def test_unconnected_session_methods_do_not_inherit_sse_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "client.py").write_text(
+        """
+from mcp import ClientSession
+from mcp.client.sse import sse_client
+
+class MCPClient:
+    def connect(self, url):
+        self.transport = sse_client(url=url)
+        self.real_context = ClientSession(*streams)
+
+    async def run(self):
+        catalogue = await self.unrelated_session.list_tools()
+        answer = await self.llm.chat.completions.create(
+            tools=catalogue.tools,
+        )
+        for call in answer.tool_calls:
+            await self.unrelated_session.call_tool(call.name, call.args)
+""",
+        encoding="utf-8",
+    )
+    graph, _ = scan(tmp_path)
+    agent = next(a for a in graph.agents if a.name == "m_c_p_client")
+    assert agent.mcp_servers == []
