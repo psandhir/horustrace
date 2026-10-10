@@ -780,6 +780,20 @@ def _tool_relationship(
                 or tool.metadata.get("source")
             ),
             "delegate_target": tool.metadata.get("delegate_target"),
+            **(
+                {
+                    "delegation_transport": tool.metadata.get("delegation_transport"),
+                    "delegation_target_resolution": tool.metadata.get(
+                        "delegation_target_resolution"
+                    ),
+                    "credential_forwarding": tool.metadata.get(
+                        "credential_forwarding"
+                    ),
+                }
+                if tool.metadata.get("authority_binding_basis")
+                == "source_proven_agentcore_http_invocation"
+                else {}
+            ),
             "dynamic_authority": tool.metadata.get("dynamic_authority"),
             "tool_catalogue_unresolved": tool.metadata.get(
                 "tool_catalogue_unresolved"
