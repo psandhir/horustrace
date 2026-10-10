@@ -29,7 +29,7 @@ def _server(
 def test_unbound_declaration_has_static_reason(tmp_path: Path) -> None:
     graph = Graph(unbound_mcp_servers=[_server(tmp_path)])
 
-    report = unresolved_mcp_summary(graph)
+    report = unresolved_mcp_summary(graph, root=tmp_path)
 
     assert report["summary"] == {
         "unresolved_references": 1,
@@ -301,7 +301,7 @@ def test_repeated_mcp_declarations_have_unique_portable_reference_ids(
                 location=SourceLocation(root / "src" / "server.py", line=8),
                 metadata={"framework": "mcp", "source": "FastMCP"},
             ),
-        ]))
+        ]), root=root)
 
     first = records(tmp_path / "checkout-a")
     second = records(tmp_path / "checkout-b")
@@ -326,7 +326,7 @@ def test_repeated_mcp_declarations_have_unique_portable_reference_ids(
             location=SourceLocation(tmp_path / "src" / "server.py", line=8),
             metadata={"framework": "mcp", "source": "FastMCP"},
         ),
-    ]))
+    ]), root=tmp_path)
     assert report["summary"]["by_source_context"] == {
         "runtime": 1, "test": 1
     }
