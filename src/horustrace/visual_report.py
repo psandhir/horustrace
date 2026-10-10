@@ -17,6 +17,7 @@ from horustrace.authority_contract import authority_contract_report
 from horustrace.effective_authority import effective_authority_report
 from horustrace.models import Finding, Graph
 from horustrace.owasp import build_owasp_agentic_summary
+from horustrace.provenance import context as provenance_context
 from horustrace.security_graph import build_agent_security_graph
 
 VISUAL_REPORT_SCHEMA_VERSION = 1
@@ -390,6 +391,10 @@ def build_visual_report(
         agents.append(
             {
                 "name": agent.name,
+                "provenance_inventory": [
+                    _relativize(fact.as_dict(), root)
+                    for fact in provenance_context(agent)
+                ],
                 "framework": str(agent.metadata.get("framework") or "generic"),
                 "location": _agent_location(agent, root),
                 "summary": {
@@ -955,8 +960,10 @@ function renderAgentContract(a){{
 }}
 function renderAgentEvidence(a){{
  const rels=a.effective_authority||[];
- if(!rels.length)return '<div class="empty">No relationship evidence available.</div>';
- return rels.map(r=>'<div class="panel"><h3>'+esc(r.target.kind)+": "+esc(r.target.name)+'</h3><div class="kv"><div>Relationship</div><div><code>'+esc(r.relationship_id)+'</code></div>'+
+ const inventory=a.provenance_inventory||[];
+ const raw=inventory.length?'<div class="panel"><h3>Full agent evidence inventory</h3><p class="muted">Agent-wide observations for audit; these are not individually asserted to support every finding.</p><details><summary>All '+number(inventory.length)+' source facts</summary><pre>'+esc(JSON.stringify(inventory,null,2))+'</pre></details></div>':"";
+ if(!rels.length)return raw+'<div class="empty">No relationship evidence available.</div>';
+ return raw+rels.map(r=>'<div class="panel"><h3>'+esc(r.target.kind)+": "+esc(r.target.name)+'</h3><div class="kv"><div>Relationship</div><div><code>'+esc(r.relationship_id)+'</code></div>'+
  '<div>Resolution</div><div>'+badge(r.resolution)+'</div><div>Source</div><div>'+loc(r.location)+'</div><div>Unresolved dimensions</div><div>'+esc((r.unresolved||[]).join(", ")||"none")+'</div></div>'+
  '<details><summary>Full evidence</summary><pre>'+esc(JSON.stringify({{evidence:r.evidence,dimensions:r.dimensions,approval:r.approval,semantics:r.semantics}},null,2))+'</pre></details></div>').join("");
 }}
