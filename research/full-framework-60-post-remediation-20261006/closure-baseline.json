@@ -9,7 +9,10 @@
     "core_fully_resolved": 479,
     "core_partially_resolved": 127,
     "core_unknown": 0,
-    "core_fully_resolved_ratio": 0.790429
+    "core_fully_resolved_ratio": 0.790429,
+    "attack_paths": 14,
+    "final_scanner_revision": "586d95c66c8fe3e98e86b8f2aeb4601feddf4b8b",
+    "final_workflow_run": 37529141432
   },
   "gate": {
     "expected_cases": 60,
@@ -45,9 +48,16 @@
         "authority_relationships": 27
       }
     },
-    "max_unapproved_attack_path_drop": 0,
-    "allowed_attack_path_drops": {
-      "ff60-openai-agents-05": 15
+    "min_attack_path_floor_total": 14,
+    "attack_path_floor_by_case": {
+      "ff60-anthropic-03": 5,
+      "ff60-google-adk-03": 1,
+      "ff60-google-adk-04": 2,
+      "ff60-google-adk-05": 1,
+      "ff60-openai-agents-10": 1,
+      "ff60-pydantic-ai-01": 2,
+      "ff60-pydantic-ai-02": 1,
+      "ff60-pydantic-ai-06": 1
     }
   }
 }
