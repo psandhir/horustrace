@@ -17,6 +17,7 @@ from horustrace.authority_contract import authority_contract_report
 from horustrace.effective_authority import effective_authority_report
 from horustrace.models import Finding, Graph
 from horustrace.owasp import build_owasp_agentic_summary
+from horustrace.provenance import context as provenance_context
 from horustrace.security_graph import build_agent_security_graph
 
 VISUAL_REPORT_SCHEMA_VERSION = 1
@@ -167,29 +168,41 @@ def _attack_path_view(
 
 
 def _finding_provenance_digest(finding: Finding, root: Path) -> dict[str, Any]:
-    """Summarise source-local facts for humans without altering audit evidence.
+    """Summarise attributed source facts without conflating different locations.
 
-    Findings may carry an agent's complete provenance context. Only facts at
-    the finding's own source line are suitable for an inline explanation;
-    other facts remain available in the full provenance drill-down.
+    A fact at the finding's own location is immediately relevant. For a
+    cross-file rule (e.g., denied policy plus observed tool capability), we
+    also show separately located facts when their subject/value appears in
+    the finding's explanation. Raw facts remain available for audit.
     """
     location = finding.location
-    if location is None:
-        return {"items": [], "additional_contexts": 0}
-
-    grouped: dict[str, list[Any]] = {}
-    for fact in finding.provenance:
-        source = fact.location
-        if (source is None or source.path != location.path
-                or source.line != location.line
-                or fact.fact == "agent_configuration_detected"):
-            continue
-        grouped.setdefault(fact.subject, []).append(fact)
-
-    items: list[dict[str, Any]] = []
     search_text = " ".join(
         [finding.title, finding.message, *finding.evidence]
     ).lower()
+    grouped: dict[tuple[str, str, int, int], list[Any]] = {}
+    for fact in finding.provenance:
+        source = fact.location
+        if source is None or fact.fact == "agent_configuration_detected":
+            continue
+        same_source = (
+            location is not None
+            and source.path == location.path
+            and source.line == location.line
+        )
+        subject_relevant = (
+            len(fact.subject) > 2 and fact.subject.lower() in search_text
+        )
+        value_relevant = (
+            "=" in fact.fact
+            and len(fact.fact.split("=", 1)[1]) > 2
+            and fact.fact.split("=", 1)[1].lower() in search_text
+        )
+        if not (same_source or subject_relevant or value_relevant):
+            continue
+        key = (fact.subject, str(source.path), source.line, source.column)
+        grouped.setdefault(key, []).append(fact)
+
+    items: list[dict[str, Any]] = []
     capability_labels = {
         "network.external": "external network access",
         "process.execute": "process execution",
@@ -198,7 +211,7 @@ def _finding_provenance_digest(finding: Finding, root: Path) -> dict[str, Any]:
         "external.write": "external writes",
         "computer.control": "computer control",
     }
-    for subject, source_facts in grouped.items():
+    for (subject, path, line, column), source_facts in grouped.items():
         raw_facts = [fact.fact for fact in source_facts]
         origin = " + ".join(dict.fromkeys(fact.origin for fact in source_facts))
         capabilities: list[str] = []
@@ -257,9 +270,9 @@ def _finding_provenance_digest(finding: Finding, root: Path) -> dict[str, Any]:
             "subject": subject,
             "origin": origin,
             "location": {
-                "path": _relative_path(str(location.path), root),
-                "line": location.line,
-                "column": location.column,
+                "path": _relative_path(path, root),
+                "line": line,
+                "column": column,
             },
             "summary": "; ".join(parts),
             "_relevance": relevance,
@@ -390,6 +403,10 @@ def build_visual_report(
         agents.append(
             {
                 "name": agent.name,
+                "provenance_inventory": [
+                    _relativize(fact.as_dict(), root)
+                    for fact in provenance_context(agent)
+                ],
                 "framework": str(agent.metadata.get("framework") or "generic"),
                 "location": _agent_location(agent, root),
                 "summary": {
@@ -955,8 +972,10 @@ function renderAgentContract(a){{
 }}
 function renderAgentEvidence(a){{
  const rels=a.effective_authority||[];
- if(!rels.length)return '<div class="empty">No relationship evidence available.</div>';
- return rels.map(r=>'<div class="panel"><h3>'+esc(r.target.kind)+": "+esc(r.target.name)+'</h3><div class="kv"><div>Relationship</div><div><code>'+esc(r.relationship_id)+'</code></div>'+
+ const inventory=a.provenance_inventory||[];
+ const raw=inventory.length?'<div class="panel"><h3>Full agent evidence inventory</h3><p class="muted">Agent-wide observations for audit; these are not individually asserted to support every finding.</p><details><summary>All '+number(inventory.length)+' source facts</summary><pre>'+esc(JSON.stringify(inventory,null,2))+'</pre></details></div>':"";
+ if(!rels.length)return raw+'<div class="empty">No relationship evidence available.</div>';
+ return raw+rels.map(r=>'<div class="panel"><h3>'+esc(r.target.kind)+": "+esc(r.target.name)+'</h3><div class="kv"><div>Relationship</div><div><code>'+esc(r.relationship_id)+'</code></div>'+
  '<div>Resolution</div><div>'+badge(r.resolution)+'</div><div>Source</div><div>'+loc(r.location)+'</div><div>Unresolved dimensions</div><div>'+esc((r.unresolved||[]).join(", ")||"none")+'</div></div>'+
  '<details><summary>Full evidence</summary><pre>'+esc(JSON.stringify({{evidence:r.evidence,dimensions:r.dimensions,approval:r.approval,semantics:r.semantics}},null,2))+'</pre></details></div>').join("");
 }}

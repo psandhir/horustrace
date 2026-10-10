@@ -204,6 +204,39 @@ def test_visual_report_does_not_promote_unrelated_provenance_to_source_context(
     assert len(report["findings"][0]["provenance"]) == 1
 
 
+
+def test_visual_report_cross_file_finding_evidence_and_agent_inventory(
+    tmp_path: Path,
+) -> None:
+    graph, findings = _graph(tmp_path)
+    findings[0].title = "Process execution"
+    findings[0].evidence = ["denied=process.execute"]
+    policy = EvidenceFact(
+        "support", "denied=process.execute", "declared",
+        SourceLocation(tmp_path / "horustrace.manifest.yaml", line=1),
+    )
+    observed = EvidenceFact(
+        "run_shell", "capability=process.execute", "observed",
+        SourceLocation(tmp_path / "agent.py", line=14),
+    )
+    findings[0].provenance = [policy, observed]
+    graph.agents[0].tools[0].provenance = [observed]
+
+    report = build_visual_report(graph, findings, tmp_path)
+    digest = report["findings"][0]["provenance_digest"]
+    assert {
+        (item["location"]["path"], item["location"]["line"])
+        for item in digest["items"]
+    } == {("agent.py", 14), ("horustrace.manifest.yaml", 1)}
+    assert report["agents"][0]["provenance_inventory"] == [{
+        **observed.as_dict(),
+        "location": {"path": "agent.py", "line": 14, "column": 1},
+    }]
+    html = render_visual_report_html(graph, findings, tmp_path)
+    assert "Full agent evidence inventory" in html
+    assert "source facts" in html
+
+
 def test_visual_report_surfaces_bound_and_unbound_skills(tmp_path: Path) -> None:
     bound_location = SourceLocation(tmp_path / "skills" / "review" / "SKILL.md")
     unbound_location = SourceLocation(tmp_path / "skills" / "unused" / "SKILL.md")
