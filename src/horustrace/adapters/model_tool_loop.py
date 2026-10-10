@@ -439,8 +439,52 @@ def _dynamic_sse_mcp(path: Path, node: ast.ClassDef) -> MCPServer | None:
     }
     if not shared_sessions:
         return None
-    if not any(_call_name(call.func) == "ClientSession" for call in calls):
+
+    # Reconstruct the concrete class attribute holding the ClientSession.
+    # Presence of ClientSession and an unrelated call_tool() is not enough.
+    assignments = [
+        child for child in ast.walk(node)
+        if isinstance(child, (ast.Assign, ast.AnnAssign))
+        and child.value is not None
+    ]
+    session_contexts: set[str] = set()
+    session_receivers: set[str] = set()
+    for assignment in assignments:
+        value = assignment.value
+        targets = (
+            assignment.targets if isinstance(assignment, ast.Assign)
+            else [assignment.target]
+        )
+        names = {
+            dotted for target in targets
+            if (dotted := _dotted(target)) and dotted.startswith("self.")
+        }
+        if isinstance(value, ast.Call) and _call_name(value.func) == "ClientSession":
+            session_contexts.update(names)
+            session_receivers.update(names)
+    for assignment in assignments:
+        value = assignment.value
+        if isinstance(value, ast.Await):
+            value = value.value
+        if not isinstance(value, ast.Call) or not isinstance(value.func, ast.Attribute):
+            continue
+        if (
+            value.func.attr != "__aenter__"
+            or _dotted(value.func.value) not in session_contexts
+        ):
+            continue
+        targets = (
+            assignment.targets if isinstance(assignment, ast.Assign)
+            else [assignment.target]
+        )
+        session_receivers.update(
+            dotted for target in targets
+            if (dotted := _dotted(target)) and dotted.startswith("self.")
+        )
+    shared_sessions &= session_receivers
+    if not shared_sessions:
         return None
+
     sse_calls = [
         call for call in calls
         if _call_name(call.func) == "sse_client"
