@@ -291,7 +291,7 @@ def test_visual_report_owasp_assessment_status_chart(tmp_path: Path) -> None:
     assert 'aria-label="OWASP Agentic Top 10 assessment states"' in html
     assert 'data-drill="owasp:status.' in html
     assert '["finding","Runtime findings"]' in html
-    assert '["no_runtime_findings","Non-runtime mapped findings"]' in html
+    assert '["no_runtime_findings","Mapped findings (none runtime-classified)"]' in html
     assert '["no_mapped_findings","No mapped findings"]' in html
     assert '["not_assessed","Not assessed"]' in html
     assert 'const shownCategories=statusMode?categories.filter(' in html
