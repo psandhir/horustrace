@@ -282,6 +282,25 @@ def test_visual_report_inline_javascript_is_syntactically_valid(tmp_path: Path) 
     assert check.returncode == 0, check.stderr
 
 
+def test_visual_report_owasp_assessment_status_chart(tmp_path: Path) -> None:
+    graph, findings = _graph(tmp_path)
+    before = build_visual_report(graph, findings, tmp_path)
+    html = render_visual_report_html(graph, findings, tmp_path)
+
+    assert 'function owaspAssessmentChart(categories)' in html
+    assert 'aria-label="OWASP Agentic Top 10 assessment states"' in html
+    assert 'data-drill="owasp:status.' in html
+    assert '["finding","Runtime findings"]' in html
+    assert '["no_runtime_findings","Non-runtime mapped findings"]' in html
+    assert '["no_mapped_findings","No mapped findings"]' in html
+    assert '["not_assessed","Not assessed"]' in html
+    assert 'const shownCategories=statusMode?categories.filter(' in html
+    assert 'scope+\'<div class="panel flush table-wrap">' in html
+    assert 'Detector coverage is not proof of security' in html
+    assert 'Not assessed means no enabled mapped detector' in html
+    assert before == build_visual_report(graph, findings, tmp_path)
+
+
 def test_visual_report_projects_attack_path_chain(tmp_path: Path) -> None:
     location = SourceLocation(tmp_path / "agent.py", line=10)
     agent = Agent(name="Slack Agent", location=location)
