@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from horustrace.effect_semantics import sql_call_capabilities
 from horustrace.heuristics import corroborate_name_inferred_authority, infer_capabilities
 from horustrace.models import (
     Agent,
@@ -770,6 +771,11 @@ def _body_call_capabilities(
         normalized = called.lower()
         leaf = (_call_name(child.func) or "").lower()
         receiver = child.func.value if isinstance(child.func, ast.Attribute) else None
+
+        # Literal SQL mutation is concrete persistence evidence even when the
+        # same tool also edits ephemeral RunContextWrapper state. Shared SQL
+        # semantics apply without inferring write authority from a method name.
+        capabilities.update(sql_call_capabilities(child))
 
         # Local/in-memory collection mutation is not persistent authority.
         # Repository/external helper effects are resolved by later source passes.
