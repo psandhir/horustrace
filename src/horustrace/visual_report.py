@@ -1238,7 +1238,11 @@ function renderAgentPaths(a){{
  if(!paths.length)return '<div class="empty">No attack path was reconstructed for this agent. Effective authority may still exist; a path is shown only when HorusTrace has the required source/capability evidence.</div>';
  return '<p class="muted">Solid connectors represent supported static data flow. Dashed connectors represent capability co-occurrence: the components are present on the same agent, but executable data flow is not proven.</p>'+paths.map(renderPathCard).join("");
 }}
-function renderAgentFindings(a){{return a.findings.length?a.findings.map(findingCard).join(""):'<div class="empty">No active findings mapped to this agent.</div>'}}
+function renderAgentFindings(a,owaspRisk=null){{
+ const items=owaspRisk?a.findings.filter(f=>(f.standards?.owasp_agentic||[]).includes(owaspRisk)):a.findings;
+ const filter=owaspRisk?'<div class="filter-banner"><span>OWASP '+esc(owaspRisk)+' · '+number(items.length)+' mapped findings for this agent</span><button class="back" id="clear-agent-owasp">Show all agent findings</button></div>':"";
+ return filter+(items.length?items.map(findingCard).join(""):'<div class="empty">No findings matched this agent and OWASP category.</div>');
+}}
 function renderAgentContract(a){{
  const c=a.contract;
  if(!c.declared)return '<div class="empty">No Authority Contract is declared for this agent.</div>';
@@ -1256,16 +1260,21 @@ function renderAgentEvidence(a){{
  '<div>Resolution</div><div>'+badge(r.resolution)+'</div><div>Source</div><div>'+loc(r.location)+'</div><div>Unresolved dimensions</div><div>'+esc((r.unresolved||[]).join(", ")||"none")+'</div></div>'+
  '<details><summary>Full evidence</summary><pre>'+esc(JSON.stringify({{evidence:r.evidence,dimensions:r.dimensions,approval:r.approval,semantics:r.semantics}},null,2))+'</pre></details></div>').join("");
 }}
-function openAgent(name){{
+function openAgent(name,initialTab="overview",owaspRisk=null){{
  const a=DATA.agents.find(x=>x.name===name); if(!a)return; const root=document.getElementById("agent-detail");
  root.innerHTML='<button class="breadcrumb" id="back-agents">← Back to agents</button><div class="agent-head"><div><div class="eyebrow">Agent security profile</div><h1>'+esc(a.name)+'</h1><div class="muted">'+esc(a.framework)+' · '+loc(a.location)+'</div></div><div class="page-actions">'+agentAttention(a)+badge(a.summary.contract_status)+'</div></div>'+
  '<div class="tabs" role="tablist"><button class="active" data-tab="overview">Overview</button><button data-tab="map">Agency map <span class="tab-count">'+number(a.summary.authority_relationships)+'</span></button><button data-tab="paths">Attack paths <span class="tab-count">'+number(a.summary.attack_paths)+'</span></button><button data-tab="findings">Findings <span class="tab-count">'+number(a.summary.findings)+'</span></button><button data-tab="contract">Contract <span class="tab-count">'+number(a.summary.contract_violations+a.summary.contract_unresolved)+'</span></button><button data-tab="evidence">Evidence</button></div>'+
- '<div id="tab-overview" class="agent-tab active">'+renderAgentOverview(a)+'</div><div id="tab-map" class="agent-tab">'+renderGraph(a)+'</div><div id="tab-paths" class="agent-tab">'+renderAgentPaths(a)+'</div><div id="tab-findings" class="agent-tab">'+renderAgentFindings(a)+'</div><div id="tab-contract" class="agent-tab">'+renderAgentContract(a)+'</div><div id="tab-evidence" class="agent-tab">'+renderAgentEvidence(a)+'</div>';
- root.querySelector("#back-agents").addEventListener("click",()=>showView("agents"));
+ '<div id="tab-overview" class="agent-tab active">'+renderAgentOverview(a)+'</div><div id="tab-map" class="agent-tab">'+renderGraph(a)+'</div><div id="tab-paths" class="agent-tab">'+renderAgentPaths(a)+'</div><div id="tab-findings" class="agent-tab">'+renderAgentFindings(a,owaspRisk)+'</div><div id="tab-contract" class="agent-tab">'+renderAgentContract(a)+'</div><div id="tab-evidence" class="agent-tab">'+renderAgentEvidence(a)+'</div>';
+ root.querySelector("#back-agents").textContent=owaspRisk?"← Back to OWASP "+owaspRisk:"← Back to agents";
+ root.querySelector("#back-agents").addEventListener("click",()=>{{if(owaspRisk){{renderOwasp(owaspRisk);showView("owasp");}}else showView("agents");}});
+ const clearOwasp=root.querySelector("#clear-agent-owasp");
+ if(clearOwasp)clearOwasp.addEventListener("click",()=>{{root.querySelector("#tab-findings").innerHTML=renderAgentFindings(a);}});
  root.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>{{
    if(btn.dataset.tab!=="map"){{const shell=root.querySelector("#agency-map-shell");if(shell)shell.classList.remove("expanded");document.body.classList.remove("graph-modal-open");const full=root.querySelector("#map-fullscreen");if(full){{full.textContent="Expand map";full.setAttribute("aria-pressed","false");}}}}
    root.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x===btn));root.querySelectorAll(".agent-tab").forEach(x=>x.classList.toggle("active",x.id==="tab-"+btn.dataset.tab));if(btn.dataset.tab==="map"){{drawGraph(a);bindGraphControls(a);}}
- }})); showView("agent-detail");
+ }}));
+ if(initialTab==="findings")root.querySelector('[data-tab="findings"]').click();
+ showView("agent-detail");
 }}
 
 function renderFindings(severity="all"){{
@@ -1294,23 +1303,45 @@ function owaspStatusLabel(item){{
  if(item.runtime_status==="no_mapped_findings")return "no mapped findings";
  return "not assessed";
 }}
+function owaspAgentRows(mapped){{
+ const grouped=new Map();
+ mapped.forEach(f=>{{const name=typeof f.agent==="string"?f.agent.trim():"";const key=name||"(unattributed)";if(!grouped.has(key))grouped.set(key,{{name,findings:[]}});grouped.get(key).findings.push(f);}});
+ if(!grouped.size)return '<div class="empty">No mapped agent findings in this category.</div>';
+ const rows=[...grouped.values()].sort((a,b)=>b.findings.length-a.findings.length||a.name.localeCompare(b.name)).map(group=>{{
+  const canOpen=Boolean(group.name&&DATA.agents.some(agent=>agent.name===group.name));
+  const runtime=group.findings.filter(f=>f.source_context==="runtime").length;
+  const highest=group.findings.map(f=>f.severity).sort((a,b)=>severityRank(b)-severityRank(a))[0]||"—";
+  const rules=[...new Set(group.findings.map(f=>f.rule_id))].sort();
+  const rowAction=canOpen?' role="button" tabindex="0" data-owasp-agent="'+encodeURIComponent(group.name)+'"':"";
+  return '<tr class="'+(canOpen?"clickable":"")+'"'+rowAction+'><td><div class="row-title">'+esc(group.name||"Unattributed findings")+'</div><div class="row-sub">'+(canOpen?"Open agent profile and category findings":"Agent profile unavailable; review evidence below")+'</div></td><td>'+number(runtime)+'</td><td>'+number(group.findings.length)+'</td><td>'+badge(highest)+'</td><td>'+esc(rules.join(", "))+'</td><td class="row-chevron">'+(canOpen?"›":"")+'</td></tr>';
+ }}).join("");
+ return '<div class="panel flush table-wrap"><table aria-label="Agents with mapped OWASP findings"><thead><tr><th>Agent</th><th>Runtime findings</th><th>Total findings</th><th>Highest</th><th>Mapped rules</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}}
 function renderOwasp(risk="all"){{
  const report=DATA.owasp_agentic,categories=report.categories||[];
  const statusMode=String(risk).startsWith("status.")?String(risk).slice(7):null;
  const shownCategories=statusMode?categories.filter(item=>owaspStatusLabel(item).replaceAll(" ","_")===statusMode):categories;
- const rows=shownCategories.map(item=>'<tr class="clickable" role="button" tabindex="0" data-owasp="'+esc(item.id)+'"><td><div class="row-title">'+esc(item.id)+" "+esc(item.title)+'</div><div class="row-sub">'+esc((item.mapped_rules||[]).join(", ")||"no enabled mapped detector")+'</div></td><td>'+badge(owaspStatusLabel(item).replaceAll(" ","_"))+'</td><td>'+number(item.runtime_finding_count)+'</td><td>'+number(item.finding_count)+'</td><td>'+esc(item.highest_severity||"—")+'</td><td>'+number((item.affected_agents||[]).length)+'</td></tr>').join("");
+ const rows=shownCategories.map(item=>{{
+  const agents=item.affected_agents||[];
+  const preview=agents.length?agents.slice(0,2).join(", ")+(agents.length>2?" +"+number(agents.length-2)+" more":""):(item.finding_count?"Findings without agent attribution":"No attributed agents");
+  return '<tr class="clickable" role="button" tabindex="0" aria-label="Inspect '+esc(item.id)+' category and affected agents" data-owasp="'+esc(item.id)+'"><td><div class="row-title">'+esc(item.id)+" "+esc(item.title)+'</div><div class="row-sub">'+esc((item.mapped_rules||[]).join(", ")||"no enabled mapped detector")+'</div></td><td>'+badge(owaspStatusLabel(item).replaceAll(" ","_"))+'</td><td>'+number(item.runtime_finding_count)+'</td><td>'+number(item.finding_count)+'</td><td>'+esc(item.highest_severity||"—")+'</td><td><div class="row-title">'+number(agents.length)+'</div><div class="row-sub">'+esc(preview)+'</div></td><td class="row-chevron">›</td></tr>';
+ }}).join("");
  const selected=risk!=="all"&&!statusMode?categories.find(item=>item.id===risk):null;
  const mapped=selected?DATA.findings.filter(f=>(f.standards?.owasp_agentic||[]).includes(selected.id)):[];
  const scope=statusMode?'<div class="filter-banner"><span>Assessment filter: '+esc(statusMode.replaceAll("_"," "))+' · '+number(shownCategories.length)+' categories</span><button class="back" id="owasp-clear">Show all categories</button></div>':"";
- const detail=selected?sectionHead(selected.id+" "+selected.title,"Mapped detector evidence for the selected OWASP category.",'<button class="back" id="owasp-clear">Show all</button>')+
+ const detail=selected?'<div id="owasp-detail">'+sectionHead(selected.id+" "+selected.title,"Mapped findings and attributed agents (static evidence, not proof of an exploited violation).",'<button class="back" id="owasp-clear">Show all categories</button>')+
    '<div class="cards">'+metric("Total findings",selected.finding_count)+metric("Runtime findings",selected.runtime_finding_count)+metric("Affected agents",(selected.affected_agents||[]).length)+metric("Enabled mapped rules",(selected.mapped_rules||[]).length)+'</div>'+
-   (mapped.length?mapped.map(findingCard).join(""):'<div class="empty">No mapped findings fired for this category.</div>'):"";
+   sectionHead("Affected agents","Select an agent to review only the findings associated with this OWASP category.")+
+   owaspAgentRows(mapped)+
+   sectionHead("Mapped finding evidence","Unattributed findings remain visible; agent counts exclude findings without an agent name.")+
+   (mapped.length?mapped.map(findingCard).join(""):'<div class="empty">No mapped findings fired for this category.</div>')+'</div>':"";
  const a=DATA.assurance.owasp_agentic;
  const root=document.getElementById("owasp");
  root.innerHTML=pageHead("Standards posture","OWASP Agentic Top 10","Detector-level status for every OWASP Top 10 for Agentic Applications 2026 category. NOT ASSESSED means HorusTrace has no enabled mapped detector.",badge(a.status))+
  '<div class="cards">'+metric("Categories with findings",a.categories_with_findings,a.categories_with_findings?"warn":"")+metric("Runtime finding categories",a.categories_with_runtime_findings)+metric("Mapped detector categories",a.categories_with_mapped_detectors)+metric("Not assessed",a.categories_not_assessed,a.categories_not_assessed?"warn":"")+'</div>'+
- scope+'<div class="panel flush table-wrap"><table><thead><tr><th>OWASP category</th><th>Status</th><th>Runtime findings</th><th>Total findings</th><th>Highest</th><th>Agents</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+detail;
- root.querySelectorAll("[data-owasp]").forEach(row=>{{const activate=()=>renderOwasp(row.dataset.owasp);row.addEventListener("click",activate);row.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});}});
+ detail+scope+'<div class="panel flush table-wrap"><table><thead><tr><th>OWASP category</th><th>Status</th><th>Runtime findings</th><th>Total findings</th><th>Highest</th><th>Agents</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+ root.querySelectorAll("[data-owasp]").forEach(row=>{{const activate=()=>{{renderOwasp(row.dataset.owasp);const detail=root.querySelector("#owasp-detail");if(detail)detail.scrollIntoView({{block:"start"}});}};row.addEventListener("click",activate);row.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});}});
+ root.querySelectorAll("[data-owasp-agent]").forEach(row=>{{const activate=()=>openAgent(decodeURIComponent(row.dataset.owaspAgent),"findings",selected.id);row.addEventListener("click",activate);row.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});}});
  const clear=root.querySelector("#owasp-clear");if(clear)clear.addEventListener("click",()=>renderOwasp("all"));
 }}
 
