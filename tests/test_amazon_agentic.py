@@ -1080,3 +1080,93 @@ agent = Agent(tools=[inspect_repository])
     assert "mcp-tool:get_file_contents" in tool.metadata[
         "repository_effect_evidence"
     ]
+
+
+def test_strands_repository_recovers_agentcore_http_delegation_across_imports(
+    tmp_path: Path,
+) -> None:
+    """Pinned AWS supervisor pattern: remote agents are not ordinary webhooks."""
+    write(
+        tmp_path,
+        '''
+from strands import tool
+import os
+import requests
+
+@tool
+def order_management_tool(query: str) -> str:
+    runtime_id = os.getenv("ORDER_MANAGEMENT_AGENT_RUNTIME_ID")
+    region = os.getenv("AWS_REGION", "us-east-1")
+    jwt_token = os.getenv("FORWARDED_JWT")
+    url = f"https://bedrock-agentcore.{region}.amazonaws.com/runtimes/{runtime_id}/invocations?qualifier=DEFAULT"
+    headers = {"Authorization": jwt_token}
+    payload = {"query": query, "jwt_token": jwt_token}
+    return requests.post(url, headers=headers, json=payload, timeout=120).text
+
+@tool
+def support_webhook(query: str) -> str:
+    return requests.post("https://support.example.test/webhook", json={"query": query}).text
+
+@tool
+def runtime_status(query: str) -> str:
+    return requests.post(
+        "https://bedrock-agentcore.us-east-1.amazonaws.com/runtimes/id/status",
+        json={"query": query},
+    ).text
+
+@tool
+def agentcore_decoy_webhook(query: str) -> str:
+    description = "bedrock-agentcore /runtimes/ /invocations"
+    return requests.post("https://support.example.test/webhook", json={"query": query}).text
+''',
+        "tools.py",
+    )
+    write(
+        tmp_path,
+        '''
+from strands import Agent
+from tools import order_management_tool, support_webhook, runtime_status, agentcore_decoy_webhook
+
+supervisor = Agent(tools=[order_management_tool, support_webhook, runtime_status, agentcore_decoy_webhook])
+''',
+        "supervisor.py",
+    )
+
+    graph, _ = scan(tmp_path)
+    supervisor = next(agent for agent in graph.agents if agent.name == "supervisor")
+    tools = {tool.name: tool for tool in supervisor.tools}
+    order = tools["order_management_tool"]
+    assert {"agent.delegate", "network.external"} <= order.capabilities
+    assert "external.write" not in order.capabilities
+    assert "data.write" not in order.capabilities
+    assert order.metadata["authority_binding_basis"] == "source_proven_agentcore_http_invocation"
+    assert order.metadata["delegation_target_resolution"] == "runtime_configured_unresolved"
+    assert order.metadata["credential_forwarding"] == "jwt_token_forwarded_to_remote_agent"
+    assert order.metadata["runtime_effectiveness"] == "not_verified"
+    assert "agent.delegate" not in tools["support_webhook"].capabilities
+    assert "agent.delegate" not in tools["runtime_status"].capabilities
+    assert "agent.delegate" not in tools["agentcore_decoy_webhook"].capabilities
+
+    from horustrace.effective_authority import effective_authority_relationships
+
+    relationships = effective_authority_relationships(graph)
+    remote = [
+        item for item in relationships
+        if item.target_kind == "delegation"
+        and item.semantics.get("binding_origin") == "source_proven_agentcore_http_invocation"
+    ]
+    assert len(remote) == 1
+    assert remote[0].agent == "supervisor"
+    assert remote[0].target_name == "<dynamic-agentcore-runtime:order_management_tool>"
+    assert remote[0].semantics["delegation_transport"] == (
+        "bedrock_agentcore_runtime_http"
+    )
+    assert remote[0].semantics["credential_forwarding"] == (
+        "jwt_token_forwarded_to_remote_agent"
+    )
+    assert remote[0].semantics["delegation_target_resolution"] == (
+        "runtime_configured_unresolved"
+    )
+    assert "delegation_target" in remote[0].unresolved
+    assert remote[0].identity is None
+    assert remote[0].semantics["delegation_boundary"]["child_authority_promoted"] is False
