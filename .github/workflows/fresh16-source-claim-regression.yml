@@ -10,6 +10,13 @@ on:
       - research/source-claim-regression/**
       - scripts/source_claim_regression_gate.py
       - src/horustrace/**
+  pull_request:
+    paths:
+      - .github/workflows/fresh16-source-claim-regression.yml
+      - research/fresh-unseen-generalization-20/**
+      - research/source-claim-regression/**
+      - scripts/source_claim_regression_gate.py
+      - src/horustrace/**
   workflow_dispatch:
 
 permissions:
