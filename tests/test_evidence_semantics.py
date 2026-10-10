@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from horustrace.cli import main
-from horustrace.provenance import control_observations
+from horustrace.provenance import context, control_observations
 from horustrace.scanner import scan
 
 
@@ -26,10 +26,14 @@ agents:
     policy:
       denied_capabilities: [process.execute]
 ''')
-    _, findings = scan(tmp_path)
+    graph, findings = scan(tmp_path)
     policy = next(f for f in findings if f.rule_id == 'CAP002')
     assert policy.assessment == 'policy_violation'
-    assert {f.origin for f in policy.provenance} == {'observed', 'declared', 'inferred'}
+    # Only denied policy and matching execution tools substantiate CAP002.
+    assert {f.origin for f in policy.provenance} == {'observed', 'declared'}
+    # Unrelated inferred destruction is still retained in the agent inventory.
+    assert any(f.fact == 'capability=destructive.write' and f.origin == 'inferred'
+               for f in context(graph.agents[0]))
     assert any(f.fact == 'denied=process.execute' and f.location.path == manifest
                for f in policy.provenance)
     destructive = next(f for f in findings if f.rule_id == 'AGT021')
