@@ -62,6 +62,8 @@ def relationship_metrics(post: dict[str, dict]) -> dict:
     source_context = Counter()
     findings_context = Counter()
     path_basis = Counter()
+    path_runtime_viability = Counter()
+    blocked_paths_by_case: dict[str, list[dict]] = {}
     restricted_destinations = 0
     total_destinations = 0
 
@@ -82,10 +84,22 @@ def relationship_metrics(post: dict[str, dict]) -> dict:
         for finding in item.get("findings") or []:
             findings_context[str(finding.get("source_context") or "unknown")] += 1
 
-        for path in item.get("attack_paths") or []:
+        for index, path in enumerate(item.get("attack_paths") or []):
             metadata = path.get("metadata") or {}
             basis = path.get("basis") or metadata.get("basis") or "unknown"
             path_basis[str(basis)] += 1
+            # Absence of an explicit blocker is NOT proof of exploitability.
+            viability = str(metadata.get("runtime_viability") or "not_assessed")
+            path_runtime_viability[viability] += 1
+            if viability.startswith("blocked_"):
+                blocked_paths_by_case.setdefault(
+                    item.get("case_id") or "<unknown>", []
+                ).append({
+                    "path_index": index,
+                    "path_id": path.get("path_id"),
+                    "runtime_viability": viability,
+                    "runtime_blockers": metadata.get("runtime_blockers") or [],
+                })
 
     total_relationships = sum(core.values())
     return {
@@ -99,6 +113,19 @@ def relationship_metrics(post: dict[str, dict]) -> dict:
         "relationships_by_source_context": dict(sorted(source_context.items())),
         "findings_by_source_context": dict(sorted(findings_context.items())),
         "attack_paths_by_basis": dict(sorted(path_basis.items())),
+        "attack_paths_by_runtime_viability": dict(
+            sorted(path_runtime_viability.items())
+        ),
+        "blocked_attack_paths_by_case": dict(sorted(blocked_paths_by_case.items())),
+        "not_explicitly_blocked_paths": (
+            sum(path_runtime_viability.values())
+            - sum(count for status, count in path_runtime_viability.items()
+                  if status.startswith("blocked_"))
+        ),
+        "runtime_viability_interpretation": (
+            "Not explicitly blocked means source evidence did not demonstrate "
+            "a runtime blocker; runtime execution and exploitability remain unverified."
+        ),
         "destinations": {
             "total": total_destinations,
             "restricted": restricted_destinations,
@@ -334,6 +361,9 @@ def main() -> int:
         f"- relationship source context: `{json.dumps(metrics['relationships_by_source_context'], sort_keys=True)}`",
         f"- finding source context: `{json.dumps(metrics['findings_by_source_context'], sort_keys=True)}`",
         f"- attack-path basis: `{json.dumps(metrics['attack_paths_by_basis'], sort_keys=True)}`",
+        f"- runtime viability: `{json.dumps(metrics['attack_paths_by_runtime_viability'], sort_keys=True)}`",
+        f"- potential paths without *explicitly observed* blockers: **{metrics['not_explicitly_blocked_paths']}** (execution NOT verified)",
+        f"- blocked paths by case: `{json.dumps(metrics['blocked_attack_paths_by_case'], sort_keys=True)}`",
         f"- restricted destinations: **{metrics['destinations']['restricted']}/{metrics['destinations']['total']}**",
         "",
         "## Changed cases",

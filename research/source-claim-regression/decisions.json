@@ -1,4 +1,15 @@
 {
   "schema_version": 1,
-  "decisions": []
+  "decisions": [
+    {
+      "case_id": "gen-oai-003",
+      "finding_index": 2,
+      "disposition": "consolidated",
+      "rationale": "NET002 repeats the same missing egress restriction already reported by source-specific NET001 for the only dynamic MCP authority attached to this agent; no independent network tool exists in the pinned source.",
+      "source_evidence": {
+        "path": "client.py",
+        "line": 15
+      }
+    }
+  ]
 }
