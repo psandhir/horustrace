@@ -960,6 +960,8 @@ html[data-theme="light"] .page-title-row .ui-icon{{color:#21639b}}
 .supply-node[data-kind="skill"] rect,.supply-node[data-kind="model"] rect{{fill:#f0eaff;stroke:#b5a1d4}}
 .supply-node[data-kind="identity"] rect,.supply-node[data-kind="approval_control"] rect,.supply-node[data-kind="policy_control"] rect{{fill:#e7f5ed;stroke:#84bc9c}}
 .supply-node[data-kind="network_destination"] rect,.supply-node[data-kind="data_resource"] rect{{fill:#fff0e4;stroke:#d5aa87}}
+.supply-node[data-kind="input"] rect{{fill:#e7f5f8;stroke:#7eafbd}}
+.supply-node[data-kind="input"][data-trust="untrusted"] rect{{fill:#fff1e7;stroke:#d58d72;stroke-dasharray:5 3}}
 .supply-node text{{fill:#23354a}}
 .supply-node .supply-kind{{font-size:10px;fill:#526783}}
 .supply-node{{cursor:pointer}}
@@ -967,6 +969,7 @@ html[data-theme="light"] .page-title-row .ui-icon{{color:#21639b}}
 .supply-edge{{fill:none;stroke:#7893ae;stroke-width:1.5;opacity:.62;cursor:pointer}}
 .supply-edge.authority{{stroke:#668f80;stroke-dasharray:5 4}}
 .supply-edge.data{{stroke:#ce9574}}
+.supply-edge.input{{stroke:#5d9cad;stroke-width:1.8}}
 .supply-edge:hover,.supply-edge.selected{{stroke-width:3;opacity:1}}
 .supply-inspector{{min-height:165px}}
 .supply-relationship{{padding:8px 0;border-bottom:1px solid var(--line);font-size:12px}}
@@ -977,6 +980,8 @@ html[data-theme="dark"] .supply-node[data-kind="mcp_server"] rect,html[data-them
 html[data-theme="dark"] .supply-node[data-kind="skill"] rect,html[data-theme="dark"] .supply-node[data-kind="model"] rect{{fill:#302946}}
 html[data-theme="dark"] .supply-node[data-kind="identity"] rect,html[data-theme="dark"] .supply-node[data-kind="approval_control"] rect,html[data-theme="dark"] .supply-node[data-kind="policy_control"] rect{{fill:#1f382e}}
 html[data-theme="dark"] .supply-node[data-kind="network_destination"] rect,html[data-theme="dark"] .supply-node[data-kind="data_resource"] rect{{fill:#403123}}
+html[data-theme="dark"] .supply-node[data-kind="input"] rect{{fill:#203945}}
+html[data-theme="dark"] .supply-node[data-kind="input"][data-trust="untrusted"] rect{{fill:#473024}}
 html[data-theme="dark"] .supply-node text{{fill:#e2e9f2}}
 html[data-theme="dark"] .supply-node .supply-kind{{fill:#a6b8d0}}
 </style>
@@ -1346,10 +1351,11 @@ const SUPPLY_LAYER_EDGES=Object.freeze({{
  authority:new Set(["USES_IDENTITY","CAN_REACH_AUTHORITY","AUTHORIZES_ACCESS_TO","AUTHORIZES_CONNECTION_TO","GUARDED_BY","IMPLEMENTS_CONTROL"])
 }});
 function supplyColumn(kind){{
- if(["agent","workflow_node"].includes(kind))return 0;
- if(["tool","mcp_server","skill","model","prompt","delegation","capability"].includes(kind))return 1;
- if(["identity","approval_control","policy_control"].includes(kind))return 2;
- return 3;
+ if(kind==="input")return 0;
+ if(["agent","workflow_node"].includes(kind))return 1;
+ if(["tool","mcp_server","skill","model","prompt","delegation","capability","mcp_tool_scope"].includes(kind))return 2;
+ if(["identity","approval_control","policy_control"].includes(kind))return 3;
+ return 4;
 }}
 function supplyTopologyVisible(focus="all",layer="all",query=""){{
  const topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[],edges=topology.edges||[];
@@ -1387,29 +1393,45 @@ function supplyTopologyVisible(focus="all",layer="all",query=""){{
  return {{nodes:scopedNodes,edges:scopedEdges,candidates,possibleEdges,shownEdges,byId}};
 }}
 function supplySvg(view,selectedId){{
- const groups=[[],[],[],[]];
+ const groups=[[],[],[],[],[]];
  view.nodes.forEach(n=>groups[supplyColumn(n.kind)].push(n));
- const width=1180, colX=[20,314,608,902], nodeWidth=248, rowHeight=69;
+ const width=1520,colX=[20,320,620,920,1220],nodeWidth=256,rowHeight=69;
  const height=Math.max(400,Math.max(...groups.map(g=>g.length))*rowHeight+66);
  const coords=new Map();
- const columns=["Agents & workflow","Tools / MCP / models / skills","Identities & controls","Data & destinations"];
+ const columns=["Inputs & sources","Agents & workflow","Tools / MCP / models / skills","Identities & controls","Data & destinations"];
  const headers=columns.map((label,i)=>'<text class="supply-col-title" x="'+(colX[i]+3)+'" y="26">'+esc(label)+'</text>').join("");
  const graphNodes=groups.map((group,col)=>group.map((n,index)=>{{
   const x=colX[col],y=47+index*rowHeight;coords.set(n.id,{{x,y}});
   const selected=selectedId===n.id;
-  const title=n.name.length>29?n.name.slice(0,26)+"…":n.name;
-  return '<g class="supply-node '+(selected?"selected":"")+'" data-kind="'+esc(n.kind)+'" data-supply-node="'+esc(n.id)+'" role="button" tabindex="0" aria-label="'+esc(n.kind+" "+n.name)+'" transform="translate('+x+','+y+')">'+
-   '<rect width="'+nodeWidth+'" height="51" rx="9"></rect><text x="11" y="20" font-weight="700">'+esc(title)+'</text><text class="supply-kind" x="11" y="38">'+esc(n.kind.replaceAll("_"," "))+'</text></g>';
+  const title=n.name.length>30?n.name.slice(0,27)+"…":n.name;
+  const trust=n.kind==="input"?String(n.attributes?.trust||"unknown"):"";
+  const untrusted=trust.toLowerCase()==="untrusted";
+  const subtitle=n.kind==="input"?
+    String(n.attributes?.input_kind||"input")+" · "+trust:n.kind.replaceAll("_"," ");
+  return '<g class="supply-node '+(selected?"selected":"")+'" data-kind="'+esc(n.kind)+'" data-trust="'+esc(trust)+'" data-supply-node="'+esc(n.id)+'" role="button" tabindex="0" aria-label="'+esc(n.kind+" "+n.name+(n.kind==="input"?", "+subtitle:""))+'" transform="translate('+x+','+y+')">'+
+   '<rect width="'+nodeWidth+'" height="51" rx="9"></rect><text x="11" y="20" font-weight="700">'+esc(title)+'</text><text class="supply-kind" x="11" y="38">'+esc(subtitle.length>34?subtitle.slice(0,31)+"…":subtitle)+'</text>'+
+   '<title>'+esc(n.name+(untrusted?" — untrusted input":""))+'</title></g>';
  }}).join("")).join("");
  const links=view.edges.map(e=>{{
-  const a=coords.get(e.source),b=coords.get(e.target);if(!a||!b)return "";
-  const forward=b.x>a.x, same=b.x===a.x;
-  const x1=a.x+(forward?nodeWidth:(same?nodeWidth/2:0)),y1=a.y+26,x2=b.x+(forward?0:(same?nodeWidth/2:nodeWidth)),y2=b.y+26;
-  const bend=forward?65:-65;
+  // Canonical RECEIVES_INPUT_FROM points agent -> input (a relationship).
+  // The diagram arrow communicates information flow input -> receiving agent.
+  // We do NOT change the stored edge endpoints, ID or provenance.
+  const inputToAgent=e.kind==="RECEIVES_INPUT_FROM"&&
+    view.byId.get(e.source)?.kind==="agent"&&view.byId.get(e.target)?.kind==="input";
+  const displayedFrom=inputToAgent?e.target:e.source;
+  const displayedTo=inputToAgent?e.source:e.target;
+  const a=coords.get(displayedFrom),b=coords.get(displayedTo);if(!a||!b)return "";
+  const forward=b.x>a.x,same=b.x===a.x;
+  const x1=a.x+(forward?nodeWidth:(same?nodeWidth/2:0)),y1=a.y+26;
+  const x2=b.x+(forward?0:(same?nodeWidth/2:nodeWidth)),y2=b.y+26;
+  const bend=Math.min(55,Math.max(12,Math.abs(x2-x1)/2));
   const d=same?("M"+x1+" "+y1+" C"+(x1+105)+" "+y1+" "+(x2+105)+" "+y2+" "+x2+" "+y2):
-   ("M"+x1+" "+y1+" C"+(x1+bend)+" "+y1+" "+(x2-bend)+" "+y2+" "+x2+" "+y2);
-  const group=SUPPLY_LAYER_EDGES.authority.has(e.kind)?"authority":SUPPLY_LAYER_EDGES.data.has(e.kind)?"data":"";
-  return '<path class="supply-edge '+group+(selectedId===e.id?" selected":"")+'" d="'+d+'" marker-end="url(#supply-arrow)" data-supply-edge="'+esc(e.id)+'" role="button" tabindex="0" aria-label="'+esc(e.kind+" from "+(view.byId.get(e.source)?.name||"unknown")+" to "+(view.byId.get(e.target)?.name||"unknown"))+'"><title>'+esc(e.kind)+'</title></path>';
+   ("M"+x1+" "+y1+" C"+(x1+(forward?bend:-bend))+" "+y1+" "+(x2+(forward?-bend:bend))+" "+y2+" "+x2+" "+y2);
+  const group=inputToAgent?"input":SUPPLY_LAYER_EDGES.authority.has(e.kind)?"authority":SUPPLY_LAYER_EDGES.data.has(e.kind)?"data":"";
+  const description=inputToAgent?
+    "Input flows from "+view.byId.get(e.target).name+" to "+view.byId.get(e.source).name:
+    e.kind+" from "+(view.byId.get(e.source)?.name||"unknown")+" to "+(view.byId.get(e.target)?.name||"unknown");
+  return '<path class="supply-edge '+group+(selectedId===e.id?" selected":"")+'" d="'+d+'" marker-end="url(#supply-arrow)" data-supply-edge="'+esc(e.id)+'" data-edge-kind="'+esc(e.kind)+'" data-diagram-from="'+esc(displayedFrom)+'" data-diagram-to="'+esc(displayedTo)+'" role="button" tabindex="0" aria-label="'+esc(description)+'"><title>'+esc(description)+'</title></path>';
  }}).join("");
  return '<svg class="supply-diagram" width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'" role="group" aria-label="Source-backed agent dependency topology">'+
  '<defs><marker id="supply-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#7f98ad"></path></marker></defs>'+
@@ -1424,12 +1446,15 @@ function supplyInspector(selectedId,focus,layer,view){{
   const source=byId.get(edge.source),target=byId.get(edge.target),attrs=edge.attributes||{{}};
   const descriptions=[["Relationship",edge.kind.replaceAll("_"," ")],["From",source?.name||"unknown"],["To",target?.name||"unknown"],["Source location",edge.location?.path?(edge.location.path+":"+(edge.location.line||1)):"n/a"]];
   ["basis","via_agent","flow_id","route"].forEach(key=>{{if(attrs[key]!=null)descriptions.push([key.replaceAll("_"," "),String(attrs[key])]);}});
+  if(edge.kind==="RECEIVES_INPUT_FROM"&&source?.kind==="agent"&&target?.kind==="input")
+   descriptions.push(["Diagram arrow","Input → agent (information received; graph endpoints unchanged)"]);
   return '<h3>Dependency evidence</h3><div class="kv small">'+descriptions.map(([a,b])=>'<div>'+esc(a)+'</div><div>'+esc(b)+'</div>').join("")+'</div>'+
  '<p class="supply-note">The edge represents detected static configuration or analysis, not verified runtime activity.</p>';
  }}
  const attrs=node.attributes||{{}};
  const properties=[["Type",node.kind],["Framework",node.framework||"unknown"],["Source location",node.location?.path?(node.location.path+":"+(node.location.line||1)):"n/a"]];
- const safeKeys=["tool_kind","capabilities","binding_state","binding_origin","model_key","model_provider","transport","authenticated","approval","provider","roles","permissions","source","allowed_tools","resolution","persistent","workflow","route","basis","credential_source","discovery_basis","has_scripts"];
+ if(node.kind==="input")properties.push(["Input semantics","Scanner-observed input source; may be user, retrieved, or intermediate content."]);
+ const safeKeys=["input_kind","trust","tool_kind","capabilities","binding_state","binding_origin","model_key","model_provider","transport","authenticated","approval","provider","roles","permissions","source","allowed_tools","resolution","persistent","workflow","route","basis","credential_source","discovery_basis","has_scripts"];
  for(const key of safeKeys){{
   const value=attrs[key];if(value===undefined||value===null)continue;
   properties.push([key.replaceAll("_"," "),Array.isArray(value)?value.map(String).join(", "):String(value)]);
@@ -1459,7 +1484,7 @@ function renderSupplyChain(focus="all",layer="all",selectedId=null,query=""){{
  '<div class="supply-toolbar"><label class="small" for="supply-focus">Scope</label><select class="supply-select" id="supply-focus" aria-label="Focus supply chain on agent">'+options+'</select>'+
  '<input class="search" id="supply-search" aria-label="Search supply chain" placeholder="Find agent, model, tool, MCP, skill or resource" value="'+esc(query)+'"></div>'+
  '<div class="filter-chips" role="group" aria-label="Relationship categories">'+chips+'</div>'+
- '<p class="supply-note">Dashed green: source-reconstructed authority. Orange: data and destination. All lines are directed static relationships; line presence does not prove runtime invocation.</p>'+
+ '<p class="supply-note">Inputs are shown before receiving agents. Input arrows show information flowing into an agent, while the canonical RECEIVES_INPUT_FROM relation keeps its original endpoints. Retrieved and intermediate inputs are not automatically external or untrusted. Dashed green: authority; orange: data/destination. Static evidence does not prove runtime execution.</p>'+
  warning+'<div class="supply-viewport">'+(view.nodes.length?supplySvg(view,selectedId):'<div class="empty">No nodes matched this scope and filter.</div>')+'</div>'+
  sectionHead("Dependency inspector","Select an individual node or edge for traceable relationships and source locations.")+
  '<div class="panel supply-inspector" id="supply-inspector">'+supplyInspector(selectedId,focus,layer,view)+'</div>';
