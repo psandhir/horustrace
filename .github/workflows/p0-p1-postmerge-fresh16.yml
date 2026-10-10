@@ -1,0 +1,163 @@
+name: P0 P1 Postmerge Fresh16 Source Regression
+
+on:
+  push:
+    branches:
+      - research/p0-p1-postmerge-fresh16-20261010
+    paths:
+      - .github/workflows/p0-p1-postmerge-fresh16.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: p0-p1-postmerge-fresh16
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: ${{ matrix.case_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        case_id:
+          - gen-adk-001
+          - gen-adk-002
+          - gen-adk-003
+          - gen-adk-004
+          - gen-pyd-001
+          - gen-pyd-002
+          - gen-pyd-003
+          - gen-pyd-004
+          - gen-oai-001
+          - gen-oai-002
+          - gen-oai-003
+          - gen-oai-004
+          - gen-mcp-001
+          - gen-mcp-002
+          - gen-mcp-003
+          - gen-mcp-004
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Verify final scanner source and frozen cohort
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor c6cdd89b962d7432df4473527d822e8336d5f288 HEAD
+          git diff --quiet c6cdd89b962d7432df4473527d822e8336d5f288 HEAD -- src/horustrace
+          test "$(git hash-object research/fresh-unseen-generalization-20/cohort.json)" = "8526378a3c54d6ae74bab9b3982e8303fb14bce7"
+      - name: Install scanner without target code
+        run: python -m pip install -e .
+      - name: Scan original pinned source
+        run: |
+          python research/fresh-unseen-generalization-20/run_case.py \
+            --case-id "${{ matrix.case_id }}" \
+            --output-dir artifacts
+      - name: Upload complete per-case evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: p0p1-postmerge-${{ matrix.case_id }}
+          path: artifacts/${{ matrix.case_id }}/
+          if-no-files-found: error
+          retention-days: 30
+
+  aggregate:
+    needs: scan
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Download exact-case artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: p0p1-postmerge-*
+          path: downloaded
+      - name: Fail closed on missing evidence and compare counts
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          from collections import Counter
+
+          cohort=json.loads(Path("research/fresh-unseen-generalization-20/cohort.json").read_text())
+          expected={c["case_id"]:c for c in cohort["cases"] if c["framework"]!="langgraph"}
+          assert len(expected)==16 and Counter(c["framework"] for c in expected.values()) == {
+              "google-adk":4,"pydantic-ai":4,"openai-agents":4,"mcp-custom":4
+          }
+          files=sorted(Path("downloaded").rglob("result.json"))
+          errors=[]
+          observed={}
+          for p in files:
+              try:
+                  row=json.loads(p.read_text(encoding="utf-8"))
+                  ident=row["case_id"]
+                  if ident not in expected or ident in observed:
+                      raise ValueError("unknown or duplicate case: "+ident)
+                  case=expected[ident]
+                  for field in ("repo","sha","framework"):
+                      if row.get(field)!=case[field]:
+                          raise ValueError(ident+": mismatched pinned "+field)
+                  for kind in ("findings","attack_paths"):
+                      if (row.get("counts") or {}).get(kind)!=len(row.get(kind,[])):
+                          raise ValueError(ident+": inconsistent "+kind)
+                  for name in ("scan.json","security-graph.json","source-pack.txt"):
+                      if not p.with_name(name).is_file():
+                          raise ValueError(ident+": missing evidence "+name)
+                  if not p.with_name("source-pack.txt").read_text(encoding="utf-8"):
+                      raise ValueError(ident+": empty source evidence")
+                  observed[ident]=row
+              except (ValueError, OSError, KeyError, TypeError) as exc:
+                  errors.append(str(exc))
+          missing=sorted(set(expected)-set(observed))
+          if missing: errors.append("Missing frozen cases: "+", ".join(missing))
+          scanner_sha=subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip()
+          source_sha="c6cdd89b962d7432df4473527d822e8336d5f288"
+          groups={}
+          for row in observed.values():
+              g=groups.setdefault(row["framework"],Counter())
+              g["repositories"]+=1
+              for k in ("agents","findings","attack_paths"):
+                  g[k]+=int(row["counts"].get(k,0))
+          totals={k:sum(int(row["counts"].get(k,0)) for row in observed.values()) for k in ("agents","findings","attack_paths")}
+          result={"study":"P0-P1-postmerge-Fresh16","scanner_study_commit":scanner_sha,
+                  "merged_main_source_commit":source_sha,"frozen_source_manifest_blob":"8526378a3c54d6ae74bab9b3982e8303fb14bce7",
+                  "expected":16,"completed":len(observed),"errors":errors,"totals":totals,
+                  "frameworks":{k:dict(v) for k,v in sorted(groups.items())},
+                  "cases":[{"case_id":r["case_id"],"repo":r["repo"],"sha":r["sha"],
+                            "counts":r["counts"]} for r in sorted(observed.values(),key=lambda x:x["case_id"])],
+                  "previous_findings_for_context_only":{"original":76,"pre_fixes":46},
+                  "accuracy_verdict":"source-backed adjudication required; counts alone are not quality"}
+          Path("aggregate").mkdir(exist_ok=True)
+          Path("aggregate/summary.json").write_text(json.dumps(result,indent=2)+"\n")
+          lines=["# HorusScan Fresh16 after P0/P1 merge","",
+                 "Source commit: "+source_sha,"",
+                 "Completed: "+str(len(observed))+"/16","Findings: "+str(totals["findings"]),
+                 "Attack paths: "+str(totals["attack_paths"]),"",
+                 "| Framework | Cases | Findings | Paths |","|---|---:|---:|---:|"]
+          for key,g in sorted(groups.items()):
+              lines.append(f"| {key} | {g['repositories']} | {g['findings']} | {g['attack_paths']} |")
+          if errors: lines+=["","## Evidence errors"]+["- "+e for e in errors]
+          lines+=["","Historical finding counts: 76 original, 46 before fixes.",
+                   "Precision and recall must be independently source-adjudicated."]
+          Path("aggregate/summary.md").write_text("\n".join(lines)+"\n")
+          print("\n".join(lines))
+          if errors: raise SystemExit(1)
+          PY
+      - name: Retain aggregate evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: p0p1-postmerge-fresh16-summary
+          path: aggregate/
+          if-no-files-found: warn
+          retention-days: 30
