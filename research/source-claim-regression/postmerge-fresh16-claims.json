@@ -1,0 +1,568 @@
+{
+  "schema_version": 1,
+  "reference_type": "postmerge_unadjudicated_claim_inventory",
+  "purpose": "Regression prevention only; not independent ground truth or baseline precision",
+  "scanner_revision": "c6cdd89b962d7432df4473527d822e8336d5f288",
+  "cohort_blob": "8526378a3c54d6ae74bab9b3982e8303fb14bce7",
+  "cases": [
+    {
+      "case_id": "gen-adk-001",
+      "repo": "AbiramiSukumaran/renovation-agent-adk-mcp-toolbox",
+      "sha": "8c0aed21d68d865254b65e667b764fc31af25781",
+      "framework": "google-adk",
+      "counts": {
+        "findings": 0
+      },
+      "findings": []
+    },
+    {
+      "case_id": "gen-adk-002",
+      "repo": "RawleySM/adk-builder-manus",
+      "sha": "c98e25dc40f581e0c4adfd6eaecd44050633a659",
+      "framework": "google-adk",
+      "counts": {
+        "findings": 3
+      },
+      "findings": [
+        {
+          "rule_id": "ADK001",
+          "agent": "adk_agent_builder",
+          "location": {
+            "path": "agent.py",
+            "line": 245
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "adk_agent_builder",
+          "location": {
+            "path": "tools/orchestrator_tools.py",
+            "line": 28
+          }
+        },
+        {
+          "rule_id": "CAP005",
+          "agent": "adk_agent_builder",
+          "location": {
+            "path": "agent.py",
+            "line": 245
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "gen-adk-003",
+      "repo": "NavyaSivakoti/pipeline-reviewer",
+      "sha": "a4cf7b7d995a4ad4a6ff59538eb9d061ffb7ffd7",
+      "framework": "google-adk",
+      "counts": {
+        "findings": 12
+      },
+      "findings": [
+        {
+          "rule_id": "PATH001",
+          "agent": "pipeline_reviewer",
+          "location": {
+            "path": "tools.py",
+            "line": 336
+          }
+        },
+        {
+          "rule_id": "PATH001",
+          "agent": "pipeline_reviewer",
+          "location": {
+            "path": "tools.py",
+            "line": 376
+          }
+        },
+        {
+          "rule_id": "PATH001",
+          "agent": "pipeline_reviewer",
+          "location": {
+            "path": "tools.py",
+            "line": 372
+          }
+        },
+        {
+          "rule_id": "PATH001",
+          "agent": "pipeline_reviewer",
+          "location": {
+            "path": "tools.py",
+            "line": 336
+          }
+        },
+        {
+          "rule_id": "AGT020",
+          "agent": "pipeline_reviewer",
+          "location": {
+            "path": "tools.py",
+            "line": 325
+          }
+        },
+        {
+          "rule_id": "AGT020",
+          "agent": "pipeline_reviewer",
+          "location": {
+            "path": "tools.py",
+            "line": 363
+          }
+        },
+        {
+          "rule_id": "CAP004",
+          "agent": "pipeline_reviewer",
+          "location": {
+            "path": "agent.py",
+            "line": 27
+          }
+        },
+        {
+          "rule_id": "ADK001",
+          "agent": "pipeline_reviewer",
+          "location": {
+            "path": "agent.py",
+            "line": 27
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "pipeline_reviewer",
+          "location": {
+            "path": "tools.py",
+            "line": 325
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "pipeline_reviewer",
+          "location": {
+            "path": "tools.py",
+            "line": 363
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "pipeline_reviewer",
+          "location": {
+            "path": "tools.py",
+            "line": 280
+          }
+        },
+        {
+          "rule_id": "CAP005",
+          "agent": "pipeline_reviewer",
+          "location": {
+            "path": "agent.py",
+            "line": 27
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "gen-adk-004",
+      "repo": "scspai/adk-email-agent",
+      "sha": "d32b07c65e0f8de37e95302919bdba4458d1de39",
+      "framework": "google-adk",
+      "counts": {
+        "findings": 8
+      },
+      "findings": [
+        {
+          "rule_id": "ADK001",
+          "agent": "email_assistant",
+          "location": {
+            "path": "agent.py",
+            "line": 8
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "email_assistant",
+          "location": {
+            "path": "tools.py",
+            "line": 36
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "email_assistant",
+          "location": {
+            "path": "tools.py",
+            "line": 63
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "email_assistant",
+          "location": {
+            "path": "tools.py",
+            "line": 84
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "email_assistant",
+          "location": {
+            "path": "tools.py",
+            "line": 91
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "email_assistant",
+          "location": {
+            "path": "tools.py",
+            "line": 101
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "email_assistant",
+          "location": {
+            "path": "tools.py",
+            "line": 112
+          }
+        },
+        {
+          "rule_id": "CAP005",
+          "agent": "email_assistant",
+          "location": {
+            "path": "agent.py",
+            "line": 8
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "gen-pyd-001",
+      "repo": "newsbubbles/pharmiq",
+      "sha": "c69949739647a47ec8339b473bdf578c8cf8bfd9",
+      "framework": "pydantic-ai",
+      "counts": {
+        "findings": 3
+      },
+      "findings": [
+        {
+          "rule_id": "PATH002",
+          "agent": "agent",
+          "location": {
+            "path": "agent.py",
+            "line": 54
+          }
+        },
+        {
+          "rule_id": "AGT053",
+          "agent": "agent",
+          "location": {
+            "path": "agent.py",
+            "line": 54
+          }
+        },
+        {
+          "rule_id": "CAP005",
+          "agent": "agent",
+          "location": {
+            "path": "agent.py",
+            "line": 73
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "gen-pyd-002",
+      "repo": "coleam00/PydanticAI-Research-Agent",
+      "sha": "6462e3be4aa8bfd1a6224fe390b9422e6ae47f38",
+      "framework": "pydantic-ai",
+      "counts": {
+        "findings": 12
+      },
+      "findings": [
+        {
+          "rule_id": "AGT022",
+          "agent": "email_agent",
+          "location": {
+            "path": "agents/email_agent.py",
+            "line": 57
+          }
+        },
+        {
+          "rule_id": "AGT022",
+          "agent": "email_agent",
+          "location": {
+            "path": "agents/email_agent.py",
+            "line": 110
+          }
+        },
+        {
+          "rule_id": "AGT022",
+          "agent": "research_agent",
+          "location": {
+            "path": "agents/research_agent.py",
+            "line": 94
+          }
+        },
+        {
+          "rule_id": "AGT022",
+          "agent": "research_agent",
+          "location": {
+            "path": "examples/main_agent_reference/research_agent.py",
+            "line": 94
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "email_agent",
+          "location": {
+            "path": "agents/email_agent.py",
+            "line": 57
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "email_agent",
+          "location": {
+            "path": "agents/email_agent.py",
+            "line": 110
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "research_agent",
+          "location": {
+            "path": "agents/research_agent.py",
+            "line": 94
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "research_agent",
+          "location": {
+            "path": "examples/main_agent_reference/research_agent.py",
+            "line": 94
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "tool_agent",
+          "location": {
+            "path": "examples/tool_enabled_agent/agent.py",
+            "line": 187
+          }
+        },
+        {
+          "rule_id": "CAP005",
+          "agent": "email_agent",
+          "location": {
+            "path": "agents/email_agent.py",
+            "line": 49
+          }
+        },
+        {
+          "rule_id": "CAP005",
+          "agent": "research_agent",
+          "location": {
+            "path": "agents/research_agent.py",
+            "line": 52
+          }
+        },
+        {
+          "rule_id": "CAP005",
+          "agent": "research_agent",
+          "location": {
+            "path": "examples/main_agent_reference/research_agent.py",
+            "line": 52
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "gen-pyd-003",
+      "repo": "FaustoS88/Pydantic-AI-Pinescript-Expert",
+      "sha": "03cbd93c486435df08d70185fbab9aa61fff5fbb",
+      "framework": "pydantic-ai",
+      "counts": {
+        "findings": 0
+      },
+      "findings": []
+    },
+    {
+      "case_id": "gen-pyd-004",
+      "repo": "coleam00/pydantic-ai-github-agent",
+      "sha": "43586396a10620cf4ebea542890275c9c6a0d8eb",
+      "framework": "pydantic-ai",
+      "counts": {
+        "findings": 0
+      },
+      "findings": []
+    },
+    {
+      "case_id": "gen-oai-001",
+      "repo": "temporal-community/openai-agents-demos",
+      "sha": "ee5f871b48cb26ec28239ef7a4719ab10c4903e8",
+      "framework": "openai-agents",
+      "counts": {
+        "findings": 0
+      },
+      "findings": []
+    },
+    {
+      "case_id": "gen-oai-002",
+      "repo": "AsharibAli/agentic-ai-projects",
+      "sha": "51005b953b9797516f965bb86fd7abe902b20b9f",
+      "framework": "openai-agents",
+      "counts": {
+        "findings": 0
+      },
+      "findings": []
+    },
+    {
+      "case_id": "gen-oai-003",
+      "repo": "GobinFan/python-mcp-server-client",
+      "sha": "29ecd7adff556dfe9fa3d0fb2246baaccde9d54f",
+      "framework": "openai-agents",
+      "counts": {
+        "findings": 3
+      },
+      "findings": [
+        {
+          "rule_id": "NET001",
+          "agent": "m_c_p_client",
+          "location": {
+            "path": "client.py",
+            "line": 25
+          }
+        },
+        {
+          "rule_id": "AGT032",
+          "agent": null,
+          "location": {
+            "path": "client.py",
+            "line": 25
+          }
+        },
+        {
+          "rule_id": "NET002",
+          "agent": "m_c_p_client",
+          "location": {
+            "path": "client.py",
+            "line": 15
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "gen-oai-004",
+      "repo": "AgentOps-AI/agentops",
+      "sha": "f8e907b92dabe47232978023fdcb01e2a7d4b752",
+      "framework": "openai-agents",
+      "counts": {
+        "findings": 8
+      },
+      "findings": [
+        {
+          "rule_id": "AGT020",
+          "agent": "Code interpreter",
+          "location": {
+            "path": "examples/openai_agents/agents_tools.ipynb",
+            "line": 51
+          }
+        },
+        {
+          "rule_id": "AGT020",
+          "agent": "Code interpreter",
+          "location": {
+            "path": "examples/openai_agents/agents_tools.py",
+            "line": 79
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "Code interpreter",
+          "location": {
+            "path": "examples/openai_agents/agents_tools.ipynb",
+            "line": 51
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "Code interpreter",
+          "location": {
+            "path": "examples/openai_agents/agents_tools.py",
+            "line": 79
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "Image generator",
+          "location": {
+            "path": "examples/openai_agents/agents_tools.ipynb",
+            "line": 140
+          }
+        },
+        {
+          "rule_id": "AGT040",
+          "agent": "Image generator",
+          "location": {
+            "path": "examples/openai_agents/agents_tools.py",
+            "line": 174
+          }
+        },
+        {
+          "rule_id": "CAP005",
+          "agent": "Code interpreter",
+          "location": {
+            "path": "examples/openai_agents/agents_tools.ipynb",
+            "line": 47
+          }
+        },
+        {
+          "rule_id": "CAP005",
+          "agent": "Code interpreter",
+          "location": {
+            "path": "examples/openai_agents/agents_tools.py",
+            "line": 75
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "gen-mcp-001",
+      "repo": "stickerdaniel/linkedin-mcp-server",
+      "sha": "f1425029ca426e850dc9f52b0097f0fff1aa7b3d",
+      "framework": "mcp-custom",
+      "counts": {
+        "findings": 0
+      },
+      "findings": []
+    },
+    {
+      "case_id": "gen-mcp-002",
+      "repo": "coleam00/mcp-mem0",
+      "sha": "22fb7af0432e15fbe379ad7c7c7beac911fa2648",
+      "framework": "mcp-custom",
+      "counts": {
+        "findings": 0
+      },
+      "findings": []
+    },
+    {
+      "case_id": "gen-mcp-003",
+      "repo": "couchbase/mcp-server-couchbase",
+      "sha": "df5d9ceb013f57143171f65ec3ba033ace06aa9a",
+      "framework": "mcp-custom",
+      "counts": {
+        "findings": 0
+      },
+      "findings": []
+    },
+    {
+      "case_id": "gen-mcp-004",
+      "repo": "jztan/redmine-mcp-server",
+      "sha": "d78da6fbc18585da4fd64c7fcda072aafba5ecc5",
+      "framework": "mcp-custom",
+      "counts": {
+        "findings": 0
+      },
+      "findings": []
+    }
+  ]
+}
