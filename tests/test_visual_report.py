@@ -2,6 +2,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from html.parser import HTMLParser
 
 import pytest
 
@@ -392,11 +393,31 @@ def test_visual_report_inline_javascript_is_syntactically_valid(tmp_path: Path) 
 
     graph, findings = _graph(tmp_path)
     html = render_visual_report_html(graph, findings, tmp_path)
-    scripts = re.findall(r"<script(?:\s+[^>]*)?>(.*?)</script>", html, flags=re.DOTALL)
-    assert len(scripts) == 2  # Embedded JSON data and one self-contained application script.
+    class InlineScripts(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__()
+            self.scripts: list[str] = []
+            self.in_script = False
+
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            if tag == "script":
+                self.scripts.append("")
+                self.in_script = True
+
+        def handle_data(self, data: str) -> None:
+            if self.in_script:
+                self.scripts[-1] += data
+
+        def handle_endtag(self, tag: str) -> None:
+            if tag == "script":
+                self.in_script = False
+
+    parser = InlineScripts()
+    parser.feed(html)
+    assert len(parser.scripts) == 2  # JSON payload and standalone application script.
     check = subprocess.run(
         [node, "--check"],
-        input=scripts[-1],
+        input=parser.scripts[-1],
         text=True,
         capture_output=True,
         timeout=15,
