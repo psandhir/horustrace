@@ -301,6 +301,60 @@ def test_visual_report_owasp_assessment_status_chart(tmp_path: Path) -> None:
     assert before == build_visual_report(graph, findings, tmp_path)
 
 
+def test_visual_report_supports_accessible_light_and_dark_themes(tmp_path: Path) -> None:
+    graph, findings = _graph(tmp_path)
+    expected = build_visual_report(graph, findings, tmp_path)
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+
+    assert '<html lang="en" data-theme="light">' in html
+    assert 'role="group" aria-label="Report color theme"' in html
+    assert 'data-theme-choice="light" aria-pressed="true"' in html
+    assert 'data-theme-choice="dark" aria-pressed="false"' in html
+    assert 'function setTheme(choice)' in html
+    assert 'document.documentElement.setAttribute("data-theme",next)' in html
+    assert 'btn.setAttribute("aria-pressed",String(btn.dataset.themeChoice===next))' in html
+    assert 'window.localStorage.getItem(THEME_STORAGE_KEY)' in html
+    assert 'window.localStorage.setItem(THEME_STORAGE_KEY,next)' in html
+    assert 'initialTheme="light"' in html
+    assert 'try{' in html and 'catch(_error){' in html
+    assert 'html[data-theme="light"] .assessment-banner' in html
+    assert 'html[data-theme="light"] .node.agent rect' in html
+    assert 'html[data-theme="light"] .finding p' in html
+    assert 'html[data-theme="light"] pre' in html
+    assert 'default-src &#39;none&#39;' not in html
+    assert "default-src 'none'" in html
+    assert "<script src=" not in html
+    assert "<link rel=" not in html
+    assert expected == build_visual_report(graph, findings, tmp_path)
+
+
+def test_visual_report_light_palette_text_contrast(tmp_path: Path) -> None:
+    """Guard legibility of the light palette; non-color labels still indicate risk."""
+    import re
+
+    graph, findings = _graph(tmp_path)
+    html = render_visual_report_html(graph, findings, tmp_path)
+    match = re.search(r'html\[data-theme="light"\]\{([^}]+)\}', html)
+    assert match is not None
+    colors = dict(re.findall(r'--([\w-]+):(#(?:[0-9a-fA-F]{6}));', match.group(1)))
+
+    def luminance(value: str) -> float:
+        channels = [int(value[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+        return sum(a * b for a, b in zip(linear, (0.2126, 0.7152, 0.0722)))
+
+    def contrast(left: str, right: str) -> float:
+        high, low = sorted((luminance(left), luminance(right)), reverse=True)
+        return (high + 0.05) / (low + 0.05)
+
+    for foreground in (
+        "text", "muted", "muted2", "accent", "critical", "high",
+        "medium", "low", "ok", "warn", "unknown",
+    ):
+        assert contrast(colors[foreground], colors["surface"]) >= 4.5, foreground
+
+
 def test_visual_report_projects_attack_path_chain(tmp_path: Path) -> None:
     location = SourceLocation(tmp_path / "agent.py", line=10)
     agent = Agent(name="Slack Agent", location=location)
