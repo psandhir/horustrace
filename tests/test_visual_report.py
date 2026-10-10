@@ -17,6 +17,7 @@ from horustrace.models import (
     Finding,
     Graph,
     Identity,
+    InputSource,
     MCPServer,
     NetworkDestination,
     ResourceScope,
@@ -144,6 +145,46 @@ def test_visual_report_component_inventory_preserves_binding_and_controls(
     assert 'components:mcp' in html
     assert 'components:tools' in html
     assert 'components:skills' in html
+
+
+def test_supply_chain_input_lane_preserves_canonical_graph_semantics(tmp_path: Path) -> None:
+    graph, findings = _graph(tmp_path)
+    graph.agents[0].inputs = [
+        InputSource(
+            name="user-message",
+            trust="untrusted",
+            kind="user",
+            location=SourceLocation(tmp_path / "agent.py", line=12),
+        ),
+        InputSource(
+            name="retrieved-context",
+            trust="untrusted",
+            kind="retrieved",
+            location=SourceLocation(tmp_path / "agent.py", line=13),
+        ),
+    ]
+    graph.adg = build_adg(graph, tmp_path)
+    report = build_visual_report(graph, findings, tmp_path)
+    topology = report["security_graph"]["topology"]
+    nodes = {n["id"]: n for n in topology["nodes"]}
+    input_edges = [e for e in topology["edges"] if e["kind"] == "RECEIVES_INPUT_FROM"]
+    assert len(input_edges) == 2
+    # Canonical ADG relationships stay agent -> input; only the visual
+    # information-flow arrow reverses toward the receiving agent.
+    assert all(nodes[e["source"]]["kind"] == "agent" for e in input_edges)
+    assert all(nodes[e["target"]]["kind"] == "input" for e in input_edges)
+    sources = {n["name"]: n for n in nodes.values() if n["kind"] == "input"}
+    assert sources["support:user-message"]["attributes"]["input_kind"] == "user"
+    assert sources["support:retrieved-context"]["attributes"]["trust"] == "untrusted"
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+    assert 'const columns=["Inputs & sources","Agents & workflow"' in html
+    assert 'if(kind==="input")return 0;' in html
+    assert 'const inputToAgent=e.kind==="RECEIVES_INPUT_FROM"' in html
+    assert 'data-diagram-from=' in html
+    assert 'data-diagram-to=' in html
+    assert 'Input → agent (information received; graph endpoints unchanged)' in html
+    assert report == build_visual_report(graph, findings, tmp_path)
 
 
 def test_visual_report_supply_chain_uses_canonical_adg_edges(tmp_path: Path) -> None:
