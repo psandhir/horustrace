@@ -2,6 +2,13 @@ name: ADK UX Demo Acceptance
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/adk-ux-demo.yml
+      - scripts/run_adk_ux_demo.py
+      - src/horustrace/visual_report.py
+      - tests/test_adk_ux_demo_acceptance.py
 
 permissions:
   contents: read
