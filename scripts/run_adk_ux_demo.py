@@ -62,6 +62,10 @@ def produce_report(output_dir: Path) -> tuple[dict, list[str]]:
         "contract_violations": summary["contract_violations"],
         "coverage_incomplete": summary["analysis_incomplete"],
         "agent_names": sorted(names),
+        "findings_with_raw_provenance": sum(bool(f.get("provenance")) for f in report["findings"]),
+        "raw_provenance_facts": sum(len(f.get("provenance", [])) for f in report["findings"]),
+        "findings_with_source_context": sum(bool(f.get("provenance_digest", {}).get("items")) for f in report["findings"]),
+        "source_context_groups": sum(len(f.get("provenance_digest", {}).get("items", [])) for f in report["findings"]),
     }
     (output_dir / "adk-acceptance-metrics.json").write_text(
         json.dumps(results, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -137,6 +141,8 @@ def produce_report(output_dir: Path) -> tuple[dict, list[str]]:
         "destinations", "effective_authority_relationships", "findings",
         "attack_paths", "owasp_categories_with_runtime_findings",
         "policy_violations", "contract_violations",
+        "findings_with_raw_provenance", "raw_provenance_facts",
+        "findings_with_source_context", "source_context_groups",
     ):
         lines.append(f"| {label.replace('_', ' ').capitalize()} | {results[label]} |")
     lines.extend([
@@ -169,6 +175,8 @@ def produce_report(output_dir: Path) -> tuple[dict, list[str]]:
     if not results["owasp_risk_categories"]:
         lines.append("- None detected (acceptance failure)")
     lines.extend([
+        "",
+        "Source context counts only same-file/same-line evidence. Raw provenance remains expandable.",
         "",
         "OWASP mappings describe detector findings, not independent certification "
         "or a formal OWASP violation. Policy and Authority Contract violations "
