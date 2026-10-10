@@ -533,6 +533,17 @@ code,pre{{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospac
 .dot{{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}} .empty{{padding:28px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px;background:#0b1321}} .back{{border:1px solid var(--line);background:var(--surface);color:var(--text);padding:7px 10px;border-radius:8px;cursor:pointer}} .small{{font-size:11px}} .nowrap{{white-space:nowrap}} .sevbar{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}}
 svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} .edge{{stroke:#65728c;stroke-width:1.4;opacity:.72}} .node rect{{fill:#16213a;stroke:#42516f;stroke-width:1}} .node.agent rect{{fill:#1b3157;stroke:#78a8ff}} .node.identity rect{{fill:#2b2545;stroke:#a895ff}} .node.resource rect{{fill:#21362f;stroke:#63d69f}} .node.destination rect{{fill:#3a2d22;stroke:#f1b36a}} .node.unresolved rect{{stroke-dasharray:5 4}} .node{{cursor:pointer;transition:opacity .12s}} .node:hover rect{{stroke-width:2}} .node.dim{{opacity:.16}} .node.match rect,.node.selected rect{{stroke-width:3}} .edge.dim{{opacity:.08}} .edge.selected{{stroke-width:2.5;opacity:1}} .label2{{fill:var(--muted);font-size:10px}}
 .path-card{{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:12px 0}} .path-head{{display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap}} .path-chain{{display:flex;flex-direction:column;align-items:flex-start;margin-top:15px;padding-left:8px}} .path-step{{min-width:260px;max-width:680px;background:#0d1628;border:1px solid var(--line);border-radius:9px;padding:9px 11px}} .path-step.agent{{border-color:#78a8ff}} .path-step.secret{{border-color:#c98cff}} .path-step.destination{{border-color:#f1b36a}} .path-step.input,.path-step.source{{border-color:#8ab4ff}} .path-role{{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:2px;font-weight:800}} .path-arrow{{height:22px;margin-left:28px;border-left:2px solid #6d7e9f}} .path-arrow.dashed{{border-left-style:dashed}} .path-meta{{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}}
+.severity-chart{{display:grid;gap:8px;padding:14px 15px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}}
+.severity-chart-row{{padding:7px 8px;border:1px solid transparent;border-radius:8px;cursor:pointer}}
+.severity-chart-row:hover,.severity-chart-row:focus-visible{{background:var(--surface2);border-color:var(--line-strong)}}
+.severity-chart-head{{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:5px;font-size:12px}}
+.severity-chart-label{{font-weight:720}} .severity-chart-count{{font-weight:800;font-variant-numeric:tabular-nums}}
+.severity-chart-track{{display:block;height:9px;border:1px solid var(--line);background:var(--surface3);border-radius:999px;overflow:hidden}}
+.severity-chart-fill{{display:block;height:100%;border-radius:999px;background:var(--muted2)}}
+.severity-chart-fill.critical{{background:var(--critical)}} .severity-chart-fill.high{{background:var(--high)}}
+.severity-chart-fill.medium{{background:var(--medium)}} .severity-chart-fill.low{{background:var(--low)}}
+.severity-chart-fill.info{{background:var(--unknown)}}
+.severity-chart-caption{{margin:2px 8px 0;font-size:10px;color:var(--muted)}}
 .coverage-track{{height:8px;background:#09101e;border-radius:999px;overflow:hidden;border:1px solid var(--line);margin-top:9px}} .coverage-fill{{height:100%;background:var(--ok);border-radius:inherit}} .footer{{color:var(--muted2);font-size:10px;margin:30px 0 3px;padding-top:14px;border-top:1px solid #ffffff0a}}
 @media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}
 @media(max-width:1000px){{.shell{{grid-template-columns:220px minmax(0,1fr)}} main{{padding:26px 24px}} .graph-wrap{{grid-template-columns:1fr}} .inspector{{max-height:280px}}}}
@@ -605,6 +616,19 @@ function severityCards(s,interactive=false){{
  metric("High",s.high,"high",interactive?"findings:high":"")+metric("Medium",s.medium,"medium",interactive?"findings:medium":"")+
  metric("Low",s.low,"low",interactive?"findings:low":"")+'</div>';
 }}
+function severityChart(s){{
+ const levels=[["critical","Critical"],["high","High"],["medium","Medium"],["low","Low"],["info","Info"]];
+ const max=Math.max(1,...levels.map(([key])=>Number(s?.[key]||0)));
+ const rows=levels.map(([key,label])=>{{
+  const count=Math.max(0,Number(s?.[key]||0));
+  const width=count?Math.max(3,Math.round(100*count/max)):0;
+  return '<div class="severity-chart-row" role="button" tabindex="0" data-drill="findings:'+key+'" aria-label="'+esc(label)+': '+number(count)+' active findings. Open filtered findings.">'+
+   '<span class="severity-chart-head"><span class="severity-chart-label">'+esc(label)+'</span><span class="severity-chart-count">'+number(count)+'</span></span>'+
+   '<span class="severity-chart-track" aria-hidden="true"><span class="severity-chart-fill '+key+'" style="width:'+width+'%"></span></span></div>';
+ }}).join("");
+ return '<div class="severity-chart" role="group" aria-label="Findings by scanner severity">'+rows+
+  '<p class="severity-chart-caption">Static scan evidence only; exploitability is not verified.</p></div>';
+}}
 function findingCard(f){{
  const evidence=(f.evidence||[]).map(x=>"<li>"+esc(x)+"</li>").join("");
  const prov=(f.provenance||[]).map(x=>"<li>"+esc(x.origin)+": "+esc(x.fact)+(x.location?" — "+loc(x.location):"")+"</li>").join("");
@@ -627,7 +651,7 @@ function renderDashboard(){{
  '<div class="assessment-banner '+esc(state.tone)+'" data-drill="'+primaryDrill+'" role="button" tabindex="0"><div><div class="eyebrow">Assessment signal</div><div class="assessment-title '+esc(state.tone)+'">'+esc(state.label)+'</div><div class="assessment-copy">'+esc(state.copy)+'</div></div><div class="assessment-side"><div class="assessment-count">'+number(state.count)+'<small>'+esc(state.unit)+'</small></div></div></div>'+
  '<div class="cards">'+metric("Active findings",s.findings,(s.severity?.critical||s.severity?.high)?"high":"","Critical "+number(s.severity?.critical||0)+" · High "+number(s.severity?.high||0))+metric("Policy violations",s.policy_violations,s.policy_violations?"critical":"","policy:all","Configured HorusTrace policy rules")+metric("Contract violations",s.contract_violations,s.contract_violations?"critical":"","contracts:violation",number(s.contract_unresolved)+" unresolved checks")+metric("OWASP categories with findings",s.owasp_categories_with_findings,s.owasp_categories_with_findings?"warn":"","owasp:all",number(s.owasp_categories_not_assessed)+" not assessed")+metric("Agents",s.agents,"","agents:all",number(s.write_capable_relationships)+" write-capable relationships")+metric("Attack paths",s.attack_paths,"","attack:all","Static evidence; exploitability not verified")+'</div>'+
  sectionHead("Priority review queue","Agents ordered by static review priority.")+agentTable(attention)+
- '<div class="grid2"><div>'+sectionHead("Finding severity","Active findings by scanner severity.")+severityCards(s.severity,true)+'</div><div>'+sectionHead("Effective agency","Reconstructed authority and destination scope.")+'<div class="panel">'+drillList([drillRow("Authority relationships",s.authority_relationships,"agents:authority"),drillRow("Not fully resolved",s.authority_not_fully_resolved,"agents:unresolved","warn"),drillRow("Write-capable relationships",s.write_capable_relationships,"agents:write"),drillRow("Unique destinations",s.destinations,"agents:destinations")])+'</div></div></div>'+
+ '<div class="grid2"><div>'+sectionHead("Finding severity","Active findings by scanner severity.") +severityChart(s.severity)+'</div><div>'+sectionHead("Effective agency","Reconstructed authority and destination scope.")+'<div class="panel">'+drillList([drillRow("Authority relationships",s.authority_relationships,"agents:authority"),drillRow("Not fully resolved",s.authority_not_fully_resolved,"agents:unresolved","warn"),drillRow("Write-capable relationships",s.write_capable_relationships,"agents:write"),drillRow("Unique destinations",s.destinations,"agents:destinations")])+'</div></div></div>'+
  '<div class="grid2"><div>'+sectionHead("Environment inventory","Security-relevant components found in the scan.")+'<div class="cards">'+metric("Tools",s.tools,"","agents:tools")+metric("Skills",s.skills,"","agents:skills",number(s.bound_skills)+" bound · "+number(s.unbound_skills)+" unbound")+metric("MCP servers",s.mcp_servers,"","agents:mcp")+metric("Identities",s.identities,"","agents:identities")+metric("Resources",s.resources,"","agents:resources")+'</div></div><div>'+sectionHead("Agent contracts","Declared authority compared with effective authority.")+'<div class="panel">'+drillList(['<div class="drill-row" style="cursor:default"><span>Overall status</span><span>'+badge(DATA.assurance.authority_contract.status)+'</span></div>',drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),drillRow("Violations",s.contract_violations,"contracts:violation","critical"),drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")])+'</div></div></div>';
  bindDashboardDrill(root);bindAgentRows(root);
 }}
@@ -856,7 +880,7 @@ function openAgent(name){{
 }}
 
 function renderFindings(severity="all"){{
- const root=document.getElementById("findings"),filters=["all","critical","high","medium","low"];
+ const root=document.getElementById("findings"),filters=["all","critical","high","medium","low","info"];
  const chips=filters.map(value=>'<button class="filter-chip '+(severity===value?"active":"")+'" data-finding-filter="'+value+'">'+esc(value==="all"?"All":value[0].toUpperCase()+value.slice(1))+'</button>').join("");
  root.innerHTML=pageHead("Risk review","Findings","Search and triage active scanner findings. Severity is scanner-assigned static evidence, not runtime exploitability.")+
  '<div class="toolbar"><div class="toolbar-left"><div class="filter-chips">'+chips+'</div></div><div class="toolbar-right"><input id="finding-search" class="search" aria-label="Search findings" placeholder="Search rule, title, agent, message or file"></div></div><div class="muted small" id="finding-count"></div><div id="finding-list"></div>';
