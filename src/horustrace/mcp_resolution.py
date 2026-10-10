@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from horustrace.models import Graph, MCPServer, SourceLocation
-from horustrace.source_context import classify_source_context
+from horustrace.source_context import SOURCE_CONTEXTS, classify_source_context
 
 MCP_UNRESOLVED_REFERENCE_SCHEMA_VERSION = 1
 
@@ -264,7 +264,9 @@ def _portable_unique_reference_ids(
     return output
 
 
-def unresolved_mcp_references(graph: Graph) -> list[UnresolvedMCPReference]:
+def unresolved_mcp_references(
+    graph: Graph, *, root: Path | None = None,
+) -> list[UnresolvedMCPReference]:
     """Return deterministic reason records for every unresolved MCP observation."""
     concrete = list(graph.unbound_mcp_servers)
     observations = [
@@ -327,8 +329,13 @@ def unresolved_mcp_references(graph: Graph) -> list[UnresolvedMCPReference]:
                 reason=reason,
                 resolution_class=resolution_class,
                 source=source,
-                source_context=classify_source_context(
-                    server.location.path if server.location is not None else None
+                source_context=(
+                    str(server.metadata["source_context"])
+                    if server.metadata.get("source_context") in SOURCE_CONTEXTS
+                    else classify_source_context(
+                        server.location.path if server.location is not None else None,
+                        root=root,
+                    )
                 ),
                 location=_location(server.location),
                 candidate_declarations=tuple(
@@ -366,8 +373,10 @@ def unresolved_mcp_references(graph: Graph) -> list[UnresolvedMCPReference]:
     return _portable_unique_reference_ids(ordered)
 
 
-def unresolved_mcp_summary(graph: Graph) -> dict[str, Any]:
-    references = unresolved_mcp_references(graph)
+def unresolved_mcp_summary(
+    graph: Graph, *, root: Path | None = None,
+) -> dict[str, Any]:
+    references = unresolved_mcp_references(graph, root=root)
     reasons = sorted({item.reason for item in references})
     classes = sorted({item.resolution_class for item in references})
     declarations = [
