@@ -221,6 +221,37 @@ def main() -> int:
             f"{float(gate['min_core_fully_resolved_ratio']):.3f}"
         )
 
+    # Compare live posture against the adjudicated *post-remediation* 14-path
+    # closure, not the pre-source-context 24-path baseline. The original CSV is
+    # still retained for historical count deltas. Never allow arbitrary drops
+    # from a case just because it once contained suppressed example paths.
+    path_floor = gate.get("attack_path_floor_by_case")
+    if not isinstance(path_floor, dict):
+        gate_failures.append("missing post-remediation attack-path floor")
+    else:
+        unknown_path_cases = sorted(set(path_floor) - set(baseline))
+        if unknown_path_cases:
+            gate_failures.append(
+                "attack-path floor includes unknown cases: "
+                + ", ".join(unknown_path_cases)
+            )
+        floor_total = sum(int(value) for value in path_floor.values())
+        if floor_total != int(gate.get("min_attack_path_floor_total", -1)):
+            gate_failures.append(
+                f"attack-path floor total {floor_total} differs from locked reference"
+            )
+        for case_id in sorted(baseline):
+            after = post.get(case_id)
+            if after is None:
+                continue
+            expected = int(path_floor.get(case_id, 0))
+            actual = int((after.get("counts") or {}).get("attack_paths") or 0)
+            if actual < expected:
+                gate_failures.append(
+                    f"{case_id} attack paths {actual} below post-remediation "
+                    f"source-backed floor {expected}"
+                )
+
     post_by_framework = aggregate_cases(post)
     for framework, minimums in gate["framework_minimums"].items():
         observed = post_by_framework.get(framework, {})
