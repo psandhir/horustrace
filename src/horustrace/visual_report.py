@@ -68,6 +68,96 @@ def _agent_location(agent: Any, root: Path) -> dict[str, Any] | None:
     }
 
 
+
+def _component_location(location: Any, root: Path) -> dict[str, Any] | None:
+    if location is None:
+        return None
+    return {
+        "path": _relative_path(str(location.path), root),
+        "line": location.line,
+        "column": location.column,
+    }
+
+
+def _component_resources(resources: list[Any]) -> list[dict[str, Any]]:
+    return [
+        {"kind": r.kind, "selector": r.selector, "access": sorted(r.access)}
+        for r in resources
+    ]
+
+
+def _component_inventories(graph: Graph, root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Inventory *instances*, not distinct names, preserving bound/unbound state.
+
+    Agent attribution is only asserted for explicitly bound objects. We do not
+    infer that every finding on an agent applies to all its connected tools.
+    """
+    tools: list[dict[str, Any]] = []
+    servers: list[dict[str, Any]] = []
+
+    def add_tool(item: Any, agent: str | None) -> None:
+        tools.append({
+            "name": item.name,
+            "kind": item.kind,
+            "binding_state": "bound" if agent else "unbound",
+            "bound_agents": [agent] if agent else [],
+            "location": _component_location(item.location, root),
+            "capabilities": sorted(item.capabilities),
+            "approval": item.approval,
+            "guardrails": item.guardrails,
+            "identity": item.identity,
+            "resources": _component_resources(item.resources),
+            "destinations": [d.target for d in item.destinations],
+        })
+
+    def add_server(item: Any, agent: str | None, unresolved: bool = False) -> None:
+        servers.append({
+            "name": item.name,
+            "transport": item.transport,
+            "binding_state": (
+                "unresolved_reference" if unresolved else ("bound" if agent else "unbound")
+            ),
+            "bound_agents": [agent] if agent else [],
+            "location": _component_location(item.location, root),
+            # Avoid embedding URL query strings or execution arguments in the HTML.
+            "endpoint": item.url.split("?", 1)[0].split("#", 1)[0] if item.url else None,
+            "command": item.command,
+            "authenticated": item.authenticated,
+            "approval": item.approval,
+            "guardrails": item.guardrails,
+            "allowed_tools": sorted(item.allowed_tools),
+            "denied_tools": sorted(item.denied_tools),
+            "identity": item.identity,
+            "resources": _component_resources(item.resources),
+        })
+
+    for agent in graph.agents:
+        for tool in agent.tools:
+            add_tool(tool, agent.name)
+        for server in agent.mcp_servers:
+            add_server(server, agent.name)
+    for tool in graph.unbound_tools:
+        add_tool(tool, None)
+    for server in graph.unbound_mcp_servers:
+        add_server(server, None)
+    for server in graph.unresolved_mcp_references:
+        add_server(server, None, unresolved=True)
+
+    def finish(items: list[dict[str, Any]], prefix: str) -> list[dict[str, Any]]:
+        items.sort(key=lambda item: (
+            item["name"],
+            (item.get("location") or {}).get("path", ""),
+            (item.get("location") or {}).get("line", 0),
+            item["bound_agents"],
+            item["binding_state"],
+        ))
+        for index, item in enumerate(items):
+            item["id"] = f"{prefix}-{index}"
+        return items
+
+    return finish(tools, "tool"), finish(servers, "mcp")
+
+
 def _write_capable(relationship: dict[str, Any]) -> bool:
     markers = ("write", "create", "update", "delete", "admin", "execute", "shell", "mutation")
     values: list[str] = [str(item) for item in relationship.get("capabilities", [])]
@@ -492,6 +582,10 @@ def build_visual_report(
                     ),
                     "allowed_tools": sorted(skill.allowed_tools),
                     "scripts": list(skill.scripts),
+                    "capabilities": sorted(skill.capabilities),
+                    "source": skill.source,
+                    "resources": _component_resources(skill.resources),
+                    "destinations": [d.target for d in skill.destinations],
                     "bound_agents": [],
                     "binding_state": "bound",
                 },
@@ -521,6 +615,10 @@ def build_visual_report(
                 ),
                 "allowed_tools": sorted(skill.allowed_tools),
                 "scripts": list(skill.scripts),
+                "capabilities": sorted(skill.capabilities),
+                "source": skill.source,
+                "resources": _component_resources(skill.resources),
+                "destinations": [d.target for d in skill.destinations],
                 "bound_agents": [],
                 "binding_state": "unbound",
             },
@@ -529,6 +627,9 @@ def build_visual_report(
         skill_inventory.values(),
         key=lambda item: (item["name"], (item.get("location") or {}).get("path", "")),
     )
+    for index, skill in enumerate(skills):
+        skill["id"] = f"skill-{index}"
+    tools, mcp_servers = _component_inventories(graph, root)
 
     owasp = build_owasp_agentic_summary(
         findings,
@@ -546,6 +647,9 @@ def build_visual_report(
             "bound_skills": sum(len(agent.skills) for agent in graph.agents),
             "unbound_skills": len(graph.unbound_skills),
             "mcp_servers": len(graph.all_mcp_servers()),
+            "unbound_tools": len(graph.unbound_tools),
+            "unbound_mcp_servers": len(graph.unbound_mcp_servers),
+            "unresolved_mcp_references": len(graph.unresolved_mcp_references),
             "identities": len(graph.all_identities()),
             "resources": len(all_resources),
             "destinations": len(all_destinations),
@@ -572,6 +676,8 @@ def build_visual_report(
         },
         "agents": agents,
         "skills": skills,
+        "tools": tools,
+        "mcp_servers": mcp_servers,
         "findings": findings_docs,
         "assurance": assurance,
         "authority_contract": contract,
