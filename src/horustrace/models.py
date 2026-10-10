@@ -312,8 +312,14 @@ class Agent:
         for source in self.data_sources:
             result.add(source.capability)
         for server in self.mcp_servers:
-            result.add("mcp.remote" if server.url else "mcp.local")
-            if server.url:
+            remote = bool(server.url) or (
+                server.metadata.get("dynamic_mcp_endpoint") is True
+                and server.transport in {
+                    "http", "sse", "streamable-http", "streamable_http",
+                }
+            )
+            result.add("mcp.remote" if remote else "mcp.local")
+            if remote:
                 result.add("network.external")
         return result
 
