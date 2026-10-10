@@ -1152,6 +1152,15 @@ supervisor = Agent(tools=[order_management_tool, support_webhook, runtime_status
     assert len(remote) == 1
     assert remote[0].agent == "supervisor"
     assert remote[0].target_name == "<dynamic-agentcore-runtime:order_management_tool>"
+    assert remote[0].semantics["delegation_transport"] == (
+        "bedrock_agentcore_runtime_http"
+    )
+    assert remote[0].semantics["credential_forwarding"] == (
+        "jwt_token_forwarded_to_remote_agent"
+    )
+    assert remote[0].semantics["delegation_target_resolution"] == (
+        "runtime_configured_unresolved"
+    )
     assert "delegation_target" in remote[0].unresolved
     assert remote[0].identity is None
     assert remote[0].semantics["delegation_boundary"]["child_authority_promoted"] is False
