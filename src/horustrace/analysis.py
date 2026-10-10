@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from horustrace.attack_path_proof import proof_for_path_basis
 from horustrace.heuristics import (
     HIGH_RISK_CAPABILITIES,
     UNTRUSTED_INPUT_KINDS,
@@ -55,6 +56,7 @@ def _path_metadata(*, basis: str, flow_id: str | None = None) -> dict:
     return {
         "assessment": "potential_risk",
         "basis": basis,
+        "proof": proof_for_path_basis(basis),
         "exploitability": "not_verified",
         "flow_id": flow_id,
         "limitations": limitations,
