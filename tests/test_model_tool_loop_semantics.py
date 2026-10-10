@@ -160,3 +160,142 @@ class AgentPlannerCache:
     )
     graph, _ = scan(tmp_path)
     assert not any(agent.name == "agent_planner_cache" for agent in graph.agents)
+
+
+def test_custom_openai_mcp_sse_loop_retains_dynamic_session_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "client.py").write_text(
+        """
+from mcp import ClientSession
+from mcp.client.sse import sse_client
+
+class MCPClient:
+    async def connect(self, server_url):
+        self.streams = sse_client(url=server_url)
+        self.session_context = ClientSession(*streams)
+        self.session = await self.session_context.__aenter__()
+
+    async def process_query(self, query):
+        response = await self.session.list_tools()
+        available_tools = [
+            {"type": "function", "function": {"name": tool.name}}
+            for tool in response.tools
+        ]
+        completion = await self.openai.chat.completions.create(
+            messages=[{"role": "user", "content": query}],
+            tools=available_tools,
+        )
+        for tool_call in completion.choices[0].message.tool_calls:
+            await self.session.call_tool(tool_call.function.name, {})
+""",
+        encoding="utf-8",
+    )
+
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "m_c_p_client")
+    assert len(agent.mcp_servers) == 1
+    server = agent.mcp_servers[0]
+    assert server.transport == "sse"
+    assert server.url is None
+    assert server.metadata["binding_origin"] == "source_proven_mcp_session_loop"
+    assert server.metadata["session_receivers"] == ["self.session"]
+    assert server.metadata["tool_catalogue_dynamic"] is True
+    assert server.metadata["endpoint_selection_actor"] == "caller_or_operator"
+    assert server.allowed_tools == []
+    assert "mcp.remote" in agent.capabilities
+    assert "network.external" in agent.capabilities
+    assert "mcp.local" not in agent.capabilities
+    assert not agent.tools
+
+    from horustrace.mcp_effective import effective_mcp_authority_report
+
+    report = effective_mcp_authority_report(graph)
+    assert report["summary"]["bound_relationships"] == 1
+    assert report["authorities"][0]["tools"]["catalogue_known"] is False
+
+
+def test_unrelated_mcp_session_cannot_inherit_custom_agent_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "client.py").write_text(
+        """
+from mcp import ClientSession
+from mcp.client.sse import sse_client
+
+class MCPClient:
+    async def connect(self, server_url):
+        self.transport = sse_client(url=server_url)
+        self.session_context = ClientSession(*streams)
+
+    async def process_query(self, query):
+        response = await self.session.list_tools()
+        completion = await self.openai.chat.completions.create(
+            messages=[], tools=response.tools,
+        )
+        for tool_call in completion.choices[0].message.tool_calls:
+            await self.other_session.call_tool(tool_call.function.name, {})
+""",
+        encoding="utf-8",
+    )
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "m_c_p_client")
+    assert agent.mcp_servers == []
+
+
+def test_source_literal_sse_endpoint_is_not_model_selected(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "client.py").write_text(
+        """
+from mcp import ClientSession
+from mcp.client.sse import sse_client
+
+class MCPClient:
+    async def connect(self):
+        self.transport = sse_client(url="https://trusted.example.test/sse")
+        self.session_context = ClientSession(*streams)
+        self.session = await self.session_context.__aenter__()
+
+    async def run(self):
+        tools = await self.session.list_tools()
+        answer = await self.llm.chat.completions.create(tools=tools.tools)
+        for call in answer.tool_calls:
+            await self.session.call_tool(call.name, call.args)
+""",
+        encoding="utf-8",
+    )
+    graph, _ = scan(tmp_path)
+    agent = next(item for item in graph.agents if item.name == "m_c_p_client")
+    server = agent.mcp_servers[0]
+    assert server.url == "https://trusted.example.test/sse"
+    assert server.metadata["dynamic_mcp_endpoint"] is False
+    assert server.metadata["endpoint_selection_actor"] == "source"
+
+
+def test_unconnected_session_methods_do_not_inherit_sse_authority(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "client.py").write_text(
+        """
+from mcp import ClientSession
+from mcp.client.sse import sse_client
+
+class MCPClient:
+    def connect(self, url):
+        self.transport = sse_client(url=url)
+        self.real_context = ClientSession(*streams)
+
+    async def run(self):
+        catalogue = await self.unrelated_session.list_tools()
+        answer = await self.llm.chat.completions.create(
+            tools=catalogue.tools,
+        )
+        for call in answer.tool_calls:
+            await self.unrelated_session.call_tool(call.name, call.args)
+""",
+        encoding="utf-8",
+    )
+    graph, _ = scan(tmp_path)
+    agent = next(a for a in graph.agents if a.name == "m_c_p_client")
+    assert agent.mcp_servers == []

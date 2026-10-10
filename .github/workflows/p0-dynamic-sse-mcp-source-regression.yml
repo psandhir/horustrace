@@ -1,0 +1,60 @@
+name: P0 Dynamic SSE MCP Source Regression
+
+on:
+  push:
+    branches:
+      - fix/p0-model-tool-loop-sse-mcp
+    paths:
+      - src/horustrace/**
+      - tests/test_model_tool_loop_semantics.py
+      - .github/workflows/p0-dynamic-sse-mcp-source-regression.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-source-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install scanner, not target code
+        run: python -m pip install -e .
+      - name: Retrieve pinned upstream source without executing it
+        run: |
+          mkdir -p /tmp/horus-p0-sse
+          curl --fail --location --silent --show-error --retry 3 --max-time 45 \
+            https://raw.githubusercontent.com/GobinFan/python-mcp-server-client/29ecd7adff556dfe9fa3d0fb2246baaccde9d54f/client.py \
+            --output /tmp/horus-p0-sse/client.py
+      - name: Assert runtime-unknown MCP session binding
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from horustrace.scanner import scan
+          from horustrace.mcp_effective import effective_mcp_authority_report
+
+          graph, findings = scan(Path('/tmp/horus-p0-sse'))
+          matches = [a for a in graph.agents if a.name == 'm_c_p_client']
+          assert len(matches) == 1, [a.name for a in graph.agents]
+          agent = matches[0]
+          sessions = [s for s in agent.mcp_servers
+                      if s.metadata.get('binding_origin') == 'source_proven_mcp_session_loop']
+          assert len(sessions) == 1
+          session = sessions[0]
+          assert session.transport == 'sse'
+          assert session.url is None
+          assert session.metadata.get('tool_catalogue_dynamic') is True
+          assert session.metadata.get('endpoint_selection_actor') == 'caller_or_operator'
+          assert {'mcp.remote', 'network.external'} <= agent.capabilities
+          assert 'mcp.local' not in agent.capabilities
+          assert agent.tools == []
+          report = effective_mcp_authority_report(graph)
+          bindings = [r for r in report['authorities'] if r['agent'] == agent.name]
+          assert len(bindings) == 1
+          assert bindings[0]['tools']['catalogue_known'] is False
+          print('pinned-source-bound SSE MCP session verified, unresolved catalogue retained')
+          PY
