@@ -220,3 +220,36 @@ def test_unbound_config_credential_fields_report_redacted_sources(
     assert "header:authorization" in " ".join(issue.evidence)
     assert "hardcoded-example-secret" not in str(issue)
     assert issue.authority_relationship_id is None
+
+
+def test_same_remote_endpoint_bound_and_unbound_has_one_transport_alert(
+    tmp_path: Path,
+) -> None:
+    from horustrace.models import Agent, Graph, MCPServer, SourceLocation
+    from horustrace.rules.builtin import evaluate
+
+    url = "http://mcp.example.test/tools"
+    bound = MCPServer(
+        name="runtime",
+        transport="http",
+        url=url,
+        authenticated=True,
+        location=SourceLocation(tmp_path / "agent.py"),
+    )
+    declared = MCPServer(
+        name="ide",
+        transport="http",
+        url=url,
+        authenticated=True,
+        location=SourceLocation(tmp_path / ".mcp.json"),
+        metadata={"binding_state": "unbound", "discovery_source": "mcp_config"},
+    )
+    graph = Graph(
+        agents=[Agent(name="app", mcp_servers=[bound])],
+        unbound_mcp_servers=[declared],
+    )
+    findings = [finding for finding in evaluate(graph)
+                if finding.rule_id == "AGT031"]
+    assert len(findings) == 1
+    assert findings[0].severity.label() == "high"
+    assert "assessment_scope=mcp_configuration" not in findings[0].evidence
