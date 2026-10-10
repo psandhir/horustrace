@@ -2,7 +2,7 @@
   "schema_version": 1,
   "baseline": "Fresh-16 original pinned October 2 2026",
   "compare_revision": "c6cdd89b962d7432df4473527d822e8336d5f288",
-  "interpretation": "Historical single-reviewer verdicts are not independently established ground truth. Exact claim identity change may reflect narrowing or stronger source binding.",
+  "interpretation": "Direct pinned-source review has narrowed 14 historical partial claims; it does not establish runtime exploitability or independent ground-truth recall. Historically false-positive verdicts remain single-reviewer.",
   "historical_source_reviews": "research/fresh-unseen-generalization-20/adjudication-second-pass.csv",
   "lost_claims": [
     {
@@ -15,7 +15,13 @@
         "path": "agent.py",
         "line": 27
       },
-      "status": "independent_source_review_required"
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "tools.py",
+        "line": 199
+      },
+      "source_review_rationale": "The package lookup interpolates a package name under fixed https://pypi.org/pypi/... and https://search.maven.org/solrsearch/select? hosts, rather than allowing a model-selected network host."
     },
     {
       "case_id": "gen-mcp-001",
@@ -51,7 +57,13 @@
         "path": "tests/integration/conftest.py",
         "line": 160
       },
-      "status": "independent_source_review_required"
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "tests/integration/conftest.py",
+        "line": 153
+      },
+      "source_review_rationale": "MCP_SERVER_URL is a test/CI environment variable consumed in pytest async contextmanager fixtures for streamable HTTP or SSE; its unknown host and tool catalogue are not source-proven live agent authority."
     },
     {
       "case_id": "gen-mcp-003",
@@ -63,7 +75,13 @@
         "path": "tests/integration/conftest.py",
         "line": 184
       },
-      "status": "independent_source_review_required"
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "tests/integration/conftest.py",
+        "line": 153
+      },
+      "source_review_rationale": "MCP_SERVER_URL is a test/CI environment variable consumed in pytest async contextmanager fixtures for streamable HTTP or SSE; its unknown host and tool catalogue are not source-proven live agent authority."
     },
     {
       "case_id": "gen-mcp-003",
@@ -75,7 +93,13 @@
         "path": "tests/integration/conftest.py",
         "line": 160
       },
-      "status": "independent_source_review_required"
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "tests/integration/conftest.py",
+        "line": 153
+      },
+      "source_review_rationale": "MCP_SERVER_URL is a test/CI environment variable consumed in pytest async contextmanager fixtures for streamable HTTP or SSE; its unknown host and tool catalogue are not source-proven live agent authority."
     },
     {
       "case_id": "gen-mcp-003",
@@ -87,7 +111,13 @@
         "path": "tests/integration/conftest.py",
         "line": 184
       },
-      "status": "independent_source_review_required"
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "tests/integration/conftest.py",
+        "line": 153
+      },
+      "source_review_rationale": "MCP_SERVER_URL is a test/CI environment variable consumed in pytest async contextmanager fixtures for streamable HTTP or SSE; its unknown host and tool catalogue are not source-proven live agent authority."
     },
     {
       "case_id": "gen-oai-001",
@@ -147,7 +177,13 @@
         "path": "examples/openai_agents/customer_service_agent.ipynb",
         "line": 76
       },
-      "status": "independent_source_review_required"
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 103
+      },
+      "source_review_rationale": "The update_seat function mutates RunContextWrapper context fields, not source-proven persistent seat inventory, and is contained in examples/."
     },
     {
       "case_id": "gen-oai-004",
@@ -159,7 +195,13 @@
         "path": "examples/openai_agents/customer_service_agent.py",
         "line": 94
       },
-      "status": "independent_source_review_required"
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 103
+      },
+      "source_review_rationale": "The update_seat function mutates RunContextWrapper context fields, not source-proven persistent seat inventory, and is contained in examples/."
     },
     {
       "case_id": "gen-oai-004",
@@ -171,7 +213,13 @@
         "path": "examples/openai_agents/customer_service_agent.ipynb",
         "line": 76
       },
-      "status": "independent_source_review_required"
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 103
+      },
+      "source_review_rationale": "The update_seat function mutates RunContextWrapper context fields, not source-proven persistent seat inventory, and is contained in examples/."
     },
     {
       "case_id": "gen-oai-004",
@@ -183,7 +231,13 @@
         "path": "examples/openai_agents/customer_service_agent.py",
         "line": 94
       },
-      "status": "independent_source_review_required"
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 103
+      },
+      "source_review_rationale": "The update_seat function mutates RunContextWrapper context fields, not source-proven persistent seat inventory, and is contained in examples/."
     },
     {
       "case_id": "gen-oai-004",
@@ -195,7 +249,13 @@
         "path": "examples/openai_agents/customer_service_agent.ipynb",
         "line": 129
       },
-      "status": "independent_source_review_required"
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 151
+      },
+      "source_review_rationale": "The Triage Agent declares a source-visible handoff to Seat Booking Agent, but its delegated write is the example's in-memory context mutation, not proved external side-effect authority."
     },
     {
       "case_id": "gen-oai-004",
@@ -207,7 +267,13 @@
         "path": "examples/openai_agents/customer_service_agent.py",
         "line": 144
       },
-      "status": "independent_source_review_required"
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 151
+      },
+      "source_review_rationale": "The Triage Agent declares a source-visible handoff to Seat Booking Agent, but its delegated write is the example's in-memory context mutation, not proved external side-effect authority."
     },
     {
       "case_id": "gen-oai-004",
@@ -219,7 +285,13 @@
         "path": "examples/openai_agents/customer_service_agent.ipynb",
         "line": 129
       },
-      "status": "independent_source_review_required"
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 151
+      },
+      "source_review_rationale": "The Triage Agent declares a source-visible handoff to Seat Booking Agent, but its delegated write is the example's in-memory context mutation, not proved external side-effect authority."
     },
     {
       "case_id": "gen-oai-004",
@@ -231,7 +303,13 @@
         "path": "examples/openai_agents/customer_service_agent.py",
         "line": 144
       },
-      "status": "independent_source_review_required"
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 151
+      },
+      "source_review_rationale": "The Triage Agent declares a source-visible handoff to Seat Booking Agent, but its delegated write is the example's in-memory context mutation, not proved external side-effect authority."
     },
     {
       "case_id": "gen-oai-004",
@@ -387,7 +465,13 @@
         "path": "examples/testing_examples/test_agent_patterns.py",
         "line": 38
       },
-      "status": "independent_source_review_required"
+      "status": "source_scope_reviewed_not_independent_runtime_verified",
+      "review_evidence": {
+        "repository_source_revision": "pinned_original_fresh16_sha",
+        "path": "examples/testing_examples/test_agent_patterns.py",
+        "line": 69
+      },
+      "source_review_rationale": "The network-looking API call is a mock dependency api_client.post inside testing_examples, not a source-proven production egress destination."
     }
   ]
 }
