@@ -169,7 +169,7 @@ def test_unmatched_attack_path_does_not_borrow_agent_wide_facts():
 
 
 def test_generic_finding_at_agent_location_does_not_inherit_other_tools():
-    graph, findings = _fixture()
+    graph, _ = _fixture()
     generic = Finding(
         rule_id="CAP005", severity=Severity.HIGH, title="Read/write",
         message="Read/write", recommendation="Review",
