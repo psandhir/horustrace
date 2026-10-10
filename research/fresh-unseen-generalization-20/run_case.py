@@ -67,6 +67,28 @@ def source_pack(target: Path) -> str:
     return "".join(out)
 
 
+
+def scan_inventory_counts(scan_doc: dict) -> dict[str, int]:
+    """Use the CLI scan summary, not a nonexistent top-level agents array.
+
+    Fail closed if a required count is absent or inconsistent: otherwise an
+    apparently successful cohort can silently publish zero detected agents.
+    """
+    summary = scan_doc.get("summary")
+    if not isinstance(summary, dict):
+        raise ValueError("scan output has no summary object")
+    counts: dict[str, int] = {}
+    for field in ("agents", "findings", "attack_paths"):
+        value = summary.get(field)
+        if type(value) is not int or value < 0:
+            raise ValueError(f"missing/invalid scan summary field: {field}")
+        counts[field] = value
+    findings = scan_doc.get("findings")
+    if not isinstance(findings, list) or len(findings) != counts["findings"]:
+        raise ValueError("scan findings differ from declared finding count")
+    return counts
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--case-id", required=True)
@@ -93,9 +115,11 @@ def main() -> int:
         graph_doc = json.loads(graph_cp.stdout)
         (out / "security-graph.json").write_text(json.dumps(graph_doc, indent=2) + "\n", encoding="utf-8")
 
-        findings = scan_doc.get("findings") if isinstance(scan_doc.get("findings"), list) else []
-        paths = graph_doc.get("attack_paths") if isinstance(graph_doc.get("attack_paths"), list) else []
-        agents = scan_doc.get("agents") if isinstance(scan_doc.get("agents"), list) else []
+        counts = scan_inventory_counts(scan_doc)
+        findings = scan_doc["findings"]
+        paths = graph_doc.get("attack_paths")
+        if not isinstance(paths, list) or len(paths) != counts["attack_paths"]:
+            raise ValueError("security-graph paths disagree with scan summary")
         result = {
             "schema_version": 1,
             "case_id": case["case_id"],
@@ -105,9 +129,9 @@ def main() -> int:
             "evidence_path": case.get("evidence_path"),
             "source_pack_chars": len(pack),
             "counts": {
-                "agents": len(agents),
-                "findings": len(findings),
-                "attack_paths": len(paths),
+                "agents": counts["agents"],
+                "findings": counts["findings"],
+                "attack_paths": counts["attack_paths"],
             },
             "findings": [{"index": i, **x} for i, x in enumerate(findings) if isinstance(x, dict)],
             "attack_paths": [{"index": i, **x} for i, x in enumerate(paths) if isinstance(x, dict)],
