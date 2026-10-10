@@ -1,11 +1,24 @@
-name: P0 P1 Postmerge Fresh16 Source Regression
+name: Frozen Fresh16 Source-Claim Regression
 
 on:
   push:
     branches:
+      - main
       - research/p0-p1-postmerge-fresh16-20261010
     paths:
-      - .github/workflows/p0-p1-postmerge-fresh16.yml
+      - ".github/workflows/p0-p1-postmerge-fresh16.yml"
+      - "src/horustrace/**"
+      - "research/fresh-unseen-generalization-20/run_case.py"
+      - "research/source-claim-regression/**"
+      - "scripts/source_claim_regression_gate.py"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/p0-p1-postmerge-fresh16.yml"
+      - "src/horustrace/**"
+      - "research/source-claim-regression/**"
+      - "scripts/source_claim_regression_gate.py"
   workflow_dispatch:
 
 permissions:
@@ -13,7 +26,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: p0-p1-postmerge-fresh16
+  group: frozen-fresh16-source-claim-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -52,8 +65,6 @@ jobs:
       - name: Verify final scanner source and frozen cohort
         run: |
           set -euo pipefail
-          git merge-base --is-ancestor c6cdd89b962d7432df4473527d822e8336d5f288 HEAD
-          git diff --quiet c6cdd89b962d7432df4473527d822e8336d5f288 HEAD -- src/horustrace
           test "$(git hash-object research/fresh-unseen-generalization-20/cohort.json)" = "8526378a3c54d6ae74bab9b3982e8303fb14bce7"
       - name: Install scanner without target code
         run: python -m pip install -e .
@@ -155,6 +166,15 @@ jobs:
           print("\n".join(lines))
           if errors: raise SystemExit(1)
           PY
+      - name: Fail closed on source-supported claim losses
+        if: success()
+        run: |
+          python scripts/source_claim_regression_gate.py \\
+            --baseline-manifest research/source-claim-regression/postmerge-fresh16-claims.json \\
+            --candidate downloaded \\
+            --decisions research/source-claim-regression/decisions.json \\
+            --output aggregate/source-claim-regression.json
+          cat aggregate/source-claim-regression.json >> "$GITHUB_STEP_SUMMARY"
       - name: Retain aggregate evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
