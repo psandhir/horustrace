@@ -83,7 +83,7 @@ jobs:
       - name: Download exact-case artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: p0p1-postmerge-*
+          pattern: fresh16-claim-gate-gen-*
           path: downloaded
       - name: Fail closed on missing evidence and compare counts
         shell: bash
@@ -170,7 +170,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: p0p1-postmerge-fresh16-summary
+          name: fresh16-source-claim-gate-summary
           path: aggregate/
           if-no-files-found: warn
           retention-days: 30
