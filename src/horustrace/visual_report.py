@@ -1256,13 +1256,24 @@ function inventorySummary(item,kind){{
  if(kind==="tools")return (item.capabilities||[]).join(", ")||"Capabilities unresolved";
  return (item.allowed_tools||[]).join(", ")||"No allowed tools declared";
 }}
+function inventoryTopologyNode(item,kind){{
+ const topology=DATA.security_graph?.topology||{{}};
+ const nodes=topology.nodes||[];
+ const expected=kind==="mcp"?["mcp_server"]:kind==="skills"?["skill"]:["tool","delegation","capability"];
+ const agents=item.bound_agents||[];
+ const names=new Set([item.name,...agents.map(name=>name+":"+item.name)]);
+ const matches=nodes.filter(n=>expected.includes(n.kind)&&names.has(n.name)&&(
+   !(item.location?.path&&n.location?.path)||item.location.path===n.location.path
+ ));
+ return matches.length===1?matches[0]:null;
+}}
 function inventoryTable(items,kind){{
  if(!items.length)return '<div class="empty">No matching components in this scan.</div>';
- const rows=items.map(item=>'<tr class="clickable" role="button" tabindex="0" data-inventory-row="'+esc(item.id)+'">'+
+ const rows=items.map(item=>'<tr data-inventory-row="'+esc(item.id)+'">'+
  '<td><div class="row-title">'+esc(item.name)+'</div><div class="row-sub">'+esc(kind==="mcp"?(item.transport||"unknown transport"):kind==="tools"?(item.kind||"tool"):(item.source||"skill"))+' · '+loc(item.location)+'</div></td>'+
  '<td>'+badge(item.binding_state)+'</td><td>'+esc((item.bound_agents||[]).join(", ")||"—")+'</td>'+
- '<td>'+esc(inventorySummary(item,kind))+'</td><td class="row-chevron">›</td></tr>').join("");
- return '<div class="panel flush table-wrap"><table aria-label="'+esc(kind)+' inventory"><thead><tr><th>Component</th><th>Binding</th><th>Agent(s)</th><th>Capabilities / endpoint</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+ '<td>'+esc(inventorySummary(item,kind))+'</td><td><button type="button" class="back" data-inventory-open="'+esc(item.id)+'" aria-label="View '+esc(item.name)+' component details">View details ›</button></td></tr>').join("");
+ return '<div class="panel flush table-wrap"><table aria-label="'+esc(kind)+' inventory"><thead><tr><th>Component</th><th>Binding</th><th>Agent(s)</th><th>Capabilities / endpoint</th><th>Inspect</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }}
 function inventoryDetail(item,kind){{
  const format=(values)=>values&&values.length?values.join(", "):"—";
@@ -1273,13 +1284,28 @@ function inventoryDetail(item,kind){{
  else meta.push(["Description",item.description||"—"],["Skill source",item.source||"unknown"],["Capabilities",format(item.capabilities)],["Allowed tools",format(item.allowed_tools)],["Scripts",format(item.scripts)],["Destinations",format(item.destinations)]);
  meta.push(["Resources",resource]);
  const details=meta.map(([label,value])=>'<div>'+esc(label)+'</div><div>'+esc(value)+'</div>').join("");
- const agents=(item.bound_agents||[]).map(name=>'<button class="filter-chip" type="button" data-inventory-agent="'+encodeURIComponent(name)+'">'+uiIcon("agents")+esc(name)+' ↗</button>').join("");
- return '<div id="inventory-detail">'+sectionHead(item.name,"Source-backed instance: "+kind,'<button type="button" id="inventory-clear" class="back">Close detail</button>')+
+ const agents=item.bound_agents||[];
+ const linked=agents.map(name=>{{
+   const agent=DATA.agents.find(a=>a.name===name);
+   const signal=agent?number(agent.summary.findings)+" agent findings · "+number(agent.summary.attack_paths)+" agent attack paths":"Agent profile unavailable";
+   return '<div class="panel" style="margin-bottom:8px"><div class="row-title">'+esc(name)+'</div><div class="row-sub">'+esc(signal)+'</div>'+
+   '<div class="filter-chips" style="margin-top:8px"><button class="filter-chip" type="button" data-inventory-agent="'+encodeURIComponent(name)+'">Open agent profile ↗</button>'+
+   (agent?'<button class="filter-chip" type="button" data-inventory-agent-findings="'+encodeURIComponent(name)+'">Review agent findings ↗</button>':"")+'</div></div>';
+ }}).join("");
+ const topologyNode=inventoryTopologyNode(item,kind);
+ const topologyAction=topologyNode?'<button type="button" class="back" data-inventory-supply="'+esc(topologyNode.id)+'">View in supply chain ↗</button>':
+ '<span class="muted small">No unambiguous source-backed graph node for this instance.</span>';
+ return '<div id="inventory-detail" tabindex="-1" class="panel" style="border-color:var(--line-strong)">'+
+ '<div class="section-head" style="margin:0 0 12px"><div><div class="eyebrow">Component security profile</div><h2>'+esc(item.name)+'</h2><p>'+esc(kind)+" · "+esc(item.binding_state)+'</p></div><button type="button" id="inventory-clear" class="back">← Back to inventory</button></div>'+
+ '<div class="cards">'+metric("Connected agents",agents.length)+metric("Resource scopes",(item.resources||[]).length)+metric("Capabilities",(item.capabilities||[]).length)+'</div>'+
+ sectionHead("Configuration and source evidence","Scanner-observed configuration. Configured control flags are not proof of runtime enforcement.")+
  '<div class="panel"><div class="kv">'+details+'</div></div>'+
- sectionHead("Connected agents","A binding does not mean that every agent finding applies to this component.")+
- (agents?'<div class="filter-chips">'+agents+'</div>':'<div class="empty">No source-proven agent binding.</div>')+'</div>';
+ sectionHead("Supply chain context","Open this exact component instance in the canonical dependency graph when its identity is unambiguous.")+
+ '<div class="filter-chips">'+topologyAction+'</div>'+
+ sectionHead("Connected agents and security review","Agent-level findings do not automatically establish a violation of this specific component.")+
+ (linked||'<div class="empty">No source-proven agent binding. Component-specific findings cannot be inferred from other agents.</div>')+'</div>';
 }}
-function renderComponents(kind="mcp",selectedId=null){{
+function renderComponents(kind="mcp",selectedId=null,agentScope=null){{
  if(!["mcp","tools","skills"].includes(kind))kind="mcp";
  const root=document.getElementById("components"),items=inventoryEntries(kind),selected=items.find(item=>item.id===selectedId);
  const tabs=[["mcp","MCP servers"],["tools","Tools"],["skills","Skills"]].map(([key,label])=>
@@ -1287,25 +1313,27 @@ function renderComponents(kind="mcp",selectedId=null){{
  root.innerHTML=pageHead("Repository inventory","Components","Search discovered component instances, bindings and source evidence. This is a static inventory, not live deployment discovery.")+
  '<div class="cards">'+metric("MCP servers",(DATA.mcp_servers||[]).filter(x=>x.binding_state!=="unresolved_reference").length)+metric("Tools",(DATA.tools||[]).length)+metric("Skills",(DATA.skills||[]).length)+metric("Unresolved references",(DATA.mcp_servers||[]).filter(x=>x.binding_state==="unresolved_reference").length)+'</div>'+
  '<div class="toolbar"><div class="filter-chips">'+tabs+'</div><div class="toolbar-right"><input id="inventory-search" class="search" aria-label="Search inventory" placeholder="Search component, capability, agent or file"></div></div>'+
+ (agentScope?'<div class="filter-banner"><span>Components connected to '+esc(agentScope)+'</span><button type="button" class="back" id="inventory-scope-clear">All components</button></div>':"")+
  (selected?inventoryDetail(selected,kind):"")+
  '<div class="toolbar"><div class="filter-chips">'+[["all","All"],["bound","Bound"],["unbound","Unbound"],["unresolved_reference","Unresolved"]].map(([key,label])=>'<button type="button" class="filter-chip '+(key==="all"?"active":"")+'" data-inventory-filter="'+key+'">'+label+'</button>').join("")+'</div><span class="muted small" id="inventory-count"></span></div><div id="inventory-table"></div>';
  let filter="all";const input=root.querySelector("#inventory-search");
  const update=()=>{{
   const q=input.value.toLowerCase().trim();
-  const scoped=items.filter(item=>(filter==="all"||item.binding_state===filter)&&(!q||JSON.stringify(item).toLowerCase().includes(q)));
+  const scoped=items.filter(item=>(!agentScope||(item.bound_agents||[]).includes(agentScope))&&(filter==="all"||item.binding_state===filter)&&(!q||JSON.stringify(item).toLowerCase().includes(q)));
   root.querySelector("#inventory-count").textContent=number(scoped.length)+" detected instances";
   root.querySelector("#inventory-table").innerHTML=inventoryTable(scoped,kind);
-  root.querySelectorAll("[data-inventory-row]").forEach(row=>{{
-   const activate=()=>{{renderComponents(kind,row.dataset.inventoryRow);const detail=root.querySelector("#inventory-detail");if(detail)detail.scrollIntoView({{block:"start"}});}};
-   row.addEventListener("click",activate);
-   row.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});
+  root.querySelectorAll("[data-inventory-open]").forEach(btn=>{{
+   btn.addEventListener("click",()=>{{renderComponents(kind,btn.dataset.inventoryOpen,agentScope);const detail=root.querySelector("#inventory-detail");if(detail){{detail.scrollIntoView({{block:"start"}});detail.focus({{preventScroll:true}});}}}});
   }});
  }};
- root.querySelectorAll("[data-inventory-kind]").forEach(btn=>btn.addEventListener("click",()=>renderComponents(btn.dataset.inventoryKind)));
+ root.querySelectorAll("[data-inventory-kind]").forEach(btn=>btn.addEventListener("click",()=>renderComponents(btn.dataset.inventoryKind,null,agentScope)));
  root.querySelectorAll("[data-inventory-filter]").forEach(btn=>btn.addEventListener("click",()=>{{filter=btn.dataset.inventoryFilter;root.querySelectorAll("[data-inventory-filter]").forEach(x=>x.classList.toggle("active",x===btn));update();}}));
  input.addEventListener("input",update);
- const clear=root.querySelector("#inventory-clear");if(clear)clear.addEventListener("click",()=>renderComponents(kind));
- root.querySelectorAll("[data-inventory-agent]").forEach(btn=>btn.addEventListener("click",()=>openAgent(decodeURIComponent(btn.dataset.inventoryAgent),"overview",null,{{kind,id:selected.id}})));
+ const clear=root.querySelector("#inventory-clear");if(clear)clear.addEventListener("click",()=>renderComponents(kind,null,agentScope));
+ const scopeClear=root.querySelector("#inventory-scope-clear");if(scopeClear)scopeClear.addEventListener("click",()=>renderComponents(kind));
+ root.querySelectorAll("[data-inventory-supply]").forEach(btn=>btn.addEventListener("click",()=>{{renderSupplyChain("all","all",btn.dataset.inventorySupply);showView("supply");}}));
+ root.querySelectorAll("[data-inventory-agent]").forEach(btn=>btn.addEventListener("click",()=>openAgent(decodeURIComponent(btn.dataset.inventoryAgent),"overview",null,{{kind,id:selected.id,agentScope}})));
+ root.querySelectorAll("[data-inventory-agent-findings]").forEach(btn=>btn.addEventListener("click",()=>openAgent(decodeURIComponent(btn.dataset.inventoryAgentFindings),"findings",null,{{kind,id:selected.id,agentScope}})));
  update();
 }}
 
@@ -1618,7 +1646,7 @@ function openAgent(name,initialTab="overview",owaspRisk=null,inventoryFocus=null
  '<div class="tabs" role="tablist"><button class="active" data-tab="overview">Overview</button><button data-tab="map">Agency map <span class="tab-count">'+number(a.summary.authority_relationships)+'</span></button><button data-tab="paths">Attack paths <span class="tab-count">'+number(a.summary.attack_paths)+'</span></button><button data-tab="findings">Findings <span class="tab-count">'+number(a.summary.findings)+'</span></button><button data-tab="contract">Contract <span class="tab-count">'+number(a.summary.contract_violations+a.summary.contract_unresolved)+'</span></button><button data-tab="evidence">Evidence</button></div>'+
  '<div id="tab-overview" class="agent-tab active">'+renderAgentOverview(a)+'</div><div id="tab-map" class="agent-tab">'+renderGraph(a)+'</div><div id="tab-paths" class="agent-tab">'+renderAgentPaths(a)+'</div><div id="tab-findings" class="agent-tab">'+renderAgentFindings(a,owaspRisk)+'</div><div id="tab-contract" class="agent-tab">'+renderAgentContract(a)+'</div><div id="tab-evidence" class="agent-tab">'+renderAgentEvidence(a)+'</div>';
  root.querySelector("#back-agents").textContent=owaspRisk?"← Back to OWASP "+owaspRisk:(inventoryFocus?"← Back to components":(supplyFocus?"← Back to supply chain":"← Back to agents"));
- root.querySelector("#back-agents").addEventListener("click",()=>{{if(owaspRisk){{renderOwasp(owaspRisk);showView("owasp");}}else if(inventoryFocus){{renderComponents(inventoryFocus.kind,inventoryFocus.id);showView("components");}}else if(supplyFocus){{renderSupplyChain(supplyFocus.focus,supplyFocus.layer,supplyFocus.selected);showView("supply");}}else showView("agents");}});
+ root.querySelector("#back-agents").addEventListener("click",()=>{{if(owaspRisk){{renderOwasp(owaspRisk);showView("owasp");}}else if(inventoryFocus){{renderComponents(inventoryFocus.kind,inventoryFocus.id,inventoryFocus.agentScope||null);showView("components");}}else if(supplyFocus){{renderSupplyChain(supplyFocus.focus,supplyFocus.layer,supplyFocus.selected);showView("supply");}}else showView("agents");}});
  const clearOwasp=root.querySelector("#clear-agent-owasp");
  if(clearOwasp)clearOwasp.addEventListener("click",()=>{{root.querySelector("#tab-findings").innerHTML=renderAgentFindings(a);}});
  root.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>{{
