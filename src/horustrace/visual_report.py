@@ -613,6 +613,24 @@ svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} 
 .owasp-chart-row .severity-chart-fill.no_mapped_findings{{background:var(--accent)}}
 .owasp-chart-row .severity-chart-fill.not_assessed{{background:var(--unknown)}}
 .coverage-track{{height:8px;background:#09101e;border-radius:999px;overflow:hidden;border:1px solid var(--line);margin-top:9px}} .coverage-fill{{height:100%;background:var(--ok);border-radius:inherit}} .footer{{color:var(--muted2);font-size:10px;margin:30px 0 3px;padding-top:14px;border-top:1px solid #ffffff0a}}
+/* Soft presentation-style status bars, light theme only. Semantic text remains contrast-safe. */
+html[data-theme="light"]{{--bar-risk:#EFB7B7;--bar-warning:#F4D1AE;--bar-good:#BFDCC8;--bar-unknown:#C7D0DB}}
+html[data-theme="light"] .severity-chart-track{{background:#EFF2F6}}
+html[data-theme="light"] .severity-chart-fill{{box-shadow:inset 0 0 0 1px #31415912}}
+html[data-theme="light"] .severity-chart-fill.critical{{background:var(--bar-risk)}}
+html[data-theme="light"] .severity-chart-fill.high,
+html[data-theme="light"] .severity-chart-fill.medium{{background:var(--bar-warning)}}
+html[data-theme="light"] .severity-chart-fill.low{{background:var(--bar-good)}}
+html[data-theme="light"] .severity-chart-fill.info{{background:var(--bar-unknown)}}
+html[data-theme="light"] .authority-chart-row .severity-chart-fill.fully_resolved{{background:var(--bar-good)}}
+html[data-theme="light"] .authority-chart-row .severity-chart-fill.partially_resolved{{background:var(--bar-warning)}}
+html[data-theme="light"] .authority-chart-row .severity-chart-fill.unknown{{background:var(--bar-unknown)}}
+html[data-theme="light"] .owasp-chart-row .severity-chart-fill.finding{{background:var(--bar-risk)}}
+html[data-theme="light"] .owasp-chart-row .severity-chart-fill.no_runtime_findings{{background:var(--bar-warning)}}
+html[data-theme="light"] .owasp-chart-row .severity-chart-fill.no_mapped_findings{{background:var(--bar-good)}}
+html[data-theme="light"] .owasp-chart-row .severity-chart-fill.not_assessed{{background:var(--bar-unknown)}}
+html[data-theme="light"] .coverage-fill{{background:var(--bar-good)}}
+html[data-theme="light"] .coverage-fill.incomplete{{background:var(--bar-warning)}}
 @media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}
 @media(max-width:1000px){{.shell{{grid-template-columns:220px minmax(0,1fr)}} main{{padding:26px 24px}} .graph-wrap{{grid-template-columns:1fr}} .inspector{{max-height:280px}}}}
 @media(max-width:760px){{.shell{{grid-template-columns:1fr}} aside{{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:12px}} .brand-row{{padding-bottom:11px;margin-bottom:9px}} .nav-label,.sidebar-meta{{display:none}} .nav{{display:flex;flex-direction:row;overflow:auto;gap:4px}} .nav button{{width:auto;white-space:nowrap;padding:8px 10px}} .nav button::before{{display:none}} main{{padding:20px 14px 30px}} .grid2,.assessment-banner{{grid-template-columns:1fr}} .assessment-side{{justify-content:flex-start}} .assessment-count{{text-align:left}} .page-head{{flex-direction:column}} .page-actions{{justify-content:flex-start}} .sevbar{{grid-template-columns:repeat(2,1fr)}} .kv{{grid-template-columns:1fr}} .graph{{height:440px}} .graph-wrap.expanded{{inset:4px;padding:8px;grid-template-columns:1fr}} .graph-wrap.expanded .inspector{{display:none}} .tabs{{position:static}}}}
@@ -1073,7 +1091,7 @@ function renderEvidence(){{
  const skillRows=skills.map(s=>'<tr><td><div class="row-title">'+esc(s.name)+'</div><div class="row-sub">'+loc(s.location)+'</div></td><td>'+badge(s.binding_state)+'</td><td>'+esc((s.bound_agents||[]).join(", ")||"—")+'</td><td>'+esc((s.allowed_tools||[]).join(", ")||"—")+'</td><td>'+number((s.scripts||[]).length)+'</td></tr>').join("");
  document.getElementById("evidence").innerHTML=pageHead("Trust & provenance","Scan evidence","Coverage, diagnostics and report provenance used to qualify the assessment.",scanCoverageStatus(c.incomplete))+
  '<div class="cards">'+metric("Files considered",c.files_considered)+metric("Files scanned",c.files_scanned)+metric("Files skipped",c.files_skipped)+metric("Files failed",c.files_failed,c.files_failed?"high":"")+'</div>'+
- sectionHead("Coverage status","Use coverage gaps to qualify confidence in scanner conclusions.")+'<div class="panel"><div class="kv"><div>Status</div><div>'+scanCoverageStatus(c.incomplete)+'</div><div>Scan completion</div><div>'+(pct===null?'Not available (no files considered)':number(pct)+'%<div class="coverage-track"><div class="coverage-fill" style="width:'+pct+'%"></div></div>')+'</div><div>ASG digest</div><div><code>'+esc(DATA.security_graph.digest)+'</code></div><div>Suppressed findings</div><div>'+number(DATA.suppressed_findings.length)+'</div><div>Report model</div><div><code>'+esc(DATA.model)+' / schema '+esc(DATA.schema_version)+'</code></div></div></div>'+
+ sectionHead("Coverage status","Use coverage gaps to qualify confidence in scanner conclusions.")+'<div class="panel"><div class="kv"><div>Status</div><div>'+scanCoverageStatus(c.incomplete)+'</div><div>Scan completion</div><div>'+(pct===null?'Not available (no files considered)':number(pct)+'%<div class="coverage-track"><div class="coverage-fill '+(c.incomplete?'incomplete':'')+'" style="width:'+pct+'%"></div></div>')+'</div><div>ASG digest</div><div><code>'+esc(DATA.security_graph.digest)+'</code></div><div>Suppressed findings</div><div>'+number(DATA.suppressed_findings.length)+'</div><div>Report model</div><div><code>'+esc(DATA.model)+' / schema '+esc(DATA.schema_version)+'</code></div></div></div>'+
  sectionHead("Skill inventory","Portable agent skills discovered in the repository. Unbound means discovered but not source-proven as available to an agent.")+(skillRows?'<div class="panel flush table-wrap"><table><thead><tr><th>Skill</th><th>Binding</th><th>Agents</th><th>Allowed tools</th><th>Scripts</th></tr></thead><tbody>'+skillRows+'</tbody></table></div>':'<div class="empty">No Agent Skills were discovered.</div>')+
  sectionHead("Diagnostics","Coverage or parsing conditions that may affect completeness.")+(diags.length?diags.map(d=>'<div class="finding" data-sev="medium"><div class="finding-title"><strong>'+esc(d.diagnostic_id||d.code)+'</strong><span class="badge medium">diagnostic</span></div><p>'+esc(d.message)+'</p><div class="muted small">'+loc(d.location)+'</div></div>').join(""):'<div class="empty">No detected coverage diagnostics.</div>');
 }}
