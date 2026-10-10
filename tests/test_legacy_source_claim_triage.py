@@ -30,7 +30,12 @@ def test_legacy_32_claims_preserve_original_verdicts_without_auto_waivers() -> N
         assert loss["source_evidence"]["path"]
         assert loss["source_evidence"]["line"] >= 1
         if loss["historical_verdict"] == "partial":
-            assert loss["status"] == "independent_source_review_required"
+            assert loss["status"] == (
+                "source_scope_reviewed_not_independent_runtime_verified"
+            )
+            assert loss["review_evidence"]["path"]
+            assert loss["review_evidence"]["line"] >= 1
+            assert len(loss["source_review_rationale"]) >= 70
     assert {
         r["status"] for r in losses if r["historical_verdict"] == "true_positive"
     } == {"recovered_with_source_bound_agent",
