@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/adk-ux-demo.yml
       - scripts/run_adk_ux_demo.py
+      - scripts/check_adk_report_browser.py
       - src/horustrace/visual_report.py
       - tests/test_adk_ux_demo_acceptance.py
 
