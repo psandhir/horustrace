@@ -439,6 +439,12 @@ def test_visual_report_owasp_assessment_status_chart(tmp_path: Path) -> None:
     assert '["not_assessed","Not assessed"]' in html
     assert 'const shownCategories=statusMode?categories.filter(' in html
     assert 'scope+\'<div class="panel flush table-wrap">' in html
+    assert 'function owaspAgentRows(mapped)' in html
+    assert 'data-owasp-agent=' in html
+    assert 'function openAgent(name,initialTab="overview",owaspRisk=null)' in html
+    assert 'id="owasp-detail"' in html
+    assert 'detail+scope+' in html
+    assert 'OWASP category' in html
     assert 'Detector coverage is not proof of security' in html
     assert 'Not assessed means no enabled mapped detector' in html
     assert before == build_visual_report(graph, findings, tmp_path)
