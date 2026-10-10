@@ -210,6 +210,28 @@ def test_visual_report_dashboard_has_contextual_drilldowns(tmp_path: Path) -> No
     assert 'function agentMatchesFilter(a,mode)' in html
 
 
+def test_visual_report_has_interactive_severity_chart(tmp_path: Path) -> None:
+    graph, findings = _graph(tmp_path)
+
+    html = render_visual_report_html(graph, findings, tmp_path)
+    report = build_visual_report(graph, findings, tmp_path)
+
+    assert 'function severityChart(s)' in html
+    assert 'aria-label="Findings by scanner severity"' in html
+    assert 'class="severity-chart-row" role="button" tabindex="0"' in html
+    assert 'data-drill="findings:' in html
+    assert '["low","Low"],["info","Info"]' in html
+    assert 'filters=["all","critical","high","medium","low","info"]' in html
+    assert "Static scan evidence only; exploitability is not verified." in html
+    assert report["summary"]["severity"] == {
+        "critical": 0,
+        "high": 1,
+        "medium": 0,
+        "low": 0,
+        "info": 0,
+    }
+
+
 def test_visual_report_projects_attack_path_chain(tmp_path: Path) -> None:
     location = SourceLocation(tmp_path / "agent.py", line=10)
     agent = Agent(name="Slack Agent", location=location)
