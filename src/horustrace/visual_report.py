@@ -1309,6 +1309,150 @@ function renderComponents(kind="mcp",selectedId=null){{
  update();
 }}
 
+
+/* Canonical ADG topology is embedded in security_graph; no heuristic edges are created. */
+const SUPPLY_LAYER_EDGES=Object.freeze({{
+ execution:new Set(["INVOKES","DELEGATES_TO","WORKFLOW_FLOWS_TO","CONTROL_FLOWS_TO","USES_SKILL","USES_MODEL","USES_PROMPT","IMPLEMENTS_CONTROL"]),
+ data:new Set(["READS_FROM","WRITES_TO","RECEIVES_INPUT_FROM","READS_MEMORY","WRITES_MEMORY","CONNECTS_TO","DATA_FLOWS_TO"]),
+ authority:new Set(["USES_IDENTITY","CAN_REACH_AUTHORITY","AUTHORIZES_ACCESS_TO","AUTHORIZES_CONNECTION_TO","GUARDED_BY","IMPLEMENTS_CONTROL"])
+}});
+function supplyColumn(kind){{
+ if(["agent","workflow_node"].includes(kind))return 0;
+ if(["tool","mcp_server","skill","model","prompt","delegation","capability"].includes(kind))return 1;
+ if(["identity","approval_control","policy_control"].includes(kind))return 2;
+ return 3;
+}}
+function supplyTopologyVisible(focus="all",layer="all",query=""){{
+ const topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[],edges=topology.edges||[];
+ const byId=new Map(nodes.map(node=>[node.id,node]));
+ const filtered=layer==="all"?edges:edges.filter(edge=>SUPPLY_LAYER_EDGES[layer]?.has(edge.kind));
+ const scope=new Set();
+ if(focus==="all")nodes.forEach(node=>scope.add(node.id));
+ else if(byId.has(focus)){{
+  scope.add(focus);
+  const direct=filtered.filter(e=>e.source===focus||((e.target===focus)&&["DELEGATES_TO","WORKFLOW_FLOWS_TO"].includes(e.kind)));
+  direct.forEach(e=>{{scope.add(e.source);scope.add(e.target);}});
+  const firstHop=new Set(direct.filter(e=>e.source===focus).map(e=>e.target));
+  filtered.forEach(e=>{{if(firstHop.has(e.source)){{scope.add(e.source);scope.add(e.target);}}}});
+ }}
+ let scopedEdges=filtered.filter(e=>scope.has(e.source)&&scope.has(e.target));
+ let scopedNodes=nodes.filter(node=>scope.has(node.id));
+ const q=String(query||"").trim().toLowerCase();
+ if(q){{
+  const hits=new Set(scopedNodes.filter(n=>(n.name+" "+n.kind+" "+(n.framework||"")).toLowerCase().includes(q)).map(n=>n.id));
+  const context=new Set(hits);
+  scopedEdges.forEach(e=>{{if(hits.has(e.source)||hits.has(e.target)){{context.add(e.source);context.add(e.target);}}}});
+  scopedNodes=scopedNodes.filter(n=>context.has(n.id));
+  scopedEdges=scopedEdges.filter(e=>context.has(e.source)&&context.has(e.target));
+ }}
+ const candidates=scopedNodes.length,possibleEdges=scopedEdges.length;
+ /* A deterministic bounded rendering keeps a self-contained offline report usable. */
+ const limit=72;
+ scopedNodes.sort((a,b)=>supplyColumn(a.kind)-supplyColumn(b.kind)||a.name.localeCompare(b.name)||a.id.localeCompare(b.id));
+ scopedNodes=scopedNodes.slice(0,limit);
+ const visibleIds=new Set(scopedNodes.map(n=>n.id));
+ scopedEdges=scopedEdges.filter(e=>visibleIds.has(e.source)&&visibleIds.has(e.target));
+ const edgeLimit=180;
+ const shownEdges=scopedEdges.length;
+ scopedEdges=scopedEdges.slice(0,edgeLimit);
+ return {{nodes:scopedNodes,edges:scopedEdges,candidates,possibleEdges,shownEdges,byId}};
+}}
+function supplySvg(view,selectedId){{
+ const groups=[[],[],[],[]];
+ view.nodes.forEach(n=>groups[supplyColumn(n.kind)].push(n));
+ const width=1180, colX=[20,314,608,902], nodeWidth=248, rowHeight=69;
+ const height=Math.max(400,Math.max(...groups.map(g=>g.length))*rowHeight+66);
+ const coords=new Map();
+ const columns=["Agents & workflow","Tools / MCP / models / skills","Identities & controls","Data & destinations"];
+ const headers=columns.map((label,i)=>'<text class="supply-col-title" x="'+(colX[i]+3)+'" y="26">'+esc(label)+'</text>').join("");
+ const graphNodes=groups.map((group,col)=>group.map((n,index)=>{{
+  const x=colX[col],y=47+index*rowHeight;coords.set(n.id,{{x,y}});
+  const selected=selectedId===n.id;
+  const title=n.name.length>29?n.name.slice(0,26)+"…":n.name;
+  return '<g class="supply-node '+(selected?"selected":"")+'" data-kind="'+esc(n.kind)+'" data-supply-node="'+esc(n.id)+'" role="button" tabindex="0" aria-label="'+esc(n.kind+" "+n.name)+'" transform="translate('+x+','+y+')">'+
+   '<rect width="'+nodeWidth+'" height="51" rx="9"></rect><text x="11" y="20" font-weight="700">'+esc(title)+'</text><text class="supply-kind" x="11" y="38">'+esc(n.kind.replaceAll("_"," "))+'</text></g>';
+ }}).join("")).join("");
+ const links=view.edges.map(e=>{{
+  const a=coords.get(e.source),b=coords.get(e.target);if(!a||!b)return "";
+  const forward=b.x>a.x, same=b.x===a.x;
+  const x1=a.x+(forward?nodeWidth:(same?nodeWidth/2:0)),y1=a.y+26,x2=b.x+(forward?0:(same?nodeWidth/2:nodeWidth)),y2=b.y+26;
+  const bend=forward?65:-65;
+  const d=same?("M"+x1+" "+y1+" C"+(x1+105)+" "+y1+" "+(x2+105)+" "+y2+" "+x2+" "+y2):
+   ("M"+x1+" "+y1+" C"+(x1+bend)+" "+y1+" "+(x2-bend)+" "+y2+" "+x2+" "+y2);
+  const group=SUPPLY_LAYER_EDGES.authority.has(e.kind)?"authority":SUPPLY_LAYER_EDGES.data.has(e.kind)?"data":"";
+  return '<path class="supply-edge '+group+(selectedId===e.id?" selected":"")+'" d="'+d+'" marker-end="url(#supply-arrow)" data-supply-edge="'+esc(e.id)+'" role="button" tabindex="0" aria-label="'+esc(e.kind+" from "+(view.byId.get(e.source)?.name||"unknown")+" to "+(view.byId.get(e.target)?.name||"unknown"))+'"><title>'+esc(e.kind)+'</title></path>';
+ }}).join("");
+ return '<svg class="supply-diagram" width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'" role="group" aria-label="Source-backed agent dependency topology">'+
+ '<defs><marker id="supply-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#7f98ad"></path></marker></defs>'+
+ headers+links+graphNodes+'</svg>';
+}}
+function supplyInspector(selectedId,focus,layer,view){{
+ const topology=DATA.security_graph?.topology||{{}},byId=new Map((topology.nodes||[]).map(n=>[n.id,n]));
+ const edge=(topology.edges||[]).find(e=>e.id===selectedId);
+ const node=byId.get(selectedId);
+ if(!edge&&!node)return '<div class="muted">Select a node or a relationship to inspect its source evidence and exact dependency semantics.</div>';
+ if(edge){{
+  const source=byId.get(edge.source),target=byId.get(edge.target),attrs=edge.attributes||{{}};
+  const descriptions=[["Relationship",edge.kind.replaceAll("_"," ")],["From",source?.name||"unknown"],["To",target?.name||"unknown"],["Source location",edge.location?.path?(edge.location.path+":"+(edge.location.line||1)):"n/a"]];
+  ["basis","via_agent","flow_id","route"].forEach(key=>{{if(attrs[key]!=null)descriptions.push([key.replaceAll("_"," "),String(attrs[key])]);}});
+  return '<h3>Dependency evidence</h3><div class="kv small">'+descriptions.map(([a,b])=>'<div>'+esc(a)+'</div><div>'+esc(b)+'</div>').join("")+'</div>'+
+ '<p class="supply-note">The edge represents detected static configuration or analysis, not verified runtime activity.</p>';
+ }}
+ const attrs=node.attributes||{{}};
+ const properties=[["Type",node.kind],["Framework",node.framework||"unknown"],["Source location",node.location?.path?(node.location.path+":"+(node.location.line||1)):"n/a"]];
+ const safeKeys=["tool_kind","capabilities","binding_state","binding_origin","model_key","model_provider","transport","authenticated","approval","provider","roles","permissions","source","allowed_tools","resolution","persistent","workflow","route","basis","credential_source","discovery_basis","has_scripts"];
+ for(const key of safeKeys){{
+  const value=attrs[key];if(value===undefined||value===null)continue;
+  properties.push([key.replaceAll("_"," "),Array.isArray(value)?value.map(String).join(", "):String(value)]);
+ }}
+ const neighbors=(topology.edges||[]).filter(e=>e.source===node.id||e.target===node.id);
+ const navAgent=node.kind==="agent"&&DATA.agents.filter(a=>a.name===node.name).length===1?
+ '<button type="button" class="back" id="supply-open-agent">Open agent security profile ↗</button>':"";
+ return '<h3>'+esc(node.name)+'</h3><div class="kv small">'+properties.map(([a,b])=>'<div>'+esc(a)+'</div><div>'+esc(b)+'</div>').join("")+'</div>'+
+ '<div style="margin-top:11px">'+navAgent+'</div>'+
+ '<div class="supply-note">'+number(neighbors.length)+' recorded incident relationships (across all filters).</div>'+
+ neighbors.slice(0,8).map(e=>'<div class="supply-relationship">'+esc(e.kind.replaceAll("_"," "))+' — '+esc((byId.get(e.source===node.id?e.target:e.source)?.name)||"unknown")+'</div>').join("")+
+ (neighbors.length>8?'<div class="muted small">+'+number(neighbors.length-8)+' more; filter the topology to inspect.</div>':"");
+}}
+function renderSupplyChain(focus="all",layer="all",selectedId=null,query=""){{
+ const root=document.getElementById("supply"),topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[],edges=topology.edges||[];
+ const agents=nodes.filter(n=>n.kind==="agent");
+ const selection=[["all","All discovered agents"],...agents.map(n=>[n.id,n.name])];
+ const options=selection.map(([id,label])=>'<option value="'+esc(id)+'"'+(id===focus?" selected":"")+'>'+esc(label)+'</option>').join("");
+ const layers=[["all","All relationships"],["execution","Invocation & delegation"],["data","Data & destinations"],["authority","Authority & controls"]];
+ const chips=layers.map(([id,label])=>'<button type="button" class="filter-chip '+(layer===id?"active":"")+'" data-supply-layer="'+id+'">'+esc(label)+'</button>').join("");
+ const view=supplyTopologyVisible(focus,layer,query);
+ const delegation=edges.filter(e=>e.kind==="DELEGATES_TO").length;
+ const undisplayed=view.candidates-view.nodes.length,unshown=view.possibleEdges-view.edges.length;
+ const warning=(undisplayed||unshown)?'<p class="supply-note">Diagram displays '+number(view.nodes.length)+' of '+number(view.candidates)+' selected nodes and '+number(view.edges.length)+' of '+number(view.possibleEdges)+' applicable relationships. Choose an agent or search to inspect omitted connections.</p>':"";
+ root.innerHTML=pageHead("Cross-agent dependencies","Supply chain","Navigate the canonical Agent Dependency Graph: agent delegation, tools, MCP, skills, model dependencies, data and reachable authority. Relationships describe static evidence, not live executions.")+
+ '<div class="cards">'+metric("Agents",agents.length)+metric("Dependency nodes",nodes.length)+metric("Relationships",edges.length)+metric("Delegations",delegation)+'</div>'+
+ '<div class="supply-toolbar"><label class="small" for="supply-focus">Scope</label><select class="supply-select" id="supply-focus" aria-label="Focus supply chain on agent">'+options+'</select>'+
+ '<input class="search" id="supply-search" aria-label="Search supply chain" placeholder="Find agent, model, tool, MCP, skill or resource" value="'+esc(query)+'"></div>'+
+ '<div class="filter-chips" role="group" aria-label="Relationship categories">'+chips+'</div>'+
+ '<p class="supply-note">Dashed green: source-reconstructed authority. Orange: data and destination. All lines are directed static relationships; line presence does not prove runtime invocation.</p>'+
+ warning+'<div class="supply-viewport">'+(view.nodes.length?supplySvg(view,selectedId):'<div class="empty">No nodes matched this scope and filter.</div>')+'</div>'+
+ sectionHead("Dependency inspector","Select an individual node or edge for traceable relationships and source locations.")+
+ '<div class="panel supply-inspector" id="supply-inspector">'+supplyInspector(selectedId,focus,layer,view)+'</div>';
+ root.querySelector("#supply-focus").addEventListener("change",event=>renderSupplyChain(event.target.value,layer));
+ root.querySelectorAll("[data-supply-layer]").forEach(btn=>btn.addEventListener("click",()=>renderSupplyChain(focus,btn.dataset.supplyLayer)));
+ const search=root.querySelector("#supply-search");
+ search.addEventListener("input",()=>{{const value=search.value;const start=search.selectionStart;renderSupplyChain(focus,layer,null,value);const next=root.querySelector("#supply-search");next.focus();next.setSelectionRange(start,start);}});
+ const wire=(selector,key)=>root.querySelectorAll(selector).forEach(item=>{{
+  const activate=()=>{{const chosen=item.dataset[key];const panel=root.querySelector("#supply-inspector");if(!chosen||!panel)return;
+    root.querySelectorAll(".supply-node,.supply-edge").forEach(x=>x.classList.toggle("selected",x===item));
+    panel.innerHTML=supplyInspector(chosen,focus,layer,view);
+    const open=panel.querySelector("#supply-open-agent");
+    if(open)open.addEventListener("click",()=>{{const node=nodes.find(n=>n.id===chosen);if(node)openAgent(node.name,"overview",null,null,{{focus,layer,selected:chosen}});}});
+  }};
+  item.addEventListener("click",activate);
+  item.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});
+ }});
+ wire("[data-supply-node]","supplyNode");wire("[data-supply-edge]","supplyEdge");
+ const initial=root.querySelector("#supply-open-agent");
+ if(initial)initial.addEventListener("click",()=>{{const node=nodes.find(n=>n.id===selectedId);if(node)openAgent(node.name,"overview",null,null,{{focus,layer,selected:selectedId}});}});
+}}
+
 function contractItem(item){{
  return '<div class="finding" data-sev="'+(item.status==="violation"?"high":"medium")+'"><div class="finding-title">'+badge(item.status)+
  '<strong>'+esc(item.clause)+'</strong><span>'+esc(item.reason)+'</span></div><div class="kv small"><div>Dimension</div><div>'+esc(item.dimension)+'</div>'+
