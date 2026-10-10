@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 
 from scripts.source_claim_regression_gate import (
-    _read_decisions,
     _load_reference_manifest,
+    _read_decisions,
     _source_path,
     compare,
 )
