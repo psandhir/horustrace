@@ -946,6 +946,39 @@ html[data-theme="light"] .page-title-row .ui-icon{{color:#21639b}}
 @media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}
 @media(max-width:1000px){{.shell{{grid-template-columns:220px minmax(0,1fr)}} main{{padding:26px 24px}} .graph-wrap{{grid-template-columns:1fr}} .inspector{{max-height:280px}}}}
 @media(max-width:760px){{.shell{{grid-template-columns:1fr}} aside{{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:12px}} .brand-row{{padding-bottom:11px;margin-bottom:9px}} .nav-label,.sidebar-meta{{display:none}} .nav{{display:flex;flex-direction:row;overflow:auto;gap:4px}} .nav button{{width:auto;white-space:nowrap;padding:8px 10px}} .nav button::before{{display:none}} main{{padding:20px 14px 30px}} .grid2,.assessment-banner{{grid-template-columns:1fr}} .assessment-side{{justify-content:flex-start}} .assessment-count{{text-align:left}} .page-head{{flex-direction:column}} .page-actions{{justify-content:flex-start}} .sevbar{{grid-template-columns:repeat(2,1fr)}} .kv{{grid-template-columns:1fr}} .graph{{height:440px}} .graph-wrap.expanded{{inset:4px;padding:8px;grid-template-columns:1fr}} .graph-wrap.expanded .inspector{{display:none}} .tabs{{position:static}}}}
+
+/* Source-backed agent supply chain (not an inferred runtime execution diagram). */
+.supply-toolbar{{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0}}
+.supply-select{{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;max-width:100%;min-width:160px}}
+.supply-viewport{{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface2);max-height:685px;min-height:365px}}
+.supply-diagram{{display:block;min-width:1090px;background:var(--surface);}}
+.supply-diagram text{{fill:var(--text);font-size:12px}}
+.supply-diagram .supply-col-title{{font-size:11px;fill:var(--muted);font-weight:800;letter-spacing:.07em}}
+.supply-node rect{{fill:var(--surface3);stroke:var(--line-strong);stroke-width:1.4}}
+.supply-node[data-kind="agent"] rect,.supply-node[data-kind="workflow_node"] rect{{fill:#e6f0fb;stroke:#7da9d2}}
+.supply-node[data-kind="mcp_server"] rect,.supply-node[data-kind="tool"] rect,.supply-node[data-kind="delegation"] rect{{fill:#e9f0ff;stroke:#9ab4d3}}
+.supply-node[data-kind="skill"] rect,.supply-node[data-kind="model"] rect{{fill:#f0eaff;stroke:#b5a1d4}}
+.supply-node[data-kind="identity"] rect,.supply-node[data-kind="approval_control"] rect,.supply-node[data-kind="policy_control"] rect{{fill:#e7f5ed;stroke:#84bc9c}}
+.supply-node[data-kind="network_destination"] rect,.supply-node[data-kind="data_resource"] rect{{fill:#fff0e4;stroke:#d5aa87}}
+.supply-node text{{fill:#23354a}}
+.supply-node .supply-kind{{font-size:10px;fill:#526783}}
+.supply-node{{cursor:pointer}}
+.supply-node:hover rect,.supply-node.selected rect{{stroke-width:2.8}}
+.supply-edge{{fill:none;stroke:#7893ae;stroke-width:1.5;opacity:.62;cursor:pointer}}
+.supply-edge.authority{{stroke:#668f80;stroke-dasharray:5 4}}
+.supply-edge.data{{stroke:#ce9574}}
+.supply-edge:hover,.supply-edge.selected{{stroke-width:3;opacity:1}}
+.supply-inspector{{min-height:165px}}
+.supply-relationship{{padding:8px 0;border-bottom:1px solid var(--line);font-size:12px}}
+.supply-relationship:last-child{{border-bottom:0}}
+.supply-note{{font-size:11px;color:var(--muted);margin:9px 0}}
+html[data-theme="dark"] .supply-node[data-kind="agent"] rect,html[data-theme="dark"] .supply-node[data-kind="workflow_node"] rect{{fill:#182c46}}
+html[data-theme="dark"] .supply-node[data-kind="mcp_server"] rect,html[data-theme="dark"] .supply-node[data-kind="tool"] rect,html[data-theme="dark"] .supply-node[data-kind="delegation"] rect{{fill:#222f4b}}
+html[data-theme="dark"] .supply-node[data-kind="skill"] rect,html[data-theme="dark"] .supply-node[data-kind="model"] rect{{fill:#302946}}
+html[data-theme="dark"] .supply-node[data-kind="identity"] rect,html[data-theme="dark"] .supply-node[data-kind="approval_control"] rect,html[data-theme="dark"] .supply-node[data-kind="policy_control"] rect{{fill:#1f382e}}
+html[data-theme="dark"] .supply-node[data-kind="network_destination"] rect,html[data-theme="dark"] .supply-node[data-kind="data_resource"] rect{{fill:#403123}}
+html[data-theme="dark"] .supply-node text{{fill:#e2e9f2}}
+html[data-theme="dark"] .supply-node .supply-kind{{fill:#a6b8d0}}
 </style>
 </head>
 <body>
@@ -957,6 +990,7 @@ html[data-theme="light"] .page-title-row .ui-icon{{color:#21639b}}
     <button class="active" data-view="dashboard" data-icon="overview">Dashboard</button>
     <button data-view="agents" data-icon="agents">Agents</button>
     <button data-view="components" data-icon="resources">Components</button>
+    <button data-view="supply" data-icon="attack">Supply chain</button>
     <button data-view="findings" data-icon="findings">Findings</button>
     <button data-view="policy" data-icon="policy">Organisation policy</button>
     <button data-view="owasp" data-icon="owasp">OWASP Top 10</button>
@@ -974,7 +1008,7 @@ html[data-theme="light"] .page-title-row .ui-icon{{color:#21639b}}
   <div class="sidebar-meta"><strong>Offline security evidence</strong><span title="{escape(root.name or '.')}">Scope: {escape(root.name or '.')}</span><span>Schema v{VISUAL_REPORT_SCHEMA_VERSION}</span></div>
 </aside>
 <main>
-  <section id="dashboard" class="view active"></section><section id="agents" class="view"></section><section id="agent-detail" class="view"></section><section id="components" class="view"></section>
+  <section id="dashboard" class="view active"></section><section id="agents" class="view"></section><section id="agent-detail" class="view"></section><section id="components" class="view"></section><section id="supply" class="view"></section>
   <section id="findings" class="view"></section><section id="policy" class="view"></section><section id="owasp" class="view"></section><section id="attack" class="view"></section><section id="contracts" class="view"></section><section id="evidence" class="view"></section>
   <div class="footer">Static evidence only · Runtime effectiveness is not verified · No report data leaves this file.</div>
 </main>
@@ -1034,7 +1068,7 @@ const ICON_FOR_SECTION=Object.freeze({{
  "Priority review queue":"findings","Finding severity":"chart","Effective agency":"attack",
  "OWASP assessment states":"owasp","Environment inventory":"resources",
  "Agent contracts":"contracts","Coverage status":"coverage","Skill inventory":"skills",
- "Components":"resources","Affected agents":"agents"
+ "Components":"resources","Affected agents":"agents","Supply chain":"attack"
 }});
 document.querySelectorAll(".nav button[data-icon]").forEach(btn=>btn.insertAdjacentHTML("afterbegin",uiIcon(btn.dataset.icon)));
 function showView(id){{
@@ -1168,6 +1202,7 @@ function routeDrill(action){{
  const [kind,value="all"]=String(action).split(":",2);
  if(kind==="agents"){{renderAgents(value);showView("agents");}}
  else if(kind==="components"){{renderComponents(value);showView("components");}}
+ else if(kind==="supply"){{renderSupplyChain();showView("supply");}}
  else if(kind==="findings"){{renderFindings(value);showView("findings");}}
  else if(kind==="policy"){{renderPolicy();showView("policy");}}
  else if(kind==="owasp"){{renderOwasp(value);showView("owasp");}}
@@ -1433,13 +1468,13 @@ function renderAgentEvidence(a){{
  '<div>Resolution</div><div>'+badge(r.resolution)+'</div><div>Source</div><div>'+loc(r.location)+'</div><div>Unresolved dimensions</div><div>'+esc((r.unresolved||[]).join(", ")||"none")+'</div></div>'+
  '<details><summary>Full evidence</summary><pre>'+esc(JSON.stringify({{evidence:r.evidence,dimensions:r.dimensions,approval:r.approval,semantics:r.semantics}},null,2))+'</pre></details></div>').join("");
 }}
-function openAgent(name,initialTab="overview",owaspRisk=null,inventoryFocus=null){{
+function openAgent(name,initialTab="overview",owaspRisk=null,inventoryFocus=null,supplyFocus=null){{
  const a=DATA.agents.find(x=>x.name===name); if(!a)return; const root=document.getElementById("agent-detail");
  root.innerHTML='<button class="breadcrumb" id="back-agents">← Back to agents</button><div class="agent-head"><div><div class="eyebrow">Agent security profile</div><h1>'+esc(a.name)+'</h1><div class="muted">'+esc(a.framework)+' · '+loc(a.location)+'</div></div><div class="page-actions">'+agentAttention(a)+badge(a.summary.contract_status)+'</div></div>'+
  '<div class="tabs" role="tablist"><button class="active" data-tab="overview">Overview</button><button data-tab="map">Agency map <span class="tab-count">'+number(a.summary.authority_relationships)+'</span></button><button data-tab="paths">Attack paths <span class="tab-count">'+number(a.summary.attack_paths)+'</span></button><button data-tab="findings">Findings <span class="tab-count">'+number(a.summary.findings)+'</span></button><button data-tab="contract">Contract <span class="tab-count">'+number(a.summary.contract_violations+a.summary.contract_unresolved)+'</span></button><button data-tab="evidence">Evidence</button></div>'+
  '<div id="tab-overview" class="agent-tab active">'+renderAgentOverview(a)+'</div><div id="tab-map" class="agent-tab">'+renderGraph(a)+'</div><div id="tab-paths" class="agent-tab">'+renderAgentPaths(a)+'</div><div id="tab-findings" class="agent-tab">'+renderAgentFindings(a,owaspRisk)+'</div><div id="tab-contract" class="agent-tab">'+renderAgentContract(a)+'</div><div id="tab-evidence" class="agent-tab">'+renderAgentEvidence(a)+'</div>';
- root.querySelector("#back-agents").textContent=owaspRisk?"← Back to OWASP "+owaspRisk:(inventoryFocus?"← Back to components":"← Back to agents");
- root.querySelector("#back-agents").addEventListener("click",()=>{{if(owaspRisk){{renderOwasp(owaspRisk);showView("owasp");}}else if(inventoryFocus){{renderComponents(inventoryFocus.kind,inventoryFocus.id);showView("components");}}else showView("agents");}});
+ root.querySelector("#back-agents").textContent=owaspRisk?"← Back to OWASP "+owaspRisk:(inventoryFocus?"← Back to components":(supplyFocus?"← Back to supply chain":"← Back to agents"));
+ root.querySelector("#back-agents").addEventListener("click",()=>{{if(owaspRisk){{renderOwasp(owaspRisk);showView("owasp");}}else if(inventoryFocus){{renderComponents(inventoryFocus.kind,inventoryFocus.id);showView("components");}}else if(supplyFocus){{renderSupplyChain(supplyFocus.focus,supplyFocus.layer,supplyFocus.selected);showView("supply");}}else showView("agents");}});
  const clearOwasp=root.querySelector("#clear-agent-owasp");
  if(clearOwasp)clearOwasp.addEventListener("click",()=>{{root.querySelector("#tab-findings").innerHTML=renderAgentFindings(a);}});
  root.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>{{
@@ -1548,7 +1583,7 @@ function renderEvidence(){{
  sectionHead("Diagnostics","Coverage or parsing conditions that may affect completeness.")+(diags.length?diags.map(d=>'<div class="finding" data-sev="medium"><div class="finding-title"><strong>'+esc(d.diagnostic_id||d.code)+'</strong><span class="badge medium">diagnostic</span></div><p>'+esc(d.message)+'</p><div class="muted small">'+loc(d.location)+'</div></div>').join(""):'<div class="empty">No detected coverage diagnostics.</div>');
 }}
 
-renderDashboard();renderAgents();renderComponents();renderFindings();renderPolicy();renderOwasp();renderAttack();renderContracts();renderEvidence();
+renderDashboard();renderAgents();renderComponents();renderSupplyChain();renderFindings();renderPolicy();renderOwasp();renderAttack();renderContracts();renderEvidence();
 </script>
 </body>
 </html>
