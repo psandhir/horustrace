@@ -956,6 +956,7 @@ html[data-theme="light"] .page-title-row .ui-icon{{color:#21639b}}
   <nav class="nav" aria-label="Report sections">
     <button class="active" data-view="dashboard" data-icon="overview">Dashboard</button>
     <button data-view="agents" data-icon="agents">Agents</button>
+    <button data-view="components" data-icon="resources">Components</button>
     <button data-view="findings" data-icon="findings">Findings</button>
     <button data-view="policy" data-icon="policy">Organisation policy</button>
     <button data-view="owasp" data-icon="owasp">OWASP Top 10</button>
@@ -973,7 +974,7 @@ html[data-theme="light"] .page-title-row .ui-icon{{color:#21639b}}
   <div class="sidebar-meta"><strong>Offline security evidence</strong><span title="{escape(root.name or '.')}">Scope: {escape(root.name or '.')}</span><span>Schema v{VISUAL_REPORT_SCHEMA_VERSION}</span></div>
 </aside>
 <main>
-  <section id="dashboard" class="view active"></section><section id="agents" class="view"></section><section id="agent-detail" class="view"></section>
+  <section id="dashboard" class="view active"></section><section id="agents" class="view"></section><section id="agent-detail" class="view"></section><section id="components" class="view"></section>
   <section id="findings" class="view"></section><section id="policy" class="view"></section><section id="owasp" class="view"></section><section id="attack" class="view"></section><section id="contracts" class="view"></section><section id="evidence" class="view"></section>
   <div class="footer">Static evidence only · Runtime effectiveness is not verified · No report data leaves this file.</div>
 </main>
@@ -1032,7 +1033,8 @@ const ICON_FOR_METRIC=Object.freeze({{
 const ICON_FOR_SECTION=Object.freeze({{
  "Priority review queue":"findings","Finding severity":"chart","Effective agency":"attack",
  "OWASP assessment states":"owasp","Environment inventory":"resources",
- "Agent contracts":"contracts","Coverage status":"coverage","Skill inventory":"skills"
+ "Agent contracts":"contracts","Coverage status":"coverage","Skill inventory":"skills",
+ "Components":"resources","Affected agents":"agents"
 }});
 document.querySelectorAll(".nav button[data-icon]").forEach(btn=>btn.insertAdjacentHTML("afterbegin",uiIcon(btn.dataset.icon)));
 function showView(id){{
@@ -1143,7 +1145,7 @@ function renderDashboard(){{
  sectionHead("Priority review queue","Agents ordered by static review priority.")+agentTable(attention)+
  '<div class="grid2"><div>'+sectionHead("Finding severity","Active findings by scanner severity.") +severityChart(s.severity)+'</div><div>'+sectionHead("Effective agency","Reconstructed authority and destination scope.")+authorityResolutionChart(DATA.agents)+'<div class="panel">'+drillList([drillRow("Authority relationships",s.authority_relationships,"agents:authority"),drillRow("Not fully resolved",s.authority_not_fully_resolved,"agents:unresolved","warn"),drillRow("Write-capable relationships",s.write_capable_relationships,"agents:write"),drillRow("Unique destinations",s.destinations,"agents:destinations")])+'</div></div></div>'+
  sectionHead("OWASP assessment states","Mapped detector coverage and finding categories; not an assurance score.")+owaspAssessmentChart(DATA.owasp_agentic.categories||[])+
- '<div class="grid2"><div>'+sectionHead("Environment inventory","Security-relevant components found in the scan.")+'<div class="cards">'+metric("Tools",s.tools,"","agents:tools")+metric("Skills",s.skills,"","agents:skills",number(s.bound_skills)+" bound · "+number(s.unbound_skills)+" unbound")+metric("MCP servers",s.mcp_servers,"","agents:mcp")+metric("Identities",s.identities,"","agents:identities")+metric("Resources",s.resources,"","agents:resources")+'</div></div><div>'+sectionHead("Agent contracts","Declared authority compared with effective authority.")+'<div class="panel">'+drillList(['<div class="drill-row" style="cursor:default"><span>Overall status</span><span>'+badge(DATA.assurance.authority_contract.status)+'</span></div>',drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),drillRow("Violations",s.contract_violations,"contracts:violation","critical"),drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")])+'</div></div></div>';
+ '<div class="grid2"><div>'+sectionHead("Environment inventory","Security-relevant components found in the scan.")+'<div class="cards">'+metric("Tools",s.tools,"","components:tools")+metric("Skills",s.skills,"","components:skills",number(s.bound_skills)+" bound · "+number(s.unbound_skills)+" unbound")+metric("MCP servers",s.mcp_servers,"","components:mcp")+metric("Identities",s.identities,"","agents:identities")+metric("Resources",s.resources,"","agents:resources")+'</div></div><div>'+sectionHead("Agent contracts","Declared authority compared with effective authority.")+'<div class="panel">'+drillList(['<div class="drill-row" style="cursor:default"><span>Overall status</span><span>'+badge(DATA.assurance.authority_contract.status)+'</span></div>',drillRow("Agents with contract",s.agents_with_contract,"contracts:declared"),drillRow("Violations",s.contract_violations,"contracts:violation","critical"),drillRow("Unresolved checks",s.contract_unresolved,"contracts:unresolved","warn")])+'</div></div></div>';
  bindDashboardDrill(root);bindAgentRows(root);
 }}
 
@@ -1165,6 +1167,7 @@ function drillLabel(kind,value){{
 function routeDrill(action){{
  const [kind,value="all"]=String(action).split(":",2);
  if(kind==="agents"){{renderAgents(value);showView("agents");}}
+ else if(kind==="components"){{renderComponents(value);showView("components");}}
  else if(kind==="findings"){{renderFindings(value);showView("findings");}}
  else if(kind==="policy"){{renderPolicy();showView("policy");}}
  else if(kind==="owasp"){{renderOwasp(value);showView("owasp");}}
@@ -1366,13 +1369,13 @@ function renderAgentEvidence(a){{
  '<div>Resolution</div><div>'+badge(r.resolution)+'</div><div>Source</div><div>'+loc(r.location)+'</div><div>Unresolved dimensions</div><div>'+esc((r.unresolved||[]).join(", ")||"none")+'</div></div>'+
  '<details><summary>Full evidence</summary><pre>'+esc(JSON.stringify({{evidence:r.evidence,dimensions:r.dimensions,approval:r.approval,semantics:r.semantics}},null,2))+'</pre></details></div>').join("");
 }}
-function openAgent(name,initialTab="overview",owaspRisk=null){{
+function openAgent(name,initialTab="overview",owaspRisk=null,inventoryFocus=null){{
  const a=DATA.agents.find(x=>x.name===name); if(!a)return; const root=document.getElementById("agent-detail");
  root.innerHTML='<button class="breadcrumb" id="back-agents">← Back to agents</button><div class="agent-head"><div><div class="eyebrow">Agent security profile</div><h1>'+esc(a.name)+'</h1><div class="muted">'+esc(a.framework)+' · '+loc(a.location)+'</div></div><div class="page-actions">'+agentAttention(a)+badge(a.summary.contract_status)+'</div></div>'+
  '<div class="tabs" role="tablist"><button class="active" data-tab="overview">Overview</button><button data-tab="map">Agency map <span class="tab-count">'+number(a.summary.authority_relationships)+'</span></button><button data-tab="paths">Attack paths <span class="tab-count">'+number(a.summary.attack_paths)+'</span></button><button data-tab="findings">Findings <span class="tab-count">'+number(a.summary.findings)+'</span></button><button data-tab="contract">Contract <span class="tab-count">'+number(a.summary.contract_violations+a.summary.contract_unresolved)+'</span></button><button data-tab="evidence">Evidence</button></div>'+
  '<div id="tab-overview" class="agent-tab active">'+renderAgentOverview(a)+'</div><div id="tab-map" class="agent-tab">'+renderGraph(a)+'</div><div id="tab-paths" class="agent-tab">'+renderAgentPaths(a)+'</div><div id="tab-findings" class="agent-tab">'+renderAgentFindings(a,owaspRisk)+'</div><div id="tab-contract" class="agent-tab">'+renderAgentContract(a)+'</div><div id="tab-evidence" class="agent-tab">'+renderAgentEvidence(a)+'</div>';
- root.querySelector("#back-agents").textContent=owaspRisk?"← Back to OWASP "+owaspRisk:"← Back to agents";
- root.querySelector("#back-agents").addEventListener("click",()=>{{if(owaspRisk){{renderOwasp(owaspRisk);showView("owasp");}}else showView("agents");}});
+ root.querySelector("#back-agents").textContent=owaspRisk?"← Back to OWASP "+owaspRisk:(inventoryFocus?"← Back to components":"← Back to agents");
+ root.querySelector("#back-agents").addEventListener("click",()=>{{if(owaspRisk){{renderOwasp(owaspRisk);showView("owasp");}}else if(inventoryFocus){{renderComponents(inventoryFocus.kind,inventoryFocus.id);showView("components");}}else showView("agents");}});
  const clearOwasp=root.querySelector("#clear-agent-owasp");
  if(clearOwasp)clearOwasp.addEventListener("click",()=>{{root.querySelector("#tab-findings").innerHTML=renderAgentFindings(a);}});
  root.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>{{
@@ -1481,7 +1484,7 @@ function renderEvidence(){{
  sectionHead("Diagnostics","Coverage or parsing conditions that may affect completeness.")+(diags.length?diags.map(d=>'<div class="finding" data-sev="medium"><div class="finding-title"><strong>'+esc(d.diagnostic_id||d.code)+'</strong><span class="badge medium">diagnostic</span></div><p>'+esc(d.message)+'</p><div class="muted small">'+loc(d.location)+'</div></div>').join(""):'<div class="empty">No detected coverage diagnostics.</div>');
 }}
 
-renderDashboard();renderAgents();renderFindings();renderPolicy();renderOwasp();renderAttack();renderContracts();renderEvidence();
+renderDashboard();renderAgents();renderComponents();renderFindings();renderPolicy();renderOwasp();renderAttack();renderContracts();renderEvidence();
 </script>
 </body>
 </html>
