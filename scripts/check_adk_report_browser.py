@@ -70,6 +70,19 @@ def check_report(html_file: Path) -> dict[str, object]:
             assert page.locator("#findings .finding").count() > 0
             checks.append("Clickable severity bar drills into actual findings")
 
+            note = page.locator("#findings .source-context .source-note").first
+            assert note.count() == 1, "Concise provenance notes are missing"
+            assert note.inner_text().strip()
+            raw = page.locator("#findings details").filter(
+                has_text="Full provenance ("
+            ).first
+            assert raw.count() == 1, "Full finding provenance is missing"
+            assert raw.get_attribute("open") is None
+            raw.locator("summary").click()
+            assert raw.get_attribute("open") is not None
+            assert raw.locator("li").count() > 0
+            checks.append("Concise source evidence and raw finding audit disclosure work")
+
             page.locator('nav.nav button[data-view="agents"]').click()
             page.locator("#agents [data-agent]").first.click()
             assert page.locator("#agent-detail.active").count() == 1
