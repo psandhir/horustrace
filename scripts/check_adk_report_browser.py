@@ -180,6 +180,53 @@ def check_report(html_file: Path) -> dict[str, object]:
             assert page.locator("#supply.active .supply-diagram").count() == 1
             assert page.locator("#supply [data-supply-node]").count() > 0
             assert page.locator("#supply [data-supply-edge]").count() > 0
+            # Verify the five-lane information-flow layout using actual ADG
+            # nodes and edge references, not just a textual heading.
+            input_layout = page.evaluate("""() => {
+                const nodes = [...document.querySelectorAll('#supply [data-supply-node]')];
+                const byId = new Map(nodes.map(n => [n.dataset.supplyNode, n]));
+                const x = n => Number(n.getAttribute('transform').split('(')[1].split(',')[0]);
+                const inputs = nodes.filter(n => n.dataset.kind === 'input');
+                const agents = nodes.filter(n => n.dataset.kind === 'agent');
+                const endpoints = nodes.filter(n => ['data_resource','network_destination'].includes(n.dataset.kind));
+                const inputEdges = [...document.querySelectorAll('#supply [data-edge-kind="RECEIVES_INPUT_FROM"]')];
+                const canonical = new Map(DATA.security_graph.topology.edges.map(e => [e.id, e]));
+                return {
+                    headings: [...document.querySelectorAll('#supply .supply-col-title')].map(n => n.textContent),
+                    inputs: inputs.length,
+                    agents: agents.length,
+                    inputLeft: inputs.length > 0 && agents.length > 0 &&
+                        Math.max(...inputs.map(x)) < Math.min(...agents.map(x)),
+                    destinationsRight: endpoints.length > 0 &&
+                        endpoints.every(n => x(n) > Math.max(...agents.map(x))),
+                    inboundArrows: inputEdges.length,
+                    arrowsCorrect: inputEdges.length > 0 && inputEdges.every(path => {
+                        const edge = canonical.get(path.dataset.supplyEdge);
+                        const from = byId.get(path.dataset.diagramFrom);
+                        const to = byId.get(path.dataset.diagramTo);
+                        return edge && from && to &&
+                            DATA.security_graph.topology.nodes.find(n => n.id === edge.source)?.kind === 'agent' &&
+                            DATA.security_graph.topology.nodes.find(n => n.id === edge.target)?.kind === 'input' &&
+                            path.dataset.diagramFrom === edge.target &&
+                            path.dataset.diagramTo === edge.source &&
+                            x(from) < x(to);
+                    })
+                };
+            }""")
+            assert input_layout["headings"] == [
+                "Inputs & sources", "Agents & workflow",
+                "Tools / MCP / models / skills", "Identities & controls",
+                "Data & destinations",
+            ], input_layout
+            assert input_layout["inputLeft"], input_layout
+            assert input_layout["destinationsRight"], input_layout
+            assert input_layout["arrowsCorrect"], input_layout
+            page.locator('#supply [data-edge-kind="RECEIVES_INPUT_FROM"]').first.click()
+            assert "Input → agent" in page.locator("#supply-inspector").inner_text()
+            page.locator('#supply [data-supply-node][data-kind="input"]').first.click()
+            assert "Input semantics" in page.locator("#supply-inspector").inner_text()
+            checks.append("Input sources render left of agents; inbound arrows preserve canonical ADG")
+
             agent_node = page.locator('#supply [data-supply-node][data-kind="agent"]').first
             agent_node.focus()
             agent_node.press("Enter")
