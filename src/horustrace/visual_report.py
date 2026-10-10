@@ -671,7 +671,7 @@ function findingCard(f){{
 }}
 
 function owaspAssessmentChart(categories){{
- const statuses=[["finding","Runtime findings"],["no_runtime_findings","Non-runtime mapped findings"],["no_mapped_findings","No mapped findings"],["not_assessed","Not assessed"]];
+ const statuses=[["finding","Runtime findings"],["no_runtime_findings","Mapped findings (none runtime-classified)"],["no_mapped_findings","No mapped findings"],["not_assessed","Not assessed"]];
  if(!categories.length)return '<div class="empty">No OWASP assessment categories were supplied with this report.</div>';
  const max=Math.max(1,...statuses.map(([key])=>categories.filter(c=>owaspStatusLabel(c).replaceAll(" ","_")===key).length));
  const rows=statuses.map(([key,label])=>{{
