@@ -773,20 +773,23 @@ def evaluate(graph: Graph) -> list[Finding]:
                 "agent_reachability=not_proven",
                 "runtime_effectiveness=not_verified",
             ]
-            if server.url and urlparse(server.url).scheme.lower() == "http":
-                if not _is_loopback_url(server.url):
-                    findings.append(
-                        Finding(
-                            "AGT031",
-                            Severity.MEDIUM,
-                            "Unencrypted remote MCP endpoint in configuration",
-                            f"Unbound MCP configuration '{server.name}' declares a plaintext remote URL.",
-                            "Configure HTTPS/WSS before the server is used; verify deployment and binding separately.",
-                            layer=1,
-                            location=server.location,
-                            evidence=[*config_evidence, f"url={server.url}"],
-                        )
+            if (
+                server.url
+                and urlparse(server.url).scheme.lower() == "http"
+                and not _is_loopback_url(server.url)
+            ):
+                findings.append(
+                    Finding(
+                        "AGT031",
+                        Severity.MEDIUM,
+                        "Unencrypted remote MCP endpoint in configuration",
+                        f"Unbound MCP configuration '{server.name}' declares a plaintext remote URL.",
+                        "Configure HTTPS/WSS before the server is used; verify deployment and binding separately.",
+                        layer=1,
+                        location=server.location,
+                        evidence=[*config_evidence, f"url={server.url}"],
                     )
+                )
             literal_credentials = list(
                 server.metadata.get("literal_credential_sources") or []
             )
