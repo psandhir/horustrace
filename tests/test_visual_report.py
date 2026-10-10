@@ -9,6 +9,7 @@ from horustrace.models import (
     AuthorityContract,
     AuthorityScope,
     Finding,
+    EvidenceFact,
     Graph,
     Identity,
     NetworkDestination,
@@ -112,6 +113,92 @@ def test_visual_report_projects_effective_agency_and_contract(tmp_path: Path) ->
 
     encoded = str(report)
     assert str(tmp_path) not in encoded
+
+
+
+def test_visual_report_summarises_source_local_provenance_without_losing_facts(
+    tmp_path: Path,
+) -> None:
+    graph, findings = _graph(tmp_path)
+    location = SourceLocation(tmp_path / "agent.py", line=14)
+    findings[0].location = location
+    facts = [
+        EvidenceFact("run_shell", "capability=network.external", "observed", location),
+        EvidenceFact("run_shell", "capability=process.execute", "observed", location),
+        EvidenceFact("run_shell", "approval_configuration=True", "observed", location),
+        EvidenceFact("run_shell", "guardrail_hook_detected=True", "observed", location),
+        EvidenceFact(
+            "another_tool", "capability=data.write", "observed",
+            SourceLocation(tmp_path / "agent.py", line=15),
+        ),
+        EvidenceFact(
+            "agent_policy", "denied=process.execute", "declared",
+            SourceLocation(tmp_path / "horustrace.manifest.yaml", line=1),
+        ),
+    ]
+    findings[0].provenance = facts
+
+    report = build_visual_report(graph, findings, tmp_path)
+    finding = report["findings"][0]
+    digest = finding["provenance_digest"]
+    assert digest["additional_contexts"] == 0
+    assert digest["items"] == [{
+        "subject": "run_shell",
+        "origin": "observed",
+        "location": {"path": "agent.py", "line": 14, "column": 1},
+        "summary": (
+            "Capabilities: network.external, process.execute; "
+            "Controls: approval configured, guardrail hook detected"
+        ),
+    }]
+    assert len(finding["provenance"]) == len(facts)
+    assert any(item["fact"] == "denied=process.execute" for item in finding["provenance"])
+    html = render_visual_report_html(graph, findings, tmp_path)
+    assert "Source context" in html
+    assert "Full provenance (" in html
+    assert "static evidence, not verified enforcement" in html
+
+
+def test_visual_report_provenance_separates_subjects_and_preserves_unknowns(
+    tmp_path: Path,
+) -> None:
+    graph, findings = _graph(tmp_path)
+    location = findings[0].location
+    assert location is not None
+    findings[0].provenance = [
+        EvidenceFact("tool_a", "approval_configuration=None", "observed", location),
+        EvidenceFact("tool_a", "guardrail_hook_detected=False", "observed", location),
+        EvidenceFact("tool_b", "capability=data.write", "observed", location),
+        EvidenceFact("tool_c", "capability=network.external", "observed", location),
+        EvidenceFact("unrelated", "capability=process.execute", "observed",
+                     SourceLocation(tmp_path / "other.py", line=3)),
+    ]
+
+    digest = build_visual_report(graph, findings, tmp_path)["findings"][0][
+        "provenance_digest"
+    ]
+    assert len(digest["items"]) == 2
+    assert digest["additional_contexts"] == 1
+    assert len({item["subject"] for item in digest["items"]}) == 2
+    by_subject = {item["subject"]: item["summary"] for item in digest["items"]}
+    assert "approval configuration unresolved" in by_subject["tool_a"]
+    assert "guardrail hook not detected" in by_subject["tool_a"]
+    assert "unrelated" not in str(digest)
+
+
+def test_visual_report_does_not_promote_unrelated_provenance_to_source_context(
+    tmp_path: Path,
+) -> None:
+    graph, findings = _graph(tmp_path)
+    findings[0].provenance = [
+        EvidenceFact("other", "capability=process.execute", "observed",
+                     SourceLocation(tmp_path / "other.py", line=50))
+    ]
+    report = build_visual_report(graph, findings, tmp_path)
+    assert report["findings"][0]["provenance_digest"] == {
+        "items": [], "additional_contexts": 0,
+    }
+    assert len(report["findings"][0]["provenance"]) == 1
 
 
 def test_visual_report_surfaces_bound_and_unbound_skills(tmp_path: Path) -> None:
