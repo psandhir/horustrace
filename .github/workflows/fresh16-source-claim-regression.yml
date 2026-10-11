@@ -26,7 +26,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: fresh16-source-claim-regression
+  group: fresh16-source-claim-regression-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
