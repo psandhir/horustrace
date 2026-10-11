@@ -1,6 +1,13 @@
 name: Full Framework 60 Post Remediation
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/full-framework-60-post-remediation-20261006.yml"
+      - "scripts/pipeline_integrity_study.py"
+      - "src/horustrace/**"
+      - "research/full-framework-60-20261005/**"
+      - "research/full-framework-60-post-remediation-20261006/**"
   workflow_dispatch:
   schedule:
     - cron: "17 3 * * 1"
@@ -30,7 +37,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: full-framework-60-post-remediation-20261006
+  group: full-framework-60-post-remediation-20261006-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
