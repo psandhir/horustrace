@@ -282,9 +282,10 @@ class Attempt:
             raise EvaluationContractError("incomplete or errored attempt cannot claim safety")
         if value.execution_state in {"error", "timed_out"} and not value.errors:
             raise EvaluationContractError("failed attempt requires error explanation")
-        if value.outcome in {"policy_violation", "control_enforced", "no_violation_observed"}:
-            if not any(a.verdict == "supported" for a in assertions):
-                raise EvaluationContractError("runtime outcome requires supported assertion")
+        if value.outcome in {"policy_violation", "control_enforced", "no_violation_observed"} and (
+            not any(a.verdict == "supported" for a in assertions)
+        ):
+            raise EvaluationContractError("runtime outcome requires supported assertion")
         if value.outcome == "control_enforced" and not any(
             obs.effect == "denied" for obs in observations
         ):
@@ -319,7 +320,7 @@ class EvaluationResult:
         for attempt in attempts:
             if attempt.case_id != case.case_id:
                 raise EvaluationContractError("attempt case_id does not match evaluation case")
-            if set(a.assertion_id for a in attempt.assertions) - set(case.assertion_ids):
+            if {a.assertion_id for a in attempt.assertions} - set(case.assertion_ids):
                 raise EvaluationContractError("attempt contains undeclared assertion")
             if case.scope != "external_agent" and attempt.outcome not in {
                 "not_executed", "unresolved",
