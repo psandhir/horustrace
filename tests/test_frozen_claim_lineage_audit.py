@@ -137,3 +137,26 @@ def test_cli_requires_complete_matching_pinned_cases(tmp_path):
         "--output", str(output),
     ]) == 0
     assert json.loads(output.read_text())["cohort_size"] == 1
+
+
+def test_blind_attack_path_review_uses_path_universe_not_findings():
+    reference = _review("supported")
+    reference["claim_id"] = "path.case1.1"
+    reference["claim_kind"] = "path"
+    reference["rule_id"] = "PATH001"
+    record = _sample(blind=[reference])
+    assert record["independent_accuracy"]["calibration"]["overall"]["path"]["fn"] == 1
+
+    manifest = {"cases": [{"case_id": "case1", "repo": "example/repo",
+                           "sha": "abcdef", "framework": "openai-agents"}]}
+    candidate = _bundle([])
+    candidate["attack_paths"] = [{
+        "path_id": "PATH001",
+        "agent": "ops", "location": {"path": "/tmp/a/target/agent.py", "line": 4},
+    }]
+    report = audit_module.audit(
+        manifest, {"case1": (_bundle([]), "original_sha")},
+        {"case1": (candidate, "original_sha")}, {},
+        blind_reviews=[reference],
+    )
+    assert report["independent_accuracy"]["calibration"]["overall"]["path"]["tp"] == 1
