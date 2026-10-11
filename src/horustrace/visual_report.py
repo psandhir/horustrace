@@ -966,6 +966,14 @@ html[data-theme="light"] .page-title-row .ui-icon{{color:#21639b}}
 .supply-node .supply-kind{{font-size:10px;fill:#526783}}
 .supply-node{{cursor:pointer}}
 .supply-node:hover rect,.supply-node.selected rect{{stroke-width:2.8}}
+.supply-diagram .supply-node,.supply-diagram .supply-edge{{transition:opacity .14s ease}}
+.supply-diagram.has-emphasis .supply-node.is-muted{{opacity:.19}}
+.supply-diagram.has-emphasis .supply-edge.is-muted{{opacity:.085}}
+.supply-diagram.has-emphasis .supply-node.is-related rect{{stroke-width:2.2}}
+.supply-diagram.has-emphasis .supply-edge.is-related{{opacity:.95;stroke-width:2.5}}
+.supply-diagram.has-emphasis .supply-node.is-picked rect{{stroke-width:3.6;stroke:var(--accent)}}
+.supply-diagram.has-emphasis .supply-edge.is-picked{{opacity:1;stroke-width:3.4;stroke:var(--accent)}}
+.supply-node:focus-visible rect,.supply-edge:focus-visible{{stroke:var(--accent);stroke-width:3}}
 .supply-edge{{fill:none;stroke:#7893ae;stroke-width:1.5;opacity:.62;cursor:pointer}}
 .supply-edge.authority{{stroke:#668f80;stroke-dasharray:5 4}}
 .supply-edge.data{{stroke:#ce9574}}
@@ -1308,7 +1316,7 @@ function inventoryEntryForTopologyNode(node){{
 }}
 function inventoryTable(items,kind){{
  if(!items.length)return '<div class="empty">No matching components in this scan.</div>';
- const rows=items.map(item=>'<tr data-inventory-row="'+esc(item.id)+'">'+
+ const rows=items.map(item=>'<tr class="clickable" role="button" tabindex="0" data-inventory-row="'+esc(item.id)+'" aria-label="Inspect '+esc(item.name)+' component">'+
  '<td><div class="row-title">'+esc(item.name)+'</div><div class="row-sub">'+esc(kind==="mcp"?(item.transport||"unknown transport"):kind==="tools"?(item.kind||"tool"):(item.source||"skill"))+' · '+loc(item.location)+'</div></td>'+
  '<td>'+badge(item.binding_state)+'</td><td>'+esc((item.bound_agents||[]).join(", ")||"—")+'</td>'+
  '<td>'+esc(inventorySummary(item,kind))+'</td><td><button type="button" class="back" data-inventory-open="'+esc(item.id)+'" aria-label="View '+esc(item.name)+' component details">View details ›</button></td></tr>').join("");
@@ -1357,7 +1365,7 @@ function inventoryDetail(item,kind){{
  sectionHead("Connected agents and security review","Agent-level findings do not automatically establish a violation of this specific component.")+
  (linked||'<div class="empty">No source-proven agent binding. Component-specific findings cannot be inferred from other agents.</div>')+'</div>';
 }}
-function renderComponents(kind="mcp",selectedId=null,agentScope=null){{
+function renderComponents(kind="mcp",selectedId=null,agentScope=null,initialQuery="",initialBinding="all"){{
  if(!["mcp","tools","skills"].includes(kind))kind="mcp";
  const root=document.getElementById("components"),items=inventoryEntries(kind),selected=items.find(item=>item.id===selectedId);
  const tabs=[["mcp","MCP servers"],["tools","Tools"],["skills","Skills"]].map(([key,label])=>
@@ -1368,20 +1376,28 @@ function renderComponents(kind="mcp",selectedId=null,agentScope=null){{
  (agentScope?'<div class="filter-banner"><span>Components connected to '+esc(agentScope)+'</span><div class="filter-chips"><button type="button" class="back" id="inventory-scope-back">← Back to agent</button><button type="button" class="back" id="inventory-scope-clear">All components</button></div></div>':"")+
  (selected?inventoryDetail(selected,kind):"")+
  '<div class="toolbar"><div class="filter-chips">'+[["all","All"],["bound","Bound"],["unbound","Unbound"],["unresolved_reference","Unresolved"]].map(([key,label])=>'<button type="button" class="filter-chip '+(key==="all"?"active":"")+'" data-inventory-filter="'+key+'">'+label+'</button>').join("")+'</div><span class="muted small" id="inventory-count"></span></div><div id="inventory-table"></div>';
- let filter="all";const input=root.querySelector("#inventory-search");
+ let filter=initialBinding;const input=root.querySelector("#inventory-search");input.value=initialQuery;
  const update=()=>{{
   const q=input.value.toLowerCase().trim();
   const scoped=items.filter(item=>(!agentScope||(item.bound_agents||[]).includes(agentScope))&&(filter==="all"||item.binding_state===filter)&&(!q||JSON.stringify(item).toLowerCase().includes(q)));
   root.querySelector("#inventory-count").textContent=number(scoped.length)+" detected instances";
   root.querySelector("#inventory-table").innerHTML=inventoryTable(scoped,kind);
-  root.querySelectorAll("[data-inventory-open]").forEach(btn=>{{
-   btn.addEventListener("click",()=>{{renderComponents(kind,btn.dataset.inventoryOpen,agentScope);const detail=root.querySelector("#inventory-detail");if(detail){{detail.scrollIntoView({{block:"start"}});detail.focus({{preventScroll:true}});}}}});
+  const openDetail=(id)=>{{
+   renderComponents(kind,id,agentScope,input.value,filter);
+   const detail=root.querySelector("#inventory-detail");
+   if(detail){{detail.scrollIntoView({{block:"start"}});detail.focus({{preventScroll:true}});}}
+  }};
+  root.querySelectorAll("[data-inventory-row]").forEach(row=>{{
+   row.addEventListener("click",event=>{{if(event.target.closest("button"))return;openDetail(row.dataset.inventoryRow);}});
+   row.addEventListener("keydown",event=>{{if(event.target!==row)return;if(event.key==="Enter"||event.key===" "){{event.preventDefault();openDetail(row.dataset.inventoryRow);}}}});
   }});
+  root.querySelectorAll("[data-inventory-open]").forEach(btn=>btn.addEventListener("click",event=>{{event.stopPropagation();openDetail(btn.dataset.inventoryOpen);}}));
  }};
  root.querySelectorAll("[data-inventory-kind]").forEach(btn=>btn.addEventListener("click",()=>renderComponents(btn.dataset.inventoryKind,null,agentScope)));
  root.querySelectorAll("[data-inventory-filter]").forEach(btn=>btn.addEventListener("click",()=>{{filter=btn.dataset.inventoryFilter;root.querySelectorAll("[data-inventory-filter]").forEach(x=>x.classList.toggle("active",x===btn));update();}}));
+ root.querySelectorAll("[data-inventory-filter]").forEach(btn=>btn.classList.toggle("active",btn.dataset.inventoryFilter===filter));
  input.addEventListener("input",update);
- const clear=root.querySelector("#inventory-clear");if(clear)clear.addEventListener("click",()=>renderComponents(kind,null,agentScope));
+ const clear=root.querySelector("#inventory-clear");if(clear)clear.addEventListener("click",()=>renderComponents(kind,null,agentScope,input.value,filter));
  const scopeClear=root.querySelector("#inventory-scope-clear");if(scopeClear)scopeClear.addEventListener("click",()=>renderComponents(kind));
  const scopeBack=root.querySelector("#inventory-scope-back");if(scopeBack)scopeBack.addEventListener("click",()=>openAgent(agentScope));
  root.querySelectorAll("[data-inventory-supply]").forEach(btn=>btn.addEventListener("click",()=>{{renderSupplyChain("all","all",btn.dataset.inventorySupply);showView("supply");}}));
