@@ -196,9 +196,9 @@ class EvaluationLedger:
                 raise EvaluationContractError("conflicting finished attempt cannot be rewritten")
             if phase == "started" and any(e["phase"] == "started" for e in related):
                 raise EvaluationContractError("uncertain effect: started attempt requires reconciliation")
-            if related and related[-1]["phase"] == "finished" and phase in {
-                "planned", "started", "observed",
-            }:
+            if phase in {"planned", "started", "observed", "reconciled"} and any(
+                e["phase"] == "finished" for e in related
+            ):
                 raise EvaluationContractError("finished attempt is immutable")
             encoded = canonical(payload)
             if len(encoded) > MAX_RECORD:
