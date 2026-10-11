@@ -1,0 +1,464 @@
+{
+  "schema_version": 1,
+  "source_generator": "horustrace.evaluation.metamorphic.generate_variant",
+  "selection": "8 source shape families x 3 harmless perturbations, each with hard negative",
+  "no_target_execution": true,
+  "cases": [
+    {
+      "case_id": "module_alias.0",
+      "family": "module_alias",
+      "seed": 0,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "module_alias.1",
+      "family": "module_alias",
+      "seed": 1,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "module_alias.2",
+      "family": "module_alias",
+      "seed": 2,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "from_import_alias.0",
+      "family": "from_import_alias",
+      "seed": 0,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "from_import_alias.1",
+      "family": "from_import_alias",
+      "seed": 1,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "from_import_alias.2",
+      "family": "from_import_alias",
+      "seed": 2,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "parameter_rename.0",
+      "family": "parameter_rename",
+      "seed": 0,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "parameter_rename.1",
+      "family": "parameter_rename",
+      "seed": 1,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "parameter_rename.2",
+      "family": "parameter_rename",
+      "seed": 2,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "helper_extraction.0",
+      "family": "helper_extraction",
+      "seed": 0,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "helper_extraction.1",
+      "family": "helper_extraction",
+      "seed": 1,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "helper_extraction.2",
+      "family": "helper_extraction",
+      "seed": 2,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "import_order.0",
+      "family": "import_order",
+      "seed": 0,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "import_order.1",
+      "family": "import_order",
+      "seed": 1,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "import_order.2",
+      "family": "import_order",
+      "seed": 2,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "harmless_comment.0",
+      "family": "harmless_comment",
+      "seed": 0,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "harmless_comment.1",
+      "family": "harmless_comment",
+      "seed": 1,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "harmless_comment.2",
+      "family": "harmless_comment",
+      "seed": 2,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "inline_method.0",
+      "family": "inline_method",
+      "seed": 0,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "inline_method.1",
+      "family": "inline_method",
+      "seed": 1,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "inline_method.2",
+      "family": "inline_method",
+      "seed": 2,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "assigned_method.0",
+      "family": "assigned_method",
+      "seed": 0,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "assigned_method.1",
+      "family": "assigned_method",
+      "seed": 1,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    },
+    {
+      "case_id": "assigned_method.2",
+      "family": "assigned_method",
+      "seed": 2,
+      "positive": {
+        "source": "agent.py",
+        "expected_agent": "ops",
+        "expected_source": "agent_tool_input",
+        "expected_sink": "process_execute",
+        "basis": "static_dataflow",
+        "assertion": "PATH001 supported"
+      },
+      "negative": {
+        "source": "agent.py",
+        "expected_absence": "source-backed tool input to process_execute",
+        "rationale": "model-controlled value only supplies stdin for a fixed subprocess executable"
+      },
+      "source_review": "The positive invokes an explicitly registered function tool with model-controlled command selection. The paired negative keeps the same function/tool registration but sends input only to the fixed program's stdin. This test is a static source-shape assertion, not observed runtime exploitability."
+    }
+  ]
+}
