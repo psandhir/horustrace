@@ -145,6 +145,11 @@ def test_visual_report_component_inventory_preserves_binding_and_controls(
     assert 'components:mcp' in html
     assert 'components:tools' in html
     assert 'components:skills' in html
+    assert "function inventoryTopologyContext(" in html
+    assert "MCP access and tool scope" in html
+    assert "Agents with access" in html
+    assert "Allowed / exposed tools" in html
+    assert "Recorded dependency relationships" in html
 
 
 def test_supply_chain_input_lane_preserves_canonical_graph_semantics(tmp_path: Path) -> None:
@@ -219,9 +224,17 @@ def test_visual_report_supply_chain_uses_canonical_adg_edges(tmp_path: Path) -> 
     assert "function supplyTopologyVisible(" in html
     assert 'aria-label="Source-backed agent dependency topology"' in html
     assert "CAN_REACH_AUTHORITY" in html
+    assert "ALLOWS_TOOL" in html
+    assert "DENIES_TOOL" in html
     assert "No nodes matched this scope and filter." in html
     assert "Static evidence does not prove runtime execution." in html
     assert "canonical RECEIVES_INPUT_FROM relation keeps its original endpoints" in html
+    assert "Click an agent to focus its relevant dependency neighbourhood." in html
+    assert 'id="supply-clear-focus"' in html
+    assert 'id="supply-open-component"' in html
+    assert 'node?.kind==="agent"&&focus!==chosen' in html
+    assert "Agent-to-agent access" in html
+    assert 'data-agent-link' in html
     assert before_supply_graph_identical(report, graph, findings, tmp_path)
 
 
