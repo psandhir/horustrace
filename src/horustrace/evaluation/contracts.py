@@ -61,7 +61,7 @@ def _identifier(value: Any, where: str) -> str:
 
 
 def _choice(value: Any, choices: frozenset[str], where: str) -> str:
-    if value not in choices or not isinstance(value, str):
+    if not isinstance(value, str) or value not in choices:
         raise EvaluationContractError(f"{where}: unsupported value {value!r}")
     return value
 
@@ -163,7 +163,7 @@ class EvaluationCase:
         return cls(**values)
 
     def as_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return json.loads(json.dumps(asdict(self)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -200,7 +200,7 @@ class Observation:
         )
 
     def as_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return json.loads(json.dumps(asdict(self)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -235,7 +235,7 @@ class Assertion:
         return value
 
     def as_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return json.loads(json.dumps(asdict(self)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -296,7 +296,7 @@ class Attempt:
         return value
 
     def as_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return json.loads(json.dumps(asdict(self)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -328,7 +328,7 @@ class EvaluationResult:
         return cls(run_id=_identifier(item["run_id"], "run_id"), case=case, attempts=attempts)
 
     def as_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return json.loads(json.dumps(asdict(self)))
 
     def to_json(self) -> str:
         return json.dumps(self.as_dict(), sort_keys=True, separators=(",", ":"))
