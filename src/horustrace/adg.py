@@ -470,6 +470,13 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                 "discovery_basis": agent.metadata.get("discovery_basis"),
                 "semantic_entity_id": agent.metadata.get("semantic_entity_id"),
                 "semantic_entity_kind": agent.metadata.get("semantic_entity_kind"),
+                "source_entity_classification": agent.metadata.get(
+                    "source_entity_classification"
+                ),
+                "factory_method": agent.metadata.get("factory_method"),
+                "runtime_instance_verified": agent.metadata.get(
+                    "runtime_instance_verified"
+                ),
             },
         )
         agent_ids[id(agent)] = agent_id
