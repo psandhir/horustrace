@@ -73,7 +73,10 @@ def _source_location(finding: dict) -> tuple[str, int]:
 
 def _identity(finding: dict) -> tuple[str, str, str, int]:
     path, line = _source_location(finding)
-    return (str(finding["rule_id"]), str(finding.get("agent") or ""), path, line)
+    rule = finding.get("rule_id", finding.get("path_id"))
+    if not isinstance(rule, str) or not rule:
+        raise ValueError("Finding or path lacks a rule identifier")
+    return (rule, str(finding.get("agent") or ""), path, line)
 
 
 def _labels(path: Path) -> dict[tuple[str, int], dict]:
@@ -166,9 +169,15 @@ def audit(
             }:
                 raise ValueError("invalid source-first label")
             case_id = claim["case_id"]
+            if claim["framework"] != cases[case_id]["framework"]:
+                raise ValueError("source-first framework disagrees with pinned manifest")
             key = (claim["rule_id"], claim["agent"], claim["source_path"], claim["source_line"])
+            if claim["claim_kind"] == "path":
+                observed = new[case_id][0].get("attack_paths", [])
+            else:
+                observed = new[case_id][0]["findings"]
             predicted = "supported" if key in {
-                _identity(x) for x in new[case_id][0]["findings"]
+                _identity(x) for x in observed
             } else "refuted"
             rows.append({
                 "case_id": claim["claim_id"],
