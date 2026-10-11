@@ -115,3 +115,28 @@ def test_runtime_source_viability_explicitly_not_assessed(tmp_path: Path):
     assert all(p.metadata["runtime_viability"] == "not_assessed" for p in paths)
     asg = build_agent_security_graph(graph, tmp_path).as_dict()
     assert asg["summary"]["attack_paths_by_runtime_viability"]["not_assessed"] >= 1
+
+
+def test_unbound_mcp_configuration_is_inventory_hygiene_not_agent_risk(tmp_path: Path):
+    from horustrace.models import Agent, MCPServer
+
+    declaration = MCPServer(name="Greptile", transport="sse")
+    bound = MCPServer(name="Bound", transport="stdio", allowed_tools={"lookup"})
+    graph = Graph(
+        unbound_mcp_servers=[declaration],
+        agents=[Agent(name="Ops", mcp_servers=[bound])],
+    )
+    report = build_visual_report(graph, [], tmp_path)
+    by_name = {item["name"]: item for item in report["mcp_servers"]}
+    assert by_name["Greptile"]["configuration_hygiene"] == "agent_binding_not_proven"
+    assert by_name["Greptile"]["tool_scope_evidence"] == (
+        "explicit_allow_or_deny_list_not_recovered"
+    )
+    assert by_name["Greptile"]["bound_agents"] == []
+    assert by_name["Bound"]["configuration_hygiene"] == (
+        "bound_configuration_requires_runtime_verification"
+    )
+    assert by_name["Bound"]["tool_scope_evidence"] == (
+        "explicit_allow_or_deny_list_observed"
+    )
+    assert report["summary"]["findings"] == 0
