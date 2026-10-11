@@ -5,6 +5,7 @@ evidence in example/test code without claiming deployment or proven exploitation
 """
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 from horustrace.models import (
@@ -25,6 +26,42 @@ _UNTRUSTED = frozenset({
     "user_input", "external_http_response", "web_retrieval",
     "mcp_response", "agent_tool_input",
 })
+
+
+
+def _process_execution_mode(root: Path, location) -> str:
+    """Recognize explicit shell=True versus fixed-argv subprocess invocations.
+
+    Unknown/dynamic options remain unresolved and never become 'shell proven'.
+    """
+    if location is None:
+        return "unknown"
+    path = location.path.resolve()
+    try:
+        path.relative_to(root.resolve())
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError, SyntaxError, UnicodeDecodeError):
+        return "unknown"
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or node.lineno != location.line:
+            continue
+        if isinstance(node.func, ast.Attribute) and node.func.attr in {
+            "run", "call", "check_call", "check_output", "Popen",
+        }:
+            shell = next((kw.value for kw in node.keywords if kw.arg == "shell"), None)
+            if isinstance(shell, ast.Constant) and shell.value is True:
+                return "shell_interpreter"
+            if shell is not None and not (
+                isinstance(shell, ast.Constant) and shell.value is False
+            ):
+                return "unknown"
+            if node.args and isinstance(node.args[0], (ast.List, ast.Tuple)):
+                return "structured_argv"
+        elif isinstance(node.func, ast.Attribute) and node.func.attr in {
+            "system", "popen", "create_subprocess_shell",
+        }:
+            return "shell_interpreter"
+    return "unknown"
 
 
 def developer_path_candidates(graph: Graph, root: Path) -> list[dict]:
@@ -59,6 +96,7 @@ def developer_path_candidates(graph: Graph, root: Path) -> list[dict]:
             place = {"path": relative, "line": location.line, "column": location.column}
         else:
             place = None
+        execution_mode = _process_execution_mode(root, location)
         candidates.append({
             "candidate_id": "developer:" + flow.flow_id,
             "path_id": "PATH001",
@@ -66,6 +104,7 @@ def developer_path_candidates(graph: Graph, root: Path) -> list[dict]:
             "agent": flow.agent,
             "nodes": list(flow.nodes),
             "severity": "candidate",
+            "execution_mode": execution_mode,
             "rationale": (
                 "A model/tool-controlled value reaches a process execution sink in "
                 "example, test, notebook, or template code. Deployment and runtime "
@@ -82,7 +121,11 @@ def developer_path_candidates(graph: Graph, root: Path) -> list[dict]:
                 "runtime_viability": "not_assessed",
                 "runtime_scope": "non_runtime_source",
                 "exploitability": "not_verified",
-                "review_status": "candidate_not_deployed_risk",
+                "review_status": (
+                    "structured_argv_near_miss"
+                    if execution_mode == "structured_argv"
+                    else "candidate_not_deployed_risk"
+                ),
             },
         })
     return candidates
