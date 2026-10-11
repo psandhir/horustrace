@@ -93,3 +93,55 @@ Example static case (the SHA and digest values shown are dummy fixtures, not att
 Programmatic use: EvaluationCase.from_dict(case_json), EvaluationResult.from_json(json_text)
 and validate_case_bindings(case, asg). Planning/export and optional runtime execution
 are intentionally deferred to their respective issues.
+
+
+## Deterministic assertion scoring — #512
+
+Source: \`src/horustrace/evaluation/scorers.py\`. Scorer version \`v1\`.
+
+Assertions must be declared on the pinned case. Scoring is *read-only* and consumes
+bounded, structured \`Observation\` events plus explicitly supplied artifact text
+(for a synthetic CANARY token only). \`tool_invocation\` records distinguish
+\`attempted\`, \`denied\`, and \`completed\`. Structured \`attributes\` allow only
+\`tool_id\`, \`principal_id\`, \`resource\`, \`destination\`, \`action\`,
+\`approval_id\`, and \`call_id\`; arbitrary metadata cannot be smuggled through
+this schema. The attributes extension is optional; older v1 events still parse.
+
+Available deterministic assertions:
+
+- \`forbidden_tool\`, \`control_denial\`: exact tool ID and observed action.
+- \`destination_scope\`, \`resource_scope\`, \`identity_scope\`: completed
+  effect compared against a declared, narrow allowlist. Missing qualifiers are
+  unresolved, not safe.
+- \`approval_order\`: completed effect must have matching call/approval IDs
+  and an earlier approval event, with an explicit complete-trace marker.
+- \`canary_disclosure\`: matches a deliberately synthetic \`CANARY-\` token
+  against an explicitly supplied completed output artifact; it never proves
+  a tool executed.
+- \`static_flow\`, \`exact_authority_binding\`: require a valid ASG pin, exact
+  graph reference and dedicated \`source_proof\` event. No runtime outcome
+  follows from a static graph assertion.
+
+The outcome is scoped to the test: a supported forbidden completed call can
+establish an observed violation; a supported denied invocation can establish
+an observed enforcement in *that test*. A refusal in final text cannot negate
+a completed action. A timed-out/skipped/error attempt is not a successful
+security control. Source pins and Contract digests must be externally checked
+against the exact source/approved contract; callers may not claim a matching
+Contract by echoing the case's digest.
+
+## Calibration: fixture truth versus independent adjudication
+
+\`research/adjudicator-calibration-2026/ASSERTION_FIXTURES_v1.json\` locks
+20 positive, 20 negative and 10 ambiguous **source-authored synthetic event**
+examples across five scorer families. They are useful mandatory CI regressions,
+**not** independently reviewed production truth or a live-model calibration.
+The future independently locked Phase A source reviewer and G0–G3 protocols
+remain required for measured scanner precision, recall and model-graded gates.
+
+\`evaluation/calibration.py\` publishes separate finding/path summaries,
+framework/language/threat-family/partition strata, sample sizes, unknown
+denominators and Wilson 95% intervals. Unresolved predictions never count
+as correct negatives. A metric without an eligible denominator is \`null\`.
+Holdout strata remain visibly separate from calibration data; do not tune
+against holdout labels. Model-graded CI blocking remains disabled by default.
