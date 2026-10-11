@@ -1214,7 +1214,7 @@ function drillLabel(kind,value){{
 function routeDrill(action){{
  const [kind,value="all"]=String(action).split(":",2);
  if(kind==="agents"){{renderAgents(value);showView("agents");}}
- else if(kind==="components"){{renderComponents(value);showView("components");}}
+ else if(kind==="components"){{if(value==="unresolved")renderComponents("mcp",null,null,"","unresolved_reference");else renderComponents(value);showView("components");}}
  else if(kind==="supply"){{renderSupplyChain();showView("supply");}}
  else if(kind==="findings"){{renderFindings(value);showView("findings");}}
  else if(kind==="policy"){{renderPolicy();showView("policy");}}
@@ -1371,7 +1371,7 @@ function renderComponents(kind="mcp",selectedId=null,agentScope=null,initialQuer
  const tabs=[["mcp","MCP servers"],["tools","Tools"],["skills","Skills"]].map(([key,label])=>
  '<button type="button" class="filter-chip '+(kind===key?"active":"")+'" data-inventory-kind="'+key+'">'+uiIcon(key==="mcp"?"mcp":key)+esc(label)+' ('+number(inventoryEntries(key).length)+')</button>').join("");
  root.innerHTML=pageHead("Repository inventory","Components","Search discovered component instances, bindings and source evidence. This is a static inventory, not live deployment discovery.")+
- '<div class="cards">'+metric("MCP servers",(DATA.mcp_servers||[]).filter(x=>x.binding_state!=="unresolved_reference").length)+metric("Tools",(DATA.tools||[]).length)+metric("Skills",(DATA.skills||[]).length)+metric("Unresolved references",(DATA.mcp_servers||[]).filter(x=>x.binding_state==="unresolved_reference").length)+'</div>'+
+ '<div class="cards">'+metric("MCP servers",(DATA.mcp_servers||[]).filter(x=>x.binding_state!=="unresolved_reference").length,"","components:mcp")+metric("Tools",(DATA.tools||[]).length,"","components:tools")+metric("Skills",(DATA.skills||[]).length,"","components:skills")+metric("Unresolved references",(DATA.mcp_servers||[]).filter(x=>x.binding_state==="unresolved_reference").length,"","components:unresolved")+'</div>'+
  '<div class="toolbar"><div class="filter-chips">'+tabs+'</div><div class="toolbar-right"><input id="inventory-search" class="search" aria-label="Search inventory" placeholder="Search component, capability, agent or file"></div></div>'+
  (agentScope?'<div class="filter-banner"><span>Components connected to '+esc(agentScope)+'</span><div class="filter-chips"><button type="button" class="back" id="inventory-scope-back">← Back to agent</button><button type="button" class="back" id="inventory-scope-clear">All components</button></div></div>':"")+
  (selected?inventoryDetail(selected,kind):"")+
@@ -1393,6 +1393,7 @@ function renderComponents(kind="mcp",selectedId=null,agentScope=null,initialQuer
   }});
   root.querySelectorAll("[data-inventory-open]").forEach(btn=>btn.addEventListener("click",event=>{{event.stopPropagation();openDetail(btn.dataset.inventoryOpen);}}));
  }};
+ bindDashboardDrill(root);
  root.querySelectorAll("[data-inventory-kind]").forEach(btn=>btn.addEventListener("click",()=>renderComponents(btn.dataset.inventoryKind,null,agentScope)));
  root.querySelectorAll("[data-inventory-filter]").forEach(btn=>btn.addEventListener("click",()=>{{filter=btn.dataset.inventoryFilter;root.querySelectorAll("[data-inventory-filter]").forEach(x=>x.classList.toggle("active",x===btn));update();}}));
  root.querySelectorAll("[data-inventory-filter]").forEach(btn=>btn.classList.toggle("active",btn.dataset.inventoryFilter===filter));
