@@ -171,6 +171,10 @@ def test_rescore_runs_on_stored_evidence_only_and_append_new_result(tmp_path, ca
     assert ledger.get_attempt("attempt.1") == original  # immutable initial truth
     assert ledger.validate()["events"] == 5
     assert not ledger.append("rescored", "attempt.1", {"attempt": scored.as_dict()})
+    with pytest.raises(EvaluationContractError, match="immutable"):
+        ledger.append("planned", "attempt.1", {"plan": "retroactively reset attempt"})
+    with pytest.raises(EvaluationContractError, match="immutable"):
+        ledger.append("reconciled", "attempt.1", {"disposition": "unknown"})
     specs = tmp_path / "specifications.json"
     specs.write_text(json.dumps([{
         "assertion_id": "forbidden", "kind": "forbidden_tool",
