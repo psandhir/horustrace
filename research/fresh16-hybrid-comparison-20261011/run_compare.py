@@ -339,9 +339,12 @@ def aggregate(result_dir: Path, output_dir: Path) -> int:
     (output_dir / "COMPARISON.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
     # Mark incomplete or zero-LLM studies as invalid; never imply hybrid ran.
-    if failures or len(details) != 16 or (
-        llm["tools_escalated"] + llm["skills_escalated"] == 0
-    ):
+    # Fail closed if source scanning was incomplete, no model was invoked,
+    # or ANY model request failed. Optional scanner enrichment is fail-open,
+    # but research quality gates must not mislabel quota failures as parity.
+    model_calls = llm["tools_escalated"] + llm["skills_escalated"]
+    model_errors = llm["tools_errors"] + llm["skills_errors"]
+    if failures or len(details) != 16 or model_calls == 0 or model_errors > 0:
         return 1
     return 0
 
