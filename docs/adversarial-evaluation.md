@@ -165,10 +165,13 @@ results are rejected. A process crash after \`started\`, or truncated journal,
 leaves an explicit unknown external-effect state. Automatic re-execution of
 that attempt is forbidden: the user must reconcile possible prior effects.
 
-Synthetic text attachments are content-addressed. Public bundles redact
-authentication headers and familiar credential markers by default, preserve
-original/transmitted content digests and state if **exact replay is unavailable**
-because data was redacted. No credential or entire source repository is copied
+Synthetic text attachments are content-addressed. Public bundles **omit
+all sensitive attachment bytes by default** (not just recognizable credential
+patterns), preserve original/stored digests and an omission reason, and state if
+**exact replay is unavailable** because data was omitted. An explicitly declared
+non-sensitive attachment is still screened for common credential patterns; it is
+the caller's responsibility to confirm that its contents are public-safe.
+No credential or entire source repository is copied
 into public bundles. \`integrity.json\` seals a bundle and allows integrity
 verification. Promotion proposals live **outside** sealed historical bundles.
 
