@@ -686,9 +686,18 @@ class _FunctionAnalyzer:
         sink = None if shadowed_api or bound_method else _sink_kind(canonical)
         if sink:
             value = _sink_value(canonical, node, lambda item: self._expr(item, env))
+            # Resolve import aliases for detection, but retain the established
+            # constructor-level label for model-selected URL loader evidence.
+            # The fully-qualified module path is not the sink's public name.
+            sink_label = (
+                canonical.rsplit(".", 1)[-1]
+                if sink[0] == "server_side_url_fetch"
+                else sink[1]
+            )
             self.sinks.append(
                 _Sink(
-                    sink[0], sink[1], _location(self.info.path, node), value, (self.info.key,),
+                    sink[0], sink_label, _location(self.info.path, node),
+                    value, (self.info.key,),
                 )
             )
             return _Value()
