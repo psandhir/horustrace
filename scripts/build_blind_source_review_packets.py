@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -41,6 +42,13 @@ def build_packets(
     cases = {row["case_id"]: row for row in selected}
     if len(cases) != len(selected):
         raise ValueError("Duplicate case ID in source manifest")
+    if any(
+        not isinstance(case_id, str)
+        or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", case_id)
+        or ".." in case_id
+        for case_id in cases
+    ):
+        raise ValueError("Unsafe case ID for source review packet")
     payloads = {}
     for path in sorted(bundle_root.iterdir()):
         if not (path.is_dir() or path.suffix == ".zip"):
