@@ -282,9 +282,33 @@ def statement_end(masked: str, start: int) -> int:
     return len(masked)
 
 
+def _default_parameter(match: re.Match[str], masked: str) -> bool:
+    """A typed default method parameter is not a local variable assignment.
+
+    In particular, parsing an expression from '= null,' up to the next
+    semicolon can accidentally swallow a later agent constructor in the
+    method body and manufacture an agent named after the parameter.
+    """
+    if match.group("var"):
+        return False
+    left = masked.rfind("(", 0, match.start())
+    right = masked.rfind(")", 0, match.start())
+    if left <= right:
+        return False
+    preceding = masked[left + 1 : match.start()].rstrip()
+    if preceding and not preceding.endswith(","):
+        return False
+    return re.match(
+        r"\s*(?:null|default(?:\([^)]*\))?|true|false|[0-9]+)\s*[,)]",
+        masked[match.end() :],
+    ) is not None
+
+
 def assignments(source: str, masked: str) -> dict[str, CSharpAssignment]:
     result: dict[str, CSharpAssignment] = {}
     for match in _ASSIGNMENT_RE.finditer(masked):
+        if _default_parameter(match, masked):
+            continue
         start = match.end()
         end = statement_end(masked, start)
         expression = source[start:end].strip()
