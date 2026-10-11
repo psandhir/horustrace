@@ -1892,7 +1892,7 @@ function renderAttack(){{
  const root=document.getElementById("attack");
  root.innerHTML=pageHead("Risk chains","Attack paths","Static evidence and runtime viability are separate. Non-runtime developer-source candidates are never counted as deployed risk.")+
  '<div class="cards">'+metric("Attack paths",items.length)+metric("Supported data flow",supported,"ok","","Runtime not verified")+metric("Source-blocked",blocked,"warn","","Exclude from runnable-risk assertions")+metric("Developer candidates",candidates.length,"","","Examples and tests")+'</div>'+
- sectionHead("Reconstructed paths","Runtime viability is not assessed unless an explicit source blocker is present. Path existence never means successful exploitation.")+(items.length?items.sort((a,b)=>severityRank(b.severity)-severityRank(a.severity)).map(renderPathCard).join(""):'<div class="empty">No deployed-runtime attack paths detected.</div>')+
+ sectionHead("Reconstructed paths","Runtime viability is not assessed unless an explicit source blocker is present. Path existence never means successful exploitation. Clickable steps resolve unambiguously to canonical dependency nodes.")+(items.length?items.sort((a,b)=>severityRank(b.severity)-severityRank(a.severity)).map(renderPathCard).join(""):'<div class="empty">No deployed-runtime attack paths detected.</div>')+
  sectionHead("Non-runtime developer-source candidates","Source-backed execution data flows in examples/tests; never included in runtime path totals or findings.")+(candidates.length?candidates.map(renderPathCard).join(""):'<div class="empty">No qualified developer-source path candidates.</div>');
  bindPathDrill(root);
 }}
