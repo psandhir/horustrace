@@ -1558,51 +1558,54 @@ function supplyInspector(selectedId,focus,layer,view){{
 }}
 function renderSupplyChain(focus="all",layer="all",selectedId=null,query=""){{
  const root=document.getElementById("supply"),topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[],edges=topology.edges||[];
- const agents=nodes.filter(n=>n.kind==="agent");
- const selection=[["all","All discovered agents"],...agents.map(n=>[n.id,n.name])];
- const options=selection.map(([id,label])=>'<option value="'+esc(id)+'"'+(id===focus?" selected":"")+'>'+esc(label)+'</option>').join("");
+ const agents=nodes.filter(n=>n.kind==="agent"),view=supplyTopologyVisible();
+ let activeFocus=focus,activeSelection=selectedId||(focus!=="all"?focus:null),activeQuery=query;
+ const options=[["all","All discovered agents"],...agents.map(n=>[n.id,n.name])].map(([id,label])=>
+  '<option value="'+esc(id)+'"'+(id===focus?" selected":"")+'>'+esc(label)+'</option>').join("");
  const layers=[["all","All relationships"],["execution","Invocation & delegation"],["data","Data & destinations"],["authority","Authority & controls"]];
  const chips=layers.map(([id,label])=>'<button type="button" class="filter-chip '+(layer===id?"active":"")+'" data-supply-layer="'+id+'">'+esc(label)+'</button>').join("");
- const view=supplyTopologyVisible(focus,layer,query);
  const delegation=edges.filter(e=>e.kind==="DELEGATES_TO").length;
- const undisplayed=view.candidates-view.nodes.length,unshown=view.possibleEdges-view.edges.length;
- const warning=(undisplayed||unshown)?'<p class="supply-note">Diagram displays '+number(view.nodes.length)+' of '+number(view.candidates)+' selected nodes and '+number(view.edges.length)+' of '+number(view.possibleEdges)+' applicable relationships. Choose an agent or search to inspect omitted connections.</p>':"";
- const focusedNode=nodes.find(n=>n.id===focus);
- const focusBanner=focus!=="all"&&focusedNode?'<div class="filter-banner"><span>Focused on '+esc(focusedNode.name)+' — unrelated nodes are removed from the working view.</span><button type="button" class="back" id="supply-clear-focus">Show all dependencies</button></div>':"";
- root.innerHTML=pageHead("Cross-agent dependencies","Supply chain","Navigate the canonical Agent Dependency Graph: agent delegation, tools, MCP, skills, model dependencies, data and reachable authority. Relationships describe static evidence, not live executions.")+
+ root.innerHTML=pageHead("Cross-agent dependencies","Supply chain","All discovered dependencies stay visible. Select any node or edge to trace source-backed relationships; unrelated elements are dimmed, not removed.")+
  '<div class="cards">'+metric("Agents",agents.length)+metric("Dependency nodes",nodes.length)+metric("Relationships",edges.length)+metric("Delegations",delegation)+'</div>'+
- '<div class="supply-toolbar"><label class="small" for="supply-focus">Scope</label><select class="supply-select" id="supply-focus" aria-label="Focus supply chain on agent">'+options+'</select>'+
- '<input class="search" id="supply-search" aria-label="Search supply chain" placeholder="Find agent, model, tool, MCP, skill or resource" value="'+esc(query)+'"></div>'+
- '<div class="filter-chips" role="group" aria-label="Relationship categories">'+chips+'</div>'+focusBanner+
- '<p class="supply-note">Click an agent to focus its relevant dependency neighbourhood. Inputs are shown before receiving agents. Input arrows show information flowing into an agent, while the canonical RECEIVES_INPUT_FROM relation keeps its original endpoints. Retrieved and intermediate inputs are not automatically external or untrusted. Dashed green: authority; orange: data/destination. Static evidence does not prove runtime execution.</p>'+
- warning+'<div class="supply-viewport">'+(view.nodes.length?supplySvg(view,selectedId):'<div class="empty">No nodes matched this scope and filter.</div>')+'</div>'+
- sectionHead("Dependency inspector","Select an individual node or edge for traceable relationships and source locations.")+
- '<div class="panel supply-inspector" id="supply-inspector">'+supplyInspector(selectedId,focus,layer,view)+'</div>';
- root.querySelector("#supply-focus").addEventListener("change",event=>renderSupplyChain(event.target.value,layer));
- const clearFocus=root.querySelector("#supply-clear-focus");if(clearFocus)clearFocus.addEventListener("click",()=>renderSupplyChain("all",layer,null,query));
- root.querySelectorAll("[data-supply-layer]").forEach(btn=>btn.addEventListener("click",()=>renderSupplyChain(focus,btn.dataset.supplyLayer)));
- const search=root.querySelector("#supply-search");
- search.addEventListener("input",()=>{{const value=search.value;const start=search.selectionStart;renderSupplyChain(focus,layer,null,value);const next=root.querySelector("#supply-search");next.focus();next.setSelectionRange(start,start);}});
+ '<div class="supply-toolbar"><label class="small" for="supply-focus">Highlight agent</label><select class="supply-select" id="supply-focus" aria-label="Highlight supply chain agent">'+options+'</select>'+
+ '<input class="search" id="supply-search" aria-label="Search and highlight supply chain" placeholder="Highlight agent, model, tool, MCP, skill or resource" value="'+esc(query)+'">'+
+ '<button type="button" class="back" id="supply-clear-focus">Show all / clear highlight</button></div>'+
+ '<div class="filter-chips" role="group" aria-label="Relationship emphasis">'+chips+'</div>'+
+ '<p class="supply-note">Click any component or relationship to highlight its source-backed paths. Other elements remain visible. Inputs appear before receiving agents; the canonical RECEIVES_INPUT_FROM endpoints are unchanged. Dashed green: authority; orange: data/destination. Static evidence does not prove runtime execution.</p>'+
+ '<p class="supply-note" id="supply-highlight-status" role="status" aria-live="polite"></p>'+
+ '<div class="supply-viewport">'+(view.nodes.length?supplySvg(view,activeSelection):'<div class="empty">No nodes were discovered in this scan.</div>')+'</div>'+
+ sectionHead("Dependency inspector","Select any node or relationship to review exact types, graph evidence and source locations.")+
+ '<div class="panel supply-inspector" id="supply-inspector">'+supplyInspector(activeSelection,activeFocus,layer,view)+'</div>';
+ const focusSelect=root.querySelector("#supply-focus"),search=root.querySelector("#supply-search");
  const bindInspectorActions=(panel,chosen)=>{{
-   const open=panel.querySelector("#supply-open-agent");
-   if(open)open.addEventListener("click",()=>{{const node=nodes.find(n=>n.id===chosen);if(node)openAgent(node.name,"overview",null,null,{{focus,layer,selected:chosen}});}});
-   const component=panel.querySelector("#supply-open-component");
-   if(component)component.addEventListener("click",()=>{{renderComponents(component.dataset.kind,component.dataset.id);showView("components");}});
+  const open=panel.querySelector("#supply-open-agent");
+  if(open)open.addEventListener("click",()=>{{const node=nodes.find(n=>n.id===chosen);if(node)openAgent(node.name,"overview",null,null,{{focus:activeFocus,layer,selected:chosen,query:activeQuery}});}});
+  const component=panel.querySelector("#supply-open-component");
+  if(component)component.addEventListener("click",()=>{{renderComponents(component.dataset.kind,component.dataset.id);showView("components");}});
  }};
+ const update=()=>{{
+  supplyEmphasis(root,view,activeSelection,layer,activeQuery);
+  const panel=root.querySelector("#supply-inspector");
+  if(panel){{panel.innerHTML=supplyInspector(activeSelection,activeFocus,layer,view);bindInspectorActions(panel,activeSelection);}}
+ }};
+ const select=(chosen)=>{{
+  activeSelection=chosen;
+  activeFocus=nodes.find(n=>n.id===chosen)?.kind==="agent"?chosen:"all";
+  focusSelect.value=activeFocus;
+  update();
+ }};
+ focusSelect.addEventListener("change",()=>select(focusSelect.value==="all"?null:focusSelect.value));
+ root.querySelector("#supply-clear-focus").addEventListener("click",()=>renderSupplyChain());
+ root.querySelectorAll("[data-supply-layer]").forEach(btn=>btn.addEventListener("click",()=>renderSupplyChain(activeFocus,btn.dataset.supplyLayer,activeSelection,activeQuery)));
+ search.addEventListener("input",()=>{{activeQuery=search.value;update();}});
  const wire=(selector,key)=>root.querySelectorAll(selector).forEach(item=>{{
-  const activate=()=>{{const chosen=item.dataset[key],panel=root.querySelector("#supply-inspector");if(!chosen||!panel)return;
-    const node=key==="supplyNode"?nodes.find(n=>n.id===chosen):null;
-    if(node?.kind==="agent"&&focus!==chosen){{renderSupplyChain(chosen,layer,chosen,query);return;}}
-    root.querySelectorAll(".supply-node,.supply-edge").forEach(x=>x.classList.toggle("selected",x===item));
-    panel.innerHTML=supplyInspector(chosen,focus,layer,view);bindInspectorActions(panel,chosen);
-  }};
+  const activate=()=>select(item.dataset[key]);
   item.addEventListener("click",activate);
   item.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});
  }});
  wire("[data-supply-node]","supplyNode");wire("[data-supply-edge]","supplyEdge");
- const initialPanel=root.querySelector("#supply-inspector");if(initialPanel&&selectedId)bindInspectorActions(initialPanel,selectedId);
+ update();
 }}
-
 function contractItem(item){{
  return '<div class="finding" data-sev="'+(item.status==="violation"?"high":"medium")+'"><div class="finding-title">'+badge(item.status)+
  '<strong>'+esc(item.clause)+'</strong><span>'+esc(item.reason)+'</span></div><div class="kv small"><div>Dimension</div><div>'+esc(item.dimension)+'</div>'+
@@ -1825,7 +1828,7 @@ function openAgent(name,initialTab="overview",owaspRisk=null,inventoryFocus=null
  root.querySelectorAll("[data-agent-link]").forEach(btn=>btn.addEventListener("click",()=>openAgent(decodeURIComponent(btn.dataset.agentLink))));
  bindPathDrill(root);
  root.querySelector("#back-agents").textContent=owaspRisk?"← Back to OWASP "+owaspRisk:(inventoryFocus?"← Back to components":(supplyFocus?"← Back to supply chain":"← Back to agents"));
- root.querySelector("#back-agents").addEventListener("click",()=>{{if(owaspRisk){{renderOwasp(owaspRisk);showView("owasp");}}else if(inventoryFocus){{renderComponents(inventoryFocus.kind,inventoryFocus.id,inventoryFocus.agentScope||null);showView("components");}}else if(supplyFocus){{renderSupplyChain(supplyFocus.focus,supplyFocus.layer,supplyFocus.selected);showView("supply");}}else showView("agents");}});
+ root.querySelector("#back-agents").addEventListener("click",()=>{{if(owaspRisk){{renderOwasp(owaspRisk);showView("owasp");}}else if(inventoryFocus){{renderComponents(inventoryFocus.kind,inventoryFocus.id,inventoryFocus.agentScope||null);showView("components");}}else if(supplyFocus){{renderSupplyChain(supplyFocus.focus,supplyFocus.layer,supplyFocus.selected,supplyFocus.query||"");showView("supply");}}else showView("agents");}});
  const clearOwasp=root.querySelector("#clear-agent-owasp");
  if(clearOwasp)clearOwasp.addEventListener("click",()=>{{root.querySelector("#tab-findings").innerHTML=renderAgentFindings(a);}});
  root.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>{{
