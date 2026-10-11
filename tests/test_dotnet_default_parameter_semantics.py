@@ -1,6 +1,8 @@
 """A default parameter must never become an agent because of later source."""
 from horustrace.adapters.csharp_source import assignments, mask_non_code
-from horustrace.adapters.microsoft_agent_framework_dotnet import scan_dotnet_file
+from horustrace.adapters.microsoft_agent_framework_dotnet import (
+    scan_dotnet_file,
+)
 
 
 SOURCE = """
