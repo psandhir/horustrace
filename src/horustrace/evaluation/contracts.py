@@ -174,13 +174,23 @@ class Observation:
     effect: str
     subject_id: str | None = None
     artifact_digest: str | None = None
+    attributes: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: Any) -> Observation:
         item = _object(
             data, "observation", {"observation_id", "turn", "kind", "effect"},
-            {"subject_id", "artifact_digest"},
+            {"subject_id", "artifact_digest", "attributes"},
         )
+        attributes = item.get("attributes", {})
+        allowed = {"tool_id", "principal_id", "resource", "destination", "action", "approval_id", "call_id"}
+        if (
+            not isinstance(attributes, dict)
+            or set(attributes) - allowed
+            or any(not isinstance(v, str) or not v.strip() or len(v) > 512
+                   for v in attributes.values())
+        ):
+            raise EvaluationContractError("observation.attributes: invalid structured evidence")
         turn = item["turn"]
         if type(turn) is not int or not 0 <= turn <= 100000:
             raise EvaluationContractError("observation.turn: expected bounded integer")
@@ -197,6 +207,7 @@ class Observation:
                 _digest(item["artifact_digest"], "artifact_digest")
                 if item.get("artifact_digest") is not None else None
             ),
+            attributes=dict(sorted(attributes.items())),
         )
 
     def as_dict(self) -> dict[str, Any]:
