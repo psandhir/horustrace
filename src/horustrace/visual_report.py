@@ -1421,39 +1421,62 @@ function supplyColumn(kind){{
  return 4;
 }}
 function supplyTopologyVisible(focus="all",layer="all",query=""){{
- const topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[],edges=topology.edges||[];
+ // Keep every canonical node and relationship in the diagram. Focus, search,
+ // and relationship lenses only affect emphasis, never topology membership.
+ const topology=DATA.security_graph?.topology||{{}},nodes=[...(topology.nodes||[])],edges=[...(topology.edges||[])];
  const byId=new Map(nodes.map(node=>[node.id,node]));
- const filtered=layer==="all"?edges:edges.filter(edge=>SUPPLY_LAYER_EDGES[layer]?.has(edge.kind));
- const scope=new Set();
- if(focus==="all")nodes.forEach(node=>scope.add(node.id));
- else if(byId.has(focus)){{
-  scope.add(focus);
-  const direct=filtered.filter(e=>e.source===focus||((e.target===focus)&&["DELEGATES_TO","WORKFLOW_FLOWS_TO"].includes(e.kind)));
-  direct.forEach(e=>{{scope.add(e.source);scope.add(e.target);}});
-  const firstHop=new Set(direct.filter(e=>e.source===focus).map(e=>e.target));
-  filtered.forEach(e=>{{if(firstHop.has(e.source)){{scope.add(e.source);scope.add(e.target);}}}});
- }}
- let scopedEdges=filtered.filter(e=>scope.has(e.source)&&scope.has(e.target));
- let scopedNodes=nodes.filter(node=>scope.has(node.id));
+ nodes.sort((a,b)=>supplyColumn(a.kind)-supplyColumn(b.kind)||a.name.localeCompare(b.name)||a.id.localeCompare(b.id));
+ return {{nodes,edges,candidates:nodes.length,possibleEdges:edges.length,shownEdges:edges.length,byId}};
+}}
+function supplyEmphasis(root,view,selectedId=null,layer="all",query=""){{
+ const svg=root.querySelector(".supply-diagram");if(!svg)return;
+ const topologyEdges=view.edges;
+ const relevant=topologyEdges.filter(e=>layer==="all"||SUPPLY_LAYER_EDGES[layer]?.has(e.kind));
+ const oriented=e=>e.kind==="RECEIVES_INPUT_FROM"&&view.byId.get(e.source)?.kind==="agent"&&view.byId.get(e.target)?.kind==="input"?
+   [e.target,e.source]:[e.source,e.target];
+ const nodeIds=new Set(),edgeIds=new Set();
  const q=String(query||"").trim().toLowerCase();
+ const selectedEdge=topologyEdges.find(e=>e.id===selectedId);
+ const selectedNode=view.byId.get(selectedId);
  if(q){{
-  const hits=new Set(scopedNodes.filter(n=>(n.name+" "+n.kind+" "+(n.framework||"")).toLowerCase().includes(q)).map(n=>n.id));
-  const context=new Set(hits);
-  scopedEdges.forEach(e=>{{if(hits.has(e.source)||hits.has(e.target)){{context.add(e.source);context.add(e.target);}}}});
-  scopedNodes=scopedNodes.filter(n=>context.has(n.id));
-  scopedEdges=scopedEdges.filter(e=>context.has(e.source)&&context.has(e.target));
+  const hits=view.nodes.filter(n=>(n.name+" "+n.kind+" "+(n.framework||"")).toLowerCase().includes(q));
+  hits.forEach(n=>nodeIds.add(n.id));
+  relevant.forEach(e=>{{if(nodeIds.has(e.source)||nodeIds.has(e.target)){{edgeIds.add(e.id);nodeIds.add(e.source);nodeIds.add(e.target);}}}});
+ }}else if(selectedEdge){{
+  edgeIds.add(selectedEdge.id);nodeIds.add(selectedEdge.source);nodeIds.add(selectedEdge.target);
+ }}else if(selectedNode){{
+  nodeIds.add(selectedNode.id);
+  // Follow explicitly recorded downstream relationships for up to four hops,
+  // plus immediately preceding sources/delegators. No new paths are invented.
+  let frontier=new Set([selectedNode.id]),visited=new Set(frontier);
+  for(let depth=0;depth<4&&frontier.size;depth++){{
+   const next=new Set();
+   relevant.forEach(e=>{{const [from,to]=oriented(e);if(frontier.has(from)){{edgeIds.add(e.id);nodeIds.add(to);if(!visited.has(to))next.add(to);}}}});
+   next.forEach(id=>visited.add(id));frontier=next;
+  }}
+  relevant.forEach(e=>{{const [from,to]=oriented(e);if(to===selectedNode.id){{edgeIds.add(e.id);nodeIds.add(from);}}}});
+ }}else if(layer!=="all"){{
+  relevant.forEach(e=>{{edgeIds.add(e.id);nodeIds.add(e.source);nodeIds.add(e.target);}});
  }}
- const candidates=scopedNodes.length,possibleEdges=scopedEdges.length;
- /* A deterministic bounded rendering keeps a self-contained offline report usable. */
- const limit=72;
- scopedNodes.sort((a,b)=>supplyColumn(a.kind)-supplyColumn(b.kind)||a.name.localeCompare(b.name)||a.id.localeCompare(b.id));
- scopedNodes=scopedNodes.slice(0,limit);
- const visibleIds=new Set(scopedNodes.map(n=>n.id));
- scopedEdges=scopedEdges.filter(e=>visibleIds.has(e.source)&&visibleIds.has(e.target));
- const edgeLimit=180;
- const shownEdges=scopedEdges.length;
- scopedEdges=scopedEdges.slice(0,edgeLimit);
- return {{nodes:scopedNodes,edges:scopedEdges,candidates,possibleEdges,shownEdges,byId}};
+ const active=Boolean(q||selectedNode||selectedEdge||layer!=="all");
+ svg.classList.toggle("has-emphasis",active);
+ svg.querySelectorAll("[data-supply-node]").forEach(el=>{{
+   const id=el.dataset.supplyNode;
+   el.classList.toggle("is-picked",!q&&id===selectedId);
+   el.classList.toggle("is-related",active&&nodeIds.has(id));
+   el.classList.toggle("is-muted",active&&!nodeIds.has(id));
+   el.classList.toggle("selected",!q&&id===selectedId);
+ }});
+ svg.querySelectorAll("[data-supply-edge]").forEach(el=>{{
+   const id=el.dataset.supplyEdge;
+   el.classList.toggle("is-picked",!q&&id===selectedId);
+   el.classList.toggle("is-related",active&&edgeIds.has(id));
+   el.classList.toggle("is-muted",active&&!edgeIds.has(id));
+   el.classList.toggle("selected",!q&&id===selectedId);
+ }});
+ const status=root.querySelector("#supply-highlight-status");
+ if(status)status.textContent=!active?"Showing all "+number(view.nodes.length)+" nodes and "+number(view.edges.length)+" source-backed relationships.":
+   "Highlighting "+number(nodeIds.size)+" of "+number(view.nodes.length)+" nodes and "+number(edgeIds.size)+" of "+number(view.edges.length)+" relationships; everything else stays visible.";
 }}
 function supplySvg(view,selectedId){{
  const groups=[[],[],[],[],[]];
