@@ -49,13 +49,15 @@ class _Value:
     params: frozenset[str] = frozenset()
     sources: tuple[_Source, ...] = ()
     unresolved: tuple[_Unresolved, ...] = ()
+    instance_class: str | None = None  # proven local, parameterless constructor only
 
     @classmethod
     def combine(cls, values: Iterable[_Value]) -> _Value:
+        members = list(values)
         params: set[str] = set()
         sources: dict[str, _Source] = {}
         unresolved: dict[tuple[str, str, int], _Unresolved] = {}
-        for value in values:
+        for value in members:
             params.update(value.params)
             for source in value.sources:
                 sources[source.source_id] = source
@@ -66,6 +68,8 @@ class _Value:
             frozenset(params),
             tuple(sources[key] for key in sorted(sources)),
             tuple(unresolved[key] for key in sorted(unresolved)),
+            # A list, conditional expression, or merged branch is not proof of
+            # a directly bound class instance, even if children share a class.
         )
 
 
@@ -82,6 +86,7 @@ class _Sink:
 class _Summary:
     returns: _Value = _Value()
     sinks: tuple[_Sink, ...] = ()
+    unsupported_method_calls: tuple[_Unresolved, ...] = ()
 
 
 @dataclass(slots=True)
@@ -92,6 +97,7 @@ class _Function:
     path: Path
     node: ast.FunctionDef | ast.AsyncFunctionDef
     imports: dict[str, str] = field(default_factory=dict)
+    owner_class: str | None = None
 
     @property
     def params(self) -> list[str]:
@@ -168,7 +174,68 @@ def _imports(tree: ast.Module) -> dict[str, str]:
         elif isinstance(node, ast.Import):
             for alias in node.names:
                 result[alias.asname or alias.name.split(".")[0]] = alias.name
+    # A top-level rebinding invalidates an imported identity. Do not infer that
+    # later calls still reference a dangerous standard-library API.
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            result.pop(node.name, None)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                for name in ast.walk(target):
+                    if isinstance(name, ast.Name) and isinstance(name.ctx, ast.Store):
+                        result.pop(name.id, None)
     return result
+
+
+def _lexical_bindings(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    """Names locally assigned or received by this function, including shadowed imports."""
+    names = {
+        arg.arg for arg in (
+            *node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs
+        )
+    }
+    if node.args.vararg:
+        names.add(node.args.vararg.arg)
+    if node.args.kwarg:
+        names.add(node.args.kwarg.arg)
+    # Ignore nested function bodies: their assignments belong to another scope.
+    pending: list[ast.AST] = list(node.body)
+    while pending:
+        child = pending.pop()
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(child.name)
+            continue
+        if isinstance(child, (ast.Import, ast.ImportFrom)):
+            for alias in child.names:
+                names.add(alias.asname or alias.name.split(".")[0])
+        if isinstance(child, ast.ExceptHandler) and child.name:
+            names.add(child.name)
+        if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store):
+            names.add(child.id)
+        pending.extend(ast.iter_child_nodes(child))
+    return names
+
+
+def _class_rebound(
+    tree: ast.Module, class_name: str, method_names: set[str],
+) -> bool:
+    """Do not trust a local class whose binding or methods are overwritten."""
+    for statement in tree.body:
+        if not isinstance(statement, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            continue
+        targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+        for target in targets:
+            if isinstance(target, ast.Name) and target.id == class_name:
+                return True
+            if (
+                isinstance(target, ast.Attribute)
+                and isinstance(target.value, ast.Name)
+                and target.value.id == class_name
+                and target.attr in method_names
+            ):
+                return True
+    return False
 
 
 def _collect_functions(root: Path, python_paths: list[Path]) -> dict[str, _Function]:
@@ -185,6 +252,32 @@ def _collect_functions(root: Path, python_paths: list[Path]) -> dict[str, _Funct
                 continue
             key = f"{module}.{node.name}" if module else node.name
             functions[key] = _Function(key, module, node.name, path, node, imports)
+        # Only direct, non-decorated methods on plain local classes are modeled.
+        # Metaclasses, inheritance, descriptors and custom construction are dynamic.
+        for cls in tree.body:
+            if not isinstance(cls, ast.ClassDef) or cls.bases or cls.keywords or cls.decorator_list:
+                continue
+            methods = [
+                item for item in cls.body
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+            ]
+            if any(item.name in {"__init__", "__new__", "__getattribute__", "__getattr__"}
+                   or item.decorator_list for item in methods):
+                continue
+            if _class_rebound(tree, cls.name, {method.name for method in methods}):
+                continue
+            # A module-level definition/rebinding with the same name is ambiguous.
+            if sum(
+                isinstance(item, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+                and item.name == cls.name for item in tree.body
+            ) != 1:
+                continue
+            owner = f"{module}.{cls.name}" if module else cls.name
+            for method in methods:
+                key = f"{owner}.{method.name}"
+                functions[key] = _Function(
+                    key, module, method.name, path, method, imports, owner_class=owner,
+                )
     return functions
 
 
@@ -374,6 +467,7 @@ class _FunctionAnalyzer:
         functions: dict[str, _Function],
         summaries: dict[str, _Summary],
         unique_simple: dict[str, str],
+        safe_classes: frozenset[str],
     ):
         self.info = info
         self.functions = functions
@@ -381,6 +475,45 @@ class _FunctionAnalyzer:
         self.unique_simple = unique_simple
         self.sinks: list[_Sink] = []
         self.return_values: list[_Value] = []
+        self.unsupported_method_calls: list[_Unresolved] = []
+        self.shadowed = _lexical_bindings(info.node)
+        self.safe_classes = safe_classes
+
+    def _canonical_called(self, called: str) -> str:
+        root, _, suffix = called.partition(".")
+        if not called or root in self.shadowed:
+            return called
+        imported = self.info.imports.get(root)
+        return (imported + ("." + suffix if suffix else "")) if imported else called
+
+    def _constructor(self, node: ast.Call, env: dict[str, _Value]) -> str | None:
+        if not isinstance(node.func, ast.Name) or node.args or node.keywords:
+            return None
+        name = node.func.id
+        if name in self.shadowed or name in env or name in self.info.imports:
+            return None
+        owner = f"{self.info.module}.{name}" if self.info.module else name
+        return owner if owner in self.safe_classes else None
+
+    def _bound_method(
+        self, node: ast.Call, env: dict[str, _Value],
+    ) -> tuple[str, bool] | None:
+        if not isinstance(node.func, ast.Attribute):
+            return None
+        receiver = node.func.value
+        owner: str | None = None
+        if isinstance(receiver, ast.Call):
+            owner = self._constructor(receiver, env)
+        elif isinstance(receiver, ast.Name):
+            value = env.get(receiver.id)
+            owner = value.instance_class if value is not None else None
+        if owner is None:
+            return None
+        key = f"{owner}.{node.func.attr}"
+        method = self.functions.get(key)
+        if method is None or method.owner_class != owner or not method.params:
+            return None
+        return key, True
 
     def run(self) -> _Summary:
         env = {name: _Value(params=frozenset({name})) for name in self.info.params}
@@ -398,7 +531,15 @@ class _FunctionAnalyzer:
             item.location.path.as_posix(), item.location.line, item.kind, item.label,
             item.call_chain,
         )))
-        return _Summary(_Value.combine(self.return_values), sinks)
+        missing_methods = {
+            (item.called, item.location.path.as_posix(), item.location.line): item
+            for item in self.unsupported_method_calls
+        }
+        return _Summary(
+            _Value.combine(self.return_values),
+            sinks,
+            tuple(missing_methods[key] for key in sorted(missing_methods)),
+        )
 
     def _statements(self, statements: list[ast.stmt], env: dict[str, _Value]) -> None:
         for statement in statements:
@@ -511,16 +652,30 @@ class _FunctionAnalyzer:
             return _Value.combine(children)
 
         called = _dotted(node.func) or (node.func.id if isinstance(node.func, ast.Name) else "")
-        lower_called = called.lower()
-        source = _source_kind(called)
-        if source is None and lower_called in {"os.getenv", "os.environ.get"} and node.args:
+        constructor = self._constructor(node, env)
+        if constructor:
+            return _Value(instance_class=constructor)
+        bound_method = self._bound_method(node, env)
+        canonical = self._canonical_called(called)
+        lower_called = canonical.lower()
+        root = called.split(".", 1)[0]
+        # A local argument or assignment may shadow a built-in or imported
+        # source/sink. In that case the spelling alone is not proof.
+        shadowed_api = root in self.shadowed
+        source = None if shadowed_api or bound_method else _source_kind(canonical)
+        if (
+            source is None
+            and not shadowed_api
+            and lower_called in {"os.getenv", "os.environ.get"}
+            and node.args
+        ):
             key = node.args[0]
             if (
                 isinstance(key, ast.Constant)
                 and isinstance(key.value, str)
                 and any(marker in key.value.lower() for marker in _SECRET_ENV_MARKERS)
             ):
-                source = ("secret_value", called)
+                source = ("secret_value", canonical)
         if source:
             location = _location(self.info.path, node)
             relative = self.info.path.as_posix()
@@ -528,9 +683,9 @@ class _FunctionAnalyzer:
             source_id = "source-v1:" + hashlib.sha256(token.encode("utf-8")).hexdigest()[:20]
             return _Value(sources=(_Source(source_id, source[0], source[1], location),))
 
-        sink = _sink_kind(called)
+        sink = None if shadowed_api or bound_method else _sink_kind(canonical)
         if sink:
-            value = _sink_value(called, node, lambda item: self._expr(item, env))
+            value = _sink_value(canonical, node, lambda item: self._expr(item, env))
             self.sinks.append(
                 _Sink(
                     sink[0], sink[1], _location(self.info.path, node), value, (self.info.key,),
@@ -538,7 +693,13 @@ class _FunctionAnalyzer:
             )
             return _Value()
 
-        callee_key = _resolve_callee(self.info, called, self.functions, self.unique_simple)
+        callee_key = (
+            bound_method[0] if bound_method else (
+                None if shadowed_api else _resolve_callee(
+                    self.info, called, self.functions, self.unique_simple,
+                )
+            )
+        )
         if callee_key and callee_key in self.summaries:
             summary = self.summaries[callee_key]
             callee = self.functions[callee_key]
@@ -549,9 +710,12 @@ class _FunctionAnalyzer:
                 if keyword.arg is not None
             }
             parameters: dict[str, _Value] = {}
+            offset = 1 if bound_method else 0  # implicit bound 'self'
             for index, name in enumerate(callee.params):
-                if index < len(positional):
-                    parameters[name] = positional[index]
+                if index < offset:
+                    parameters[name] = _Value()
+                elif index - offset < len(positional):
+                    parameters[name] = positional[index - offset]
                 elif name in keyword_values:
                     parameters[name] = keyword_values[name]
                 else:
@@ -584,6 +748,19 @@ class _FunctionAnalyzer:
             values.append(self._expr(node.func.value, env))
         combined = _Value.combine(values)
         if combined.params or combined.sources or combined.unresolved:
+            if (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr in {"execute", "run"}
+                and isinstance(node.func.value, ast.Call)
+                and isinstance(node.func.value.func, ast.Name)
+                and (combined.params or combined.sources)
+            ):
+                # A model-controlled argument reaches a constructor-returned
+                # object with unknown dynamic dispatch. Do not claim a sink;
+                # retain explicit coverage uncertainty for registered tools.
+                self.unsupported_method_calls.append(
+                    _Unresolved(called, _location(self.info.path, node))
+                )
             if called in _SAFE_TRANSFORM_CALLS:
                 return combined
             unresolved = _Unresolved(called or "<dynamic-call>", _location(self.info.path, node))
@@ -601,12 +778,15 @@ def _simple_name_index(functions: dict[str, _Function]) -> dict[str, str]:
 def _build_summaries(functions: dict[str, _Function]) -> dict[str, _Summary]:
     summaries = {key: _Summary() for key in functions}
     unique_simple = _simple_name_index(functions)
+    safe_classes = frozenset(
+        info.owner_class for info in functions.values() if info.owner_class is not None
+    )
     for _ in range(MAX_FLOW_SUMMARY_ITERATIONS):
         changed = False
         next_summaries: dict[str, _Summary] = {}
         for key in sorted(functions):
             summary = _FunctionAnalyzer(
-                functions[key], functions, summaries, unique_simple,
+                functions[key], functions, summaries, unique_simple, safe_classes,
             ).run()
             next_summaries[key] = summary
             if summary != summaries[key]:
@@ -836,6 +1016,24 @@ def analyze_repository_flows(root: Path, python_paths: list[Path], graph: Graph)
     if not functions:
         return []
     summaries = _build_summaries(functions)
+    for function_key, summary in summaries.items():
+        if not summary.unsupported_method_calls:
+            continue
+        bindings = _agent_bindings_for_chain(
+            graph, functions, (function_key,), root,
+        )
+        if not any(agent is not None for agent, _ in bindings):
+            continue
+        for unresolved in summary.unsupported_method_calls:
+            add_diagnostic(
+                graph.coverage,
+                ScanDiagnostic(
+                    "unresolved_dataflow",
+                    "Model-controlled input reaches a dynamically dispatched method; "
+                    "callee and effects could not be proven by bounded static analysis.",
+                    unresolved.location,
+                ),
+            )
     result: list[FlowPath] = []
     seen: set[str] = set()
 

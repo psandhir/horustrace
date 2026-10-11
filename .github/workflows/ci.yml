@@ -65,6 +65,8 @@ jobs:
             coverage.json
       - run: python scripts/deployment_authority_study.py --validate-only
       - run: horustrace benchmark benchmarks/cases.yaml
+      - name: Static metamorphic security-claim regression matrix
+        run: python scripts/run_static_metamorphic.py
 
   browser-report-smoke:
     if: github.event_name == 'pull_request'
