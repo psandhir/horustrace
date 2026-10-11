@@ -1763,7 +1763,7 @@ function renderPathCard(path){{
 function renderAgentPaths(a){{
  const paths=a.path_views||[],candidates=a.candidate_views||[];
  if(!paths.length&&!candidates.length)return '<div class="empty">No attack paths or qualified developer-source candidates for this agent. Effective authority may still exist.</div>';
- return '<p class="muted">Deployed-runtime attack paths and non-runtime developer-source candidates are separated. Static flow does not verify execution or exploitability. Click resolved steps to inspect their source components.</p>'+
+ return '<p class="muted">Deployed-runtime attack paths and non-runtime developer-source candidates are separated. Static flow does not verify execution or exploitability. Only steps that resolve unambiguously to one canonical dependency node are interactive.</p>'+
  (paths.length?paths.map(renderPathCard).join(""):'<div class="empty">No deployed-runtime attack path.</div>')+
  (candidates.length?sectionHead("Developer-source candidates","Not production attack findings. These source-backed example/test flows require explicit review before deployment claims.")+candidates.map(renderPathCard).join(""):"");
 }}
