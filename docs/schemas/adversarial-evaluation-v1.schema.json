@@ -1,0 +1,319 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/psandhir/horustrace/blob/main/docs/schemas/adversarial-evaluation-v1.schema.json",
+  "title": "HorusTrace Adversarial Evaluation Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "case",
+    "attempts"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "run_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "case": {
+      "$ref": "#/$defs/case"
+    },
+    "attempts": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "$ref": "#/$defs/attempt"
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 10000,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "case_id",
+        "family",
+        "scope",
+        "objective",
+        "source_sha",
+        "scanner_sha",
+        "asg_digest",
+        "assertion_ids"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "case_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "family": {
+          "$ref": "#/$defs/identifier"
+        },
+        "scope": {
+          "enum": [
+            "static_scanner",
+            "semantic_compiler",
+            "external_agent"
+          ]
+        },
+        "objective": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "source_sha": {
+          "$ref": "#/$defs/sha"
+        },
+        "scanner_sha": {
+          "$ref": "#/$defs/sha"
+        },
+        "asg_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "assertion_ids": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/ids"
+            },
+            {
+              "minItems": 1
+            }
+          ]
+        },
+        "target_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 4096
+        },
+        "framework": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "language": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "injection_surface": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "contract_digest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "asset_ids": {
+          "$ref": "#/$defs/ids"
+        },
+        "parent_case_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "transformation_ids": {
+          "$ref": "#/$defs/ids"
+        },
+        "partition": {
+          "enum": [
+            "regression",
+            "calibration",
+            "holdout",
+            "exploratory"
+          ]
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_id",
+        "turn",
+        "kind",
+        "effect"
+      ],
+      "properties": {
+        "observation_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "turn": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "kind": {
+          "$ref": "#/$defs/identifier"
+        },
+        "effect": {
+          "enum": [
+            "attempted",
+            "denied",
+            "completed",
+            "informational"
+          ]
+        },
+        "subject_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "artifact_digest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assertion_id",
+        "verdict",
+        "scorer_id",
+        "scorer_version",
+        "evidence_ids"
+      ],
+      "properties": {
+        "assertion_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "verdict": {
+          "enum": [
+            "supported",
+            "refuted",
+            "unresolved"
+          ]
+        },
+        "scorer_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "scorer_version": {
+          "$ref": "#/$defs/identifier"
+        },
+        "evidence_ids": {
+          "$ref": "#/$defs/ids"
+        },
+        "rationale": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt_id",
+        "case_id",
+        "execution_state",
+        "outcome",
+        "observations",
+        "assertions"
+      ],
+      "properties": {
+        "attempt_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "case_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "execution_state": {
+          "enum": [
+            "not_executed",
+            "started",
+            "completed",
+            "error",
+            "timed_out",
+            "skipped",
+            "unknown"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "not_executed",
+            "policy_violation",
+            "control_enforced",
+            "no_violation_observed",
+            "unresolved"
+          ]
+        },
+        "observations": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "$ref": "#/$defs/observation"
+          }
+        },
+        "assertions": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "$ref": "#/$defs/assertion"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      }
+    }
+  }
+}
