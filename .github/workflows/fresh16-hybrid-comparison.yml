@@ -13,10 +13,36 @@ permissions:
 
 concurrency:
   group: fresh16-paired-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
+  provider-preflight:
+    name: Verify LLM provider before cohort
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+      - name: Fail immediately on expired quota or missing entitlement
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! copilot -p 'Return one word: ready' -s \
+              --no-ask-user --no-custom-instructions --no-remote \
+              --model auto > /tmp/llm-preflight.txt 2>&1; then
+            cat /tmp/llm-preflight.txt
+            echo "::error::Semantic LLM unavailable; cohort comparison must not be interpreted as parity."
+            exit 1
+          fi
+          echo "Copilot semantic provider preflight passed."
+
   paired-case:
+    needs: provider-preflight
     name: Paired scan ${{ matrix.case_id }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
