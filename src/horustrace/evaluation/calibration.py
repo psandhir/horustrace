@@ -1,0 +1,105 @@
+"""Stratified evaluation quality reporting (not an independent ground-truth oracle).
+
+Historical G0–G3 adjudication packets remain authoritative. This computes
+metrics only from caller-supplied reference labels and preserves unresolved
+counts, reference provenance and holdout partitions.
+"""
+from __future__ import annotations
+
+from collections import defaultdict
+from math import sqrt
+from typing import Any
+
+from horustrace.evaluation.contracts import EvaluationContractError
+
+REFERENCE_LABELS = frozenset({"supported", "unsupported", "unresolved"})
+PREDICTIONS = frozenset({"supported", "refuted", "unresolved"})
+CATEGORIES = frozenset({"finding", "path"})
+
+
+def wilson_interval(successes: int, total: int, z: float = 1.96) -> list[float] | None:
+    """Wilson score interval; None when a denominator has no eligible observations."""
+    if not total:
+        return None
+    p = successes / total
+    denominator = 1 + z * z / total
+    center = (p + z * z / (2 * total)) / denominator
+    margin = z * sqrt(p * (1 - p) / total + z * z / (4 * total * total)) / denominator
+    return [round(max(0, center - margin), 4), round(min(1, center + margin), 4)]
+
+
+def _summarize(records: list[dict[str, str]]) -> dict[str, Any]:
+    eligible = [r for r in records if r["reference"] in {"supported", "unsupported"}]
+    tp = sum(r["reference"] == "supported" and r["predicted"] == "supported" for r in eligible)
+    fp = sum(r["reference"] == "unsupported" and r["predicted"] == "supported" for r in eligible)
+    fn = sum(r["reference"] == "supported" and r["predicted"] == "refuted" for r in eligible)
+    tn = sum(r["reference"] == "unsupported" and r["predicted"] == "refuted" for r in eligible)
+    unresolved_predictions = sum(r["predicted"] == "unresolved" for r in records)
+    unresolved_references = len(records) - len(eligible)
+    positive_reference = sum(r["reference"] == "supported" for r in eligible)
+    reviewed_support = sum(r["reference"] == "supported" and r["predicted"] != "unresolved"
+                           for r in eligible)
+    return {
+        "records": len(records),
+        "reference_eligible": len(eligible),
+        "reference_unresolved": unresolved_references,
+        "prediction_unresolved": unresolved_predictions,
+        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+        "precision": round(tp / (tp + fp), 4) if tp + fp else None,
+        # Unresolved predictions remain in recall denominator; never call them negatives.
+        "recall": round(tp / positive_reference, 4) if positive_reference else None,
+        "precision_wilson_95": wilson_interval(tp, tp + fp),
+        "recall_wilson_95": wilson_interval(tp, positive_reference),
+        "decisively_scored_positive_support": reviewed_support,
+        "excluded_framework_coverage": "not_established_by_this_measure",
+    }
+
+
+def summarize_calibration(rows: list[dict[str, str]]) -> dict[str, Any]:
+    """Compare predeclared references with scores; do not silently pool holdouts."""
+    fields = {
+        "case_id", "repository", "framework", "language", "family",
+        "claim_kind", "partition", "reference", "predicted", "label_provenance",
+    }
+    seen: set[str] = set()
+    for row in rows:
+        if not isinstance(row, dict) or set(row) != fields:
+            raise EvaluationContractError("calibration row has missing/unknown fields")
+        if row["case_id"] in seen:
+            raise EvaluationContractError("calibration case ID duplicated")
+        seen.add(row["case_id"])
+        if row["reference"] not in REFERENCE_LABELS:
+            raise EvaluationContractError("invalid reference label")
+        if row["predicted"] not in PREDICTIONS:
+            raise EvaluationContractError("invalid predicted label")
+        if row["claim_kind"] not in CATEGORIES:
+            raise EvaluationContractError("claim_kind must be finding or path")
+        if row["partition"] not in {"regression", "calibration", "holdout", "exploratory"}:
+            raise EvaluationContractError("invalid partition")
+        if not all(isinstance(value, str) and value.strip() for value in row.values()):
+            raise EvaluationContractError("calibration fields must be nonempty strings")
+    groups: dict[tuple[str, str, str, str, str], list[dict[str, str]]] = defaultdict(list)
+    for row in rows:
+        key = (row["claim_kind"], row["partition"], row["framework"],
+               row["language"], row["family"])
+        groups[key].append(row)
+    report = {
+        "overall": {
+            kind: _summarize([row for row in rows if row["claim_kind"] == kind])
+            for kind in sorted(CATEGORIES)
+        },
+        "strata": [
+            {
+                "claim_kind": key[0], "partition": key[1], "framework": key[2],
+                "language": key[3], "family": key[4], **_summarize(groups[key]),
+            }
+            for key in sorted(groups)
+        ],
+        "label_provenance": sorted({r["label_provenance"] for r in rows}),
+        "human_ground_truth_established": bool(rows) and all(
+            r["label_provenance"] == "independent_human_review" for r in rows
+        ),
+        "model_graded_ci_blocking_approved": False,
+        "reference_quality": "caller_supplied; verify G0-G3 reviewer lock separately",
+    }
+    return report
