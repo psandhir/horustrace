@@ -241,7 +241,9 @@ class EvaluationLedger:
         if not isinstance(text, str) or len(text.encode("utf-8")) > MAX_ATTACHMENT:
             raise EvaluationContractError("attachment must be bounded UTF-8 text")
         original = digest(text.encode("utf-8"))
-        cleaned = _redact(text) if sensitive else text
+        # Regex-only redaction cannot recognize arbitrary organization secrets.
+        # Public bundles therefore omit *all* sensitive payload bytes by default.
+        cleaned = "[REDACTED: sensitive payload omitted]" if sensitive else _redact(text)
         if _redact(cleaned) != cleaned:
             raise EvaluationContractError("unredacted credential-like attachment")
         data = cleaned.encode("utf-8")
@@ -259,6 +261,10 @@ class EvaluationLedger:
             "original_digest": original,
             "redacted": cleaned != text,
             "exact_replay_available": cleaned == text,
+            "omission_reason": (
+                "sensitive_payload_omitted" if sensitive
+                else ("credential_like_content_redacted" if cleaned != text else None)
+            ),
         }
 
     def rescore(self, attempt_id: str, specifications: tuple, *,
