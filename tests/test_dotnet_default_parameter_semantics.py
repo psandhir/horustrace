@@ -44,3 +44,21 @@ public static AIAgent Build(IChatClient client, AIAgent? fallback = null)
     items = assignments(source, mask_non_code(source))
     assert "fallback" not in items
     assert "active" in items
+
+
+def test_factory_result_is_labelled_as_template_not_runtime_instance(tmp_path) -> None:
+    source = tmp_path / "Factory.cs"
+    source.write_text(
+        """
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+public static AIAgent Get(IChatClient chatClient) =>
+    chatClient.AsAIAgent(name: "NamedFromFactory");
+""",
+        encoding="utf-8",
+    )
+    graph = scan_dotnet_file(source)
+    generated = next(agent for agent in graph.agents if agent.name == "NamedFromFactory")
+    assert generated.metadata["source_entity_classification"] == "factory_return_template"
+    assert generated.metadata["factory_method"] == "Get"
+    assert generated.metadata["runtime_instance_verified"] is False
