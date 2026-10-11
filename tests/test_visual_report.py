@@ -235,6 +235,11 @@ def test_visual_report_supply_chain_uses_canonical_adg_edges(tmp_path: Path) -> 
     assert 'node?.kind==="agent"&&focus!==chosen' in html
     assert "Agent-to-agent access" in html
     assert 'data-agent-link' in html
+    assert "function attackPathTopologyTarget(" in html
+    assert "function bindPathDrill(" in html
+    assert 'data-path-node' in html
+    assert "Only steps that resolve unambiguously to one canonical dependency node are interactive." in html
+    assert "Clickable steps resolve unambiguously to canonical dependency nodes." in html
     assert before_supply_graph_identical(report, graph, findings, tmp_path)
 
 
