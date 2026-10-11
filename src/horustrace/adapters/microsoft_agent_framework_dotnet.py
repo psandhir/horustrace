@@ -2084,6 +2084,9 @@ def scan_dotnet_file(path: Path) -> Graph:
         if key not in existing_item_keys and _assignment_is_agent(item):
             agent_items.append(item)
             existing_item_keys.add(key)
+    # A returned agent configuration is source-supported, but a method such
+    # as Get() is a factory *template*, not proof of a deployed instance.
+    factory_item_ids = {id(item) for item in factory_items}
     aliases: dict[str, Agent] = {}
     for item in agent_items:
         foundry = _foundry_agent(item.expression, foundry_clients)
@@ -2116,6 +2119,12 @@ def scan_dotnet_file(path: Path) -> Graph:
                 "target_typed_constructor": target_typed_chat_agent,
             },
         )
+        if id(item) in factory_item_ids:
+            agent.metadata.update({
+                "source_entity_classification": "factory_return_template",
+                "factory_method": item.name,
+                "runtime_instance_verified": False,
+            })
         graph.agents.append(agent)
         aliases[item.name] = agent
         aliases.setdefault(agent.name, agent)
