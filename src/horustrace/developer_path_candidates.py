@@ -81,12 +81,10 @@ def developer_path_candidates(graph: Graph, root: Path) -> list[dict]:
         from horustrace.analysis import _bound_tool_for_flow
 
         bound_tool = _bound_tool_for_flow(graph, flow)
-        if bound_tool is not None and bound_tool.metadata.get(
-            "process_execution_constrained"
-        ) is True:
-            # Fixed executable/arguments and proved enforcement are near misses,
-            # not unrestricted shell-path candidates.
-            continue
+        constrained = (
+            bound_tool is not None
+            and bound_tool.metadata.get("process_execution_constrained") is True
+        )
         location = flow.steps[-1].location if flow.steps else None
         if location is not None:
             try:
@@ -105,6 +103,7 @@ def developer_path_candidates(graph: Graph, root: Path) -> list[dict]:
             "nodes": list(flow.nodes),
             "severity": "candidate",
             "execution_mode": execution_mode,
+            "control_qualified": constrained,
             "rationale": (
                 "A model/tool-controlled value reaches a process execution sink in "
                 "example, test, notebook, or template code. Deployment and runtime "
@@ -123,7 +122,7 @@ def developer_path_candidates(graph: Graph, root: Path) -> list[dict]:
                 "exploitability": "not_verified",
                 "review_status": (
                     "structured_argv_near_miss"
-                    if execution_mode == "structured_argv"
+                    if execution_mode == "structured_argv" or constrained
                     else "candidate_not_deployed_risk"
                 ),
             },
