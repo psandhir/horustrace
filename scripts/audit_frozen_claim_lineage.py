@@ -213,6 +213,10 @@ def audit(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cohort", required=True, type=Path)
+    parser.add_argument(
+        "--exclude-framework", action="append", default=[],
+        help="Exclude a framework from a frozen source manifest, e.g. langgraph for Fresh16",
+    )
     parser.add_argument("--old-dir", required=True, type=Path)
     parser.add_argument("--new-dir", required=True, type=Path)
     parser.add_argument("--historical-csv", required=True, type=Path)
@@ -220,6 +224,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args(argv)
     cohort = json.loads(args.cohort.read_text(encoding="utf-8"))
+    if args.exclude_framework:
+        cohort["cases"] = [
+            row for row in cohort["cases"]
+            if row["framework"] not in set(args.exclude_framework)
+        ]
     cases = {row["case_id"]: row for row in cohort["cases"]}
     if len(cases) != len(cohort["cases"]):
         raise ValueError("duplicate case in frozen cohort")
