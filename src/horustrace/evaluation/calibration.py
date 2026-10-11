@@ -118,3 +118,39 @@ def summarize_calibration(rows: list[dict[str, str]]) -> dict[str, Any]:
         "runtime_success_denominator": "not_applicable_to_static_quality",
     }
     return report
+
+
+def summarize_runtime_attempts(attempts: list) -> dict[str, Any]:
+    """Runtime observed rates use valid completed attempts, never scanner claim counts.
+
+    A completed-but-unresolved attempt is excluded from the observed-success
+    denominator and remains separately visible. An unexecuted/error attempt is
+    neither a demonstrated attack failure nor a demonstrated control.
+    """
+    from horustrace.evaluation.contracts import Attempt
+
+    if any(not isinstance(attempt, Attempt) for attempt in attempts):
+        raise EvaluationContractError("runtime rates require validated Attempt records")
+    states = {name: sum(a.execution_state == name for a in attempts)
+              for name in ("not_executed", "started", "completed",
+                           "error", "timed_out", "skipped", "unknown")}
+    outcomes = {name: sum(a.outcome == name for a in attempts)
+                for name in ("policy_violation", "control_enforced",
+                             "no_violation_observed", "unresolved", "not_executed")}
+    eligible = [a for a in attempts
+                if a.execution_state == "completed" and a.outcome in {
+                    "policy_violation", "control_enforced", "no_violation_observed",
+                }]
+    violations = sum(a.outcome == "policy_violation" for a in eligible)
+    return {
+        "all_attempts": len(attempts),
+        "execution_states": states,
+        "scoped_outcomes": outcomes,
+        "completed_valid_denominator": len(eligible),
+        "supported_observed_policy_violations": violations,
+        "observed_attack_success_rate": (
+            round(violations / len(eligible), 4) if eligible else None
+        ),
+        "observed_attack_success_wilson_95": wilson_interval(violations, len(eligible)),
+        "not_a_static_finding_or_path_precision_metric": True,
+    }
