@@ -540,12 +540,31 @@ def validate_agent_semantics(agent: Agent) -> list[str]:
                 f"agent {agent.name!r} tool {tool.name!r}: "
                 "delegate_target must be a non-empty string"
             )
+        # Dynamic registries can prove the *possibility* of delegation while
+        # leaving the actual target unresolved. Never synthesize a target or
+        # treat this placeholder as a resolved authority relationship.
+        dynamic_unresolved = (
+            tool.metadata.get("delegate_target_unresolved") is True
+            or (
+                tool.metadata.get("binding_unresolved") is True
+                and tool.metadata.get("dynamic_bound_collection") is True
+                and tool.metadata.get("delegation_scope_unresolved") is True
+            )
+        )
         if tool.kind == "delegated_agent" and (
             not isinstance(delegate_target, str) or not delegate_target.strip()
+        ) and not dynamic_unresolved:
+            errors.append(
+                f"agent {agent.name!r} tool {tool.name!r}: "
+                "delegated_agent must declare delegate_target or explicit "
+                "source-backed dynamic unresolved markers"
+            )
+        if tool.kind == "delegated_agent" and dynamic_unresolved and (
+            isinstance(delegate_target, str) and delegate_target.strip()
         ):
             errors.append(
                 f"agent {agent.name!r} tool {tool.name!r}: "
-                "delegated_agent must declare delegate_target"
+                "unresolved delegation must not assert a resolved delegate_target"
             )
         unresolved_catalogue = tool.metadata.get("tool_catalogue_unresolved")
         if unresolved_catalogue is not None and not isinstance(
@@ -614,7 +633,18 @@ def validate_agent_semantics(agent: Agent) -> list[str]:
 
 
 def validate_graph_semantics(graph: Graph) -> list[str]:
+    """Validate shared semantics for bound AND inventory-only discoveries.
+
+    Unbound components are first-class inventory evidence; rejecting invalid
+    canonical fields must not require inventing an agent binding.
+    """
     errors: list[str] = []
     for agent in graph.agents:
         errors.extend(validate_agent_semantics(agent))
+    for tool in graph.unbound_tools:
+        errors.extend(validate_agent_semantics(Agent(name="<unbound_tool>", tools=[tool])))
+    for skill in graph.unbound_skills:
+        errors.extend(validate_agent_semantics(Agent(name="<unbound_skill>", skills=[skill])))
+    for server in [*graph.unbound_mcp_servers, *graph.unresolved_mcp_references]:
+        errors.extend(validate_agent_semantics(Agent(name="<unbound_mcp>", mcp_servers=[server])))
     return errors

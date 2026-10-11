@@ -377,7 +377,7 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
     for server in graph.unbound_mcp_servers:
         if server.metadata.get("topology_visible_unbound") is not True:
             continue
-        builder.node(
+        server_id = builder.node(
             "mcp_server",
             server.name,
             location=server.location,
@@ -397,6 +397,66 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
             },
         )
 
+        # A server-side @mcp.tool() decorator proves that this server
+        # exposes the function. This is *not* evidence of an agent invoking
+        # that server, nor evidence of client authorization. Require both the
+        # adapter's discovered-tool record and its exact source declaration.
+        declared = server.metadata.get("discovered_tools")
+        alias = server.metadata.get("alias") or server.name
+        if server.metadata.get("discovery_source") != "mcp_python" or not isinstance(declared, list):
+            continue
+        for entry in declared:
+            if not isinstance(entry, dict):
+                continue
+            name = entry.get("name")
+            source_location = entry.get("location")
+            if not isinstance(name, str) or not name or not isinstance(source_location, dict):
+                continue
+            path_value = source_location.get("path")
+            line = source_location.get("line")
+            if not isinstance(path_value, str) or not path_value or type(line) is not int:
+                continue
+            candidates = [
+                tool for tool in graph.unbound_tools
+                if (
+                    tool.name == name
+                    and tool.kind == "mcp_exposed_tool"
+                    and tool.metadata.get("server") == alias
+                    and tool.metadata.get("topology_visible_unbound") is True
+                    and tool.location is not None
+                    and tool.location.line == line
+                    and tool.location.path.resolve() == Path(path_value).resolve()
+                )
+            ]
+            if len(candidates) != 1:
+                continue
+            tool = candidates[0]
+            tool_id = builder.node(
+                _tool_topology_kind(tool),
+                tool.name,
+                location=tool.location,
+                framework=_framework(tool.metadata),
+                attributes={
+                    "tool_name": tool.name,
+                    "tool_kind": tool.kind,
+                    "capabilities": sorted(tool.capabilities),
+                    "unbound": True,
+                    "binding_state": tool.metadata.get("binding_state") or "unbound",
+                    "discovery_source": tool.metadata.get("discovery_source"),
+                },
+            )
+            builder.edge(
+                "EXPOSES_TOOL",
+                server_id,
+                tool_id,
+                location=tool.location,
+                attributes={
+                    "basis": "source_proven_mcp_decorator",
+                    "agent_binding": "unbound",
+                    "authority_verified": False,
+                },
+            )
+
     for agent in graph.agents:
         framework = _framework(agent.metadata)
         agent_id = builder.node(
@@ -410,6 +470,13 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                 "discovery_basis": agent.metadata.get("discovery_basis"),
                 "semantic_entity_id": agent.metadata.get("semantic_entity_id"),
                 "semantic_entity_kind": agent.metadata.get("semantic_entity_kind"),
+                "source_entity_classification": agent.metadata.get(
+                    "source_entity_classification"
+                ),
+                "factory_method": agent.metadata.get("factory_method"),
+                "runtime_instance_verified": agent.metadata.get(
+                    "runtime_instance_verified"
+                ),
             },
         )
         agent_ids[id(agent)] = agent_id

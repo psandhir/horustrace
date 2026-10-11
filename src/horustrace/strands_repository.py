@@ -579,6 +579,70 @@ def _resolve_class(
     return None
 
 
+
+def _agentcore_runtime_invocation(function: ast.AST) -> bool:
+    """Match the AgentCore endpoint supplied to a direct HTTP POST.
+
+    A mention of AgentCore elsewhere in the function is not evidence of
+    delegation; the actual POST URL must contain the invocation endpoint.
+    """
+    url_assignments: dict[str, ast.AST] = {}
+    for child in ast.walk(function):
+        if isinstance(child, ast.Assign):
+            for target in child.targets:
+                if isinstance(target, ast.Name):
+                    url_assignments[target.id] = child.value
+        elif (
+            isinstance(child, ast.AnnAssign)
+            and isinstance(child.target, ast.Name)
+            and child.value is not None
+        ):
+            url_assignments[child.target.id] = child.value
+
+    def endpoint_text(expression: ast.AST) -> str:
+        # One repository-local assignment is sufficient for source-backed
+        # confirmation; do not infer aliases, external values, or runtime URLs.
+        if isinstance(expression, ast.Name):
+            expression = url_assignments.get(expression.id, expression)
+        return "".join(
+            part.value
+            for part in ast.walk(expression)
+            if isinstance(part, ast.Constant) and isinstance(part.value, str)
+        ).lower()
+
+    for child in ast.walk(function):
+        if not (
+            isinstance(child, ast.Call)
+            and isinstance(child.func, ast.Attribute)
+            and isinstance(child.func.value, ast.Name)
+            and child.func.value.id in {"requests", "httpx"}
+            and child.func.attr == "post"
+        ):
+            continue
+        urls = child.args[:1] or [
+            keyword.value for keyword in child.keywords if keyword.arg == "url"
+        ]
+        for url in urls:
+            candidate = endpoint_text(url)
+            if all(
+                marker in candidate
+                for marker in ("bedrock-agentcore", "/runtimes/", "/invocations")
+            ):
+                return True
+    return False
+
+def _agentcore_credential_flow(function: ast.AST) -> str:
+    """Describe only directly visible JWT forwarding; do not infer validity."""
+    text = ast.unparse(function)
+    if (
+        "Authorization" in text
+        and "jwt_token" in text
+        and ("data=payload" in text or "json=payload" in text)
+    ):
+        return "jwt_token_forwarded_to_remote_agent"
+    return "not_verified"
+
+
 def _function_tool(
     modules: dict[str, _ModuleInfo],
     info: _ModuleInfo,
@@ -602,6 +666,20 @@ def _function_tool(
             "import_module": target.module,
         },
     )
+    if _agentcore_runtime_invocation(function):
+        tool.capabilities.add("agent.delegate")
+        tool.metadata.update({
+            "authority_binding": "delegation_projection",
+            "binding_origin": "source_proven_agentcore_http_invocation",
+            "symbol_binding_origin": "repository_bound_function",
+            "authority_binding_basis": "source_proven_agentcore_http_invocation",
+            # This is a source-edge discriminator, not a real remote agent ID.
+            "delegate_target": f"<dynamic-agentcore-runtime:{function.name}>",
+            "delegation_target_resolution": "runtime_configured_unresolved",
+            "delegation_transport": "bedrock_agentcore_runtime_http",
+            "credential_forwarding": _agentcore_credential_flow(function),
+            "runtime_effectiveness": "not_verified",
+        })
     text = ast.unparse(function)
     _attach_literal_destinations(tool, text)
     _attach_literal_resources(tool, text)

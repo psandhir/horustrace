@@ -1486,3 +1486,57 @@ def test_unique_relationship_id_is_unchanged(tmp_path: Path) -> None:
     relation = effective_authority_report(graph)["relationships"][0]
     assert relation["relationship_id"].startswith("authority-v1:")
     assert relation["relationship_id"].count(":") == 1
+
+
+def test_fstring_agentcore_destination_is_not_misreported_as_fixed(
+    tmp_path: Path,
+) -> None:
+    """An interpolated AWS region is not a resolved network host."""
+    graph = _graph(tmp_path)
+    location = SourceLocation(tmp_path / "order_management_client.py", line=81)
+    graph.agents[0].tools[0].destinations = [
+        NetworkDestination(
+            target="https://bedrock-agentcore.{region}.amazonaws.com",
+            restricted=True,
+            location=location,
+            metadata={"source": "literal_url"},
+        )
+    ]
+    relationship = _relationship(
+        effective_authority_report(graph), "tool", "update_ticket"
+    )
+    assert relationship["dimensions"]["destinations"] == "partially_resolved"
+    assert "destination_target" in relationship["unresolved"]
+    assert relationship["destinations"][0]["target_authority_status"] == (
+        "partially_resolved"
+    )
+    assert relationship["destinations"][0]["restriction_enforcement"] == (
+        "not_verified"
+    )
+
+    # A genuinely literal endpoint must remain fully resolved.
+    graph.agents[0].tools[0].destinations[0].target = (
+        "https://bedrock-agentcore.us-east-1.amazonaws.com"
+    )
+    fixed = _relationship(
+        effective_authority_report(graph), "tool", "update_ticket"
+    )
+    assert fixed["dimensions"]["destinations"] == "resolved"
+    assert "destination_target" not in fixed["unresolved"]
+
+
+def test_fstring_dynamic_resource_path_does_not_look_like_fixed_destination(
+    tmp_path: Path,
+) -> None:
+    graph = _graph(tmp_path)
+    graph.agents[0].tools[0].destinations = [
+        NetworkDestination(
+            target="https://api.example.test/runtimes/{runtime_id}/invocations",
+            restricted=True,
+        )
+    ]
+    relationship = _relationship(
+        effective_authority_report(graph), "tool", "update_ticket"
+    )
+    assert relationship["dimensions"]["destinations"] == "partially_resolved"
+    assert "destination_target" in relationship["unresolved"]

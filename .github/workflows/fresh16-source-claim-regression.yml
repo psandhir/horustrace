@@ -9,6 +9,15 @@ on:
       - research/fresh-unseen-generalization-20/**
       - research/source-claim-regression/**
       - scripts/source_claim_regression_gate.py
+      - scripts/pipeline_integrity_study.py
+      - src/horustrace/**
+  pull_request:
+    paths:
+      - .github/workflows/fresh16-source-claim-regression.yml
+      - research/fresh-unseen-generalization-20/**
+      - research/source-claim-regression/**
+      - scripts/source_claim_regression_gate.py
+      - scripts/pipeline_integrity_study.py
       - src/horustrace/**
   workflow_dispatch:
 
@@ -17,7 +26,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: fresh16-source-claim-regression
+  group: fresh16-source-claim-regression-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -158,6 +167,11 @@ jobs:
           print("\n".join(lines))
           if errors: raise SystemExit(1)
           PY
+      - name: Enforce versioned pipeline and ADG integrity
+        run: |
+          python scripts/pipeline_integrity_study.py \
+            --scans downloaded \
+            --output aggregate/pipeline-integrity.json
       - name: Enforce frozen source-claim regression gate
         run: |
           python scripts/source_claim_regression_gate.py \
