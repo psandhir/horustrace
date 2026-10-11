@@ -322,7 +322,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "unapproved"
+            "destination": "unapproved"
           }
         }
       ],
@@ -355,7 +355,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "unapproved"
+            "destination": "unapproved"
           }
         }
       ],
@@ -388,7 +388,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "unapproved"
+            "destination": "unapproved"
           }
         }
       ],
@@ -421,7 +421,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "unapproved"
+            "destination": "unapproved"
           }
         }
       ],
@@ -454,7 +454,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "approved"
+            "destination": "approved"
           }
         }
       ],
@@ -487,7 +487,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "approved"
+            "destination": "approved"
           }
         }
       ],
@@ -520,7 +520,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "approved"
+            "destination": "approved"
           }
         }
       ],
@@ -553,7 +553,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "approved"
+            "destination": "approved"
           }
         }
       ],
@@ -650,7 +650,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "unapproved"
+            "resource": "unapproved"
           }
         }
       ],
@@ -683,7 +683,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "unapproved"
+            "resource": "unapproved"
           }
         }
       ],
@@ -716,7 +716,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "unapproved"
+            "resource": "unapproved"
           }
         }
       ],
@@ -749,7 +749,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "unapproved"
+            "resource": "unapproved"
           }
         }
       ],
@@ -782,7 +782,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "approved"
+            "resource": "approved"
           }
         }
       ],
@@ -815,7 +815,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "approved"
+            "resource": "approved"
           }
         }
       ],
@@ -848,7 +848,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "approved"
+            "resource": "approved"
           }
         }
       ],
@@ -881,7 +881,7 @@
           "subject_id": "tool.exec",
           "attributes": {
             "tool_id": "tool.exec",
-            "undefined": "approved"
+            "resource": "approved"
           }
         }
       ],
