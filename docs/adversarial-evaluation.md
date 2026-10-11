@@ -145,3 +145,53 @@ denominators and Wilson 95% intervals. Unresolved predictions never count
 as correct negatives. A metric without an eligible denominator is \`null\`.
 Holdout strata remain visibly separate from calibration data; do not tune
 against holdout labels. Model-graded CI blocking remains disabled by default.
+
+
+## Reproducible evaluation ledger — #513
+
+\`src/horustrace/evaluation/ledger.py\` introduces a **local-only**, versioned,
+content-addressed and append-only audit trail. The manifest pins the case's
+source/scanner revision, ASG and contract digests, dataset partition,
+transformation order and explicitly supplied harness/model/scorer/config digests,
+seed and run budgets. PIN metadata has a narrow allowlist; provider keys and
+target authentication are never accepted as run metadata.
+
+The journal is JSONL with monotonic sequence numbers, previous-record SHA256
+links and per-event hashes. The process-safe exclusive lock prevents concurrent
+local writers. \`planned → started → observed → finished\` records are retained,
+and later scores are **appended**, never substituted for original outcomes.
+Import retries with identical event content are idempotent; conflicting finished
+results are rejected. A process crash after \`started\`, or truncated journal,
+leaves an explicit unknown external-effect state. Automatic re-execution of
+that attempt is forbidden: the user must reconcile possible prior effects.
+
+Synthetic text attachments are content-addressed. Public bundles redact
+authentication headers and familiar credential markers by default, preserve
+original/transmitted content digests and state if **exact replay is unavailable**
+because data was redacted. No credential or entire source repository is copied
+into public bundles. \`integrity.json\` seals a bundle and allows integrity
+verification. Promotion proposals live **outside** sealed historical bundles.
+
+The offline command can be run from a source checkout:
+
+    python scripts/replay_adversarial_evaluation.py --bundle ./run --mode validate
+    python scripts/replay_adversarial_evaluation.py --bundle ./run --mode replay --attempt attempt.1
+    python scripts/replay_adversarial_evaluation.py --bundle ./run --mode rescore --attempt attempt.1 --specifications ./reviewed-assertions.json
+
+\`replay\` is **observation replay** of exactly stored instrumented events;
+\`rescore\` uses stored events and deterministic scorers and makes zero target
+requests. Neither command guarantees repeating hosted model outputs, executes
+a target, imports scanned modules or starts a tool/MCP server.
+
+The explicit \`promote_regression_pair\` path requires completed evidence, a
+reviewer identity, a pinned review-packet hash and independent source-
+adjudication metadata, plus a minimal **synthetic** positive/negative pair.
+It refuses holdout cases, auto-overwrite and secret-looking fixtures; it does
+not silently alter benchmark truth. CI tests exercise only simulated review
+metadata and **do not** establish an actual independent G2 review.
+
+Live/provider-specific \`rerun\`, release-grade independently reviewed
+calibration and #329 telemetry imports remain separately authorized follow-up
+work. A rescore is not new runtime execution, and changing pin/transform
+order produces a distinct bundle identity rather than retroactively changing
+history.
