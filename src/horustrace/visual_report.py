@@ -826,7 +826,7 @@ code,pre{{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospac
 .graph-wrap{{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:12px;position:relative}} .graph-wrap.expanded{{position:fixed;inset:14px;z-index:9999;background:var(--bg);padding:14px;border:1px solid var(--line);border-radius:14px;grid-template-columns:minmax(0,1fr) 340px;box-shadow:0 24px 80px #000b}} .graph-wrap.expanded .graph{{height:calc(100vh - 105px)}} body.graph-modal-open{{overflow:hidden}} .graph-canvas{{position:relative;min-width:0}} .graph{{width:100%;height:520px;background:#09101e;border:1px solid var(--line);border-radius:10px;touch-action:none;cursor:grab}} .graph.panning{{cursor:grabbing}} .inspector{{min-height:120px;overflow:auto}} .legend{{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin:7px 0 10px}}
 .dot{{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}} .empty{{padding:28px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px;background:#0b1321}} .back{{border:1px solid var(--line);background:var(--surface);color:var(--text);padding:7px 10px;border-radius:8px;cursor:pointer}} .small{{font-size:11px}} .nowrap{{white-space:nowrap}} .sevbar{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}}
 svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} .edge{{stroke:#65728c;stroke-width:1.4;opacity:.72}} .node rect{{fill:#16213a;stroke:#42516f;stroke-width:1}} .node.agent rect{{fill:#1b3157;stroke:#78a8ff}} .node.identity rect{{fill:#2b2545;stroke:#a895ff}} .node.resource rect{{fill:#21362f;stroke:#63d69f}} .node.destination rect{{fill:#3a2d22;stroke:#f1b36a}} .node.unresolved rect{{stroke-dasharray:5 4}} .node{{cursor:pointer;transition:opacity .12s}} .node:hover rect{{stroke-width:2}} .node.dim{{opacity:.16}} .node.match rect,.node.selected rect{{stroke-width:3}} .edge.dim{{opacity:.08}} .edge.selected{{stroke-width:2.5;opacity:1}} .label2{{fill:var(--muted);font-size:10px}}
-.path-card{{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:12px 0}} .path-head{{display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap}} .path-chain{{display:flex;flex-direction:column;align-items:flex-start;margin-top:15px;padding-left:8px}} .path-step{{min-width:260px;max-width:680px;background:#0d1628;border:1px solid var(--line);border-radius:9px;padding:9px 11px}} .path-step.agent{{border-color:#78a8ff}} .path-step.secret{{border-color:#c98cff}} .path-step.destination{{border-color:#f1b36a}} .path-step.input,.path-step.source{{border-color:#8ab4ff}} .path-role{{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:2px;font-weight:800}} .path-arrow{{height:22px;margin-left:28px;border-left:2px solid #6d7e9f}} .path-arrow.dashed{{border-left-style:dashed}} .path-meta{{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}}
+.path-card{{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:12px 0}} .path-head{{display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap}} .path-chain{{display:flex;flex-direction:column;align-items:flex-start;margin-top:15px;padding-left:8px}} .path-step{{min-width:260px;max-width:680px;background:#0d1628;border:1px solid var(--line);border-radius:9px;padding:9px 11px}} .path-step.drill{{cursor:pointer;transition:border-color .12s,background .12s,transform .12s}} .path-step.drill:hover,.path-step.drill:focus-visible{{border-color:var(--accent);background:var(--surface2);transform:translateX(2px)}} .path-step-drill{{float:right;color:var(--accent);font-size:11px;font-weight:750}} .path-step.agent{{border-color:#78a8ff}} .path-step.secret{{border-color:#c98cff}} .path-step.destination{{border-color:#f1b36a}} .path-step.input,.path-step.source{{border-color:#8ab4ff}} .path-role{{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:2px;font-weight:800}} .path-arrow{{height:22px;margin-left:28px;border-left:2px solid #6d7e9f}} .path-arrow.dashed{{border-left-style:dashed}} .path-meta{{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}}
 .severity-chart{{display:grid;gap:8px;padding:14px 15px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}}
 .severity-chart-row{{padding:7px 8px;border:1px solid transparent;border-radius:8px;cursor:pointer}}
 .severity-chart-row:hover,.severity-chart-row:focus-visible{{background:var(--surface2);border-color:var(--line-strong)}}
@@ -1272,6 +1272,40 @@ function inventoryTopologyNode(item,kind){{
  ));
  return matches.length===1?matches[0]:null;
 }}
+function inventoryTopologyContext(item,kind){{
+ const topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[],edges=topology.edges||[];
+ const byId=new Map(nodes.map(node=>[node.id,node])),node=inventoryTopologyNode(item,kind);
+ const unique=(values)=>[...new Set(values.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b));
+ if(!node)return {{
+   node:null,incident:[],agents:unique(item.bound_agents||[]),
+   allowedTools:unique(item.allowed_tools||[]),deniedTools:unique(item.denied_tools||[]),
+   resources:[],destinations:[],identities:[]
+ }};
+ const incident=edges.filter(edge=>edge.source===node.id||edge.target===node.id);
+ const agents=[],allowedTools=[],deniedTools=[],resources=[],destinations=[],identities=[];
+ incident.forEach(edge=>{{
+   const other=byId.get(edge.source===node.id?edge.target:edge.source);
+   if(!other)return;
+   if(edge.kind==="INVOKES"&&edge.target===node.id&&other.kind==="agent")agents.push(other.name);
+   if(edge.kind==="ALLOWS_TOOL"&&edge.source===node.id)allowedTools.push(other.attributes?.tool_name||other.name);
+   if(edge.kind==="DENIES_TOOL"&&edge.source===node.id)deniedTools.push(other.attributes?.tool_name||other.name);
+   if(["READS_FROM","WRITES_TO"].includes(edge.kind)&&other.kind==="data_resource")resources.push(other.name);
+   if(edge.kind==="CONNECTS_TO"&&edge.source===node.id)destinations.push(other.name);
+   if(edge.kind==="USES_IDENTITY"&&edge.source===node.id)identities.push(other.name);
+ }});
+ return {{node,incident,agents:unique(agents),allowedTools:unique(allowedTools),deniedTools:unique(deniedTools),resources:unique(resources),destinations:unique(destinations),identities:unique(identities)}};
+}}
+function inventoryEntryForTopologyNode(node){{
+ if(!node)return null;
+ const kinds=node.kind==="mcp_server"?["mcp"]:node.kind==="skill"?["skills"]:["tool","delegation","capability"].includes(node.kind)?["tools"]:[];
+ for(const kind of kinds){{
+   for(const item of inventoryEntries(kind)){{
+     const match=inventoryTopologyNode(item,kind);
+     if(match?.id===node.id)return {{kind,item}};
+   }}
+ }}
+ return null;
+}}
 function inventoryTable(items,kind){{
  if(!items.length)return '<div class="empty">No matching components in this scan.</div>';
  const rows=items.map(item=>'<tr data-inventory-row="'+esc(item.id)+'">'+
@@ -1289,7 +1323,7 @@ function inventoryDetail(item,kind){{
  else meta.push(["Description",item.description||"—"],["Skill source",item.source||"unknown"],["Capabilities",format(item.capabilities)],["Allowed tools",format(item.allowed_tools)],["Scripts",format(item.scripts)],["Destinations",format(item.destinations)]);
  meta.push(["Resources",resource]);
  const details=meta.map(([label,value])=>'<div>'+esc(label)+'</div><div>'+esc(value)+'</div>').join("");
- const agents=item.bound_agents||[];
+ const topology=inventoryTopologyContext(item,kind),agents=topology.agents.length?topology.agents:(item.bound_agents||[]);
  const linked=agents.map(name=>{{
    const agent=DATA.agents.find(a=>a.name===name);
    const signal=agent?number(agent.summary.findings)+" agent findings · "+number(agent.summary.attack_paths)+" agent attack paths":"Agent profile unavailable";
@@ -1297,16 +1331,29 @@ function inventoryDetail(item,kind){{
    '<div class="filter-chips" style="margin-top:8px"><button class="filter-chip" type="button" data-inventory-agent="'+encodeURIComponent(name)+'">Open agent profile ↗</button>'+
    (agent?'<button class="filter-chip" type="button" data-inventory-agent-findings="'+encodeURIComponent(name)+'">Review agent findings ↗</button>':"")+'</div></div>';
  }}).join("");
- const topologyNode=inventoryTopologyNode(item,kind);
+ const topologyNode=topology.node;
  const topologyAction=topologyNode?'<button type="button" class="back" data-inventory-supply="'+esc(topologyNode.id)+'">View in supply chain ↗</button>':
  '<span class="muted small">No unambiguous source-backed graph node for this instance.</span>';
+ const incidentRows=topology.incident.map(edge=>{{
+   const graph=DATA.security_graph?.topology||{{}},byId=new Map((graph.nodes||[]).map(node=>[node.id,node]));
+   const other=byId.get(edge.source===topologyNode?.id?edge.target:edge.source);
+   const direction=edge.source===topologyNode?.id?"outbound":"inbound";
+   return '<tr><td>'+esc(edge.kind.replaceAll("_"," "))+'</td><td>'+esc(direction)+'</td><td>'+esc(other?.name||"unknown")+'</td><td>'+loc(edge.location)+'</td></tr>';
+ }}).join("");
+ const mcpScope=kind==="mcp"?
+ sectionHead("MCP access and tool scope","Source-backed relationships for agents invoking this server and the tool/resource scope the server exposes. Empty tool scope means the scanner did not recover an explicit allow/deny list.")+
+ '<div class="cards">'+metric("Agents with access",agents.length)+metric("Allowed / exposed tools",topology.allowedTools.length)+metric("Denied tools",topology.deniedTools.length)+metric("Dependency edges",topology.incident.length)+'</div>'+
+ '<div class="panel"><div class="kv"><div>Agents</div><div>'+esc(format(agents))+'</div><div>Allowed / exposed tools</div><div>'+esc(format(topology.allowedTools))+'</div><div>Denied tools</div><div>'+esc(format(topology.deniedTools))+'</div><div>Reachable resources</div><div>'+esc(format(topology.resources))+'</div><div>Destinations</div><div>'+esc(format(topology.destinations))+'</div><div>Identity</div><div>'+esc(format(topology.identities))+'</div></div></div>':"";
+ const dependencySection=topologyNode?
+ sectionHead("Recorded dependency relationships","Every row below comes directly from the canonical Agent Dependency Graph for this exact component instance.")+
+ (incidentRows?'<div class="panel flush table-wrap"><table><thead><tr><th>Relationship</th><th>Direction</th><th>Connected node</th><th>Source</th></tr></thead><tbody>'+incidentRows+'</tbody></table></div>':'<div class="empty">No canonical dependency edges were recorded for this component.</div>'):"";
  return '<div id="inventory-detail" tabindex="-1" class="panel" style="border-color:var(--line-strong)">'+
  '<div class="section-head" style="margin:0 0 12px"><div><div class="eyebrow">Component security profile</div><h2>'+esc(item.name)+'</h2><p>'+esc(kind)+" · "+esc(item.binding_state)+'</p></div><button type="button" id="inventory-clear" class="back">← Back to inventory</button></div>'+
  '<div class="cards">'+metric("Connected agents",agents.length)+metric("Resource scopes",(item.resources||[]).length)+metric("Capabilities",(item.capabilities||[]).length)+'</div>'+
  sectionHead("Configuration and source evidence","Scanner-observed configuration. Configured control flags are not proof of runtime enforcement.")+
- '<div class="panel"><div class="kv">'+details+'</div></div>'+
+ '<div class="panel"><div class="kv">'+details+'</div></div>'+mcpScope+
  sectionHead("Supply chain context","Open this exact component instance in the canonical dependency graph when its identity is unambiguous.")+
- '<div class="filter-chips">'+topologyAction+'</div>'+
+ '<div class="filter-chips">'+topologyAction+'</div>'+dependencySection+
  sectionHead("Connected agents and security review","Agent-level findings do not automatically establish a violation of this specific component.")+
  (linked||'<div class="empty">No source-proven agent binding. Component-specific findings cannot be inferred from other agents.</div>')+'</div>';
 }}
@@ -1348,7 +1395,7 @@ function renderComponents(kind="mcp",selectedId=null,agentScope=null){{
 const SUPPLY_LAYER_EDGES=Object.freeze({{
  execution:new Set(["INVOKES","DELEGATES_TO","WORKFLOW_FLOWS_TO","CONTROL_FLOWS_TO","USES_SKILL","USES_MODEL","USES_PROMPT","IMPLEMENTS_CONTROL"]),
  data:new Set(["READS_FROM","WRITES_TO","RECEIVES_INPUT_FROM","READS_MEMORY","WRITES_MEMORY","CONNECTS_TO","DATA_FLOWS_TO"]),
- authority:new Set(["USES_IDENTITY","CAN_REACH_AUTHORITY","AUTHORIZES_ACCESS_TO","AUTHORIZES_CONNECTION_TO","GUARDED_BY","IMPLEMENTS_CONTROL"])
+ authority:new Set(["USES_IDENTITY","CAN_REACH_AUTHORITY","AUTHORIZES_ACCESS_TO","AUTHORIZES_CONNECTION_TO","GUARDED_BY","IMPLEMENTS_CONTROL","ALLOWS_TOOL","DENIES_TOOL"])
 }});
 function supplyColumn(kind){{
  if(kind==="input")return 0;
@@ -1462,8 +1509,10 @@ function supplyInspector(selectedId,focus,layer,view){{
  const neighbors=(topology.edges||[]).filter(e=>e.source===node.id||e.target===node.id);
  const navAgent=node.kind==="agent"&&DATA.agents.filter(a=>a.name===node.name).length===1?
  '<button type="button" class="back" id="supply-open-agent">Open agent security profile ↗</button>':"";
+ const component=inventoryEntryForTopologyNode(node);
+ const navComponent=component?'<button type="button" class="back" id="supply-open-component" data-kind="'+esc(component.kind)+'" data-id="'+esc(component.item.id)+'">Open component details ↗</button>':"";
  return '<h3>'+esc(node.name)+'</h3><div class="kv small">'+properties.map(([a,b])=>'<div>'+esc(a)+'</div><div>'+esc(b)+'</div>').join("")+'</div>'+
- '<div style="margin-top:11px">'+navAgent+'</div>'+
+ '<div class="filter-chips" style="margin-top:11px">'+navAgent+navComponent+'</div>'+
  '<div class="supply-note">'+number(neighbors.length)+' recorded incident relationships (across all filters).</div>'+
  neighbors.slice(0,8).map(e=>'<div class="supply-relationship">'+esc(e.kind.replaceAll("_"," "))+' — '+esc((byId.get(e.source===node.id?e.target:e.source)?.name)||"unknown")+'</div>').join("")+
  (neighbors.length>8?'<div class="muted small">+'+number(neighbors.length-8)+' more; filter the topology to inspect.</div>':"");
@@ -1479,32 +1528,40 @@ function renderSupplyChain(focus="all",layer="all",selectedId=null,query=""){{
  const delegation=edges.filter(e=>e.kind==="DELEGATES_TO").length;
  const undisplayed=view.candidates-view.nodes.length,unshown=view.possibleEdges-view.edges.length;
  const warning=(undisplayed||unshown)?'<p class="supply-note">Diagram displays '+number(view.nodes.length)+' of '+number(view.candidates)+' selected nodes and '+number(view.edges.length)+' of '+number(view.possibleEdges)+' applicable relationships. Choose an agent or search to inspect omitted connections.</p>':"";
+ const focusedNode=nodes.find(n=>n.id===focus);
+ const focusBanner=focus!=="all"&&focusedNode?'<div class="filter-banner"><span>Focused on '+esc(focusedNode.name)+' — unrelated nodes are removed from the working view.</span><button type="button" class="back" id="supply-clear-focus">Show all dependencies</button></div>':"";
  root.innerHTML=pageHead("Cross-agent dependencies","Supply chain","Navigate the canonical Agent Dependency Graph: agent delegation, tools, MCP, skills, model dependencies, data and reachable authority. Relationships describe static evidence, not live executions.")+
  '<div class="cards">'+metric("Agents",agents.length)+metric("Dependency nodes",nodes.length)+metric("Relationships",edges.length)+metric("Delegations",delegation)+'</div>'+
  '<div class="supply-toolbar"><label class="small" for="supply-focus">Scope</label><select class="supply-select" id="supply-focus" aria-label="Focus supply chain on agent">'+options+'</select>'+
  '<input class="search" id="supply-search" aria-label="Search supply chain" placeholder="Find agent, model, tool, MCP, skill or resource" value="'+esc(query)+'"></div>'+
- '<div class="filter-chips" role="group" aria-label="Relationship categories">'+chips+'</div>'+
- '<p class="supply-note">Inputs are shown before receiving agents. Input arrows show information flowing into an agent, while the canonical RECEIVES_INPUT_FROM relation keeps its original endpoints. Retrieved and intermediate inputs are not automatically external or untrusted. Dashed green: authority; orange: data/destination. Static evidence does not prove runtime execution.</p>'+
+ '<div class="filter-chips" role="group" aria-label="Relationship categories">'+chips+'</div>'+focusBanner+
+ '<p class="supply-note">Click an agent to focus its relevant dependency neighbourhood. Inputs are shown before receiving agents. Input arrows show information flowing into an agent, while the canonical RECEIVES_INPUT_FROM relation keeps its original endpoints. Retrieved and intermediate inputs are not automatically external or untrusted. Dashed green: authority; orange: data/destination. Static evidence does not prove runtime execution.</p>'+
  warning+'<div class="supply-viewport">'+(view.nodes.length?supplySvg(view,selectedId):'<div class="empty">No nodes matched this scope and filter.</div>')+'</div>'+
  sectionHead("Dependency inspector","Select an individual node or edge for traceable relationships and source locations.")+
  '<div class="panel supply-inspector" id="supply-inspector">'+supplyInspector(selectedId,focus,layer,view)+'</div>';
  root.querySelector("#supply-focus").addEventListener("change",event=>renderSupplyChain(event.target.value,layer));
+ const clearFocus=root.querySelector("#supply-clear-focus");if(clearFocus)clearFocus.addEventListener("click",()=>renderSupplyChain("all",layer,null,query));
  root.querySelectorAll("[data-supply-layer]").forEach(btn=>btn.addEventListener("click",()=>renderSupplyChain(focus,btn.dataset.supplyLayer)));
  const search=root.querySelector("#supply-search");
  search.addEventListener("input",()=>{{const value=search.value;const start=search.selectionStart;renderSupplyChain(focus,layer,null,value);const next=root.querySelector("#supply-search");next.focus();next.setSelectionRange(start,start);}});
+ const bindInspectorActions=(panel,chosen)=>{{
+   const open=panel.querySelector("#supply-open-agent");
+   if(open)open.addEventListener("click",()=>{{const node=nodes.find(n=>n.id===chosen);if(node)openAgent(node.name,"overview",null,null,{{focus,layer,selected:chosen}});}});
+   const component=panel.querySelector("#supply-open-component");
+   if(component)component.addEventListener("click",()=>{{renderComponents(component.dataset.kind,component.dataset.id);showView("components");}});
+ }};
  const wire=(selector,key)=>root.querySelectorAll(selector).forEach(item=>{{
-  const activate=()=>{{const chosen=item.dataset[key];const panel=root.querySelector("#supply-inspector");if(!chosen||!panel)return;
+  const activate=()=>{{const chosen=item.dataset[key],panel=root.querySelector("#supply-inspector");if(!chosen||!panel)return;
+    const node=key==="supplyNode"?nodes.find(n=>n.id===chosen):null;
+    if(node?.kind==="agent"&&focus!==chosen){{renderSupplyChain(chosen,layer,chosen,query);return;}}
     root.querySelectorAll(".supply-node,.supply-edge").forEach(x=>x.classList.toggle("selected",x===item));
-    panel.innerHTML=supplyInspector(chosen,focus,layer,view);
-    const open=panel.querySelector("#supply-open-agent");
-    if(open)open.addEventListener("click",()=>{{const node=nodes.find(n=>n.id===chosen);if(node)openAgent(node.name,"overview",null,null,{{focus,layer,selected:chosen}});}});
+    panel.innerHTML=supplyInspector(chosen,focus,layer,view);bindInspectorActions(panel,chosen);
   }};
   item.addEventListener("click",activate);
   item.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});
  }});
  wire("[data-supply-node]","supplyNode");wire("[data-supply-edge]","supplyEdge");
- const initial=root.querySelector("#supply-open-agent");
- if(initial)initial.addEventListener("click",()=>{{const node=nodes.find(n=>n.id===selectedId);if(node)openAgent(node.name,"overview",null,null,{{focus,layer,selected:selectedId}});}});
+ const initialPanel=root.querySelector("#supply-inspector");if(initialPanel&&selectedId)bindInspectorActions(initialPanel,selectedId);
 }}
 
 function contractItem(item){{
@@ -1513,13 +1570,35 @@ function contractItem(item){{
  '<div>Expected</div><div>'+esc((item.expected||[]).join(", ")||"—")+'</div><div>Observed</div><div>'+esc((item.observed||[]).join(", ")||"—")+'</div>'+
  '<div>Contract evidence</div><div>'+loc(item.contract_location)+'</div><div>Authority evidence</div><div>'+loc(item.relationship_location)+'</div></div></div>';
 }}
+function agentTopologyConnections(a){{
+ const topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[],edges=topology.edges||[],byId=new Map(nodes.map(n=>[n.id,n]));
+ const matches=nodes.filter(n=>n.kind==="agent"&&n.name===a.name);
+ if(matches.length!==1)return {{outgoing:[],incoming:[]}};
+ const id=matches[0].id,kinds=new Set(["DELEGATES_TO","WORKFLOW_FLOWS_TO"]);
+ const project=(edge,direction)=>{{
+   const other=byId.get(direction==="outgoing"?edge.target:edge.source);
+   if(!other||other.kind!=="agent")return null;
+   return {{name:other.name,kind:edge.kind,location:edge.location}};
+ }};
+ return {{
+  outgoing:edges.filter(e=>e.source===id&&kinds.has(e.kind)).map(e=>project(e,"outgoing")).filter(Boolean),
+  incoming:edges.filter(e=>e.target===id&&kinds.has(e.kind)).map(e=>project(e,"incoming")).filter(Boolean)
+ }};
+}}
+function renderAgentConnections(a){{
+ const links=agentTopologyConnections(a),row=(item,direction)=>'<tr><td><button type="button" class="back" data-agent-link="'+encodeURIComponent(item.name)+'">'+esc(item.name)+' ↗</button></td><td>'+esc(item.kind.replaceAll("_"," "))+'</td><td>'+esc(direction)+'</td><td>'+loc(item.location)+'</td></tr>';
+ const rows=[...links.outgoing.map(x=>row(x,"outbound")),...links.incoming.map(x=>row(x,"inbound"))].join("");
+ return sectionHead("Agent-to-agent access","Direct source-backed delegation and workflow relationships. This does not infer communication where no ADG edge exists.")+
+ '<div class="cards">'+metric("Agents reachable",links.outgoing.length)+metric("Agents reaching this agent",links.incoming.length)+'</div>'+
+ (rows?'<div class="panel flush table-wrap"><table><thead><tr><th>Agent</th><th>Relationship</th><th>Direction</th><th>Source</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">No direct agent-to-agent delegation or workflow relationship was reconstructed.</div>');
+}}
 function renderAgentOverview(a){{
  const state=agentAttention(a);
  const inventoryActions='<div class="filter-chips" style="margin:12px 0"><button type="button" class="filter-chip" data-agent-inventory="tools">Inspect tools ('+number(a.summary.tools)+') ↗</button><button type="button" class="filter-chip" data-agent-inventory="mcp">Inspect MCP servers ('+number(a.summary.mcp_servers)+') ↗</button><button type="button" class="filter-chip" data-agent-inventory="skills">Inspect skills ('+number(a.summary.skills)+') ↗</button></div>';
  return inventoryActions+'<div class="cards">'+metric("Tools",a.summary.tools)+metric("Skills",a.summary.skills)+metric("MCP servers",a.summary.mcp_servers)+metric("Authority paths",a.summary.authority_relationships)+metric("Resources",a.summary.resources)+metric("Write-capable",a.summary.write_capable_relationships)+metric("Findings",a.summary.findings)+'</div>'+
  '<div class="grid2"><div>'+sectionHead("Effective scope","Resolved skill, identity, resource and destination scope.")+'<div class="panel"><div class="kv"><div>Review signal</div><div>'+state+'</div><div>Skills</div><div>'+esc((a.skills||[]).map(s=>s.name).join(", ")||"none")+'</div><div>Identities</div><div>'+esc(a.identities.join(", ")||"unresolved / none")+'</div><div>Resources</div><div>'+esc(a.resources.join(", ")||"unresolved / none")+'</div><div>Destinations</div><div>'+esc(a.destinations.join(", ")||"unresolved / none")+'</div></div></div></div>'+
  '<div>'+sectionHead("Contract posture","Declared contract versus reconstructed authority.")+'<div class="panel"><div class="kv"><div>Status</div><div>'+badge(a.summary.contract_status)+'</div><div>Violations</div><div>'+number(a.summary.contract_violations)+'</div><div>Unresolved</div><div>'+number(a.summary.contract_unresolved)+'</div><div>Attack paths</div><div>'+number(a.summary.attack_paths)+'</div></div></div></div></div>'+
- sectionHead("Finding severity","Scanner findings attributed to this agent.")+severityCards(a.severity);
+ renderAgentConnections(a)+sectionHead("Finding severity","Scanner findings attributed to this agent.")+severityCards(a.severity);
 }}
 
 function renderGraph(a){{
@@ -1628,12 +1707,43 @@ function drawGraph(a){{
  stage.innerHTML=edges.join("")+nodes.join("");applyGraphTransform(a);
  stage.querySelectorAll("[data-node]").forEach(n=>n.addEventListener("click",()=>{{const key=n.dataset.node;if(key&&key.startsWith("group-")){{state.collapsed=false;drawGraph(a);const btn=document.getElementById("map-toggle-groups");if(btn)btn.textContent="Collapse groups";return;}}inspectGraphNode(a,key,info[key]);focusGraphNode(key);}}));
 }}
-function pathStep(step){{
- return '<div class="path-step '+esc(step.kind||"step")+'"><div class="path-role">'+esc(step.role||step.kind||"step")+'</div><strong>'+esc(step.label||"")+'</strong></div>';
+function attackPathTopologyTarget(path,step){{
+ const topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[];
+ const label=String(step?.label||"").trim(),agent=String(path?.agent||"").trim();
+ if(!label)return null;
+ let kinds=[];
+ if(step.kind==="agent")kinds=["agent"];
+ else if(step.kind==="tool")kinds=["tool","mcp_server","delegation","capability","mcp_tool_scope"];
+ else if(step.kind==="destination")kinds=["network_destination"];
+ else if(["input","source"].includes(step.kind))kinds=["input"];
+ else if(["secret","resource"].includes(step.kind))kinds=["data_resource"];
+ else return null;
+ const names=new Set([label,agent?agent+":"+label:""].filter(Boolean));
+ const matches=nodes.filter(node=>kinds.includes(node.kind)&&(names.has(node.name)||node.attributes?.tool_name===label));
+ return matches.length===1?matches[0]:null;
+}}
+function pathStep(step,path){{
+ const target=attackPathTopologyTarget(path,step),kind=esc(step.kind||"step");
+ const attrs=target?' role="button" tabindex="0" data-path-node="'+esc(target.id)+'" aria-label="Open '+esc(step.label||"")+' dependency details"':"";
+ return '<div class="path-step '+kind+(target?" drill":"")+'"'+attrs+'><div class="path-role">'+esc(step.role||step.kind||"step")+(target?'<span class="path-step-drill">Open ↗</span>':"")+'</div><strong>'+esc(step.label||"")+'</strong></div>';
+}}
+function bindPathDrill(root=document){{
+ const topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[];
+ root.querySelectorAll("[data-path-node]").forEach(item=>{{
+  const activate=()=>{{
+   const node=nodes.find(n=>n.id===item.dataset.pathNode);if(!node)return;
+   if(node.kind==="agent"&&DATA.agents.filter(a=>a.name===node.name).length===1){{openAgent(node.name);return;}}
+   const component=inventoryEntryForTopologyNode(node);
+   if(component){{renderComponents(component.kind,component.item.id);showView("components");return;}}
+   renderSupplyChain("all","all",node.id);showView("supply");
+  }};
+  item.addEventListener("click",activate);
+  item.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});
+ }});
 }}
 function renderPathCard(path){{
  const dashed=path.edge_style==="dashed", steps=path.steps||[];
- const chain=steps.map((step,i)=>pathStep(step)+(i<steps.length-1?'<div class="path-arrow '+(dashed?"dashed":"")+'"></div>':"")).join("");
+ const chain=steps.map((step,i)=>pathStep(step,path)+(i<steps.length-1?'<div class="path-arrow '+(dashed?"dashed":"")+'"></div>':"")).join("");
  const basis=path.evidence_strength==="supported_static_dataflow"?"Supported static data flow":"Potential capability path";
  return '<div class="path-card"><div class="path-head"><div><div class="finding-title"><strong>'+esc(path.path_id)+'</strong><span class="'+esc(path.severity)+'">'+esc(String(path.severity).toUpperCase())+'</span></div>'+
  '<h3 style="margin-top:7px">'+esc(path.title)+'</h3></div><span class="badge '+(dashed?"unresolved":"compliant")+'">'+esc(basis)+'</span></div>'+
@@ -1643,7 +1753,7 @@ function renderPathCard(path){{
 function renderAgentPaths(a){{
  const paths=a.path_views||[];
  if(!paths.length)return '<div class="empty">No attack path was reconstructed for this agent. Effective authority may still exist; a path is shown only when HorusTrace has the required source/capability evidence.</div>';
- return '<p class="muted">Solid connectors represent supported static data flow. Dashed connectors represent capability co-occurrence: the components are present on the same agent, but executable data flow is not proven.</p>'+paths.map(renderPathCard).join("");
+ return '<p class="muted">Solid connectors represent supported static data flow. Dashed connectors represent capability co-occurrence: the components are present on the same agent, but executable data flow is not proven. Only steps that resolve unambiguously to one canonical dependency node are interactive.</p>'+paths.map(renderPathCard).join("");
 }}
 function renderAgentFindings(a,owaspRisk=null){{
  const items=owaspRisk?a.findings.filter(f=>(f.standards?.owasp_agentic||[]).includes(owaspRisk)):a.findings;
@@ -1673,6 +1783,8 @@ function openAgent(name,initialTab="overview",owaspRisk=null,inventoryFocus=null
  '<div class="tabs" role="tablist"><button class="active" data-tab="overview">Overview</button><button data-tab="map">Agency map <span class="tab-count">'+number(a.summary.authority_relationships)+'</span></button><button data-tab="paths">Attack paths <span class="tab-count">'+number(a.summary.attack_paths)+'</span></button><button data-tab="findings">Findings <span class="tab-count">'+number(a.summary.findings)+'</span></button><button data-tab="contract">Contract <span class="tab-count">'+number(a.summary.contract_violations+a.summary.contract_unresolved)+'</span></button><button data-tab="evidence">Evidence</button></div>'+
  '<div id="tab-overview" class="agent-tab active">'+renderAgentOverview(a)+'</div><div id="tab-map" class="agent-tab">'+renderGraph(a)+'</div><div id="tab-paths" class="agent-tab">'+renderAgentPaths(a)+'</div><div id="tab-findings" class="agent-tab">'+renderAgentFindings(a,owaspRisk)+'</div><div id="tab-contract" class="agent-tab">'+renderAgentContract(a)+'</div><div id="tab-evidence" class="agent-tab">'+renderAgentEvidence(a)+'</div>';
  root.querySelectorAll("[data-agent-inventory]").forEach(btn=>btn.addEventListener("click",()=>{{renderComponents(btn.dataset.agentInventory,null,a.name);showView("components");}}));
+ root.querySelectorAll("[data-agent-link]").forEach(btn=>btn.addEventListener("click",()=>openAgent(decodeURIComponent(btn.dataset.agentLink))));
+ bindPathDrill(root);
  root.querySelector("#back-agents").textContent=owaspRisk?"← Back to OWASP "+owaspRisk:(inventoryFocus?"← Back to components":(supplyFocus?"← Back to supply chain":"← Back to agents"));
  root.querySelector("#back-agents").addEventListener("click",()=>{{if(owaspRisk){{renderOwasp(owaspRisk);showView("owasp");}}else if(inventoryFocus){{renderComponents(inventoryFocus.kind,inventoryFocus.id,inventoryFocus.agentScope||null);showView("components");}}else if(supplyFocus){{renderSupplyChain(supplyFocus.focus,supplyFocus.layer,supplyFocus.selected);showView("supply");}}else showView("agents");}});
  const clearOwasp=root.querySelector("#clear-agent-owasp");
@@ -1755,9 +1867,11 @@ function renderOwasp(risk="all"){{
 
 function renderAttack(){{
  const items=DATA.agents.flatMap(a=>(a.path_views||[])),supported=items.filter(x=>x.evidence_strength==="supported_static_dataflow").length,potential=items.length-supported;
- document.getElementById("attack").innerHTML=pageHead("Risk chains","Attack paths","Evidence-aware chains from source/capability context to sensitive actions or destinations.")+
+ const root=document.getElementById("attack");
+ root.innerHTML=pageHead("Risk chains","Attack paths","Evidence-aware chains from source/capability context to sensitive actions or destinations.")+
  '<div class="cards">'+metric("Attack paths",items.length)+metric("Supported data flow",supported,"ok","","Solid connectors")+metric("Potential capability paths",potential,"warn","","Dashed connectors; flow not proven")+'</div>'+
- sectionHead("Reconstructed paths","Runtime exploitability is not verified.")+(items.length?items.sort((a,b)=>severityRank(b.severity)-severityRank(a.severity)).map(renderPathCard).join(""):'<div class="empty">No attack paths detected.</div>');
+ sectionHead("Reconstructed paths","Runtime exploitability is not verified. Clickable steps resolve unambiguously to canonical dependency nodes.")+(items.length?items.sort((a,b)=>severityRank(b.severity)-severityRank(a.severity)).map(renderPathCard).join(""):'<div class="empty">No attack paths detected.</div>');
+ bindPathDrill(root);
 }}
 
 function renderContracts(mode="all"){{
