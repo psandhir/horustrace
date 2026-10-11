@@ -232,7 +232,11 @@ def test_visual_report_supply_chain_uses_canonical_adg_edges(tmp_path: Path) -> 
     assert "DENIES_TOOL" in html
     assert "No nodes were discovered in this scan." in html
     assert "Static evidence does not prove runtime execution." in html
-    assert "canonical RECEIVES_INPUT_FROM relation keeps its original endpoints" in html
+    # Assert behavior encoded in the renderer, not mutable help copy.
+    # The canonical graph keeps agent -> input while visual arrows show input -> agent.
+    assert 'const inputToAgent=e.kind==="RECEIVES_INPUT_FROM"' in html
+    assert "const displayedFrom=inputToAgent?e.target:e.source;" in html
+    assert "const displayedTo=inputToAgent?e.source:e.target;" in html
     assert "All discovered dependencies stay visible." in html
     assert "function supplyEmphasis(" in html
     assert 'svg.classList.toggle("has-emphasis",active)' in html
