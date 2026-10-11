@@ -192,3 +192,22 @@ def test_blind_review_packet_hides_all_scanner_claims(tmp_path):
     assert "PATH001" not in (output / "REVIEWER_GUIDE.md").read_text()
     with pytest.raises(ValueError, match="already exists"):
         module.build_packets(cohort, bundles, output)
+
+
+def test_blind_review_packet_rejects_unsafe_case_id(tmp_path):
+    spec = importlib.util.spec_from_file_location(
+        "blind_packets",
+        Path(__file__).parents[1] / "scripts" / "build_blind_source_review_packets.py",
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    bundles = tmp_path / "bundles"
+    bundles.mkdir()
+    with pytest.raises(ValueError, match="Unsafe case ID"):
+        module.build_packets(
+            {"cases": [{"case_id": "../outside", "repo": "example/repo",
+                        "sha": "abcdef", "framework": "openai-agents"}]},
+            bundles, tmp_path / "packet",
+        )
+    assert not (tmp_path / "packet").exists()
