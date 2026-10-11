@@ -12,8 +12,8 @@ from typing import Any
 
 from horustrace.evaluation.contracts import EvaluationContractError
 
-REFERENCE_LABELS = frozenset({"supported", "unsupported", "unresolved"})
-PREDICTIONS = frozenset({"supported", "refuted", "unresolved"})
+REFERENCE_LABELS = frozenset({"supported", "partial", "unsupported", "unresolved"})
+PREDICTIONS = frozenset({"supported", "partial", "refuted", "unresolved"})
 CATEGORIES = frozenset({"finding", "path"})
 
 
@@ -35,7 +35,9 @@ def _summarize(records: list[dict[str, str]]) -> dict[str, Any]:
     fn = sum(r["reference"] == "supported" and r["predicted"] == "refuted" for r in eligible)
     tn = sum(r["reference"] == "unsupported" and r["predicted"] == "refuted" for r in eligible)
     unresolved_predictions = sum(r["predicted"] == "unresolved" for r in records)
-    unresolved_references = len(records) - len(eligible)
+    partial_references = sum(r["reference"] == "partial" for r in records)
+    unresolved_references = sum(r["reference"] == "unresolved" for r in records)
+    partial_predictions = sum(r["predicted"] == "partial" for r in records)
     positive_reference = sum(r["reference"] == "supported" for r in eligible)
     reviewed_support = sum(r["reference"] == "supported" and r["predicted"] != "unresolved"
                            for r in eligible)
@@ -43,7 +45,9 @@ def _summarize(records: list[dict[str, str]]) -> dict[str, Any]:
         "records": len(records),
         "reference_eligible": len(eligible),
         "reference_unresolved": unresolved_references,
+        "reference_partial": partial_references,
         "prediction_unresolved": unresolved_predictions,
+        "prediction_partial": partial_predictions,
         "tp": tp, "fp": fp, "fn": fn, "tn": tn,
         "precision": round(tp / (tp + fp), 4) if tp + fp else None,
         # Unresolved predictions remain in recall denominator; never call them negatives.
@@ -101,5 +105,16 @@ def summarize_calibration(rows: list[dict[str, str]]) -> dict[str, Any]:
         ),
         "model_graded_ci_blocking_approved": False,
         "reference_quality": "caller_supplied; verify G0-G3 reviewer lock separately",
+        "false_positives_by_repository": dict(sorted(
+            (
+                repository,
+                sum(
+                    row["reference"] == "unsupported" and row["predicted"] == "supported"
+                    for row in rows if row["repository"] == repository
+                ),
+            )
+            for repository in {row["repository"] for row in rows}
+        )),
+        "runtime_success_denominator": "not_applicable_to_static_quality",
     }
     return report
