@@ -127,6 +127,15 @@ def _component_inventories(graph: Graph, root: Path) -> tuple[list[dict[str, Any
             "guardrails": item.guardrails,
             "allowed_tools": sorted(item.allowed_tools),
             "denied_tools": sorted(item.denied_tools),
+            "configuration_hygiene": (
+                "agent_binding_not_proven"
+                if not agent else "bound_configuration_requires_runtime_verification"
+            ),
+            "tool_scope_evidence": (
+                "explicit_allow_or_deny_list_observed"
+                if item.allowed_tools or item.denied_tools
+                else "explicit_allow_or_deny_list_not_recovered"
+            ),
             "identity": item.identity,
             "resources": _component_resources(item.resources),
         })
@@ -1328,7 +1337,7 @@ function inventoryDetail(item,kind){{
  const format=(values)=>values&&values.length?values.join(", "):"—";
  const resource=(item.resources||[]).map(r=>r.kind+": "+r.selector+" ("+format(r.access)+")").join("; ")||"—";
  const meta=[["Binding",item.binding_state],["Source",item.location?(item.location.path+":"+(item.location.line||1)):"n/a"]];
- if(kind==="mcp")meta.push(["Transport",item.transport||"unresolved"],["Endpoint (query omitted)",item.endpoint||"—"],["Command (arguments omitted)",item.command||"—"],["Authentication",inventoryControl(item.authenticated)],["Approval",inventoryControl(item.approval)],["Guardrail hook",inventoryControl(item.guardrails)],["Allowed tools",format(item.allowed_tools)],["Denied tools",format(item.denied_tools)],["Identity",item.identity||"unresolved"]);
+ if(kind==="mcp")meta.push(["Transport",item.transport||"unresolved"],["Endpoint (query omitted)",item.endpoint||"—"],["Command (arguments omitted)",item.command||"—"],["Authentication",inventoryControl(item.authenticated)],["Approval",inventoryControl(item.approval)],["Guardrail hook",inventoryControl(item.guardrails)],["Allowed tools",format(item.allowed_tools)],["Denied tools",format(item.denied_tools)],["Binding evidence",item.configuration_hygiene||"unknown"],["Tool-scope evidence",item.tool_scope_evidence||"unknown"],["Identity",item.identity||"unresolved"]);
  else if(kind==="tools")meta.push(["Tool kind",item.kind||"—"],["Capabilities",format(item.capabilities)],["Destinations",format(item.destinations)],["Approval",inventoryControl(item.approval)],["Guardrail hook",inventoryControl(item.guardrails)],["Identity",item.identity||"unresolved"]);
  else meta.push(["Description",item.description||"—"],["Skill source",item.source||"unknown"],["Capabilities",format(item.capabilities)],["Allowed tools",format(item.allowed_tools)],["Scripts",format(item.scripts)],["Destinations",format(item.destinations)]);
  meta.push(["Resources",resource]);
@@ -1351,7 +1360,7 @@ function inventoryDetail(item,kind){{
    return '<tr><td>'+esc(edge.kind.replaceAll("_"," "))+'</td><td>'+esc(direction)+'</td><td>'+esc(other?.name||"unknown")+'</td><td>'+loc(edge.location)+'</td></tr>';
  }}).join("");
  const mcpScope=kind==="mcp"?
- sectionHead("MCP access and tool scope","Source-backed relationships for agents invoking this server and the tool/resource scope the server exposes. Empty tool scope means the scanner did not recover an explicit allow/deny list.")+
+ sectionHead("MCP access and tool scope","Static inventory only: no bound agent means access is unproven; an empty tool list means no allow/deny list was recovered, not that every tool is permitted. Runtime enforcement is not verified.")+
  '<div class="cards">'+metric("Agents with access",agents.length)+metric("Allowed / exposed tools",topology.allowedTools.length)+metric("Denied tools",topology.deniedTools.length)+metric("Dependency edges",topology.incident.length)+'</div>'+
  '<div class="panel"><div class="kv"><div>Agents</div><div>'+esc(format(agents))+'</div><div>Allowed / exposed tools</div><div>'+esc(format(topology.allowedTools))+'</div><div>Denied tools</div><div>'+esc(format(topology.deniedTools))+'</div><div>Reachable resources</div><div>'+esc(format(topology.resources))+'</div><div>Destinations</div><div>'+esc(format(topology.destinations))+'</div><div>Identity</div><div>'+esc(format(topology.identities))+'</div></div></div>':"";
  const dependencySection=topologyNode?
