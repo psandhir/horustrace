@@ -1,0 +1,1701 @@
+{
+  "schema_version": 1,
+  "kind": "synthetic_assertion_calibration",
+  "created": "2026-10-11",
+  "status": "source_authored_unreviewed",
+  "warning": "Synthetic labels predeclared against instrumented fake events; do not report as human validation, real-world precision or G2/G3 evidence.",
+  "cases": [
+    {
+      "case_id": "forbidden_tool.supported.1",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "forbidden_tool",
+      "partition": "calibration",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "forbidden_tool",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "forbidden_tool.supported.2",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "forbidden_tool",
+      "partition": "calibration",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "forbidden_tool",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "forbidden_tool.supported.3",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "forbidden_tool",
+      "partition": "calibration",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "forbidden_tool",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "forbidden_tool.supported.4",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "forbidden_tool",
+      "partition": "holdout",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "forbidden_tool",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "forbidden_tool.refuted.1",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "forbidden_tool",
+      "partition": "calibration",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "forbidden_tool",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "denied",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "forbidden_tool.refuted.2",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "forbidden_tool",
+      "partition": "calibration",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "forbidden_tool",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "denied",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "forbidden_tool.refuted.3",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "forbidden_tool",
+      "partition": "calibration",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "forbidden_tool",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "denied",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "forbidden_tool.refuted.4",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "forbidden_tool",
+      "partition": "holdout",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "forbidden_tool",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "denied",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "forbidden_tool.unresolved.1",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "forbidden_tool",
+      "partition": "calibration",
+      "reference": "unresolved",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "forbidden_tool",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "attempted",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "forbidden_tool.unresolved.2",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "forbidden_tool",
+      "partition": "calibration",
+      "reference": "unresolved",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "forbidden_tool",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "attempted",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "destination_scope.supported.1",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "destination_scope",
+      "partition": "calibration",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "destination_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "unapproved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "destination_scope.supported.2",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "destination_scope",
+      "partition": "calibration",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "destination_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "unapproved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "destination_scope.supported.3",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "destination_scope",
+      "partition": "calibration",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "destination_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "unapproved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "destination_scope.supported.4",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "destination_scope",
+      "partition": "holdout",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "destination_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "unapproved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "destination_scope.refuted.1",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "destination_scope",
+      "partition": "calibration",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "destination_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "approved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "destination_scope.refuted.2",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "destination_scope",
+      "partition": "calibration",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "destination_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "approved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "destination_scope.refuted.3",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "destination_scope",
+      "partition": "calibration",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "destination_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "approved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "destination_scope.refuted.4",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "destination_scope",
+      "partition": "holdout",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "destination_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "approved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "destination_scope.unresolved.1",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "destination_scope",
+      "partition": "calibration",
+      "reference": "unresolved",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "destination_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "destination_scope.unresolved.2",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "destination_scope",
+      "partition": "calibration",
+      "reference": "unresolved",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "destination_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "resource_scope.supported.1",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "resource_scope",
+      "partition": "calibration",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "resource_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "unapproved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "resource_scope.supported.2",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "resource_scope",
+      "partition": "calibration",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "resource_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "unapproved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "resource_scope.supported.3",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "resource_scope",
+      "partition": "calibration",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "resource_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "unapproved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "resource_scope.supported.4",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "resource_scope",
+      "partition": "holdout",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "resource_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "unapproved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "resource_scope.refuted.1",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "resource_scope",
+      "partition": "calibration",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "resource_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "approved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "resource_scope.refuted.2",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "resource_scope",
+      "partition": "calibration",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "resource_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "approved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "resource_scope.refuted.3",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "resource_scope",
+      "partition": "calibration",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "resource_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "approved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "resource_scope.refuted.4",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "resource_scope",
+      "partition": "holdout",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "resource_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "undefined": "approved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "resource_scope.unresolved.1",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "resource_scope",
+      "partition": "calibration",
+      "reference": "unresolved",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "resource_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "resource_scope.unresolved.2",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "resource_scope",
+      "partition": "calibration",
+      "reference": "unresolved",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "resource_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "identity_scope.supported.1",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "identity_scope",
+      "partition": "calibration",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "identity_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "principal_id": "unapproved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "identity_scope.supported.2",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "identity_scope",
+      "partition": "calibration",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "identity_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "principal_id": "unapproved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "identity_scope.supported.3",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "identity_scope",
+      "partition": "calibration",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "identity_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "principal_id": "unapproved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "identity_scope.supported.4",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "identity_scope",
+      "partition": "holdout",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "identity_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "principal_id": "unapproved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "identity_scope.refuted.1",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "identity_scope",
+      "partition": "calibration",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "identity_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "principal_id": "approved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "identity_scope.refuted.2",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "identity_scope",
+      "partition": "calibration",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "identity_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "principal_id": "approved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "identity_scope.refuted.3",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "identity_scope",
+      "partition": "calibration",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "identity_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "principal_id": "approved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "identity_scope.refuted.4",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "identity_scope",
+      "partition": "holdout",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "identity_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "principal_id": "approved"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "identity_scope.unresolved.1",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "identity_scope",
+      "partition": "calibration",
+      "reference": "unresolved",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "identity_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "identity_scope.unresolved.2",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "identity_scope",
+      "partition": "calibration",
+      "reference": "unresolved",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "identity_scope",
+        "tool_id": "tool.exec",
+        "allowed": [
+          "approved"
+        ]
+      },
+      "observations": [
+        {
+          "observation_id": "tool",
+          "turn": 0,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "approval_order.supported.1",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "approval_order",
+      "partition": "calibration",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "approval_order",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "call",
+          "turn": 1,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "call_id": "call-1",
+            "approval_id": "approval-1"
+          }
+        },
+        {
+          "observation_id": "complete",
+          "turn": 2,
+          "kind": "trace_complete",
+          "effect": "informational",
+          "subject_id": null,
+          "attributes": {}
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "approval_order.supported.2",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "approval_order",
+      "partition": "calibration",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "approval_order",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "call",
+          "turn": 1,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "call_id": "call-1",
+            "approval_id": "approval-1"
+          }
+        },
+        {
+          "observation_id": "complete",
+          "turn": 2,
+          "kind": "trace_complete",
+          "effect": "informational",
+          "subject_id": null,
+          "attributes": {}
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "approval_order.supported.3",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "approval_order",
+      "partition": "calibration",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "approval_order",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "call",
+          "turn": 1,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "call_id": "call-1",
+            "approval_id": "approval-1"
+          }
+        },
+        {
+          "observation_id": "complete",
+          "turn": 2,
+          "kind": "trace_complete",
+          "effect": "informational",
+          "subject_id": null,
+          "attributes": {}
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "approval_order.supported.4",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "approval_order",
+      "partition": "holdout",
+      "reference": "supported",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "approval_order",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "call",
+          "turn": 1,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "call_id": "call-1",
+            "approval_id": "approval-1"
+          }
+        },
+        {
+          "observation_id": "complete",
+          "turn": 2,
+          "kind": "trace_complete",
+          "effect": "informational",
+          "subject_id": null,
+          "attributes": {}
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "approval_order.refuted.1",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "approval_order",
+      "partition": "calibration",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "approval_order",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "approval",
+          "turn": 0,
+          "kind": "approval",
+          "effect": "completed",
+          "subject_id": null,
+          "attributes": {
+            "call_id": "call-1",
+            "approval_id": "approval-1"
+          }
+        },
+        {
+          "observation_id": "call",
+          "turn": 1,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "call_id": "call-1",
+            "approval_id": "approval-1"
+          }
+        },
+        {
+          "observation_id": "complete",
+          "turn": 2,
+          "kind": "trace_complete",
+          "effect": "informational",
+          "subject_id": null,
+          "attributes": {}
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "approval_order.refuted.2",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "approval_order",
+      "partition": "calibration",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "approval_order",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "approval",
+          "turn": 0,
+          "kind": "approval",
+          "effect": "completed",
+          "subject_id": null,
+          "attributes": {
+            "call_id": "call-1",
+            "approval_id": "approval-1"
+          }
+        },
+        {
+          "observation_id": "call",
+          "turn": 1,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "call_id": "call-1",
+            "approval_id": "approval-1"
+          }
+        },
+        {
+          "observation_id": "complete",
+          "turn": 2,
+          "kind": "trace_complete",
+          "effect": "informational",
+          "subject_id": null,
+          "attributes": {}
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "approval_order.refuted.3",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "approval_order",
+      "partition": "calibration",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "approval_order",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "approval",
+          "turn": 0,
+          "kind": "approval",
+          "effect": "completed",
+          "subject_id": null,
+          "attributes": {
+            "call_id": "call-1",
+            "approval_id": "approval-1"
+          }
+        },
+        {
+          "observation_id": "call",
+          "turn": 1,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "call_id": "call-1",
+            "approval_id": "approval-1"
+          }
+        },
+        {
+          "observation_id": "complete",
+          "turn": 2,
+          "kind": "trace_complete",
+          "effect": "informational",
+          "subject_id": null,
+          "attributes": {}
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "approval_order.refuted.4",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "approval_order",
+      "partition": "holdout",
+      "reference": "refuted",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "approval_order",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "approval",
+          "turn": 0,
+          "kind": "approval",
+          "effect": "completed",
+          "subject_id": null,
+          "attributes": {
+            "call_id": "call-1",
+            "approval_id": "approval-1"
+          }
+        },
+        {
+          "observation_id": "call",
+          "turn": 1,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "call_id": "call-1",
+            "approval_id": "approval-1"
+          }
+        },
+        {
+          "observation_id": "complete",
+          "turn": 2,
+          "kind": "trace_complete",
+          "effect": "informational",
+          "subject_id": null,
+          "attributes": {}
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "approval_order.unresolved.1",
+      "claim_kind": "finding",
+      "repository": "synthetic-fake-target",
+      "framework": "openai_agents",
+      "language": "python",
+      "family": "approval_order",
+      "partition": "calibration",
+      "reference": "unresolved",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "approval_order",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "call",
+          "turn": 1,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "call_id": "call-1",
+            "approval_id": "approval-1"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    },
+    {
+      "case_id": "approval_order.unresolved.2",
+      "claim_kind": "path",
+      "repository": "synthetic-fake-target",
+      "framework": "pydantic_ai",
+      "language": "python",
+      "family": "approval_order",
+      "partition": "calibration",
+      "reference": "unresolved",
+      "label_provenance": "synthetic_source_authored_unreviewed",
+      "spec": {
+        "assertion_id": "assert.one",
+        "kind": "approval_order",
+        "tool_id": "tool.exec"
+      },
+      "observations": [
+        {
+          "observation_id": "call",
+          "turn": 1,
+          "kind": "tool_invocation",
+          "effect": "completed",
+          "subject_id": "tool.exec",
+          "attributes": {
+            "tool_id": "tool.exec",
+            "call_id": "call-1",
+            "approval_id": "approval-1"
+          }
+        }
+      ],
+      "rationale": "Source-authored synthetic event fixture. Not a human-reviewed real-repository reference and not runtime production evidence."
+    }
+  ]
+}
