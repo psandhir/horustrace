@@ -826,7 +826,7 @@ code,pre{{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospac
 .graph-wrap{{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:12px;position:relative}} .graph-wrap.expanded{{position:fixed;inset:14px;z-index:9999;background:var(--bg);padding:14px;border:1px solid var(--line);border-radius:14px;grid-template-columns:minmax(0,1fr) 340px;box-shadow:0 24px 80px #000b}} .graph-wrap.expanded .graph{{height:calc(100vh - 105px)}} body.graph-modal-open{{overflow:hidden}} .graph-canvas{{position:relative;min-width:0}} .graph{{width:100%;height:520px;background:#09101e;border:1px solid var(--line);border-radius:10px;touch-action:none;cursor:grab}} .graph.panning{{cursor:grabbing}} .inspector{{min-height:120px;overflow:auto}} .legend{{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin:7px 0 10px}}
 .dot{{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}} .empty{{padding:28px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px;background:#0b1321}} .back{{border:1px solid var(--line);background:var(--surface);color:var(--text);padding:7px 10px;border-radius:8px;cursor:pointer}} .small{{font-size:11px}} .nowrap{{white-space:nowrap}} .sevbar{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}}
 svg text{{fill:var(--text);font-family:ui-sans-serif,system-ui;font-size:12px}} .edge{{stroke:#65728c;stroke-width:1.4;opacity:.72}} .node rect{{fill:#16213a;stroke:#42516f;stroke-width:1}} .node.agent rect{{fill:#1b3157;stroke:#78a8ff}} .node.identity rect{{fill:#2b2545;stroke:#a895ff}} .node.resource rect{{fill:#21362f;stroke:#63d69f}} .node.destination rect{{fill:#3a2d22;stroke:#f1b36a}} .node.unresolved rect{{stroke-dasharray:5 4}} .node{{cursor:pointer;transition:opacity .12s}} .node:hover rect{{stroke-width:2}} .node.dim{{opacity:.16}} .node.match rect,.node.selected rect{{stroke-width:3}} .edge.dim{{opacity:.08}} .edge.selected{{stroke-width:2.5;opacity:1}} .label2{{fill:var(--muted);font-size:10px}}
-.path-card{{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:12px 0}} .path-head{{display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap}} .path-chain{{display:flex;flex-direction:column;align-items:flex-start;margin-top:15px;padding-left:8px}} .path-step{{min-width:260px;max-width:680px;background:#0d1628;border:1px solid var(--line);border-radius:9px;padding:9px 11px}} .path-step.agent{{border-color:#78a8ff}} .path-step.secret{{border-color:#c98cff}} .path-step.destination{{border-color:#f1b36a}} .path-step.input,.path-step.source{{border-color:#8ab4ff}} .path-role{{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:2px;font-weight:800}} .path-arrow{{height:22px;margin-left:28px;border-left:2px solid #6d7e9f}} .path-arrow.dashed{{border-left-style:dashed}} .path-meta{{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}}
+.path-card{{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:12px 0}} .path-head{{display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap}} .path-chain{{display:flex;flex-direction:column;align-items:flex-start;margin-top:15px;padding-left:8px}} .path-step{{min-width:260px;max-width:680px;background:#0d1628;border:1px solid var(--line);border-radius:9px;padding:9px 11px}} .path-step.drill{{cursor:pointer;transition:border-color .12s,background .12s,transform .12s}} .path-step.drill:hover,.path-step.drill:focus-visible{{border-color:var(--accent);background:var(--surface2);transform:translateX(2px)}} .path-step-drill{{float:right;color:var(--accent);font-size:11px;font-weight:750}} .path-step.agent{{border-color:#78a8ff}} .path-step.secret{{border-color:#c98cff}} .path-step.destination{{border-color:#f1b36a}} .path-step.input,.path-step.source{{border-color:#8ab4ff}} .path-role{{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:2px;font-weight:800}} .path-arrow{{height:22px;margin-left:28px;border-left:2px solid #6d7e9f}} .path-arrow.dashed{{border-left-style:dashed}} .path-meta{{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}}
 .severity-chart{{display:grid;gap:8px;padding:14px 15px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}}
 .severity-chart-row{{padding:7px 8px;border:1px solid transparent;border-radius:8px;cursor:pointer}}
 .severity-chart-row:hover,.severity-chart-row:focus-visible{{background:var(--surface2);border-color:var(--line-strong)}}
@@ -1707,12 +1707,43 @@ function drawGraph(a){{
  stage.innerHTML=edges.join("")+nodes.join("");applyGraphTransform(a);
  stage.querySelectorAll("[data-node]").forEach(n=>n.addEventListener("click",()=>{{const key=n.dataset.node;if(key&&key.startsWith("group-")){{state.collapsed=false;drawGraph(a);const btn=document.getElementById("map-toggle-groups");if(btn)btn.textContent="Collapse groups";return;}}inspectGraphNode(a,key,info[key]);focusGraphNode(key);}}));
 }}
-function pathStep(step){{
- return '<div class="path-step '+esc(step.kind||"step")+'"><div class="path-role">'+esc(step.role||step.kind||"step")+'</div><strong>'+esc(step.label||"")+'</strong></div>';
+function attackPathTopologyTarget(path,step){{
+ const topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[];
+ const label=String(step?.label||"").trim(),agent=String(path?.agent||"").trim();
+ if(!label)return null;
+ let kinds=[];
+ if(step.kind==="agent")kinds=["agent"];
+ else if(step.kind==="tool")kinds=["tool","mcp_server","delegation","capability","mcp_tool_scope"];
+ else if(step.kind==="destination")kinds=["network_destination"];
+ else if(["input","source"].includes(step.kind))kinds=["input"];
+ else if(["secret","resource"].includes(step.kind))kinds=["data_resource"];
+ else return null;
+ const names=new Set([label,agent?agent+":"+label:""].filter(Boolean));
+ const matches=nodes.filter(node=>kinds.includes(node.kind)&&(names.has(node.name)||node.attributes?.tool_name===label));
+ return matches.length===1?matches[0]:null;
+}}
+function pathStep(step,path){{
+ const target=attackPathTopologyTarget(path,step),kind=esc(step.kind||"step");
+ const attrs=target?' role="button" tabindex="0" data-path-node="'+esc(target.id)+'" aria-label="Open '+esc(step.label||"")+' dependency details"':"";
+ return '<div class="path-step '+kind+(target?" drill":"")+'"'+attrs+'><div class="path-role">'+esc(step.role||step.kind||"step")+(target?'<span class="path-step-drill">Open ↗</span>':"")+'</div><strong>'+esc(step.label||"")+'</strong></div>';
+}}
+function bindPathDrill(root=document){{
+ const topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[];
+ root.querySelectorAll("[data-path-node]").forEach(item=>{{
+  const activate=()=>{{
+   const node=nodes.find(n=>n.id===item.dataset.pathNode);if(!node)return;
+   if(node.kind==="agent"&&DATA.agents.filter(a=>a.name===node.name).length===1){{openAgent(node.name);return;}}
+   const component=inventoryEntryForTopologyNode(node);
+   if(component){{renderComponents(component.kind,component.item.id);showView("components");return;}}
+   renderSupplyChain("all","all",node.id);showView("supply");
+  }};
+  item.addEventListener("click",activate);
+  item.addEventListener("keydown",event=>{{if(event.key==="Enter"||event.key===" "){{event.preventDefault();activate();}}}});
+ }});
 }}
 function renderPathCard(path){{
  const dashed=path.edge_style==="dashed", steps=path.steps||[];
- const chain=steps.map((step,i)=>pathStep(step)+(i<steps.length-1?'<div class="path-arrow '+(dashed?"dashed":"")+'"></div>':"")).join("");
+ const chain=steps.map((step,i)=>pathStep(step,path)+(i<steps.length-1?'<div class="path-arrow '+(dashed?"dashed":"")+'"></div>':"")).join("");
  const basis=path.evidence_strength==="supported_static_dataflow"?"Supported static data flow":"Potential capability path";
  return '<div class="path-card"><div class="path-head"><div><div class="finding-title"><strong>'+esc(path.path_id)+'</strong><span class="'+esc(path.severity)+'">'+esc(String(path.severity).toUpperCase())+'</span></div>'+
  '<h3 style="margin-top:7px">'+esc(path.title)+'</h3></div><span class="badge '+(dashed?"unresolved":"compliant")+'">'+esc(basis)+'</span></div>'+
@@ -1722,7 +1753,7 @@ function renderPathCard(path){{
 function renderAgentPaths(a){{
  const paths=a.path_views||[];
  if(!paths.length)return '<div class="empty">No attack path was reconstructed for this agent. Effective authority may still exist; a path is shown only when HorusTrace has the required source/capability evidence.</div>';
- return '<p class="muted">Solid connectors represent supported static data flow. Dashed connectors represent capability co-occurrence: the components are present on the same agent, but executable data flow is not proven.</p>'+paths.map(renderPathCard).join("");
+ return '<p class="muted">Solid connectors represent supported static data flow. Dashed connectors represent capability co-occurrence: the components are present on the same agent, but executable data flow is not proven. Only steps that resolve unambiguously to one canonical dependency node are interactive.</p>'+paths.map(renderPathCard).join("");
 }}
 function renderAgentFindings(a,owaspRisk=null){{
  const items=owaspRisk?a.findings.filter(f=>(f.standards?.owasp_agentic||[]).includes(owaspRisk)):a.findings;
@@ -1753,6 +1784,7 @@ function openAgent(name,initialTab="overview",owaspRisk=null,inventoryFocus=null
  '<div id="tab-overview" class="agent-tab active">'+renderAgentOverview(a)+'</div><div id="tab-map" class="agent-tab">'+renderGraph(a)+'</div><div id="tab-paths" class="agent-tab">'+renderAgentPaths(a)+'</div><div id="tab-findings" class="agent-tab">'+renderAgentFindings(a,owaspRisk)+'</div><div id="tab-contract" class="agent-tab">'+renderAgentContract(a)+'</div><div id="tab-evidence" class="agent-tab">'+renderAgentEvidence(a)+'</div>';
  root.querySelectorAll("[data-agent-inventory]").forEach(btn=>btn.addEventListener("click",()=>{{renderComponents(btn.dataset.agentInventory,null,a.name);showView("components");}}));
  root.querySelectorAll("[data-agent-link]").forEach(btn=>btn.addEventListener("click",()=>openAgent(decodeURIComponent(btn.dataset.agentLink))));
+ bindPathDrill(root);
  root.querySelector("#back-agents").textContent=owaspRisk?"← Back to OWASP "+owaspRisk:(inventoryFocus?"← Back to components":(supplyFocus?"← Back to supply chain":"← Back to agents"));
  root.querySelector("#back-agents").addEventListener("click",()=>{{if(owaspRisk){{renderOwasp(owaspRisk);showView("owasp");}}else if(inventoryFocus){{renderComponents(inventoryFocus.kind,inventoryFocus.id,inventoryFocus.agentScope||null);showView("components");}}else if(supplyFocus){{renderSupplyChain(supplyFocus.focus,supplyFocus.layer,supplyFocus.selected);showView("supply");}}else showView("agents");}});
  const clearOwasp=root.querySelector("#clear-agent-owasp");
@@ -1835,9 +1867,11 @@ function renderOwasp(risk="all"){{
 
 function renderAttack(){{
  const items=DATA.agents.flatMap(a=>(a.path_views||[])),supported=items.filter(x=>x.evidence_strength==="supported_static_dataflow").length,potential=items.length-supported;
- document.getElementById("attack").innerHTML=pageHead("Risk chains","Attack paths","Evidence-aware chains from source/capability context to sensitive actions or destinations.")+
+ const root=document.getElementById("attack");
+ root.innerHTML=pageHead("Risk chains","Attack paths","Evidence-aware chains from source/capability context to sensitive actions or destinations.")+
  '<div class="cards">'+metric("Attack paths",items.length)+metric("Supported data flow",supported,"ok","","Solid connectors")+metric("Potential capability paths",potential,"warn","","Dashed connectors; flow not proven")+'</div>'+
- sectionHead("Reconstructed paths","Runtime exploitability is not verified.")+(items.length?items.sort((a,b)=>severityRank(b.severity)-severityRank(a.severity)).map(renderPathCard).join(""):'<div class="empty">No attack paths detected.</div>');
+ sectionHead("Reconstructed paths","Runtime exploitability is not verified. Clickable steps resolve unambiguously to canonical dependency nodes.")+(items.length?items.sort((a,b)=>severityRank(b.severity)-severityRank(a.severity)).map(renderPathCard).join(""):'<div class="empty">No attack paths detected.</div>');
+ bindPathDrill(root);
 }}
 
 function renderContracts(mode="all"){{
