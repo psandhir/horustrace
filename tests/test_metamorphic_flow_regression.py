@@ -176,3 +176,34 @@ def test_generator_is_deterministic_and_rejects_unreviewed_transforms():
         generate_variant("unsupported", 0)
     with pytest.raises(ValueError):
         generate_variant("module_alias", 3)
+
+
+@pytest.mark.parametrize("loader_import,loader_call", [
+    ("from langchain_community.document_loaders import WebBaseLoader", "WebBaseLoader"),
+    ("from langchain_community.document_loaders import WebBaseLoader as Web", "Web"),
+])
+def test_import_canonicalization_keeps_stable_url_loader_evidence(
+    tmp_path: Path, loader_import: str, loader_call: str,
+):
+    code = (
+        "from pydantic_ai import Agent, Tool\n"
+        f"{loader_import}\n"
+        "def web_scraper(urls: list[str]):\n"
+        "    for url in urls:\n"
+        f"        loader = {loader_call}(url)\n"
+        "        loader.load()\n"
+        "agent = Agent('openai:gpt-5.2', tools=[Tool(web_scraper, takes_ctx=False)])\n"
+    )
+    (tmp_path / "agent.py").write_text(code, encoding="utf-8")
+    graph, findings = scan(tmp_path)
+    flow = next(
+        item for item in graph.flow_paths
+        if item.source_kind == "agent_tool_input"
+        and item.sink_kind == "server_side_url_fetch"
+    )
+    assert flow.sink_label == "WebBaseLoader"
+    assert flow.basis == "static_dataflow"
+    assert any(
+        item.rule_id == "PATH011" and item.confidence is Confidence.SUPPORTED
+        for item in findings
+    )
