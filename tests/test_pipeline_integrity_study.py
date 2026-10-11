@@ -68,3 +68,26 @@ def test_study_reads_case_artifacts(tmp_path) -> None:
     result = audit_study(tmp_path)
     assert result["valid"] is True
     assert result["total"] == 1
+
+
+def test_cohort_contract_rejects_missing_or_unknown_cases(tmp_path) -> None:
+    first = tmp_path / "ff60-amazon-01"
+    first.mkdir()
+    (first / "scan.json").write_text(json.dumps(_scan()), encoding="utf-8")
+    missing = audit_study(tmp_path, expected_cases={"ff60-amazon-01", "ff60-amazon-02"})
+    assert missing["valid"] is False
+    assert any("missing cases" in error for error in missing["errors"])
+
+    unexpected = audit_study(tmp_path, expected_cases={"ff60-microsoft-01"})
+    assert unexpected["valid"] is False
+    assert any("unexpected cases" in error for error in unexpected["errors"])
+
+
+def test_cohort_contract_rejects_duplicate_case_ids(tmp_path) -> None:
+    for directory in ("download-one/case-01", "download-two/case-01"):
+        target = tmp_path / directory
+        target.mkdir(parents=True)
+        (target / "scan.json").write_text(json.dumps(_scan()), encoding="utf-8")
+    result = audit_study(tmp_path, expected_cases={"case-01"})
+    assert result["valid"] is False
+    assert any("duplicate case IDs" in error for error in result["errors"])
