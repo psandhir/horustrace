@@ -62,7 +62,46 @@ def produce_report(output_dir: Path) -> tuple[dict, list[str]]:
         "contract_violations": summary["contract_violations"],
         "coverage_incomplete": summary["analysis_incomplete"],
         "agent_names": sorted(names),
+        "inventory_tools": len(report.get("tools") or []),
+        "inventory_mcp_servers": len(report.get("mcp_servers") or []),
+        "inventory_skills": len(report.get("skills") or []),
+        "topology_nodes": len(
+            report.get("security_graph", {}).get("topology", {}).get("nodes") or []
+        ),
+        "topology_edges": len(
+            report.get("security_graph", {}).get("topology", {}).get("edges") or []
+        ),
+        "findings_with_raw_provenance": sum(
+            bool(item.get("provenance")) for item in report["findings"]
+        ),
+        "raw_provenance_facts": sum(
+            len(item.get("provenance") or []) for item in report["findings"]
+        ),
+        "findings_with_source_context": sum(
+            bool((item.get("provenance_digest") or {}).get("items"))
+            for item in report["findings"]
+        ),
+        "source_context_groups": sum(
+            len((item.get("provenance_digest") or {}).get("items") or [])
+            for item in report["findings"]
+        ),
     }
+    missing_context = [
+        {
+            "rule_id": finding.get("rule_id"),
+            "agent": finding.get("agent"),
+            "severity": finding.get("severity"),
+            "location": finding.get("location"),
+            "raw_provenance_count": len(finding.get("provenance") or []),
+            "source_evidence_count": len(finding.get("evidence") or []),
+        }
+        for finding in report["findings"]
+        if not (finding.get("provenance_digest") or {}).get("items")
+    ]
+    (output_dir / "adk-provenance-gaps.json").write_text(
+        json.dumps(missing_context, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     (output_dir / "adk-acceptance-metrics.json").write_text(
         json.dumps(results, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
@@ -106,6 +145,20 @@ def produce_report(output_dir: Path) -> tuple[dict, list[str]]:
             ),
             "observed": "offline HTML + inline CSP",
         },
+        "component and supply-chain projections": {
+            "pass": (
+                results["inventory_tools"] >= 3
+                and results["inventory_mcp_servers"] >= 1
+                and results["topology_nodes"] >= 2
+                and results["topology_edges"] >= 1
+            ),
+            "observed": {
+                "tools": results["inventory_tools"],
+                "mcp_servers": results["inventory_mcp_servers"],
+                "nodes": results["topology_nodes"],
+                "edges": results["topology_edges"],
+            },
+        },
         "projection count parity": {
             "pass": (
                 summary["findings"] == len(report["findings"])
@@ -137,6 +190,10 @@ def produce_report(output_dir: Path) -> tuple[dict, list[str]]:
         "destinations", "effective_authority_relationships", "findings",
         "attack_paths", "owasp_categories_with_runtime_findings",
         "policy_violations", "contract_violations",
+        "inventory_tools", "inventory_mcp_servers", "inventory_skills",
+        "topology_nodes", "topology_edges", "findings_with_raw_provenance",
+        "raw_provenance_facts", "findings_with_source_context",
+        "source_context_groups",
     ):
         lines.append(f"| {label.replace('_', ' ').capitalize()} | {results[label]} |")
     lines.extend([
@@ -163,6 +220,54 @@ def produce_report(output_dir: Path) -> tuple[dict, list[str]]:
     ]
     for status in ("fully_resolved", "partially_resolved", "unknown"):
         lines.append(f"| {status.replace('_', ' ').title()} | {resolutions.count(status)} |")
+
+    baseline = {
+        "agents": 2,
+        "tools": 8,
+        "mcp_servers": 1,
+        "findings": 37,
+        "attack_paths": 8,
+        "owasp_categories_with_runtime_findings": 5,
+        "topology_nodes": 21,
+        "topology_edges": 20,
+        "findings_with_source_context": 30,
+        "raw_provenance_facts": 392,
+        "source_context_groups": 47,
+    }
+    lines.extend([
+        "", "## Previous ADK evaluation comparison", "",
+        "Baseline: GitHub Actions run 38085946680, 10 October 2026.",
+        "Counts are comparative evidence, not exploitability or quality scores.",
+        "",
+        "| Dimension | Previous | Latest | Change |",
+        "| --- | ---: | ---: | ---: |",
+    ])
+    for key, old in baseline.items():
+        new = results[key]
+        lines.append(
+            f"| {key.replace('_', ' ').capitalize()} | {old} | {new} | "
+            f"{new - old:+d} |"
+        )
+    lines.extend(["", "## Findings without concise source context", ""])
+    lines.append(
+        f"{len(missing_context)} findings lack an inline provenance digest. "
+        "This does not imply absence of underlying scanner evidence."
+    )
+    lines.extend(["", "| Rule | Agent | Raw facts | Source |", "| --- | --- | ---: | --- |"])
+    for item in missing_context:
+        loc = item["location"] or {}
+        location = f"{loc.get('path') or 'n/a'}:{loc.get('line') or 1}"
+        lines.append(
+            f"| {item['rule_id']} | {item.get('agent') or 'n/a'} | "
+            f"{item['raw_provenance_count']} | {location} |"
+        )
+    if not missing_context:
+        lines.append("| None | — | — | — |")
+    lines.extend([
+        "", "Finding-attached provenance facts may repeat across findings; "
+        "they are not unique evidence facts. The separate agent-level inventory "
+        "preserves its own evidence context.",
+    ])
 
     lines.extend(["", "## OWASP risk categories with runtime-mapped findings", ""])
     lines.extend(f"- {name}" for name in results["owasp_risk_categories"])
