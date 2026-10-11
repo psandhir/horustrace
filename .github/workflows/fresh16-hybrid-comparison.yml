@@ -1,0 +1,121 @@
+name: Fresh16 Paired Deterministic vs LLM Comparison
+
+on:
+  pull_request:
+    paths:
+      - "research/fresh16-hybrid-comparison-20261011/**"
+      - ".github/workflows/fresh16-hybrid-comparison.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+concurrency:
+  group: fresh16-paired-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  paired-case:
+    name: Paired scan ${{ matrix.case_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        case_id:
+          - gen-adk-001
+          - gen-adk-002
+          - gen-adk-003
+          - gen-adk-004
+          - gen-pyd-001
+          - gen-pyd-002
+          - gen-pyd-003
+          - gen-pyd-004
+          - gen-oai-001
+          - gen-oai-002
+          - gen-oai-003
+          - gen-oai-004
+          - gen-mcp-001
+          - gen-mcp-002
+          - gen-mcp-003
+          - gen-mcp-004
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      SEMANTIC_PROVIDER: copilot
+      SEMANTIC_MODEL: auto
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Install scanner and Copilot CLI
+        run: |
+          python -m pip install -e .
+          npm install -g @github/copilot
+          copilot --version
+      - name: Paired scan (same pinned SHA)
+        run: |
+          python research/fresh16-hybrid-comparison-20261011/run_compare.py case \
+            --case-id "${{ matrix.case_id }}" \
+            --output-dir "artifacts/${{ matrix.case_id }}"
+      - name: Preserve per-repo results even when scan failed
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fresh16-${{ matrix.case_id }}
+          path: artifacts
+          retention-days: 30
+          if-no-files-found: error
+
+  aggregate:
+    name: Comparison + claim-change report
+    needs: paired-case
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Download per-case evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: fresh16-*
+          merge-multiple: true
+          path: results
+      - name: Install scanner
+        run: python -m pip install -e .
+      - id: compare
+        name: Aggregate deltas without claiming TP/FP/FN
+        continue-on-error: true
+        run: |
+          python research/fresh16-hybrid-comparison-20261011/run_compare.py aggregate \
+            --result-dir results --output-dir aggregate
+      - name: Publish comparison in run summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f aggregate/COMPARISON.md ]]; then
+            cat aggregate/COMPARISON.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload comparison report and raw evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fresh16-deterministic-vs-hybrid-comparison
+          path: |
+            aggregate
+            results
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail closed if cohort or model invocation failed
+        if: always()
+        run: test "${{ steps.compare.outcome }}" = "success"
