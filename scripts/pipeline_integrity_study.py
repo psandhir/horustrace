@@ -47,10 +47,16 @@ def audit_case(scan_doc: dict, case_id: str) -> dict:
     return {"case_id": case_id, "valid": not issues, "issues": sorted(set(issues))}
 
 
-def audit_study(root: Path) -> dict:
+def audit_study(root: Path, *, expected_cases: set[str] | None = None) -> dict:
     cases = []
     found = sorted(root.rglob("scan.json"))
+    seen: set[str] = set()
+    duplicates: list[str] = []
     for path in found:
+        case_id = path.parent.name
+        if case_id in seen:
+            duplicates.append(case_id)
+        seen.add(case_id)
         try:
             cases.append(
                 audit_case(json.loads(path.read_text(encoding="utf-8")), path.parent.name)
@@ -64,6 +70,15 @@ def audit_study(root: Path) -> dict:
     ]
     if not found:
         errors.append("no scan.json files found")
+    if duplicates:
+        errors.append("duplicate case IDs: " + ", ".join(sorted(set(duplicates))))
+    if expected_cases is not None:
+        missing = expected_cases - seen
+        extra = seen - expected_cases
+        if missing:
+            errors.append("missing cases: " + ", ".join(sorted(missing)))
+        if extra:
+            errors.append("unexpected cases: " + ", ".join(sorted(extra)))
     return {
         "schema_version": 1,
         "cases": sorted(cases, key=lambda item: item["case_id"]),
@@ -77,8 +92,21 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--scans", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--cohort", type=Path, help="Pinned cohort.json to verify exact case IDs")
     args = parser.parse_args()
-    report = audit_study(args.scans)
+    expected = None
+    if args.cohort is not None:
+        manifest = json.loads(args.cohort.read_text(encoding="utf-8"))
+        cases = manifest.get("cases")
+        if not isinstance(cases, list) or not cases:
+            parser.error("cohort must have a nonempty cases list")
+        identifiers = [item.get("case_id") for item in cases]
+        if any(not isinstance(value, str) or not value for value in identifiers):
+            parser.error("cohort has empty or invalid case IDs")
+        expected = set(identifiers)
+        if len(expected) != len(identifiers):
+            parser.error("cohort has duplicate case IDs")
+    report = audit_study(args.scans, expected_cases=expected)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(f"Pipeline audit: {report['total']} scan cases, {len(report['errors'])} issues")
