@@ -117,8 +117,13 @@ def validate_security_graph_document(document: dict[str, Any]) -> None:
         ),
         "flows": len(document["flows"]),
         "attack_paths": len(document["attack_paths"]),
-        "developer_path_candidates": len(document["developer_path_candidates"]),
     }
+    # ASG v1 readers may still validate legacy documents without the additive
+    # candidate projection. Enforce the counter when that projection is present.
+    if "developer_path_candidates" in document:
+        expected_counts["developer_path_candidates"] = len(
+            document["developer_path_candidates"]
+        )
     for key, expected in expected_counts.items():
         if summary[key] != expected:
             raise ValueError(f"ASG {key} counter disagrees with emitted objects")
