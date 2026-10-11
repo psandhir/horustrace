@@ -299,7 +299,7 @@ def _default_parameter(match: re.Match[str], masked: str) -> bool:
     if preceding and not preceding.endswith(","):
         return False
     return re.match(
-        r"\\s*(?:null|default(?:\\([^)]*\\))?|true|false|[0-9]+)\\s*[,)]",
+        r"\s*(?:null|default(?:\([^)]*\))?|true|false|[0-9]+)\s*[,)]",
         masked[match.end() :],
     ) is not None
 
