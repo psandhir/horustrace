@@ -133,11 +133,17 @@ def test_redacted_attachment_preserves_digest_lineage_and_prevents_public_secret
     result = ledger.attach_text(text)
     assert result["redacted"] is True
     assert result["exact_replay_available"] is False
+    assert result["omission_reason"] == "sensitive_payload_omitted"
     file = ledger.root / "attachments" / result["digest"].split(":")[1]
     exposed = file.read_text(encoding="utf-8")
     assert "testauth999" not in exposed and "topsecret999" not in exposed
     assert "privatevalue000" not in exposed
+    assert exposed == "[REDACTED: sensitive payload omitted]"
     assert digest(file.read_bytes()) == result["digest"]
+    unknown = ledger.attach_text("a-secret-that-matches-no-pattern")
+    assert unknown["omission_reason"] == "sensitive_payload_omitted"
+    public = ledger.attach_text("synthetic text without credentials", sensitive=False)
+    assert public["exact_replay_available"] is True
     with pytest.raises(EvaluationContractError, match="credential"):
         ledger.append("planned", "attempt.1",
                       {"authorization": "Authorization: Bearer leaksecret999"})
