@@ -113,7 +113,7 @@ def test_stale_or_unbound_graph_and_contract_rejected():
     case = EvaluationCase.from_dict(_case())
     graph = _asg()
     with pytest.raises(EvaluationContractError, match="stale"):
-        validate_case_bindings(case, {**graph, "digest": "sha256:" + "f" * 64})
+        validate_case_bindings(replace(case, asg_digest="sha256:" + "f" * 64), graph)
     altered = {**graph, "topology": {"nodes": [], "edges": []}}
     with pytest.raises(EvaluationContractError, match="invalid digest"):
         validate_case_bindings(case, altered)
