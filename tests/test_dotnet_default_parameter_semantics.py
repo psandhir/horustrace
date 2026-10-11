@@ -1,7 +1,6 @@
 """A default parameter must never become an agent because of later source."""
 
-from horustrace.adapters.csharp_source import assignments, mask_non_code
-from horustrace.adapters.microsoft_agent_framework_dotnet import scan_dotnet_file
+from horustrace.adapters import csharp_source, microsoft_agent_framework_dotnet
 
 
 SOURCE = """
@@ -19,7 +18,7 @@ public static AIAgent Get(
 
 
 def test_csharp_assignments_skip_default_parameters_not_local_agents() -> None:
-    items = assignments(SOURCE, mask_non_code(SOURCE))
+    items = csharp_source.assignments(SOURCE, csharp_source.mask_non_code(SOURCE))
     assert "additionalTools" not in items
     assert "child" in items
 
@@ -27,7 +26,7 @@ def test_csharp_assignments_skip_default_parameters_not_local_agents() -> None:
 def test_dotnet_factory_return_does_not_invent_additional_tools_agent(tmp_path) -> None:
     source = tmp_path / "LearnAgentFactory.cs"
     source.write_text(SOURCE, encoding="utf-8")
-    graph = scan_dotnet_file(source)
+    graph = microsoft_agent_framework_dotnet.scan_dotnet_file(source)
     assert "additionalTools" not in {agent.name for agent in graph.agents}
     assert any(agent.name == "child" for agent in graph.agents)
 
@@ -42,7 +41,7 @@ public static AIAgent Build(IChatClient client, AIAgent? fallback = null)
     return active;
 }
 """
-    items = assignments(source, mask_non_code(source))
+    items = csharp_source.assignments(source, csharp_source.mask_non_code(source))
     assert "fallback" not in items
     assert "active" in items
 
@@ -58,7 +57,7 @@ public static AIAgent Get(IChatClient chatClient) =>
 """,
         encoding="utf-8",
     )
-    graph = scan_dotnet_file(source)
+    graph = microsoft_agent_framework_dotnet.scan_dotnet_file(source)
     generated = next(agent for agent in graph.agents if agent.name == "NamedFromFactory")
     assert generated.metadata["source_entity_classification"] == "factory_return_template"
     assert generated.metadata["factory_method"] == "Get"
