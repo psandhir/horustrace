@@ -54,15 +54,19 @@ def audit_study(root: Path, *, expected_cases: set[str] | None = None) -> dict:
     duplicates: list[str] = []
     for path in found:
         case_id = path.parent.name
+        # Actions download-artifact nests case data in a named artifact directory.
+        # Use exact case IDs from the pinned manifest rather than artifact labels.
+        if case_id.startswith("ff60-post-case-"):
+            case_id = case_id[len("ff60-post-case-"):]
         if case_id in seen:
             duplicates.append(case_id)
         seen.add(case_id)
         try:
             cases.append(
-                audit_case(json.loads(path.read_text(encoding="utf-8")), path.parent.name)
+                audit_case(json.loads(path.read_text(encoding="utf-8")), case_id)
             )
         except (OSError, ValueError, TypeError) as exc:
-            cases.append({"case_id": path.parent.name, "valid": False, "issues": [str(exc)]})
+            cases.append({"case_id": case_id, "valid": False, "issues": [str(exc)]})
     errors = [
         f"{item['case_id']}: {message}"
         for item in cases
