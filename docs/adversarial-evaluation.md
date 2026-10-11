@@ -176,11 +176,13 @@ The offline command can be run from a source checkout:
 
     python scripts/replay_adversarial_evaluation.py --bundle ./run --mode validate
     python scripts/replay_adversarial_evaluation.py --bundle ./run --mode replay --attempt attempt.1
-    python scripts/replay_adversarial_evaluation.py --bundle ./run --mode rescore --attempt attempt.1 --specifications ./reviewed-assertions.json
+    python scripts/replay_adversarial_evaluation.py --bundle ./run --mode rescore --attempt attempt.1 --specifications ./reviewed-assertions.json --authority-contract-digest sha256:<externally-verified-64-hex>
 
 \`replay\` is **observation replay** of exactly stored instrumented events;
 \`rescore\` uses stored events and deterministic scorers and makes zero target
-requests. Neither command guarantees repeating hosted model outputs, executes
+requests. The optional authority-contract digest must come from independently
+verified approved policy evidence; omitting it leaves contract-dependent scores
+unresolved. Neither command guarantees repeating hosted model outputs, executes
 a target, imports scanned modules or starts a tool/MCP server.
 
 The explicit \`promote_regression_pair\` path requires completed evidence, a
