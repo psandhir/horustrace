@@ -4,8 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from horustrace.evaluation.calibration import summarize_calibration, wilson_interval
+from horustrace.evaluation.calibration import (
+    summarize_calibration,
+    summarize_runtime_attempts,
+    wilson_interval,
+)
 from horustrace.evaluation.contracts import (
+    Attempt,
     EvaluationCase,
     EvaluationContractError,
     Observation,
@@ -77,3 +82,39 @@ def test_unresolved_is_not_free_true_negative_and_empty_denominators_are_explici
 def test_invalid_labeled_rows_fail_before_statistics():
     with pytest.raises(EvaluationContractError):
         summarize_calibration([{"case_id": "missing"}])
+
+
+
+def test_runtime_observation_rates_exclude_errors_and_incomplete_attempts():
+    def tested(n, state, outcome, effect):
+        obs = [{
+            "observation_id": f"event.{n}", "turn": 0,
+            "kind": "tool_invocation", "effect": effect,
+        }] if effect else []
+        assertions = [{
+            "assertion_id": "one", "verdict": "supported",
+            "scorer_id": "deterministic", "scorer_version": "v1",
+            "evidence_ids": [f"event.{n}"],
+        }] if effect else []
+        return Attempt.from_dict({
+            "attempt_id": f"attempt.{n}", "case_id": "case.one",
+            "execution_state": state, "outcome": outcome,
+            "observations": obs, "assertions": assertions,
+            "errors": ["synthetic failure"] if state == "error" else [],
+        })
+
+    attempts = [
+        tested(1, "completed", "policy_violation", "completed"),
+        tested(2, "completed", "control_enforced", "denied"),
+        tested(3, "completed", "unresolved", None),
+        tested(4, "error", "not_executed", None),
+        tested(5, "skipped", "not_executed", None),
+    ]
+    report = summarize_runtime_attempts(attempts)
+    assert report["all_attempts"] == 5
+    assert report["completed_valid_denominator"] == 2
+    assert report["supported_observed_policy_violations"] == 1
+    assert report["observed_attack_success_rate"] == 0.5
+    assert report["execution_states"]["error"] == 1
+    assert report["execution_states"]["skipped"] == 1
+    assert summarize_runtime_attempts([])["observed_attack_success_rate"] is None
