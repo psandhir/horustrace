@@ -160,3 +160,35 @@ def test_blind_attack_path_review_uses_path_universe_not_findings():
         blind_reviews=[reference],
     )
     assert report["independent_accuracy"]["calibration"]["overall"]["path"]["tp"] == 1
+
+
+def test_blind_review_packet_hides_all_scanner_claims(tmp_path):
+    spec = importlib.util.spec_from_file_location(
+        "blind_packets",
+        Path(__file__).parents[1] / "scripts" / "build_blind_source_review_packets.py",
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    bundles = tmp_path / "bundles"
+    bundles.mkdir()
+    case = bundles / "sample"
+    case.mkdir()
+    metadata = _bundle([_finding(0, "AGT020")])
+    metadata["attack_paths"] = [{"path_id": "PATH001"}]
+    (case / "result.json").write_text(json.dumps(metadata))
+    (case / "source-pack.txt").write_text("def function(): pass")
+    cohort = {"cases": [{
+        "case_id": "case1", "repo": "example/repo",
+        "sha": "abcdef", "framework": "openai-agents",
+    }]}
+    output = tmp_path / "packet"
+    lock = module.build_packets(cohort, bundles, output)
+    assert lock["scanner_output_present"] is False
+    assert lock["adjudication"] == "not_started"
+    assert lock["independence_verified"] is False
+    assert (output / "case1.source.txt").read_text() == "def function(): pass"
+    assert "AGT020" not in (output / "lock.json").read_text()
+    assert "PATH001" not in (output / "REVIEWER_GUIDE.md").read_text()
+    with pytest.raises(ValueError, match="already exists"):
+        module.build_packets(cohort, bundles, output)
