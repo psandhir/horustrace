@@ -207,3 +207,23 @@ def test_import_canonicalization_keeps_stable_url_loader_evidence(
         item.rule_id == "PATH011" and item.confidence is Confidence.SUPPORTED
         for item in findings
     )
+
+
+def test_mutation_probe_proves_alias_regression_gate_is_sensitive(
+    tmp_path: Path, monkeypatch,
+):
+    """A deliberate alias-resolver removal must cause a protected claim to disappear."""
+    from horustrace import flow as flow_engine
+
+    variant = generate_variant("module_alias", 0)
+    (tmp_path / "agent.py").write_text(variant.risky_source, encoding="utf-8")
+    original, _ = scan(tmp_path)
+    assert PROTECTED in security_claims(original)
+
+    monkeypatch.setattr(
+        flow_engine._FunctionAnalyzer,
+        "_canonical_called",
+        lambda self, called: called,
+    )
+    regressed, _ = scan(tmp_path)
+    assert PROTECTED not in security_claims(regressed)
