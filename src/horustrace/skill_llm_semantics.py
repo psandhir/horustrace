@@ -721,7 +721,6 @@ def _api_resolver(
     schema = _schema()
     if provider == "chatgpt_plan":
         from horustrace.chatgpt_plan import ChatGPTPlanError, stream_responses
-
         from horustrace.siwc_auth import ChatGPTAuthError, get_access_token
 
         try:
