@@ -729,7 +729,7 @@ def _api_resolver(
                 {
                     "model": config.model,
                     "instructions": _system_prompt(),
-                    "input": _user_prompt(candidate, source_slice),
+                    "input": [{"role": "user", "content": _user_prompt(candidate, source_slice)}],
                     "text": {
                         "format": {
                             "type": "json_schema",
