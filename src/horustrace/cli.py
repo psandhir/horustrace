@@ -449,6 +449,17 @@ def _parser() -> argparse.ArgumentParser:
             "Authority Contract violation or weakens the contract."
         ),
     )
+    chatgpt = sub.add_parser(
+        "chatgpt", help="Manage locally authorized ChatGPT-plan connections"
+    )
+    chatgpt.add_argument("action", choices=["login", "accounts", "models", "logout"])
+    chatgpt.add_argument(
+        "--account", help="Saved account identifier (shown by chatgpt accounts)"
+    )
+    chatgpt.add_argument(
+        "--new", action="store_true",
+        help="Register a new ChatGPT account instead of using a saved registration",
+    )
     return parser
 
 
@@ -512,6 +523,29 @@ def _parse_revision_range(value: str) -> tuple[str, str]:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.command == "chatgpt":
+        from horustrace.siwc_auth import (
+            ChatGPTAuthError,
+            accounts as chatgpt_accounts,
+            login as chatgpt_login,
+            logout as chatgpt_logout,
+            models as chatgpt_models,
+        )
+
+        try:
+            if args.action == "login":
+                response = chatgpt_login(account_id=args.account, new=args.new)
+            elif args.action == "accounts":
+                response = chatgpt_accounts()
+            elif args.action == "models":
+                response = chatgpt_models(account_id=args.account)
+            else:
+                response = chatgpt_logout(account_id=args.account)
+        except ChatGPTAuthError as exc:
+            print(f"horustrace chatgpt: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps(response, indent=2))
+        return 0
     if args.command == "adapters":
         report = {
             "schema_version": 1,
