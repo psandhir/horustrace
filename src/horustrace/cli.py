@@ -41,7 +41,7 @@ from horustrace.effective_authority import (
 )
 from horustrace.git_snapshot import GitSnapshotError
 from horustrace.limits import ScanLimitError
-from horustrace.llm_semantics import LLMSemanticConfig
+from horustrace.llm_semantics import LLMSemanticConfig, LLMSemanticError
 from horustrace.mcp_effective import effective_mcp_authority_report
 from horustrace.models import Severity
 from horustrace.owasp import build_owasp_agentic_summary, render_owasp_agentic_console
@@ -132,6 +132,11 @@ def _parser() -> argparse.ArgumentParser:
         default=0.75,
         metavar="P",
         help="Minimum confidence required to project inferred semantics (default: 0.75).",
+    )
+    scan_parser.add_argument(
+        "--semantic-llm-require-success",
+        action="store_true",
+        help="Fail a scan rather than fall back to deterministic-only on semantic LLM errors.",
     )
     scan_parser.add_argument(
         "--semantic-llm-cache",
@@ -772,7 +777,10 @@ def main(argv: list[str] | None = None) -> int:
                 authority_source=getattr(args, "authority_source", None),
                 use_default_suppressions=args.command != "owasp",
             )
-        except (ConfigError, ManifestError, ScannerError, SuppressionError, ScanLimitError) as exc:
+        except (
+        ConfigError, ManifestError, ScannerError, SuppressionError,
+        ScanLimitError, LLMSemanticError,
+    ) as exc:
             print(f"horustrace: {exc}", file=sys.stderr)
             return 1
 
@@ -914,6 +922,7 @@ def main(argv: list[str] | None = None) -> int:
                     max_total_chars=args.semantic_llm_max_total_chars,
                     min_confidence=args.semantic_llm_min_confidence,
                     cache_path=args.semantic_llm_cache,
+                    fail_open=not args.semantic_llm_require_success,
                 )
                 llm_semantic_config.validate()
             except ValueError as exc:
