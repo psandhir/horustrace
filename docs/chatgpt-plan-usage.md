@@ -1,67 +1,98 @@
-# ChatGPT plan usage in HorusScan — experimental transport
+# Using a ChatGPT plan for HorusScan enrichment (experimental)
 
-**State: transport proof of concept only. Browser-based sign-in is not yet implemented.**
-This branch does **not** grant access to a ChatGPT subscription, authorize a
-GitHub-hosted runner, or complete the Fresh-16 hybrid comparison.
+This provider is intended for locally operated, open-source HorusScan. It
+requires **explicit user sign-in and consent**. It does not use OpenAI API keys
+or share browser-session cookies.
 
-## Why
+## Install
 
-The existing `openai` provider requires a separate OpenAI API key.
-The optional `chatgpt_plan` provider uses a user-authorized **Sign in with
-ChatGPT** OAuth bearer token instead. It keeps HorusScan's existing bounded
-semantic prompts, JSON schemas, provenance checks, candidate budgets, and
-deterministic rule/path evaluation.
+```sh
+pip install -e '.[chatgpt]'
+horustrace chatgpt login
+```
 
-The transport uses OpenAI's public `POST /v1/responses` endpoint with
-`store: false` and `stream: true`; an inference is successful **only**
-after `response.completed`. `response.failed`, `response.incomplete`,
-network errors, invalid JSON and interrupted streams fail closed at the
-transport layer and are counted as scanner semantic failures by existing
-fail-open/fail-closed callers.
+The login command starts a listener on `127.0.0.1` with path
+`/auth/callback` and opens the system browser. Review the permissions
+and authorize **HorusScan** through the official OpenAI sign-in page.
+The CLI validates the issuer's JWKS-signed ID token, OIDC nonce, OAuth state,
+PKCE verifier and issued dynamic client ID before saving any credential.
 
-## Current integration seam (only after legitimate user authorization)
+The host identity and per-account access, refresh and ID tokens are stored in
+`~/.config/horustrace/chatgpt/` using atomic local owner-only credential files
+(0600 on Unix). Never copy these files into GitHub Secrets, repositories,
+managed CI runners, browser storage, cloud support tickets or chats.
 
-```bash
-# Illustrative only. The OAuth login flow is not implemented in this PR.
-# Never copy ChatGPT browser cookies or session credentials.
-export HORUSTRACE_CHATGPT_ACCESS_TOKEN="<authorized short-lived OAuth access token>"
-horustrace scan . --semantic-llm-provider chatgpt_plan \
-  --semantic-llm-model "<slug returned by the authorized account's model list>" \
+The model used by the scanner must be selected from your account's catalog:
+
+```sh
+horustrace chatgpt accounts
+horustrace chatgpt models
+horustrace scan ./my-agent-repository \
+  --semantic-llm-provider chatgpt_plan \
+  --semantic-llm-model '<slug from chatgpt models>' \
+  --semantic-llm-max-candidates 3 \
   --format json
 ```
 
-The account must explicitly approve `resource.invoke` and
-`chatgpt.tokens.use.direct`. The correct model slug must be selected from
-that account's model catalog. This branch does **not** do either step for you.
+The usual semantic candidate budget, source provenance and deterministic
+rule/path engine remain unchanged. The inference transport sends
+`store=false`, `stream=true` to the public Responses API and requires
+`response.completed` before accepting results.
 
-No OAuth tokens should be committed, uploaded to CI artifacts or scanner
-reports, passed into GitHub Secrets, or shared in chat. Do **not** use the
-standard GitHub-hosted Actions runner for SIWC plan usage.
+For multiple saved account registrations:
 
-## Required next phase before usable end-to-end
+```sh
+horustrace chatgpt accounts
+horustrace chatgpt login --account '<saved account ID>'
+horustrace chatgpt models --account '<saved account ID>'
+# For scan selection, use a local environment variable containing the
+# account *identifier*, never a token:
+HORUSTRACE_CHATGPT_ACCOUNT='<saved account ID>' \
+  horustrace scan . --semantic-llm-provider chatgpt_plan \
+  --semantic-llm-model '<account-specific model slug>'
+```
 
-1. Build the documented OAuth 2.0 / OIDC / PKCE dynamic registration with
-   `dynamic_agent_client`, stable local host identifier, system browser and
-   exact `http://127.0.0.1:<port>/auth/callback` listener.
-2. Verify the ID token signature against issuer JWKS, issuer/audience/nonce,
-   the callback state, and the granted plan-usage scopes.
-3. Keep refresh tokens and identity profiles in protected **user-controlled
-   local storage only**; provide account selection, refresh, revoke, logout,
-   and explicit permission before any automated or recurring workload.
-4. Implement a per-account model listing call to `GET /v1/models`; use the
-   account-specific `slug` and first-run preflight.
-5. Support user-controlled local or properly configured user-controlled remote
-   runtimes, not ordinary managed GitHub Actions for personal SIWC credentials.
-6. Execute the original **pinned** Fresh-16 baseline/hybrid cohort once the
-   user completes sign-in; independently adjudicate all graph and finding deltas.
+Register an additional account using `horustrace chatgpt login --new`.
+To revoke a session, run `horustrace chatgpt logout [--account ID]`.
+If remote revocation is not confirmed, the CLI reports this honestly and
+clears local tokens; disconnect the application in ChatGPT Settings.
 
-## Reference documentation
+## Existing and new cohort studies
+
+A local sign-in is **not** an authorization to run arbitrary model requests
+using that plan from a standard GitHub-hosted Actions runner. HorusScan must
+execute the authorized requests on the user's local runtime or a supported
+remote VM under that same user's control. For VMs the OpenAI guide requires
+a local OAuth flow first, secure credential transfer and a VM-specific host ID.
+
+The Fresh-16 pinned scanner cohort lives in
+`research/fresh-unseen-generalization-20/cohort.json`; the paired comparison
+harness is in PR #526. Running an actual ChatGPT-plan-backed cohort requires
+user authorization on the scan runtime. The experimental provider currently
+has only offline authentication/transport tests; there are **no verified
+live plan inferences or measured accuracy improvements** yet.
+
+Do not silently interpret `fail_open` source scans with LLM request failures
+as a successful LLM vs deterministic comparison. The research gate must
+fail closed if no model calls succeed or if any model call errors.
+
+## Requirements and limitations
+
+- Eligible ChatGPT account and sufficient shared plan quota; Plus plan usage
+  is shared across connected applications.
+- `PyJWT[crypto]` optional dependency needed to validate signed identities.
+- Browser-initiated OAuth callback at `127.0.0.1` on the same device.
+- A POSIX user-controlled runtime for automatic refresh locking in this
+  implementation. Windows support requires additional credential-store and
+  locking validation before claiming cross-platform readiness.
+- The login and inference code is **experimental**, pending security review,
+  verified live OAuth consent and model catalog / Responses integration tests.
+- The user must explicitly approve sign-in and any ongoing automation.
+
+## Official references
 
 - https://developers.openai.com/siwc/token-sharing-open-source/sign-in
+- https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions
 - https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference
 - https://developers.openai.com/siwc/token-sharing-open-source/self-hosted-vms
 - https://openai.com/policies/sign-in-with-chatgpt-terms/
-
-HorusScan must not request ChatGPT account passwords, browser session cookies,
-unofficial ChatGPT backend endpoints, or credentials submitted in pull-request
-comments. Usage limits and personal ChatGPT plan eligibility apply.
