@@ -9,7 +9,10 @@ on:
 
 permissions:
   contents: read
-  copilot-requests: write
+
+env:
+  SEMANTIC_PROVIDER: openai
+  SEMANTIC_MODEL: gpt-4.1-mini
 
 concurrency:
   group: fresh16-paired-${{ github.ref }}
@@ -21,25 +24,61 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      GITHUB_TOKEN: ${{ github.token }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-      - name: Install Copilot CLI
-        run: npm install -g @github/copilot
-      - name: Fail immediately on expired quota or missing entitlement
+      - name: Fail immediately on missing OpenAI API credential or quota
         shell: bash
         run: |
-          set -euo pipefail
-          if ! copilot -p 'Return one word: ready' -s \
-              --no-ask-user --no-custom-instructions --no-remote \
-              --model auto > /tmp/llm-preflight.txt 2>&1; then
-            cat /tmp/llm-preflight.txt
-            echo "::error::Semantic LLM unavailable; cohort comparison must not be interpreted as parity."
-            exit 1
-          fi
-          echo "Copilot semantic provider preflight passed."
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.error
+          import urllib.request
+
+          key = os.environ.get("OPENAI_API_KEY", "").strip()
+          model = os.environ.get("SEMANTIC_MODEL", "").strip()
+          if not key:
+              print("::error::Missing repository secret OPENAI_API_KEY. ChatGPT subscription does not provide API credentials.")
+              sys.exit(1)
+          if not model:
+              print("::error::Missing SEMANTIC_MODEL.")
+              sys.exit(1)
+          payload = json.dumps({
+              "model": model,
+              "input": "Respond with exactly: ready",
+              "store": False,
+              "max_output_tokens": 24,
+          }).encode("utf-8")
+          req = urllib.request.Request(
+              "https://api.openai.com/v1/responses",
+              data=payload,
+              headers={
+                  "Authorization": "Bearer " + key,
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(req, timeout=60) as response:
+                  data = json.load(response)
+          except urllib.error.HTTPError as exc:
+              try:
+                  body = json.loads(exc.read().decode("utf-8"))
+                  detail = body.get("error", {})
+                  msg = str(detail.get("code") or detail.get("type") or "api_error")
+              except Exception:
+                  msg = "api_error"
+              print(f"::error::OpenAI API preflight rejected: HTTP {exc.code}, {msg}; configure API billing/model access.")
+              sys.exit(1)
+          except Exception as exc:
+              print(f"::error::OpenAI API preflight request failed: {type(exc).__name__}")
+              sys.exit(1)
+          if data.get("status") != "completed":
+              print(f"::error::OpenAI API preflight not completed: {data.get('status')}")
+              sys.exit(1)
+          print("OpenAI Responses API preflight passed for", model)
+          PY
 
   paired-case:
     needs: provider-preflight
@@ -48,7 +87,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 2
       matrix:
         case_id:
           - gen-adk-001
@@ -68,22 +107,14 @@ jobs:
           - gen-mcp-003
           - gen-mcp-004
     env:
-      GITHUB_TOKEN: ${{ github.token }}
-      SEMANTIC_PROVIDER: copilot
-      SEMANTIC_MODEL: auto
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-      - name: Install scanner and Copilot CLI
-        run: |
-          python -m pip install -e .
-          npm install -g @github/copilot
-          copilot --version
+      - name: Install scanner
+        run: python -m pip install -e .
       - name: Paired scan (same pinned SHA)
         run: |
           python research/fresh16-hybrid-comparison-20261011/run_compare.py case \
