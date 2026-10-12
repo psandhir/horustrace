@@ -719,7 +719,30 @@ def _api_resolver(
         return _copilot_resolver(candidate, source_slice, config)
 
     schema = _schema()
-    if provider == "openai":
+    if provider == "chatgpt_plan":
+        from horustrace.chatgpt_plan import ChatGPTPlanError, stream_responses
+
+        token = os.environ.get("HORUSTRACE_CHATGPT_ACCESS_TOKEN", "").strip()
+        try:
+            response = stream_responses(
+                {
+                    "model": config.model,
+                    "instructions": _system_prompt(),
+                    "input": _user_prompt(candidate, source_slice),
+                    "text": {
+                        "format": {
+                            "type": "json_schema",
+                            "name": "horustrace_skill_security_semantics",
+                            "strict": True,
+                            "schema": schema,
+                        }
+                    },
+                }, token,
+            )
+        except ChatGPTPlanError as exc:
+            raise LLMSemanticError(str(exc)) from exc
+        raw, request_id = _openai_text(response)
+    elif provider == "openai":
         api_key = os.environ.get("OPENAI_API_KEY", "").strip()
         if not api_key:
             raise LLMSemanticError("OPENAI_API_KEY is required")
