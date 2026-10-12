@@ -24,7 +24,7 @@ from urllib import error, parse, request
 ISSUER = "https://auth.openai.com"
 AUTH_URL = ISSUER + "/api/accounts/authorize"
 TOKEN_URL = ISSUER + "/api/accounts/oauth/token"
-REVOCATION_URL = ISSUER + "/api/accounts/oauth/revoke"
+DISCOVERY_URL = ISSUER + "/.well-known/openid-configuration"
 JWKS_URL = ISSUER + "/.well-known/jwks.json"
 RESOURCE = "https://api.openai.com/v1"
 SCOPES = "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct"
@@ -223,7 +223,7 @@ def _record(tokens: dict, client_id: str, claims: dict, stable_host: str) -> dic
     granted = set(scope.split()) if isinstance(scope, str) else set()
     if not REQUIRED_SCOPES.issubset(granted):
         raise ChatGPTAuthError("ChatGPT plan usage permission was not granted")
-    if tokens.get("token_type", "").lower() != "bearer":
+    if str(tokens.get("token_type", "")).lower() != "bearer":
         raise ChatGPTAuthError("authorization did not return a bearer token")
     for field in ("id_token", "access_token", "refresh_token"):
         if not isinstance(tokens.get(field), str) or not tokens[field]:
@@ -438,6 +438,30 @@ def models(account_id: str | None = None, root: Path | None = None) -> list[dict
     ]
 
 
+def _revocation_endpoint() -> str:
+    """Use the issuer's advertised revocation endpoint, never an arbitrary URL."""
+    req = request.Request(DISCOVERY_URL)
+    try:
+        with request.urlopen(req, timeout=30) as response:
+            raw = response.read(MAX_OAUTH_BYTES + 1)
+    except (error.HTTPError, error.URLError, TimeoutError) as exc:
+        raise ChatGPTAuthError("ChatGPT revocation discovery failed") from exc
+    if len(raw) > MAX_OAUTH_BYTES:
+        raise ChatGPTAuthError("ChatGPT revocation discovery too large")
+    config = json.loads(raw)
+    if not isinstance(config, dict) or config.get("issuer") != ISSUER:
+        raise ChatGPTAuthError("untrusted ChatGPT revocation issuer")
+    url = config.get("revocation_endpoint")
+    parsed = parse.urlsplit(url) if isinstance(url, str) else None
+    if (not parsed or parsed.scheme != "https"
+            or parsed.hostname != "auth.openai.com"
+            or parsed.port not in (None, 443)
+            or not parsed.path.startswith("/api/accounts/")
+            or parsed.username or parsed.password or parsed.query or parsed.fragment):
+        raise ChatGPTAuthError("untrusted ChatGPT revocation endpoint")
+    return url
+
+
 def logout(account_id: str | None = None, root: Path | None = None) -> dict:
     home = root or state_dir()
     with _refresh_lock(home):
@@ -452,12 +476,12 @@ def logout(account_id: str | None = None, root: Path | None = None) -> dict:
             try:
                 body = parse.urlencode(values).encode("utf-8")
                 req = request.Request(
-                    REVOCATION_URL, data=body, method="POST",
+                    _revocation_endpoint(), data=body, method="POST",
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
                 )
                 with request.urlopen(req, timeout=30) as response:
                     revoked = response.status == 200
-            except (error.HTTPError, error.URLError, TimeoutError):
+            except (error.HTTPError, error.URLError, TimeoutError, ChatGPTAuthError):
                 pass
         for field in ("access_token", "refresh_token", "id_token"):
             record.pop(field, None)
