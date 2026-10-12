@@ -457,13 +457,16 @@ def _parser() -> argparse.ArgumentParser:
     chatgpt = sub.add_parser(
         "chatgpt", help="Manage locally authorized ChatGPT-plan connections"
     )
-    chatgpt.add_argument("action", choices=["login", "accounts", "models", "logout"])
+    chatgpt.add_argument("action", choices=["login", "accounts", "models", "smoke", "logout"])
     chatgpt.add_argument(
         "--account", help="Saved account identifier (shown by chatgpt accounts)"
     )
     chatgpt.add_argument(
         "--new", action="store_true",
         help="Register a new ChatGPT account instead of using a saved registration",
+    )
+    chatgpt.add_argument(
+        "--model", help="Account-listed model slug for a one-request sign-in smoke test",
     )
     return parser
 
@@ -534,6 +537,7 @@ def main(argv: list[str] | None = None) -> int:
         from horustrace.siwc_auth import login as chatgpt_login
         from horustrace.siwc_auth import logout as chatgpt_logout
         from horustrace.siwc_auth import models as chatgpt_models
+        from horustrace.siwc_auth import smoke as chatgpt_smoke
 
         try:
             if args.action == "login":
@@ -542,6 +546,10 @@ def main(argv: list[str] | None = None) -> int:
                 response = chatgpt_accounts()
             elif args.action == "models":
                 response = chatgpt_models(account_id=args.account)
+            elif args.action == "smoke":
+                if not args.model:
+                    raise ChatGPTAuthError("--model is required for the smoke test")
+                response = chatgpt_smoke(args.model, account_id=args.account)
             else:
                 response = chatgpt_logout(account_id=args.account)
         except ChatGPTAuthError as exc:
