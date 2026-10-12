@@ -462,6 +462,45 @@ def _revocation_endpoint() -> str:
     return url
 
 
+def smoke(model: str, account_id: str | None = None, root: Path | None = None) -> dict:
+    """User-invoked single-response account and model smoke test.
+
+    Does not print, store, or return bearer tokens or model output. Runs only
+    after user action through a local user-controlled runtime.
+    """
+    from horustrace.chatgpt_plan import ChatGPTPlanError, stream_responses
+    from horustrace.llm_semantics import LLMSemanticError, _openai_text
+
+    if not model or not model.strip():
+        raise ChatGPTAuthError("select a model slug from 'horustrace chatgpt models'")
+    catalog = models(account_id, root)
+    if model not in {entry["slug"] for entry in catalog}:
+        raise ChatGPTAuthError("selected model is not in this ChatGPT account catalog")
+
+    token = get_access_token(account_id, root)
+    try:
+        response = stream_responses({
+            "model": model,
+            "input": [{
+                "role": "user",
+                "content": "Authentication smoke test. Reply with exactly: ready",
+            }],
+        }, token)
+        output, request_id = _openai_text(response)
+    except (ChatGPTPlanError, LLMSemanticError) as exc:
+        # Preserve only sanitized model-transport error descriptions.
+        raise ChatGPTAuthError(str(exc)) from exc
+    if output.strip().lower() != "ready":
+        raise ChatGPTAuthError("the model completed but did not return expected smoke text")
+    return {
+        "status": "completed",
+        "provider": "chatgpt_plan",
+        "model": model,
+        "request_id": request_id,
+        "result": "ready",
+    }
+
+
 def logout(account_id: str | None = None, root: Path | None = None) -> dict:
     home = root or state_dir()
     with _refresh_lock(home):
