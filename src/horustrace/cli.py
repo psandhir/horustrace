@@ -98,7 +98,7 @@ def _parser() -> argparse.ArgumentParser:
                              help="Explicit suppression YAML file.")
     scan_parser.add_argument(
         "--semantic-llm-provider",
-        choices=["openai", "google", "gemini", "copilot"],
+        choices=["openai", "google", "gemini", "copilot", "chatgpt_plan"],
         help="Opt in to bounded LLM semantic escalation for unresolved source-backed gaps.",
     )
     scan_parser.add_argument(
