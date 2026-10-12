@@ -11,10 +11,10 @@ from urllib import error
 import pytest
 
 from horustrace.chatgpt_plan import (
-    ChatGPTPlanError,
     RESPONSES_URL,
-    _terminal,
+    ChatGPTPlanError,
     _events,
+    _terminal,
     stream_responses,
 )
 from horustrace.llm_semantics import LLMSemanticConfig
