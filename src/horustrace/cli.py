@@ -524,13 +524,11 @@ def _parse_revision_range(value: str) -> tuple[str, str]:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.command == "chatgpt":
-        from horustrace.siwc_auth import (
-            ChatGPTAuthError,
-            accounts as chatgpt_accounts,
-            login as chatgpt_login,
-            logout as chatgpt_logout,
-            models as chatgpt_models,
-        )
+        from horustrace.siwc_auth import ChatGPTAuthError
+        from horustrace.siwc_auth import accounts as chatgpt_accounts
+        from horustrace.siwc_auth import login as chatgpt_login
+        from horustrace.siwc_auth import logout as chatgpt_logout
+        from horustrace.siwc_auth import models as chatgpt_models
 
         try:
             if args.action == "login":
