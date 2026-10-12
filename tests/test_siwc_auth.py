@@ -169,3 +169,60 @@ def test_real_jws_crypto_verification_checks_audience_nonce_signature(monkeypatc
         a.verify_id_token(signed, "oaiapp_test", "incorrect")
     with pytest.raises(a.ChatGPTAuthError, match="validation"):
         a.verify_id_token(signed, "wrong-audience", "nonce-ok")
+
+
+def test_account_smoke_sends_one_minimal_request_and_never_returns_token(monkeypatch):
+    from horustrace import chatgpt_plan
+
+    captured = []
+    monkeypatch.setattr(
+        a, "models",
+        lambda account_id=None, root=None: [{"slug": "account-selected-model"}],
+    )
+    monkeypatch.setattr(
+        a, "get_access_token",
+        lambda account_id=None, root=None: "sensitive-oauth-token",
+    )
+
+    def fake_responses(payload, token):
+        assert token == "sensitive-oauth-token"
+        assert payload == {
+            "model": "account-selected-model",
+            "input": [{
+                "role": "user",
+                "content": "Authentication smoke test. Reply with exactly: ready",
+            }],
+        }
+        captured.append(payload)
+        return {
+            "id": "resp_fixture",
+            "status": "completed",
+            "output": [{
+                "type": "message",
+                "content": [{"type": "output_text", "text": "ready"}],
+            }],
+        }
+
+    monkeypatch.setattr(chatgpt_plan, "stream_responses", fake_responses)
+    result = a.smoke("account-selected-model")
+    assert result["status"] == "completed"
+    assert result["provider"] == "chatgpt_plan"
+    assert result["request_id"] == "resp_fixture"
+    assert len(captured) == 1
+    assert "sensitive-oauth-token" not in json.dumps(result)
+
+
+def test_account_smoke_refuses_unlisted_model_without_inference(monkeypatch):
+    from horustrace import chatgpt_plan
+
+    monkeypatch.setattr(
+        a, "models",
+        lambda account_id=None, root=None: [{"slug": "account-selected-model"}],
+    )
+
+    def forbid_call(*args, **kwargs):
+        raise AssertionError("must not make a model call")
+
+    monkeypatch.setattr(chatgpt_plan, "stream_responses", forbid_call)
+    with pytest.raises(a.ChatGPTAuthError, match="not in this ChatGPT account"):
+        a.smoke("unavailable-model")
