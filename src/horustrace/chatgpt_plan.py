@@ -96,6 +96,16 @@ def stream_responses(
         raise ChatGPTPlanError("Sign in with ChatGPT authorization is required")
     if not isinstance(payload.get("model"), str) or not payload["model"].strip():
         raise ChatGPTPlanError("a model selected from the signed-in account is required")
+    if not isinstance(payload.get("input"), list) or not payload["input"]:
+        raise ChatGPTPlanError("ChatGPT plan input must be a non-empty message array")
+    forbidden = {
+        "background", "conversation", "max_output_tokens", "max_tool_calls",
+        "metadata", "moderation", "multi_agent", "prompt", "prompt_cache_retention",
+        "safety_identifier", "temperature", "top_logprobs", "top_p", "truncation",
+        "user", "previous_response_id",
+    }
+    if forbidden.intersection(payload):
+        raise ChatGPTPlanError("unsupported ChatGPT plan Responses parameter")
     encoded = json.dumps({**payload, "store": False, "stream": True}).encode("utf-8")
     req = request.Request(
         RESPONSES_URL,
