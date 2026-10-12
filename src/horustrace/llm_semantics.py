@@ -1145,7 +1145,6 @@ def _api_resolver(
         return _copilot_resolver(candidate, source_slice, config)
     if provider == "chatgpt_plan":
         from horustrace.chatgpt_plan import ChatGPTPlanError, stream_responses
-
         from horustrace.siwc_auth import ChatGPTAuthError, get_access_token
 
         try:
