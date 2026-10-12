@@ -722,8 +722,10 @@ def _api_resolver(
     if provider == "chatgpt_plan":
         from horustrace.chatgpt_plan import ChatGPTPlanError, stream_responses
 
-        token = os.environ.get("HORUSTRACE_CHATGPT_ACCESS_TOKEN", "").strip()
+        from horustrace.siwc_auth import ChatGPTAuthError, get_access_token
+
         try:
+            token = get_access_token()
             response = stream_responses(
                 {
                     "model": config.model,
@@ -739,7 +741,7 @@ def _api_resolver(
                     },
                 }, token,
             )
-        except ChatGPTPlanError as exc:
+        except (ChatGPTPlanError, ChatGPTAuthError) as exc:
             raise LLMSemanticError(str(exc)) from exc
         raw, request_id = _openai_text(response)
     elif provider == "openai":
