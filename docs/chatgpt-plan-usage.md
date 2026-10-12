@@ -27,6 +27,8 @@ The model used by the scanner must be selected from your account's catalog:
 ```sh
 horustrace chatgpt accounts
 horustrace chatgpt models
+# Use a displayed model slug; sends one small test request using your plan:
+horustrace chatgpt smoke --model '<slug from chatgpt models>'
 horustrace scan ./my-agent-repository \
   --semantic-llm-provider chatgpt_plan \
   --semantic-llm-model '<slug from chatgpt models>' \
