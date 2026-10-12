@@ -56,7 +56,7 @@ def test_stream_forces_privacy_flags_and_waits_for_completion():
                           + event(complete()))
 
     output = stream_responses(
-        {"model": "account-selected-model", "input": "test",
+        {"model": "account-selected-model", "input": [{"role": "user", "content": "test"}],
          "store": True, "stream": False},
         "user-authorized-oauth-token",
         opener=opener,
@@ -112,6 +112,14 @@ def test_http_error_does_not_echo_provider_body_or_oauth_token():
         )
 
     with pytest.raises(ChatGPTPlanError, match="HTTP 403") as exc:
-        stream_responses({"model": "test"}, "secret-token", opener=forbidden)
+        stream_responses({"model": "test", "input": [{"role": "user", "content": "test"}]}, "secret-token", opener=forbidden)
     assert "secret-token" not in str(exc.value)
     assert "secret-body" not in str(exc.value)
+
+
+def test_plan_transport_rejects_unsupported_parameters():
+    good = {"model": "test-model", "input": [{"role": "user", "content": "test"}]}
+    with pytest.raises(ChatGPTPlanError, match="message array"):
+        stream_responses({"model": "test-model", "input": "test"}, "opaque-oauth-token")
+    with pytest.raises(ChatGPTPlanError, match="unsupported"):
+        stream_responses({**good, "temperature": 0.1}, "opaque-oauth-token")
