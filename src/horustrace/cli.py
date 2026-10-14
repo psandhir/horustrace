@@ -915,7 +915,7 @@ def main(argv: list[str] | None = None) -> int:
             shadow_root = target if target.is_dir() else target.parent
             args.shadow_observation_output.write_text(
                 json.dumps(
-                    shadow_observation_report(graph, shadow_root),
+                    shadow_observation_report(graph, shadow_root, target=target),
                     indent=2, sort_keys=True,
                 ) + "\n",
                 encoding="utf-8",
