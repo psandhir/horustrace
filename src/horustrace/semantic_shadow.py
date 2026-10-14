@@ -25,8 +25,8 @@ from horustrace.semantic_discovery import (
     stable_observation_id,
 )
 from horustrace.semantic_trace import _portable
-from horustrace.source_native_mcp import inspect_local_pydantic_mcp
 from horustrace.source_context import classify_source_context
+from horustrace.source_native_mcp import inspect_local_pydantic_mcp
 
 SHADOW_SCHEMA_VERSION = 2
 ORIGIN = "legacy_graph_projection_not_independently_adjudicated"
