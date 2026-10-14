@@ -56,8 +56,8 @@ from horustrace.reporters.sarif import render as render_sarif
 from horustrace.rule_registry import iter_rule_metadata
 from horustrace.scanner import ScannerError, scan
 from horustrace.security_graph import build_agent_security_graph
-from horustrace.semantic_trace import SemanticTrace
 from horustrace.semantic_shadow import shadow_observation_report
+from horustrace.semantic_trace import SemanticTrace
 from horustrace.source_context import SOURCE_CONTEXTS
 from horustrace.suppressions import SuppressionError, write_baseline
 from horustrace.visual_report import render_visual_report_html
