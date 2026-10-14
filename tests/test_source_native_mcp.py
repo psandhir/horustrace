@@ -35,7 +35,9 @@ def _provider(root: Path) -> None:
         "unrelated = Decoy()\n"
         "@unrelated.tool()\n"
         "def not_exposed():\n"
-        "    return 1\n",
+        "    return 1\n"
+        "if __name__ == '__main__':\n"
+        "    mcp.run()\n",
         encoding="utf-8",
     )
 
@@ -165,3 +167,19 @@ def test_two_fastmcp_objects_in_one_script_do_not_collapse_into_one_server(
     report = inspect_local_pydantic_mcp(tmp_path).as_dict()
     assert not any(e["kind"] == "exposes_tool" for e in report["bindings"])
     assert not any(e["kind"] == "client_connects_to_server" for e in report["bindings"])
+
+
+def test_provider_without_run_entrypoint_does_not_claim_client_connection(
+    tmp_path: Path,
+) -> None:
+    _agent(tmp_path)
+    (tmp_path / "mcp_server.py").write_text(
+        "from mcp.server.fastmcp import FastMCP\n"
+        "mcp = FastMCP('inactive')\n"
+        "@mcp.tool()\n"
+        "def hidden():\n"
+        "    return 1\n", encoding="utf-8",
+    )
+    report = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert {edge["kind"] for edge in report["bindings"]} == {"agent_binds_client"}
+    assert all(entity["kind"] != "mcp_server" for entity in report["entities"])
