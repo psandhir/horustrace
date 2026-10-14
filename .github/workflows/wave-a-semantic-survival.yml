@@ -1,0 +1,95 @@
+name: Wave A Semantic Survival Diagnostic
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/wave-a-semantic-survival.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wave-a-semantic-survival-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.cases.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: cases
+        name: Verify original source pins and prepare exact case matrix
+        run: |
+          set -euo pipefail
+          python -m scripts.verify_accuracy_wave_a_baseline
+          python -m scripts.verify_accuracy_wave_a_assertions
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          cohort = json.loads(Path("research/accuracy-wave-a-retrospective-20261014/cohort.json").read_text())
+          rows = [{"case_id": c["case_id"]} for c in cohort["cases"]]
+          assert len(rows) == 30
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("matrix=" + json.dumps(rows, separators=(",", ":")) + "\n")
+          PY
+
+  scan:
+    needs: matrix
+    name: ${{ matrix.case_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include: ${{ fromJSON(needs.matrix.outputs.include) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install scanner without target dependencies
+        run: python -m pip install -e .
+      - name: Scan exact pinned source without executing target applications
+        env:
+          CASE_ID: ${{ matrix.case_id }}
+        run: |
+          set -euo pipefail
+          python -m scripts.wave_a_run_trace_case --case-id "$CASE_ID" --output-dir wave-a-artifacts
+      - name: Retain case trace and metrics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wave-a-semantic-trace-${{ matrix.case_id }}
+          path: wave-a-artifacts/${{ matrix.case_id }}/
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    needs: [matrix, scan]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: wave-a-semantic-trace-*
+          path: downloaded
+          merge-multiple: false
+      - name: Reject missing or partial case and produce cross-framework stage-waterfall
+        run: python -m scripts.wave_a_aggregate_traces --inputs downloaded --output-dir aggregate-wave-a
+      - name: Retain the aggregate report even when a case fails
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wave-a-semantic-survival-summary
+          path: aggregate-wave-a/
+          if-no-files-found: warn
+          retention-days: 30
