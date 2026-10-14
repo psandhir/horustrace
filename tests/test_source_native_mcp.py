@@ -183,3 +183,77 @@ def test_provider_without_run_entrypoint_does_not_claim_client_connection(
     report = inspect_local_pydantic_mcp(tmp_path).as_dict()
     assert {edge["kind"] for edge in report["bindings"]} == {"agent_binds_client"}
     assert all(entity["kind"] != "mcp_server" for entity in report["entities"])
+
+
+def test_extra_undecorated_server_does_not_infer_served_instance(
+    tmp_path: Path,
+) -> None:
+    _agent(tmp_path)
+    (tmp_path / "mcp_server.py").write_text(
+        "from mcp.server.fastmcp import FastMCP\n"
+        "exposed = FastMCP('a')\n"
+        "other = FastMCP('b')\n"
+        "@exposed.tool()\n"
+        "def read_record():\n"
+        "    return 1\n"
+        "other.run()\n", encoding="utf-8",
+    )
+    report = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    kinds = {edge["kind"] for edge in report["bindings"]}
+    assert kinds == {"agent_binds_client"}
+
+
+def test_exact_imported_symbol_and_alias_are_respected(tmp_path: Path) -> None:
+    (tmp_path / "agent.py").write_text(
+        "from pydantic_ai import RunContext\n"
+        "from pydantic_ai.mcp import MCPServerStdio\n"
+        "def RunContext(*a, **kw): return None\n"
+        "server = [MCPServerStdio('python', ['mcp_server.py'])]\n"
+        "agent = RunContext('model', mcp_servers=server)\n",
+        encoding="utf-8",
+    )
+    _provider(tmp_path)
+    assert inspect_local_pydantic_mcp(tmp_path).bindings == []
+
+    (tmp_path / "agent.py").write_text(
+        "from pydantic_ai import Agent as AI_Agent\n"
+        "from pydantic_ai.mcp import MCPServerStdio as Stdio\n"
+        "server = [Stdio('python', ['mcp_server.py'])]\n"
+        "agent = AI_Agent('model', mcp_servers=server)\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "mcp_server.py").write_text(
+        "from fastmcp import FastMCP as Server\n"
+        "mcp = Server('demo')\n"
+        "@mcp.tool()\n"
+        "def approved(): return True\n",
+        encoding="utf-8",
+    )
+    report = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert {edge["kind"] for edge in report["bindings"]} == {
+        "agent_binds_client", "client_connects_to_server", "exposes_tool",
+    }
+
+
+def test_reassigned_source_symbols_do_not_prove_source_identity(
+    tmp_path: Path,
+) -> None:
+    _agent(tmp_path)
+    _provider(tmp_path)
+    (tmp_path / "agent.py").write_text(
+        (tmp_path / "agent.py").read_text(encoding="utf-8")
+        + "agent = None\n",
+        encoding="utf-8",
+    )
+    assert inspect_local_pydantic_mcp(tmp_path).bindings == []
+
+    _agent(tmp_path)
+    (tmp_path / "mcp_server.py").write_text(
+        (tmp_path / "mcp_server.py").read_text(encoding="utf-8")
+        + "mcp = None\n",
+        encoding="utf-8",
+    )
+    report = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert [edge["kind"] for edge in report["bindings"]] == [
+        "agent_binds_client",
+    ]
