@@ -54,7 +54,7 @@ class _ShadowBuilder:
         self.entities: dict[str, SemanticEntity] = {}
         self.observations: dict[str, SemanticObservation] = {}
         self.bindings: dict[str, SemanticBinding] = {}
-        self.ambiguous_source_keys: set[str] = set()
+        self.ambiguous_source_keys: dict[str, int] = {}
 
     def add_entity(
         self,
@@ -88,6 +88,26 @@ class _ShadowBuilder:
             source_key=qualified_key,
             line=portable_location.line if portable_location is not None else 0,
         )
+        if kind == SemanticEntityKind.AGENT and entity_id in self.entities:
+            # Distinct same-name agent entries must not be silently merged.
+            # There is no source-stable identity if the Graph supplies neither
+            # a different source span nor an instance key. Retain both with an
+            # explicit unresolved graph-order suffix, not a proven source link.
+            first = self.entities[entity_id]
+            first.metadata["identity_resolution"] = "ambiguous_same_source_instance"
+            for observation in self.observations.values():
+                if observation.entity_id == entity_id:
+                    observation.resolution = SemanticResolution.UNRESOLVED
+                    observation.reason = "ambiguous_same_source_instance"
+            duplicate = self.ambiguous_source_keys.get(entity_id, 1)
+            self.ambiguous_source_keys[entity_id] = duplicate + 1
+            qualified_key += f"#ambiguous_graph_occurrence={duplicate}"
+            entity_id = stable_entity_id(
+                framework=framework, kind=kind, name=name,
+                source_key=qualified_key,
+                line=portable_location.line if portable_location is not None else 0,
+            )
+            resolution = SemanticResolution.UNRESOLVED
         context = metadata.get("source_context")
         if context is None:
             context = (
@@ -106,6 +126,11 @@ class _ShadowBuilder:
                     "origin": ORIGIN,
                     "source_context": str(context),
                     "instance_key": instance_key,
+                    "identity_resolution": (
+                        "ambiguous_same_source_instance"
+                        if resolution == SemanticResolution.UNRESOLVED
+                        and kind == SemanticEntityKind.AGENT else "legacy_observed"
+                    ),
                 },
             )
         # Each distinct role is an observation, not an invented second object.
@@ -122,7 +147,10 @@ class _ShadowBuilder:
             parser_id="legacy_graph_projection",
             source_key=qualified_key,
             reason=(
-                "unresolved_reference_in_legacy_graph"
+                "ambiguous_same_source_instance"
+                if resolution == SemanticResolution.UNRESOLVED
+                and kind == SemanticEntityKind.AGENT
+                else "unresolved_reference_in_legacy_graph"
                 if resolution == SemanticResolution.UNRESOLVED
                 else "observed_legacy_graph_membership_not_source_edge_proof"
             ),
