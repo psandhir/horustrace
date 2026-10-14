@@ -125,6 +125,7 @@ from horustrace.rules.builtin import evaluate
 from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
 from horustrace.runtime_viability import annotate_runtime_viability
 from horustrace.semantic_contract import set_source_context, tool_control_enforcing
+from horustrace.semantic_trace import SemanticTrace
 from horustrace.semantics import annotate_risk_semantics
 from horustrace.skill_llm_semantics import enrich_skill_llm_semantics
 from horustrace.skills import SKILL_FILENAME, bind_discovered_skills, scan_skill_file
@@ -2403,6 +2404,7 @@ def scan(
     config: ScanConfig | None = None,
     authority_source: Path | None = None,
     llm_semantic_config: LLMSemanticConfig | None = None,
+    trace: SemanticTrace | None = None,
 ) -> tuple[Graph, list]:
     with tempfile.TemporaryDirectory(prefix="horustrace-notebooks-") as notebook_tempdir:
         return _scan(
@@ -2412,6 +2414,7 @@ def scan(
             config=config,
             authority_source=authority_source,
             llm_semantic_config=llm_semantic_config,
+            trace=trace,
             notebook_tempdir=Path(notebook_tempdir),
         )
 
@@ -2423,6 +2426,7 @@ def _scan(
     config: ScanConfig | None = None,
     authority_source: Path | None = None,
     llm_semantic_config: LLMSemanticConfig | None = None,
+    trace: SemanticTrace | None = None,
     *,
     notebook_tempdir: Path,
 ) -> tuple[Graph, list]:
@@ -2658,6 +2662,8 @@ def _scan(
             _merge(graph, scan_adk_env(candidate), candidate)
 
     pipeline.record("discovered", graph)
+    if trace is not None:
+        trace.capture("discovered", graph)
     _consolidate_global_identities(graph)
     enrich_strands_repository_graph(
         graph,
@@ -2665,6 +2671,8 @@ def _scan(
         python_paths=approved_python_paths,
     )
     _consolidate_agents(graph)
+    if trace is not None:
+        trace.capture("initial_instances_consolidated", graph)
     enrich_microsoft_repository_authority(
         graph,
         root if root.is_dir() else root.parent,
@@ -2702,6 +2710,8 @@ def _scan(
         root if root.is_dir() else root.parent,
     )
     reconstruct_mcp_context(graph)
+    if trace is not None:
+        trace.capture("mcp_context_resolved", graph)
     authority_enrichment = None
     if authority_source is not None:
         try:
@@ -2750,6 +2760,8 @@ def _scan(
         [item for item in candidates if item.suffix.lower() in {".yaml", ".yml"}],
     )
     normalize_destination_resource_provenance(graph)
+    if trace is not None:
+        trace.capture("source_semantics_resolved", graph)
     if llm_semantic_config is not None:
         llm_semantic_stats = enrich_llm_semantics(
             graph,
@@ -2762,6 +2774,8 @@ def _scan(
     # network/write capabilities and lose child destination/control constraints.
     _propagate_pydantic_delegation(graph)
     _propagate_adk_delegation(graph)
+    if trace is not None:
+        trace.capture("delegation_projected", graph)
     enrich_public_realtime_mcp_authority(
         graph,
         root if root.is_dir() else root.parent,
@@ -2769,6 +2783,8 @@ def _scan(
     )
     bind_discovered_skills(graph, root if root.is_dir() else root.parent)
     enrich_adk_skill_authority(graph)
+    if trace is not None:
+        trace.capture("skills_bound", graph)
     if llm_semantic_config is not None:
         skill_llm_semantic_stats = enrich_skill_llm_semantics(
             graph,
@@ -2777,6 +2793,8 @@ def _scan(
         )
     diagnose_dynamic_constructs(graph)
     pipeline.record("normalized", graph)
+    if trace is not None:
+        trace.capture("normalized", graph)
     for agent in graph.agents:
         if agent.metadata.get("dynamic_control_flow"):
             add_diagnostic(
@@ -2977,6 +2995,8 @@ def _scan(
         graph.coverage.resolution["skill_semantic_llm"] = skill_llm_semantic_stats
 
     pipeline.record("flows_resolved", graph)
+    if trace is not None:
+        trace.capture("flows_resolved", graph)
     annotate_risk_semantics(graph)
     graph.attack_paths = build_attack_paths(graph)
     for attack_path in graph.attack_paths:
@@ -3004,8 +3024,12 @@ def _scan(
                 "Declared static authority is source-proven, but live runtime reachability is blocked by the pinned source error.",
             )
     pipeline.record("attack_paths", graph)
+    if trace is not None:
+        trace.capture("attack_paths", graph)
     graph.adg = build_adg(graph, analysis_root)
     pipeline.record("adg", graph)
+    if trace is not None:
+        trace.capture("adg", graph)
     findings = evaluate(graph)
     for finding in findings:
         same_name_agents = [
@@ -3067,4 +3091,6 @@ def _scan(
         findings, root if root.is_dir() else root.parent, suppression_file,
     )
     pipeline.record("findings", graph, finding_count=len(findings))
+    if trace is not None:
+        trace.capture("findings", graph)
     return graph, findings
