@@ -1,6 +1,6 @@
 # RFC: Evidence-first accuracy architecture v3 (14 October 2026)
 
-**Status:** Proposed design / review only. This RFC changes **no scanner behavior**.
+**Status:** Proposed design / review only. This RFC changes **no scanner behavior**.\n**Detailed implementation / delivery plan:** [Production accuracy execution plan v1](accuracy-production-execution-plan-v1.md) (A01–D03, phased PR contracts, source assertions, stop/go gates).
 **Goal:** Production-worthy accuracy in agent/skill/tool/MCP/model inventory, exact binding and delegation relationships, effective authority, findings and attack-path detection **across supported frameworks**.
 
 This extends [Architecture Foundations v2](architecture-foundations-v2.md), not a replacement of its typed metadata, ADG/ASG, graph integrity, proof envelopes or existing frozen studies. Use existing [independent-study evaluation contract](../research/STUDY_EVALUATION_CONTRACT.md) G0–G3 to judge success. Do not mark this design implemented because its RFC CI checks pass.
