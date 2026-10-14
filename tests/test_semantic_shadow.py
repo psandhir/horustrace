@@ -156,3 +156,34 @@ def test_cli_opt_in_shadow_output_does_not_change_scan_result(tmp_path: Path) ->
     assert document["schema_version"] == 2
     assert document["runtime_effectiveness"] == "not_verified"
     assert document["comparison"]["graph_behavior_changed"] is False
+
+
+def test_ambiguous_same_line_agents_are_separate_and_unresolved(tmp_path: Path) -> None:
+    location = SourceLocation(tmp_path / "main.py", line=8)
+    graph = Graph(agents=[
+        Agent(name="worker", location=location, tools=[
+            Tool(name="safe", kind="function", location=SourceLocation(
+                tmp_path / "safe.py", line=2,
+            )),
+        ]),
+        Agent(name="worker", location=location, tools=[
+            Tool(name="other", kind="function", location=SourceLocation(
+                tmp_path / "other.py", line=2,
+            )),
+        ]),
+    ])
+    sidecar = shadow_observation_report(graph, tmp_path)
+    agents = [entity for entity in sidecar["entities"] if entity["kind"] == "agent"]
+    assert len(agents) == 2
+    assert all(
+        entity["metadata"]["identity_resolution"] == "ambiguous_same_source_instance"
+        for entity in agents
+    )
+    agent_observations = [
+        entry for entry in sidecar["observations"]
+        if entry["role"] == "agent_instance_observed"
+    ]
+    assert len(agent_observations) == 2
+    assert all(item["resolution"] == "unresolved" for item in agent_observations)
+    assert len({edge["source_id"] for edge in sidecar["bindings"]}) == 2
+    assert sidecar["comparison"]["source_recall"] is None
