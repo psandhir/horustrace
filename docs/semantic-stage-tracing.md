@@ -27,3 +27,8 @@ Wave A04 must fix their originating semantic IDs, not merely sanitize this
 debug sidecar. Use paired source-pinned scanner runs with/without trace to
 assert production projection invariance. Historical A01/A02 cases are not
 independent blind accuracy truth.
+
+**Study baseline:** `research/accuracy-wave-a-retrospective-20261014/` retains the
+30 source-pinned historical cases. Stage deltas must be read alongside
+per-case source assertions; neither the total number of removed observations
+nor the existence of an ADG edge is itself an accuracy verdict.
