@@ -64,7 +64,10 @@ def test_pydantic_static_local_mcp_proves_only_source_edges(tmp_path: Path) -> N
     }
     assert all(edge["resolution"] == "proven" for edge in edges)
     assert all(edge["metadata"]["runtime_verified"] is False for edge in edges)
-    assert all(edge["metadata"]["agent_callable"] is False for edge in edges)
+    assert all(
+        edge["metadata"]["agent_callability"] == "not_adjudicated"
+        for edge in edges
+    )
     assert all(
         edge["source_id"] in {entity["entity_id"] for entity in entities}
         and edge["target_id"] in {entity["entity_id"] for entity in entities}
