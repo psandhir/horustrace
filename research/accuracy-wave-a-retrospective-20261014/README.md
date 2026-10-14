@@ -51,3 +51,16 @@ These observations were inspected in an assistant session against pinned
 source; the ledger **does not contain two independent locked source-blind
 reviewers** and cannot yield production precision or recall. They are
 diagnostic initial assertions; blind G0–G3 review remains separate.
+
+## Expanded Wave A diagnostic coverage
+
+The diagnostic ledger now includes **35 source-anchored observations covering
+all 30 pinned cases**, with original file blob IDs, source lines, expected
+claim scopes and named construct categories. This is a **minimum seed set**
+(one or more reviewed source snippets per case), not exhaustive enumeration of
+all agents, tools, MCP servers, identities, Skills, edges, sinks or paths.
+
+The baseline validator now rejects missing case coverage; it must not be used
+to calculate entity or relationship recall. Those require a separately
+enumerated source reference universe and independent source-only adjudication
+under the G0–G3 research contract.
