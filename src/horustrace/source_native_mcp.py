@@ -264,7 +264,7 @@ class _Evidence:
                 "origin": "source_native_ast",
                 "proves": "source_registration_only",
                 "runtime_verified": False,
-                "agent_callable": False,
+                "agent_callability": "not_adjudicated",
             },
         )
 
