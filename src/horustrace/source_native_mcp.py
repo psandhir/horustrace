@@ -39,39 +39,52 @@ def _read_ast(path: Path) -> ast.Module | None:
         return None
 
 
-def _imports(tree: ast.Module, module_name: str) -> set[str]:
+def _imports(tree: ast.Module, module_name: str, symbol: str) -> set[str]:
+    """Only return aliases for the requested symbol from the exact module."""
     names: set[str] = set()
     for statement in tree.body:
         if isinstance(statement, ast.ImportFrom) and statement.module == module_name:
             names.update(
                 item.asname or item.name
-                for item in statement.names if item.name in {"Agent", "MCPServerStdio", "FastMCP"}
+                for item in statement.names if item.name == symbol
             )
     return names
 
 
 def _assignments(tree: ast.Module) -> dict[str, ast.AST]:
     result: dict[str, ast.AST] = {}
+    ambiguous: set[str] = set()
     for item in tree.body:
         if (
             isinstance(item, ast.Assign)
             and len(item.targets) == 1
             and isinstance(item.targets[0], ast.Name)
         ):
-            result[item.targets[0].id] = item.value
-    return result
+            name = item.targets[0].id
+            if name in result:
+                ambiguous.add(name)
+            result[name] = item.value
+    # Reassignment can replace a constructor, collection or server object.
+    return {name: value for name, value in result.items() if name not in ambiguous}
 
 
 def _registered_provider_tools(tree: ast.Module) -> list[tuple[str, int, str, int]]:
     """Only accept decorators bound to a top-level FastMCP constructor instance."""
-    imported = _imports(tree, "mcp.server.fastmcp") | _imports(tree, "fastmcp")
-    if "FastMCP" not in imported:
+    imported = (
+        _imports(tree, "mcp.server.fastmcp", "FastMCP")
+        | _imports(tree, "fastmcp", "FastMCP")
+    )
+    if not imported:
         return []
     servers = {
         name: value.lineno for name, value in _assignments(tree).items()
         if isinstance(value, ast.Call) and isinstance(value.func, ast.Name)
-        and value.func.id == "FastMCP"
+        and value.func.id in imported
     }
+    # A second server object may be served even when it has zero decorated tools.
+    # Do not guess which server a stdio command selects.
+    if len(servers) != 1:
+        return []
     tools: list[tuple[str, int, str, int]] = []
     for statement in tree.body:
         if not isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -280,8 +293,8 @@ def inspect_local_pydantic_mcp(target: Path) -> SemanticDiscovery:
         tree = _read_ast(source)
         if tree is None:
             continue
-        imported_agents = _imports(tree, "pydantic_ai")
-        imported_clients = _imports(tree, "pydantic_ai.mcp")
+        imported_agents = _imports(tree, "pydantic_ai", "Agent")
+        imported_clients = _imports(tree, "pydantic_ai.mcp", "MCPServerStdio")
         if not imported_agents or not imported_clients:
             continue
         assignments = _assignments(tree)
