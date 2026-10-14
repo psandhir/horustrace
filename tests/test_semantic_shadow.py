@@ -9,10 +9,13 @@ import pytest
 
 from horustrace.models import Agent, Graph, MCPServer, Skill, SourceLocation, Tool
 from horustrace.semantic_discovery import (
-    SemanticDiscovery, SemanticEntity, SemanticEntityKind, SemanticObservation,
+    SemanticDiscovery,
+    SemanticEntity,
+    SemanticEntityKind,
+    SemanticObservation,
     SemanticResolution,
 )
-from horustrace.semantic_shadow import build_shadow_discovery, shadow_observation_report
+from horustrace.semantic_shadow import shadow_observation_report
 
 
 def _fixture(root: Path) -> Graph:
