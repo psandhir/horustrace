@@ -72,6 +72,13 @@ The changes are *shape/metadata and entity observations*, not necessarily source
 - **Hypothesis, NOT confirmed eight missing agents:** the consolidation may merge aliases or specialize agent-as-tool identities correctly or incorrectly. Count differences alone do not show which.
 - **Wave B test:** exact original and resolved agent-instance keys plus specialty target bindings and source spans; require same-name-instance hard negatives and positive delegation chains from pinned source. Assert every proven child object remains addressable after normalization.
 
+### WAB-05: Test-only MCP server inventory dominates one repository — `gen-mcp-001`
+
+- **Source context:** pinned `stickerdaniel/linkedin-mcp-server@f142502` exposes `linkedin_mcp_server/server.py` and many test-side FastMCP instances under `tests/`. Test fixtures are legitimate source constructs but are not independently evidence of deployed MCP servers.
+- **Scanner observation:** **124 unbound MCP server records**; **121/124 have source paths under `tests/`**. Repeated names `test` (80) and `owner` (33) reflect distinct test-source locations, not 113 production servers. This single repository heavily influences the 195-server total across the 30 cases.
+- **Qualification:** HorusScan already applies `source_context` metadata to MCP servers in `scanner.py:_annotate_authority_source_contexts`. The Wave A passive `unbound_mcp` trace shows the source path but does **not** project `source_context` into its condensed attributes. **Do not equate an inventory count including test fixtures with production runtime inventory or with 121 confirmed FPs.**
+- **Wave B test:** provide partitioned inventory (runtime/example/test/provider-only), stable instance identity, and separate agent-bound relationships. A production default should count only justified runtime inventory while keeping test constructs discoverable and visibly qualified. Preserve original source references and do not collapse distinct test fixtures silently.
+
 ## Wave A acceptance inventory
 
 | Acceptance condition | Evidence/status |
