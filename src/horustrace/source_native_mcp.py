@@ -57,17 +57,17 @@ def _assignments(tree: ast.Module) -> dict[str, ast.AST]:
     return result
 
 
-def _registered_provider_tools(tree: ast.Module) -> list[tuple[str, int, str]]:
+def _registered_provider_tools(tree: ast.Module) -> list[tuple[str, int, str, int]]:
     """Only accept decorators bound to a top-level FastMCP constructor instance."""
     imported = _imports(tree, "mcp.server.fastmcp") | _imports(tree, "fastmcp")
     if "FastMCP" not in imported:
         return []
     servers = {
-        name for name, value in _assignments(tree).items()
+        name: value.lineno for name, value in _assignments(tree).items()
         if isinstance(value, ast.Call) and isinstance(value.func, ast.Name)
         and value.func.id == "FastMCP"
     }
-    tools: list[tuple[str, int, str]] = []
+    tools: list[tuple[str, int, str, int]] = []
     for statement in tree.body:
         if not isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
@@ -88,7 +88,8 @@ def _registered_provider_tools(tree: ast.Module) -> list[tuple[str, int, str]]:
                     if not isinstance(overrides[0].value, str):
                         continue
                     name = overrides[0].value
-                tools.append((name, statement.lineno, decorator.func.value.id))
+                server_name = decorator.func.value.id
+                tools.append((name, statement.lineno, server_name, servers[server_name]))
     return tools
 
 
@@ -274,17 +275,30 @@ def inspect_local_pydantic_mcp(target: Path) -> SemanticDiscovery:
                     # Valid source but unknown/dynamic registration is NOT a proof of
                     # empty catalogue. Leave the client without exposure claims.
                     continue
+                grouped: dict[tuple[str, int], list[tuple[str, int]]] = {}
+                for tool_name, line, server_symbol, server_line in registered:
+                    grouped.setdefault((server_symbol, server_line), []).append(
+                        (tool_name, line)
+                    )
+                if len(grouped) != 1:
+                    # More than one independent FastMCP object in the script:
+                    # a process entrypoint alone does not prove which instance
+                    # is served. Keep only the client observation until B02.
+                    continue
+                (server_symbol, server_line), exposed = next(iter(grouped.items()))
                 server_id = evidence.entity(
-                    name=script_name, kind=SemanticEntityKind.MCP_SERVER,
-                    source=candidate_path, line=1, role="local_static_provider_file",
+                    name=f"{script_name}:{server_symbol}",
+                    kind=SemanticEntityKind.MCP_SERVER,
+                    source=candidate_path, line=server_line,
+                    role="local_fastmcp_server_object",
                 )
                 evidence.edge(
                     source_id=client_id, target_id=server_id,
                     kind=SemanticBindingKind.CLIENT_CONNECTS_TO_SERVER,
-                    basis="literal_python_stdio_script_and_fastmcp_decorators",
+                    basis="literal_python_stdio_script_unique_fastmcp_object",
                     path=source, line=candidate.lineno,
                 )
-                for tool_name, line, _ in registered:
+                for tool_name, line in exposed:
                     tool_id = evidence.entity(
                         name=tool_name, kind=SemanticEntityKind.TOOL,
                         source=candidate_path, line=line,
