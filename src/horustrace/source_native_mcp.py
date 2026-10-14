@@ -7,6 +7,7 @@ runtime call or effective agent authorization.
 from __future__ import annotations
 
 import ast
+import os
 from pathlib import Path
 
 from horustrace.models import SourceLocation
@@ -25,6 +26,7 @@ from horustrace.semantic_discovery import (
 
 MAX_SOURCE_BYTES = 1_000_000
 MAX_SOURCE_FILES = 256
+MAX_VISITED_ENTRIES = 8192
 IGNORED_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"}
 
 
@@ -120,17 +122,76 @@ def _source_files(root: Path) -> list[Path]:
         return [root]
     if not root.is_dir():
         return []
-    # Deterministic, bounded inspection, separate from production scanner traversal.
+    # Sort only one directory at a time: rglob + sorted would enumerate an
+    # entire very large third-party checkout before applying any budget.
     files: list[Path] = []
-    for path in sorted(root.rglob("*.py")):
-        if len(files) >= MAX_SOURCE_FILES:
-            break
-        if any(part in IGNORED_DIRS for part in path.relative_to(root).parts):
-            continue
-        if path.is_symlink() or not path.is_file():
-            continue
-        files.append(path)
+    visited = 0
+    for directory, subdirs, names in os.walk(root, followlinks=False):
+        subdirs[:] = sorted(
+            name for name in subdirs
+            if name not in IGNORED_DIRS and not (Path(directory) / name).is_symlink()
+        )
+        for name in sorted(names):
+            visited += 1
+            if visited > MAX_VISITED_ENTRIES or len(files) >= MAX_SOURCE_FILES:
+                return files
+            if not name.endswith(".py"):
+                continue
+            path = Path(directory) / name
+            if not path.is_symlink() and path.is_file():
+                files.append(path)
     return files
+
+
+def _runs_server(tree: ast.Module, symbol: str) -> bool:
+    """Require a source-visible process entrypoint invoking this server's run()."""
+    def is_run(node: ast.AST) -> bool:
+        return (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "run"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == symbol
+        )
+
+    def main_guard(node: ast.AST) -> bool:
+        if not isinstance(node, ast.If):
+            return False
+        check = node.test
+        if not (isinstance(check, ast.Compare) and len(check.ops) == 1
+                and isinstance(check.ops[0], ast.Eq)
+                and len(check.comparators) == 1):
+            return False
+        left, right = check.left, check.comparators[0]
+        return (
+            isinstance(left, ast.Name) and left.id == "__name__"
+            and isinstance(right, ast.Constant) and right.value == "__main__"
+        ) or (
+            isinstance(right, ast.Name) and right.id == "__name__"
+            and isinstance(left, ast.Constant) and left.value == "__main__"
+        )
+
+    functions = {
+        statement.name: statement
+        for statement in tree.body
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    for statement in tree.body:
+        # Top-level direct script startup or a guarded main() call.
+        if isinstance(statement, ast.Expr) and is_run(statement.value):
+            return True
+        if not main_guard(statement):
+            continue
+        for nested in ast.walk(statement):
+            if is_run(nested):
+                return True
+            if (
+                isinstance(nested, ast.Call) and isinstance(nested.func, ast.Name)
+                and nested.func.id in functions
+                and any(is_run(call) for call in ast.walk(functions[nested.func.id]))
+            ):
+                return True
+    return False
 
 
 class _Evidence:
@@ -286,6 +347,10 @@ def inspect_local_pydantic_mcp(target: Path) -> SemanticDiscovery:
                     # is served. Keep only the client observation until B02.
                     continue
                 (server_symbol, server_line), exposed = next(iter(grouped.items()))
+                if not _runs_server(provider_tree, server_symbol):
+                    # A single FastMCP declaration is not proof that the process
+                    # ever serves that object. Do not assert a client connection.
+                    continue
                 server_id = evidence.entity(
                     name=f"{script_name}:{server_symbol}",
                     kind=SemanticEntityKind.MCP_SERVER,
