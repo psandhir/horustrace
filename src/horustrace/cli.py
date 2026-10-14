@@ -56,6 +56,7 @@ from horustrace.reporters.sarif import render as render_sarif
 from horustrace.rule_registry import iter_rule_metadata
 from horustrace.scanner import ScannerError, scan
 from horustrace.security_graph import build_agent_security_graph
+from horustrace.semantic_trace import SemanticTrace
 from horustrace.source_context import SOURCE_CONTEXTS
 from horustrace.suppressions import SuppressionError, write_baseline
 from horustrace.visual_report import render_visual_report_html
@@ -88,6 +89,10 @@ def _parser() -> argparse.ArgumentParser:
     scan_parser.add_argument("path", nargs="?", default=".")
     scan_parser.add_argument("--format", choices=["console", "json", "sarif"], default="console")
     scan_parser.add_argument("--output", type=Path)
+    scan_parser.add_argument(
+        "--semantic-trace-output", type=Path,
+        help="Write passive source-scoped stage changes to a JSON sidecar (no scanning effect).",
+    )
     scan_parser.add_argument("--config", type=Path, help="Repository scanner configuration YAML file.")
     scan_parser.add_argument(
         "--authority-source",
@@ -887,13 +892,20 @@ def main(argv: list[str] | None = None) -> int:
             except ValueError as exc:
                 print(f"horustrace: {exc}", file=sys.stderr)
                 return 1
+        semantic_trace = SemanticTrace(target) if args.semantic_trace_output else None
         graph, findings = scan(
             target,
             suppressions_path=args.suppressions,
             config=config,
             authority_source=args.authority_source,
             llm_semantic_config=llm_semantic_config,
+            trace=semantic_trace,
         )
+        if semantic_trace is not None:
+            args.semantic_trace_output.write_text(
+                json.dumps(semantic_trace.as_dict(), indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
         disabled_rules = graph.configuration_audit.get("disabled_rules", [])
         authority_resolution = authority_resolution_summary(graph)
         authority_contract = authority_contract_report(graph)
