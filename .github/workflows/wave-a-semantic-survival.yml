@@ -85,6 +85,11 @@ jobs:
           merge-multiple: false
       - name: Reject missing or partial case and produce cross-framework stage-waterfall
         run: python -m scripts.wave_a_aggregate_traces --inputs downloaded --output-dir aggregate-wave-a
+      - name: Correlate source-anchored expectations with observed graph traces
+        run: |
+          python -m scripts.wave_a_correlate_source_traces \
+            --inputs downloaded \
+            --output-dir aggregate-wave-a/correlations
       - name: Retain the aggregate report even when a case fails
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
