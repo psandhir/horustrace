@@ -25,7 +25,7 @@ from horustrace.semantic_discovery import (
     stable_observation_id,
 )
 from horustrace.semantic_trace import _portable
-from horustrace.source_context import classify_source_context
+from horustrace.source_context import SOURCE_CONTEXTS, classify_source_context
 from horustrace.source_native_mcp import inspect_local_pydantic_mcp
 
 SHADOW_SCHEMA_VERSION = 2
@@ -110,7 +110,7 @@ class _ShadowBuilder:
             )
             resolution = SemanticResolution.UNRESOLVED
         context = metadata.get("source_context")
-        if context is None:
+        if context not in SOURCE_CONTEXTS:
             context = (
                 classify_source_context(location.path, root=self.root)
                 if location is not None
@@ -280,6 +280,44 @@ def shadow_comparison(graph: Graph, shadow: SemanticDiscovery) -> dict[str, Any]
     }
 
 
+
+def shadow_inventory_partition(shadow: SemanticDiscovery) -> dict[str, Any]:
+    """Inventory source-role partitions, without assuming deployment or reachability.
+
+    Counts refer to distinct shadow entities and evidence observations; the two
+    totals must not be added to one another. Source context is not execution
+    context and runtime-source classification is not runtime proof.
+    """
+    entities = shadow.entity_map()
+    by_kind: dict[str, Counter[str]] = {}
+    by_role: dict[str, Counter[str]] = {}
+    for entity in shadow.entities:
+        context = entity.metadata.get("source_context", "unknown")
+        if context not in SOURCE_CONTEXTS:
+            context = "unknown"
+        by_kind.setdefault(entity.kind.value, Counter())[context] += 1
+    for observation in shadow.observations:
+        entity = entities[observation.entity_id]
+        context = entity.metadata.get("source_context", "unknown")
+        if context not in SOURCE_CONTEXTS:
+            context = "unknown"
+        by_role.setdefault(observation.role, Counter())[context] += 1
+    return {
+        "scope": "source_context_of_legacy_shadow_not_deployment_truth",
+        "entity_count": len(shadow.entities),
+        "observation_count": len(shadow.observations),
+        "entities_by_kind": {
+            kind: dict(sorted(counts.items()))
+            for kind, counts in sorted(by_kind.items())
+        },
+        "observations_by_role": {
+            role: dict(sorted(counts.items()))
+            for role, counts in sorted(by_role.items())
+        },
+        "runtime_source_does_not_prove_executed": True,
+    }
+
+
 def shadow_observation_report(
     graph: Graph, root: Path, *, target: Path | None = None,
 ) -> dict[str, Any]:
@@ -294,11 +332,13 @@ def shadow_observation_report(
         "runtime_effectiveness": "not_verified",
         "source_edge_adjudicated": False,
         "comparison": shadow_comparison(graph, shadow),
+        "inventory_partition": shadow_inventory_partition(shadow),
         "limitations": [
             "legacy graph membership is not independently source-adjudicated",
             "source-symbol resolution and cross-file linkage are not run by B01",
             "server tool allowlists are not MCP EXPOSES_TOOL evidence",
             "an MCP binding does not imply AGENT_CAN_CALL for its catalogue",
             "missing source or ambiguous same-line declarations require later linking",
+            "source-context runtime does not prove deployment or execution",
         ],
     }
