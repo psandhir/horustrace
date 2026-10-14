@@ -106,6 +106,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
+from horustrace.notebook_identity import remap_notebook_instance_metadata
 from horustrace.path_safety import canonical_root, is_within_root
 from horustrace.pipeline_contract import PipelineCheckpoints
 from horustrace.provenance import annotate, attach_findings, context
@@ -2628,6 +2629,12 @@ def _scan(
                 framework_evidence.setdefault(framework, []).append(SourceLocation(candidate))
             notebook_graph = scan_python_file(temp_path)
             diagnose_python(temp_path, notebook_graph)
+            remap_notebook_instance_metadata(
+                notebook_graph,
+                temp_path,
+                candidate,
+                root if root.is_dir() else root.parent,
+            )
             _remap_source_locations(notebook_graph, temp_path, candidate)
             _merge(graph, notebook_graph, candidate)
         elif candidate.suffix.lower() == ".cs":
