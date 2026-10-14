@@ -53,9 +53,12 @@ def _imports(tree: ast.Module, module_name: str) -> set[str]:
 def _assignments(tree: ast.Module) -> dict[str, ast.AST]:
     result: dict[str, ast.AST] = {}
     for item in tree.body:
-        if isinstance(item, ast.Assign) and len(item.targets) == 1:
-            if isinstance(item.targets[0], ast.Name):
-                result[item.targets[0].id] = item.value
+        if (
+            isinstance(item, ast.Assign)
+            and len(item.targets) == 1
+            and isinstance(item.targets[0], ast.Name)
+        ):
+            result[item.targets[0].id] = item.value
     return result
 
 
