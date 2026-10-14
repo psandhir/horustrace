@@ -23,3 +23,7 @@ execution, cross-cell runtime state, or full repo-level reproducibility.
 The Wave A03 passive trace can then compare source-stable notebook identities.
 Regression study artifacts must confirm that pinned Fresh-16/Full-60 claims
 are neither lost nor altered without source-backed disposition.
+
+## Validation evidence
+
+The source-pinned [Wave A semantic survival diagnostic](https://github.com/psandhir/horustrace/actions/runs/38630362979) completed across 30/30 cases after the notebook remapping integration. A passing cohort run verifies execution and structural consistency, **not** independently source-adjudicated relationship precision or recall. CI, Fresh-16 source-claim and Full-60 regression gates must also remain green before merge.
