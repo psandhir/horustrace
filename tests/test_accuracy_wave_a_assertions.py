@@ -9,7 +9,8 @@ from scripts.verify_accuracy_wave_a_baseline import BaselineError
 
 def test_wave_a_source_assertions_validate_without_accuracy_claim():
     report = audit_assertions()
-    assert report["source_observations"] == 11
+    assert report["source_observations"] == 35
+    assert report["cases_with_assertions"] == report["cases_in_baseline"] == 30
     assert report["independent_blind_review"] is False
     assert report["measured_accuracy"] is None
 
@@ -39,3 +40,14 @@ def test_wave_a_rejects_fake_blind_truth(tmp_path):
     target.write_text(json.dumps(data))
     with pytest.raises(BaselineError, match="must not claim"):
         audit_assertions(ledger_path=target)
+
+
+def test_wave_a_source_assertions_require_all_frozen_cases(tmp_path):
+    data = json.loads((DIRECTORY / "source-assertions.json").read_text())
+    data["assertions"] = [
+        item for item in data["assertions"] if item["case_id"] != "ff60-microsoft-09"
+    ]
+    path = tmp_path / "missing-case.json"
+    path.write_text(json.dumps(data))
+    with pytest.raises(BaselineError, match="baseline cases without source-anchored"):
+        audit_assertions(ledger_path=path)
