@@ -226,7 +226,9 @@ def test_exact_imported_symbol_and_alias_are_respected(tmp_path: Path) -> None:
         "from fastmcp import FastMCP as Server\n"
         "mcp = Server('demo')\n"
         "@mcp.tool()\n"
-        "def approved(): return True\n",
+        "def approved(): return True\n"
+        "if __name__ == '__main__':\n"
+        "    mcp.run()\n",
         encoding="utf-8",
     )
     report = inspect_local_pydantic_mcp(tmp_path).as_dict()
