@@ -145,3 +145,23 @@ def test_file_target_scans_only_its_explicit_program(tmp_path: Path) -> None:
     )
     results = inspect_local_pydantic_mcp(tmp_path / "agent.py").as_dict()
     assert len([e for e in results["entities"] if e["kind"] == "agent"]) == 1
+
+
+def test_two_fastmcp_objects_in_one_script_do_not_collapse_into_one_server(
+    tmp_path: Path,
+) -> None:
+    _agent(tmp_path)
+    (tmp_path / "mcp_server.py").write_text(
+        "from mcp.server.fastmcp import FastMCP\n"
+        "first = FastMCP('a')\n"
+        "second = FastMCP('b')\n"
+        "@first.tool()\n"
+        "def tool_one():\n"
+        "    return 1\n"
+        "@second.tool()\n"
+        "def tool_two():\n"
+        "    return 2\n", encoding="utf-8",
+    )
+    report = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert not any(e["kind"] == "exposes_tool" for e in report["bindings"])
+    assert not any(e["kind"] == "client_connects_to_server" for e in report["bindings"])
