@@ -56,6 +56,7 @@ from horustrace.reporters.sarif import render as render_sarif
 from horustrace.rule_registry import iter_rule_metadata
 from horustrace.scanner import ScannerError, scan
 from horustrace.security_graph import build_agent_security_graph
+from horustrace.semantic_shadow import shadow_observation_report
 from horustrace.semantic_trace import SemanticTrace
 from horustrace.source_context import SOURCE_CONTEXTS
 from horustrace.suppressions import SuppressionError, write_baseline
@@ -92,6 +93,10 @@ def _parser() -> argparse.ArgumentParser:
     scan_parser.add_argument(
         "--semantic-trace-output", type=Path,
         help="Write passive source-scoped stage changes to a JSON sidecar (no scanning effect).",
+    )
+    scan_parser.add_argument(
+        "--shadow-observation-output", type=Path,
+        help="Write passive v2 source-scoped inventory and legacy binding comparison.",
     )
     scan_parser.add_argument("--config", type=Path, help="Repository scanner configuration YAML file.")
     scan_parser.add_argument(
@@ -904,6 +909,15 @@ def main(argv: list[str] | None = None) -> int:
         if semantic_trace is not None:
             args.semantic_trace_output.write_text(
                 json.dumps(semantic_trace.as_dict(), indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+        if args.shadow_observation_output is not None:
+            shadow_root = target if target.is_dir() else target.parent
+            args.shadow_observation_output.write_text(
+                json.dumps(
+                    shadow_observation_report(graph, shadow_root),
+                    indent=2, sort_keys=True,
+                ) + "\n",
                 encoding="utf-8",
             )
         disabled_rules = graph.configuration_audit.get("disabled_rules", [])
