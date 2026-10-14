@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "baseline": "research/accuracy-wave-a-retrospective-20261014/cohort.json",
+  "purpose": "diagnostic_source_assertions_not_independent_accuracy_labels",
+  "date": "2026-10-14",
+  "blind_review_completed": false,
+  "source_material_fetched_from_frozen_git_sha": true,
+  "assertions": [
+    {
+      "assertion_id": "wa-001",
+      "case_id": "gen-adk-003",
+      "claim_unit": "qualified_effect",
+      "semantic_kind": "model_selected_destination",
+      "expected": "not_supported",
+      "scope": "source_only",
+      "provenance": "source_inspected_in_chat_not_independent_blind",
+      "review_status": "initial_source_observation_requires_locked_independent_review",
+      "evidence": {
+        "path": "tools.py",
+        "line": 199,
+        "source_git_blob_sha": "050a23df33ec58405e816642124afa6006f8231a",
+        "anchor": "https://pypi.org/pypi/"
+      },
+      "rationale": "Fixed PyPI host; varying package path is not arbitrary destination selection."
+    },
+    {
+      "assertion_id": "wa-002",
+      "case_id": "gen-adk-003",
+      "claim_unit": "qualified_effect",
+      "semantic_kind": "model_selected_destination",
+      "expected": "not_supported",
+      "scope": "source_only",
+      "provenance": "source_inspected_in_chat_not_independent_blind",
+      "review_status": "initial_source_observation_requires_locked_independent_review",
+      "evidence": {
+        "path": "tools.py",
+        "line": 223,
+        "source_git_blob_sha": "050a23df33ec58405e816642124afa6006f8231a",
+        "anchor": "https://search.maven.org/solrsearch/select?"
+      },
+      "rationale": "Fixed Maven Central host; variable query params do not select a host."
+    },
+    {
+      "assertion_id": "wa-003",
+      "case_id": "gen-oai-003",
+      "claim_unit": "edge",
+      "semantic_kind": "runtime_mcp_client_connection",
+      "expected": "supported",
+      "scope": "source_only",
+      "provenance": "source_inspected_in_chat_not_independent_blind",
+      "review_status": "initial_source_observation_requires_locked_independent_review",
+      "evidence": {
+        "path": "client.py",
+        "line": 25,
+        "source_git_blob_sha": "8ed0cb8593185e5a7ff1628cd51ae3ce3cc43abf",
+        "anchor": "sse_client(url=server_url)"
+      },
+      "rationale": "The client uses a dynamic SSE argument, not necessarily a model-selected endpoint."
+    },
+    {
+      "assertion_id": "wa-004",
+      "case_id": "gen-oai-003",
+      "claim_unit": "edge",
+      "semantic_kind": "model_dispatch_to_mcp_tool",
+      "expected": "supported",
+      "scope": "source_only",
+      "provenance": "source_inspected_in_chat_not_independent_blind",
+      "review_status": "initial_source_observation_requires_locked_independent_review",
+      "evidence": {
+        "path": "client.py",
+        "line": 89,
+        "source_git_blob_sha": "8ed0cb8593185e5a7ff1628cd51ae3ce3cc43abf",
+        "anchor": "self.session.call_tool(tool_name, tool_args)"
+      },
+      "rationale": "Model tool call arguments are forwarded to the MCP session."
+    },
+    {
+      "assertion_id": "wa-005",
+      "case_id": "gen-oai-004",
+      "claim_unit": "qualified_effect",
+      "semantic_kind": "persistent_external_write",
+      "expected": "not_supported",
+      "scope": "source_only",
+      "provenance": "source_inspected_in_chat_not_independent_blind",
+      "review_status": "initial_source_observation_requires_locked_independent_review",
+      "evidence": {
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 104,
+        "source_git_blob_sha": "464d152655ee16a2c9e20955ab49047dd16e6159",
+        "anchor": "context.context.seat_number = new_seat"
+      },
+      "rationale": "Example code only mutates local airline context."
+    },
+    {
+      "assertion_id": "wa-006",
+      "case_id": "gen-oai-004",
+      "claim_unit": "edge",
+      "semantic_kind": "triage_delegates_to_seat_booking",
+      "expected": "supported",
+      "scope": "source_only",
+      "provenance": "source_inspected_in_chat_not_independent_blind",
+      "review_status": "initial_source_observation_requires_locked_independent_review",
+      "evidence": {
+        "path": "examples/openai_agents/customer_service_agent.py",
+        "line": 153,
+        "source_git_blob_sha": "464d152655ee16a2c9e20955ab49047dd16e6159",
+        "anchor": "handoff(agent=seat_booking_agent,"
+      },
+      "rationale": "Explicit handoff; downstream effect remains example-local."
+    },
+    {
+      "assertion_id": "wa-007",
+      "case_id": "gen-mcp-001",
+      "claim_unit": "finding_scope",
+      "semantic_kind": "literal_embedded_secret",
+      "expected": "not_supported",
+      "scope": "source_only",
+      "provenance": "source_inspected_in_chat_not_independent_blind",
+      "review_status": "initial_source_observation_requires_locked_independent_review",
+      "evidence": {
+        "path": ".mcp.json",
+        "line": 7,
+        "source_git_blob_sha": "a6172ac0b8140cf8cf4786ad8473a10423a9e3c5",
+        "anchor": "Bearer ${GREPTILE_API_KEY}"
+      },
+      "rationale": "Environment placeholder, not a hardcoded bearer secret."
+    },
+    {
+      "assertion_id": "wa-008",
+      "case_id": "gen-mcp-001",
+      "claim_unit": "entity",
+      "semantic_kind": "unbound_remote_mcp_declaration",
+      "expected": "supported",
+      "scope": "source_only",
+      "provenance": "source_inspected_in_chat_not_independent_blind",
+      "review_status": "initial_source_observation_requires_locked_independent_review",
+      "evidence": {
+        "path": ".mcp.json",
+        "line": 5,
+        "source_git_blob_sha": "a6172ac0b8140cf8cf4786ad8473a10423a9e3c5",
+        "anchor": "https://api.greptile.com/mcp"
+      },
+      "rationale": "Standalone config declares server, not an agent binding."
+    },
+    {
+      "assertion_id": "wa-009",
+      "case_id": "gen-mcp-003",
+      "claim_unit": "qualified_effect",
+      "semantic_kind": "model_selected_production_network_destination",
+      "expected": "not_supported",
+      "scope": "source_only",
+      "provenance": "source_inspected_in_chat_not_independent_blind",
+      "review_status": "initial_source_observation_requires_locked_independent_review",
+      "evidence": {
+        "path": "tests/integration/conftest.py",
+        "line": 156,
+        "source_git_blob_sha": "c97bf45ca2fe5abb5419b7c682dc4899e954639b",
+        "anchor": "MCP_SERVER_URL must be set when CB_MCP_TRANSPORT=http"
+      },
+      "rationale": "Endpoint from pytest CI environment, not production model-chosen host."
+    },
+    {
+      "assertion_id": "wa-010",
+      "case_id": "gen-pyd-002",
+      "claim_unit": "qualified_effect",
+      "semantic_kind": "real_external_network_effect",
+      "expected": "unresolved",
+      "scope": "source_only",
+      "provenance": "source_inspected_in_chat_not_independent_blind",
+      "review_status": "initial_source_observation_requires_locked_independent_review",
+      "evidence": {
+        "path": "examples/testing_examples/test_agent_patterns.py",
+        "line": 69,
+        "source_git_blob_sha": "0a2b0bb0a539c18637529930992035513c73835a",
+        "anchor": "ctx.deps.api_client.post(endpoint, json=data)"
+      },
+      "rationale": "Test dependency call .post does not alone prove real networking."
+    },
+    {
+      "assertion_id": "wa-011",
+      "case_id": "gen-pyd-002",
+      "claim_unit": "edge",
+      "semantic_kind": "test_tool_registration",
+      "expected": "supported",
+      "scope": "source_only",
+      "provenance": "source_inspected_in_chat_not_independent_blind",
+      "review_status": "initial_source_observation_requires_locked_independent_review",
+      "evidence": {
+        "path": "examples/testing_examples/test_agent_patterns.py",
+        "line": 47,
+        "source_git_blob_sha": "0a2b0bb0a539c18637529930992035513c73835a",
+        "anchor": "async def mock_database_query("
+      },
+      "rationale": "Decorator registers this function on test_agent, not a deployed production agent."
+    }
+  ]
+}

@@ -31,3 +31,23 @@ the reusable quality gate. Do not retrofit this retrospective file into it.
 
 **Non-goals:** no extra findings, no true-positive percentages, no inferred
 MCP runtime authority, no source-code execution, no ChatGPT Plus API calls.
+
+## First source observation panel (A02)
+
+`source-assertions.json` adds 11 explicitly source-checked observations across
+six pinned Fresh cases. Each row records a relative file/line, original Git
+file blob, exact source-text anchor, semantic claim, expected supported /
+unsupported / unresolved state and review rationale. Includes positive
+agent-to-MCP invocation and handoff, and hard negatives for fixed PyPI/Maven
+hosts, test-only CI MCP destinations, in-memory seat changes and interpolated
+credential placeholders.
+
+```sh
+python -m scripts.verify_accuracy_wave_a_assertions
+pytest -q tests/test_accuracy_wave_a_assertions.py
+```
+
+These observations were inspected in an assistant session against pinned
+source; the ledger **does not contain two independent locked source-blind
+reviewers** and cannot yield production precision or recall. They are
+diagnostic initial assertions; blind G0–G3 review remains separate.
