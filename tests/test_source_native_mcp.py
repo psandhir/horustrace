@@ -262,3 +262,91 @@ def test_reassigned_source_symbols_do_not_prove_source_identity(
     assert [edge["kind"] for edge in report["bindings"]] == [
         "agent_binds_client",
     ]
+
+
+def test_shadowed_agent_and_stdio_constructor_aliases_are_not_proof(
+    tmp_path: Path,
+) -> None:
+    _agent(tmp_path)
+    _provider(tmp_path)
+    original = (tmp_path / "agent.py").read_text(encoding="utf-8")
+
+    # The imported constructor is subsequently replaced in module scope.
+    (tmp_path / "agent.py").write_text(
+        original + "def Agent(*args, **kwargs): return None\n",
+        encoding="utf-8",
+    )
+    assert inspect_local_pydantic_mcp(tmp_path).bindings == []
+
+    (tmp_path / "agent.py").write_text(
+        original + "MCPServerStdio = lambda *args, **kwargs: None\n",
+        encoding="utf-8",
+    )
+    assert inspect_local_pydantic_mcp(tmp_path).bindings == []
+
+    (tmp_path / "agent.py").write_text(
+        original + "if True:\n    Agent = lambda *args, **kwargs: None\n",
+        encoding="utf-8",
+    )
+    assert inspect_local_pydantic_mcp(tmp_path).bindings == []
+
+    # A later import from another module also destroys origin certainty.
+    (tmp_path / "agent.py").write_text(
+        original + "from other_module import Agent\n",
+        encoding="utf-8",
+    )
+    assert inspect_local_pydantic_mcp(tmp_path).bindings == []
+
+
+def test_shadowed_fastmcp_constructor_is_not_provider_proof(tmp_path: Path) -> None:
+    _agent(tmp_path)
+    _provider(tmp_path)
+    provider = tmp_path / "mcp_server.py"
+    provider.write_text(
+        provider.read_text(encoding="utf-8")
+        + "def FastMCP(*args, **kwargs): return None\n",
+        encoding="utf-8",
+    )
+    result = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert {edge["kind"] for edge in result["bindings"]} == {
+        "agent_binds_client",
+    }
+
+
+def test_nested_uncalled_mcp_run_is_not_a_server_entrypoint(tmp_path: Path) -> None:
+    _agent(tmp_path)
+    _provider(tmp_path)
+    provider = tmp_path / "mcp_server.py"
+    provider.write_text(
+        provider.read_text(encoding="utf-8").replace(
+            "if __name__ == '__main__':\n    mcp.run()\n",
+            "if __name__ == '__main__':\n"
+            "    def never_called():\n"
+            "        mcp.run()\n",
+        ),
+        encoding="utf-8",
+    )
+    result = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert {edge["kind"] for edge in result["bindings"]} == {
+        "agent_binds_client",
+    }
+
+
+def test_main_guard_calls_top_level_mcp_startup_helper(tmp_path: Path) -> None:
+    _agent(tmp_path)
+    _provider(tmp_path)
+    provider = tmp_path / "mcp_server.py"
+    provider.write_text(
+        provider.read_text(encoding="utf-8").replace(
+            "if __name__ == '__main__':\n    mcp.run()\n",
+            "def main():\n"
+            "    mcp.run()\n"
+            "if __name__ == '__main__':\n"
+            "    main()\n",
+        ),
+        encoding="utf-8",
+    )
+    result = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert {edge["kind"] for edge in result["bindings"]} == {
+        "agent_binds_client", "client_connects_to_server", "exposes_tool",
+    }
