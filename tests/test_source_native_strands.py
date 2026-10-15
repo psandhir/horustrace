@@ -8,7 +8,6 @@ from horustrace.models import Graph
 from horustrace.semantic_shadow import shadow_observation_report
 from horustrace.source_native_strands import inspect_strands_tool_composition
 
-
 MAIN = """
 from strands import Agent
 from agents import cfn_explorer, analysis_writer
