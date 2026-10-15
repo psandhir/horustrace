@@ -234,7 +234,11 @@ def _compositions(tree: ast.Module) -> list[tuple[int, list[str]]]:
                 item.id for item in second.elts
                 if isinstance(item, ast.Name) and item.id in trusted_imports
             ]
-            if len(members) != len(second.elts) or not members:
+            # Unknown or locally shadowed list members must not erase
+            # independently source-proven peers in the same literal list.
+            if not members or not all(
+                isinstance(item, ast.Name) for item in second.elts
+            ):
                 continue
             result.append((node.lineno, members))
     return result
