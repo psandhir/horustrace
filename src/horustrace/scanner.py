@@ -1552,6 +1552,67 @@ def _merge_agent(existing: Agent, incoming: Agent) -> None:
     existing.metadata.update(incoming.metadata)
 
 
+def _dedupe_strands_source_tool_projections(agent: Agent) -> None:
+    """Join two parser views of the *same* Strands @tool source declaration.
+
+    A framework adapter may emit kind=function, then the repository linker
+    additionally emits kind=strands_tool_wrapper for the same decorated
+    callable. Neither kind nor name alone is sufficient to prove identity.
+    Require the same source-qualified function symbol, file and declaration
+    line before combining observations. Keep different functions distinct.
+    """
+    if agent.metadata.get("framework") != "strands-agents":
+        return
+
+    def source_claim(tool: Tool) -> tuple[str, str, int] | None:
+        metadata = tool.metadata
+        if metadata.get("framework") != "strands-agents":
+            return None
+        symbol = metadata.get("source_function_key")
+        path = metadata.get("source_path")
+        line = metadata.get("source_line")
+        if (
+            not isinstance(symbol, str) or not symbol
+            or not isinstance(path, str) or not path
+            or type(line) is not int or line < 1
+        ):
+            return None
+        if tool.location is not None and (
+            str(tool.location.path) != path
+            or tool.location.line != line
+        ):
+            return None
+        return (symbol, path, line)
+
+    distinct: list[Tool] = []
+    for incoming in agent.tools:
+        identity = source_claim(incoming)
+        existing = next(
+            (
+                tool for tool in distinct
+                if identity is not None
+                and tool.name == incoming.name
+                and source_claim(tool) == identity
+                and {tool.kind, incoming.kind}
+                == {"function", "strands_tool_wrapper"}
+            ),
+            None,
+        )
+        if existing is None:
+            distinct.append(incoming)
+            continue
+        wrapper = (
+            incoming if incoming.kind == "strands_tool_wrapper" else existing
+        )
+        wrapper_metadata = dict(wrapper.metadata)
+        _merge_tool(existing, incoming)
+        existing.kind = "strands_tool_wrapper"
+        existing.metadata.update(wrapper_metadata)
+        if existing.location is None:
+            existing.location = incoming.location
+    agent.tools = distinct
+
+
 def _consolidate_agents(graph: Graph) -> None:
     """Merge declarations without conflating source-scoped agent instances.
 
@@ -1615,6 +1676,8 @@ def _consolidate_agents(graph: Graph) -> None:
             _merge_agent(existing, deepcopy(overlay))
 
     graph.agents = list(by_key.values())
+    for agent in graph.agents:
+        _dedupe_strands_source_tool_projections(agent)
 
 
 def _propagate_adk_delegation(graph: Graph) -> None:
@@ -2778,6 +2841,11 @@ def _scan(
         root if root.is_dir() else root.parent,
         approved_python_paths,
     )
+    # Canonical source_function_key is assigned here, after the last generic
+    # agent-consolidation pass. Reconcile exact-source Strands @tool aliases
+    # before authority, findings and attack-path relationships are produced.
+    for agent in graph.agents:
+        _dedupe_strands_source_tool_projections(agent)
     enrich_indirect_tool_content_semantics(
         graph,
         root if root.is_dir() else root.parent,
