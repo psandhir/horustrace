@@ -1,0 +1,240 @@
+{
+  "schema_version": 1,
+  "purpose": "source_visible_wave_b01_wab01_diagnostic_not_independent_truth",
+  "case_id": "gen-pyd-001",
+  "repo": "newsbubbles/pharmiq",
+  "repo_sha": "c69949739647a47ec8339b473bdf578c8cf8bfd9",
+  "review_status": "source_inspected_in_chat_requires_independent_locked_review",
+  "input_proof": {
+    "agent_source": {
+      "path": "agent.py",
+      "blob_sha": "baf99dbe50a42526fe1f7ec6a346ae314b4464c6",
+      "registration_line": 73
+    },
+    "mcp_client": {
+      "path": "agent.py",
+      "blob_sha": "baf99dbe50a42526fe1f7ec6a346ae314b4464c6",
+      "literal_command_line": 54,
+      "argv": [
+        "python",
+        "mcp_server.py"
+      ]
+    },
+    "provider": {
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "constructor_line": 179,
+      "run_line": 852,
+      "main_guard_line": 854
+    }
+  },
+  "exposure_tools": [
+    {
+      "tool_name": "cerner_get_capability_statement",
+      "definition_line": 231,
+      "decorator_line": 230,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_get_smart_configuration",
+      "definition_line": 257,
+      "decorator_line": 256,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_exchange_code_for_token",
+      "definition_line": 283,
+      "decorator_line": 282,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_refresh_token",
+      "definition_line": 311,
+      "decorator_line": 310,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_get_patients",
+      "definition_line": 338,
+      "decorator_line": 337,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_get_patient",
+      "definition_line": 369,
+      "decorator_line": 368,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_create_patient",
+      "definition_line": 396,
+      "decorator_line": 395,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_update_patient",
+      "definition_line": 423,
+      "decorator_line": 422,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_get_encounters",
+      "definition_line": 451,
+      "decorator_line": 450,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_get_encounter",
+      "definition_line": 482,
+      "decorator_line": 481,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_create_encounter",
+      "definition_line": 509,
+      "decorator_line": 508,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_get_observations",
+      "definition_line": 536,
+      "decorator_line": 535,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_get_observation",
+      "definition_line": 567,
+      "decorator_line": 566,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_create_observation",
+      "definition_line": 594,
+      "decorator_line": 593,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_update_observation",
+      "definition_line": 621,
+      "decorator_line": 620,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_get_medication_requests",
+      "definition_line": 649,
+      "decorator_line": 648,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_get_medication_request",
+      "definition_line": 680,
+      "decorator_line": 679,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_create_medication_request",
+      "definition_line": 707,
+      "decorator_line": 706,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_get_allergy_intolerances",
+      "definition_line": 734,
+      "decorator_line": 733,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_get_allergy_intolerance",
+      "definition_line": 765,
+      "decorator_line": 764,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_create_allergy_intolerance",
+      "definition_line": 792,
+      "decorator_line": 791,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    },
+    {
+      "tool_name": "cerner_execute_batch",
+      "definition_line": 819,
+      "decorator_line": 818,
+      "path": "mcp_server.py",
+      "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089",
+      "claim_kind": "exposes_tool",
+      "expected": "source_supported"
+    }
+  ],
+  "summary": {
+    "source_visible_decorators": 22,
+    "agent_binds_client": "source_supported",
+    "client_connects_to_server": "source_supported_under_process_entrypoint",
+    "agent_can_call": "not_adjudicated",
+    "runtime_catalogue": "not_observed",
+    "runtime_effectiveness": "not_verified"
+  },
+  "review_notes": "Source-only static evidence: FastMCP @mcp.tool decorators. Separate EXPOSES_TOOL from effective permissions and execution. The source patterns have not yet been compared to real scanner output after PR or independently adjudicated; no accuracy metric follows."
+}

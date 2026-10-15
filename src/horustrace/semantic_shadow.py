@@ -26,6 +26,7 @@ from horustrace.semantic_discovery import (
 )
 from horustrace.semantic_trace import _portable
 from horustrace.source_context import classify_source_context
+from horustrace.source_native_mcp import inspect_local_pydantic_mcp
 
 SHADOW_SCHEMA_VERSION = 2
 ORIGIN = "legacy_graph_projection_not_independently_adjudicated"
@@ -279,12 +280,17 @@ def shadow_comparison(graph: Graph, shadow: SemanticDiscovery) -> dict[str, Any]
     }
 
 
-def shadow_observation_report(graph: Graph, root: Path) -> dict[str, Any]:
+def shadow_observation_report(
+    graph: Graph, root: Path, *, target: Path | None = None,
+) -> dict[str, Any]:
     """Construct a portable offline v2 sidecar without mutating the input Graph."""
     shadow = build_shadow_discovery(graph, root)
+    native = inspect_local_pydantic_mcp(target if target is not None else root)
     return {
         **shadow.as_dict(),
         "mode": "passive_shadow_from_legacy_graph",
+        "source_native": native.as_dict(),
+        "source_native_scope": "pydantic_local_mcp_literal_stdio_pilot",
         "runtime_effectiveness": "not_verified",
         "source_edge_adjudicated": False,
         "comparison": shadow_comparison(graph, shadow),

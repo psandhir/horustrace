@@ -1,0 +1,352 @@
+"""Source-native MCP pilot: exact registrations, uncertainty, and negatives."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from horustrace.models import Graph
+from horustrace.semantic_shadow import shadow_observation_report
+from horustrace.source_native_mcp import inspect_local_pydantic_mcp
+
+
+def _agent(root: Path, *, server: str = "mcp_server.py") -> None:
+    (root / "agent.py").write_text(
+        "from pydantic_ai import Agent\n"
+        "from pydantic_ai.mcp import MCPServerStdio\n"
+        f"servers = [MCPServerStdio('python', ['{server}'])]\n"
+        "agent = Agent('test:model', mcp_servers=servers)\n",
+        encoding="utf-8",
+    )
+
+
+def _provider(root: Path) -> None:
+    (root / "mcp_server.py").write_text(
+        "from mcp.server.fastmcp import FastMCP\n"
+        "mcp = FastMCP('records')\n"
+        "@mcp.tool()\n"
+        "def read_record(record_id: str):\n"
+        "    return record_id\n"
+        "@mcp.tool(name='write_record')\n"
+        "def mutate_record(record_id: str):\n"
+        "    return record_id\n"
+        "class Decoy:\n"
+        "    def tool(self):\n"
+        "        return lambda fn: fn\n"
+        "unrelated = Decoy()\n"
+        "@unrelated.tool()\n"
+        "def not_exposed():\n"
+        "    return 1\n"
+        "if __name__ == '__main__':\n"
+        "    mcp.run()\n",
+        encoding="utf-8",
+    )
+
+
+def test_pydantic_static_local_mcp_proves_only_source_edges(tmp_path: Path) -> None:
+    _agent(tmp_path)
+    _provider(tmp_path)
+    native = inspect_local_pydantic_mcp(tmp_path)
+    report = native.as_dict()
+    entities = report["entities"]
+    kinds = [entity["kind"] for entity in entities]
+    assert kinds.count("agent") == 1
+    assert kinds.count("mcp_client") == 1
+    assert kinds.count("mcp_server") == 1
+    assert kinds.count("tool") == 2
+    assert {entry["name"] for entry in entities if entry["kind"] == "tool"} == {
+        "read_record", "write_record",
+    }
+    edges = report["bindings"]
+    assert len(edges) == 4
+    assert [edge["kind"] for edge in edges].count("exposes_tool") == 2
+    assert {edge["kind"] for edge in edges} == {
+        "agent_binds_client", "client_connects_to_server", "exposes_tool",
+    }
+    assert all(edge["resolution"] == "proven" for edge in edges)
+    assert all(edge["metadata"]["runtime_verified"] is False for edge in edges)
+    assert all(
+        edge["metadata"]["agent_callability"] == "not_adjudicated"
+        for edge in edges
+    )
+    assert all(
+        edge["source_id"] in {entity["entity_id"] for entity in entities}
+        and edge["target_id"] in {entity["entity_id"] for entity in entities}
+        for edge in edges
+    )
+    assert str(tmp_path) not in json.dumps(report)
+    shadow = shadow_observation_report(Graph(), tmp_path)
+    assert len(shadow["source_native"]["bindings"]) == 4
+    assert shadow["comparison"]["source_recall"] is None
+
+
+def test_source_native_ids_are_independent_of_checkout_directory(tmp_path: Path) -> None:
+    left = tmp_path / "left"
+    right = tmp_path / "right"
+    left.mkdir()
+    right.mkdir()
+    for location in (left, right):
+        _agent(location)
+        _provider(location)
+    assert inspect_local_pydantic_mcp(left).as_dict() == (
+        inspect_local_pydantic_mcp(right).as_dict()
+    )
+
+
+def test_missing_program_does_not_create_server_or_callable_edge(tmp_path: Path) -> None:
+    _agent(tmp_path)
+    result = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert {row["kind"] for row in result["entities"]} == {"agent", "mcp_client"}
+    assert [row["kind"] for row in result["bindings"]] == ["agent_binds_client"]
+    assert any(item["resolution"] == "unresolved" for item in result["observations"])
+
+
+def test_nonmatching_provider_or_dynamic_command_never_infers_tool(tmp_path: Path) -> None:
+    _agent(tmp_path)
+    (tmp_path / "mcp_server.py").write_text(
+        "from fastmcp import FastMCP\n"
+        "mcp = FastMCP('example')\n"
+        "def hidden():\n"
+        "    return 1\n"
+        "mcp.add_tool(hidden)\n", encoding="utf-8",
+    )
+    result = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert not any(row["kind"] == "exposes_tool" for row in result["bindings"])
+
+    (tmp_path / "agent.py").write_text(
+        "from pydantic_ai import Agent\n"
+        "from pydantic_ai.mcp import MCPServerStdio\n"
+        "dynamic = f'{1}.py'\n"
+        "servers = [MCPServerStdio('python', [dynamic])]\n"
+        "agent = Agent('test:model', mcp_servers=servers)\n", encoding="utf-8",
+    )
+    result = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert result["entities"] == []
+    assert result["bindings"] == []
+
+
+def test_near_miss_unrelated_agent_and_script_paths(tmp_path: Path) -> None:
+    (tmp_path / "agent.py").write_text(
+        "from pydantic_ai import Agent\n"
+        "from pydantic_ai.mcp import MCPServerStdio\n"
+        "servers = [MCPServerStdio('bash', ['mcp_server.py'])]\n"
+        "agent = Agent('test:model', mcp_servers=servers)\n",
+        encoding="utf-8",
+    )
+    _provider(tmp_path)
+    assert inspect_local_pydantic_mcp(tmp_path).bindings == []
+
+    _agent(tmp_path, server="../other.py")
+    assert inspect_local_pydantic_mcp(tmp_path).bindings == []
+
+
+def test_file_target_scans_only_its_explicit_program(tmp_path: Path) -> None:
+    _agent(tmp_path)
+    _provider(tmp_path)
+    (tmp_path / "other.py").write_text(
+        "from pydantic_ai import Agent\n"
+        "from pydantic_ai.mcp import MCPServerStdio\n"
+        "agent = Agent('a', mcp_servers=[MCPServerStdio('python', ['missing.py'])])\n",
+        encoding="utf-8",
+    )
+    results = inspect_local_pydantic_mcp(tmp_path / "agent.py").as_dict()
+    assert len([e for e in results["entities"] if e["kind"] == "agent"]) == 1
+
+
+def test_two_fastmcp_objects_in_one_script_do_not_collapse_into_one_server(
+    tmp_path: Path,
+) -> None:
+    _agent(tmp_path)
+    (tmp_path / "mcp_server.py").write_text(
+        "from mcp.server.fastmcp import FastMCP\n"
+        "first = FastMCP('a')\n"
+        "second = FastMCP('b')\n"
+        "@first.tool()\n"
+        "def tool_one():\n"
+        "    return 1\n"
+        "@second.tool()\n"
+        "def tool_two():\n"
+        "    return 2\n", encoding="utf-8",
+    )
+    report = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert not any(e["kind"] == "exposes_tool" for e in report["bindings"])
+    assert not any(e["kind"] == "client_connects_to_server" for e in report["bindings"])
+
+
+def test_provider_without_run_entrypoint_does_not_claim_client_connection(
+    tmp_path: Path,
+) -> None:
+    _agent(tmp_path)
+    (tmp_path / "mcp_server.py").write_text(
+        "from mcp.server.fastmcp import FastMCP\n"
+        "mcp = FastMCP('inactive')\n"
+        "@mcp.tool()\n"
+        "def hidden():\n"
+        "    return 1\n", encoding="utf-8",
+    )
+    report = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert {edge["kind"] for edge in report["bindings"]} == {"agent_binds_client"}
+    assert all(entity["kind"] != "mcp_server" for entity in report["entities"])
+
+
+def test_extra_undecorated_server_does_not_infer_served_instance(
+    tmp_path: Path,
+) -> None:
+    _agent(tmp_path)
+    (tmp_path / "mcp_server.py").write_text(
+        "from mcp.server.fastmcp import FastMCP\n"
+        "exposed = FastMCP('a')\n"
+        "other = FastMCP('b')\n"
+        "@exposed.tool()\n"
+        "def read_record():\n"
+        "    return 1\n"
+        "other.run()\n", encoding="utf-8",
+    )
+    report = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    kinds = {edge["kind"] for edge in report["bindings"]}
+    assert kinds == {"agent_binds_client"}
+
+
+def test_exact_imported_symbol_and_alias_are_respected(tmp_path: Path) -> None:
+    (tmp_path / "agent.py").write_text(
+        "from pydantic_ai import RunContext\n"
+        "from pydantic_ai.mcp import MCPServerStdio\n"
+        "def RunContext(*a, **kw): return None\n"
+        "server = [MCPServerStdio('python', ['mcp_server.py'])]\n"
+        "agent = RunContext('model', mcp_servers=server)\n",
+        encoding="utf-8",
+    )
+    _provider(tmp_path)
+    assert inspect_local_pydantic_mcp(tmp_path).bindings == []
+
+    (tmp_path / "agent.py").write_text(
+        "from pydantic_ai import Agent as AI_Agent\n"
+        "from pydantic_ai.mcp import MCPServerStdio as Stdio\n"
+        "server = [Stdio('python', ['mcp_server.py'])]\n"
+        "agent = AI_Agent('model', mcp_servers=server)\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "mcp_server.py").write_text(
+        "from fastmcp import FastMCP as Server\n"
+        "mcp = Server('demo')\n"
+        "@mcp.tool()\n"
+        "def approved(): return True\n"
+        "if __name__ == '__main__':\n"
+        "    mcp.run()\n",
+        encoding="utf-8",
+    )
+    report = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert {edge["kind"] for edge in report["bindings"]} == {
+        "agent_binds_client", "client_connects_to_server", "exposes_tool",
+    }
+
+
+def test_reassigned_source_symbols_do_not_prove_source_identity(
+    tmp_path: Path,
+) -> None:
+    _agent(tmp_path)
+    _provider(tmp_path)
+    (tmp_path / "agent.py").write_text(
+        (tmp_path / "agent.py").read_text(encoding="utf-8")
+        + "agent = None\n",
+        encoding="utf-8",
+    )
+    assert inspect_local_pydantic_mcp(tmp_path).bindings == []
+
+    _agent(tmp_path)
+    (tmp_path / "mcp_server.py").write_text(
+        (tmp_path / "mcp_server.py").read_text(encoding="utf-8")
+        + "mcp = None\n",
+        encoding="utf-8",
+    )
+    report = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert [edge["kind"] for edge in report["bindings"]] == [
+        "agent_binds_client",
+    ]
+
+
+def test_shadowed_agent_and_stdio_constructor_aliases_are_not_proof(
+    tmp_path: Path,
+) -> None:
+    _agent(tmp_path)
+    _provider(tmp_path)
+    original = (tmp_path / "agent.py").read_text(encoding="utf-8")
+
+    # The imported constructor is subsequently replaced in module scope.
+    (tmp_path / "agent.py").write_text(
+        original + "def Agent(*args, **kwargs): return None\n",
+        encoding="utf-8",
+    )
+    assert inspect_local_pydantic_mcp(tmp_path).bindings == []
+
+    (tmp_path / "agent.py").write_text(
+        original + "MCPServerStdio = lambda *args, **kwargs: None\n",
+        encoding="utf-8",
+    )
+    assert inspect_local_pydantic_mcp(tmp_path).bindings == []
+
+    (tmp_path / "agent.py").write_text(
+        original + "if True:\n    Agent = lambda *args, **kwargs: None\n",
+        encoding="utf-8",
+    )
+    assert inspect_local_pydantic_mcp(tmp_path).bindings == []
+
+    # A later import from another module also destroys origin certainty.
+    (tmp_path / "agent.py").write_text(
+        original + "from other_module import Agent\n",
+        encoding="utf-8",
+    )
+    assert inspect_local_pydantic_mcp(tmp_path).bindings == []
+
+
+def test_shadowed_fastmcp_constructor_is_not_provider_proof(tmp_path: Path) -> None:
+    _agent(tmp_path)
+    _provider(tmp_path)
+    provider = tmp_path / "mcp_server.py"
+    provider.write_text(
+        provider.read_text(encoding="utf-8")
+        + "def FastMCP(*args, **kwargs): return None\n",
+        encoding="utf-8",
+    )
+    result = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert {edge["kind"] for edge in result["bindings"]} == {
+        "agent_binds_client",
+    }
+
+
+def test_nested_uncalled_mcp_run_is_not_a_server_entrypoint(tmp_path: Path) -> None:
+    _agent(tmp_path)
+    _provider(tmp_path)
+    provider = tmp_path / "mcp_server.py"
+    provider.write_text(
+        provider.read_text(encoding="utf-8").replace(
+            "if __name__ == '__main__':\n    mcp.run()\n",
+            "if __name__ == '__main__':\n"
+            "    def never_called():\n"
+            "        mcp.run()\n",
+        ),
+        encoding="utf-8",
+    )
+    result = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert {edge["kind"] for edge in result["bindings"]} == {
+        "agent_binds_client",
+    }
+
+
+def test_main_guard_calls_top_level_mcp_startup_helper(tmp_path: Path) -> None:
+    _agent(tmp_path)
+    _provider(tmp_path)
+    provider = tmp_path / "mcp_server.py"
+    provider.write_text(
+        provider.read_text(encoding="utf-8").replace(
+            "if __name__ == '__main__':\n    mcp.run()\n",
+            "def main():\n"
+            "    mcp.run()\n"
+            "if __name__ == '__main__':\n"
+            "    main()\n",
+        ),
+        encoding="utf-8",
+    )
+    result = inspect_local_pydantic_mcp(tmp_path).as_dict()
+    assert {edge["kind"] for edge in result["bindings"]} == {
+        "agent_binds_client", "client_connects_to_server", "exposes_tool",
+    }
