@@ -71,33 +71,33 @@ def test_factory_hard_negatives_no_link_without_original_symbols_or_flow(
 ) -> None:
     cases = [
         # Source comment/text alone is not registration.
-        "from fastmcp import FastMCP\nfrom fastmcp.tools import FunctionTool\n"
-        "'FunctionTool.from_function(tool); mcp.add_tool(tool_obj)'\n",
+        ("from fastmcp import FastMCP\nfrom fastmcp.tools import FunctionTool\n"
+        "'FunctionTool.from_function(tool); mcp.add_tool(tool_obj)'\n"),
         # FastMCP constructor is redefined after import.
-        "from fastmcp import FastMCP\nfrom fastmcp.tools import FunctionTool\n"
+        ("from fastmcp import FastMCP\nfrom fastmcp.tools import FunctionTool\n"
         "FastMCP = lambda *a: None\n"
         "def build_app(tools):\n"
         "    mcp = FastMCP('x')\n"
         "    for tool in tools:\n"
         "        obj = FunctionTool.from_function(tool)\n"
         "        mcp.add_tool(obj)\n"
-        "    return mcp\n",
+        "    return mcp\n"),
         # Wrong method/symbol should not prove FastMCP tool registration.
-        "from fastmcp import FastMCP\nfrom fastmcp.tools import FunctionTool\n"
+        ("from fastmcp import FastMCP\nfrom fastmcp.tools import FunctionTool\n"
         "def build_app(tools):\n"
         "    mcp = FastMCP('x')\n"
         "    for tool in tools:\n"
         "        obj = FunctionTool.from_function(tool)\n"
         "        other.add_tool(obj)\n"
-        "    return mcp\n",
+        "    return mcp\n"),
         # Not source-observable returned server.
-        "from fastmcp import FastMCP\nfrom fastmcp.tools import FunctionTool\n"
+        ("from fastmcp import FastMCP\nfrom fastmcp.tools import FunctionTool\n"
         "def build_app(tools):\n"
         "    mcp = FastMCP('x')\n"
         "    for tool in tools:\n"
         "        obj = FunctionTool.from_function(tool)\n"
         "        mcp.add_tool(obj)\n"
-        "    return other\n",
+        "    return other\n"),
     ]
     for content in cases:
         _factory(tmp_path, content)
