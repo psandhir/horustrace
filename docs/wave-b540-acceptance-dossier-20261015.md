@@ -65,3 +65,10 @@ The initial per-source differential across Full-60 found **57 added and 17 remov
 - Wave C #543: **BLOCKED**.
 
 This dossier deliberately does not invent signatures, TP/FP classifications or a precision/recall percentage.
+
+## Final combined-candidate pinned runs
+
+- Final scanner SHA: `1ab391e1513c01ec6fa122c6f29953652fe8df76`.
+- [Fresh-16](https://github.com/psandhir/horustrace/actions/runs/38811906529) and [Full-60](https://github.com/psandhir/horustrace/actions/runs/38811906774) passed their source-pinned workflow gates on this SHA.
+- [CodeQL](https://github.com/psandhir/horustrace/actions/runs/38811906471) passed.
+- PR #551 acceptance runs again with a same-source before/after comparison and per-claim reviewer queue. Source-based claim reviews, unknown runtime authority, and incomplete independent ground truth continue to block GO.

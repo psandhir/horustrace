@@ -119,3 +119,27 @@ label set.
 
 **Release decision remains NO-GO until the above evidence and independent
 claim reviews close issue #540's acceptance gate.**
+
+## Combined final-main pre-Wave-C validation — 15 October 2026
+
+Both P0 corrections are merged: PR #552 at `10051b67` restored the
+source-supported AGT022 finding, and PR #553 at `1ab391e` eliminated
+the duplicated `weather_assistant` Strands wrapper and phantom relationship.
+The acceptance workflow's **after** artifacts have been refreshed to the
+combined scanner `main@1ab391e1513c01ec6fa122c6f29953652fe8df76`:
+
+| Study | Pinned final-main workflow |
+|---|---|
+| Fresh-16 | https://github.com/psandhir/horustrace/actions/runs/38811906529 |
+| Full-60 | https://github.com/psandhir/horustrace/actions/runs/38811906774 |
+| CodeQL | https://github.com/psandhir/horustrace/actions/runs/38811906471 |
+| CI | https://github.com/psandhir/horustrace/actions/runs/38811906473 |
+
+The regenerated differential exports a **source-normalized per-claim reviewer
+queue**, including severity, exact repository-relative location, rule/message,
+recorded source evidence, conditional limitations and raw structured
+provenance count. No findings are automatically accepted.
+
+The case-level review backlog and evidence semantics are in
+`docs/wave-b540-acceptance-dossier-20261015.md`. This is **not** independent
+blind truth or a signed GO decision. Wave C #543 remains blocked.

@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from horustrace.adg import build_adg
 from horustrace.models import Agent, Graph, MCPServer, NetworkDestination, SourceLocation, Tool
 from horustrace.rules.builtin import evaluate
@@ -209,3 +211,51 @@ def test_net002_not_emitted_for_fixed_managed_service_semantics(tmp_path: Path) 
     graph.adg = build_adg(graph, tmp_path)
 
     assert not any(item.rule_id == "NET002" for item in evaluate(graph))
+
+
+@pytest.mark.parametrize("kind", ["function", "strands_tool_wrapper"])
+def test_mutating_strands_wrapper_retains_agt022(kind: str, tmp_path: Path) -> None:
+    location = SourceLocation(tmp_path / "options_flow_tools.py", line=78)
+    tool = Tool(
+        name="options_subscribe_tool",
+        kind=kind,
+        capabilities={"data.write", "external.write", "network.external"},
+        location=location,
+    )
+    graph = Graph(agents=[Agent(name="Setup Agent", tools=[tool], location=location)])
+    ids = [item.rule_id for item in evaluate(graph)]
+    assert ids.count("AGT022") == 1
+    assert "AGT040" in ids
+
+
+@pytest.mark.parametrize("kind", ["strands_tool_wrapper", "function"])
+def test_agt022_mutating_wrapper_control_and_read_only_negatives(
+    kind: str, tmp_path: Path,
+) -> None:
+    location = SourceLocation(tmp_path / "options_flow_tools.py", line=78)
+    controlled = Tool(
+        name="approved_change", kind=kind,
+        capabilities={"data.write"}, approval=True, location=location,
+    )
+    read_only = Tool(
+        name="read_only", kind=kind,
+        capabilities={"data.read"}, location=location,
+    )
+    graph = Graph(agents=[Agent(
+        name="Setup Agent", tools=[controlled, read_only], location=location,
+    )])
+    assert not any(item.rule_id == "AGT022" for item in evaluate(graph))
+
+
+def test_delegated_agent_is_not_an_invented_mutating_wrapper(
+    tmp_path: Path,
+) -> None:
+    location = SourceLocation(tmp_path / "orchestrator.py", line=9)
+    delegated = Tool(
+        name="latent_agent", kind="delegated_agent",
+        capabilities={"data.write"}, location=location,
+    )
+    graph = Graph(agents=[Agent(
+        name="orchestrator", tools=[delegated], location=location,
+    )])
+    assert not any(item.rule_id == "AGT022" for item in evaluate(graph))

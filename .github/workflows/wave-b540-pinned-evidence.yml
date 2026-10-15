@@ -24,12 +24,12 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       BEFORE_FRESH: "38769782161"
-      AFTER_FRESH: "38795405512"
+      AFTER_FRESH: "38811906529"
       BEFORE_FULL: "38768531774"
-      AFTER_FULL: "38795405406"
+      AFTER_FULL: "38811906774"
       PRE_STRANDS_MAIN_SHA: "980c544616a1dff60bb76deaf546f1b34320fdb3"
       PRE_STRANDS_FULL_SHA: "e5b588da713d04dc70a191a104ed8e4f89fb3d67"
-      POST_STRANDS_MAIN_SHA: "ccbbfc34d7e3a4ac6e9e4cd19cf15716932b1a42"
+      POST_STRANDS_MAIN_SHA: "1ab391e1513c01ec6fa122c6f29953652fe8df76"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -121,10 +121,34 @@ jobs:
               added = sum(c["added_findings"] for c in cases)
               removed = sum(c["removed_findings"] for c in cases)
               gaps = len(report["unreviewed_or_unresolved_claims"])
+              changed_details = [
+                  detail for case in cases
+                  for detail in case.get("changed_claim_details", [])
+              ]
+              if len(changed_details) != gaps:
+                  raise SystemExit(
+                      "Every changed claim must appear in the source review queue"
+                  )
               if report["wave_c_go"] is not False or report["independent_exhaustive_ground_truth"] is not False:
                   raise SystemExit("Evaluator incorrectly granted approval")
               lines.append(f"| {name} | {len(cases)} | {added} | {removed} | {gaps} |")
               if name == "full60":
+                  high_risk = sum(d.get("severity") == "high" for d in changed_details)
+                  raw_provenance_missing = sum(
+                      d.get("raw_structured_provenance_count", 0) == 0
+                      for d in changed_details
+                  )
+                  lines += [
+                      "",
+                      "### Independent source-adjudication queue",
+                      "",
+                      f"Changed claims: {len(changed_details)}; high-severity: {high_risk}; "
+                      f"without raw structured provenance: {raw_provenance_missing}.",
+                      "Each claim's rule, source line, before/after instance count, "
+                      "evidence, limitations and provenance gap is exported at "
+                      "evaluation/full60.json under cases[].changed_claim_details.",
+                      "No reviewer signatures or TP/FP labels have been generated.",
+                  ]
                   amazon = next(c for c in cases if c["case_id"] == "ff60-amazon-04")
                   lines += [
                       "",
