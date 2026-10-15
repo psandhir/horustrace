@@ -29,6 +29,7 @@ from horustrace.source_context import SOURCE_CONTEXTS, classify_source_context
 from horustrace.source_native_dynamic_mcp import inspect_dynamic_mcp_registration
 from horustrace.source_native_mcp import inspect_local_pydantic_mcp
 from horustrace.source_native_strands import inspect_strands_tool_composition
+from horustrace.source_native_toolsets import inspect_local_toolset_catalogues
 
 SHADOW_SCHEMA_VERSION = 2
 ORIGIN = "legacy_graph_projection_not_independently_adjudicated"
@@ -328,6 +329,7 @@ def shadow_observation_report(
     native = inspect_local_pydantic_mcp(target if target is not None else root)
     dynamic = inspect_dynamic_mcp_registration(target if target is not None else root)
     strands = inspect_strands_tool_composition(target if target is not None else root)
+    toolsets = inspect_local_toolset_catalogues(target if target is not None else root)
     return {
         **shadow.as_dict(),
         "mode": "passive_shadow_from_legacy_graph",
@@ -335,6 +337,8 @@ def shadow_observation_report(
         "source_native_dynamic": dynamic.as_dict(),
         "source_native_dynamic_scope": "factory_registration_and_runtime_enumeration",
         "source_native_strands": strands.as_dict(),
+        "source_native_toolsets": toolsets.as_dict(),
+        "source_native_toolsets_scope": "conditional_provider_toolset_import_chains",
         "source_native_strands_scope": "imported_tool_wrapper_to_nested_agent_candidates",
         "source_native_scope": "pydantic_local_mcp_literal_stdio_pilot",
         "runtime_effectiveness": "not_verified",
@@ -349,5 +353,6 @@ def shadow_observation_report(
             "missing source or ambiguous same-line declarations require later linking",
             "source-context runtime does not prove deployment or execution",
             "Strands nested agent composition is source-only and not runtime delegation",
+            "ToolSet candidates do not establish enabled exposure or agent authority",
         ],
     }
