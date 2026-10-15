@@ -525,6 +525,21 @@ def _vended_tool(
     ):
         return None
     source_name = remote or name
+    # The import statement is the exact evidence for a vended tool.
+    # A synthetic module line 1 obscures the actual source witness and
+    # previously produced 37 unhelpful line-1 findings in WAB-04.
+    bindings = [
+        node
+        for node in ast.walk(info.tree)
+        if isinstance(node, ast.ImportFrom)
+        and node.module == module
+        and any(
+            alias.name == source_name and (alias.asname or alias.name) == name
+            for alias in node.names
+        )
+    ]
+    if len(bindings) != 1:
+        return None
     return Tool(
         name=source_name,
         kind="strands_vended_tool",
@@ -534,11 +549,12 @@ def _vended_tool(
                 infer_capabilities(source_name),
             )
         ),
-        location=_location(info.path),
+        location=_location(info.path, bindings[0]),
         metadata={
             "framework": STRANDS_FRAMEWORK,
             "source_module": module,
             "import_name": name,
+            "source_symbol_origin": "import_statement",
             "repository_resolved": True,
         },
     )
