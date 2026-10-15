@@ -38,6 +38,20 @@ def verify(root: Path) -> dict[str, object]:
             raise ValueError("non-local agent instance source") from exc
         locations.append((rel, location.line))
     distinct = set(locations)
+    construction_scope = {}
+    for agent in graph.agents:
+        location = agent.location
+        assert location is not None
+        key = location.path.resolve().relative_to(source.resolve()).as_posix()
+        role = agent.metadata.get("construction_scope")
+        construction_scope[key] = role
+        if key.startswith("agents/"):
+            if role != "tool_wrapper_deferred_invocation":
+                raise ValueError(f"nested agent lacks deferred tool wrapper role: {key}")
+            if agent.metadata.get("source_tool_wrapper") is not True:
+                raise ValueError(f"nested agent lacks source tool decorator: {key}")
+        elif key == "main.py" and role != "function_local_conditional":
+            raise ValueError("orchestrator constructor is not module instantiated")
     missing = EXPECTED - distinct
     extra = distinct - EXPECTED
     if missing or extra or len(locations) != len(EXPECTED):
@@ -55,6 +69,16 @@ def verify(root: Path) -> dict[str, object]:
             key=lambda row: (row["file"], row["line"]),
         ),
         "new_final_agent_count": len(locations),
+        "construction_scope_counts": {
+            "tool_wrapper_deferred_invocation": sum(
+                value == "tool_wrapper_deferred_invocation"
+                for value in construction_scope.values()
+            ),
+            "function_local_conditional": sum(
+                value == "function_local_conditional"
+                for value in construction_scope.values()
+            ),
+        },
         "source_location_preservation_verified": True,
         "runtime_instances_verified": False,
         "deferred_source_authority_truth": True,
