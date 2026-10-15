@@ -1577,12 +1577,11 @@ def _dedupe_strands_source_tool_projections(agent: Agent) -> None:
             or type(line) is not int or line < 1
         ):
             return None
-        if tool.location is not None:
-            if (
-                str(tool.location.path) != path
-                or tool.location.line != line
-            ):
-                return None
+        if tool.location is not None and (
+            str(tool.location.path) != path
+            or tool.location.line != line
+        ):
+            return None
         return (symbol, path, line)
 
     distinct: list[Tool] = []
