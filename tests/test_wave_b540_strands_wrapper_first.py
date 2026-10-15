@@ -3,8 +3,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from horustrace.models import Graph
+from horustrace.models import Agent, Graph, SourceLocation, Tool
 from horustrace.strands_repository import (
+    _append_tool,
     _build_modules,
     _strands_decorated_function_tool,
     enrich_strands_repository_graph,
@@ -102,3 +103,67 @@ def test_shadowed_or_unresolved_import_cannot_invent_wrapper(
     assert _strands_decorated_function_tool(
         modules, modules["main"], "specialist",
     ) is None
+
+
+def test_same_source_decorated_callable_deduplicates_kind_projections(
+    tmp_path: Path,
+) -> None:
+    location = SourceLocation(tmp_path / "weather.py", line=80)
+    source_key = "weather.weather_assistant"
+    legacy = Tool(
+        name="weather_assistant", kind="function",
+        location=location, capabilities={"data.read"},
+        metadata={"source_function_key": source_key, "binding_origin": "@tool"},
+    )
+    wrapper = Tool(
+        name="weather_assistant", kind="strands_tool_wrapper",
+        location=location, capabilities={"network.external"},
+        metadata={
+            "source_function_key": source_key,
+            "source_tool_decorator": "strands.tool",
+            "nested_agent_execution": "deferred_until_wrapper_invocation",
+        },
+    )
+    agent = Agent(name="orchestrator", tools=[legacy], location=location)
+    _append_tool(agent, wrapper)
+    assert len(agent.tools) == 1
+    merged = agent.tools[0]
+    assert merged.kind == "strands_tool_wrapper"
+    assert merged.capabilities == {"data.read", "network.external"}
+    assert merged.metadata["source_tool_decorator"] == "strands.tool"
+    assert merged.metadata["nested_agent_execution"] == (
+        "deferred_until_wrapper_invocation"
+    )
+
+
+def test_same_name_distinct_source_definitions_do_not_merge(
+    tmp_path: Path,
+) -> None:
+    first = SourceLocation(tmp_path / "first.py", line=80)
+    second = SourceLocation(tmp_path / "second.py", line=80)
+    agent = Agent(name="orchestrator", tools=[Tool(
+        name="weather_assistant", kind="function", location=first,
+        metadata={"source_function_key": "first.weather_assistant"},
+    )])
+    _append_tool(agent, Tool(
+        name="weather_assistant", kind="strands_tool_wrapper", location=second,
+        metadata={"source_function_key": "second.weather_assistant"},
+    ))
+    assert len(agent.tools) == 2
+    assert {t.kind for t in agent.tools} == {
+        "function", "strands_tool_wrapper",
+    }
+
+
+def test_unlocated_or_unproven_symbol_cannot_merge_tool_kinds(
+    tmp_path: Path,
+) -> None:
+    location = SourceLocation(tmp_path / "weather.py", line=80)
+    agent = Agent(name="orchestrator", tools=[Tool(
+        name="weather_assistant", kind="function", location=location,
+    )])
+    _append_tool(agent, Tool(
+        name="weather_assistant", kind="strands_tool_wrapper", location=location,
+        metadata={"source_function_key": "weather.weather_assistant"},
+    ))
+    assert len(agent.tools) == 2
