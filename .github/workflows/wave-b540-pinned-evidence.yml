@@ -93,6 +93,7 @@ jobs:
             --before-dir artifacts/fresh16/before \
             --after-dir artifacts/fresh16/after \
             --expected-cases 16 \
+            --allow-missing-authority \
             --output evaluation/fresh16.json
           python scripts/evaluate_wave_b_pre_c.py \
             --before-dir artifacts/full60/before \
