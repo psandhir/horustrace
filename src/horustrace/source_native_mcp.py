@@ -84,17 +84,16 @@ def _imports(tree: ast.Module, module_name: str, symbol: str) -> set[str]:
         if isinstance(statement, ast.Assign):
             for target in statement.targets:
                 assigned(target)
-        elif isinstance(statement, (ast.AnnAssign, ast.AugAssign)):
-            assigned(statement.target)
-        elif isinstance(statement, (ast.For, ast.AsyncFor)):
+        elif isinstance(statement, (
+            ast.AnnAssign, ast.AugAssign, ast.For, ast.AsyncFor,
+        )):
             assigned(statement.target)
         elif isinstance(statement, (ast.With, ast.AsyncWith)):
             for item in statement.items:
                 if item.optional_vars is not None:
                     assigned(item.optional_vars)
-        elif isinstance(statement, ast.ExceptHandler):
-            if statement.name:
-                bind(statement.name)
+        elif isinstance(statement, ast.ExceptHandler) and statement.name:
+            bind(statement.name)
 
         # Only recurse through module-level control flow, never nested
         # function/class bodies. All branches count as possible rebinding.
