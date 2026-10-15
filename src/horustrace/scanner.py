@@ -2841,6 +2841,11 @@ def _scan(
         root if root.is_dir() else root.parent,
         approved_python_paths,
     )
+    # Canonical source_function_key is assigned here, after the last generic
+    # agent-consolidation pass. Reconcile exact-source Strands @tool aliases
+    # before authority, findings and attack-path relationships are produced.
+    for agent in graph.agents:
+        _dedupe_strands_source_tool_projections(agent)
     enrich_indirect_tool_content_semantics(
         graph,
         root if root.is_dir() else root.parent,
