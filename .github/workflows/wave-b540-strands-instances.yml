@@ -5,6 +5,7 @@ on:
       - 'src/horustrace/scanner.py'
       - 'tests/test_wave_b540_strands_instances.py'
       - 'scripts/verify_wave_b540_strands_instances.py'
+      - 'scripts/verify_wave_b540_strands_tool_dedup.py'
       - '.github/workflows/wave-b540-strands-instances.yml'
   workflow_dispatch:
 
@@ -33,3 +34,15 @@ jobs:
           test "$(git -C /tmp/wab540-strands rev-parse HEAD)" = 30d03d7c9f6512e5bf10601879382fac9c3a16b1
       - name: Assert source-qualified instances survive production consolidation
         run: python scripts/verify_wave_b540_strands_instances.py --source /tmp/wab540-strands
+      - name: Fetch frozen Strands same-source tool case
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/wab540-strands-tool
+          git -C /tmp/wab540-strands-tool init -q
+          git -C /tmp/wab540-strands-tool remote add origin https://github.com/garystafford/aws-strands-agents-mcp-demo.git
+          git -C /tmp/wab540-strands-tool fetch --depth=1 origin 324988770122a2302163fc12cdda0f1d805bf407
+          git -C /tmp/wab540-strands-tool checkout --detach FETCH_HEAD
+          test "$(git -C /tmp/wab540-strands-tool rev-parse HEAD)" = 324988770122a2302163fc12cdda0f1d805bf407
+      - name: Assert one decorated tool and no duplicate authority edge
+        run: python scripts/verify_wave_b540_strands_tool_dedup.py --source /tmp/wab540-strands-tool
