@@ -35,8 +35,13 @@ def _source_path(raw: str | None) -> str:
     # The pinned scanner checks out a source tree in a fresh temporary
     # directory on every run. Never compare machine-dependent temp prefixes.
     normalized = raw.replace("\\", "/")
-    if "/target/src/" in normalized:
-        return normalized.split("/target/src/", 1)[-1]
+    # Every pinned study clones to a unique temporary <root>/target checkout.
+    # Normalize all source paths, including root-level agent.py and C# files,
+    # not just files underneath src/. Otherwise every run looks like a change.
+    if "/target/" in normalized:
+        return normalized.split("/target/", 1)[-1]
+    if normalized.startswith("target/"):
+        return normalized[len("target/"):]
     if "/src/" in normalized:
         return normalized.rsplit("/src/", 1)[-1]
     return normalized.lstrip("./")
