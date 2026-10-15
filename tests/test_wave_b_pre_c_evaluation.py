@@ -163,3 +163,31 @@ def test_legacy_fresh16_missing_authority_is_unknown_not_zero(
     }
     assert report["cases"][0]["added_findings"] == 1
     assert report["wave_c_go"] is False
+
+
+def test_root_level_target_sources_match_across_temp_checkouts(
+    tmp_path: Path,
+) -> None:
+    before, after = tmp_path / "before", tmp_path / "after"
+    original = _finding(18, "checkout-one")
+    later = _finding(18, "checkout-two")
+    original["location"]["path"] = "/tmp/checkout-one/target/agent.py"
+    later["location"]["path"] = "/tmp/checkout-two/target/agent.py"
+    _archive(before, "gen-pyd-001", SHA, findings=[original])
+    _archive(after, "gen-pyd-001", SHA, findings=[later])
+    report = compare(before, after, expected_cases=1)
+    case = report["cases"][0]
+    assert case["added_findings"] == 0
+    assert case["removed_findings"] == 0
+    assert report["unreviewed_or_unresolved_claims"] == []
+
+
+def test_src_paths_also_match_across_target_checkouts(
+    tmp_path: Path,
+) -> None:
+    before, after = tmp_path / "before", tmp_path / "after"
+    _archive(before, "gen-adk-001", SHA, findings=[_finding(4, "first")])
+    _archive(after, "gen-adk-001", SHA, findings=[_finding(4, "second")])
+    report = compare(before, after, expected_cases=1)
+    assert report["cases"][0]["added_findings"] == 0
+    assert report["cases"][0]["removed_findings"] == 0
