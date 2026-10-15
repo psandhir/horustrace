@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from horustrace.models import Agent, Graph, SourceLocation, Tool
+from horustrace.scanner import _consolidate_agents
 from horustrace.strands_repository import (
     _append_tool,
     _build_modules,
@@ -167,3 +168,69 @@ def test_unlocated_or_unproven_symbol_cannot_merge_tool_kinds(
         metadata={"source_function_key": "weather.weather_assistant"},
     ))
     assert len(agent.tools) == 2
+
+
+def test_production_consolidation_removes_duplicate_decorated_tool(
+    tmp_path: Path,
+) -> None:
+    location = SourceLocation(tmp_path / "agent_stdio_multi_agent.py", line=80)
+    metadata = {
+        "framework": "strands-agents",
+        "source_function_key": "agent_stdio_multi_agent.weather_assistant",
+        "source_path": str(location.path),
+        "source_line": 80,
+    }
+    tools = [
+        Tool(name="weather_assistant", kind="function",
+             location=location, metadata={**metadata, "binding_origin": "@tool"}),
+        Tool(name="weather_assistant", kind="strands_tool_wrapper",
+             location=location, metadata={
+                 **metadata, "source_tool_decorator": "strands.tool",
+                 "nested_agent_execution": "deferred_until_wrapper_invocation",
+             }),
+    ]
+    agent = Agent(
+        name="orchestrator_agent", location=SourceLocation(
+            location.path, line=116,
+        ),
+        metadata={"framework": "strands-agents"}, tools=tools,
+    )
+    graph = Graph(agents=[agent])
+    _consolidate_agents(graph)
+    assert len(graph.agents) == 1
+    assert len(graph.agents[0].tools) == 1
+    merged = graph.agents[0].tools[0]
+    assert merged.kind == "strands_tool_wrapper"
+    assert merged.metadata["source_tool_decorator"] == "strands.tool"
+    assert merged.metadata["nested_agent_execution"] == (
+        "deferred_until_wrapper_invocation"
+    )
+
+
+def test_production_dedup_keeps_unproved_and_distinct_source_tools(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "tools.py"
+    location = SourceLocation(path, line=20)
+    other = SourceLocation(path, line=23)
+    base = {
+        "framework": "strands-agents",
+        "source_function_key": "tools.same_name",
+        "source_path": str(path),
+        "source_line": 20,
+    }
+    agent = Agent(
+        name="orchestrator", location=SourceLocation(path, line=40),
+        metadata={"framework": "strands-agents"},
+        tools=[
+            Tool(name="same_name", kind="function", location=location,
+                 metadata=base),
+            Tool(name="same_name", kind="strands_tool_wrapper",
+                 location=other, metadata={**base, "source_line": 23}),
+            Tool(name="same_name", kind="strands_tool_wrapper",
+                 location=location, metadata={"framework": "strands-agents"}),
+        ],
+    )
+    graph = Graph(agents=[agent])
+    _consolidate_agents(graph)
+    assert len(graph.agents[0].tools) == 3
