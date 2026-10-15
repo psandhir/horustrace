@@ -737,8 +737,13 @@ def _strands_decorated_function_tool(
         "source_callable_resolution": "imported_decorated_function",
         "nested_agent_execution": "deferred_until_wrapper_invocation",
         "runtime_effectiveness": "not_verified",
-        "delegation_target_resolution": "unresolved_runtime_instance",
     })
+    # Preserve stronger source-specific delegation proof, such as an
+    # AgentCore HTTP runtime ID derived from the decorated function body.
+    # Only fill the unresolved generic case if no better evidence exists.
+    tool.metadata.setdefault(
+        "delegation_target_resolution", "unresolved_runtime_instance",
+    )
     return tool
 
 
