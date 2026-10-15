@@ -60,6 +60,35 @@ def verify(root: Path) -> dict[str, object]:
             f"missing={sorted(missing)}, extra={sorted(extra)}, "
             f"total={len(locations)}"
         )
+    # Imported specialist wrappers are tools passed to the orchestrator,
+    # not source-proven eagerly instantiated Agent delegation targets.
+    orchestrators = [agent for agent in graph.agents if agent.name == "orchestrator"]
+    if len(orchestrators) != 1:
+        raise ValueError("source orchestrator identity unresolved")
+    expected_wrappers = {
+        "cfn_explorer",
+        "cloudtrail_explorer",
+        "waypoint_explorer",
+        "analysis_writer",
+        "multi_region_expansion_planner",
+        "planning_report_generator",
+        "report_writer",
+        "tech_analysis_writer",
+    }
+    bound_wrappers = {
+        tool.name for tool in orchestrators[0].tools
+        if tool.kind == "strands_tool_wrapper"
+    }
+    if bound_wrappers != expected_wrappers:
+        raise ValueError(
+            f"expected source-decorated callable wrapper tools "
+            f"{sorted(expected_wrappers)} but observed {sorted(bound_wrappers)}"
+        )
+    if any(
+        tool.kind == "delegated_agent" and tool.name == "agent"
+        for tool in orchestrators[0].tools
+    ):
+        raise ValueError("ambiguous nested Agent promoted to live delegation")
     return {
         "case": "ff60-amazon-04",
         "source": "aws-samples/sample-multi-agent-region-expansion-planner@30d03d7c9f6512e5bf10601879382fac9c3a16b1",
@@ -69,6 +98,8 @@ def verify(root: Path) -> dict[str, object]:
             key=lambda row: (row["file"], row["line"]),
         ),
         "new_final_agent_count": len(locations),
+        "orchestrator_source_callable_wrappers": sorted(bound_wrappers),
+        "pricing_explorer_import": "unresolved_module_vs_decorated_callable",
         "construction_scope_counts": {
             "tool_wrapper_deferred_invocation": sum(
                 value == "tool_wrapper_deferred_invocation"
