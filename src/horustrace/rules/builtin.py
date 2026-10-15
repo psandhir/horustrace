@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+from pathlib import Path
 from urllib.parse import urlparse
 
 from horustrace.destination_provenance import (
