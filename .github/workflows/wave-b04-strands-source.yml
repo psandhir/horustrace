@@ -1,0 +1,36 @@
+name: Wave B04 Strands pinned source proof
+on:
+  pull_request:
+    paths:
+      - 'src/horustrace/source_native_strands.py'
+      - 'src/horustrace/semantic_shadow.py'
+      - 'tests/test_source_native_strands.py'
+      - 'scripts/verify_wave_b04_strands_source.py'
+      - '.github/workflows/wave-b04-strands-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e .
+      - name: Fetch pinned WAB-04 source without importing or executing it
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/wab04
+          git -C /tmp/wab04 init -q
+          git -C /tmp/wab04 remote add origin https://github.com/aws-samples/sample-multi-agent-region-expansion-planner.git
+          git -C /tmp/wab04 fetch --depth=1 origin 30d03d7c9f6512e5bf10601879382fac9c3a16b1
+          git -C /tmp/wab04 checkout --detach FETCH_HEAD
+          test "$(git -C /tmp/wab04 rev-parse HEAD)" = 30d03d7c9f6512e5bf10601879382fac9c3a16b1
+      - name: Verify source-only Strands two-hop candidate graph
+        run: python scripts/verify_wave_b04_strands_source.py --source /tmp/wab04
