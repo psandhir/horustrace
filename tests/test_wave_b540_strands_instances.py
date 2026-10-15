@@ -5,6 +5,7 @@ from pathlib import Path
 
 from horustrace.models import Agent, Graph, SourceLocation, Tool
 from horustrace.scanner import _consolidate_agents
+from horustrace.strands_repository import _build_modules, _vended_tool
 
 
 def _agent(root: Path, file: str, line: int, *,
@@ -92,3 +93,46 @@ def test_unlocated_strands_instances_remain_unresolved_under_legacy_key() -> Non
     ])
     _consolidate_agents(graph)
     assert len(graph.agents) == 1
+
+
+def test_vended_tool_provenance_uses_import_line_not_module_line_one(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "src"
+    package.mkdir()
+    source = package / "tool.py"
+    source.write_text(
+        "from __future__ import annotations\n"
+        "# unrelated leading line\n"
+        "from strands_tools import shell as execute_shell\n"
+        "from strands_tools import file_read\n",
+        encoding="utf-8",
+    )
+    modules = _build_modules(package, [source])
+    assert len(modules) == 1
+    info = next(iter(modules.values()))
+    tool = _vended_tool(info, "execute_shell")
+    assert tool is not None
+    assert tool.location is not None
+    assert tool.location.line == 3
+    assert tool.metadata["source_symbol_origin"] == "import_statement"
+    assert tool.name == "shell"
+    other = _vended_tool(info, "file_read")
+    assert other is not None
+    assert other.location is not None
+    assert other.location.line == 4
+
+
+def test_ambiguous_vended_import_alias_does_not_invent_source_binding(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "src"
+    package.mkdir()
+    source = package / "tool.py"
+    source.write_text(
+        "from strands_tools import shell as tool_alias\n"
+        "from strands_tools import shell as tool_alias\n",
+        encoding="utf-8",
+    )
+    info = next(iter(_build_modules(package, [source]).values()))
+    assert _vended_tool(info, "tool_alias") is None
