@@ -1,0 +1,36 @@
+name: Wave B540 Couchbase ToolSet source proof
+on:
+  pull_request:
+    paths:
+      - 'src/horustrace/source_native_toolsets.py'
+      - 'src/horustrace/semantic_shadow.py'
+      - 'tests/test_source_native_toolsets.py'
+      - 'scripts/verify_wave_b540_toolsets.py'
+      - '.github/workflows/wave-b540-toolsets-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e .
+      - name: Fetch only original pinned Couchbase source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/wab-540-couchbase
+          git -C /tmp/wab-540-couchbase init -q
+          git -C /tmp/wab-540-couchbase remote add origin https://github.com/couchbase/mcp-server-couchbase.git
+          git -C /tmp/wab-540-couchbase fetch --depth=1 origin df5d9ceb013f57143171f65ec3ba033ace06aa9a
+          git -C /tmp/wab-540-couchbase checkout --detach FETCH_HEAD
+          test "$(git -C /tmp/wab-540-couchbase rev-parse HEAD)" = df5d9ceb013f57143171f65ec3ba033ace06aa9a
+      - name: Verify source-qualified provider-only tool candidates
+        run: python scripts/verify_wave_b540_toolsets.py --source /tmp/wab-540-couchbase
