@@ -19,7 +19,15 @@ from horustrace.heuristics import (
     resource_is_broad,
     role_looks_admin,
 )
-from horustrace.models import Agent, Finding, Graph, Identity, NetworkDestination, Severity, SourceLocation
+from horustrace.models import (
+    Agent,
+    Finding,
+    Graph,
+    Identity,
+    NetworkDestination,
+    Severity,
+    SourceLocation,
+)
 from horustrace.semantic_contract import tool_control_enforcing
 from horustrace.skill_llm_semantics import confident_skill_concept
 
