@@ -15,7 +15,8 @@ from typing import Any
 
 MAX_ZIP_MEMBERS = 40
 MAX_JSON_BYTES = 12_000_000
-REQUIRED = ("result.json", "scan.json", "effective-authority.json")
+REQUIRED = ("result.json", "scan.json")
+AUTHORITY_FILE = "effective-authority.json"
 
 
 def _json(zipped: zipfile.ZipFile, filename: str) -> dict[str, Any]:
@@ -62,7 +63,7 @@ def _findings(case_id: str, items: list[dict[str, Any]]) -> Counter[str]:
     return Counter(_finding_key(case_id, row) for row in items)
 
 
-def _load_case(path: Path) -> dict[str, Any]:
+def _load_case(path: Path, *, allow_missing_authority: bool = False) -> dict[str, Any]:
     with zipfile.ZipFile(path) as archive:
         if len(archive.infolist()) > MAX_ZIP_MEMBERS:
             raise ValueError(f"too many artifact members: {path.name}")
@@ -70,7 +71,10 @@ def _load_case(path: Path) -> dict[str, Any]:
             raise ValueError(f"missing required data: {path.name}")
         result = _json(archive, "result.json")
         scan = _json(archive, "scan.json")
-        authority = _json(archive, "effective-authority.json")
+        authority_present = AUTHORITY_FILE in archive.namelist()
+        if not authority_present and not allow_missing_authority:
+            raise ValueError(f"missing required authority data: {path.name}")
+        authority = _json(archive, AUTHORITY_FILE) if authority_present else {}
     case_id = result.get("case_id")
     source_sha = result.get("sha")
     if not isinstance(case_id, str) or not case_id:
@@ -90,6 +94,7 @@ def _load_case(path: Path) -> dict[str, Any]:
         "source_sha": source_sha,
         "application_path": result.get("application_path"),
         "artifact_structure_valid": True,
+        "authority_evidence_present": authority_present,
         "metrics": {
             "agents": summary.get("agents"),
             "tools": summary.get("tools"),
@@ -114,12 +119,14 @@ def _load_case(path: Path) -> dict[str, Any]:
     }
 
 
-def _cohort(directory: Path) -> dict[str, dict[str, Any]]:
+def _cohort(
+    directory: Path, *, allow_missing_authority: bool = False,
+) -> dict[str, dict[str, Any]]:
     if not directory.is_dir():
         raise ValueError(f"cohort artifact directory not found: {directory}")
     result: dict[str, dict[str, Any]] = {}
     for archive in sorted(directory.glob("*.zip")):
-        case = _load_case(archive)
+        case = _load_case(archive, allow_missing_authority=allow_missing_authority)
         cid = case["case_id"]
         if cid in result:
             raise ValueError(f"duplicate case identity: {cid}")
@@ -135,9 +142,10 @@ def compare(
     *,
     expected_cases: int,
     adjudications: dict[str, Any] | None = None,
+    allow_missing_authority: bool = False,
 ) -> dict[str, Any]:
-    old = _cohort(before)
-    fresh = _cohort(after)
+    old = _cohort(before, allow_missing_authority=allow_missing_authority)
+    fresh = _cohort(after, allow_missing_authority=allow_missing_authority)
     if set(old) != set(fresh) or len(old) != expected_cases:
         raise ValueError(
             f"cohort mismatch: before={len(old)} after={len(fresh)} "
@@ -212,6 +220,11 @@ def compare(
         "cases": cases,
         "unreviewed_or_unresolved_claims": gaps,
         "case_source_claims_reviewed": not gaps,
+        "authority_evidence_missing_cases": sorted(
+            c["case_id"] for c in cases
+            if not (old[c["case_id"]]["authority_evidence_present"]
+                    and fresh[c["case_id"]]["authority_evidence_present"])
+        ),
         "external_cohort_pipeline_integrity_required": True,
         "independent_exhaustive_ground_truth": False,
         "precision": None,
@@ -227,6 +240,10 @@ def main() -> None:
     parser.add_argument("--after-dir", type=Path, required=True)
     parser.add_argument("--expected-cases", type=int, required=True)
     parser.add_argument("--adjudications", type=Path)
+    parser.add_argument(
+        "--allow-missing-authority", action="store_true",
+        help="For legacy scan-only cohorts, retain missing authority as unknown, never zero.",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     review = (
@@ -236,6 +253,7 @@ def main() -> None:
     report = compare(
         args.before_dir, args.after_dir,
         expected_cases=args.expected_cases, adjudications=review,
+        allow_missing_authority=args.allow_missing_authority,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
