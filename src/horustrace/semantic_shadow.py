@@ -110,7 +110,7 @@ class _ShadowBuilder:
             )
             resolution = SemanticResolution.UNRESOLVED
         context = metadata.get("source_context")
-        if context not in SOURCE_CONTEXTS:
+        if not isinstance(context, str) or context not in SOURCE_CONTEXTS:
             context = (
                 classify_source_context(location.path, root=self.root)
                 if location is not None
@@ -293,13 +293,13 @@ def shadow_inventory_partition(shadow: SemanticDiscovery) -> dict[str, Any]:
     by_role: dict[str, Counter[str]] = {}
     for entity in shadow.entities:
         context = entity.metadata.get("source_context", "unknown")
-        if context not in SOURCE_CONTEXTS:
+        if not isinstance(context, str) or context not in SOURCE_CONTEXTS:
             context = "unknown"
         by_kind.setdefault(entity.kind.value, Counter())[context] += 1
     for observation in shadow.observations:
         entity = entities[observation.entity_id]
         context = entity.metadata.get("source_context", "unknown")
-        if context not in SOURCE_CONTEXTS:
+        if not isinstance(context, str) or context not in SOURCE_CONTEXTS:
             context = "unknown"
         by_role.setdefault(observation.role, Counter())[context] += 1
     return {
