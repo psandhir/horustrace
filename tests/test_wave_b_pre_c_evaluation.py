@@ -73,6 +73,16 @@ def test_claim_deltas_are_review_needed_without_guessing_accuracy(
     assert report["precision"] is None
     assert report["recall"] is None
     assert report["wave_c_go"] is False
+    details = case["changed_claim_details"]
+    assert len(details) == 1
+    assert details[0]["claim_key"].startswith("case-1:")
+    assert details[0]["location"] == {
+        "path": "src/agents/worker.py", "line": 8,
+    }
+    assert details[0]["raw_structured_provenance_count"] == 0
+    assert details[0]["before_instances"] == 0
+    assert details[0]["after_instances"] == 1
+    assert details[0]["review_status"] == "requires_independent_source_review"
 
 
 def test_review_requires_explicit_witness_and_reviewer(tmp_path: Path) -> None:
