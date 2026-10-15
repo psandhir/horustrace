@@ -129,3 +129,37 @@ def test_missing_artifact_file_is_never_silently_complete(tmp_path: Path) -> Non
         zipped.writestr("result.json", "{}")
     with pytest.raises(ValueError, match="missing required data"):
         compare(before, after, expected_cases=1)
+
+
+def test_legacy_fresh16_missing_authority_is_unknown_not_zero(
+    tmp_path: Path,
+) -> None:
+    before, after = tmp_path / "before", tmp_path / "after"
+    _archive(before, "gen-pyd-001", SHA, agents=2, findings=[_finding(4)])
+    _archive(after, "gen-pyd-001", SHA, agents=3,
+             findings=[_finding(4), _finding(7)])
+    for root in (before, after):
+        path = root / "gen-pyd-001.zip"
+        with zipfile.ZipFile(path) as archive:
+            kept = {
+                name: archive.read(name)
+                for name in archive.namelist()
+                if name != "effective-authority.json"
+            }
+        with zipfile.ZipFile(path, "w") as archive:
+            for name, content in kept.items():
+                archive.writestr(name, content)
+
+    with pytest.raises(ValueError, match="missing required authority data"):
+        compare(before, after, expected_cases=1)
+
+    report = compare(
+        before, after, expected_cases=1, allow_missing_authority=True,
+    )
+    assert report["case_count"] == 1
+    assert report["authority_evidence_missing_cases"] == ["gen-pyd-001"]
+    assert report["cases"][0]["measures"]["authority_relationships"] == {
+        "before": None, "after": None, "delta": None,
+    }
+    assert report["cases"][0]["added_findings"] == 1
+    assert report["wave_c_go"] is False
