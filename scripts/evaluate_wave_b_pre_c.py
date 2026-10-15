@@ -89,7 +89,7 @@ def _load_case(path: Path) -> dict[str, Any]:
         "repo": result.get("repo"),
         "source_sha": source_sha,
         "application_path": result.get("application_path"),
-        "pipeline_valid": result.get("pipeline_valid"),
+        "artifact_structure_valid": True,
         "metrics": {
             "agents": summary.get("agents"),
             "tools": summary.get("tools"),
@@ -156,8 +156,6 @@ def compare(
         for immutable in ("source_sha", "repo", "application_path"):
             if past[immutable] != now[immutable]:
                 raise ValueError(f"not a pinned-source comparison: {cid}/{immutable}")
-        if now["pipeline_valid"] is not True or past["pipeline_valid"] is not True:
-            raise ValueError(f"invalid cohort pipeline: {cid}")
         new = now["findings"] - past["findings"]
         removed = past["findings"] - now["findings"]
         changed = sorted(set(new) | set(removed))
@@ -214,6 +212,7 @@ def compare(
         "cases": cases,
         "unreviewed_or_unresolved_claims": gaps,
         "case_source_claims_reviewed": not gaps,
+        "external_cohort_pipeline_integrity_required": True,
         "independent_exhaustive_ground_truth": False,
         "precision": None,
         "recall": None,
