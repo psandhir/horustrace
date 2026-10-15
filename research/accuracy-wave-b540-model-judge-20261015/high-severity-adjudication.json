@@ -1,0 +1,816 @@
+{
+  "schema_version": 1,
+  "study": "Wave B #540 model-as-judge high-severity pilot",
+  "source": "source-first reading of exact pinned Git blobs, then scanner claim reconciliation",
+  "repository": "aws-samples/sample-multi-agent-region-expansion-planner",
+  "repository_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+  "baseline_scanner_main_sha": "1ab391e1513c01ec6fa122c6f29953652fe8df76",
+  "comparison_run_url": "https://github.com/psandhir/horustrace/actions/runs/38812764105",
+  "claim_count": 20,
+  "reviewer_kind": "openai_chatgpt_model_as_judge",
+  "human_independent_review": false,
+  "source_only": true,
+  "exhaustive_negative_universe": false,
+  "runtime_effectiveness_verified": false,
+  "precision": null,
+  "recall": null,
+  "approval_scope": "model_source_claim_assessment_only_not_release_go",
+  "semantics": "Removed old keys adjudicated on their original exact evidence/source location; false_positive on synthetic line1 does not mean security risk absent. Source-confirmed findings denote conditional source-level capability/configuration, not actual exploit or effective authority.",
+  "status_counts": {
+    "source_confirmed": 10,
+    "false_positive": 6,
+    "unresolved": 4
+  },
+  "claims": [
+    {
+      "claim_key": "ff60-amazon-04:004130ab23ebfe22175c",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "removed",
+      "rule_id": "AGT020",
+      "severity": "high",
+      "status": "false_positive",
+      "confidence": 0.98,
+      "claim_scope": "obsolete_line1_anchor_only",
+      "source_witnesses": [
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "1",
+          "role": "positive",
+          "fact": "Blank first line does not locate shell or approval control"
+        },
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "18,59,62",
+          "role": "positive",
+          "fact": "Real shell import, tool-list registration and configuration call are source-visible"
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "positive",
+          "fact": "set_tool_configurations writes BYPASS_TOOL_CONSENT=true, not a guarantee of all backend control effectiveness"
+        }
+      ],
+      "hard_negative_evidence": "Line 1 is blank and not a tool. This relocation does not refute the source-declared shell risk.",
+      "reasoning": "Old AGT020 source-anchor claim invalid; new line-18 AGT020 preserves same potential tool risk.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:06ce2d8bfd46306662b0",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "added",
+      "rule_id": "AGT021",
+      "severity": "high",
+      "status": "source_confirmed",
+      "confidence": 0.87,
+      "claim_scope": "conditional_tool_potential",
+      "source_witnesses": [
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "18,59,62,72-80",
+          "role": "positive",
+          "fact": "shell is imported and assigned to deferred nested Agent; config helper invoked"
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "positive",
+          "fact": "set_tool_configurations writes BYPASS_TOOL_CONSENT=true, not a guarantee of all backend control effectiveness"
+        },
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "35-36,54-56,72-80",
+          "role": "hard_negative",
+          "fact": "Agent constructor occurs inside an @tool-decorated function and framework-availability guard; it is not proof of an active or invoked agent"
+        }
+      ],
+      "hard_negative_evidence": "No source proof shell actually performed destructive writes, was invoked, or bypassed runtime approval; 'appears able' must remain potential.",
+      "reasoning": "A conditional Agent is configured with shell and explicit consent-bypass setting; potential destructive-write exposure is source-supported, not an observed destructive action.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:0de03732933c171d96b4",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "added",
+      "rule_id": "CAP004",
+      "severity": "high",
+      "status": "unresolved",
+      "confidence": 0.9,
+      "claim_scope": "conditional_capability_exactness",
+      "source_witnesses": [
+        {
+          "path": "src/agents/pricing_explorer.py",
+          "blob_sha": "2c7c942b22ba50e857b4b75a1c38c7a8ef8f2cc2",
+          "lines": "26,68-95",
+          "role": "positive",
+          "fact": "python_repl and use_aws are assigned alongside runtime MCP list; agent only instantiated in per-region loop"
+        },
+        {
+          "path": "src/agents/__init__.py",
+          "blob_sha": "5f7114f83152fc73ee0b84cd5a4c56a550d5ceb1",
+          "lines": "8-20",
+          "role": "positive",
+          "fact": "Exports compare_regional_pricing, not a pricing_explorer callable"
+        },
+        {
+          "path": "src/agents/pricing_explorer.py",
+          "blob_sha": "2c7c942b22ba50e857b4b75a1c38c7a8ef8f2cc2",
+          "lines": "43-44,60-61,89-95",
+          "role": "hard_negative",
+          "fact": "Agent constructor occurs inside an @tool-decorated function and framework-availability guard; it is not proof of an active or invoked agent"
+        }
+      ],
+      "hard_negative_evidence": "Remote MCP tool catalogue unresolved; python_repl tool implementation/process effect unverified; main.py:15 imports pricing_explorer but package exports compare_regional_pricing, so orchestrator-to-pricing callable path is uncertain.",
+      "reasoning": "Source supports code-capable imports plus runtime MCP discovery, not independently proven process.execute AND network.external for the precise Agent instance or reachable invocation.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:0fba412fc3b98bceb358",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "added",
+      "rule_id": "AGT020",
+      "severity": "high",
+      "status": "source_confirmed",
+      "confidence": 0.92,
+      "claim_scope": "conditional_tool_potential",
+      "source_witnesses": [
+        {
+          "path": "src/agents/report_writer.py",
+          "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c",
+          "lines": "17,61,64,74-78",
+          "role": "positive",
+          "fact": "shell import, tools list, tool configuration, nested constructor"
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "positive",
+          "fact": "set_tool_configurations writes BYPASS_TOOL_CONSENT=true, not a guarantee of all backend control effectiveness"
+        },
+        {
+          "path": "src/agents/report_writer.py",
+          "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c",
+          "lines": "37-38,56-58,74-83",
+          "role": "hard_negative",
+          "fact": "Agent constructor occurs inside an @tool-decorated function and framework-availability guard; it is not proof of an active or invoked agent"
+        }
+      ],
+      "hard_negative_evidence": "Source has no proved successful shell run or runtime effective approval state; shell exposure is conditional.",
+      "reasoning": "The deferred report-writer Agent sources a shell-capable tool and explicitly invokes a helper disabling tool consent.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:34e0345cd816a7b394f5",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "added",
+      "rule_id": "AGT020",
+      "severity": "high",
+      "status": "unresolved",
+      "confidence": 0.87,
+      "claim_scope": "conditional_tool_effect_uncertain",
+      "source_witnesses": [
+        {
+          "path": "src/agents/pricing_explorer.py",
+          "blob_sha": "2c7c942b22ba50e857b4b75a1c38c7a8ef8f2cc2",
+          "lines": "26,83-95",
+          "role": "positive",
+          "fact": "python_repl imported and included in per-region Agent tool list"
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "positive",
+          "fact": "set_tool_configurations writes BYPASS_TOOL_CONSENT=true, not a guarantee of all backend control effectiveness"
+        },
+        {
+          "path": "src/agents/pricing_explorer.py",
+          "blob_sha": "2c7c942b22ba50e857b4b75a1c38c7a8ef8f2cc2",
+          "lines": "43-44,60-61,89-95",
+          "role": "hard_negative",
+          "fact": "Agent constructor occurs inside an @tool-decorated function and framework-availability guard; it is not proof of an active or invoked agent"
+        }
+      ],
+      "hard_negative_evidence": "Imported python_repl may execute Python code, but the pinned application source alone does not verify process-subprocess capability or approval behavior of that third-party implementation.",
+      "reasoning": "Presence of python_repl is supported; treating process.execute as the exact third-party effect remains unresolved pending implementation/source contract.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:378c7ca50b29a355ca61",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "added",
+      "rule_id": "AGT020",
+      "severity": "high",
+      "status": "source_confirmed",
+      "confidence": 0.92,
+      "claim_scope": "conditional_tool_potential",
+      "source_witnesses": [
+        {
+          "path": "src/agents/tech_analysis.py",
+          "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42",
+          "lines": "44,118-128,140-144",
+          "role": "positive",
+          "fact": "shell included in deferred nested Agent tools and helper is invoked"
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "positive",
+          "fact": "set_tool_configurations writes BYPASS_TOOL_CONSENT=true, not a guarantee of all backend control effectiveness"
+        },
+        {
+          "path": "src/agents/tech_analysis.py",
+          "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42",
+          "lines": "71-72,109-114,140-144",
+          "role": "hard_negative",
+          "fact": "Agent constructor occurs inside an @tool-decorated function and framework-availability guard; it is not proof of an active or invoked agent"
+        }
+      ],
+      "hard_negative_evidence": "This neither proves the nested agent ran nor verifies the actual cloud/runtime authorisation.",
+      "reasoning": "The source explicitly configures shell on an Agent constructed only within a tool wrapper, with declared consent bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:37aa5ce1c6457e9992f0",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "added",
+      "rule_id": "AGT020",
+      "severity": "high",
+      "status": "source_confirmed",
+      "confidence": 0.92,
+      "claim_scope": "conditional_tool_potential",
+      "source_witnesses": [
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "18,59,62,72-76",
+          "role": "positive",
+          "fact": "shell import and source-bound nested Agent tool list"
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "positive",
+          "fact": "set_tool_configurations writes BYPASS_TOOL_CONSENT=true, not a guarantee of all backend control effectiveness"
+        },
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "35-36,54-56,72-80",
+          "role": "hard_negative",
+          "fact": "Agent constructor occurs inside an @tool-decorated function and framework-availability guard; it is not proof of an active or invoked agent"
+        }
+      ],
+      "hard_negative_evidence": "No evidence of a live shell invocation or verified effective credential.",
+      "reasoning": "Potential process-execution capability is source-supported, conditional on wrapper execution, framework availability and credentials.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:391d0a5e8be35376802b",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "added",
+      "rule_id": "CAP003",
+      "severity": "high",
+      "status": "unresolved",
+      "confidence": 0.92,
+      "claim_scope": "exact_privileged_class_count",
+      "source_witnesses": [
+        {
+          "path": "src/agents/report_writer.py",
+          "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c",
+          "lines": "17,61,74-78",
+          "role": "positive",
+          "fact": "Tool array contains use_aws, file_read, file_write, editor, shell"
+        },
+        {
+          "path": "src/agents/report_writer.py",
+          "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c",
+          "lines": "37-38,56-58",
+          "role": "positive",
+          "fact": "Agent constructed after a source guard inside deferred @tool"
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "positive",
+          "fact": "set_tool_configurations writes BYPASS_TOOL_CONSENT=true, not a guarantee of all backend control effectiveness"
+        }
+      ],
+      "hard_negative_evidence": "Four specific privileged capability classes (data.write, destructive.write, external.write, process.execute) are inferred from external library names; exact effects, scope and credential cannot be validated from this app source.",
+      "reasoning": "Broad multi-capability configuration exists, but exact 4-class security assertion needs pinned third-party implementation or trusted effect contracts.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:669b8b1876b801ce68f3",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "removed",
+      "rule_id": "AGT020",
+      "severity": "high",
+      "status": "false_positive",
+      "confidence": 0.98,
+      "claim_scope": "obsolete_line1_anchor_only",
+      "source_witnesses": [
+        {
+          "path": "src/agents/pricing_explorer.py",
+          "blob_sha": "2c7c942b22ba50e857b4b75a1c38c7a8ef8f2cc2",
+          "lines": "1,26,84,89-93",
+          "role": "positive",
+          "fact": "Module header is not a python_repl source registration; actual import and tool array are elsewhere"
+        }
+      ],
+      "hard_negative_evidence": "Old claim pointed to a non-tool source line; python_repl risk may remain but is separately reviewed at line 26.",
+      "reasoning": "This is a source-location/provenance correction, not proof process execution risk was eliminated.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:72d67ef754128842c8e9",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "added",
+      "rule_id": "CAP004",
+      "severity": "high",
+      "status": "source_confirmed",
+      "confidence": 0.82,
+      "claim_scope": "conditional_combined_tool_potential",
+      "source_witnesses": [
+        {
+          "path": "src/agents/report_writer.py",
+          "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c",
+          "lines": "17,61,74-78",
+          "role": "positive",
+          "fact": "shell and AWS interaction tool co-occur in declared Agent tools"
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "positive",
+          "fact": "set_tool_configurations writes BYPASS_TOOL_CONSENT=true, not a guarantee of all backend control effectiveness"
+        },
+        {
+          "path": "src/agents/report_writer.py",
+          "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c",
+          "lines": "37-38,56-58,74-83",
+          "role": "hard_negative",
+          "fact": "Agent constructor occurs inside an @tool-decorated function and framework-availability guard; it is not proof of an active or invoked agent"
+        }
+      ],
+      "hard_negative_evidence": "Tool co-presence can support potential subprocess+external access, not executable reachability of either effect; imported SDK tool behavior needs external contract.",
+      "reasoning": "The configured deferred Agent includes source-declared shell and AWS-facing tools. Interpret as potential capability pairing, not observed runtime chain.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:7b8f55c79105bf3908a2",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "added",
+      "rule_id": "AGT021",
+      "severity": "high",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_configured_tool_potential",
+      "source_witnesses": [
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "16,47,53,56-60",
+          "role": "positive",
+          "fact": "Orchestrator directly imports shell, calls consent config helper, and includes shell in tools"
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "positive",
+          "fact": "set_tool_configurations writes BYPASS_TOOL_CONSENT=true, not a guarantee of all backend control effectiveness"
+        }
+      ],
+      "hard_negative_evidence": "No execution trace or concrete destructive file modification is present.",
+      "reasoning": "The orchestrator source explicitly offers shell with consent bypass; destructive-write capability is potential, not a proven performed operation.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:89d0305419e48068fbb9",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "removed",
+      "rule_id": "AGT021",
+      "severity": "high",
+      "status": "false_positive",
+      "confidence": 0.98,
+      "claim_scope": "obsolete_line1_anchor_only",
+      "source_witnesses": [
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "1,16,47,53",
+          "role": "positive",
+          "fact": "First line is a filename comment; shell is actually imported at 16 and bound at 53"
+        }
+      ],
+      "hard_negative_evidence": "Line 1 is not a tool declaration; AGT021 warning may correctly persist at the actual shell import.",
+      "reasoning": "Removal reflects correcting a synthetic line-1 source anchor, not disproof of potential shell destruction.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:8e88bbb7d4b7063f6c7e",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "added",
+      "rule_id": "AGT021",
+      "severity": "high",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "conditional_tool_potential",
+      "source_witnesses": [
+        {
+          "path": "src/agents/report_writer.py",
+          "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c",
+          "lines": "17,61,64,74-78",
+          "role": "positive",
+          "fact": "shell directly assigned to nested Agent tools after explicit config"
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "positive",
+          "fact": "set_tool_configurations writes BYPASS_TOOL_CONSENT=true, not a guarantee of all backend control effectiveness"
+        },
+        {
+          "path": "src/agents/report_writer.py",
+          "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c",
+          "lines": "37-38,56-58,74-83",
+          "role": "hard_negative",
+          "fact": "Agent constructor occurs inside an @tool-decorated function and framework-availability guard; it is not proof of an active or invoked agent"
+        }
+      ],
+      "hard_negative_evidence": "No proof of actual destructive operation, wrapper invocation, credentials or effective runtime permission.",
+      "reasoning": "The source supports conditional destructive-potential shell exposure with consent bypass configuration.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:a825ab344e1f9ba37816",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "removed",
+      "rule_id": "AGT021",
+      "severity": "high",
+      "status": "false_positive",
+      "confidence": 0.98,
+      "claim_scope": "obsolete_line1_anchor_only",
+      "source_witnesses": [
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "1,18,59,62",
+          "role": "positive",
+          "fact": "Line 1 is blank; later imports/config define potential shell capability"
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "positive",
+          "fact": "set_tool_configurations writes BYPASS_TOOL_CONSENT=true, not a guarantee of all backend control effectiveness"
+        }
+      ],
+      "hard_negative_evidence": "Old source location is unsupported; new line-18 claim must be separately assessed.",
+      "reasoning": "Stale synthetic line-1 claim has invalid source location, not proven absence of security risk.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:abb0040438226a03dc8d",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "removed",
+      "rule_id": "AGT021",
+      "severity": "high",
+      "status": "false_positive",
+      "confidence": 0.99,
+      "claim_scope": "bogus_tool_entity",
+      "source_witnesses": [
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "53-60",
+          "role": "positive",
+          "fact": "The source has a variable named orchestrator bound to Agent(...) and lists actual tools, not a callable tool named agent"
+        },
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "56",
+          "role": "hard_negative",
+          "fact": "Agent(...) constructor is an agent entity, not a tool function named 'agent'"
+        }
+      ],
+      "hard_negative_evidence": "There is no tool named 'agent' declared in the claimed context. Agent constructor must never inherit destructive shell effect as a fictitious tool.",
+      "reasoning": "This is a genuine source-supported correction of a bogus tool name/attribution (not blanket removal of shell risk).",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:bc41820fb6493440a9ff",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "added",
+      "rule_id": "AGT021",
+      "severity": "high",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "conditional_tool_potential",
+      "source_witnesses": [
+        {
+          "path": "src/agents/tech_analysis.py",
+          "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42",
+          "lines": "44,118-128,140-144",
+          "role": "positive",
+          "fact": "shell directly assigned in deferred Agent tools and tool configuration invoked"
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "positive",
+          "fact": "set_tool_configurations writes BYPASS_TOOL_CONSENT=true, not a guarantee of all backend control effectiveness"
+        },
+        {
+          "path": "src/agents/tech_analysis.py",
+          "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42",
+          "lines": "71-72,109-114,140-144",
+          "role": "hard_negative",
+          "fact": "Agent constructor occurs inside an @tool-decorated function and framework-availability guard; it is not proof of an active or invoked agent"
+        }
+      ],
+      "hard_negative_evidence": "No performed destructive write, actual wrapper call or identity proof.",
+      "reasoning": "Supports a conditional potential destructive-write exposure; may not be active at scan/runtime.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:cc1183a10f410ef4b0c2",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "added",
+      "rule_id": "AGT020",
+      "severity": "high",
+      "status": "source_confirmed",
+      "confidence": 0.94,
+      "claim_scope": "source_configured_tool_potential",
+      "source_witnesses": [
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "16,47,53,56-60",
+          "role": "positive",
+          "fact": "Main orchestrator includes imported shell in tools and invokes tool configuration"
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "positive",
+          "fact": "set_tool_configurations writes BYPASS_TOOL_CONSENT=true, not a guarantee of all backend control effectiveness"
+        }
+      ],
+      "hard_negative_evidence": "No observed process execution or successfully bypassed backend control; tool can be configured but runtime effect unresolved.",
+      "reasoning": "Source-backed potential process-execution/consent-bypass finding tied to real shell import, unlike old line-1 anchor.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:e04baa2a26fe8fa74060",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "added",
+      "rule_id": "CAP004",
+      "severity": "high",
+      "status": "source_confirmed",
+      "confidence": 0.82,
+      "claim_scope": "conditional_combined_tool_potential",
+      "source_witnesses": [
+        {
+          "path": "src/agents/tech_analysis.py",
+          "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42",
+          "lines": "44,118-128,140-144",
+          "role": "positive",
+          "fact": "shell and use_aws co-occur in deferred Agent tool list"
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "positive",
+          "fact": "set_tool_configurations writes BYPASS_TOOL_CONSENT=true, not a guarantee of all backend control effectiveness"
+        },
+        {
+          "path": "src/agents/tech_analysis.py",
+          "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42",
+          "lines": "71-72,109-114,140-144",
+          "role": "hard_negative",
+          "fact": "Agent constructor occurs inside an @tool-decorated function and framework-availability guard; it is not proof of an active or invoked agent"
+        }
+      ],
+      "hard_negative_evidence": "No guarantee network access, command execution, model decision, credentials or simultaneous effects.",
+      "reasoning": "Source supports a conditional possible process/network capability combination; do not assert reachable execution.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:e582d6d5ec042bef29e7",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "removed",
+      "rule_id": "AGT020",
+      "severity": "high",
+      "status": "false_positive",
+      "confidence": 0.98,
+      "claim_scope": "obsolete_line1_anchor_only",
+      "source_witnesses": [
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "1,16,53",
+          "role": "positive",
+          "fact": "Old line1 is only a comment; shell appears at 16 and in list at 53"
+        }
+      ],
+      "hard_negative_evidence": "The old source anchor was invented by projection; actual shell risk remains represented in a new source-located key.",
+      "reasoning": "Removal is source-location correction, not a security control improvement.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:e9eccd96b25d7aac2746",
+      "case_id": "ff60-amazon-04",
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "change": "added",
+      "rule_id": "CAP003",
+      "severity": "high",
+      "status": "unresolved",
+      "confidence": 0.92,
+      "claim_scope": "exact_privileged_class_count",
+      "source_witnesses": [
+        {
+          "path": "src/agents/tech_analysis.py",
+          "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42",
+          "lines": "44,118-124,140-144",
+          "role": "positive",
+          "fact": "External tool names include use_aws/file_read/file_write/editor/shell"
+        },
+        {
+          "path": "src/agents/tech_analysis.py",
+          "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42",
+          "lines": "109-114",
+          "role": "positive",
+          "fact": "Framework dependency guard before tool configuration"
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "positive",
+          "fact": "set_tool_configurations writes BYPASS_TOOL_CONSENT=true, not a guarantee of all backend control effectiveness"
+        }
+      ],
+      "hard_negative_evidence": "Actual third-party shell/AWS tool effects and precise four-class authority/scope are not source-enumerated; no live wrapper invocation.",
+      "reasoning": "Potential privileged multi-tool Agent exists, but the exact four classes are inferred from external tool semantics and need more source/contract proof.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_first_with_contradiction_check",
+      "reviewed_source_execution": false
+    }
+  ]
+}
