@@ -51,8 +51,9 @@ def verify(root: Path) -> dict[str, object]:
         "source": "aws-samples/sample-multi-agent-region-expansion-planner@30d03d7c9f6512e5bf10601879382fac9c3a16b1",
         "historic_stage_delta": {"discovered": 10, "after_consolidation": 2},
         "new_final_source_instances": sorted(
-            {"file": file, "line": line} for file, line in distinct
-        , key=lambda row: (row["file"], row["line"])),
+            [{"file": file, "line": line} for file, line in distinct],
+            key=lambda row: (row["file"], row["line"]),
+        ),
         "new_final_agent_count": len(locations),
         "source_location_preservation_verified": True,
         "runtime_instances_verified": False,
