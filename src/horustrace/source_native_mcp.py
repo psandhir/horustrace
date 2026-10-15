@@ -40,15 +40,74 @@ def _read_ast(path: Path) -> ast.Module | None:
 
 
 def _imports(tree: ast.Module, module_name: str, symbol: str) -> set[str]:
-    """Only return aliases for the requested symbol from the exact module."""
-    names: set[str] = set()
+    """Accept exact imported constructors only if module bindings remain unique.
+
+    A source import is not proof when the alias is also assigned, imported
+    from another module, or replaced by a local function/class definition.
+    Unknown conditional rebinding is conservatively treated as ambiguity.
+    """
+    matching: set[str] = set()
+    bindings: dict[str, int] = {}
+
+    def bind(name: str) -> None:
+        bindings[name] = bindings.get(name, 0) + 1
+
+    def assigned(target: ast.AST) -> None:
+        if isinstance(target, ast.Name):
+            bind(target.id)
+        elif isinstance(target, (ast.Tuple, ast.List)):
+            for element in target.elts:
+                assigned(element)
+
+    def visit(statement: ast.stmt) -> None:
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bind(statement.name)
+            return  # local variables inside definitions do not shadow imports
+        if isinstance(statement, (ast.Import, ast.ImportFrom)):
+            for item in statement.names:
+                if item.name == "*":
+                    # Unbounded wildcard imports make symbol identity unknown.
+                    bind(symbol)
+                    continue
+                alias = item.asname or (
+                    item.name.split(".")[0]
+                    if isinstance(statement, ast.Import) else item.name
+                )
+                bind(alias)
+                if (
+                    isinstance(statement, ast.ImportFrom)
+                    and statement.module == module_name
+                    and item.name == symbol
+                ):
+                    matching.add(alias)
+            return
+        if isinstance(statement, ast.Assign):
+            for target in statement.targets:
+                assigned(target)
+        elif isinstance(statement, (
+            ast.AnnAssign, ast.AugAssign, ast.For, ast.AsyncFor,
+        )):
+            assigned(statement.target)
+        elif isinstance(statement, (ast.With, ast.AsyncWith)):
+            for item in statement.items:
+                if item.optional_vars is not None:
+                    assigned(item.optional_vars)
+        elif isinstance(statement, ast.ExceptHandler) and statement.name:
+            bind(statement.name)
+
+        # Only recurse through module-level control flow, never nested
+        # function/class bodies. All branches count as possible rebinding.
+        for field in ("body", "orelse", "finalbody", "handlers", "cases"):
+            for child in getattr(statement, field, ()):
+                if isinstance(child, ast.match_case):
+                    for sub in child.body:
+                        visit(sub)
+                elif isinstance(child, (ast.stmt, ast.ExceptHandler)):
+                    visit(child)
+
     for statement in tree.body:
-        if isinstance(statement, ast.ImportFrom) and statement.module == module_name:
-            names.update(
-                item.asname or item.name
-                for item in statement.names if item.name == symbol
-            )
-    return names
+        visit(statement)
+    return {name for name in matching if bindings.get(name) == 1}
 
 
 def _assignments(tree: ast.Module) -> dict[str, ast.AST]:
@@ -192,20 +251,28 @@ def _runs_server(tree: ast.Module, symbol: str) -> bool:
         for statement in tree.body
         if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef))
     }
+
+    def direct_run(statements: list[ast.stmt]) -> bool:
+        # Do not mistake run() in an uncalled nested function, lambda,
+        # conditional or dead branch for a script startup.
+        return any(
+            isinstance(statement, ast.Expr) and is_run(statement.value)
+            for statement in statements
+        )
+
     for statement in tree.body:
-        # Top-level direct script startup or a guarded main() call.
         if isinstance(statement, ast.Expr) and is_run(statement.value):
             return True
         if not main_guard(statement):
             continue
-        for nested in ast.walk(statement):
-            if is_run(nested):
-                return True
-            if (
-                isinstance(nested, ast.Call) and isinstance(nested.func, ast.Name)
-                and nested.func.id in functions
-                and any(is_run(call) for call in ast.walk(functions[nested.func.id]))
-            ):
+        if direct_run(statement.body):
+            return True
+        for nested in statement.body:
+            if not (isinstance(nested, ast.Expr) and isinstance(nested.value, ast.Call)
+                    and isinstance(nested.value.func, ast.Name)):
+                continue
+            helper = functions.get(nested.value.func.id)
+            if helper is not None and direct_run(helper.body):
                 return True
     return False
 
