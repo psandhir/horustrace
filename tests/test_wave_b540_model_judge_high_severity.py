@@ -1,5 +1,6 @@
 """Fail-closed verification of the model-as-judge high-severity review ledger."""
 from __future__ import annotations
+
 import json
 from pathlib import Path
 
