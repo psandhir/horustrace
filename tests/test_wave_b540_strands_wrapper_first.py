@@ -4,7 +4,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from horustrace.models import Agent, Graph, SourceLocation, Tool
-from horustrace.scanner import _consolidate_agents
+from horustrace.scanner import (
+    _consolidate_agents,
+    _dedupe_strands_source_tool_projections,
+)
 from horustrace.strands_repository import (
     _append_tool,
     _build_modules,
@@ -234,3 +237,42 @@ def test_production_dedup_keeps_unproved_and_distinct_source_tools(
     graph = Graph(agents=[agent])
     _consolidate_agents(graph)
     assert len(graph.agents[0].tools) == 3
+
+
+def test_late_source_annotation_reconciles_previous_unknown_identity(
+    tmp_path: Path,
+) -> None:
+    location = SourceLocation(tmp_path / "agent_stdio_multi_agent.py", line=80)
+    legacy = Tool(
+        name="weather_assistant", kind="function",
+        location=location, metadata={"framework": "strands-agents"},
+    )
+    wrapper = Tool(
+        name="weather_assistant", kind="strands_tool_wrapper",
+        location=location, metadata={
+            "framework": "strands-agents",
+            "nested_agent_execution": "deferred_until_wrapper_invocation",
+        },
+    )
+    agent = Agent(
+        name="orchestrator", location=SourceLocation(location.path, line=120),
+        metadata={"framework": "strands-agents"}, tools=[legacy, wrapper],
+    )
+    graph = Graph(agents=[agent])
+    _consolidate_agents(graph)
+    assert len(graph.agents[0].tools) == 2
+
+    # This normalized identity is attached after consolidation, when exact
+    # source provenance resolves the imported decorated function's symbol.
+    for tool in graph.agents[0].tools:
+        tool.metadata.update({
+            "source_function_key": "agent_stdio_multi_agent.weather_assistant",
+            "source_path": str(location.path),
+            "source_line": 80,
+        })
+    _dedupe_strands_source_tool_projections(graph.agents[0])
+    assert len(graph.agents[0].tools) == 1
+    assert graph.agents[0].tools[0].kind == "strands_tool_wrapper"
+    assert graph.agents[0].tools[0].metadata["nested_agent_execution"] == (
+        "deferred_until_wrapper_invocation"
+    )
