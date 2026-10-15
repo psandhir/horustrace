@@ -750,17 +750,42 @@ def _strands_decorated_function_tool(
 def _append_tool(agent: Agent, tool: Tool, *, conditional: bool = False) -> None:
     if conditional:
         tool.metadata["conditional_binding"] = True
+    def same_decorated_source(item: Tool) -> bool:
+        # Scanner adapters can pre-register @tool as a plain function before
+        # repository linking discovers that same callable is a Strands wrapper.
+        # Keep one tool object per exact source definition, not one per kind.
+        if item.name != tool.name:
+            return False
+        if {item.kind, tool.kind} != {"function", "strands_tool_wrapper"}:
+            return False
+        left = item.metadata.get("source_function_key")
+        right = tool.metadata.get("source_function_key")
+        if not isinstance(left, str) or not left or left != right:
+            return False
+        if item.location is None or tool.location is None:
+            return False
+        return (
+            item.location.path == tool.location.path
+            and item.location.line == tool.location.line
+        )
+
     current = next(
         (
             item
             for item in agent.tools
-            if item.name == tool.name and item.kind == tool.kind
+            if (item.name == tool.name and item.kind == tool.kind)
+            or same_decorated_source(item)
         ),
         None,
     )
     if current is None:
         agent.tools.append(tool)
         return
+    if tool.kind == "strands_tool_wrapper" and current.kind == "function":
+        current.kind = "strands_tool_wrapper"
+    current.provenance.extend(
+        item for item in tool.provenance if item not in current.provenance
+    )
     current.capabilities.update(tool.capabilities)
     for destination in tool.destinations:
         if destination not in current.destinations:
