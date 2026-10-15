@@ -68,6 +68,43 @@ def _findings(case_id: str, items: list[dict[str, Any]]) -> Counter[str]:
     return Counter(_finding_key(case_id, row) for row in items)
 
 
+def _finding_review_records(
+    case_id: str, items: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Expose source-grounded review metadata without approval or checkout paths."""
+    records: dict[str, dict[str, Any]] = {}
+    for finding in items:
+        key = _finding_key(case_id, finding)
+        location = finding.get("location")
+        if not isinstance(location, dict):
+            location = {}
+        provenance = finding.get("provenance")
+        limitations = finding.get("limitations")
+        evidence = finding.get("evidence")
+        records.setdefault(key, {
+            "claim_key": f"{case_id}:{key}",
+            "rule_id": finding.get("rule_id"),
+            "agent": finding.get("agent"),
+            "severity": finding.get("severity"),
+            "message": finding.get("message"),
+            "location": {
+                "path": _source_path(location.get("path")),
+                "line": location.get("line"),
+            },
+            "evidence": evidence if isinstance(evidence, list) else [],
+            "source_context": finding.get("source_context"),
+            "assessment": finding.get("assessment"),
+            "raw_structured_provenance_count": (
+                len(provenance) if isinstance(provenance, list) else 0
+            ),
+            "limitations": (
+                limitations if isinstance(limitations, list) else []
+            ),
+            "fingerprint": finding.get("fingerprint"),
+        })
+    return records
+
+
 def _load_case(path: Path, *, allow_missing_authority: bool = False) -> dict[str, Any]:
     with zipfile.ZipFile(path) as archive:
         if len(archive.infolist()) > MAX_ZIP_MEMBERS:
@@ -111,6 +148,7 @@ def _load_case(path: Path, *, allow_missing_authority: bool = False) -> dict[str
             "unresolved_authority": effective.get("unknown_relationships"),
         },
         "findings": _findings(case_id, items),
+        "finding_review_records": _finding_review_records(case_id, items),
         "source_anchor_gaps": sum(
             not isinstance((f.get("location") or {}).get("line"), int)
             or (f.get("location") or {}).get("line", 0) < 1
@@ -172,8 +210,25 @@ def compare(
         new = now["findings"] - past["findings"]
         removed = past["findings"] - now["findings"]
         changed = sorted(set(new) | set(removed))
+        changed_claim_details: list[dict[str, Any]] = []
         statuses: dict[str, str] = {}
         for fid in changed:
+            original = past["finding_review_records"].get(fid)
+            current = now["finding_review_records"].get(fid)
+            claim = current or original
+            if claim is None:
+                raise ValueError(f"unexplained changed finding key: {cid}:{fid}")
+            changed_claim_details.append({
+                **claim,
+                "change": (
+                    "added" if fid in new and fid not in removed else
+                    "removed" if fid in removed and fid not in new else
+                    "count_changed"
+                ),
+                "before_instances": past["findings"][fid],
+                "after_instances": now["findings"][fid],
+                "review_status": "requires_independent_source_review",
+            })
             review = approvals.get(f"{cid}:{fid}", {})
             status = review.get("status") if isinstance(review, dict) else None
             if (
@@ -211,6 +266,7 @@ def compare(
             "added_findings": sum(new.values()),
             "removed_findings": sum(removed.values()),
             "claim_review": statuses,
+            "changed_claim_details": changed_claim_details,
             "before_source_line_one_findings": past["source_line_one_findings"],
             "after_source_line_one_findings": now["source_line_one_findings"],
             "before_missing_source_anchors": past["source_anchor_gaps"],
