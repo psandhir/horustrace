@@ -26,6 +26,7 @@ from horustrace.semantic_discovery import (
 )
 from horustrace.semantic_trace import _portable
 from horustrace.source_context import SOURCE_CONTEXTS, classify_source_context
+from horustrace.source_native_dynamic_mcp import inspect_dynamic_mcp_registration
 from horustrace.source_native_mcp import inspect_local_pydantic_mcp
 from horustrace.source_native_strands import inspect_strands_tool_composition
 
@@ -325,11 +326,14 @@ def shadow_observation_report(
     """Construct a portable offline v2 sidecar without mutating the input Graph."""
     shadow = build_shadow_discovery(graph, root)
     native = inspect_local_pydantic_mcp(target if target is not None else root)
+    dynamic = inspect_dynamic_mcp_registration(target if target is not None else root)
     strands = inspect_strands_tool_composition(target if target is not None else root)
     return {
         **shadow.as_dict(),
         "mode": "passive_shadow_from_legacy_graph",
         "source_native": native.as_dict(),
+        "source_native_dynamic": dynamic.as_dict(),
+        "source_native_dynamic_scope": "factory_registration_and_runtime_enumeration",
         "source_native_strands": strands.as_dict(),
         "source_native_strands_scope": "imported_tool_wrapper_to_nested_agent_candidates",
         "source_native_scope": "pydantic_local_mcp_literal_stdio_pilot",
@@ -339,7 +343,7 @@ def shadow_observation_report(
         "inventory_partition": shadow_inventory_partition(shadow),
         "limitations": [
             "legacy graph membership is not independently source-adjudicated",
-            "source-symbol resolution and cross-file linkage are not run by B01",
+            "general cross-file source-symbol linking remains unresolved",
             "server tool allowlists are not MCP EXPOSES_TOOL evidence",
             "an MCP binding does not imply AGENT_CAN_CALL for its catalogue",
             "missing source or ambiguous same-line declarations require later linking",
