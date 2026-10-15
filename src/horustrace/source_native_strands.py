@@ -195,10 +195,19 @@ def _compositions(tree: ast.Module) -> list[tuple[int, list[str]]]:
                 and isinstance(node.targets[0], ast.Name)
             ):
                 assignments.setdefault(node.targets[0].id, []).append(node.value)
-        for nodes in assignments.values():
-            if len(nodes) != 1:
-                # Unstable local values are not proven to be literal lists.
-                continue
+        # Local rebinding (or a same-name function parameter) invalidates
+        # an imported wrapper's source identity.
+        parameters = {
+            arg.arg for arg in (
+                function.args.posonlyargs + function.args.args
+                + function.args.kwonlyargs
+            )
+        }
+        trusted_imports = {
+            name for name in imported
+            if name not in assignments and name not in parameters
+            and name in _imports(tree, "agents", name)
+        }
         for node in ast.walk(function):
             if not (isinstance(node, ast.Call)
                     and isinstance(node.func, ast.Name)
@@ -223,7 +232,7 @@ def _compositions(tree: ast.Module) -> list[tuple[int, list[str]]]:
                 continue
             members = [
                 item.id for item in second.elts
-                if isinstance(item, ast.Name) and item.id in imported
+                if isinstance(item, ast.Name) and item.id in trusted_imports
             ]
             if len(members) != len(second.elts) or not members:
                 continue
@@ -254,9 +263,10 @@ def inspect_strands_tool_composition(target: Path) -> SemanticDiscovery:
                 module = exports.get(name)
                 if not module:
                     continue
-                tool_file = (init_file.parent / f"{module}.py").resolve()
+                candidate = init_file.parent / f"{module}.py"
+                tool_file = candidate.resolve()
                 # No symlinks, foreign package roots or unobserved files.
-                if tool_file.is_symlink() or tool_file not in trees:
+                if candidate.is_symlink() or tool_file not in trees:
                     continue
                 wrapped = _decorated_strands_wrapper(trees[tool_file], name)
                 if wrapped is None:
