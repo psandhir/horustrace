@@ -18,7 +18,7 @@ def test_73_changed_claim_keys_are_model_reviewed_and_disjoint() -> None:
     # Immutable digest of exact per-case claim keys in the last accepted
     # pinned workflow evidence. This rejects a 73-item but wrong-key ledger.
     def key_digest(items: list[str]) -> str:
-        return hashlib.sha256("\\n".join(sorted(items)).encode()).hexdigest()
+        return hashlib.sha256("\n".join(sorted(items)).encode()).hexdigest()
 
     assert key_digest(keys) == (
         "9330227624ff5845ba08abb8449195e5f7b41aa7300276e48c69c803f5452c1c"
