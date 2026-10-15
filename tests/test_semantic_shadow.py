@@ -232,3 +232,28 @@ def test_shadow_rejects_untrusted_source_context_metadata(tmp_path: Path) -> Non
         "test": 1,
     }
     assert doc["comparison"]["legacy_member_links"]["binds_mcp"] == 0
+
+
+
+def test_shadow_rejects_non_string_context_metadata_without_crash(
+    tmp_path: Path,
+) -> None:
+    for malicious in (["SENSITIVE_DATA_NOT_TO_SERIALIZE"], {
+        "key": "SENSITIVE_DATA_NOT_TO_SERIALIZE",
+    }):
+        graph = Graph(unbound_mcp_servers=[
+            MCPServer(
+                name="unbound",
+                transport="stdio",
+                location=SourceLocation(tmp_path / "tests" / "test_server.py", line=1),
+                metadata={"source_context": malicious},
+            ),
+        ])
+        report = shadow_observation_report(graph, tmp_path)
+        assert "SENSITIVE_DATA_NOT_TO_SERIALIZE" not in json.dumps(report)
+        assert report["inventory_partition"]["entities_by_kind"]["mcp_server"] == {
+            "test": 1,
+        }
+        assert report["inventory_partition"]["observations_by_role"][
+            "unbound_mcp_inventory"
+        ] == {"test": 1}
