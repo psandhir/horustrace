@@ -129,7 +129,11 @@ def _registered_factory(tree: ast.Module) -> list[tuple[int, int]]:
     for func in tree.body:
         if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        parameters = {arg.arg for arg in func.args.args}
+        parameters = {
+            arg.arg for arg in (
+                func.args.posonlyargs + func.args.args + func.args.kwonlyargs
+            )
+        }
         servers: dict[str, int] = {}
         for statement in func.body:
             if not (isinstance(statement, ast.Assign)
