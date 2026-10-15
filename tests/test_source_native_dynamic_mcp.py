@@ -165,3 +165,47 @@ def test_portable_source_paths_and_sidecar_no_graph_mutation(tmp_path: Path) -> 
     assert output["comparison"]["graph_behavior_changed"] is False
     assert (graph.as_dict() if hasattr(graph, "as_dict") else repr(graph)) == before
     assert str(left) not in json.dumps(output)
+
+
+def test_factory_local_wrapper_shadow_and_replaced_tool_object_are_not_proof(
+    tmp_path: Path,
+) -> None:
+    _factory(
+        tmp_path,
+        "from fastmcp import FastMCP\n"
+        "from fastmcp.tools import FunctionTool\n"
+        "def build_app(tools):\n"
+        "    FunctionTool = LocalFunctionTool\n"
+        "    mcp = FastMCP('x')\n"
+        "    for tool in tools:\n"
+        "        tool_obj = FunctionTool.from_function(tool)\n"
+        "        mcp.add_tool(tool_obj)\n"
+        "    return mcp\n",
+    )
+    assert inspect_dynamic_mcp_registration(tmp_path).bindings == []
+    _factory(
+        tmp_path,
+        "from fastmcp import FastMCP\n"
+        "from fastmcp.tools import FunctionTool\n"
+        "def build_app(tools):\n"
+        "    mcp = FastMCP('x')\n"
+        "    for tool in tools:\n"
+        "        tool_obj = FunctionTool.from_function(tool)\n"
+        "        tool_obj = ExternalTool()\n"
+        "        mcp.add_tool(tool_obj)\n"
+        "    return mcp\n",
+    )
+    assert inspect_dynamic_mcp_registration(tmp_path).bindings == []
+
+
+def test_remote_client_variable_must_resolve_to_created_mcp_client(
+    tmp_path: Path,
+) -> None:
+    _remote(
+        tmp_path,
+        "using ModelContextProtocol.Client;\n"
+        "var transport = new HttpClientTransport(new HttpClientTransportOptions());\n"
+        "var unrelated = await McpClient.CreateAsync(transport);\n"
+        "var tools = await client.ListToolsAsync();\n",
+    )
+    assert inspect_dynamic_mcp_registration(tmp_path).bindings == []
