@@ -190,3 +190,70 @@ def test_ambiguous_same_line_agents_are_separate_and_unresolved(tmp_path: Path) 
     assert all(item["resolution"] == "unresolved" for item in agent_observations)
     assert len({edge["source_id"] for edge in sidecar["bindings"]}) == 2
     assert sidecar["comparison"]["source_recall"] is None
+
+
+def test_shadow_context_partition_separates_test_runtime_and_unresolved(
+    tmp_path: Path,
+) -> None:
+    graph = _fixture(tmp_path)
+    report = shadow_observation_report(graph, tmp_path)
+    partition = report["inventory_partition"]
+    assert partition["scope"] == "source_context_of_legacy_shadow_not_deployment_truth"
+    assert partition["entity_count"] == len(report["entities"])
+    assert partition["observation_count"] == len(report["observations"])
+    assert partition["entities_by_kind"]["mcp_server"] == {
+        "runtime": 2, "test": 1,
+    }
+    assert partition["observations_by_role"]["unbound_mcp_inventory"] == {
+        "test": 1,
+    }
+    assert partition["observations_by_role"]["unresolved_mcp_reference"] == {
+        "runtime": 1,
+    }
+    assert partition["runtime_source_does_not_prove_executed"] is True
+    assert all(
+        sum(counts.values()) > 0
+        for counts in partition["entities_by_kind"].values()
+    )
+
+
+def test_shadow_rejects_untrusted_source_context_metadata(tmp_path: Path) -> None:
+    graph = Graph(unbound_mcp_servers=[
+        MCPServer(
+            name="unbound",
+            transport="stdio",
+            location=SourceLocation(tmp_path / "tests" / "test_server.py", line=1),
+            metadata={"source_context": "SENSITIVE_DATA_NOT_TO_SERIALIZE"},
+        ),
+    ])
+    doc = shadow_observation_report(graph, tmp_path)
+    assert "SENSITIVE_DATA_NOT_TO_SERIALIZE" not in json.dumps(doc)
+    assert doc["inventory_partition"]["entities_by_kind"]["mcp_server"] == {
+        "test": 1,
+    }
+    assert doc["comparison"]["legacy_member_links"]["binds_mcp"] == 0
+
+
+
+def test_shadow_rejects_non_string_context_metadata_without_crash(
+    tmp_path: Path,
+) -> None:
+    for malicious in (["SENSITIVE_DATA_NOT_TO_SERIALIZE"], {
+        "key": "SENSITIVE_DATA_NOT_TO_SERIALIZE",
+    }):
+        graph = Graph(unbound_mcp_servers=[
+            MCPServer(
+                name="unbound",
+                transport="stdio",
+                location=SourceLocation(tmp_path / "tests" / "test_server.py", line=1),
+                metadata={"source_context": malicious},
+            ),
+        ])
+        report = shadow_observation_report(graph, tmp_path)
+        assert "SENSITIVE_DATA_NOT_TO_SERIALIZE" not in json.dumps(report)
+        assert report["inventory_partition"]["entities_by_kind"]["mcp_server"] == {
+            "test": 1,
+        }
+        assert report["inventory_partition"]["observations_by_role"][
+            "unbound_mcp_inventory"
+        ] == {"test": 1}
