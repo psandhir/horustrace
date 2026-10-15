@@ -1,0 +1,2197 @@
+{
+  "schema_version": 1,
+  "study": "Wave B #540 model-as-judge medium-severity source review",
+  "repository": "aws-samples/sample-multi-agent-region-expansion-planner",
+  "repository_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+  "baseline_scanner_main_sha": "1ab391e1513c01ec6fa122c6f29953652fe8df76",
+  "reference_run": "https://github.com/psandhir/horustrace/actions/runs/38812764105",
+  "claim_count": 53,
+  "reviewer_kind": "openai_chatgpt_model_as_judge",
+  "human_independent_review": false,
+  "source_only": true,
+  "exhaustive_negative_universe": false,
+  "runtime_effectiveness_verified": false,
+  "precision": null,
+  "recall": null,
+  "status_counts": {
+    "source_confirmed": 35,
+    "false_positive": 10,
+    "unresolved": 8
+  },
+  "caveat": "Source-confirmed means evidence supports a conditional local tool configuration, not that all external controls are absent or runtime privileges were effective. Removed old claim IDs are evaluated as exact source-location claims; an invalid source anchor does not show remediation of underlying tool risk.",
+  "claims": [
+    {
+      "claim_key": "ff60-amazon-04:03893882aaab53dc4732",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/waypoint_explorer.py",
+        "source_line": 28,
+        "tool_or_entity": "file_write"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/waypoint_explorer.py",
+          "blob_sha": "91dbbb65331563c779c07661168e8a8f49988458",
+          "lines": "28,65-85",
+          "role": "source_observation",
+          "fact": "Pinned source imports file_write and includes source-configured tools/Agent at 65-85. @tool wrapper plus runtime-unknown MCP tools; no guaranteed live tool availability or allowed destination."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper plus runtime-unknown MCP tools; no guaranteed live tool availability or allowed destination.",
+      "reasoning": "Pinned source imports file_write and adds it to waypoint_explorer.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:050f4662b9e3ae1c84f0",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/analysis_writer.py",
+        "source_line": 18,
+        "tool_or_entity": "use_aws"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "18,58-80",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws and includes source-configured tools/Agent at 58-80. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "Pinned source imports use_aws and adds it to analysis_writer.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:0641cb11cc7d0bb2c86c",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/report_writer.py",
+        "source_line": 17,
+        "tool_or_entity": "shell"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/report_writer.py",
+          "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c",
+          "lines": "17,60-83",
+          "role": "source_observation",
+          "fact": "Pinned source imports shell and includes source-configured tools/Agent at 60-83. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "Pinned source imports shell and adds it to report_writer.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:0e2e84c7fce50984d29a",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/multi_region_expansion_planner.py",
+        "source_line": 33,
+        "tool_or_entity": "file_write"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/multi_region_expansion_planner.py",
+          "blob_sha": "f1d201e7f312a01f09f687fc2bb0acde05af9646",
+          "lines": "33,89-111",
+          "role": "source_observation",
+          "fact": "Pinned source imports file_write and includes source-configured tools/Agent at 89-111. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability.",
+      "reasoning": "Pinned source imports file_write and adds it to multi_region_expansion_planner.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:0e9b16a3bf017b4cf57e",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/main.py",
+        "source_line": 16,
+        "tool_or_entity": "use_aws"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "16,53-60",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws and includes source-configured tools/Agent at 53-60. Function orchestrate_analysis must be called; a source-visible Agent constructor does not establish live runtime identity."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. Function orchestrate_analysis must be called; a source-visible Agent constructor does not establish live runtime identity.",
+      "reasoning": "Pinned source imports use_aws and adds it to main.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:14aa9cad99b65329b406",
+      "case_id": "ff60-amazon-04",
+      "change": "removed",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/analysis_writer.py",
+        "source_line": 1,
+        "tool_or_entity": "use_aws"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "false_positive",
+      "confidence": 0.98,
+      "claim_scope": "obsolete_line1_source_anchor_only",
+      "source_witnesses": [
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "1",
+          "role": "hard_negative",
+          "fact": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed."
+        },
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "18,58-80",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws and includes source-configured tools/Agent at 58-80. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        }
+      ],
+      "hard_negative_evidence": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed.",
+      "reasoning": "Obsolete historical claim anchored at line 1 rather than analysis_writer.py:18. Its source location is unsupported, while underlying use_aws risk can remain at its properly linked new claim.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:1cd6188f31f7ae6ae9ae",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "NET002",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/report_writer.py",
+        "source_line": 74,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "unresolved",
+      "confidence": 0.9,
+      "claim_scope": "unverified_network_destination_effective_control",
+      "source_witnesses": [
+        {
+          "path": "src/agents/report_writer.py",
+          "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c",
+          "lines": "17,60-83",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 60-83. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No remote MCP tool list, live destination grant, deployed allowlist or control effectiveness is supplied in frozen source. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "The source declares AWS-facing tools or remote MCP client mechanisms on the report_writer.py Agent; it does not independently prove the ultimate effective network/write effect or absence of runtime destination-allowlisting. A configured server URL is not the same as an allowlist.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:1d3bdeddbd5b8ba18a80",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "CAP005",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/pricing_explorer.py",
+        "source_line": 89,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.86,
+      "claim_scope": "conditional_source_configuration_of_read_write_tool_set",
+      "source_witnesses": [
+        {
+          "path": "src/agents/pricing_explorer.py",
+          "blob_sha": "2c7c942b22ba50e857b4b75a1c38c7a8ef8f2cc2",
+          "lines": "26,83-95",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 83-95. @tool wrapper/region loop/remote MCP discovery needed; package reexports compare_regional_pricing, not pricing_explorer as a callable."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "The Agent's actual execution, credentials, effective approval state, data access targets and call to both tool types remain unobserved. @tool wrapper/region loop/remote MCP discovery needed; package reexports compare_regional_pricing, not pricing_explorer as a callable.",
+      "reasoning": "The pinned source declares file_read and file_write or related standard AWS tools together on pricing_explorer.py's Agent constructor. This supports potential read-and-modify capability; it does not prove that both actions occurred.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:2567f40ac36adea64c9c",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "CAP005",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/planning_report_generator.py",
+        "source_line": 102,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.86,
+      "claim_scope": "conditional_source_configuration_of_read_write_tool_set",
+      "source_witnesses": [
+        {
+          "path": "src/agents/planning_report_generator.py",
+          "blob_sha": "0029d4cdad6062a97f7d563bb7472b105d05d18f",
+          "lines": "34,87-110",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 87-110. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "The Agent's actual execution, credentials, effective approval state, data access targets and call to both tool types remain unobserved. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability.",
+      "reasoning": "The pinned source declares file_read and file_write or related standard AWS tools together on planning_report_generator.py's Agent constructor. This supports potential read-and-modify capability; it does not prove that both actions occurred.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:28f3f767580e11e27a89",
+      "case_id": "ff60-amazon-04",
+      "change": "removed",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/pricing_explorer.py",
+        "source_line": 1,
+        "tool_or_entity": "python_repl"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "false_positive",
+      "confidence": 0.98,
+      "claim_scope": "obsolete_line1_source_anchor_only",
+      "source_witnesses": [
+        {
+          "path": "src/agents/pricing_explorer.py",
+          "blob_sha": "2c7c942b22ba50e857b4b75a1c38c7a8ef8f2cc2",
+          "lines": "1",
+          "role": "hard_negative",
+          "fact": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed."
+        },
+        {
+          "path": "src/agents/pricing_explorer.py",
+          "blob_sha": "2c7c942b22ba50e857b4b75a1c38c7a8ef8f2cc2",
+          "lines": "26,83-95",
+          "role": "source_observation",
+          "fact": "Pinned source imports python_repl and includes source-configured tools/Agent at 83-95. @tool wrapper/region loop/remote MCP discovery needed; package reexports compare_regional_pricing, not pricing_explorer as a callable."
+        }
+      ],
+      "hard_negative_evidence": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed.",
+      "reasoning": "Obsolete historical claim anchored at line 1 rather than pricing_explorer.py:26. Its source location is unsupported, while underlying python_repl risk can remain at its properly linked new claim.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:2a34779c2374f68f9eb1",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/multi_region_expansion_planner.py",
+        "source_line": 33,
+        "tool_or_entity": "use_aws"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/multi_region_expansion_planner.py",
+          "blob_sha": "f1d201e7f312a01f09f687fc2bb0acde05af9646",
+          "lines": "33,89-111",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws and includes source-configured tools/Agent at 89-111. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability.",
+      "reasoning": "Pinned source imports use_aws and adds it to multi_region_expansion_planner.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:2a5123880e30bfb7ea83",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/cloudtrail_explorer.py",
+        "source_line": 28,
+        "tool_or_entity": "file_write"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/cloudtrail_explorer.py",
+          "blob_sha": "0f3e50d42c7c2845b1f26d3b098f8fb9fbd9241e",
+          "lines": "28,57-74",
+          "role": "source_observation",
+          "fact": "Pinned source imports file_write and includes source-configured tools/Agent at 57-74. @tool wrapper can return early; no guarantee AWS credentials or invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper can return early; no guarantee AWS credentials or invocation.",
+      "reasoning": "Pinned source imports file_write and adds it to cloudtrail_explorer.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:2ad096fe63994b320f70",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "NET002",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/planning_report_generator.py",
+        "source_line": 102,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "unresolved",
+      "confidence": 0.9,
+      "claim_scope": "unverified_network_destination_effective_control",
+      "source_witnesses": [
+        {
+          "path": "src/agents/planning_report_generator.py",
+          "blob_sha": "0029d4cdad6062a97f7d563bb7472b105d05d18f",
+          "lines": "34,87-110",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 87-110. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No remote MCP tool list, live destination grant, deployed allowlist or control effectiveness is supplied in frozen source. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability.",
+      "reasoning": "The source declares AWS-facing tools or remote MCP client mechanisms on the planning_report_generator.py Agent; it does not independently prove the ultimate effective network/write effect or absence of runtime destination-allowlisting. A configured server URL is not the same as an allowlist.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:2dc5860835609ed74961",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/analysis_writer.py",
+        "source_line": 18,
+        "tool_or_entity": "editor"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "18,58-80",
+          "role": "source_observation",
+          "fact": "Pinned source imports editor and includes source-configured tools/Agent at 58-80. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "Pinned source imports editor and adds it to analysis_writer.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:2dd2f5b4356f9a11f78a",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/cfn_explorer.py",
+        "source_line": 26,
+        "tool_or_entity": "file_write"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/cfn_explorer.py",
+          "blob_sha": "b52551548200e06c797c670a06a5fca8ef3fdebf",
+          "lines": "26,77-99",
+          "role": "source_observation",
+          "fact": "Pinned source imports file_write and includes source-configured tools/Agent at 77-99. @tool wrapper and runtime-enumerated MCP tools; no proof MCP connection succeeded or tool invoked."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper and runtime-enumerated MCP tools; no proof MCP connection succeeded or tool invoked.",
+      "reasoning": "Pinned source imports file_write and adds it to cfn_explorer.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:2fa610f39c642a7a822e",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/pricing_explorer.py",
+        "source_line": 26,
+        "tool_or_entity": "use_aws"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/pricing_explorer.py",
+          "blob_sha": "2c7c942b22ba50e857b4b75a1c38c7a8ef8f2cc2",
+          "lines": "26,83-95",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws and includes source-configured tools/Agent at 83-95. @tool wrapper/region loop/remote MCP discovery needed; package reexports compare_regional_pricing, not pricing_explorer as a callable."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper/region loop/remote MCP discovery needed; package reexports compare_regional_pricing, not pricing_explorer as a callable.",
+      "reasoning": "Pinned source imports use_aws and adds it to pricing_explorer.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:300d7ab779ecb132d5d6",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "CAP005",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/cloudtrail_explorer.py",
+        "source_line": 68,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.86,
+      "claim_scope": "conditional_source_configuration_of_read_write_tool_set",
+      "source_witnesses": [
+        {
+          "path": "src/agents/cloudtrail_explorer.py",
+          "blob_sha": "0f3e50d42c7c2845b1f26d3b098f8fb9fbd9241e",
+          "lines": "28,57-74",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 57-74. @tool wrapper can return early; no guarantee AWS credentials or invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "The Agent's actual execution, credentials, effective approval state, data access targets and call to both tool types remain unobserved. @tool wrapper can return early; no guarantee AWS credentials or invocation.",
+      "reasoning": "The pinned source declares file_read and file_write or related standard AWS tools together on cloudtrail_explorer.py's Agent constructor. This supports potential read-and-modify capability; it does not prove that both actions occurred.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:36830b3ae86117942e1e",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "NET002",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/multi_region_expansion_planner.py",
+        "source_line": 104,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "unresolved",
+      "confidence": 0.9,
+      "claim_scope": "unverified_network_destination_effective_control",
+      "source_witnesses": [
+        {
+          "path": "src/agents/multi_region_expansion_planner.py",
+          "blob_sha": "f1d201e7f312a01f09f687fc2bb0acde05af9646",
+          "lines": "33,89-111",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 89-111. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No remote MCP tool list, live destination grant, deployed allowlist or control effectiveness is supplied in frozen source. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability.",
+      "reasoning": "The source declares AWS-facing tools or remote MCP client mechanisms on the multi_region_expansion_planner.py Agent; it does not independently prove the ultimate effective network/write effect or absence of runtime destination-allowlisting. A configured server URL is not the same as an allowlist.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:3a27c9b5d9dbafc9de56",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/main.py",
+        "source_line": 16,
+        "tool_or_entity": "shell"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "16,53-60",
+          "role": "source_observation",
+          "fact": "Pinned source imports shell and includes source-configured tools/Agent at 53-60. Function orchestrate_analysis must be called; a source-visible Agent constructor does not establish live runtime identity."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. Function orchestrate_analysis must be called; a source-visible Agent constructor does not establish live runtime identity.",
+      "reasoning": "Pinned source imports shell and adds it to main.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:3bb5c4fdaeb5d0ff231d",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "CAP005",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/multi_region_expansion_planner.py",
+        "source_line": 104,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.86,
+      "claim_scope": "conditional_source_configuration_of_read_write_tool_set",
+      "source_witnesses": [
+        {
+          "path": "src/agents/multi_region_expansion_planner.py",
+          "blob_sha": "f1d201e7f312a01f09f687fc2bb0acde05af9646",
+          "lines": "33,89-111",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 89-111. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "The Agent's actual execution, credentials, effective approval state, data access targets and call to both tool types remain unobserved. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability.",
+      "reasoning": "The pinned source declares file_read and file_write or related standard AWS tools together on multi_region_expansion_planner.py's Agent constructor. This supports potential read-and-modify capability; it does not prove that both actions occurred.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:3c31b2f69ec8ce2640c4",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/planning_report_generator.py",
+        "source_line": 34,
+        "tool_or_entity": "file_write"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/planning_report_generator.py",
+          "blob_sha": "0029d4cdad6062a97f7d563bb7472b105d05d18f",
+          "lines": "34,87-110",
+          "role": "source_observation",
+          "fact": "Pinned source imports file_write and includes source-configured tools/Agent at 87-110. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability.",
+      "reasoning": "Pinned source imports file_write and adds it to planning_report_generator.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:4098206e34491ca14927",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/main.py",
+        "source_line": 16,
+        "tool_or_entity": "file_write"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "16,53-60",
+          "role": "source_observation",
+          "fact": "Pinned source imports file_write and includes source-configured tools/Agent at 53-60. Function orchestrate_analysis must be called; a source-visible Agent constructor does not establish live runtime identity."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. Function orchestrate_analysis must be called; a source-visible Agent constructor does not establish live runtime identity.",
+      "reasoning": "Pinned source imports file_write and adds it to main.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:434681674c7cd7c6ac32",
+      "case_id": "ff60-amazon-04",
+      "change": "removed",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/main.py",
+        "source_line": 1,
+        "tool_or_entity": "editor"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "false_positive",
+      "confidence": 0.98,
+      "claim_scope": "obsolete_line1_source_anchor_only",
+      "source_witnesses": [
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "1",
+          "role": "hard_negative",
+          "fact": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed."
+        },
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "16,53-60",
+          "role": "source_observation",
+          "fact": "Pinned source imports editor and includes source-configured tools/Agent at 53-60. Function orchestrate_analysis must be called; a source-visible Agent constructor does not establish live runtime identity."
+        }
+      ],
+      "hard_negative_evidence": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed.",
+      "reasoning": "Obsolete historical claim anchored at line 1 rather than main.py:16. Its source location is unsupported, while underlying editor risk can remain at its properly linked new claim.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:4440f27228f7ac66d26a",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "CAP005",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/report_writer.py",
+        "source_line": 74,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.86,
+      "claim_scope": "conditional_source_configuration_of_read_write_tool_set",
+      "source_witnesses": [
+        {
+          "path": "src/agents/report_writer.py",
+          "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c",
+          "lines": "17,60-83",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 60-83. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "The Agent's actual execution, credentials, effective approval state, data access targets and call to both tool types remain unobserved. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "The pinned source declares file_read and file_write or related standard AWS tools together on report_writer.py's Agent constructor. This supports potential read-and-modify capability; it does not prove that both actions occurred.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:4776223ff44796aff00e",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/planning_report_generator.py",
+        "source_line": 34,
+        "tool_or_entity": "use_aws"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/planning_report_generator.py",
+          "blob_sha": "0029d4cdad6062a97f7d563bb7472b105d05d18f",
+          "lines": "34,87-110",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws and includes source-configured tools/Agent at 87-110. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper plus unresolved remote MCP tools; no proven runtime connection/capability.",
+      "reasoning": "Pinned source imports use_aws and adds it to planning_report_generator.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:5b843b0d4479cce48f52",
+      "case_id": "ff60-amazon-04",
+      "change": "removed",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/main.py",
+        "source_line": 56,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "false_positive",
+      "confidence": 0.99,
+      "claim_scope": "phantom_agent_as_tool_old_claim",
+      "source_witnesses": [
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "56",
+          "role": "hard_negative",
+          "fact": "An Agent(...) constructor is an Agent entity, not a callable tool; tool list is actually at main.py:53, no tool named agent."
+        },
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "16,53-60",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 53-60. Function orchestrate_analysis must be called; a source-visible Agent constructor does not establish live runtime identity."
+        }
+      ],
+      "hard_negative_evidence": "An Agent(...) constructor is an Agent entity, not a callable tool; tool list is actually at main.py:53, no tool named agent.",
+      "reasoning": "Main at line 56 constructs orchestrator=Agent(...). No callable tool named agent is declared; source cannot support the old tool named 'agent'.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:60fdd5dfbab268852fab",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/analysis_writer.py",
+        "source_line": 18,
+        "tool_or_entity": "file_write"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "18,58-80",
+          "role": "source_observation",
+          "fact": "Pinned source imports file_write and includes source-configured tools/Agent at 58-80. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "Pinned source imports file_write and adds it to analysis_writer.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:73bd8bd26c9ad0577950",
+      "case_id": "ff60-amazon-04",
+      "change": "removed",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/analysis_writer.py",
+        "source_line": 1,
+        "tool_or_entity": "editor"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "false_positive",
+      "confidence": 0.98,
+      "claim_scope": "obsolete_line1_source_anchor_only",
+      "source_witnesses": [
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "1",
+          "role": "hard_negative",
+          "fact": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed."
+        },
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "18,58-80",
+          "role": "source_observation",
+          "fact": "Pinned source imports editor and includes source-configured tools/Agent at 58-80. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        }
+      ],
+      "hard_negative_evidence": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed.",
+      "reasoning": "Obsolete historical claim anchored at line 1 rather than analysis_writer.py:18. Its source location is unsupported, while underlying editor risk can remain at its properly linked new claim.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:76d461aa37a48d63dcf5",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/analysis_writer.py",
+        "source_line": 18,
+        "tool_or_entity": "shell"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "18,58-80",
+          "role": "source_observation",
+          "fact": "Pinned source imports shell and includes source-configured tools/Agent at 58-80. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "Pinned source imports shell and adds it to analysis_writer.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:84724ebc1b42818721ea",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "NET002",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/tech_analysis.py",
+        "source_line": 140,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "unresolved",
+      "confidence": 0.9,
+      "claim_scope": "unverified_network_destination_effective_control",
+      "source_witnesses": [
+        {
+          "path": "src/agents/tech_analysis.py",
+          "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42",
+          "lines": "44,116-144",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 116-144. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No remote MCP tool list, live destination grant, deployed allowlist or control effectiveness is supplied in frozen source. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "The source declares AWS-facing tools or remote MCP client mechanisms on the tech_analysis.py Agent; it does not independently prove the ultimate effective network/write effect or absence of runtime destination-allowlisting. A configured server URL is not the same as an allowlist.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:8f2f4866d3c2c418d0d3",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "CAP005",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/cfn_explorer.py",
+        "source_line": 92,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.86,
+      "claim_scope": "conditional_source_configuration_of_read_write_tool_set",
+      "source_witnesses": [
+        {
+          "path": "src/agents/cfn_explorer.py",
+          "blob_sha": "b52551548200e06c797c670a06a5fca8ef3fdebf",
+          "lines": "26,77-99",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 77-99. @tool wrapper and runtime-enumerated MCP tools; no proof MCP connection succeeded or tool invoked."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "The Agent's actual execution, credentials, effective approval state, data access targets and call to both tool types remain unobserved. @tool wrapper and runtime-enumerated MCP tools; no proof MCP connection succeeded or tool invoked.",
+      "reasoning": "The pinned source declares file_read and file_write or related standard AWS tools together on cfn_explorer.py's Agent constructor. This supports potential read-and-modify capability; it does not prove that both actions occurred.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:93769fbde40d9372243b",
+      "case_id": "ff60-amazon-04",
+      "change": "removed",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/analysis_writer.py",
+        "source_line": 1,
+        "tool_or_entity": "file_write"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "false_positive",
+      "confidence": 0.98,
+      "claim_scope": "obsolete_line1_source_anchor_only",
+      "source_witnesses": [
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "1",
+          "role": "hard_negative",
+          "fact": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed."
+        },
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "18,58-80",
+          "role": "source_observation",
+          "fact": "Pinned source imports file_write and includes source-configured tools/Agent at 58-80. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        }
+      ],
+      "hard_negative_evidence": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed.",
+      "reasoning": "Obsolete historical claim anchored at line 1 rather than analysis_writer.py:18. Its source location is unsupported, while underlying file_write risk can remain at its properly linked new claim.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:95bfef3bc964d6a66f7b",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/tech_analysis.py",
+        "source_line": 44,
+        "tool_or_entity": "use_aws"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/tech_analysis.py",
+          "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42",
+          "lines": "44,116-144",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws and includes source-configured tools/Agent at 116-144. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "Pinned source imports use_aws and adds it to tech_analysis.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:977a19774266608bcf03",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/report_writer.py",
+        "source_line": 17,
+        "tool_or_entity": "use_aws"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/report_writer.py",
+          "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c",
+          "lines": "17,60-83",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws and includes source-configured tools/Agent at 60-83. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "Pinned source imports use_aws and adds it to report_writer.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:998a28677b14719ba72e",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/cloudtrail_explorer.py",
+        "source_line": 28,
+        "tool_or_entity": "use_aws"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/cloudtrail_explorer.py",
+          "blob_sha": "0f3e50d42c7c2845b1f26d3b098f8fb9fbd9241e",
+          "lines": "28,57-74",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws and includes source-configured tools/Agent at 57-74. @tool wrapper can return early; no guarantee AWS credentials or invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper can return early; no guarantee AWS credentials or invocation.",
+      "reasoning": "Pinned source imports use_aws and adds it to cloudtrail_explorer.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:9a644fee027e44fe2bd5",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "NET002",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/cfn_explorer.py",
+        "source_line": 92,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "unresolved",
+      "confidence": 0.9,
+      "claim_scope": "unverified_network_destination_effective_control",
+      "source_witnesses": [
+        {
+          "path": "src/agents/cfn_explorer.py",
+          "blob_sha": "b52551548200e06c797c670a06a5fca8ef3fdebf",
+          "lines": "26,77-99",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 77-99. @tool wrapper and runtime-enumerated MCP tools; no proof MCP connection succeeded or tool invoked."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No remote MCP tool list, live destination grant, deployed allowlist or control effectiveness is supplied in frozen source. @tool wrapper and runtime-enumerated MCP tools; no proof MCP connection succeeded or tool invoked.",
+      "reasoning": "The source declares AWS-facing tools or remote MCP client mechanisms on the cfn_explorer.py Agent; it does not independently prove the ultimate effective network/write effect or absence of runtime destination-allowlisting. A configured server URL is not the same as an allowlist.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:aa3aef36476b1ac77aff",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "CAP005",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/tech_analysis.py",
+        "source_line": 140,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.86,
+      "claim_scope": "conditional_source_configuration_of_read_write_tool_set",
+      "source_witnesses": [
+        {
+          "path": "src/agents/tech_analysis.py",
+          "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42",
+          "lines": "44,116-144",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 116-144. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "The Agent's actual execution, credentials, effective approval state, data access targets and call to both tool types remain unobserved. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "The pinned source declares file_read and file_write or related standard AWS tools together on tech_analysis.py's Agent constructor. This supports potential read-and-modify capability; it does not prove that both actions occurred.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:ae7e4aadfa7c31e34044",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "NET002",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/cloudtrail_explorer.py",
+        "source_line": 68,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "unresolved",
+      "confidence": 0.9,
+      "claim_scope": "unverified_network_destination_effective_control",
+      "source_witnesses": [
+        {
+          "path": "src/agents/cloudtrail_explorer.py",
+          "blob_sha": "0f3e50d42c7c2845b1f26d3b098f8fb9fbd9241e",
+          "lines": "28,57-74",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 57-74. @tool wrapper can return early; no guarantee AWS credentials or invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No remote MCP tool list, live destination grant, deployed allowlist or control effectiveness is supplied in frozen source. @tool wrapper can return early; no guarantee AWS credentials or invocation.",
+      "reasoning": "The source declares AWS-facing tools or remote MCP client mechanisms on the cloudtrail_explorer.py Agent; it does not independently prove the ultimate effective network/write effect or absence of runtime destination-allowlisting. A configured server URL is not the same as an allowlist.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:b50c855fe2584ef0ce98",
+      "case_id": "ff60-amazon-04",
+      "change": "removed",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/main.py",
+        "source_line": 1,
+        "tool_or_entity": "use_aws"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "false_positive",
+      "confidence": 0.98,
+      "claim_scope": "obsolete_line1_source_anchor_only",
+      "source_witnesses": [
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "1",
+          "role": "hard_negative",
+          "fact": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed."
+        },
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "16,53-60",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws and includes source-configured tools/Agent at 53-60. Function orchestrate_analysis must be called; a source-visible Agent constructor does not establish live runtime identity."
+        }
+      ],
+      "hard_negative_evidence": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed.",
+      "reasoning": "Obsolete historical claim anchored at line 1 rather than main.py:16. Its source location is unsupported, while underlying use_aws risk can remain at its properly linked new claim.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:b5f812ba106801025d96",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/pricing_explorer.py",
+        "source_line": 26,
+        "tool_or_entity": "file_write"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/pricing_explorer.py",
+          "blob_sha": "2c7c942b22ba50e857b4b75a1c38c7a8ef8f2cc2",
+          "lines": "26,83-95",
+          "role": "source_observation",
+          "fact": "Pinned source imports file_write and includes source-configured tools/Agent at 83-95. @tool wrapper/region loop/remote MCP discovery needed; package reexports compare_regional_pricing, not pricing_explorer as a callable."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper/region loop/remote MCP discovery needed; package reexports compare_regional_pricing, not pricing_explorer as a callable.",
+      "reasoning": "Pinned source imports file_write and adds it to pricing_explorer.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:b89fa2488c3613f6b708",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/tech_analysis.py",
+        "source_line": 44,
+        "tool_or_entity": "file_write"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/tech_analysis.py",
+          "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42",
+          "lines": "44,116-144",
+          "role": "source_observation",
+          "fact": "Pinned source imports file_write and includes source-configured tools/Agent at 116-144. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "Pinned source imports file_write and adds it to tech_analysis.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:bc33668216452f6b4b01",
+      "case_id": "ff60-amazon-04",
+      "change": "removed",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/analysis_writer.py",
+        "source_line": 1,
+        "tool_or_entity": "shell"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "false_positive",
+      "confidence": 0.98,
+      "claim_scope": "obsolete_line1_source_anchor_only",
+      "source_witnesses": [
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "1",
+          "role": "hard_negative",
+          "fact": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed."
+        },
+        {
+          "path": "src/agents/analysis_writer.py",
+          "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "lines": "18,58-80",
+          "role": "source_observation",
+          "fact": "Pinned source imports shell and includes source-configured tools/Agent at 58-80. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        }
+      ],
+      "hard_negative_evidence": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed.",
+      "reasoning": "Obsolete historical claim anchored at line 1 rather than analysis_writer.py:18. Its source location is unsupported, while underlying shell risk can remain at its properly linked new claim.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:bea818d8cb453e8a033e",
+      "case_id": "ff60-amazon-04",
+      "change": "removed",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/main.py",
+        "source_line": 1,
+        "tool_or_entity": "file_write"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "false_positive",
+      "confidence": 0.98,
+      "claim_scope": "obsolete_line1_source_anchor_only",
+      "source_witnesses": [
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "1",
+          "role": "hard_negative",
+          "fact": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed."
+        },
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "16,53-60",
+          "role": "source_observation",
+          "fact": "Pinned source imports file_write and includes source-configured tools/Agent at 53-60. Function orchestrate_analysis must be called; a source-visible Agent constructor does not establish live runtime identity."
+        }
+      ],
+      "hard_negative_evidence": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed.",
+      "reasoning": "Obsolete historical claim anchored at line 1 rather than main.py:16. Its source location is unsupported, while underlying file_write risk can remain at its properly linked new claim.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:c4e7fa0359d8c7f7b515",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/tech_analysis.py",
+        "source_line": 44,
+        "tool_or_entity": "editor"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/tech_analysis.py",
+          "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42",
+          "lines": "44,116-144",
+          "role": "source_observation",
+          "fact": "Pinned source imports editor and includes source-configured tools/Agent at 116-144. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "Pinned source imports editor and adds it to tech_analysis.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:d3388fd929c8794bfce6",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/pricing_explorer.py",
+        "source_line": 26,
+        "tool_or_entity": "python_repl"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "unresolved",
+      "confidence": 0.88,
+      "claim_scope": "unverified_third_party_tool_effect_and_control",
+      "source_witnesses": [
+        {
+          "path": "src/agents/pricing_explorer.py",
+          "blob_sha": "2c7c942b22ba50e857b4b75a1c38c7a8ef8f2cc2",
+          "lines": "26,83-95",
+          "role": "source_observation",
+          "fact": "Pinned source imports python_repl and includes source-configured tools/Agent at 83-95. @tool wrapper/region loop/remote MCP discovery needed; package reexports compare_regional_pricing, not pricing_explorer as a callable."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "The repo includes no pinned python_repl implementation or actual runtime invocation; no claim about process executing or successfully bypassing guardrails is permitted.",
+      "reasoning": "python_repl is imported and bound in a conditional Agent, but its precise effects, guardrails and approval controls depend on an external strands_tools implementation not included in the pinned application source.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:d617279ba3cfa8299c62",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/main.py",
+        "source_line": 16,
+        "tool_or_entity": "editor"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "16,53-60",
+          "role": "source_observation",
+          "fact": "Pinned source imports editor and includes source-configured tools/Agent at 53-60. Function orchestrate_analysis must be called; a source-visible Agent constructor does not establish live runtime identity."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. Function orchestrate_analysis must be called; a source-visible Agent constructor does not establish live runtime identity.",
+      "reasoning": "Pinned source imports editor and adds it to main.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:dc800464d6f5ec76cf4a",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "CAP005",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/waypoint_explorer.py",
+        "source_line": 78,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.86,
+      "claim_scope": "conditional_source_configuration_of_read_write_tool_set",
+      "source_witnesses": [
+        {
+          "path": "src/agents/waypoint_explorer.py",
+          "blob_sha": "91dbbb65331563c779c07661168e8a8f49988458",
+          "lines": "28,65-85",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 65-85. @tool wrapper plus runtime-unknown MCP tools; no guaranteed live tool availability or allowed destination."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "The Agent's actual execution, credentials, effective approval state, data access targets and call to both tool types remain unobserved. @tool wrapper plus runtime-unknown MCP tools; no guaranteed live tool availability or allowed destination.",
+      "reasoning": "The pinned source declares file_read and file_write or related standard AWS tools together on waypoint_explorer.py's Agent constructor. This supports potential read-and-modify capability; it does not prove that both actions occurred.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:e030c2dd799b1f29b94a",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/report_writer.py",
+        "source_line": 17,
+        "tool_or_entity": "editor"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/report_writer.py",
+          "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c",
+          "lines": "17,60-83",
+          "role": "source_observation",
+          "fact": "Pinned source imports editor and includes source-configured tools/Agent at 60-83. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "Pinned source imports editor and adds it to report_writer.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:e5d51300c8143c95e0e2",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/report_writer.py",
+        "source_line": 17,
+        "tool_or_entity": "file_write"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/report_writer.py",
+          "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c",
+          "lines": "17,60-83",
+          "role": "source_observation",
+          "fact": "Pinned source imports file_write and includes source-configured tools/Agent at 60-83. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "Pinned source imports file_write and adds it to report_writer.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:ebd03237b61eeaed44f6",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/cfn_explorer.py",
+        "source_line": 26,
+        "tool_or_entity": "use_aws"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/cfn_explorer.py",
+          "blob_sha": "b52551548200e06c797c670a06a5fca8ef3fdebf",
+          "lines": "26,77-99",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws and includes source-configured tools/Agent at 77-99. @tool wrapper and runtime-enumerated MCP tools; no proof MCP connection succeeded or tool invoked."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper and runtime-enumerated MCP tools; no proof MCP connection succeeded or tool invoked.",
+      "reasoning": "Pinned source imports use_aws and adds it to cfn_explorer.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:edc535f07226a7be45b3",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/tech_analysis.py",
+        "source_line": 44,
+        "tool_or_entity": "shell"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "source_confirmed",
+      "confidence": 0.88,
+      "claim_scope": "source_declared_privileged_tool_with_no_local_guardrail_evidence",
+      "source_witnesses": [
+        {
+          "path": "src/agents/tech_analysis.py",
+          "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42",
+          "lines": "44,116-144",
+          "role": "source_observation",
+          "fact": "Pinned source imports shell and includes source-configured tools/Agent at 116-144. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No verified external SDK guardrail/approval implementation, credential, effective permission or successful tool call. @tool wrapper can return early when Strands unavailable; nested Agent constructed only on wrapper invocation.",
+      "reasoning": "Pinned source imports shell and adds it to tech_analysis.py's Agent tool list, with call to set_tool_configurations that explicitly requests BYPASS_TOOL_CONSENT=true. This supports a configuration-level privileged-tool control-gap warning, NOT a proven runtime bypass.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:f37bdf0d899c7565a374",
+      "case_id": "ff60-amazon-04",
+      "change": "added",
+      "rule_id": "NET002",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/agents/pricing_explorer.py",
+        "source_line": 89,
+        "tool_or_entity": "agent"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "unresolved",
+      "confidence": 0.9,
+      "claim_scope": "unverified_network_destination_effective_control",
+      "source_witnesses": [
+        {
+          "path": "src/agents/pricing_explorer.py",
+          "blob_sha": "2c7c942b22ba50e857b4b75a1c38c7a8ef8f2cc2",
+          "lines": "26,83-95",
+          "role": "source_observation",
+          "fact": "Pinned source imports use_aws/file_read/file_write or network-capable library tools and includes source-configured tools/Agent at 83-95. @tool wrapper/region loop/remote MCP discovery needed; package reexports compare_regional_pricing, not pricing_explorer as a callable."
+        },
+        {
+          "path": "src/utils/config.py",
+          "blob_sha": "f8ef81efe8af9a932f14808f9de91c5c80f9e93d",
+          "lines": "43-46",
+          "role": "control_configuration",
+          "fact": "set_tool_configurations sets BYPASS_TOOL_CONSENT=true; does not verify runtime-enforced approval bypass or every possible guardrail."
+        }
+      ],
+      "hard_negative_evidence": "No remote MCP tool list, live destination grant, deployed allowlist or control effectiveness is supplied in frozen source. @tool wrapper/region loop/remote MCP discovery needed; package reexports compare_regional_pricing, not pricing_explorer as a callable.",
+      "reasoning": "The source declares AWS-facing tools or remote MCP client mechanisms on the pricing_explorer.py Agent; it does not independently prove the ultimate effective network/write effect or absence of runtime destination-allowlisting. A configured server URL is not the same as an allowlist.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    },
+    {
+      "claim_key": "ff60-amazon-04:f8b2bd46404628b4c82d",
+      "case_id": "ff60-amazon-04",
+      "change": "removed",
+      "rule_id": "AGT040",
+      "severity": "medium",
+      "original_claim": {
+        "source_path": "src/main.py",
+        "source_line": 1,
+        "tool_or_entity": "shell"
+      },
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "repo_sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "status": "false_positive",
+      "confidence": 0.98,
+      "claim_scope": "obsolete_line1_source_anchor_only",
+      "source_witnesses": [
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "1",
+          "role": "hard_negative",
+          "fact": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed."
+        },
+        {
+          "path": "src/main.py",
+          "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+          "lines": "16,53-60",
+          "role": "source_observation",
+          "fact": "Pinned source imports shell and includes source-configured tools/Agent at 53-60. Function orchestrate_analysis must be called; a source-visible Agent constructor does not establish live runtime identity."
+        }
+      ],
+      "hard_negative_evidence": "Old line 1 contains module comment/docstring/blank source, not the declaration of this privileged tool; invalid source location does not mean the tool risk was removed.",
+      "reasoning": "Obsolete historical claim anchored at line 1 rather than main.py:16. Its source location is unsupported, while underlying shell risk can remain at its properly linked new claim.",
+      "reviewer": "openai_chatgpt_model_as_judge",
+      "reviewer_type": "model_as_judge",
+      "independent_human_review": false,
+      "runtime_effectiveness": "not_verified",
+      "model_review_stage": "source_and_control_contract_review",
+      "reviewed_source_execution": false
+    }
+  ]
+}

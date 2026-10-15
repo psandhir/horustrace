@@ -50,3 +50,11 @@ Do NOT call any finding a true positive as runtime exploit evidence. Do NOT infe
 ## Next safe action
 
 Create `research/accuracy-wave-b540-model-judge-20261015/high-severity-adjudication.json` keyed by all 20 high-severity claim keys, each with pinned blob/path/lines, source-only conditional review, category/confidence/rationale, and second-pass negative witness. Add a test checking queue coverage/unique IDs/no missing witnesses and rejecting invented human reviewer status. Then validate review artifacts and open a dedicated PR; the overnight worker can pick up the remaining 53 without repeating the first 20.
+
+## Active execution checkpoint — 15 October 2026, current session
+
+- Opened draft [PR #554](https://github.com/psandhir/horustrace/pull/554), commit `9806fceb7db353463a70f72a4328e15e3ad9ab75`.
+- Source-first OpenAI-model review of all 20 high-severity changes: 10 source-confirmed conditional/potential, 6 obsolete source identity/line-1 claim false positives, 4 unresolved third-party/effect assertions. `high-severity-adjudication.json` includes pinned witness evidence and the test checks exact key coverage. **No verified runtime authority or human-independent review.**
+- This checkpoint adds **53 medium-severity review rows**: 35 source-confirmed local/conditional configuration warnings, 10 obsolete or phantom old source claims, 8 unresolved third-party semantics or effective network destination controls. Together 73/73 changed claim keys are model-reviewed; classification must be independently checked by pinned source/negative controls before GO.
+- Source discoveries to investigate: package `__init__.py` does not export callable pricing_explorer, config sets BYPASS_TOOL_CONSENT=true, remote MCP `list_tools_sync` outputs dynamic unresolved. All model-reviewed observations are **source-only**.
+- Next agent actions: inspect CI on latest #554 SHA; fix failing tests; test accuracy of source path and claim uniqueness against `evaluation/full60.json` and hard negative candidates; assess whether AGT040 exact approval semantics and NET002 potential overclaims justify scanner fix. Build independent source-negative/positive truth for WAB-01–05; pursue safe Wave C preparatory work when Wave B GO remains blocked.

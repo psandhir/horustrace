@@ -25,3 +25,11 @@ Run deterministic coverage tests with `pytest -q tests/test_wave_b540_model_judg
 5. Execute all Wave C phases C01–C05 when quality gate permits; preparatory shadow work can proceed without irreversible cutover.
 
 See `HANDOFF.md` for work isolation, CI, scratchpad and restart protocol.
+
+## Medium-severity source review complete as **model adjudication**, not independent truth
+
+The second ledger records all 53 medium-severity changed claims in the exact same frozen source revision and derives original source import/tool-registration/guard witnesses (original Git blobs). Source-confirmed claims mean conditional tool configuration, **not** effective runtime permission. The hard-negative field explicitly preserves unknown remote MCP catalogues and the difference between a local missing guardrail and a missing effective control.
+
+Breakdown: 35 source-confirmed conditional configuration, 10 obsolete source identity/location records, 8 unresolved effect/control/allowlist. Combined with first 20 high-severity: **45 source-confirmed, 16 invalid historic claim IDs, 12 unresolved** across 73 changed keys. This is a source-pinned LLM assessment with known non-blind review context, not an independently constructed gold standard or precision/recall metric.
+
+This handoff is updated on the feature branch; check GitHub CI before merge.
