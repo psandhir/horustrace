@@ -938,6 +938,32 @@ def enrich_strands_repository_graph(
                 agent.metadata["runtime_name_unresolved"] = True
             if function is not None:
                 agent.metadata["source_factory"] = function.name
+                # These are source-visible construction *sites*, not nine
+                # eagerly instantiated child agents. @tool wrappers may only
+                # construct the nested instance if dispatched at runtime.
+                agent.metadata["construction_scope"] = "function_local_conditional"
+                source_tool_aliases = {
+                    alias for alias, (module, original) in info.imports.items()
+                    if module == "strands" and original == "tool"
+                }
+                if any(
+                    (
+                        isinstance(decorator, ast.Name)
+                        and decorator.id in source_tool_aliases
+                    ) or (
+                        isinstance(decorator, ast.Attribute)
+                        and decorator.attr == "tool"
+                        and isinstance(decorator.value, ast.Name)
+                        and info.imports.get(decorator.value.id) == ("strands", "")
+                    )
+                    for decorator in function.decorator_list
+                ):
+                    agent.metadata["source_tool_wrapper"] = True
+                    agent.metadata["construction_scope"] = (
+                        "tool_wrapper_deferred_invocation"
+                    )
+            else:
+                agent.metadata["construction_scope"] = "module_scope"
             if class_node is not None:
                 agent.metadata["source_class"] = class_node.name
 
