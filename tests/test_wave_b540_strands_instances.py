@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from horustrace.models import Agent, Graph, SourceLocation, Tool
+from horustrace.models import Agent, Finding, Graph, Severity, SourceLocation, Tool
+from horustrace.rules.builtin import _qualify_deferred_strands_findings
 from horustrace.scanner import _consolidate_agents
 from horustrace.strands_repository import _build_modules, _vended_tool
 
@@ -136,3 +137,82 @@ def test_ambiguous_vended_import_alias_does_not_invent_source_binding(
     )
     info = next(iter(_build_modules(package, [source]).values()))
     assert _vended_tool(info, "tool_alias") is None
+
+
+def test_deferred_wrapper_findings_have_scope_limits_without_filtering(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "agents" / "worker.py"
+    graph = Graph(agents=[
+        Agent(
+            name="agent",
+            location=SourceLocation(target, line=17),
+            metadata={
+                "framework": "strands-agents",
+                "construction_scope": "tool_wrapper_deferred_invocation",
+            },
+        ),
+        Agent(
+            name="agent",
+            location=SourceLocation(tmp_path / "agents" / "other.py", line=12),
+            metadata={
+                "framework": "strands-agents",
+                "construction_scope": "function_local_conditional",
+            },
+        ),
+    ])
+    findings = [
+        Finding(
+            rule_id="AGT040",
+            severity=Severity.MEDIUM,
+            title="Guardrail",
+            message="Source lacks controls",
+            recommendation="Require approval",
+            agent="agent",
+            location=SourceLocation(target, line=3),
+        ),
+        Finding(
+            rule_id="CAP005",
+            severity=Severity.MEDIUM,
+            title="Broad data access",
+            message="Source shows read and write",
+            recommendation="Constrain",
+            agent="agent",
+            location=SourceLocation(tmp_path / "agents" / "other.py", line=12),
+        ),
+    ]
+    _qualify_deferred_strands_findings(graph, findings)
+    assert len(findings) == 2
+    assert len(findings[0].limitations) == 1
+    assert "conditional source configuration" in findings[0].limitations[0]
+    assert findings[1].limitations == []
+    _qualify_deferred_strands_findings(graph, findings)
+    assert len(findings[0].limitations) == 1
+
+
+def test_ambiguous_same_source_strands_findings_are_not_misattributed(
+    tmp_path: Path,
+) -> None:
+    location = SourceLocation(tmp_path / "worker.py", line=10)
+    agents = [
+        Agent(
+            name="agent",
+            location=location,
+            metadata={
+                "framework": "strands-agents",
+                "construction_scope": "tool_wrapper_deferred_invocation",
+            },
+        )
+        for _ in range(2)
+    ]
+    finding = Finding(
+        rule_id="AGT040",
+        severity=Severity.MEDIUM,
+        title="Guardrail",
+        message="Unknown attribution",
+        recommendation="Review",
+        location=location,
+        agent="agent",
+    )
+    _qualify_deferred_strands_findings(Graph(agents=agents), [finding])
+    assert finding.limitations == []
