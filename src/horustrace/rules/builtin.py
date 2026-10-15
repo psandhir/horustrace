@@ -616,6 +616,7 @@ def evaluate(graph: Graph) -> list[Finding]:
                     "langchain_tool",
                     "custom_registry_tool",
                     "langgraph_tool",
+                    "strands_tool_wrapper",
                     "llm_resolved_helper",
                     "llm_resolved_runtime_context",
                 }
