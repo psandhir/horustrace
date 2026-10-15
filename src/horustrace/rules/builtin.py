@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+from pathlib import Path
 from urllib.parse import urlparse
 
 from horustrace.destination_provenance import (
@@ -18,7 +19,15 @@ from horustrace.heuristics import (
     resource_is_broad,
     role_looks_admin,
 )
-from horustrace.models import Finding, Graph, Identity, NetworkDestination, Severity, SourceLocation
+from horustrace.models import (
+    Agent,
+    Finding,
+    Graph,
+    Identity,
+    NetworkDestination,
+    Severity,
+    SourceLocation,
+)
 from horustrace.semantic_contract import tool_control_enforcing
 from horustrace.skill_llm_semantics import confident_skill_concept
 
@@ -1719,7 +1728,47 @@ def evaluate(graph: Graph) -> list[Finding]:
             )
         )
 
-    return _dedupe(findings)
+    result = _dedupe(findings)
+    _qualify_deferred_strands_findings(graph, result)
+    return result
+
+
+def _qualify_deferred_strands_findings(
+    graph: Graph, findings: list[Finding],
+) -> None:
+    """Explain conditional source-only Strands instances without dropping facts.
+
+    A source-visible Agent constructor inside a @tool wrapper is potentially
+    reachable if the wrapper is selected. It is not an eagerly running actor.
+    Only qualify findings whose source site uniquely matches that agent.
+    """
+    by_site: dict[tuple[str, Path], list[Agent]] = {}
+    for agent in graph.agents:
+        if (
+            agent.metadata.get("framework") != "strands-agents"
+            or agent.location is None
+        ):
+            continue
+        key = (agent.name, agent.location.path.resolve())
+        by_site.setdefault(key, []).append(agent)
+    note = (
+        "This Strands Agent is constructed inside a source-declared @tool "
+        "wrapper. Findings describe conditional source configuration; "
+        "actual wrapper invocation, instantiated identity, runtime access "
+        "and controls are not verified."
+    )
+    for finding in findings:
+        if not finding.agent or finding.location is None:
+            continue
+        key = (finding.agent, finding.location.path.resolve())
+        candidates = by_site.get(key, [])
+        if (
+            len(candidates) == 1
+            and candidates[0].metadata.get("construction_scope")
+            == "tool_wrapper_deferred_invocation"
+            and note not in finding.limitations
+        ):
+            finding.limitations.append(note)
 
 
 def _dedupe(findings: list[Finding]) -> list[Finding]:

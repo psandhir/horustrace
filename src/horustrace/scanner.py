@@ -1573,7 +1573,29 @@ def _consolidate_agents(graph: Graph) -> None:
             overlays.append(incoming)
             continue
 
-        key = (incoming.name, str(instance_key) if instance_key else None)
+        # Strands names such as "agent" are local variable labels, not
+        # repository-global identities. A wrapper can construct a distinct
+        # Strands Agent at each source location. Without this fallback, all
+        # such agents with absent instance_key collapse into one object.
+        #
+        # This source key is internal to consolidation (not persisted in
+        # exported metadata), so checkout-local absolute paths cannot leak
+        # into portable semantic IDs. Same-source duplicates remain ambiguous.
+        source_identity: str | None = None
+        if (
+            not instance_key
+            and incoming.metadata.get("framework") == "strands-agents"
+            and incoming.location is not None
+            and incoming.location.line > 0
+        ):
+            source_identity = (
+                f"source:{incoming.location.path.resolve().as_posix()}"
+                f":{incoming.location.line}"
+            )
+        key = (
+            incoming.name,
+            str(instance_key) if instance_key else source_identity,
+        )
         existing = by_key.get(key)
         if existing is None:
             by_key[key] = incoming
