@@ -134,6 +134,18 @@ def _registered_factory(tree: ast.Module) -> list[tuple[int, int]]:
                 func.args.posonlyargs + func.args.args + func.args.kwonlyargs
             )
         }
+        # A function-local symbol shadows the original imported wrapper.
+        if any(
+            isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign))
+            and any(
+                isinstance(target, ast.Name) and target.id in wrappers
+                for target in (
+                    node.targets if isinstance(node, ast.Assign) else [node.target]
+                )
+            )
+            for node in ast.walk(func)
+        ):
+            continue
         servers: dict[str, int] = {}
         for statement in func.body:
             if not (isinstance(statement, ast.Assign)
@@ -188,6 +200,28 @@ def _registered_factory(tree: ast.Module) -> list[tuple[int, int]]:
                     and stmt.value.args[0].id == var_name
                 ):
                     made[stmt.targets[0].id] = stmt.lineno
+                if (
+                    isinstance(stmt, (ast.Assign, ast.AnnAssign, ast.AugAssign))
+                    and any(
+                        isinstance(target, ast.Name) and target.id in made
+                        for target in (
+                            stmt.targets if isinstance(stmt, ast.Assign)
+                            else [stmt.target]
+                        )
+                    )
+                    and not (
+                        isinstance(stmt, ast.Assign)
+                        and isinstance(stmt.value, ast.Call)
+                        and isinstance(stmt.value.func, ast.Attribute)
+                        and stmt.value.func.attr == "from_function"
+                    )
+                ):
+                    for target in (
+                        stmt.targets if isinstance(stmt, ast.Assign)
+                        else [stmt.target]
+                    ):
+                        if isinstance(target, ast.Name):
+                            made.pop(target.id, None)
                 if not (isinstance(stmt, ast.Expr)
                         and isinstance(stmt.value, ast.Call)
                         and isinstance(stmt.value.func, ast.Attribute)
@@ -282,15 +316,25 @@ def inspect_dynamic_mcp_registration(target: Path) -> SemanticDiscovery:
         source = _csharp_code(raw)
         if not (
             re.search(r"\busing\s+ModelContextProtocol\.Client\s*;", source)
-            and re.search(r"\bMcpClient\s*\.\s*CreateAsync\s*\(", source)
-            and re.search(r"\bclient\s*\.\s*ListToolsAsync\s*\(", source)
             and re.search(r"\bnew\s+HttpClientTransport\s*\(", source)
         ):
             continue
-        match = re.search(r"\bclient\s*\.\s*ListToolsAsync\s*\(", source)
-        if match is None:
+        constructor = re.search(
+            r"\bvar\s+([A-Za-z_]\w*)\s*=\s*await\s+"
+            r"McpClient\s*\.\s*CreateAsync\s*\(", source,
+        )
+        if constructor is None:
             continue
-        line = source.count("\n", 0, match.start()) + 1
+        # This is a same-variable source chain, not a file-wide coincidence
+        # between unrelated CreateAsync and ListToolsAsync expressions.
+        call = re.search(
+            r"\b" + re.escape(constructor.group(1))
+            + r"\s*\.\s*ListToolsAsync\s*\(",
+            source[constructor.end():],
+        )
+        if call is None:
+            continue
+        line = source.count("\n", 0, constructor.end() + call.start()) + 1
         client_id = evidence.add(
             source=path, line=line, framework="dotnet-mcp",
             kind=SemanticEntityKind.MCP_CLIENT,
