@@ -61,8 +61,8 @@ jobs:
           gh run download "$AFTER_FULL" --repo "$GITHUB_REPOSITORY" -p 'ff60-post-case-*' -D artifacts/full60/after-raw
           gh run download "$AFTER_FRESH" --repo "$GITHUB_REPOSITORY" -n fresh16-source-claim-gate-summary -D artifacts/fresh16/integrity
           gh run download "$AFTER_FULL" --repo "$GITHUB_REPOSITORY" -n full-framework-60-post-remediation-summary -D artifacts/full60/integrity
-          test -f artifacts/fresh16/integrity/pipeline-integrity.json
-          test -f artifacts/full60/integrity/pipeline-integrity.json
+          find artifacts/fresh16/integrity -type f -name pipeline-integrity.json | grep -q .
+          find artifacts/full60/integrity -type f -name pipeline-integrity.json | grep -q .
       - name: Repackage case bundles and enforce exact per-case counts
         run: |
           python - <<'PY'
