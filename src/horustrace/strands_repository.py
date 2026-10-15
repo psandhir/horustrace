@@ -702,6 +702,46 @@ def _function_tool(
     return tool
 
 
+def _strands_decorated_function_tool(
+    modules: dict[str, _ModuleInfo],
+    info: _ModuleInfo,
+    name: str,
+) -> Tool | None:
+    """Prove a decorated callable before treating its inner Agent as a child.
+
+    An imported @tool function which constructs an Agent is still a function
+    supplied to the orchestrator, not an already instantiated Agent object.
+    Only the exact resolved Strands tool decorator qualifies this distinction.
+    """
+    resolved = _resolve_function(modules, info, name)
+    if resolved is None:
+        return None
+    target, function = resolved
+    decorators = {
+        local for local, (module, symbol) in target.imports.items()
+        if module == "strands" and symbol == "tool"
+    }
+    if not decorators or not any(
+        isinstance(item, ast.Name) and item.id in decorators
+        for item in function.decorator_list
+    ):
+        return None
+    # Reuse source-line-specific imported function and its direct effects;
+    # never turn an inner constructor into an eager DELEGATES_TO relationship.
+    tool = _function_tool(modules, info, name)
+    if tool is None:
+        return None
+    tool.kind = "strands_tool_wrapper"
+    tool.metadata.update({
+        "source_tool_decorator": "strands.tool",
+        "source_callable_resolution": "imported_decorated_function",
+        "nested_agent_execution": "deferred_until_wrapper_invocation",
+        "runtime_effectiveness": "not_verified",
+        "delegation_target_resolution": "unresolved_runtime_instance",
+    })
+    return tool
+
+
 def _append_tool(agent: Agent, tool: Tool, *, conditional: bool = False) -> None:
     if conditional:
         tool.metadata["conditional_binding"] = True
@@ -1070,6 +1110,17 @@ def enrich_strands_repository_graph(
         info = record.info
         context = record.context
         agent = record.agent
+
+        # The wrapper's function identity wins over any Agent constructor
+        # discovered *inside* it. Otherwise nine Strands @tool callables can
+        # spuriously become one ambiguous live delegated-agent target.
+        if isinstance(expr, ast.Name):
+            wrapper = _strands_decorated_function_tool(
+                modules, info, expr.id,
+            )
+            if wrapper is not None:
+                _append_tool(agent, wrapper, conditional=conditional)
+                return
 
         child = resolve_agent_expr(info, context, expr)
         if child is not None and child is not agent:
