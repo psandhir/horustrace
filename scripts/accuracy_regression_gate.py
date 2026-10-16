@@ -125,7 +125,9 @@ def assess_run(run: dict[str, Any] | None, head_sha: str) -> str:
 def verify_jobs(
     jobs: list[dict[str, Any]], cohort: str, case_ids: set[str],
 ) -> None:
-    expected = set(case_ids) | {"aggregate"}
+    aggregate_name = ("Aggregate post-remediation cohort"
+                      if cohort == FULL_WORKFLOW else "aggregate")
+    expected = set(case_ids) | {aggregate_name}
     if cohort == FULL_WORKFLOW:
         expected.add("prepare")
     names = [job.get("name") for job in jobs]
@@ -138,7 +140,7 @@ def verify_jobs(
            for job in jobs):
         raise GateError(f"{cohort}: at least one case or aggregate is not green")
     for job in jobs:
-        if job.get("name") == "aggregate":
+        if job.get("name") == aggregate_name:
             required = (
                 {"Enforce versioned pipeline and ADG integrity",
                  "Enforce frozen source-claim regression gate"}
