@@ -335,7 +335,13 @@ def attach_findings(graph, findings):
                 *graph.all_tools(), *graph.all_skills(),
                 *graph.all_mcp_servers(), *graph.all_identities(),
             ]
-            finding.provenance = [
+            # A repeated named agent with unresolved source identity is NOT
+            # equivalent to an unbound tool/server finding. Avoid giving it
+            # another instance's facts even if tools share the same location.
+            ambiguous_agent = bool(finding.agent and any(
+                candidate.name == finding.agent for candidate in graph.agents
+            ))
+            finding.provenance = [] if ambiguous_agent else [
                 fact for entity in entities
                 if finding.location is not None
                 and entity.location == finding.location
