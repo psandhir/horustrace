@@ -4,8 +4,8 @@ from __future__ import annotations
 import io
 import json
 import time
-import zipfile
 import urllib.request
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -14,6 +14,7 @@ from scripts.accuracy_regression_gate import (
     FRESH_WORKFLOW,
     FULL_WORKFLOW,
     GateError,
+    _SafeGitHubRedirect,
     assess_run,
     choose_current_head_run,
     evaluate,
@@ -21,7 +22,6 @@ from scripts.accuracy_regression_gate import (
     verify_artifacts,
     verify_jobs,
     verify_summary_zip,
-    _SafeGitHubRedirect,
 )
 
 SHA = "a" * 40
