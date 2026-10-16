@@ -274,6 +274,56 @@ def _csharp_sources(target: Path) -> list[Path]:
     return found
 
 
+def _csharp_scope_at(source: str, offset: int) -> tuple[int, ...]:
+    """Return source block IDs containing a C# token (comments/strings masked)."""
+    stack: list[int] = []
+    for index, character in enumerate(source[:offset]):
+        if character == "{":
+            stack.append(index)
+        elif character == "}" and stack:
+            stack.pop()
+    return tuple(stack)
+
+
+def _csharp_list_tools_line(source: str) -> int | None:
+    """Recognize same-lexical-scope MCP client creation -> remote enumeration.
+
+    Conservative source evidence only: refuse reassigned or shadowed clients,
+    and refuse joining constructors with calls in unrelated methods or blocks.
+    Neither a call site nor its tool catalogue proves successful runtime access.
+    """
+    constructor_pattern = re.compile(
+        r"\bvar\s+([A-Za-z_]\w*)\s*=\s*await\s+"
+        r"McpClient\s*\.\s*CreateAsync\s*\("
+    )
+    for constructor in constructor_pattern.finditer(source):
+        name = constructor.group(1)
+        declaring_blocks = set(_csharp_scope_at(source, constructor.start()))
+        call_pattern = re.compile(
+            r"\b" + re.escape(name) + r"\s*\.\s*ListToolsAsync\s*\("
+        )
+        for call in call_pattern.finditer(source, constructor.end()):
+            call_pos = call.start()
+            # A local declared inside an inner block does not remain visible
+            # after leaving that block; a different method never shares its ID.
+            if not declaring_blocks.issubset(
+                set(_csharp_scope_at(source, call_pos))
+            ):
+                continue
+            between = source[constructor.end():call_pos]
+            # Reject writes to the original client before enumeration; equality
+            # comparisons and lambda arrows are not assignments.
+            rebinding = re.search(
+                r"\b" + re.escape(name)
+                + r"\s*(?:\?\?=|[+*/%&|^\-]=|=(?![=>])|\+\+|--)",
+                between,
+            )
+            if rebinding:
+                break
+            return source.count("\n", 0, call_pos) + 1
+    return None
+
+
 def inspect_dynamic_mcp_registration(target: Path) -> SemanticDiscovery:
     """Conservatively recognize registration pipelines, not live catalogues."""
     root = target.resolve() if target.is_dir() else target.resolve().parent
@@ -319,22 +369,11 @@ def inspect_dynamic_mcp_registration(target: Path) -> SemanticDiscovery:
             and re.search(r"\bnew\s+HttpClientTransport\s*\(", source)
         ):
             continue
-        constructor = re.search(
-            r"\bvar\s+([A-Za-z_]\w*)\s*=\s*await\s+"
-            r"McpClient\s*\.\s*CreateAsync\s*\(", source,
-        )
-        if constructor is None:
+        # Match a source-local constructor to its actual client enumeration.
+        # Do not infer a catalogue from another method or a rebound variable.
+        line = _csharp_list_tools_line(source)
+        if line is None:
             continue
-        # This is a same-variable source chain, not a file-wide coincidence
-        # between unrelated CreateAsync and ListToolsAsync expressions.
-        call = re.search(
-            r"\b" + re.escape(constructor.group(1))
-            + r"\s*\.\s*ListToolsAsync\s*\(",
-            source[constructor.end():],
-        )
-        if call is None:
-            continue
-        line = source.count("\n", 0, constructor.end() + call.start()) + 1
         client_id = evidence.add(
             source=path, line=line, framework="dotnet-mcp",
             kind=SemanticEntityKind.MCP_CLIENT,
