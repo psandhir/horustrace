@@ -191,7 +191,8 @@ def _relevant_provenance(agent, finding, attack_path):
         # pretend an inferred third-party tool effect is runtime verified.
         privileged = _evidence_values(finding, "privileged")
         for tool in agent.tools:
-            add(tool, lambda fact: capability_is(fact, privileged))
+            if tool.capabilities & privileged:
+                add(tool, lambda fact: capability_is(fact, privileged))
         return result
 
     if finding.rule_id == "NET002":
@@ -199,6 +200,8 @@ def _relevant_provenance(agent, finding, attack_path):
         # warning; no source fact can prove the *absence* of a deployed allowlist.
         outbound = {"network.external", "external.write"}
         for tool in agent.tools:
+            if not (tool.capabilities & outbound):
+                continue
             add(tool, lambda fact: capability_is(fact, outbound))
             for destination in tool.destinations:
                 add(destination, lambda fact: key_is(fact, "destination"))
