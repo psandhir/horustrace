@@ -1081,6 +1081,17 @@ def _option_agent(
     )
     if allowed_node is not None and allowed_resolved is None:
         agent.metadata["dynamic_allowed_tools"] = True
+        if default_surface and tools_node is None:
+            # The SDK default catalogue is only a candidate when the source
+            # supplies a dynamic per-instance registry/permission expression.
+            # Preserve the uncertainty rather than claiming concrete authority
+            # edges for every built-in on this particular option instance.
+            agent.metadata["dynamic_tool_catalogue_unresolved"] = True
+            agent.metadata["tool_surface"] = "unresolved"
+            agent.metadata["runtime_default_tool_candidates"] = [
+                tool.name for tool in agent.tools
+            ]
+            agent.tools = []
     if denied_node is not None and denied_resolved is None:
         agent.metadata["dynamic_disallowed_tools"] = True
 
