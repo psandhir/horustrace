@@ -31,6 +31,10 @@ claims alone cannot establish independent precision/recall or runtime authority.
 - Main is protected by repository ruleset **Protect main** (ID 23823545).
   Strict required statuses are package, test (3.11), test (3.12),
   self-scan and analyze. GitHub requires the up-to-date head.
+- Required approving reviews are currently zero, so code-review independence is
+  also a process gate rather than a repository-enforced requirement. For
+  source-truth decisions, release sign-off or high-risk security semantics,
+  require an explicit evidence reviewer and record model-only limitations.
 - **Enforcement gap:** neither the Fresh-16 nor the Full-60 aggregate is
   currently included in that ruleset. They run automatically but branch
   protection alone does not ensure they passed before merge. An authorized
