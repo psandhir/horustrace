@@ -185,6 +185,30 @@ def _relevant_provenance(agent, finding, attack_path):
                 add(server, lambda fact: key_is(fact, "transport"))
         return result
 
+    if finding.rule_id == "CAP003":
+        # Rule evidence explicitly enumerates the privileged capability classes.
+        # Retain original tool-source facts (including inferred origin), never
+        # pretend an inferred third-party tool effect is runtime verified.
+        privileged = _evidence_values(finding, "privileged")
+        for tool in agent.tools:
+            add(tool, lambda fact: capability_is(fact, privileged))
+        return result
+
+    if finding.rule_id == "NET002":
+        # Show only the source-visible outbound leg that triggered the egress
+        # warning; no source fact can prove the *absence* of a deployed allowlist.
+        outbound = {"network.external", "external.write"}
+        for tool in agent.tools:
+            add(tool, lambda fact: capability_is(fact, outbound))
+            for destination in tool.destinations:
+                add(destination, lambda fact: key_is(fact, "destination"))
+        for server in agent.mcp_servers:
+            if server.url:
+                add(server, lambda fact: key_is(fact, "transport"))
+        for destination in agent.network:
+            add(destination, lambda fact: key_is(fact, "destination"))
+        return result
+
     if finding.rule_id == "CAP004":
         # Command execution plus network authority are the two triggering
         # classes. Delegation carries the original child-tool provenance,
