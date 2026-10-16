@@ -1746,6 +1746,27 @@ def _propagate_adk_delegation(graph: Graph) -> None:
                 if not candidates:
                     base = target.removesuffix("_agent")
                     candidates = aliases.get(base, []) or aliases.get(f"{base}_agent", [])
+                if len(candidates) != 1:
+                    # Several ADK constructors can share a runtime Agent.name:
+                    # a local A2A server Agent plus an imported RemoteA2aAgent
+                    # proxy is a common example. The parent's exact AgentTool
+                    # argument still supplies the Python source alias. Bind
+                    # only if that alias selects exactly one same-name child.
+                    explicit_tool_aliases = {
+                        raw_alias
+                        for tool in parent.tools
+                        if tool.kind == "adk_agent_tool"
+                        and isinstance(
+                            raw_alias := tool.metadata.get("delegate_target"), str
+                        )
+                        and raw_alias
+                    }
+                    source_bound = [
+                        child for child in candidates
+                        if child.metadata.get("source_alias") in explicit_tool_aliases
+                    ]
+                    if len(source_bound) == 1:
+                        candidates = source_bound
                 if len(candidates) == 1:
                     matched.extend(candidates)
                 else:
