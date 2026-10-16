@@ -158,7 +158,7 @@ async function run() {
     ).capabilities
 
 
-def test_claude_typescript_allowed_tools_restrict_implicit_default(
+def test_claude_typescript_allowed_tools_are_only_permission_rules(
     tmp_path: Path,
 ) -> None:
     path = _write(
@@ -182,9 +182,13 @@ async function run() {
     graph = scan_claude_agent_sdk_typescript_file(path)
     agent = next(item for item in graph.agents if item.name == "options")
 
-    assert {tool.name for tool in agent.tools} == {"Read", "Write"}
-    assert agent.metadata["tool_surface"] == "restricted_default"
-    assert agent.metadata["tool_surface_restricted_by_allowed_tools"] is True
+    names = {tool.name for tool in agent.tools}
+    assert {"Read", "Write", "Bash", "WebFetch"}.issubset(names)
+    assert agent.metadata["tool_surface"] == "runtime_default"
+    assert agent.metadata["allowed_tools_permission_only"] is True
+    assert agent.metadata["explicit_auto_approved_tools"] == ["Read", "Write"]
+    assert "tool_surface_restricted_by_allowed_tools" not in agent.metadata
+    assert next(tool for tool in agent.tools if tool.name == "Bash").approval is False
 
 
 def test_claude_typescript_imported_option_builder_is_resolved(
@@ -227,16 +231,11 @@ async function run() {
     graph = scan_claude_agent_sdk_typescript_file(path)
     agent = next(item for item in graph.agents if item.name == "optionsWithAbort")
 
-    assert {tool.name for tool in agent.tools} == {
-        "Read",
-        "Write",
-        "Edit",
-        "Glob",
-        "Grep",
-        "Bash",
-    }
+    names = {tool.name for tool in agent.tools}
+    assert {"Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch"}.issubset(names)
     assert agent.metadata["permission_mode"] == "bypassPermissions"
-    assert agent.metadata["tool_surface"] == "restricted_default"
+    assert agent.metadata["tool_surface"] == "runtime_default"
+    assert agent.metadata["allowed_tools_permission_only"] is True
     assert "process.execute" in next(
         tool for tool in agent.tools if tool.name == "Bash"
     ).capabilities
@@ -285,16 +284,11 @@ async function run() {
     graph = scan_claude_agent_sdk_typescript_file(path)
     agent = next(item for item in graph.agents if item.name == "optionsWithAbort")
 
-    assert {tool.name for tool in agent.tools} == {
-        "Read",
-        "Write",
-        "Edit",
-        "Glob",
-        "Grep",
-        "Bash",
-    }
-    assert agent.metadata["tool_surface"] == "restricted_default"
-    assert agent.metadata["explicit_allowed_tool_surface"] == [
+    assert {"Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch"}.issubset(
+        {tool.name for tool in agent.tools}
+    )
+    assert agent.metadata["tool_surface"] == "runtime_default"
+    assert agent.metadata["explicit_auto_approved_tools"] == [
         "Read",
         "Write",
         "Edit",
