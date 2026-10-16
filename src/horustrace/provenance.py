@@ -254,6 +254,50 @@ def _relevant_provenance(agent, finding, attack_path):
             add(destination, lambda fact: key_is(fact, "destination"))
         return result
 
+    if finding.rule_id == "CAP005":
+        # CAP005 is a *combination* claim: only show source witnesses if
+        # BOTH read and write legs are independently represented in this exact
+        # agent instance. An imported third-party tool may supply an inferred
+        # capability fact, but that is not evidence of a runtime-executable
+        # authority relationship or deployed controls. Do not copy every
+        # agent-level fact or attach unrelated authority_relationship IDs.
+        read_facts = []
+        write_facts = []
+        for tool in agent.tools:
+            for fact in tool.provenance:
+                if fact.location is None:
+                    continue
+                if "data.read" in tool.capabilities and capability_is(
+                    fact, {"data.read"}
+                ):
+                    read_facts.append(fact)
+                if (
+                    tool.metadata.get("agent_internal_artifact") is not True
+                    and tool.metadata.get("agent_internal_state") is not True
+                    and tool.capabilities & {"data.write", "destructive.write"}
+                    and capability_is(fact, {"data.write", "destructive.write"})
+                ):
+                    write_facts.append(fact)
+        for source in agent.data_sources:
+            for fact in source.provenance:
+                if fact.location is None:
+                    continue
+                if source.capability == "data.read" and capability_is(
+                    fact, {"data.read"}
+                ):
+                    read_facts.append(fact)
+                if source.capability in {"data.write", "destructive.write"} and capability_is(
+                    fact, {"data.write", "destructive.write"}
+                ):
+                    write_facts.append(fact)
+        if read_facts and write_facts:
+            # Two minimal, exact-source witnesses, not a dump of the agent's
+            # entire catalogue. Preserve observed/inferred/declared origins.
+            for fact in (read_facts[0], write_facts[0]):
+                if fact not in result:
+                    result.append(fact)
+        return result
+
     if finding.rule_id == "CAP004":
         # Command execution plus network authority are the two triggering
         # classes. Delegation carries the original child-tool provenance,
