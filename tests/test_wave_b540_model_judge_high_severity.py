@@ -44,4 +44,7 @@ def test_deleted_claims_not_conflated_with_deleted_risks() -> None:
     removed=[c for c in doc["claims"] if c["change"]=="removed"]
     assert len(removed)==6
     assert all(c["status"]=="false_positive" for c in removed)
-    assert all("not" in c["hard_negative_evidence"].lower() or "source" in c["hard_negative_evidence"].lower() for c in removed)
+    # Verify explicit negative evidence, not arbitrary English keywords in its wording.
+    assert all(c["hard_negative_evidence"].strip() for c in removed)
+    assert all(c["reasoning"].strip() and c["source_witnesses"] for c in removed)
+    assert all(c["independent_human_review"] is False for c in removed)
