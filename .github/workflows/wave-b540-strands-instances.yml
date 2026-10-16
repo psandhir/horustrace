@@ -6,6 +6,7 @@ on:
       - 'src/horustrace/strands_repository.py'
       - 'src/horustrace/provenance.py'
       - 'tests/test_wave_b540_cap005_dual_source_witness.py'
+      - 'tests/test_wave_b540_agt040_relationship_source.py'
       - 'tests/test_wave_b540_strands_vended_source_facts.py'
       - 'tests/test_wave_b540_strands_instances.py'
       - 'scripts/verify_wave_b540_strands_instances.py'

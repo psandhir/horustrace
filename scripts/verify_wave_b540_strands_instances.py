@@ -8,6 +8,7 @@ import argparse
 import json
 from pathlib import Path
 
+from horustrace.effective_authority import effective_authority_relationships
 from horustrace.scanner import scan
 
 EXPECTED = {
@@ -157,6 +158,75 @@ def verify(root: Path) -> dict[str, object]:
         ):
             raise ValueError("CAP005 witness has unverified origin label")
 
+    # Exact relationship identity is available in the source-derived
+    # authority report, but is not runtime authorization or a negative
+    # assertion that deployed approval/guardrails are absent.
+    relationships = {
+        item.relationship_id: item
+        for item in effective_authority_relationships(graph)
+    }
+    privileged = [finding for finding in findings if finding.rule_id == "AGT040"]
+    if len(privileged) != 28:
+        raise ValueError(
+            f"pinned Strands AGT040 source count changed: {len(privileged)}"
+        )
+    for finding in privileged:
+        references = [
+            item.split("=", 1)[1]
+            for item in finding.evidence
+            if item.startswith("authority_relationship=")
+        ]
+        if len(references) != 1:
+            raise ValueError("AGT040 lacks a unique authority relationship reference")
+        relation = relationships.get(references[0])
+        if relation is None or relation.target_kind != "tool":
+            raise ValueError("AGT040 relationship not resolved to one source tool")
+        expected_import = "source_import=strands_tools." + relation.target_name
+        import_facts = [
+            fact for fact in finding.provenance
+            if fact.fact.startswith("source_import=")
+        ]
+        if len(import_facts) != 1 or not (
+            import_facts[0].fact == expected_import
+            and import_facts[0].origin == "observed"
+            and import_facts[0].subject == relation.target_name
+        ):
+            raise ValueError(
+                f"AGT040 wrong/absent source-import witness: {references[0]}"
+            )
+        caps = {
+            cap for evidence in finding.evidence
+            if evidence.startswith("capabilities=")
+            for cap in evidence.split("=", 1)[1].split(",") if cap
+        }
+        capability_facts = [
+            fact for fact in finding.provenance
+            if fact.fact.startswith("capability=")
+        ]
+        if not caps or {f.fact.split("=", 1)[1] for f in capability_facts} != caps:
+            raise ValueError("AGT040 capabilities copied from wrong source tool")
+        if any(f.origin != "inferred" for f in capability_facts):
+            raise ValueError("AGT040 inferred package capability promoted to observation")
+        if len(finding.provenance) != 1 + len(caps):
+            raise ValueError("AGT040 copied unrelated source or control facts")
+        if any(
+            fact.location is None
+            or relation.location is None
+            or str(fact.location.path) != relation.location["path"]
+            or fact.location.line != relation.location["line"]
+            or fact.location.column != relation.location["column"]
+            for fact in finding.provenance
+        ):
+            raise ValueError("AGT040 witness lost exact relationship location")
+    # There is no observed deployment or authorization evidence in this
+    # imported-source test. Identity and approval stay unknown.
+    if any(
+        relation.approval.get("required") is not None
+        for relation in relationships.values()
+        if relation.target_kind == "tool"
+    ):
+        raise ValueError("AGT040 source proof gained invented runtime approval")
+
     return {
         "case": "ff60-amazon-04",
         "source": "aws-samples/sample-multi-agent-region-expansion-planner@30d03d7c9f6512e5bf10601879382fac9c3a16b1",
@@ -167,6 +237,8 @@ def verify(root: Path) -> dict[str, object]:
         ),
         "new_final_agent_count": len(locations),
         "cap005_with_paired_source_witness": len(combined),
+        "agt040_with_unique_source_tool_witness": len(privileged),
+        "agt040_runtime_authority_verified": False,
         "cap005_runtime_effects_verified": False,
         "orchestrator_source_callable_wrappers": sorted(bound_wrappers),
         "pricing_explorer_import": "unresolved_module_vs_decorated_callable",
