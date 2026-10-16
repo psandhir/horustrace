@@ -6,6 +6,8 @@ on:
       - ".github/workflows/wave-b540-pinned-evidence.yml"
       - "docs/accuracy-wave-b-pre-c-evaluation.md"
       - "scripts/evaluate_wave_b_pre_c.py"
+      - "scripts/reconcile_wave_b540_model_reviews.py"
+      - "research/accuracy-wave-b540-model-judge-20261015/*.json"
   workflow_dispatch:
 
 permissions:
@@ -100,6 +102,39 @@ jobs:
             --after-dir artifacts/full60/after \
             --expected-cases 60 \
             --output evaluation/full60.json
+      - name: Require exact model-ledger parity for every changed source claim
+        run: |
+          set -euo pipefail
+          python scripts/reconcile_wave_b540_model_reviews.py \
+            --differential evaluation/full60.json \
+            --ledger research/accuracy-wave-b540-model-judge-20261015/high-severity-adjudication.json \
+            --ledger research/accuracy-wave-b540-model-judge-20261015/medium-severity-adjudication.json \
+            --output evaluation/model-source-review-overlay.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          overlay = json.loads(
+              Path("evaluation/model-source-review-overlay.json").read_text()
+          )
+          assert overlay["claim_count"] == 73
+          assert overlay["independent_human_review"] is False
+          assert overlay["wave_c_go"] is False
+          assert overlay["runtime_effectiveness_verified"] is False
+          lines = [
+              "",
+              "## Pinned model-only source review crosswalk",
+              "",
+              "Every one of the 73 historic delta claim keys matches an exact pinned review ledger entry.",
+              "This is source-only *model-assisted* review, not independent human adjudication.",
+              f"Verdict labels: {overlay['source_review_counts']}.",
+              f"Changed claims missing raw structured provenance: {overlay['raw_structured_provenance_missing_claims']}.",
+              "**Wave B acceptance: NO-GO. Wave C production cutover: NO-GO.**",
+              "",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
+              out.write("\\n".join(lines))
+          PY
       - name: Publish actual source-claim deltas and explicit NO-GO review status
         run: |
           python - <<'PY'
