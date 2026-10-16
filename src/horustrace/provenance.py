@@ -2,6 +2,10 @@
 import fnmatch
 
 from horustrace.adapters.google_adk import BUILTIN_TOOL_CAPABILITIES
+from horustrace.effective_authority import (
+    _agent_instance_key,
+    effective_authority_relationships,
+)
 from horustrace.models import Confidence, EvidenceFact, Graph, SourceLocation
 from horustrace.rule_registry import get_rule_metadata
 
@@ -106,7 +110,7 @@ def _evidence_values(finding, key):
     return set(values)
 
 
-def _relevant_provenance(agent, finding, attack_path):
+def _relevant_provenance(agent, finding, attack_path, authority_relationships=()):
     """Attach facts supporting this finding; never substitute the agent-wide inventory.
 
     Rule-evidence names and path nodes are explicit references. Matching the
@@ -172,11 +176,80 @@ def _relevant_provenance(agent, finding, attack_path):
                 if not destination.restricted or destination.target in {"*", "**"}:
                     add(destination, lambda fact: key_is(fact, "destination", "restriction_declaration"))
 
+    if finding.rule_id == "AGT040":
+        # A shared Strands import statement may contain many source tools.
+        # Exact authority-relationship ID + unique agent instance + target
+        # name + source location (not a line match alone) must identify ONE
+        # vended tool before its inferred capabilities can annotate the
+        # finding. This is source-claim lineage, NOT verified runtime
+        # authority, controls or permission reachability.
+        imported = [
+            tool for tool in agent.tools
+            if tool.kind == "strands_vended_tool"
+            and tool.location == finding.location
+        ]
+        if imported:
+            ids = _evidence_values(finding, "authority_relationship")
+            if len(ids) != 1 or (
+                finding.authority_relationship_id is not None
+                and finding.authority_relationship_id not in ids
+            ):
+                return result
+            matched = [
+                item for item in authority_relationships
+                if item.relationship_id in ids
+                and item.target_kind == "tool"
+                and item.agent == agent.name
+                and item.agent_instance_key == _agent_instance_key(agent)
+            ]
+            if len(matched) != 1:
+                return result
+            relationship = matched[0]
+            selected = [
+                tool for tool in imported
+                if tool.name == relationship.target_name
+                and relationship.location is not None
+                and tool.location is not None
+                and str(tool.location.path) == relationship.location.get("path")
+                and tool.location.line == relationship.location.get("line")
+                and tool.location.column == relationship.location.get("column")
+            ]
+            if len(selected) != 1:
+                return result
+            tool = selected[0]
+            claimed = _evidence_values(finding, "capabilities")
+            if not claimed or not claimed.issubset(tool.capabilities) or not (
+                claimed.issubset(set(relationship.capabilities))
+            ):
+                return result
+            # Retain only the matched symbol's source import, relevant
+            # capability facts, and previously source-recorded controls.
+            # Inferred control absence is not a source witness.
+            add(tool, lambda fact: (
+                fact.location == tool.location
+                and fact.subject == tool.name
+                and (
+                    capability_is(fact, claimed)
+                    or (
+                        fact.fact.startswith("source_import=")
+                        and fact.origin == "observed"
+                    )
+                    or (
+                        fact.origin != "inferred"
+                        and key_is(
+                            fact, "approval_configuration",
+                            "guardrail_hook_detected",
+                        )
+                    )
+                )
+            ))
+            return result
+
     # Several imported Strands vended-tool symbols can occupy one source line.
     # The line alone cannot identify the specific effective-authority edge in
     # AGT040, nor justify copying every capability onto a single-tool alert.
     # Surface UNKNOWN until the relationship ID maps to a unique source tool.
-    if finding.rule_id in {"AGT020", "AGT021", "AGT040"}:
+    if finding.rule_id in {"AGT020", "AGT021"}:
         imported = [
             tool for tool in agent.tools
             if tool.kind == "strands_vended_tool"
@@ -187,20 +260,6 @@ def _relevant_provenance(agent, finding, attack_path):
             )
         ]
         if imported:
-            if finding.rule_id == "AGT040":
-                # Keep established, source-observed facts from prior adapters.
-                # A new inferred import/capability is NOT a unique proof of
-                # this authority_relationship ID, particularly when several
-                # imported tools share the same source line.
-                for tool in imported:
-                    add(tool, lambda fact: (
-                        fact.origin != "inferred"
-                        and key_is(
-                            fact, "capability", "approval_configuration",
-                            "guardrail_hook_detected",
-                        )
-                    ))
-                return result
             required = _evidence_values(finding, "capability")
             for tool in imported:
                 if not (tool.capabilities & required):
@@ -421,6 +480,13 @@ def _source_instance_for_finding(graph, finding):
 
 
 def attach_findings(graph, findings):
+    # Compute portable, source-instance-disambiguated authority IDs once.
+    # This also handles same-named agents importing the same-named tool.
+    authority_relationships = (
+        effective_authority_relationships(graph)
+        if any(finding.rule_id == "AGT040" for finding in findings)
+        else ()
+    )
     for finding in findings:
         finding.standards = {
             'owasp_agentic': list(get_rule_metadata(finding.rule_id).owasp_agentic),
@@ -441,7 +507,9 @@ def attach_findings(graph, findings):
                 and " -> ".join(path.nodes) in finding.evidence
             ), None)
         if agent:
-            finding.provenance = _relevant_provenance(agent, finding, attack_path)
+            finding.provenance = _relevant_provenance(
+                agent, finding, attack_path, authority_relationships
+            )
         else:
             # Unbound constructs retain only source-local evidence.
             entities = [

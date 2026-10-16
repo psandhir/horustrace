@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from horustrace.effective_authority import effective_authority_relationships
 from horustrace.models import Agent, EvidenceFact, Finding, Graph, Severity, SourceLocation
 from horustrace.provenance import attach_findings
 from horustrace.strands_repository import _build_modules, _vended_tool
@@ -156,9 +157,8 @@ def test_shared_import_line_does_not_copy_unrelated_tool_capabilities(
     # effective; avoid repeating every imported tool's inferred facts.
     assert relationship.provenance == []
 
-    # Existing source-observed capability/control facts must survive a new
-    # inferred vended-tool annotation; only the new unlinked inference is
-    # withheld from AGT040's specific authority-relationship provenance.
+    # A mismatched authority ID must remain unresolved, even if there
+    # are source-observed facts on the same multi-symbol import line.
     shell.provenance.extend([
         EvidenceFact(
             "shell", "capability=process.execute", "observed", shell.location,
@@ -168,7 +168,29 @@ def test_shared_import_line_does_not_copy_unrelated_tool_capabilities(
         ),
     ])
     attach_findings(graph, [relationship])
+    assert relationship.provenance == []
+
+    # A real, source-qualified ID restores exactly the matched tool's
+    # original observed evidence AND its separately inferred effects.
+    matching = [
+        item for item in effective_authority_relationships(graph)
+        if item.target_kind == "tool" and item.target_name == "shell"
+    ]
+    assert len(matching) == 1
+    relationship.evidence = [
+        "capabilities=" + ",".join(sorted(shell.capabilities)),
+        f"authority_relationship={matching[0].relationship_id}",
+    ]
+    relationship.authority_relationship_id = matching[0].relationship_id
+    attach_findings(graph, [relationship])
     assert {(fact.fact, fact.origin) for fact in relationship.provenance} == {
+        ("source_import=strands_tools.shell", "observed"),
         ("capability=process.execute", "observed"),
+        ("capability=process.execute", "inferred"),
+        ("capability=data.read", "inferred"),
+        ("capability=data.write", "inferred"),
+        ("capability=destructive.write", "inferred"),
+        ("capability=network.external", "inferred"),
+        ("capability=external.write", "inferred"),
         ("approval_configuration=None", "observed"),
     }
