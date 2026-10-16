@@ -22,7 +22,7 @@ from horustrace.adapters.amazon_agentic import (
     _python_effect_capabilities,
 )
 from horustrace.heuristics import infer_capabilities
-from horustrace.models import Agent, Graph, MCPServer, Tool
+from horustrace.models import Agent, EvidenceFact, Graph, MCPServer, Tool
 
 
 @dataclass
@@ -540,16 +540,30 @@ def _vended_tool(
     ]
     if len(bindings) != 1:
         return None
+    location = _location(info.path, bindings[0])
+    capabilities = set(
+        _VENDED_TOOL_CAPABILITIES.get(source_name, infer_capabilities(source_name))
+    )
+    # The import is source-observed. Capability names are *heuristic effects*
+    # from the vended-tool catalogue, not dependency-version-pinned behaviour
+    # or evidence of runtime invocation/control enforcement. Retain both facts
+    # and their distinct origins for the later finding-provenance pass.
+    facts = [
+        EvidenceFact(
+            source_name, f"source_import={module}.{source_name}",
+            "observed", location,
+        ),
+        *(
+            EvidenceFact(source_name, f"capability={capability}", "inferred", location)
+            for capability in sorted(capabilities)
+        ),
+    ]
     return Tool(
         name=source_name,
         kind="strands_vended_tool",
-        capabilities=set(
-            _VENDED_TOOL_CAPABILITIES.get(
-                source_name,
-                infer_capabilities(source_name),
-            )
-        ),
-        location=_location(info.path, bindings[0]),
+        capabilities=capabilities,
+        location=location,
+        provenance=facts,
         metadata={
             "framework": STRANDS_FRAMEWORK,
             "source_module": module,

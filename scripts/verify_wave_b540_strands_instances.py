@@ -89,6 +89,46 @@ def verify(root: Path) -> dict[str, object]:
         for tool in orchestrators[0].tools
     ):
         raise ValueError("ambiguous nested Agent promoted to live delegation")
+
+    # Provenance of the third-party import must be pinned to source. The
+    # catalogue's capability labels are inferred, not proof that a package
+    # revision executed or that deployed approval/egress controls are absent.
+    writers = [
+        agent for agent in graph.agents
+        if agent.location is not None
+        and agent.location.path.resolve() == (source / "agents/analysis_writer.py").resolve()
+    ]
+    if len(writers) != 1:
+        raise ValueError("expected one source-qualified analysis_writer Agent")
+    shells = [
+        tool for tool in writers[0].tools
+        if tool.kind == "strands_vended_tool" and tool.name == "shell"
+    ]
+    if len(shells) != 1:
+        raise ValueError("expected one source-bound Strands shell import")
+    shell = shells[0]
+    if shell.location is None or shell.location.line != 18:
+        raise ValueError("source-import witness moved or lost")
+    if not any(
+        fact.fact == "source_import=strands_tools.shell"
+        and fact.origin == "observed"
+        and fact.location == shell.location
+        for fact in shell.provenance
+    ):
+        raise ValueError("observed source import missing from Strands shell tool")
+    if not any(
+        fact.fact == "capability=process.execute"
+        and fact.origin == "inferred"
+        and fact.location == shell.location
+        for fact in shell.provenance
+    ):
+        raise ValueError("inferred shell capability lost source attribution")
+    if any(
+        fact.fact.startswith("capability=") and fact.origin == "observed"
+        or "allowlist" in fact.fact or "approval_configuration" in fact.fact
+        for fact in shell.provenance
+    ):
+        raise ValueError("fabricated observed effect or deployed control fact")
     return {
         "case": "ff60-amazon-04",
         "source": "aws-samples/sample-multi-agent-region-expansion-planner@30d03d7c9f6512e5bf10601879382fac9c3a16b1",
@@ -110,6 +150,9 @@ def verify(root: Path) -> dict[str, object]:
                 for value in construction_scope.values()
             ),
         },
+        "strands_tool_import_source_verified": True,
+        "tool_capability_effects_runtime_verified": False,
+        "strands_tool_dependency_version_verified": False,
         "source_location_preservation_verified": True,
         "runtime_instances_verified": False,
         "deferred_source_authority_truth": True,
