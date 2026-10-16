@@ -26,7 +26,7 @@ EXPECTED = {
 
 def verify(root: Path) -> dict[str, object]:
     source = root / "src"
-    graph, _ = scan(source)
+    graph, findings = scan(source)
     locations: list[tuple[str, int]] = []
     for agent in graph.agents:
         if agent.location is None:
@@ -129,6 +129,34 @@ def verify(root: Path) -> dict[str, object]:
         for fact in shell.provenance
     ):
         raise ValueError("fabricated observed effect or deployed control fact")
+    # A CAP005 claim combines two independent capability dimensions.
+    # The evidence may be inferred from a third-party Strands import, but
+    # never promotes source evidence to a verified runtime authority edge.
+    combined = [finding for finding in findings if finding.rule_id == "CAP005"]
+    if len(combined) != 10:
+        raise ValueError(
+            f"pinned Strands CAP005 source count changed: {len(combined)}"
+        )
+    for finding in combined:
+        facts = finding.provenance
+        kinds = {fact.fact for fact in facts}
+        if len(facts) != 2 or "capability=data.read" not in kinds or not (
+            {"capability=data.write", "capability=destructive.write"} & kinds
+        ):
+            raise ValueError(
+                f"CAP005 missing dual source witness at {finding.location}"
+            )
+        if any(
+            fact.location is None or fact.location.path.resolve().is_relative_to(source.resolve()) is False
+            for fact in facts
+        ):
+            raise ValueError("CAP005 witness outside frozen source tree")
+        if any(
+            fact.origin not in {"observed", "inferred", "declared"}
+            for fact in facts
+        ):
+            raise ValueError("CAP005 witness has unverified origin label")
+
     return {
         "case": "ff60-amazon-04",
         "source": "aws-samples/sample-multi-agent-region-expansion-planner@30d03d7c9f6512e5bf10601879382fac9c3a16b1",
@@ -138,6 +166,8 @@ def verify(root: Path) -> dict[str, object]:
             key=lambda row: (row["file"], row["line"]),
         ),
         "new_final_agent_count": len(locations),
+        "cap005_with_paired_source_witness": len(combined),
+        "cap005_runtime_effects_verified": False,
         "orchestrator_source_callable_wrappers": sorted(bound_wrappers),
         "pricing_explorer_import": "unresolved_module_vs_decorated_callable",
         "construction_scope_counts": {
