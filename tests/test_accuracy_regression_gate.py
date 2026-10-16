@@ -5,6 +5,7 @@ import io
 import json
 import time
 import zipfile
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,7 @@ from scripts.accuracy_regression_gate import (
     verify_artifacts,
     verify_jobs,
     verify_summary_zip,
+    _SafeGitHubRedirect,
 )
 
 SHA = "a" * 40
@@ -191,3 +193,27 @@ def test_always_emitted_docs_only_gate_returns_safe_not_applicable(
     assert result["scope"] == "not_applicable"
     assert result["sha"] == SHA
     assert result["cohorts"] == {}
+
+
+def test_artifact_cross_host_redirect_strips_github_bearer_token() -> None:
+    original = urllib.request.Request(
+        "https://api.github.com/repos/example/project/actions/artifacts/42/zip",
+        headers={
+            "Authorization": "Bearer example",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    redirect = _SafeGitHubRedirect()
+    remote = redirect.redirect_request(
+        original, None, 302, "Found", {},
+        "https://results-receiver.blob.core.windows.net/archive?sig=test",
+    )
+    assert remote is not None
+    assert not remote.has_header("Authorization")
+    assert not remote.has_header("X-GitHub-Api-Version")
+    same_host = redirect.redirect_request(
+        original, None, 302, "Found", {},
+        "https://api.github.com/repos/example/project/other",
+    )
+    assert same_host is not None
+    assert same_host.get_header("Authorization") == "Bearer example"
