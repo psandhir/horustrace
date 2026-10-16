@@ -279,13 +279,40 @@ def _relevant_provenance(agent, finding, attack_path):
     return result
 
 
+def _source_instance_for_finding(graph, finding):
+    """Resolve a finding's specific agent source, never a coincidental name.
+
+    Python repositories can construct several distinct Agent objects all named
+    `agent`. A name-only dictionary silently selects the last instance and
+    can attach evidence from a different tool or source file. If source identity
+    cannot disambiguate a repeated name, return UNKNOWN instead.
+    """
+    candidates = [agent for agent in graph.agents if agent.name == finding.agent]
+    if len(candidates) == 1:
+        return candidates[0]
+    location = finding.location
+    if not candidates or location is None:
+        return None
+    direct = [agent for agent in candidates if agent.location == location]
+    if len(direct) == 1:
+        return direct[0]
+    if len(direct) > 1:
+        return None
+    # Tool-layer findings point at the tool's source definition, not the
+    # Agent(...) constructor. Require a unique exact tool/source match.
+    owners = [
+        agent for agent in candidates
+        if any(tool.location == location for tool in agent.tools)
+    ]
+    return owners[0] if len(owners) == 1 else None
+
+
 def attach_findings(graph, findings):
-    by_name = {agent.name: agent for agent in graph.agents}
     for finding in findings:
         finding.standards = {
             'owasp_agentic': list(get_rule_metadata(finding.rule_id).owasp_agentic),
         }
-        agent = by_name.get(finding.agent)
+        agent = _source_instance_for_finding(graph, finding)
         # Preserve the previous assessment semantics separately from the
         # evidence display; changing provenance presentation must not change
         # scan conclusions or findings counts.
@@ -310,7 +337,8 @@ def attach_findings(graph, findings):
             ]
             finding.provenance = [
                 fact for entity in entities
-                if entity.location == finding.location
+                if finding.location is not None
+                and entity.location == finding.location
                 for fact in entity.provenance
             ]
             legacy_inferred = any(
