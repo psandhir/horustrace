@@ -2,6 +2,10 @@
 import fnmatch
 
 from horustrace.adapters.google_adk import BUILTIN_TOOL_CAPABILITIES
+from horustrace.effective_authority import (
+    _agent_instance_key,
+    effective_authority_relationships,
+)
 from horustrace.models import Confidence, EvidenceFact, Graph, SourceLocation
 from horustrace.rule_registry import get_rule_metadata
 
@@ -106,7 +110,7 @@ def _evidence_values(finding, key):
     return set(values)
 
 
-def _relevant_provenance(agent, finding, attack_path):
+def _relevant_provenance(agent, finding, attack_path, authority_relationships=()):
     """Attach facts supporting this finding; never substitute the agent-wide inventory.
 
     Rule-evidence names and path nodes are explicit references. Matching the
@@ -172,6 +176,103 @@ def _relevant_provenance(agent, finding, attack_path):
                 if not destination.restricted or destination.target in {"*", "**"}:
                     add(destination, lambda fact: key_is(fact, "destination", "restriction_declaration"))
 
+    if finding.rule_id == "AGT040":
+        # A shared Strands import statement may contain many source tools.
+        # Exact authority-relationship ID + unique agent instance + target
+        # name + source location (not a line match alone) must identify ONE
+        # vended tool before its inferred capabilities can annotate the
+        # finding. This is source-claim lineage, NOT verified runtime
+        # authority, controls or permission reachability.
+        imported = [
+            tool for tool in agent.tools
+            if tool.kind == "strands_vended_tool"
+            and tool.location == finding.location
+        ]
+        if imported:
+            ids = _evidence_values(finding, "authority_relationship")
+            if len(ids) != 1 or (
+                finding.authority_relationship_id is not None
+                and finding.authority_relationship_id not in ids
+            ):
+                return result
+            matched = [
+                item for item in authority_relationships
+                if item.relationship_id in ids
+                and item.target_kind == "tool"
+                and item.agent == agent.name
+                and item.agent_instance_key == _agent_instance_key(agent)
+            ]
+            if len(matched) != 1:
+                return result
+            relationship = matched[0]
+            selected = [
+                tool for tool in imported
+                if tool.name == relationship.target_name
+                and relationship.location is not None
+                and tool.location is not None
+                and str(tool.location.path) == relationship.location.get("path")
+                and tool.location.line == relationship.location.get("line")
+                and tool.location.column == relationship.location.get("column")
+            ]
+            if len(selected) != 1:
+                return result
+            tool = selected[0]
+            claimed = _evidence_values(finding, "capabilities")
+            if not claimed or not claimed.issubset(tool.capabilities) or not (
+                claimed.issubset(set(relationship.capabilities))
+            ):
+                return result
+            # Retain only the matched symbol's source import, relevant
+            # capability facts, and previously source-recorded controls.
+            # Inferred control absence is not a source witness.
+            add(tool, lambda fact: (
+                fact.location == tool.location
+                and fact.subject == tool.name
+                and (
+                    capability_is(fact, claimed)
+                    or (
+                        fact.fact.startswith("source_import=")
+                        and fact.origin == "observed"
+                    )
+                    or (
+                        fact.origin != "inferred"
+                        and key_is(
+                            fact, "approval_configuration",
+                            "guardrail_hook_detected",
+                        )
+                    )
+                )
+            ))
+            return result
+
+    # Several imported Strands vended-tool symbols can occupy one source line.
+    # The line alone cannot identify the specific effective-authority edge in
+    # AGT040, nor justify copying every capability onto a single-tool alert.
+    # Surface UNKNOWN until the relationship ID maps to a unique source tool.
+    if finding.rule_id in {"AGT020", "AGT021"}:
+        imported = [
+            tool for tool in agent.tools
+            if tool.kind == "strands_vended_tool"
+            and tool.location == finding.location
+            and any(
+                fact.fact.startswith("source_import=")
+                for fact in tool.provenance
+            )
+        ]
+        if imported:
+            required = _evidence_values(finding, "capability")
+            for tool in imported:
+                if not (tool.capabilities & required):
+                    continue
+                add(tool, lambda fact: (
+                    capability_is(fact, required)
+                    or (
+                        fact.origin == "observed"
+                        and key_is(fact, "approval_configuration", "guardrail_hook_detected")
+                    )
+                ))
+            return result
+
     if finding.rule_id == "CAP002":
         denied = _evidence_values(finding, "denied")
         add(agent.policy, lambda fact: fact.fact.startswith("denied=")
@@ -183,6 +284,77 @@ def _relevant_provenance(agent, finding, attack_path):
         for server in agent.mcp_servers:
             if "network.external" in denied and server.url:
                 add(server, lambda fact: key_is(fact, "transport"))
+        return result
+
+    if finding.rule_id == "CAP003":
+        # Rule evidence explicitly enumerates the privileged capability classes.
+        # Retain original tool-source facts (including inferred origin), never
+        # pretend an inferred third-party tool effect is runtime verified.
+        privileged = _evidence_values(finding, "privileged")
+        for tool in agent.tools:
+            if tool.capabilities & privileged:
+                add(tool, lambda fact: capability_is(fact, privileged))
+        return result
+
+    if finding.rule_id == "NET002":
+        # Show only the source-visible outbound leg that triggered the egress
+        # warning; no source fact can prove the *absence* of a deployed allowlist.
+        outbound = {"network.external", "external.write"}
+        for tool in agent.tools:
+            if not (tool.capabilities & outbound):
+                continue
+            add(tool, lambda fact: capability_is(fact, outbound))
+            for destination in tool.destinations:
+                add(destination, lambda fact: key_is(fact, "destination"))
+        for server in agent.mcp_servers:
+            if server.url:
+                add(server, lambda fact: key_is(fact, "transport"))
+        for destination in agent.network:
+            add(destination, lambda fact: key_is(fact, "destination"))
+        return result
+
+    if finding.rule_id == "CAP005":
+        # CAP005 is a *combination* claim: only show source witnesses if
+        # BOTH read and write legs are independently represented in this exact
+        # agent instance. An imported third-party tool may supply an inferred
+        # capability fact, but that is not evidence of a runtime-executable
+        # authority relationship or deployed controls. Do not copy every
+        # agent-level fact or attach unrelated authority_relationship IDs.
+        read_facts = []
+        write_facts = []
+        for tool in agent.tools:
+            for fact in tool.provenance:
+                if fact.location is None:
+                    continue
+                if "data.read" in tool.capabilities and capability_is(
+                    fact, {"data.read"}
+                ):
+                    read_facts.append(fact)
+                if (
+                    tool.metadata.get("agent_internal_artifact") is not True
+                    and tool.metadata.get("agent_internal_state") is not True
+                    and tool.capabilities & {"data.write", "destructive.write"}
+                    and capability_is(fact, {"data.write", "destructive.write"})
+                ):
+                    write_facts.append(fact)
+        for source in agent.data_sources:
+            for fact in source.provenance:
+                if fact.location is None:
+                    continue
+                if source.capability == "data.read" and capability_is(
+                    fact, {"data.read"}
+                ):
+                    read_facts.append(fact)
+                if source.capability in {"data.write", "destructive.write"} and capability_is(
+                    fact, {"data.write", "destructive.write"}
+                ):
+                    write_facts.append(fact)
+        if read_facts and write_facts:
+            # Two minimal, exact-source witnesses, not a dump of the agent's
+            # entire catalogue. Preserve observed/inferred/declared origins.
+            for fact in (read_facts[0], write_facts[0]):
+                if fact not in result:
+                    result.append(fact)
         return result
 
     if finding.rule_id == "CAP004":
@@ -279,13 +451,47 @@ def _relevant_provenance(agent, finding, attack_path):
     return result
 
 
+def _source_instance_for_finding(graph, finding):
+    """Resolve a finding's specific agent source, never a coincidental name.
+
+    Python repositories can construct several distinct Agent objects all named
+    `agent`. A name-only dictionary silently selects the last instance and
+    can attach evidence from a different tool or source file. If source identity
+    cannot disambiguate a repeated name, return UNKNOWN instead.
+    """
+    candidates = [agent for agent in graph.agents if agent.name == finding.agent]
+    if len(candidates) == 1:
+        return candidates[0]
+    location = finding.location
+    if not candidates or location is None:
+        return None
+    direct = [agent for agent in candidates if agent.location == location]
+    if len(direct) == 1:
+        return direct[0]
+    if len(direct) > 1:
+        return None
+    # Tool-layer findings point at the tool's source definition, not the
+    # Agent(...) constructor. Require a unique exact tool/source match.
+    owners = [
+        agent for agent in candidates
+        if any(tool.location == location for tool in agent.tools)
+    ]
+    return owners[0] if len(owners) == 1 else None
+
+
 def attach_findings(graph, findings):
-    by_name = {agent.name: agent for agent in graph.agents}
+    # Compute portable, source-instance-disambiguated authority IDs once.
+    # This also handles same-named agents importing the same-named tool.
+    authority_relationships = (
+        effective_authority_relationships(graph)
+        if any(finding.rule_id == "AGT040" for finding in findings)
+        else ()
+    )
     for finding in findings:
         finding.standards = {
             'owasp_agentic': list(get_rule_metadata(finding.rule_id).owasp_agentic),
         }
-        agent = by_name.get(finding.agent)
+        agent = _source_instance_for_finding(graph, finding)
         # Preserve the previous assessment semantics separately from the
         # evidence display; changing provenance presentation must not change
         # scan conclusions or findings counts.
@@ -301,16 +507,25 @@ def attach_findings(graph, findings):
                 and " -> ".join(path.nodes) in finding.evidence
             ), None)
         if agent:
-            finding.provenance = _relevant_provenance(agent, finding, attack_path)
+            finding.provenance = _relevant_provenance(
+                agent, finding, attack_path, authority_relationships
+            )
         else:
             # Unbound constructs retain only source-local evidence.
             entities = [
                 *graph.all_tools(), *graph.all_skills(),
                 *graph.all_mcp_servers(), *graph.all_identities(),
             ]
-            finding.provenance = [
+            # A repeated named agent with unresolved source identity is NOT
+            # equivalent to an unbound tool/server finding. Avoid giving it
+            # another instance's facts even if tools share the same location.
+            ambiguous_agent = bool(finding.agent and any(
+                candidate.name == finding.agent for candidate in graph.agents
+            ))
+            finding.provenance = [] if ambiguous_agent else [
                 fact for entity in entities
-                if entity.location == finding.location
+                if finding.location is not None
+                and entity.location == finding.location
                 for fact in entity.provenance
             ]
             legacy_inferred = any(

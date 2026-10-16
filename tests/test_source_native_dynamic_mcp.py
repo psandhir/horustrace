@@ -209,3 +209,84 @@ def test_remote_client_variable_must_resolve_to_created_mcp_client(
         "var tools = await client.ListToolsAsync();\n",
     )
     assert inspect_dynamic_mcp_registration(tmp_path).bindings == []
+
+
+def test_csharp_remote_catalogue_must_stay_with_original_client_scope(
+    tmp_path: Path,
+) -> None:
+    # Identical variable names in unrelated methods do not form a source edge.
+    _remote(
+        tmp_path,
+        "using ModelContextProtocol.Client;\n"
+        "public class Provider {\n"
+        "  async Task Create() {\n"
+        "    var transport = new HttpClientTransport(new HttpClientTransportOptions());\n"
+        "    var client = await McpClient.CreateAsync(transport);\n"
+        "  }\n"
+        "  async Task Read() { var tools = await client.ListToolsAsync(); }\n"
+        "}\n",
+    )
+    assert inspect_dynamic_mcp_registration(tmp_path).bindings == []
+
+    # Reusing a variable name following re-assignment invalidates the identity.
+    _remote(
+        tmp_path,
+        "using ModelContextProtocol.Client;\n"
+        "async Task GetToolsAsync() {\n"
+        "  var transport = new HttpClientTransport(new HttpClientTransportOptions());\n"
+        "  var client = await McpClient.CreateAsync(transport);\n"
+        "  client = await AcquireDifferentClient();\n"
+        "  var tools = await client.ListToolsAsync();\n"
+        "}\n",
+    )
+    assert inspect_dynamic_mcp_registration(tmp_path).bindings == []
+
+    # A function-local client declared in an if-block does not escape it.
+    _remote(
+        tmp_path,
+        "using ModelContextProtocol.Client;\n"
+        "async Task GetToolsAsync() {\n"
+        "  var transport = new HttpClientTransport(new HttpClientTransportOptions());\n"
+        "  if (enabled) { var client = await McpClient.CreateAsync(transport); }\n"
+        "  var tools = await client.ListToolsAsync();\n"
+        "}\n",
+    )
+    assert inspect_dynamic_mcp_registration(tmp_path).bindings == []
+
+
+def test_csharp_equality_lambda_and_inner_blocks_are_not_rebindings(
+    tmp_path: Path,
+) -> None:
+    _remote(
+        tmp_path,
+        "using ModelContextProtocol.Client;\n"
+        "async Task GetToolsAsync() {\n"
+        "  var transport = new HttpClientTransport(new HttpClientTransportOptions());\n"
+        "  var client = await McpClient.CreateAsync(transport);\n"
+        "  var brace = '{';\n"
+        "  if (client == null) return;\n"
+        "  var query = entries.Select(client => client.ToString());\n"
+        "  if (enabled) { var tools = await client.ListToolsAsync(); }\n"
+        "}\n",
+    )
+    doc = inspect_dynamic_mcp_registration(tmp_path).as_dict()
+    assert len(doc["bindings"]) == 1
+    assert doc["bindings"][0]["resolution"] == "unresolved"
+    assert not any(e["kind"] in ("agent_can_call", "exposes_tool")
+                   for e in doc["bindings"])
+
+
+def test_csharp_null_coalescing_assignment_invalidates_client_identity(
+    tmp_path: Path,
+) -> None:
+    _remote(
+        tmp_path,
+        "using ModelContextProtocol.Client;\n"
+        "async Task GetToolsAsync() {\n"
+        "  var transport = new HttpClientTransport(new HttpClientTransportOptions());\n"
+        "  var client = await McpClient.CreateAsync(transport);\n"
+        "  client ??= GetFallbackClient();\n"
+        "  var tools = await client.ListToolsAsync();\n"
+        "}\n",
+    )
+    assert inspect_dynamic_mcp_registration(tmp_path).bindings == []
