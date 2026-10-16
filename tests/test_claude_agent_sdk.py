@@ -673,6 +673,48 @@ async def run():
     assert all(tool.approval is False for tool in tools.values())
 
 
+def test_dynamic_allowed_tools_do_not_invent_per_instance_builtin_authority(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        """
+from claude_agent_sdk import ClaudeAgentOptions, query
+
+class Registry:
+    tools = None
+
+agent_def = Registry()
+
+dynamic_options = ClaudeAgentOptions(
+    allowed_tools=list(agent_def.tools or []),
+    mcp_servers={"external": {"type": "stdio", "command": "server"}},
+)
+explicit_options = ClaudeAgentOptions(allowed_tools=["Read", "Write"])
+empty_options = ClaudeAgentOptions(allowed_tools=[])
+
+async def run():
+    async for _ in query(prompt="dynamic", options=dynamic_options):
+        pass
+    async for _ in query(prompt="literal", options=explicit_options):
+        pass
+    async for _ in query(prompt="empty", options=empty_options):
+        pass
+""",
+    )
+    graph = scan_python_file(path)
+    dynamic = next(agent for agent in graph.agents if agent.name == "dynamic_options")
+    explicit = next(agent for agent in graph.agents if agent.name == "explicit_options")
+    empty = next(agent for agent in graph.agents if agent.name == "empty_options")
+    assert dynamic.metadata["dynamic_tool_catalogue_unresolved"] is True
+    assert dynamic.metadata["tool_surface"] == "unresolved"
+    assert not {"Bash", "Write", "WebFetch", "Edit"}.intersection(
+        tool.name for tool in dynamic.tools
+    )
+    assert {"Read", "Write"}.issubset(tool.name for tool in explicit.tools)
+    assert empty.metadata["tool_surface"] == "runtime_default"
+
+
 def test_disallowed_tools_and_explicit_tools_still_bound_availability(
     tmp_path: Path,
 ) -> None:
