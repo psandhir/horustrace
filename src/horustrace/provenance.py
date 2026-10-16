@@ -172,6 +172,28 @@ def _relevant_provenance(agent, finding, attack_path):
                 if not destination.restricted or destination.target in {"*", "**"}:
                     add(destination, lambda fact: key_is(fact, "destination", "restriction_declaration"))
 
+    # Several imported Strands vended-tool symbols can occupy one source line.
+    # The line alone cannot identify the specific effective-authority edge in
+    # AGT040, nor justify copying every capability onto a single-tool alert.
+    # Surface UNKNOWN until the relationship ID maps to a unique source tool.
+    if finding.rule_id in {"AGT020", "AGT021", "AGT040"}:
+        imported = [
+            tool for tool in agent.tools
+            if tool.kind == "strands_vended_tool"
+            and tool.location == finding.location
+            and any(
+                fact.fact.startswith("source_import=")
+                for fact in tool.provenance
+            )
+        ]
+        if imported:
+            if finding.rule_id == "AGT040":
+                return result
+            required = _evidence_values(finding, "capability")
+            for tool in imported:
+                add(tool, lambda fact: capability_is(fact, required))
+            return result
+
     if finding.rule_id == "CAP002":
         denied = _evidence_values(finding, "denied")
         add(agent.policy, lambda fact: fact.fact.startswith("denied=")

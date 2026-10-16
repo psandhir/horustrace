@@ -112,3 +112,46 @@ def test_shadowed_ambiguous_import_has_no_fabricated_source_facts(
         "from strands_tools import shell as tool_alias\n",
     )
     assert _vended_tool(info, "tool_alias") is None
+
+
+def test_shared_import_line_does_not_copy_unrelated_tool_capabilities(
+    tmp_path: Path,
+) -> None:
+    info = _vended(
+        tmp_path, "joint.py",
+        "from strands_tools import shell, file_read\n",
+    )
+    shell = _vended_tool(info, "shell")
+    file_read = _vended_tool(info, "file_read")
+    assert shell is not None and file_read is not None
+    # Both aliases are legitimately on the same AST source line.
+    assert shell.location == file_read.location
+    agent = Agent(
+        name="worker",
+        location=SourceLocation(tmp_path / "joint.py", 12),
+        tools=[shell, file_read],
+    )
+    graph = Graph(agents=[agent])
+    execution = Finding(
+        "AGT020", Severity.HIGH, "execution", "message", "recommendation",
+        location=shell.location, agent="worker", layer=1,
+        evidence=["capability=process.execute", "approval=None"],
+    )
+    attach_findings(graph, [execution])
+    assert {fact.fact for fact in execution.provenance} == {
+        "capability=process.execute",
+    }
+    assert {fact.subject for fact in execution.provenance} == {"shell"}
+
+    relationship = Finding(
+        "AGT040", Severity.MEDIUM, "authority", "message", "recommendation",
+        location=shell.location, agent="worker", layer=1,
+        evidence=[
+            "capabilities=data.read,data.write",
+            "authority_relationship=authority-v1:source-unknown",
+        ],
+    )
+    attach_findings(graph, [relationship])
+    # Shared import location cannot prove which specific authority edge was
+    # effective; avoid repeating every imported tool's inferred facts.
+    assert relationship.provenance == []
