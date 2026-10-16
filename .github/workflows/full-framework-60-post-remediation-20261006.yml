@@ -5,6 +5,13 @@ on:
     paths:
       - ".github/workflows/full-framework-60-post-remediation-20261006.yml"
       - "scripts/pipeline_integrity_study.py"
+      - "scripts/source_claim_regression_gate.py"
+      - "scripts/accuracy_regression_gate.py"
+      - ".github/workflows/accuracy-regression-gate.yml"
+      - "tests/test_accuracy_regression_gate.py"
+      - "tests/test_accuracy_ci_gate_contract.py"
+      - "research/fresh-unseen-generalization-20/**"
+      - "research/source-claim-regression/**"
       - "src/horustrace/**"
       - "research/full-framework-60-20261005/**"
       - "research/full-framework-60-post-remediation-20261006/**"
