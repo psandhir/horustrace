@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from horustrace.models import Agent, Finding, Graph, Severity, SourceLocation
+from horustrace.models import Agent, EvidenceFact, Finding, Graph, Severity, SourceLocation
 from horustrace.provenance import attach_findings
 from horustrace.strands_repository import _build_modules, _vended_tool
 
@@ -155,3 +155,20 @@ def test_shared_import_line_does_not_copy_unrelated_tool_capabilities(
     # Shared import location cannot prove which specific authority edge was
     # effective; avoid repeating every imported tool's inferred facts.
     assert relationship.provenance == []
+
+    # Existing source-observed capability/control facts must survive a new
+    # inferred vended-tool annotation; only the new unlinked inference is
+    # withheld from AGT040's specific authority-relationship provenance.
+    shell.provenance.extend([
+        EvidenceFact(
+            "shell", "capability=process.execute", "observed", shell.location,
+        ),
+        EvidenceFact(
+            "shell", "approval_configuration=None", "observed", shell.location,
+        ),
+    ])
+    attach_findings(graph, [relationship])
+    assert {(fact.fact, fact.origin) for fact in relationship.provenance} == {
+        ("capability=process.execute", "observed"),
+        ("approval_configuration=None", "observed"),
+    }

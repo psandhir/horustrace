@@ -188,10 +188,30 @@ def _relevant_provenance(agent, finding, attack_path):
         ]
         if imported:
             if finding.rule_id == "AGT040":
+                # Keep established, source-observed facts from prior adapters.
+                # A new inferred import/capability is NOT a unique proof of
+                # this authority_relationship ID, particularly when several
+                # imported tools share the same source line.
+                for tool in imported:
+                    add(tool, lambda fact: (
+                        fact.origin != "inferred"
+                        and key_is(
+                            fact, "capability", "approval_configuration",
+                            "guardrail_hook_detected",
+                        )
+                    ))
                 return result
             required = _evidence_values(finding, "capability")
             for tool in imported:
-                add(tool, lambda fact: capability_is(fact, required))
+                if not (tool.capabilities & required):
+                    continue
+                add(tool, lambda fact: (
+                    capability_is(fact, required)
+                    or (
+                        fact.origin == "observed"
+                        and key_is(fact, "approval_configuration", "guardrail_hook_detected")
+                    )
+                ))
             return result
 
     if finding.rule_id == "CAP002":
