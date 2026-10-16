@@ -73,3 +73,16 @@ ruleset itself remains unchanged in this PR.
 
 For subsequent automation, a successful GitHub merge is NOT proof that
 all optional cohorts ran; check each relevant workflow before merging.
+
+## P0 #558 implementation and administrator handoff
+
+PR implementing #558 adds `.github/workflows/accuracy-regression-gate.yml`, an **always-emitted PR check** with job name `accuracy-regression-gate`:
+
+- On scanner source or pinned evaluation-contract changes, it verifies **both** current exact PR-head Fresh-16 and Full-60 runs (not aggregate counts from a different commit). It rejects missing, stale, cancelled, red or timed-out runs.
+- It requires every **16/60** successful named case job, successful aggregate integrity/comparator steps, exact unique nonempty case artifacts plus complete summary archive, immutable pinned source manifest blob hashes, and positive aggregate pipeline/security-claim results. It verifies downloaded summary ZIP digest where GitHub publishes one.
+- On unrelated documentation-only PRs it reports an **explicit non-applicable success** rather than waiting for workflows that should not run. Cohort PR path triggers now also include both evaluation contracts and gate implementation changes; this *expands* coverage and does not reduce either matrix.
+- The always-emitted gate is a source-claim and pipeline-integrity regression barrier. It still cannot prove scanner security precision/recall, live permissions, or Wave B source-truth acceptance.
+
+**Repository-administrator action required after this code merges:** In GitHub repository settings, edit the active **Protect main** ruleset (ID `23823545`) to require the new `accuracy-regression-gate` check from GitHub Actions. Keep all existing required checks. Verify the rule with (a) a docs-only PR reporting the non-applicable success, and (b) a deliberately failing/missing-cohort scanner PR that GitHub actually prevents from merging. Capture the verification in #558. The connected engineering integration cannot modify ruleset settings. Until that action and proof are complete, *manual same-head Fresh-16 and Full-60 checks remain mandatory for every scanner-source merge*.
+
+Do not misrepresent a new workflow as enforced branch protection before the administrator confirms the ruleset change.

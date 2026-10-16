@@ -135,3 +135,31 @@ def test_mutated_source_trigger_is_rejected() -> None:
     _events(document)["pull_request"]["paths"].remove("src/horustrace/**")
     with pytest.raises(AssertionError, match="production scanner source"):
         _broad_source_trigger(document)
+
+
+def test_stable_accuracy_gate_always_emits_one_required_context() -> None:
+    gate = _load("accuracy-regression-gate.yml")
+    events = _events(gate)
+    assert "pull_request" in events
+    assert "paths" not in (events["pull_request"] or {})
+    jobs = gate["jobs"]
+    assert "accuracy-regression-gate" in jobs
+    job = jobs["accuracy-regression-gate"]
+    assert job["name"] == "accuracy-regression-gate"
+    assert int(job["timeout-minutes"]) >= 90
+    commands = _runs(job)
+    assert "scripts/accuracy_regression_gate.py" in commands
+    assert "--head" in commands
+    assert gate["permissions"]["actions"] == "read"
+    assert gate["permissions"]["pull-requests"] == "read"
+    # The truth/evaluation contract gate itself must trigger both full matrices.
+    for name in (
+        "fresh16-source-claim-regression.yml",
+        "full-framework-60-post-remediation-20261006.yml",
+    ):
+        cohort = _load(name)
+        paths = _events(cohort)["pull_request"]["paths"]
+        assert "src/horustrace/**" in paths
+        assert "scripts/accuracy_regression_gate.py" in paths
+        assert ".github/workflows/accuracy-regression-gate.yml" in paths
+        assert "tests/test_accuracy_regression_gate.py" in paths
