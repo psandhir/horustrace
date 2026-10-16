@@ -1695,6 +1695,13 @@ def _propagate_adk_delegation(graph: Graph) -> None:
 
     for agent in graph.agents:
         register(names, agent.name, agent)
+        # An imported ADK AgentTool can reference the Python constructor alias
+        # rather than the runtime Agent.name. Preserve that exact source alias
+        # without guessing from a shared runtime name or module stem.
+        if agent.metadata.get("framework") == "google-adk":
+            source_alias = agent.metadata.get("source_alias")
+            if isinstance(source_alias, str):
+                register(aliases, source_alias, agent)
         if agent.location:
             source = agent.location.path
             labels = {source.stem, source.parent.name, str(source.resolve())}
