@@ -263,7 +263,7 @@ def test_csharp_equality_lambda_and_inner_blocks_are_not_rebindings(
         "async Task GetToolsAsync() {\n"
         "  var transport = new HttpClientTransport(new HttpClientTransportOptions());\n"
         "  var client = await McpClient.CreateAsync(transport);\n"
-        "  var sample = new[] { '{', '}' };\n"
+        "  var brace = '{';\n"
         "  if (client == null) return;\n"
         "  var query = entries.Select(client => client.ToString());\n"
         "  if (enabled) { var tools = await client.ListToolsAsync(); }\n"
