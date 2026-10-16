@@ -8,7 +8,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from horustrace.models import (
-    Agent, DataSource, EvidenceFact, Finding, Graph, Severity, SourceLocation, Tool,
+    Agent,
+    DataSource,
+    EvidenceFact,
+    Finding,
+    Graph,
+    Severity,
+    SourceLocation,
+    Tool,
 )
 from horustrace.provenance import attach_findings
 
