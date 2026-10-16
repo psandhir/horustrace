@@ -213,6 +213,23 @@ def verify_summary_zip(archive: bytes, cohort: str, count: int) -> None:
                 raise GateError("Full-60 exact pinned regression baseline failed")
 
 
+class _SafeGitHubRedirect(urllib.request.HTTPRedirectHandler):
+    """Never forward the GitHub bearer token to presigned artifact blob hosts."""
+
+    def redirect_request(self, request, fp, code, msg, headers, newurl):
+        redirected = super().redirect_request(
+            request, fp, code, msg, headers, newurl,
+        )
+        if (
+            redirected is not None
+            and urllib.parse.urlparse(request.full_url).netloc
+            != urllib.parse.urlparse(newurl).netloc
+        ):
+            for header in ("Authorization", "X-GitHub-Api-Version"):
+                redirected.remove_header(header)
+        return redirected
+
+
 class GitHubAPI:
     def __init__(self, repository: str, token: str):
         if "/" not in repository or not token:
@@ -228,7 +245,8 @@ class GitHubAPI:
         if not uri.startswith("/") or uri.startswith("//"):
             raise GateError("unsafe API path")
         request = urllib.request.Request(self.root + uri, headers=self.headers)
-        with urllib.request.urlopen(request, timeout=45) as result:
+        opener = urllib.request.build_opener(_SafeGitHubRedirect())
+        with opener.open(request, timeout=45) as result:
             payload = result.read(20_000_001)
         if len(payload) > 20_000_000:
             raise GateError("oversized API response")
@@ -284,10 +302,12 @@ def evaluate(api: GitHubAPI, *, pr_number: int, head_sha: str,
             if state == "pending":
                 continue
             run_id = run["id"]
+            print(f"Inspecting {workflow}: run={run_id} head={head_sha}", flush=True)
             jobs = api.pages(f"/actions/runs/{run_id}/jobs?filter=latest", "jobs")
             verify_jobs(jobs, workflow, expected[workflow])
             artifacts = api.pages(f"/actions/runs/{run_id}/artifacts", "artifacts")
             summary = verify_artifacts(artifacts, workflow, expected[workflow])
+            print(f"Downloading {workflow} verified aggregate artifact", flush=True)
             archive = api.get(
                 f"/actions/artifacts/{summary['id']}/zip", binary=True,
             )
