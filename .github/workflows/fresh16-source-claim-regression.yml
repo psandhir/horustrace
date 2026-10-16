@@ -24,6 +24,12 @@ on:
       - research/source-claim-regression/**
       - scripts/source_claim_regression_gate.py
       - scripts/pipeline_integrity_study.py
+      - scripts/accuracy_regression_gate.py
+      - .github/workflows/accuracy-regression-gate.yml
+      - tests/test_accuracy_regression_gate.py
+      - tests/test_accuracy_ci_gate_contract.py
+      - research/full-framework-60-20261005/**
+      - research/full-framework-60-post-remediation-20261006/**
       - src/horustrace/**
   workflow_dispatch:
 
