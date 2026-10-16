@@ -240,7 +240,8 @@ def _registered_factory(tree: ast.Module) -> list[tuple[int, int]]:
 # illustrative text cannot claim remote runtime enumeration.
 _CS_IGNORED = re.compile(
     r'//[^\n]*|/\*[\s\S]*?\*/|@?"(?:[^"]|"")*"|'
-    r'"(?:\\.|[^"\\])*"',
+    r'"(?:\\.|[^"\\])*"|'
+    r"'(?:\\.|[^'\\])*'",
     re.MULTILINE,
 )
 
