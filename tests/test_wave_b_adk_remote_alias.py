@@ -53,7 +53,12 @@ root_agent = Agent(name="local_explorer_assistant", model="gemini-2.5-flash", to
         if item["agent"] == "local_explorer_assistant"
         and item["target"]["kind"] == "delegation"
     }
-    assert delegates == {"discover_places", "routing_agent", "composer_agent"}
+    assert delegates == {"discover_places", "routing_agent", "composer_agent"}, {
+        "delegate_metadata": next(a for a in graph.agents if a.name == "local_explorer_assistant").metadata.get("delegates_to"),
+        "tool_targets": [(t.name, t.metadata.get("delegate_target")) for t in next(a for a in graph.agents if a.name == "local_explorer_assistant").tools],
+        "agent_aliases": [(a.name, a.metadata.get("source_alias"), a.location.path.name if a.location else None) for a in graph.agents],
+        "diagnostics": [(d.kind, d.message) for d in graph.coverage.diagnostics if d.kind == "unresolved_delegation"],
+    }
     parent = next(a for a in graph.agents if a.name == "local_explorer_assistant")
     projected = [t for t in parent.tools if t.kind == "delegated_agent"]
     assert {t.metadata["delegate_target"] for t in projected} == delegates
