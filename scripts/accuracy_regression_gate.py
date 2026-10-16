@@ -70,7 +70,7 @@ def expected_cases(root: Path) -> dict[str, set[str]]:
     for name, blob in FROZEN_BLOBS.items():
         payload = (root / name).read_bytes()
         actual = hashlib.sha1(
-            b"blob " + str(len(payload)).encode() + b"\\0" + payload
+            b"blob " + str(len(payload)).encode() + b"\0" + payload
         ).hexdigest()
         if actual != blob:
             raise GateError(f"frozen source manifest changed: {name}")
@@ -331,14 +331,14 @@ def main() -> int:
         print(json.dumps(result, indent=2))
         if os.environ.get("GITHUB_STEP_SUMMARY"):
             with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
-                out.write("## Same-head accuracy regression gate\\n\\n")
-                out.write("PR `#{}`, head `{}`: **PASS** (`{}`).\\n\\n".format(
+                out.write("## Same-head accuracy regression gate\n\n")
+                out.write("PR `#{}`, head `{}`: **PASS** (`{}`).\n\n".format(
                     args.pr, args.head, result["scope"],
                 ))
                 for cohort, item in result["cohorts"].items():
                     out.write(f"- {cohort}: {item['cases']} cases, "
                               f"{item['artifact_count']} artifacts, "
-                              f"[completed run]({item['url']})\\n")
+                              f"[completed run]({item['url']})\n")
         return 0
     except (GateError, OSError, ValueError, urllib.error.URLError,
             zipfile.BadZipFile) as exc:
