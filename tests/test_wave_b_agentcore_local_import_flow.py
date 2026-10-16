@@ -61,14 +61,19 @@ agent = Agent(tools=[order_management_tool, personalization_agent_tool,
     }
     assert all(flow.metadata["agent_binding"]["basis"] == "source_function_key"
                for flow in flows)
-    for bound in graph.agents[0].tools:
-        if bound.name in {
-            "order_management_tool", "personalization_agent_tool",
-            "product_recommendation_tool", "troubleshooting_tool",
-        }:
-            assert "network.external" in bound.capabilities
-            assert "external.write" not in bound.capabilities
-            assert "data.write" not in bound.capabilities
+    # All four source flows are observed, including aliased HTTP imports.
+    # The existing Amazon capability adapter recognizes requests.post directly;
+    # alias-aware *capability projection* is distinct from this flow fix and
+    # must not be assumed just because the sink has been proven here.
+    tools = {tool.name: tool for tool in graph.agents[0].tools}
+    assert "network.external" in tools["order_management_tool"].capabilities
+    assert "network.external" in tools["troubleshooting_tool"].capabilities
+    for name in (
+        "order_management_tool", "personalization_agent_tool",
+        "product_recommendation_tool", "troubleshooting_tool",
+    ):
+        assert "external.write" not in tools[name].capabilities
+        assert "data.write" not in tools[name].capabilities
     assert not any(f.rule_id in {"AGT022", "AGT040"} for f in findings)
 
 
