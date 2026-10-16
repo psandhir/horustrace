@@ -133,7 +133,7 @@ jobs:
               "",
           ]
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
-              out.write("\\n".join(lines))
+              out.write("\n".join(lines))
           PY
       - name: Publish actual source-claim deltas and explicit NO-GO review status
         run: |
