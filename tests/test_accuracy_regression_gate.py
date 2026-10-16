@@ -46,7 +46,9 @@ def _jobs(cohort: str, ids: set[str]) -> list[dict]:
         ["Fail closed on semantic pipeline and ADG integrity",
          "Compare with exact baseline"]
     )
-    entries = list(ids) + ["aggregate"]
+    aggregate_name = ("Aggregate post-remediation cohort"
+                      if cohort == FULL_WORKFLOW else "aggregate")
+    entries = list(ids) + [aggregate_name]
     if cohort == FULL_WORKFLOW:
         entries.append("prepare")
     return [{
@@ -55,7 +57,7 @@ def _jobs(cohort: str, ids: set[str]) -> list[dict]:
         "conclusion": "success",
         "steps": (
             [{"name": step, "conclusion": "success"} for step in required]
-            if name == "aggregate" else []
+            if name == aggregate_name else []
         ),
     } for name in entries]
 
@@ -144,7 +146,9 @@ def test_jobs_require_every_case_aggregate_and_integrity_steps(cohort: str) -> N
     with pytest.raises(GateError, match="not green"):
         verify_jobs(jobs, cohort, ids)
     jobs = _jobs(cohort, ids)
-    aggregate = next(job for job in jobs if job["name"] == "aggregate")
+    aggregate = next(job for job in jobs if job["name"] == ("Aggregate post-remediation cohort"
+                                                   if cohort == FULL_WORKFLOW
+                                                   else "aggregate"))
     aggregate["steps"][0]["conclusion"] = "skipped"
     with pytest.raises(GateError, match="integrity steps"):
         verify_jobs(jobs, cohort, ids)
