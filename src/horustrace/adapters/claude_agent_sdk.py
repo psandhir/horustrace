@@ -1057,18 +1057,14 @@ def _option_agent(
     allowed = allowed_resolved or []
     denied = denied_resolved or []
 
-    if default_surface and allowed_node is not None and allowed_resolved is not None:
-        permitted_builtins = {
-            item
-            for item in allowed_resolved
-            if not item.startswith("mcp__")
-        }
-        agent.tools = [
-            tool for tool in agent.tools if tool.name in permitted_builtins
-        ]
-        agent.metadata["tool_surface"] = "restricted_default"
-        agent.metadata["tool_surface_restricted_by_allowed_tools"] = True
-        agent.metadata["explicit_allowed_tool_surface"] = list(allowed_resolved)
+    if allowed_node is not None and allowed_resolved is not None:
+        # Claude Agent SDK allowed_tools adds permission allow rules; it is not
+        # the tool-availability filter. Unlisted built-ins remain available
+        # (subject to tools=, disallowed_tools, permission mode, and hooks).
+        # In bypassPermissions mode even unlisted tools may execute without
+        # approval. Never erase their effective authority here.
+        agent.metadata["allowed_tools_permission_only"] = True
+        agent.metadata["explicit_auto_approved_tools"] = list(allowed_resolved)
 
     permission_mode = _resolved_literal(
         _kw(call, "permission_mode", dicts, values),
