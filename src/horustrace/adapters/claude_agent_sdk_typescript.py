@@ -928,29 +928,24 @@ def scan_claude_agent_sdk_typescript_file(path: Path) -> Graph:
             for tool_name in tool_names:
                 agent.tools.append(_builtin(path, source, offset, tool_name))
         elif default_surface:
-            projected = list(_DEFAULT_TOOLS)
-            if allowed_present and allowed_resolved is not None:
-                projected = [
-                    tool_name
-                    for tool_name in projected
-                    if tool_name in allowed_resolved
-                ]
-                agent.metadata["tool_surface"] = "restricted_default"
-                agent.metadata["tool_surface_restricted_by_allowed_tools"] = True
-                agent.metadata["explicit_allowed_tool_surface"] = list(allowed_resolved)
-            else:
-                agent.metadata["tool_surface"] = (
-                    "preset:claude_code" if preset else "runtime_default"
-                )
+            # SDK allowedTools affects permission decisions only; it does not
+            # hide built-ins or bound their effective capability surface.
+            # Bare disallowedTools and explicit tools= can restrict availability.
+            agent.metadata["tool_surface"] = (
+                "preset:claude_code" if preset else "runtime_default"
+            )
             agent.metadata["default_tool_surface_projection"] = (
                 "security_relevant_builtins"
             )
-            for tool_name in projected:
+            for tool_name in _DEFAULT_TOOLS:
                 agent.tools.append(_builtin(path, source, offset, tool_name))
         else:
             agent.metadata["dynamic_tools"] = True
             agent.metadata["tool_surface"] = "dynamic"
 
+        if allowed_present and allowed_resolved is not None:
+            agent.metadata["allowed_tools_permission_only"] = True
+            agent.metadata["explicit_auto_approved_tools"] = list(allowed_resolved)
         if allowed_present and allowed_resolved is None:
             agent.metadata["dynamic_allowed_tools"] = True
         if _has_property(body, "disallowedTools") and denied_resolved is None:
