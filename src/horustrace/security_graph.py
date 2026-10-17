@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from horustrace.adg import build_adg
+from horustrace.developer_path_candidates import developer_path_candidates
 from horustrace.effective_authority import effective_authority_report
 from horustrace.models import AttackPath, FlowPath, Graph, SourceLocation
 
@@ -117,6 +118,12 @@ def validate_security_graph_document(document: dict[str, Any]) -> None:
         "flows": len(document["flows"]),
         "attack_paths": len(document["attack_paths"]),
     }
+    # ASG v1 readers may still validate legacy documents without the additive
+    # candidate projection. Enforce the counter when that projection is present.
+    if "developer_path_candidates" in document:
+        expected_counts["developer_path_candidates"] = len(
+            document["developer_path_candidates"]
+        )
     for key, expected in expected_counts.items():
         if summary[key] != expected:
             raise ValueError(f"ASG {key} counter disagrees with emitted objects")
@@ -159,6 +166,7 @@ def build_agent_security_graph(graph: Graph, root: Path) -> AgentSecurityGraph:
         _attack_path(path, root)
         for path in sorted(graph.attack_paths, key=lambda item: item.path_id)
     ]
+    developer_candidates = developer_path_candidates(graph, root)
 
     authority_relationships = authority.get("relationships", [])
     unresolved_relationships = sum(
@@ -180,6 +188,14 @@ def build_agent_security_graph(graph: Graph, root: Path) -> AgentSecurityGraph:
             "authority_relationships_not_fully_resolved": unresolved_relationships,
             "flows": len(flows),
             "attack_paths": len(attack_paths),
+            "developer_path_candidates": len(developer_candidates),
+            "attack_paths_by_runtime_viability": {
+                state: sum(
+                    (path.get("metadata") or {}).get("runtime_viability", "not_assessed")
+                    == state for path in attack_paths
+                )
+                for state in ("blocked_by_source_error", "not_assessed", "runtime_verified")
+            },
             "flow_agent_reachability": dict(sorted(reachability.items())),
             "analysis_incomplete": graph.coverage.incomplete,
         },
@@ -187,6 +203,7 @@ def build_agent_security_graph(graph: Graph, root: Path) -> AgentSecurityGraph:
         "effective_authority": authority,
         "flows": flows,
         "attack_paths": attack_paths,
+        "developer_path_candidates": developer_candidates,
         "resolution": {
             "coverage_incomplete": graph.coverage.incomplete,
             "coverage": _relativize_locations(graph.coverage.as_dict(), root),
