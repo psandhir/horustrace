@@ -2,6 +2,15 @@
 
 **Date:** 17 October 2026. **Purpose:** quantitative *structural* regression study, **not Wave B GO**.
 
+## Active evaluation scope: non-LangGraph 145 (user decision, 17 October 2026)
+
+The user has removed the **LangGraph framework stratum** from the current active Wave B study scope. Of the original 180 pinned repositories, exactly **35** are LangGraph and **145** are in scope. This is an explicit **framework-level product/evaluation-scope change**, not a claim that previous LangGraph misses were fixed. LangGraph remains visible in the archived full-180 diagnostic only; we do not delete or change any source truth or prior score.
+
+The workflow retains the 180-case raw scan and frozen historical comparison for audit, but generates the **primary active** `non-langgraph-145-{baseline,candidate,delta,semantic-parity}.json` and `non-langgraph-145-delta.md` from both sets of exact case-level results. Both sides are reaggregated on the identical 145 pinned case IDs, not by subtracting rounded aggregate scores. Original reference completeness rules are unchanged. The historical v0.9 LangGraph-agent/tool-specific gates are explicitly excluded from the active policy; **all other six original numeric thresholds and source semantics are preserved**. The seven-case semantic set loses only the six assertions for LangGraph `rw-058`; remaining **17 semantic assertions across six cases** are still reported with no adjustment to pass criteria.
+
+**Preliminary filtered read of the already completed 180-case run** (historical baseline → current candidate, *before CI verification of the committed scope script*): agent precision **96.19% → 77.21%**, agent recall **73.52% → 81.61%**, tool recall **29.70% → 76.69%**, and effective-authority recall **61.11% → 84.73%**. The agent-precision problem remains despite the LangGraph exclusion. New non-LangGraph timeouts `rw-002` and `rw-085`, ADK/Pydantic false-positive adjudication and conditional claim validity remain substantive blockers. Neither the GitHub execution-success status nor the scope change constitutes Wave B accuracy acceptance.
+
+
 The earlier 2026 Real-World Agent Security study froze 180 exact-revision repositories and
 two-pass automated source references before the historical baseline scanner executed.
 The original scanner is `418db4e29798a7d25df686dd7bccfd9fefa225bd`.
@@ -60,8 +69,7 @@ The manually administered same-head accuracy branch rule (#558) is separate.
 ## Wave B acceptance relation
 
 This panel provides an old-reference vs new-scanner structural delta on
-the largest source-locked cohort, especially historically poor LangGraph and
-MCP/custom recall. It **does not itself close** #540.
+the full historical source-locked cohort and a separately explicit **non-LangGraph 145** active evaluation. LangGraph is out of active scope, not retroactively corrected. MCP/custom, ADK, OpenAI Agents, Pydantic AI and FastAgent remain in scope. It **does not itself close** #540.
 
 Still needed for full #540:
 1. Current-main source-to-graph equality and regression reconciliation against
