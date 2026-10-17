@@ -1317,6 +1317,11 @@ def parser() -> argparse.ArgumentParser:
         ),
     )
     p.add_argument("--workers", type=int, default=8)
+    p.add_argument(
+        "--exclude-framework",
+        choices=["langgraph"],
+        help="Optional explicitly scoped follow-up, preserving original frozen truth.",
+    )
     p.add_argument("--output-json", type=Path, required=True)
     p.add_argument("--output-markdown", type=Path, required=True)
     return p
@@ -1337,6 +1342,25 @@ def main() -> int:
             "study error: scanner SHA must be an exact lowercase 40-character SHA"
         )
     cases = cohort.get("cases") or []
+    if args.exclude_framework:
+        # Opt-in only: never modify the original frozen-180 source reference.
+        # The user removed the 35 LangGraph stratum cases from active Wave B
+        # studies, not from archived diagnostics or baseline truth.
+        if len(cases) != 180:
+            raise SystemExit("study error: scoped scan requires intact Frozen-180")
+        excluded = [
+            row for row in cases
+            if row.get("framework_stratum") == args.exclude_framework
+        ]
+        if args.exclude_framework != "langgraph" or len(excluded) != 35:
+            raise SystemExit("study error: excluded LangGraph stratum drift")
+        cases = [
+            row for row in cases
+            if row.get("framework_stratum") != args.exclude_framework
+        ]
+        if len(cases) != 145:
+            raise SystemExit("study error: non-LangGraph scope must have 145 cases")
+        print("Active non-LangGraph study: 145/180 pinned source cases; 35 excluded")
     tier_c_ids = set(cohort.get("tier_c_case_ids") or [])
     truths: dict[str, dict[str, Any]] = {}
     for case in cases:
