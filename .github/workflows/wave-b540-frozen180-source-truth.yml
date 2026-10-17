@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/wave-b540-frozen180-source-truth.yml'
       - 'research/real-world-agent-security-2026/wave-b540-current-source-truth.md'
+      - 'scripts/real_world_agent_security_non_langgraph.py'
+      - 'tests/test_real_world_agent_security_non_langgraph.py'
   workflow_dispatch:
 
 permissions:
@@ -71,7 +73,7 @@ jobs:
             --workers 8 \
             --output-json artifacts/source-locked-180.json \
             --output-markdown artifacts/source-locked-180.md
-      - name: Compare to immutable historical baseline using same frozen truth
+      - name: Compare archived 180 and active non-LangGraph 145 on locked truth
         shell: bash
         run: |
           set -euo pipefail
@@ -80,11 +82,21 @@ jobs:
             --candidate artifacts/source-locked-180.json \
             --output-json artifacts/source-locked-180-delta.json \
             --output-markdown artifacts/source-locked-180-delta.md
-          cat artifacts/source-locked-180-delta.md >> "$GITHUB_STEP_SUMMARY"
           python scripts/real_world_semantic_benchmark.py \
             "$STUDY_ROOT/semantic-benchmark/benchmark-v1.json" \
             --result artifacts/source-locked-180.json \
             --output artifacts/source-locked-180-semantic-parity.json
+          # User-approved study scope: exclude LangGraph's 35 cases from ACTIVE
+          # evaluation, not from the immutable 180-case archived reference.
+          # Reaggregate both scanner reports on identical pinned 145 cases,
+          # preserving all six non-LangGraph thresholds and semantic assertions.
+          python scripts/real_world_agent_security_non_langgraph.py \
+            --cohort "$STUDY_ROOT/cohort.json" \
+            --baseline "$STUDY_ROOT/results/frozen-baseline.json" \
+            --candidate artifacts/source-locked-180.json \
+            --semantic-benchmark "$STUDY_ROOT/semantic-benchmark/benchmark-v1.json" \
+            --output-prefix artifacts/non-langgraph-145
+          cat artifacts/non-langgraph-145-delta.md >> "$GITHUB_STEP_SUMMARY"
       - name: Publish source-truth evidence without overwriting frozen references
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
