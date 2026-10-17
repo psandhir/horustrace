@@ -103,6 +103,7 @@ def classify(
     result: dict[str, Any],
     truth: dict[str, Any],
     overlay: list[dict[str, Any]],
+    bridges: list[dict[str, Any]],
 ) -> dict[str, Any]:
     a = (result.get("comparisons") or {}).get("agent_entities")
     if not isinstance(a, dict):
@@ -110,16 +111,24 @@ def classify(
     nodes = result.get("agent_node_audit")
     if not isinstance(nodes, list) or len(nodes) != a.get("predicted"):
         raise ValueError("both scanner revisions must emit complete agent_node_audit")
-    agents = [n for n in nodes if n.get("kind") == "agent"]
+    agent_nodes = [n for n in nodes if n.get("kind") == "agent"]
+    metadata_excluded = 0
+    agents = []
+    for node in agent_nodes:
+        np, nl = node_location(node)
+        if any(dec["decision"] == "metadata_only" and dec["observed"]["name"] == node.get("name") and same_path(dec["observed"]["path"],np) and dec["observed"]["line"] == nl for dec in bridges):
+            metadata_excluded += 1
+        else:
+            agents.append(node)
     workflow_nodes = [n for n in nodes if n.get("kind") == "workflow_node"]
-    if len(agents)+len(workflow_nodes) != len(nodes):
+    if len(agents)+metadata_excluded+len(workflow_nodes) != len(nodes):
         raise ValueError("unexpected Graph node kind in agent precision")
     for n in agents:
         node_location(n)
     truth_agents = (truth.get("tier_a") or {}).get("agent_roots") or []
     matched = strict_source_matches(truth_agents, agents)
     used_overlay: set[int] = set()
-    supported_overlay = disputed_overlay = 0
+    supported_overlay = disputed_overlay = supported_crossfile = 0
     for i, n in enumerate(agents):
         if i in matched:
             continue
@@ -144,12 +153,36 @@ def classify(
                 disputed_overlay += 1
             else:
                 raise ValueError("workflow-step label attached to agent")
-    unresolved = len(agents)-len(matched)-supported_overlay-disputed_overlay
+    # Original source reference selected instantiation in cli.py/app.py;
+    # modern scanner instead anchors the identical class implementation in
+    # agent.py. Treat those separately reviewed import/instance bridges as
+    # one source-supported agent, not a new false-positive entity.
+    for i, node in enumerate(agents):
+        if i in matched:
+            continue
+        np, nl = node_location(node)
+        for dec in bridges:
+            if dec["decision"] != "implementation_instance_bridge":
+                continue
+            observed = dec["observed"]
+            if observed["name"] == node.get("name") and same_path(observed["path"], np) and observed["line"] == nl:
+                if any(
+                    same_path(ref.get("path"), dec["locked_truth"]["path"])
+                    and ref.get("line") == dec["locked_truth"]["line"]
+                    and canonical_name(ref.get("name")) == canonical_name(dec["locked_truth"]["name"])
+                    for ref in truth_agents
+                ):
+                    supported_crossfile += 1
+                else:
+                    raise ValueError("cross-file bridge lacks expected pinned source truth")
+    unresolved = len(agents)-len(matched)-supported_overlay-disputed_overlay-supported_crossfile
     if unresolved < 0:
         raise ValueError("negative unknown source candidates")
     return {
         "agents": len(agents), "workflow_nodes_excluded": len(workflow_nodes),
+        "metadata_only_nodes_excluded": metadata_excluded,
         "matched_locked_source": len(matched), "matched_posthoc_source": supported_overlay,
+        "matched_crossfile_implementation": supported_crossfile,
         "taxonomy_unresolved": disputed_overlay, "unadjudicated": unresolved,
         "locked_truth_agents": len(truth_agents),
         "locked_truth_matches": len(matched),
@@ -159,12 +192,26 @@ def classify(
 
 def compare(baseline: dict[str, Any], candidate: dict[str, Any],
             cohort: dict[str, Any], overlay: dict[str, Any],
-            truth_root: Path) -> dict[str, Any]:
+            bridges: dict[str, Any], truth_root: Path) -> dict[str, Any]:
     if cohort.get("cohort_frozen") is not True or cohort.get("ground_truth_locked") is not True:
         raise ValueError("source lock removed")
     if overlay.get("reference_type") != "posthoc_source_adjudication_overlay" or overlay.get("scope") != "non-langgraph-145":
         raise ValueError("unsupported adjudication source provenance")
+    if (bridges.get("type") != "posthoc_source_verified_identity_bridge_v1"
+            or bridges.get("scope") != "non-langgraph-145"
+            or bridges.get("original_locked_truth_preserved") is not True):
+        raise ValueError("invalid cross-file source review provenance")
     source_index = {item["case_id"]: item for item in cohort["cases"]}
+    bridged_cases: dict[str, list[dict[str, Any]]] = {}
+    for decision in bridges.get("decisions", []):
+        src = source_index.get(decision["case_id"])
+        if src is None or src["repo"] != decision.get("repo") or src["sha"] != decision.get("sha"):
+            raise ValueError("cross-file reviewed identity source SHA mismatch")
+        if decision.get("decision") not in {"metadata_only", "implementation_instance_bridge"} or not decision.get("source_basis"):
+            raise ValueError("cross-file decision lacks source basis")
+        bridged_cases.setdefault(decision["case_id"], []).append(decision)
+    if len(bridges.get("decisions", [])) != 3:
+        raise ValueError("missing exact source-verified cross-file cases")
     b = scope_report(baseline, cohort, "baseline")
     c = scope_report(candidate, cohort, "candidate")
     overlay_cases = {}
@@ -189,7 +236,7 @@ def compare(baseline: dict[str, Any], candidate: dict[str, Any],
         complete = bool((truth.get("tier_a") or {}).get("reference_completeness",{}).get("agent_entities"))
         rec = {"case_id": cid, "repo": source["repo"], "precision_eligible": complete}
         for label, report in (("baseline", b[cid]), ("candidate", c[cid])):
-            scored = classify(report, truth, overlay_cases.get(cid,[]))
+            scored = classify(report, truth, overlay_cases.get(cid,[]),bridged_cases.get(cid,[]))
             rec[label] = scored
             if complete:
                 totals[label].update(scored)
@@ -199,7 +246,8 @@ def compare(baseline: dict[str, Any], candidate: dict[str, Any],
     # stay explicit, and all percentages are conditional support bounds.
     metrics = {}
     for label, values in totals.items():
-        validated = values["matched_locked_source"] + values["matched_posthoc_source"]
+        validated = (values["matched_locked_source"] + values["matched_posthoc_source"]
+                     + values["matched_crossfile_implementation"])
         unknown = values["taxonomy_unresolved"] + values["unadjudicated"]
         total = values["agents"]
         if validated + unknown != total:
@@ -245,9 +293,11 @@ def markdown(result: dict[str, Any]) -> str:
         "|---|---:|---:|",
     ]
     for label, key in (("Strict Graph agent-kind nodes","agents"),
+                       ("Excluded configuration metadata pretending to be agents","metadata_only_nodes_excluded"),
                        ("Excluded workflow-node-kind records","workflow_nodes_excluded"),
                        ("Matched original source agents","matched_locked_source"),
                        ("Post-hoc source-supported agents","matched_posthoc_source"),
+                       ("Verified imported implementation-to-instance bridges","matched_crossfile_implementation"),
                        ("Unresolved client taxonomy","taxonomy_unresolved"),
                        ("Other unadjudicated predictions","unadjudicated"),
                        ("Conditional lower support ratio","conditional_lower_if_all_unresolved_invalid")):
@@ -261,10 +311,10 @@ def markdown(result: dict[str, Any]) -> str:
 
 def main() -> int:
     p=argparse.ArgumentParser(description=__doc__)
-    for name in ("baseline","candidate","cohort","overlay","truth-root","output-json","output-markdown"):
+    for name in ("baseline","candidate","cohort","overlay","crossfile-review","truth-root","output-json","output-markdown"):
         p.add_argument("--"+name,type=Path,required=True)
     a=p.parse_args()
-    result=compare(read(a.baseline),read(a.candidate),read(a.cohort),read(a.overlay),a.truth_root)
+    result=compare(read(a.baseline),read(a.candidate),read(a.cohort),read(a.overlay),read(a.crossfile_review),a.truth_root)
     a.output_json.parent.mkdir(parents=True,exist_ok=True)
     a.output_json.write_text(json.dumps(result,indent=2,sort_keys=True)+"\n",encoding="utf-8")
     a.output_markdown.write_text(markdown(result),encoding="utf-8")
