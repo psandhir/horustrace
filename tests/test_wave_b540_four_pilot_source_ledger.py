@@ -134,6 +134,25 @@ def test_amazon_distinct_sources_are_not_live_delegations() -> None:
             "deferred_unresolved_import",
             "deferred_indirect",
         }
+    wrappers = case["orchestrator_tool_membership"]
+    assert len(wrappers) == 9
+    assert len({w["main_symbol"] for w in wrappers}) == 9
+    assert Counter(w["source_status"] for w in wrappers) == {
+        "source_visible_decorated_wrapper": 7,
+        "unresolved_package_import_mismatch": 1,
+        "partial_indirect_constructor_binding": 1,
+    }
+    assert {w["main_symbol"] for w in wrappers if w["source_status"] != "source_visible_decorated_wrapper"} == {
+        "pricing_explorer", "tech_analysis_writer",
+    }
+    for wrapper in wrappers:
+        assert wrapper["edge"] == "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE"
+        assert wrapper["source_decorator_line"] > 0
+        assert wrapper["source_definition_line"] > wrapper["source_decorator_line"]
+        assert len(wrapper["origin_blob_sha"]) == 40
+        assert wrapper["runtime_execution"] == "unresolved"
+        assert wrapper["agent_can_call"] == "unresolved"
+
     assert case["package_import_hard_negative"]["imported_callable"] == (
         "compare_regional_pricing"
     )
