@@ -126,14 +126,20 @@ def annotate_workflow_tool_availability(
 ) -> None:
     status = declared_workflow_support(path, language=language)
     for agent in agents:
-        workflow_tools = [tool for tool in agent.tools if tool.name == "Workflow"]
+        workflow_tools = [
+            tool for tool in agent.tools
+            if tool.name == "Workflow" and tool.kind == "dynamic_workflow"
+        ]
         if not workflow_tools:
             continue
         agent.metadata["workflow_sdk_version_support"] = status
         agent.metadata["workflow_sdk_version_source"] = "declared_dependency_not_installed"
         if status == "unsupported":
             # A known-incompatible dependency range cannot yield the new Workflow tool.
-            agent.tools = [tool for tool in agent.tools if tool.name != "Workflow"]
+            agent.tools = [
+                tool for tool in agent.tools
+                if tool.name != "Workflow" or tool.kind != "dynamic_workflow"
+            ]
             agent.metadata["workflow_tool_omitted_incompatible_sdk"] = True
         elif status == "unknown":
             agent.metadata["workflow_sdk_version_unresolved"] = True
