@@ -540,6 +540,9 @@ def _core_dimension_names(
             ("target", "capabilities"),
         )
     )
+    if target_kind == "tool" and "tool_scope" in dimensions:
+        # Catalogue candidates are not source-proven per-instance authority.
+        configured.append("tool_scope")
     if target_kind == "tool" and "source_effects" in dimensions:
         configured.append("source_effects")
     if target_kind in {"tool", "delegation"} and "delegation_target" in dimensions:
