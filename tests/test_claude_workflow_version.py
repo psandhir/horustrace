@@ -95,8 +95,16 @@ def test_python_pyproject_only_sdk_range_is_respected(tmp_path: Path) -> None:
     ("specifier", "expected"),
     [
         ("^0.1.80", "unsupported"),
+        ("~0.1.80", "unsupported"),
+        ("^0.2.80", "unknown"),
+        ("~0.2.80", "unknown"),
+        ("^0.2.90", "supported"),
+        ("~0.2.90", "supported"),
+        ("^0.3.246", "supported"),  # pinned ff60-anthropic-06
+        ("~0.3.246", "supported"),
         (">=0.2.90", "supported"),
         (">=0.2.0", "unknown"),
+        ("latest", "unknown"),
     ],
 )
 def test_typescript_declared_workflow_sdk_bounds(
