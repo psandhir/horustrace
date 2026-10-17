@@ -254,7 +254,7 @@ def _string_array(text: str, name: str) -> list[str] | None:
 def _object_segment(text: str, name: str) -> str | None:
     masked = _mask_comments(text)
     # A later adjacent property must not masquerade as this object's value.
-    marker = re.search(rf"\b{re.escape(name)}\s*:\s*(\{)", masked)
+    marker = re.search(rf"\b{re.escape(name)}\s*:\s*([{{])", masked)
     if marker is None:
         return None
     segment = _balanced(text, marker.start(1), "{", "}")
