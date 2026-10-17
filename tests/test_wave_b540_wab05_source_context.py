@@ -6,7 +6,6 @@ from pathlib import Path
 from horustrace.models import Graph, MCPServer, SourceLocation
 from horustrace.semantic_shadow import shadow_observation_report
 from horustrace.source_context import classify_source_context
-
 from scripts.verify_wave_b540_wab05_source_context import inventory_source_records
 
 
