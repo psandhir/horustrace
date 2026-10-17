@@ -10,7 +10,7 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
-from real_world_agent_security_non_langgraph import analyze, scope_cases  # noqa: E402
+from real_world_agent_security_non_langgraph import analyze, scope_cases
 
 ROOT = Path(__file__).resolve().parents[1] / "research" / "real-world-agent-security-2026"
 DIMENSIONS = (
