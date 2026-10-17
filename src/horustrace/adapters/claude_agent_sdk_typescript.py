@@ -949,6 +949,8 @@ def scan_claude_agent_sdk_typescript_file(path: Path) -> Graph:
             agent.metadata["explicit_auto_approved_tools"] = list(allowed_resolved)
         if allowed_present and allowed_resolved is None:
             agent.metadata["dynamic_allowed_tools"] = True
+            if default_surface and not tools_present:
+                agent.metadata["dynamic_tool_permission_unresolved"] = True
         if _has_property(body, "disallowedTools") and denied_resolved is None:
             agent.metadata["dynamic_disallowed_tools"] = True
         agent.metadata["allowed_tools_auto_approve"] = allowed
@@ -983,6 +985,14 @@ def scan_claude_agent_sdk_typescript_file(path: Path) -> Graph:
             if "(" not in value and ")" not in value
         }
         agent.tools = [tool for tool in agent.tools if tool.name not in bare_denied]
+        if agent.metadata.get("dynamic_tool_permission_unresolved"):
+            # Source-visible allowedTools is approval-only. Preserve default
+            # candidates, but do not claim a resolved per-instance catalogue.
+            agent.metadata["runtime_default_tool_candidates"] = [
+                tool.name for tool in agent.tools
+            ]
+            for tool in agent.tools:
+                tool.metadata["tool_catalogue_unresolved"] = True
         for tool in agent.tools:
             if tool.name in allowed:
                 tool.approval = False
