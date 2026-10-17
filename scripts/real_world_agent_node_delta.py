@@ -73,8 +73,22 @@ def case_rows(
         pin = cohort.get(cid)
         if pin is None or cid in result:
             raise ValueError(f"{label}: unknown or duplicate case {cid}")
-        if row.get("repo") != pin["repo"] or row.get("framework") != pin["framework_stratum"] or row.get("sha") != pin["sha"]:
+        if row.get("repo") != pin["repo"] or row.get("framework") != pin["framework_stratum"]:
             raise ValueError(f"{label}: source pin drift for {cid}")
+        status = row.get("status")
+        # The source-pinned execution harness emits a SHA only after a successful
+        # checkout+scan. Failure rows still preserve cohort ID/repo/framework
+        # but may omit sha. Never interpret an execution failure as source drift.
+        if status == "success":
+            if row.get("sha") != pin["sha"]:
+                raise ValueError(f"{label}: source pin drift for {cid}")
+        elif status in {"fetch_error", "scanner_error", "timeout"}:
+            if row.get("sha") not in {None, pin["sha"]}:
+                raise ValueError(f"{label}: source pin drift for {cid}")
+            if not isinstance(row.get("error"), str) or not row["error"].strip():
+                raise ValueError(f"{label}: failed case missing execution evidence for {cid}")
+        else:
+            raise ValueError(f"{label}: unknown execution status for {cid}: {status}")
         result[cid] = row
     if set(result) != set(cohort):
         raise ValueError(f"{label}: omitted non-LangGraph case(s)")
