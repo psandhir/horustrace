@@ -138,16 +138,20 @@ def test_amazon_distinct_sources_are_not_live_delegations() -> None:
     assert len(wrappers) == 9
     assert len({w["main_symbol"] for w in wrappers}) == 9
     assert Counter(w["source_status"] for w in wrappers) == {
-        "source_visible_decorated_wrapper": 7,
+        "source_visible_decorated_wrapper": 8,
         "unresolved_package_import_mismatch": 1,
-        "partial_indirect_constructor_binding": 1,
     }
-    unresolved_wrappers = {
+    assert Counter(w["nested_constructor_link_status"] for w in wrappers) == {
+        "source_visible_deferred_two_hop": 7,
+        "unresolved_import_symbol": 1,
+        "unresolved_indirect_handler": 1,
+    }
+    unresolved_nested = {
         w["main_symbol"]
         for w in wrappers
-        if w["source_status"] != "source_visible_decorated_wrapper"
+        if w["nested_constructor_link_status"].startswith("unresolved")
     }
-    assert unresolved_wrappers == {"pricing_explorer", "tech_analysis_writer"}
+    assert unresolved_nested == {"pricing_explorer", "tech_analysis_writer"}
     for wrapper in wrappers:
         assert wrapper["edge"] == "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE"
         assert wrapper["source_decorator_line"] > 0
