@@ -5,8 +5,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from horustrace.coverage import add_diagnostic
 from horustrace.adapters.claude_workflow_version import annotate_workflow_tool_availability
+from horustrace.coverage import add_diagnostic
 from horustrace.effect_semantics import (
     http_mutation_capabilities,
     is_local_collection_mutation,
