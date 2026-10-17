@@ -89,6 +89,20 @@ class NonLangGraphStudyTests(unittest.TestCase):
         self.assertEqual(len(before["cases"]), 180)
         self.assertEqual(len(after["cases"]), 180)
 
+    def test_already_scanned_145_is_accepted_with_original_180_baseline(self) -> None:
+        before, after = reports(self.cohort)
+        after["cases"] = [
+            row for row in after["cases"] if row["framework"] != "langgraph"
+        ]
+        after["cohort_cases"] = 145
+        scoped, excluded, baseline, candidate = scope_cases(
+            self.cohort, before, after
+        )
+        self.assertEqual(len(excluded), 35)
+        self.assertEqual(len(scoped["cases"]), 145)
+        self.assertEqual(baseline["cohort_cases"], candidate["cohort_cases"])
+        self.assertEqual(candidate["summary"]["successful_cases"], 145)
+
     def test_active_gates_keep_six_original_thresholds(self) -> None:
         before, after = reports(self.cohort)
         _, _, delta, semantic = analyze(
