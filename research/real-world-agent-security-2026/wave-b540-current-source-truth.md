@@ -6,7 +6,7 @@
 
 The user has removed the **LangGraph framework stratum** from the current active Wave B study scope. Of the original 180 pinned repositories, exactly **35** are LangGraph and **145** are in scope. This is an explicit **framework-level product/evaluation-scope change**, not a claim that previous LangGraph misses were fixed. LangGraph remains visible in the archived full-180 diagnostic only; we do not delete or change any source truth or prior score.
 
-The workflow retains the 180-case raw scan and frozen historical comparison for audit, but generates the **primary active** `non-langgraph-145-{baseline,candidate,delta,semantic-parity}.json` and `non-langgraph-145-delta.md` from both sets of exact case-level results. Both sides are reaggregated on the identical 145 pinned case IDs, not by subtracting rounded aggregate scores. Original reference completeness rules are unchanged. The historical v0.9 LangGraph-agent/tool-specific gates are explicitly excluded from the active policy; **all other six original numeric thresholds and source semantics are preserved**. The seven-case semantic set loses only the six assertions for LangGraph `rw-058`; remaining **17 semantic assertions across six cases** are still reported with no adjustment to pass criteria.
+The completed [original 180-case run](https://github.com/psandhir/horustrace/actions/runs/39037652771) and artifact `12102694714` remain archived and unchanged. **New study runs scan only 145 non-LangGraph repositories**, and generate the **primary active** `non-langgraph-145-{baseline,candidate,delta,semantic-parity}.json` and `non-langgraph-145-delta.md` from the exact 145-case scanner output and original pinned 180-case historical baseline. Both sides are reaggregated on the identical 145 pinned case IDs, not by subtracting rounded aggregate scores. Original reference completeness rules are unchanged. The historical v0.9 LangGraph-agent/tool-specific gates are explicitly excluded from the active policy; **all other six original numeric thresholds and source semantics are preserved**. The seven-case semantic set loses only the six assertions for LangGraph `rw-058`; remaining **17 semantic assertions across six cases** are still reported with no adjustment to pass criteria.
 
 **Preliminary filtered read of the already completed 180-case run** (historical baseline → current candidate, *before CI verification of the committed scope script*): agent precision **96.19% → 77.21%**, agent recall **73.52% → 81.61%**, tool recall **29.70% → 76.69%**, and effective-authority recall **61.11% → 84.73%**. The agent-precision problem remains despite the LangGraph exclusion. New non-LangGraph timeouts `rw-002` and `rw-085`, ADK/Pydantic false-positive adjudication and conditional claim validity remain substantive blockers. Neither the GitHub execution-success status nor the scope change constitutes Wave B accuracy acceptance.
 
@@ -17,11 +17,7 @@ The original scanner is `418db4e29798a7d25df686dd7bccfd9fefa225bd`.
 The 180-case cohort/review sources and historical results are retained unmodified
 under `research/real-world-agent-security-2026`.
 
-The present workflow scans the **PR's exact verified checkout HEAD** against the same
-source SHA and application roots using the existing `real_world_agent_security_execute.py`
-harness, `--mode postfix`. It scores both versions against the same locked
-source references using the existing, separately versioned comparison script and
-the prior post-hoc semantic benchmark. It does **not** install or execute any target
+The present workflow scans the **PR's exact verified checkout HEAD** against the **145 non-LangGraph pinned source SHA/application roots**, using the original `real_world_agent_security_execute.py` harness with opt-in `--exclude-framework langgraph` and `--mode postfix`. It reaggregates original baseline case-level results for the same 145 cases using `real_world_agent_security_non_langgraph.py`, then evaluates six unchanged applicable thresholds and six-case semantic benchmark (17 assertions). No excluded target is scanned in an active scoped run. It does **not** install or execute any target
 repository or use credentials. Workflow outputs are uploaded as artifacts, with
 no mutation of frozen truth, cohort or baseline.
 
@@ -55,11 +51,7 @@ no mutation of frozen truth, cohort or baseline.
 ## Pre-registered workflow integrity
 
 Workflow `.github/workflows/wave-b540-frozen180-source-truth.yml` checks:
-frozen 180 case count and exact original scanner reference, 72 explicitly
-agent-complete cases and all per-case repository pins; scanned candidate SHA
-via `git rev-parse HEAD`; source-locked runner and a same-case differential
-against `results/frozen-baseline.json`; preserved output and comparison
-artifacts even if a later step fails. It does not weaken CI/Fresh-16/Full-60.
+original frozen 180 case count, exact reference scanner SHA, 72 agent-complete labels and original source pins; scanned candidate SHA via `git rev-parse HEAD`; selected 145 exact pinned, non-LangGraph case IDs; no omitted in-scope case, no wrong source repo/framework/SHA, no reused baseline subset/denominator. It publishes new 145-case scanner and source-differential artifacts without altering the archived 180-case truth. It does not weaken CI/Fresh-16/Full-60.
 
 The workflow is a separately named diagnostic to avoid placing three hours of
 full 180-case work into every small scanner PR. Any **production scanner source
