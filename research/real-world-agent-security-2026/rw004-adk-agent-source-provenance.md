@@ -11,7 +11,7 @@ Exact frozen source: `JoanMarinPages/agentGemini@0160690bb47cca17e70ceb8486209d7
 3. `adk.yaml:name=agentGemini` is **application display metadata**, not a distinct third agent construct.
 4. The historical scanner counted `AgroAsesorIA` plus the `adk.yaml` name; latest scanner's Google ADK detectors require `google.adk` source evidence to prevent incidental third-party `Agent()` calls from masquerading as Google ADK principals.
 
-Official Google documentation independently shows the supported import `from google.adk.agents import Agent` ([Python ADK quickstart](https://adk.dev/get-started/python/)). This document does **not** claim that the pinned repository was ever executed, nor that its `google.genai.adk` import failed at runtime.
+Official Google documentation independently shows the supported import `from google.adk.agents import Agent` ([Python ADK quickstart](https://adk.dev/get-started/python/)). More decisively, the [upstream `googleapis/python-genai` **v0.1.0** source tree](https://github.com/googleapis/python-genai/tree/v0.1.0/google/genai), matching the target's declared minimum dependency, contains **no `google/genai/adk` module or package**; its complete non-truncated 160-entry tagged source tree has no `adk` paths at all. [Version 1.0.0](https://github.com/googleapis/python-genai/tree/v1.0.0/google/genai) also lacks that path. This proves the attempted import is **not provided by those inspected released tags**, not that every possible third-party/local shadow namespace is absent or that the pinned target was executed.
 
 ## Ontology / correctness boundary
 
