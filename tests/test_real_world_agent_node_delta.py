@@ -74,10 +74,36 @@ class NodeDeltaTests(unittest.TestCase):
     def test_explicit_scan_failures_preserved_and_not_go(self):
         c, a, b = sample()
         b["cases"][0]["status"] = "timeout"
+        b["cases"][0]["sha"] = None
+        b["cases"][0]["error"] = "scan timeout"
         result = analyze(c, a, b)
         self.assertEqual(result["summary"]["common_success"], 144)
         self.assertEqual(result["summary"]["not_common_success"], 1)
         self.assertFalse(result["release_eligible"])
+
+    def test_failed_cases_without_sha_are_execution_failures_not_source_drift(self):
+        c, a, b = sample()
+        a["cases"][0].update({"status": "scanner_error", "sha": None, "error": "scan_exit_1:PermissionError"})
+        b["cases"][1].update({"status": "timeout", "sha": None, "error": "security-graph timeout"})
+        result = analyze(c, a, b)
+        self.assertEqual(result["summary"]["common_success"], 143)
+        self.assertEqual(result["summary"]["not_common_success"], 2)
+        self.assertFalse(result["release_eligible"])
+        failed = [row for row in result["cases"] if row["historical_status"] != "success" or row["current_status"] != "success"]
+        self.assertEqual(len(failed), 2)
+        self.assertIn("PermissionError", failed[0]["historical_error"])
+
+    def test_failed_case_spoofed_sha_still_rejected(self):
+        c, a, b = sample()
+        b["cases"][0].update({"status": "timeout", "sha": "b" * 40, "error": "scan timeout"})
+        with self.assertRaisesRegex(ValueError, "source pin drift"):
+            analyze(c, a, b)
+
+    def test_failed_case_missing_error_is_rejected(self):
+        c, a, b = sample()
+        b["cases"][0].update({"status": "timeout", "sha": None})
+        with self.assertRaisesRegex(ValueError, "failed case missing execution evidence"):
+            analyze(c, a, b)
 
     def test_historical_scanner_sha_locked(self):
         c, a, b = sample()
