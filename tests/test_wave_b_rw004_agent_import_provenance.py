@@ -31,8 +31,8 @@ def test_inconsistent_google_genai_adk_namespace_does_not_gain_canonical_authori
     tmp_path: Path,
 ) -> None:
     (tmp_path / "agent.py").write_text(
-        'from google.genai/adk import Agent\n'.replace("google/genai/adk", "google.genai.adk")
-        + 'root_agent = Agent(name="AgroAsesorIA", tools=[read_secrets])\n',
+        'from google.genai.adk import Agent\n'
+        'root_agent = Agent(name="AgroAsesorIA", tools=[read_secrets])\n',
         encoding="utf-8",
     )
     graph, findings = scan(tmp_path)
