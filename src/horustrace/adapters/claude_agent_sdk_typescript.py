@@ -5,6 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from horustrace.heuristics import infer_capabilities
+from horustrace.adapters.claude_workflow_version import annotate_workflow_tool_availability
 from horustrace.models import (
     Agent,
     Graph,
@@ -1108,4 +1109,5 @@ def scan_claude_agent_sdk_typescript_file(path: Path) -> Graph:
     graph.unbound_tools.extend(
         deepcopy(tool) for tool in custom_tools.values() if tool.name not in bound_custom
     )
+    annotate_workflow_tool_availability(graph.agents, path, language="typescript")
     return graph
