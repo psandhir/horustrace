@@ -7,6 +7,9 @@ on:
       - 'research/real-world-agent-security-2026/wave-b540-current-source-truth.md'
       - 'scripts/real_world_agent_security_non_langgraph.py'
       - 'tests/test_real_world_agent_security_non_langgraph.py'
+      - 'research/real-world-agent-security-2026/agent-precision-adjudication-v1.json'
+      - 'scripts/real_world_agent_precision_adjudication.py'
+      - 'tests/test_real_world_agent_precision_adjudication.py'
   workflow_dispatch:
 
 permissions:
@@ -72,6 +75,7 @@ jobs:
             --scanner-sha "$SCANNER_SHA" \
             --workers 8 \
             --exclude-framework langgraph \
+            --audit-agent-nodes \
             --output-json artifacts/source-locked-non-langgraph-145.json \
             --output-markdown artifacts/source-locked-non-langgraph-145.md
       - name: Compare frozen baseline to same 145 source cases without altering 180 archive
@@ -85,6 +89,17 @@ jobs:
             --semantic-benchmark "$STUDY_ROOT/semantic-benchmark/benchmark-v1.json" \
             --output-prefix artifacts/non-langgraph-145
           cat artifacts/non-langgraph-145-delta.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify exact agent source witnesses and publish post-hoc diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_precision_adjudication.py \
+            --candidate artifacts/source-locked-non-langgraph-145.json \
+            --cohort "$STUDY_ROOT/cohort.json" \
+            --overlay "$STUDY_ROOT/agent-precision-adjudication-v1.json" \
+            --output-json artifacts/agent-precision-source-audit.json \
+            --output-markdown artifacts/agent-precision-source-audit.md
+          cat artifacts/agent-precision-source-audit.md >> "$GITHUB_STEP_SUMMARY"
       - name: Publish source-truth evidence without overwriting frozen references
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
