@@ -142,9 +142,12 @@ def test_amazon_distinct_sources_are_not_live_delegations() -> None:
         "unresolved_package_import_mismatch": 1,
         "partial_indirect_constructor_binding": 1,
     }
-    assert {w["main_symbol"] for w in wrappers if w["source_status"] != "source_visible_decorated_wrapper"} == {
-        "pricing_explorer", "tech_analysis_writer",
+    unresolved_wrappers = {
+        w["main_symbol"]
+        for w in wrappers
+        if w["source_status"] != "source_visible_decorated_wrapper"
     }
+    assert unresolved_wrappers == {"pricing_explorer", "tech_analysis_writer"}
     for wrapper in wrappers:
         assert wrapper["edge"] == "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE"
         assert wrapper["source_decorator_line"] > 0
