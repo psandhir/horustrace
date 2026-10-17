@@ -4,7 +4,10 @@ from horustrace.adapters.claude_agent_sdk_typescript import (
     is_claude_agent_sdk_typescript_file,
     scan_claude_agent_sdk_typescript_file,
 )
-from horustrace.effective_authority import effective_authority_report
+from horustrace.effective_authority import (
+    effective_authority_relationships,
+    effective_authority_report,
+)
 from horustrace.rules.builtin import evaluate
 from horustrace.scanner import scan
 
@@ -418,3 +421,49 @@ async function run() {
     assert agent.metadata["model_hosting"] == "provider_hosted"
     assert agent.metadata["model_resolution"] == "resolved_identifier"
 
+
+
+def test_typescript_dynamic_allowed_tools_do_not_become_resolved_authority(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        '''
+import { query } from "@anthropic-ai/claude-agent-sdk";
+const dynamicOptions = {
+  allowedTools: getRulesFromRegistry(),
+  disallowedTools: ["Bash"],
+  permissionMode: "default",
+};
+const explicitOptions = {
+  tools: ["Read"],
+  allowedTools: getRulesFromRegistry(),
+};
+const emptyOptions = { allowedTools: [] };
+async function run() {
+  for await (const _ of query({prompt: "dynamic", options: dynamicOptions})) {}
+  for await (const _ of query({prompt: "explicit", options: explicitOptions})) {}
+  for await (const _ of query({prompt: "empty", options: emptyOptions})) {}
+}
+''',
+    )
+    graph = scan_claude_agent_sdk_typescript_file(path)
+    dynamic = next(a for a in graph.agents if a.name == "dynamicOptions")
+    explicit = next(a for a in graph.agents if a.name == "explicitOptions")
+    empty = next(a for a in graph.agents if a.name == "emptyOptions")
+    assert dynamic.metadata["dynamic_tool_permission_unresolved"] is True
+    assert "Bash" not in {tool.name for tool in dynamic.tools}
+    assert "WebFetch" in dynamic.metadata["runtime_default_tool_candidates"]
+    assert all(tool.metadata["tool_catalogue_unresolved"] is True for tool in dynamic.tools)
+    dynamic_edges = [
+        edge for edge in effective_authority_relationships(graph)
+        if edge.agent == "dynamicOptions" and edge.target_kind == "tool"
+    ]
+    assert dynamic_edges
+    assert all(edge.core_resolution != "fully_resolved" for edge in dynamic_edges)
+    assert all("tool_catalogue" in edge.unresolved for edge in dynamic_edges)
+    assert "dynamic_tool_permission_unresolved" not in explicit.metadata
+    assert {tool.name for tool in explicit.tools} == {"Read"}
+    assert not any(tool.metadata.get("tool_catalogue_unresolved") for tool in explicit.tools)
+    assert empty.metadata["explicit_auto_approved_tools"] == []
+    assert "dynamic_tool_permission_unresolved" not in empty.metadata
