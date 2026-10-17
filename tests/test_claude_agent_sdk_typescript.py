@@ -467,3 +467,29 @@ async function run() {
     assert not any(tool.metadata.get("tool_catalogue_unresolved") for tool in explicit.tools)
     assert empty.metadata["explicit_auto_approved_tools"] == []
     assert "dynamic_tool_permission_unresolved" not in empty.metadata
+
+
+def test_typescript_option_literals_cannot_capture_later_property_values() -> None:
+    from horustrace.adapters.claude_agent_sdk_typescript import (
+        _array_segment,
+        _object_segment,
+        _string_array,
+    )
+
+    source = '''
+      allowedTools: registry.getAllowed(),
+      disallowedTools: ["Bash"],
+      mcpServers: getRuntimeServers(),
+      agents: { helper: { description: "deferred" } },
+    '''
+    assert _array_segment(source, "allowedTools") is None
+    assert _string_array(source, "allowedTools") is None
+    assert _string_array(source, "disallowedTools") == ["Bash"]
+    assert _object_segment(source, "mcpServers") is None
+    assert _object_segment(source, "agents") is not None
+
+    # Literal syntax and harmless spacing/comments still work.
+    literal = '''allowedTools: /* source literal */ ["Read", "Write"],
+    mcpServers: /* configuration */ { local: server },'''
+    assert _string_array(literal, "allowedTools") == ["Read", "Write"]
+    assert _object_segment(literal, "mcpServers") is not None
