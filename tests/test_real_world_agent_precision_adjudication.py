@@ -88,7 +88,7 @@ class AgentPrecisionAuditTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "overlay source pin"):
             evaluate(cand, self.cohort, overlay)
         overlay = copy.deepcopy(self.overlay)
-        overlay["classifications"][0]["classification"] = "taxonomy_unresolved"
+        overlay["classifications"][0]["classification"] = "workflow_step_not_agent"
         with self.assertRaisesRegex(ValueError, "ontology"):
             evaluate(cand, self.cohort, overlay)
 
