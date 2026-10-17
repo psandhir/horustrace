@@ -1,0 +1,49 @@
+name: Wave B540 WAB05 pinned MCP context
+on:
+  pull_request:
+    paths:
+      - 'scripts/verify_wave_b540_wab05_source_context.py'
+      - 'tests/test_wave_b540_wab05_source_context.py'
+      - '.github/workflows/wave-b540-wab05-source-context.yml'
+      - 'docs/wave-b540-wab05-source-context.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install scanner and run source-context tests
+        run: |
+          python -m pip install -e .
+          python -m pip install 'pytest>=8.3,<9'
+          python -m pytest tests/test_wave_b540_wab05_source_context.py -q
+      - name: Retrieve exact source, no target dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/wab540-linkedin
+          git -C /tmp/wab540-linkedin init -q
+          git -C /tmp/wab540-linkedin remote add origin https://github.com/stickerdaniel/linkedin-mcp-server.git
+          git -C /tmp/wab540-linkedin fetch --depth=1 origin f1425029ca426e850dc9f52b0097f0fff1aa7b3d
+          git -C /tmp/wab540-linkedin checkout --detach FETCH_HEAD
+          test "$(git -C /tmp/wab540-linkedin rev-parse HEAD)" = f1425029ca426e850dc9f52b0097f0fff1aa7b3d
+      - name: Compare source-role inventory to passive scanner observations
+        run: |
+          python scripts/verify_wave_b540_wab05_source_context.py \
+            --source /tmp/wab540-linkedin \
+            --output artifacts/wab05-source-inventory.json
+      - name: Archive complete source-qualified instance ledger
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wave-b540-wab05-source-ledger
+          path: artifacts/wab05-source-inventory.json
+          if-no-files-found: warn
