@@ -147,12 +147,17 @@ def audit_imported_tool_truth(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--case-zip", required=True, type=Path)
+    case_input = parser.add_mutually_exclusive_group(required=True)
+    case_input.add_argument("--case-zip", type=Path)
+    case_input.add_argument("--case-json", type=Path)
     parser.add_argument("--requirements", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
-    with zipfile.ZipFile(args.case_zip) as archive:
-        result = json.loads(archive.read("result.json"))
+    if args.case_zip is not None:
+        with zipfile.ZipFile(args.case_zip) as archive:
+            result = json.loads(archive.read("result.json"))
+    else:
+        result = json.loads(args.case_json.read_text(encoding="utf-8"))
     report = audit_imported_tool_truth(
         result, args.requirements.read_text(encoding="utf-8")
     )
