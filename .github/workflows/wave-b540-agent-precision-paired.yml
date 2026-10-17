@@ -1,0 +1,104 @@
+name: Wave B540 Paired Agent Precision Source Audit
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/wave-b540-agent-precision-paired.yml'
+      - 'scripts/real_world_agent_precision_paired.py'
+      - 'tests/test_real_world_agent_precision_paired.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wave-b540-agent-precision-paired-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  same-source-scanner-pair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout exact research HEAD, not a moving branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Recheck pinned cohort, source SHA and immutable prior results
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("research/real-world-agent-security-2026")
+          c = json.loads((root/"cohort.json").read_text())
+          assert c["cohort_frozen"] is True and c["ground_truth_locked"] is True
+          assert len(c["cases"]) == 180
+          assert c["scanner_freeze_sha"] == "418db4e29798a7d25df686dd7bccfd9fefa225bd"
+          assert sum(x["framework_stratum"] == "langgraph" for x in c["cases"]) == 35
+          assert len({x["case_id"] for x in c["cases"]}) == 180
+          overlay = json.loads((root/"agent-precision-adjudication-v1.json").read_text())
+          assert len(overlay["classifications"]) == 31
+          PY
+      - name: Install OLD exact frozen scanner SHA in isolated virtualenv
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p old-scanner
+          git -C old-scanner init -q
+          git -C old-scanner remote add origin https://github.com/psandhir/horustrace.git
+          git -C old-scanner fetch --quiet --depth=1 --filter=blob:none origin 418db4e29798a7d25df686dd7bccfd9fefa225bd
+          git -C old-scanner checkout --quiet --detach FETCH_HEAD
+          test "$(git -C old-scanner rev-parse HEAD)" = "418db4e29798a7d25df686dd7bccfd9fefa225bd"
+          python -m venv old-scanner-venv
+          old-scanner-venv/bin/python -m pip install --disable-pip-version-check -e ./old-scanner
+          old-scanner-venv/bin/horustrace --version
+      - name: Fetch verified EXACT candidate source-witness evidence (not rerun candidate)
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: wave-b540-nonlanggraph-145-source-truth
+          run-id: 39047080999
+          repository: psandhir/horustrace
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: candidate-evidence
+      - name: Rescan OLD scanner on exact same active 145 cases with source witnesses
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python scripts/real_world_agent_security_execute.py \
+            --mode postfix \
+            --exclude-framework langgraph \
+            --audit-agent-nodes \
+            --scanner "$(pwd)/old-scanner-venv/bin/horustrace" \
+            --scanner-sha 418db4e29798a7d25df686dd7bccfd9fefa225bd \
+            --workers 8 \
+            --output-json artifacts/historical-same-ontology-145.json \
+            --output-markdown artifacts/historical-same-ontology-145.md
+      - name: Score paired common-success source cases, preserving uncertainty
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_precision_paired.py \
+            --baseline artifacts/historical-same-ontology-145.json \
+            --candidate candidate-evidence/source-locked-non-langgraph-145.json \
+            --cohort research/real-world-agent-security-2026/cohort.json \
+            --overlay research/real-world-agent-security-2026/agent-precision-adjudication-v1.json \
+            --truth-root research/real-world-agent-security-2026 \
+            --output-json artifacts/paired-agent-precision.json \
+            --output-markdown artifacts/paired-agent-precision.md
+          cat artifacts/paired-agent-precision.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve baseline scanner evidence even if scoring cannot be completed
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wave-b540-agent-precision-paired-145
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30
