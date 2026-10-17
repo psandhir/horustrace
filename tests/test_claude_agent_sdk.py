@@ -712,6 +712,16 @@ async def run():
         tool.name for tool in dynamic.tools
     )
     assert all(tool.approval is None for tool in dynamic.tools)
+    assert all(tool.metadata["tool_catalogue_unresolved"] is True for tool in dynamic.tools)
+    from horustrace.effective_authority import effective_authority_relationships
+
+    dynamic_edges = [
+        edge for edge in effective_authority_relationships(graph)
+        if edge.agent == "dynamic_options" and edge.target_kind == "tool"
+    ]
+    assert dynamic_edges
+    assert all(edge.core_resolution != "fully_resolved" for edge in dynamic_edges)
+    assert all("tool_catalogue" in edge.unresolved for edge in dynamic_edges)
     assert {"Read", "Write"}.issubset(tool.name for tool in explicit.tools)
     assert empty.metadata["tool_surface"] == "runtime_default"
 
