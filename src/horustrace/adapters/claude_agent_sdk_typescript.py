@@ -4,8 +4,8 @@ import re
 from copy import deepcopy
 from pathlib import Path
 
-from horustrace.heuristics import infer_capabilities
 from horustrace.adapters.claude_workflow_version import annotate_workflow_tool_availability
+from horustrace.heuristics import infer_capabilities
 from horustrace.models import (
     Agent,
     Graph,
