@@ -1,0 +1,225 @@
+name: Wave B540 Pinned Evidence Differential
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/wave-b540-pinned-evidence.yml"
+      - "docs/accuracy-wave-b-pre-c-evaluation.md"
+      - "scripts/evaluate_wave_b_pre_c.py"
+      - "scripts/reconcile_wave_b540_model_reviews.py"
+      - "research/accuracy-wave-b540-model-judge-20261015/*.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wave-b540-pinned-evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    name: Compare frozen Fresh-16 and Full-60 source claims
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BEFORE_FRESH: "38769782161"
+      AFTER_FRESH: "38811906529"
+      BEFORE_FULL: "38768531774"
+      AFTER_FULL: "38811906774"
+      PRE_STRANDS_MAIN_SHA: "980c544616a1dff60bb76deaf546f1b34320fdb3"
+      PRE_STRANDS_FULL_SHA: "e5b588da713d04dc70a191a104ed8e4f89fb3d67"
+      POST_STRANDS_MAIN_SHA: "1ab391e1513c01ec6fa122c6f29953652fe8df76"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Verify immutable workflow inputs and their conclusions
+        run: |
+          set -euo pipefail
+          for spec in \
+            "$BEFORE_FRESH:$PRE_STRANDS_MAIN_SHA" \
+            "$AFTER_FRESH:$POST_STRANDS_MAIN_SHA" \
+            "$BEFORE_FULL:$PRE_STRANDS_FULL_SHA" \
+            "$AFTER_FULL:$POST_STRANDS_MAIN_SHA"; do
+            run_id="$(echo "$spec" | cut -d: -f1)"
+            expected="$(echo "$spec" | cut -d: -f2)"
+            actual="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '.head_sha')"
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '.conclusion')"
+            test "$actual" = "$expected"
+            test "$conclusion" = success
+          done
+      - name: Retrieve frozen case bundles and enforced pipeline summaries
+        run: |
+          set -euo pipefail
+          mkdir -p "artifacts/fresh16/before-raw" "artifacts/fresh16/after-raw"
+          mkdir -p "artifacts/full60/before-raw" "artifacts/full60/after-raw"
+          gh run download "$BEFORE_FRESH" --repo "$GITHUB_REPOSITORY" -p 'fresh16-claim-gate-*' -D artifacts/fresh16/before-raw
+          gh run download "$AFTER_FRESH" --repo "$GITHUB_REPOSITORY" -p 'fresh16-claim-gate-*' -D artifacts/fresh16/after-raw
+          gh run download "$BEFORE_FULL" --repo "$GITHUB_REPOSITORY" -p 'ff60-post-case-*' -D artifacts/full60/before-raw
+          gh run download "$AFTER_FULL" --repo "$GITHUB_REPOSITORY" -p 'ff60-post-case-*' -D artifacts/full60/after-raw
+          gh run download "$AFTER_FRESH" --repo "$GITHUB_REPOSITORY" -n fresh16-source-claim-gate-summary -D artifacts/fresh16/integrity
+          gh run download "$AFTER_FULL" --repo "$GITHUB_REPOSITORY" -n full-framework-60-post-remediation-summary -D artifacts/full60/integrity
+          find artifacts/fresh16/integrity -type f -name pipeline-integrity.json | grep -q .
+          find artifacts/full60/integrity -type f -name pipeline-integrity.json | grep -q .
+      - name: Repackage case bundles and enforce exact per-case counts
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+          for cohort, expected, prefix in [
+              ("fresh16", 16, "fresh16-claim-gate-"),
+              ("full60", 60, "ff60-post-case-"),
+          ]:
+              for revision in ("before", "after"):
+                  raw = Path("artifacts") / cohort / (revision + "-raw")
+                  output = Path("artifacts") / cohort / revision
+                  output.mkdir(parents=True, exist_ok=True)
+                  directories = sorted(p for p in raw.iterdir() if p.is_dir() and p.name.startswith(prefix))
+                  if len(directories) != expected:
+                      raise SystemExit(f"{cohort}/{revision}: expected {expected} cases, got {len(directories)}")
+                  for directory in directories:
+                      archive = output / (directory.name + ".zip")
+                      with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as dest:
+                          for p in sorted(directory.rglob("*")):
+                              if p.is_file():
+                                  dest.write(p, p.relative_to(directory).as_posix())
+          PY
+      - name: Run same-SHA source-normalized finding differential
+        run: |
+          set -euo pipefail
+          python scripts/evaluate_wave_b_pre_c.py \
+            --before-dir artifacts/fresh16/before \
+            --after-dir artifacts/fresh16/after \
+            --expected-cases 16 \
+            --allow-missing-authority \
+            --output evaluation/fresh16.json
+          python scripts/evaluate_wave_b_pre_c.py \
+            --before-dir artifacts/full60/before \
+            --after-dir artifacts/full60/after \
+            --expected-cases 60 \
+            --output evaluation/full60.json
+      - name: Require exact model-ledger parity for every changed source claim
+        run: |
+          set -euo pipefail
+          python scripts/reconcile_wave_b540_model_reviews.py \
+            --differential evaluation/full60.json \
+            --ledger research/accuracy-wave-b540-model-judge-20261015/high-severity-adjudication.json \
+            --ledger research/accuracy-wave-b540-model-judge-20261015/medium-severity-adjudication.json \
+            --output evaluation/model-source-review-overlay.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          overlay = json.loads(
+              Path("evaluation/model-source-review-overlay.json").read_text()
+          )
+          assert overlay["claim_count"] == 73
+          assert overlay["independent_human_review"] is False
+          assert overlay["wave_c_go"] is False
+          assert overlay["runtime_effectiveness_verified"] is False
+          lines = [
+              "",
+              "## Pinned model-only source review crosswalk",
+              "",
+              "Every one of the 73 historic delta claim keys matches an exact pinned review ledger entry.",
+              "This is source-only *model-assisted* review, not independent human adjudication.",
+              f"Verdict labels: {overlay['source_review_counts']}.",
+              f"Changed claims missing raw structured provenance: {overlay['raw_structured_provenance_missing_claims']}.",
+              "**Wave B acceptance: NO-GO. Wave C production cutover: NO-GO.**",
+              "",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
+              out.write("\n".join(lines))
+          PY
+      - name: Publish actual source-claim deltas and explicit NO-GO review status
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          lines = [
+              "# Wave B #540 pinned source differential",
+              "",
+              "**Decision: NO-GO for Wave C until independent source adjudication.**",
+              "This step successfully produces diagnostics; it does not approve changed security claims.",
+              "",
+              "| Cohort | Exact pinned cases | Added finding instances | Removed finding instances | Unreviewed or unresolved claim keys |",
+              "|---|---:|---:|---:|---:|",
+          ]
+          for name in ("fresh16", "full60"):
+              report = json.loads((Path("evaluation") / (name + ".json")).read_text())
+              cases = report["cases"]
+              added = sum(c["added_findings"] for c in cases)
+              removed = sum(c["removed_findings"] for c in cases)
+              gaps = len(report["unreviewed_or_unresolved_claims"])
+              changed_details = [
+                  detail for case in cases
+                  for detail in case.get("changed_claim_details", [])
+              ]
+              if len(changed_details) != gaps:
+                  raise SystemExit(
+                      "Every changed claim must appear in the source review queue"
+                  )
+              if report["wave_c_go"] is not False or report["independent_exhaustive_ground_truth"] is not False:
+                  raise SystemExit("Evaluator incorrectly granted approval")
+              lines.append(f"| {name} | {len(cases)} | {added} | {removed} | {gaps} |")
+              if name == "full60":
+                  high_risk = sum(d.get("severity") == "high" for d in changed_details)
+                  raw_provenance_missing = sum(
+                      d.get("raw_structured_provenance_count", 0) == 0
+                      for d in changed_details
+                  )
+                  lines += [
+                      "",
+                      "### Independent source-adjudication queue",
+                      "",
+                      f"Changed claims: {len(changed_details)}; high-severity: {high_risk}; "
+                      f"without raw structured provenance: {raw_provenance_missing}.",
+                      "Each claim's rule, source line, before/after instance count, "
+                      "evidence, limitations and provenance gap is exported at "
+                      "evaluation/full60.json under cases[].changed_claim_details.",
+                      "No reviewer signatures or TP/FP labels have been generated.",
+                  ]
+                  amazon = next(c for c in cases if c["case_id"] == "ff60-amazon-04")
+                  lines += [
+                      "",
+                      "## Frozen Amazon Strands ff60-amazon-04",
+                      "",
+                      "| Construct | Before | After | Delta |",
+                      "|---|---:|---:|---:|",
+                  ]
+                  for construct, measure in amazon["measures"].items():
+                      lines.append(f"| {construct} | {measure['before']} | {measure['after']} | {measure['delta']} |")
+                  lines += [
+                      "",
+                      f"Finding instances added/removed: {amazon['added_findings']} / {amazon['removed_findings']}.",
+                      f"Unlocated findings before/after: {amazon['before_missing_source_anchors']} / {amazon['after_missing_source_anchors']}.",
+                      f"Synthetic line-1 findings before/after: {amazon['before_source_line_one_findings']} / {amazon['after_source_line_one_findings']}.",
+                      "These metrics are NOT independently adjudicated true positives or false negatives.",
+                  ]
+          lines += [
+              "",
+              "Wave-A-30 and Amazon unseen holdout are separately triggered by this acceptance PR.",
+              "Never infer effective runtime authority or confirmed reachable attack paths from conditional source evidence.",
+          ]
+          summary = "\n".join(lines) + "\n"
+          Path("evaluation/summary.md").write_text(summary, encoding="utf-8")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
+              out.write(summary)
+          print(summary)
+          PY
+      - name: Preserve evaluation and integrity evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wave-b540-pinned-source-differential
+          path: |
+            evaluation/
+            artifacts/fresh16/integrity/
+            artifacts/full60/integrity/
+          if-no-files-found: warn
+          retention-days: 30

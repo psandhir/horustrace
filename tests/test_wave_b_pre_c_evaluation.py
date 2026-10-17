@@ -73,6 +73,16 @@ def test_claim_deltas_are_review_needed_without_guessing_accuracy(
     assert report["precision"] is None
     assert report["recall"] is None
     assert report["wave_c_go"] is False
+    details = case["changed_claim_details"]
+    assert len(details) == 1
+    assert details[0]["claim_key"].startswith("case-1:")
+    assert details[0]["location"] == {
+        "path": "src/agents/worker.py", "line": 8,
+    }
+    assert details[0]["raw_structured_provenance_count"] == 0
+    assert details[0]["before_instances"] == 0
+    assert details[0]["after_instances"] == 1
+    assert details[0]["review_status"] == "requires_independent_source_review"
 
 
 def test_review_requires_explicit_witness_and_reviewer(tmp_path: Path) -> None:
@@ -129,3 +139,65 @@ def test_missing_artifact_file_is_never_silently_complete(tmp_path: Path) -> Non
         zipped.writestr("result.json", "{}")
     with pytest.raises(ValueError, match="missing required data"):
         compare(before, after, expected_cases=1)
+
+
+def test_legacy_fresh16_missing_authority_is_unknown_not_zero(
+    tmp_path: Path,
+) -> None:
+    before, after = tmp_path / "before", tmp_path / "after"
+    _archive(before, "gen-pyd-001", SHA, agents=2, findings=[_finding(4)])
+    _archive(after, "gen-pyd-001", SHA, agents=3,
+             findings=[_finding(4), _finding(7)])
+    for root in (before, after):
+        path = root / "gen-pyd-001.zip"
+        with zipfile.ZipFile(path) as archive:
+            kept = {
+                name: archive.read(name)
+                for name in archive.namelist()
+                if name != "effective-authority.json"
+            }
+        with zipfile.ZipFile(path, "w") as archive:
+            for name, content in kept.items():
+                archive.writestr(name, content)
+
+    with pytest.raises(ValueError, match="missing required authority data"):
+        compare(before, after, expected_cases=1)
+
+    report = compare(
+        before, after, expected_cases=1, allow_missing_authority=True,
+    )
+    assert report["case_count"] == 1
+    assert report["authority_evidence_missing_cases"] == ["gen-pyd-001"]
+    assert report["cases"][0]["measures"]["authority_relationships"] == {
+        "before": None, "after": None, "delta": None,
+    }
+    assert report["cases"][0]["added_findings"] == 1
+    assert report["wave_c_go"] is False
+
+
+def test_root_level_target_sources_match_across_temp_checkouts(
+    tmp_path: Path,
+) -> None:
+    before, after = tmp_path / "before", tmp_path / "after"
+    original = _finding(18, "checkout-one")
+    later = _finding(18, "checkout-two")
+    original["location"]["path"] = "/tmp/checkout-one/target/agent.py"
+    later["location"]["path"] = "/tmp/checkout-two/target/agent.py"
+    _archive(before, "gen-pyd-001", SHA, findings=[original])
+    _archive(after, "gen-pyd-001", SHA, findings=[later])
+    report = compare(before, after, expected_cases=1)
+    case = report["cases"][0]
+    assert case["added_findings"] == 0
+    assert case["removed_findings"] == 0
+    assert report["unreviewed_or_unresolved_claims"] == []
+
+
+def test_src_paths_also_match_across_target_checkouts(
+    tmp_path: Path,
+) -> None:
+    before, after = tmp_path / "before", tmp_path / "after"
+    _archive(before, "gen-adk-001", SHA, findings=[_finding(4, "first")])
+    _archive(after, "gen-adk-001", SHA, findings=[_finding(4, "second")])
+    report = compare(before, after, expected_cases=1)
+    assert report["cases"][0]["added_findings"] == 0
+    assert report["cases"][0]["removed_findings"] == 0
