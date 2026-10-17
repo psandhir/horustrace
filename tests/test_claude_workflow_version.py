@@ -13,8 +13,12 @@ from horustrace.adapters.claude_agent_sdk import scan_python_file
 from horustrace.adapters.claude_agent_sdk_typescript import (
     scan_claude_agent_sdk_typescript_file,
 )
-from horustrace.adapters.claude_workflow_version import declared_workflow_support
+from horustrace.adapters.claude_workflow_version import (
+    annotate_workflow_tool_availability,
+    declared_workflow_support,
+)
 from horustrace.effective_authority import effective_authority_relationships
+from horustrace.models import Agent, Tool
 
 _PYTHON = '''
 from claude_agent_sdk import query, ClaudeAgentOptions
@@ -124,3 +128,17 @@ def test_unpinned_workflow_is_unresolved_not_absent(tmp_path: Path) -> None:
     assert agent.metadata["workflow_sdk_version_support"] == "unknown"
     assert tool.metadata["workflow_version_unresolved"] is True
     assert "Workflow" in {edge.target_name for edge in effective_authority_relationships(graph)}
+
+
+def test_incompatible_sdk_does_not_erase_custom_workflow_tool(tmp_path: Path) -> None:
+    (tmp_path / "requirements.txt").write_text(
+        "claude-agent-sdk>=0.1.39,<0.2.0\\n", encoding="utf-8"
+    )
+    path = tmp_path / "agent.py"
+    agent = Agent(name="agent", tools=[
+        Tool(name="Workflow", kind="function", capabilities={"data.read"}),
+        Tool(name="Workflow", kind="dynamic_workflow", capabilities={"agent.delegate"}),
+    ])
+    annotate_workflow_tool_availability([agent], path, language="python")
+    assert [(tool.name, tool.kind) for tool in agent.tools] == [("Workflow", "function")]
+    assert agent.metadata["workflow_tool_omitted_incompatible_sdk"] is True
