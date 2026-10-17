@@ -1,0 +1,122 @@
+name: Wave B historical/current agent source witness differential
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/wave-b-agent-node-historical-pair.yml'
+      - 'scripts/real_world_agent_node_delta.py'
+      - 'tests/test_real_world_agent_node_delta.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wave-b-historical-node-pair-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pinned-historical-and-current-agent-nodes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      HISTORICAL_SHA: 418db4e29798a7d25df686dd7bccfd9fefa225bd
+      STUDY_ROOT: research/real-world-agent-security-2026
+    steps:
+      - name: Checkout exact study harness and current scanner head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Pin 145 immutable non-LangGraph source references
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_security_study.py --validate-only
+          CANDIDATE_SHA="$(git rev-parse HEAD)"
+          echo "CANDIDATE_SHA=$CANDIDATE_SHA" >> "$GITHUB_ENV"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("research/real-world-agent-security-2026")
+          cohort = json.loads((root / "cohort.json").read_text())
+          assert cohort["scanner_freeze_sha"] == "418db4e29798a7d25df686dd7bccfd9fefa225bd"
+          assert cohort["cohort_frozen"] is True and cohort["ground_truth_locked"] is True
+          assert len(cohort["cases"]) == 180
+          assert sum(x["framework_stratum"] == "langgraph" for x in cohort["cases"]) == 35
+          assert len({x["case_id"] for x in cohort["cases"]}) == 180
+          print("Historical 180 archived, 145 active non-LangGraph cases pinned")
+          PY
+      - name: Install historical and candidate scanners in isolated environments
+        shell: bash
+        run: |
+          set -euo pipefail
+          HIST_DIR="$RUNNER_TEMP/historical-scanner"
+          git init -q "$HIST_DIR"
+          git -C "$HIST_DIR" remote add origin "https://github.com/${{ github.repository }}.git"
+          git -C "$HIST_DIR" fetch --quiet --depth=1 --filter=blob:none origin "$HISTORICAL_SHA"
+          git -C "$HIST_DIR" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "$HIST_DIR" rev-parse HEAD)" = "$HISTORICAL_SHA"
+          python -m venv "$RUNNER_TEMP/old-venv"
+          "$RUNNER_TEMP/old-venv/bin/python" -m pip install --disable-pip-version-check "$HIST_DIR"
+          python -m venv "$RUNNER_TEMP/new-venv"
+          "$RUNNER_TEMP/new-venv/bin/python" -m pip install --disable-pip-version-check .
+          test -x "$RUNNER_TEMP/old-venv/bin/horustrace"
+          test -x "$RUNNER_TEMP/new-venv/bin/horustrace"
+          mkdir -p artifacts
+          printf '%s\n' "$HISTORICAL_SHA" > artifacts/historical-scanner-sha.txt
+          printf '%s\n' "$CANDIDATE_SHA" > artifacts/current-scanner-sha.txt
+      - name: Scan all 145 sources with original historical scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_security_execute.py \
+            --mode postfix --exclude-framework langgraph --audit-agent-nodes \
+            --scanner "$RUNNER_TEMP/old-venv/bin/horustrace" \
+            --scanner-sha "$HISTORICAL_SHA" --workers 8 \
+            --output-json artifacts/agent-nodes-historical-145.json \
+            --output-markdown artifacts/agent-nodes-historical-145.md
+      - name: Scan identical sources with exact current scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_security_execute.py \
+            --mode postfix --exclude-framework langgraph --audit-agent-nodes \
+            --scanner "$RUNNER_TEMP/new-venv/bin/horustrace" \
+            --scanner-sha "$CANDIDATE_SHA" --workers 8 \
+            --output-json artifacts/agent-nodes-current-145.json \
+            --output-markdown artifacts/agent-nodes-current-145.md
+      - name: Validate pinned side-by-side Graph source identity delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_node_delta.py \
+            --cohort "$STUDY_ROOT/cohort.json" \
+            --historical artifacts/agent-nodes-historical-145.json \
+            --current artifacts/agent-nodes-current-145.json \
+            --output-json artifacts/agent-node-delta-145.json \
+            --output-markdown artifacts/agent-node-delta-145.md
+          head -35 artifacts/agent-node-delta-145.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish both pinned Graph inventories even if a scanner fails
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wave-b-145-historical-current-agent-nodes
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Enforce no release GO for unresolved scanner failures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("artifacts/agent-node-delta-145.json").read_text())
+          if report["summary"].get("common_success") != 145:
+              raise SystemExit("NO-GO: a historical/current pinned source scan failed; evidence kept in artifact")
+          print("145/145 common successes; structural diff only, accuracy certification still pending")
+          PY
