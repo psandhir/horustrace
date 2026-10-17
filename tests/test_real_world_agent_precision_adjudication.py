@@ -78,7 +78,7 @@ class AgentPrecisionAuditTests(unittest.TestCase):
         cand = self.candidate()
         case = next(c for c in cand["cases"] if c["case_id"] == "rw-025")
         case["agent_node_audit"].pop()
-        with self.assertRaisesRegex(ValueError, "full Graph witnesses"):
+        with self.assertRaisesRegex(ValueError, "Graph witnesses required"):
             evaluate(cand, self.cohort, self.overlay)
 
     def test_overlay_cannot_silently_rewrite_frozen_truth(self):
