@@ -577,7 +577,9 @@ async def run():
     assert guarded.metadata["tool_control_enforcing"] is True
 
 
-def test_allowed_tools_restrict_runtime_default_projection(tmp_path: Path) -> None:
+def test_allowed_tools_preapproves_without_restricting_runtime_default(
+    tmp_path: Path,
+) -> None:
     path = _write(
         tmp_path,
         """
@@ -593,17 +595,21 @@ async def run():
         pass
 """,
     )
-
     graph = scan_python_file(path)
     agent = next(item for item in graph.agents if item.name == "options")
+    tools = {tool.name: tool for tool in agent.tools}
+    assert "Read" in tools and "Write" in tools
+    assert "Bash" in tools and "WebFetch" in tools
+    assert tools["Read"].approval is False
+    assert tools["Read"].metadata["approval_basis"] == "allowed_tools"
+    assert tools["Bash"].approval is None
+    assert agent.metadata["tool_surface"] == "runtime_default"
+    assert agent.metadata["allowed_tools_permission_only"] is True
+    assert agent.metadata["explicit_auto_approved_tools"] == ["Read", "Write"]
+    assert "tool_surface_restricted_by_allowed_tools" not in agent.metadata
 
-    assert {tool.name for tool in agent.tools} == {"Read", "Write"}
-    assert agent.metadata["tool_surface"] == "restricted_default"
-    assert agent.metadata["tool_surface_restricted_by_allowed_tools"] is True
-    assert "dynamic_allowed_tools" not in agent.metadata
 
-
-def test_explicit_empty_allowed_tools_disable_runtime_default_projection(
+def test_empty_allowed_tools_does_not_disable_default_bypass_surface(
     tmp_path: Path,
 ) -> None:
     path = _write(
@@ -621,17 +627,20 @@ async def run():
         pass
 """,
     )
-
     graph = scan_python_file(path)
     agent = next(item for item in graph.agents if item.name == "options")
-
-    assert agent.tools == []
-    assert agent.metadata["tool_surface"] == "restricted_default"
-    assert agent.metadata["explicit_allowed_tool_surface"] == []
+    tools = {tool.name: tool for tool in agent.tools}
+    assert {"Read", "Write", "Bash", "WebFetch"}.issubset(tools)
+    assert tools["Bash"].approval is False
+    assert tools["Bash"].metadata["approval_basis"] == "permission_mode_bypassPermissions"
+    assert agent.metadata["tool_surface"] == "runtime_default"
+    assert agent.metadata["explicit_auto_approved_tools"] == []
     assert "dynamic_allowed_tools" not in agent.metadata
 
 
-def test_local_allowed_tools_builder_constrains_default_surface(tmp_path: Path) -> None:
+def test_locally_built_allowed_tools_preapprove_but_do_not_restrict(
+    tmp_path: Path,
+) -> None:
     path = _write(
         tmp_path,
         """
@@ -655,16 +664,40 @@ async def run():
         pass
 """,
     )
-
     graph = scan_python_file(path)
     agent = next(item for item in graph.agents if item.name == "options")
-
-    assert {tool.name for tool in agent.tools} == {
-        "Read",
-        "Edit",
-        "Bash",
-        "WebSearch",
-    }
-    assert "Write" not in {tool.name for tool in agent.tools}
-    assert agent.metadata["tool_surface"] == "restricted_default"
+    tools = {tool.name: tool for tool in agent.tools}
+    assert {"Read", "Edit", "Bash", "WebSearch", "Write", "WebFetch"}.issubset(tools)
+    assert agent.metadata["tool_surface"] == "runtime_default"
     assert "dynamic_allowed_tools" not in agent.metadata
+    assert all(tool.approval is False for tool in tools.values())
+
+
+def test_disallowed_tools_and_explicit_tools_still_bound_availability(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        """
+from claude_agent_sdk import ClaudeAgentOptions, query
+
+options = ClaudeAgentOptions(
+    tools=["Read", "Bash", "Write"],
+    allowed_tools=["Read"],
+    disallowed_tools=["Bash", "Write(*.env)"],
+    permission_mode="bypassPermissions",
+)
+
+async def run():
+    async for _ in query(prompt="inspect", options=options):
+        pass
+""",
+    )
+    graph = scan_python_file(path)
+    agent = next(item for item in graph.agents if item.name == "options")
+    tools = {tool.name: tool for tool in agent.tools}
+    assert set(tools) == {"Read", "Write"}
+    assert tools["Write"].metadata["scoped_deny_rules"] == ["Write(*.env)"]
+    assert tools["Write"].approval is False
+    assert tools["Write"].metadata["approval_basis"] == "permission_mode_bypassPermissions"
+    assert agent.metadata["tool_surface"] == "explicit"
