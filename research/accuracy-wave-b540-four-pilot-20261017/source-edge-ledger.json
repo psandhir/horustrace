@@ -2215,7 +2215,8 @@
           "nested_agent_delegation": "unresolved_deferred",
           "agent_can_call": "unresolved",
           "main_symbol": "analysis_writer",
-          "definition_symbol": "analysis_writer"
+          "definition_symbol": "analysis_writer",
+          "nested_constructor_link_status": "source_visible_deferred_two_hop"
         },
         {
           "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
@@ -2231,7 +2232,8 @@
           "nested_agent_delegation": "unresolved_deferred",
           "agent_can_call": "unresolved",
           "main_symbol": "cfn_explorer",
-          "definition_symbol": "cfn_explorer"
+          "definition_symbol": "cfn_explorer",
+          "nested_constructor_link_status": "source_visible_deferred_two_hop"
         },
         {
           "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
@@ -2247,7 +2249,8 @@
           "nested_agent_delegation": "unresolved_deferred",
           "agent_can_call": "unresolved",
           "main_symbol": "cloudtrail_explorer",
-          "definition_symbol": "cloudtrail_explorer"
+          "definition_symbol": "cloudtrail_explorer",
+          "nested_constructor_link_status": "source_visible_deferred_two_hop"
         },
         {
           "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
@@ -2263,7 +2266,8 @@
           "nested_agent_delegation": "unresolved_deferred",
           "agent_can_call": "unresolved",
           "main_symbol": "multi_region_expansion_planner",
-          "definition_symbol": "multi_region_expansion_planner"
+          "definition_symbol": "multi_region_expansion_planner",
+          "nested_constructor_link_status": "source_visible_deferred_two_hop"
         },
         {
           "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
@@ -2279,7 +2283,8 @@
           "nested_agent_delegation": "unresolved_deferred",
           "agent_can_call": "unresolved",
           "main_symbol": "planning_report_generator",
-          "definition_symbol": "planning_report_generator"
+          "definition_symbol": "planning_report_generator",
+          "nested_constructor_link_status": "source_visible_deferred_two_hop"
         },
         {
           "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
@@ -2295,7 +2300,8 @@
           "nested_agent_delegation": "unresolved_deferred",
           "agent_can_call": "unresolved",
           "main_symbol": "pricing_explorer",
-          "definition_symbol": "compare_regional_pricing"
+          "definition_symbol": "compare_regional_pricing",
+          "nested_constructor_link_status": "unresolved_import_symbol"
         },
         {
           "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
@@ -2311,7 +2317,8 @@
           "nested_agent_delegation": "unresolved_deferred",
           "agent_can_call": "unresolved",
           "main_symbol": "report_writer",
-          "definition_symbol": "report_writer"
+          "definition_symbol": "report_writer",
+          "nested_constructor_link_status": "source_visible_deferred_two_hop"
         },
         {
           "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
@@ -2322,12 +2329,13 @@
           "source_decorator_line": 71,
           "composition_path": "src/main.py",
           "composition_line": 54,
-          "source_status": "partial_indirect_constructor_binding",
+          "source_status": "source_visible_decorated_wrapper",
           "runtime_execution": "unresolved",
           "nested_agent_delegation": "unresolved_indirect",
           "agent_can_call": "unresolved",
           "main_symbol": "tech_analysis_writer",
-          "definition_symbol": "tech_analysis_writer"
+          "definition_symbol": "tech_analysis_writer",
+          "nested_constructor_link_status": "unresolved_indirect_handler"
         },
         {
           "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
@@ -2343,7 +2351,8 @@
           "nested_agent_delegation": "unresolved_deferred",
           "agent_can_call": "unresolved",
           "main_symbol": "waypoint_explorer",
-          "definition_symbol": "waypoint_explorer"
+          "definition_symbol": "waypoint_explorer",
+          "nested_constructor_link_status": "source_visible_deferred_two_hop"
         }
       ]
     }
