@@ -1,4 +1,4 @@
-name: Wave B540 Frozen 180 Source Truth Differential
+name: Wave B540 Non-LangGraph Source Truth Differential
 
 on:
   pull_request:
@@ -61,7 +61,7 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check -e .
           command -v horustrace
-      - name: Execute source-locked 180 repositories with present candidate scanner
+      - name: Execute only active source-locked 145 non-LangGraph repositories
         shell: bash
         run: |
           set -euo pipefail
@@ -71,29 +71,17 @@ jobs:
             --scanner "$(command -v horustrace)" \
             --scanner-sha "$SCANNER_SHA" \
             --workers 8 \
-            --output-json artifacts/source-locked-180.json \
-            --output-markdown artifacts/source-locked-180.md
-      - name: Compare archived 180 and active non-LangGraph 145 on locked truth
+            --exclude-framework langgraph \
+            --output-json artifacts/source-locked-non-langgraph-145.json \
+            --output-markdown artifacts/source-locked-non-langgraph-145.md
+      - name: Compare frozen baseline to same 145 source cases without altering 180 archive
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/real_world_agent_security_compare.py \
-            --baseline "$STUDY_ROOT/results/frozen-baseline.json" \
-            --candidate artifacts/source-locked-180.json \
-            --output-json artifacts/source-locked-180-delta.json \
-            --output-markdown artifacts/source-locked-180-delta.md
-          python scripts/real_world_semantic_benchmark.py \
-            "$STUDY_ROOT/semantic-benchmark/benchmark-v1.json" \
-            --result artifacts/source-locked-180.json \
-            --output artifacts/source-locked-180-semantic-parity.json
-          # User-approved study scope: exclude LangGraph's 35 cases from ACTIVE
-          # evaluation, not from the immutable 180-case archived reference.
-          # Reaggregate both scanner reports on identical pinned 145 cases,
-          # preserving all six non-LangGraph thresholds and semantic assertions.
           python scripts/real_world_agent_security_non_langgraph.py \
             --cohort "$STUDY_ROOT/cohort.json" \
             --baseline "$STUDY_ROOT/results/frozen-baseline.json" \
-            --candidate artifacts/source-locked-180.json \
+            --candidate artifacts/source-locked-non-langgraph-145.json \
             --semantic-benchmark "$STUDY_ROOT/semantic-benchmark/benchmark-v1.json" \
             --output-prefix artifacts/non-langgraph-145
           cat artifacts/non-langgraph-145-delta.md >> "$GITHUB_STEP_SUMMARY"
