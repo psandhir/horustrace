@@ -63,10 +63,14 @@ def scope_cases(
     for label, report in (("baseline", baseline), ("candidate", candidate)):
         if report.get("study") != "real-world-agent-security-2026":
             raise ValueError(f"{label}: wrong reference study")
-        if report.get("cohort_cases") != EXPECTED_ORIGINAL:
-            raise ValueError(f"{label}: must start from the complete 180-case report")
+        report_count = report.get("cohort_cases")
+        valid_counts = {EXPECTED_ORIGINAL} if label == "baseline" else {
+            EXPECTED_ORIGINAL, EXPECTED_ORIGINAL - EXPECTED_EXCLUDED
+        }
+        if report_count not in valid_counts:
+            raise ValueError(f"{label}: unexpected report cohort count")
         cases = report.get("cases")
-        if not isinstance(cases, list) or len(cases) != EXPECTED_ORIGINAL:
+        if not isinstance(cases, list) or len(cases) != report_count:
             raise ValueError(f"{label}: missing report case")
         results: dict[str, dict[str, Any]] = {}
         for row in cases:
@@ -83,8 +87,13 @@ def scope_cases(
             if row.get("sha") is not None and row.get("sha") != expected.get("sha"):
                 raise ValueError(f"{label}: source SHA drift for {case_id}")
             results[case_id] = row
-        if set(results) != set(by_id):
-            raise ValueError(f"{label}: report doesn't cover original cohort")
+        expected_ids = (
+            selected
+            if label == "candidate" and report_count == EXPECTED_ORIGINAL - EXPECTED_EXCLUDED
+            else set(by_id)
+        )
+        if set(results) != expected_ids:
+            raise ValueError(f"{label}: report doesn't cover expected source-pinned cases")
         selection = [results[case_id] for case_id in sorted(selected)]
         scoped_cohort = {
             **cohort,
