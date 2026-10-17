@@ -64,7 +64,7 @@ class LLMSemanticConfig:
     fail_open: bool = True
 
     def validate(self) -> None:
-        if self.provider.lower() not in {"openai", "google", "gemini", "copilot"}:
+        if self.provider.lower() not in {"openai", "google", "gemini", "copilot", "chatgpt_plan"}:
             raise LLMSemanticError(
                 f"unsupported semantic LLM provider {self.provider!r}"
             )
@@ -1143,7 +1143,31 @@ def _api_resolver(
     schema = _schema()
     if provider == "copilot":
         return _copilot_resolver(candidate, source_slice, config)
-    if provider == "openai":
+    if provider == "chatgpt_plan":
+        from horustrace.chatgpt_plan import ChatGPTPlanError, stream_responses
+        from horustrace.siwc_auth import ChatGPTAuthError, get_access_token
+
+        try:
+            token = get_access_token()
+            response = stream_responses(
+                {
+                    "model": config.model,
+                    "instructions": _system_prompt(),
+                    "input": [{"role": "user", "content": _user_prompt(candidate, source_slice)}],
+                    "text": {
+                        "format": {
+                            "type": "json_schema",
+                            "name": "horustrace_semantic_resolution",
+                            "strict": True,
+                            "schema": schema,
+                        }
+                    },
+                }, token,
+            )
+        except (ChatGPTPlanError, ChatGPTAuthError) as exc:
+            raise LLMSemanticError(str(exc)) from exc
+        raw, request_id = _openai_text(response)
+    elif provider == "openai":
         api_key = os.environ.get("OPENAI_API_KEY", "").strip()
         if not api_key:
             raise LLMSemanticError("OPENAI_API_KEY is required")

@@ -41,7 +41,7 @@ from horustrace.effective_authority import (
 )
 from horustrace.git_snapshot import GitSnapshotError
 from horustrace.limits import ScanLimitError
-from horustrace.llm_semantics import LLMSemanticConfig
+from horustrace.llm_semantics import LLMSemanticConfig, LLMSemanticError
 from horustrace.mcp_effective import effective_mcp_authority_report
 from horustrace.models import Severity
 from horustrace.owasp import build_owasp_agentic_summary, render_owasp_agentic_console
@@ -108,7 +108,7 @@ def _parser() -> argparse.ArgumentParser:
                              help="Explicit suppression YAML file.")
     scan_parser.add_argument(
         "--semantic-llm-provider",
-        choices=["openai", "google", "gemini", "copilot"],
+        choices=["openai", "google", "gemini", "copilot", "chatgpt_plan"],
         help="Opt in to bounded LLM semantic escalation for unresolved source-backed gaps.",
     )
     scan_parser.add_argument(
@@ -142,6 +142,11 @@ def _parser() -> argparse.ArgumentParser:
         default=0.75,
         metavar="P",
         help="Minimum confidence required to project inferred semantics (default: 0.75).",
+    )
+    scan_parser.add_argument(
+        "--semantic-llm-require-success",
+        action="store_true",
+        help="Fail a scan rather than fall back to deterministic-only on semantic LLM errors.",
     )
     scan_parser.add_argument(
         "--semantic-llm-cache",
@@ -459,6 +464,20 @@ def _parser() -> argparse.ArgumentParser:
             "Authority Contract violation or weakens the contract."
         ),
     )
+    chatgpt = sub.add_parser(
+        "chatgpt", help="Manage locally authorized ChatGPT-plan connections"
+    )
+    chatgpt.add_argument("action", choices=["login", "accounts", "models", "smoke", "logout"])
+    chatgpt.add_argument(
+        "--account", help="Saved account identifier (shown by chatgpt accounts)"
+    )
+    chatgpt.add_argument(
+        "--new", action="store_true",
+        help="Register a new ChatGPT account instead of using a saved registration",
+    )
+    chatgpt.add_argument(
+        "--model", help="Account-listed model slug for a one-request sign-in smoke test",
+    )
     return parser
 
 
@@ -522,6 +541,32 @@ def _parse_revision_range(value: str) -> tuple[str, str]:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.command == "chatgpt":
+        from horustrace.siwc_auth import ChatGPTAuthError
+        from horustrace.siwc_auth import accounts as chatgpt_accounts
+        from horustrace.siwc_auth import login as chatgpt_login
+        from horustrace.siwc_auth import logout as chatgpt_logout
+        from horustrace.siwc_auth import models as chatgpt_models
+        from horustrace.siwc_auth import smoke as chatgpt_smoke
+
+        try:
+            if args.action == "login":
+                response = chatgpt_login(account_id=args.account, new=args.new)
+            elif args.action == "accounts":
+                response = chatgpt_accounts()
+            elif args.action == "models":
+                response = chatgpt_models(account_id=args.account)
+            elif args.action == "smoke":
+                if not args.model:
+                    raise ChatGPTAuthError("--model is required for the smoke test")
+                response = chatgpt_smoke(args.model, account_id=args.account)
+            else:
+                response = chatgpt_logout(account_id=args.account)
+        except ChatGPTAuthError as exc:
+            print(f"horustrace chatgpt: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps(response, indent=2))
+        return 0
     if args.command == "adapters":
         report = {
             "schema_version": 1,
@@ -750,7 +795,10 @@ def main(argv: list[str] | None = None) -> int:
                 authority_source=getattr(args, "authority_source", None),
                 use_default_suppressions=args.command != "owasp",
             )
-        except (ConfigError, ManifestError, ScannerError, SuppressionError, ScanLimitError) as exc:
+        except (
+        ConfigError, ManifestError, ScannerError, SuppressionError,
+        ScanLimitError, LLMSemanticError,
+    ) as exc:
             print(f"horustrace: {exc}", file=sys.stderr)
             return 1
 
@@ -892,6 +940,7 @@ def main(argv: list[str] | None = None) -> int:
                     max_total_chars=args.semantic_llm_max_total_chars,
                     min_confidence=args.semantic_llm_min_confidence,
                     cache_path=args.semantic_llm_cache,
+                    fail_open=not args.semantic_llm_require_success,
                 )
                 llm_semantic_config.validate()
             except ValueError as exc:
