@@ -30,6 +30,7 @@ def main() -> int:
     p.add_argument("--scanner", type=Path, required=True)
     p.add_argument("--artifacts", type=Path, required=True)
     p.add_argument("--diagnostic-timeout", type=int, default=170)
+    p.add_argument("--disable-stack-sampling", action="store_true")
     args = p.parse_args()
     if args.diagnostic_timeout <= 40 or args.diagnostic_timeout > 300:
         raise ValueError("diagnostic-only limit must be within (40, 300]")
@@ -85,7 +86,9 @@ def main() -> int:
             "release_timeout_unchanged_seconds": 300,
         }
         env = dict(os.environ)
-        env["PYTHONPATH"] = str(trace_dir) + os.pathsep + env.get("PYTHONPATH", "")
+        if not args.disable_stack_sampling:
+            env["PYTHONPATH"] = str(trace_dir) + os.pathsep + env.get("PYTHONPATH", "")
+        manifest["stack_sampling_enabled"] = not args.disable_stack_sampling
         stdout_path = output / (args.case_id + "-stdout.json")
         stderr_path = output / (args.case_id + "-stacks.stderr.log")
         started = time.monotonic()
@@ -130,8 +133,13 @@ def main() -> int:
         if stderr_path.exists():
             logs = stderr_path.read_text(encoding="utf-8", errors="replace")
             print(logs[-6500:])
-    # Always return 0 for a diagnostic result with evidence; this does not
-    # indicate a successful security scan nor alter the Wave B release gate.
+    # Evidence is preserved by upload-artifact always(). Do not report a
+    # scanner crash/invalid output as a passing diagnostic smoke run.
+    if manifest["status"] == "completed" and (
+        manifest.get("returncode") not in {0, 2}
+        or manifest.get("json_output_valid") is not True
+    ):
+        return 1
     return 0
 
 
