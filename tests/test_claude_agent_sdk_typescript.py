@@ -4,7 +4,10 @@ from horustrace.adapters.claude_agent_sdk_typescript import (
     is_claude_agent_sdk_typescript_file,
     scan_claude_agent_sdk_typescript_file,
 )
-from horustrace.effective_authority import effective_authority_report
+from horustrace.effective_authority import (
+    effective_authority_relationships,
+    effective_authority_report,
+)
 from horustrace.rules.builtin import evaluate
 from horustrace.scanner import scan
 
@@ -158,7 +161,7 @@ async function run() {
     ).capabilities
 
 
-def test_claude_typescript_allowed_tools_restrict_implicit_default(
+def test_claude_typescript_allowed_tools_are_only_permission_rules(
     tmp_path: Path,
 ) -> None:
     path = _write(
@@ -182,9 +185,13 @@ async function run() {
     graph = scan_claude_agent_sdk_typescript_file(path)
     agent = next(item for item in graph.agents if item.name == "options")
 
-    assert {tool.name for tool in agent.tools} == {"Read", "Write"}
-    assert agent.metadata["tool_surface"] == "restricted_default"
-    assert agent.metadata["tool_surface_restricted_by_allowed_tools"] is True
+    names = {tool.name for tool in agent.tools}
+    assert {"Read", "Write", "Bash", "WebFetch"}.issubset(names)
+    assert agent.metadata["tool_surface"] == "runtime_default"
+    assert agent.metadata["allowed_tools_permission_only"] is True
+    assert agent.metadata["explicit_auto_approved_tools"] == ["Read", "Write"]
+    assert "tool_surface_restricted_by_allowed_tools" not in agent.metadata
+    assert next(tool for tool in agent.tools if tool.name == "Bash").approval is False
 
 
 def test_claude_typescript_imported_option_builder_is_resolved(
@@ -227,16 +234,11 @@ async function run() {
     graph = scan_claude_agent_sdk_typescript_file(path)
     agent = next(item for item in graph.agents if item.name == "optionsWithAbort")
 
-    assert {tool.name for tool in agent.tools} == {
-        "Read",
-        "Write",
-        "Edit",
-        "Glob",
-        "Grep",
-        "Bash",
-    }
+    names = {tool.name for tool in agent.tools}
+    assert {"Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch"}.issubset(names)
     assert agent.metadata["permission_mode"] == "bypassPermissions"
-    assert agent.metadata["tool_surface"] == "restricted_default"
+    assert agent.metadata["tool_surface"] == "runtime_default"
+    assert agent.metadata["allowed_tools_permission_only"] is True
     assert "process.execute" in next(
         tool for tool in agent.tools if tool.name == "Bash"
     ).capabilities
@@ -285,16 +287,11 @@ async function run() {
     graph = scan_claude_agent_sdk_typescript_file(path)
     agent = next(item for item in graph.agents if item.name == "optionsWithAbort")
 
-    assert {tool.name for tool in agent.tools} == {
-        "Read",
-        "Write",
-        "Edit",
-        "Glob",
-        "Grep",
-        "Bash",
-    }
-    assert agent.metadata["tool_surface"] == "restricted_default"
-    assert agent.metadata["explicit_allowed_tool_surface"] == [
+    assert {"Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch"}.issubset(
+        {tool.name for tool in agent.tools}
+    )
+    assert agent.metadata["tool_surface"] == "runtime_default"
+    assert agent.metadata["explicit_auto_approved_tools"] == [
         "Read",
         "Write",
         "Edit",
@@ -424,3 +421,75 @@ async function run() {
     assert agent.metadata["model_hosting"] == "provider_hosted"
     assert agent.metadata["model_resolution"] == "resolved_identifier"
 
+
+
+def test_typescript_dynamic_allowed_tools_do_not_become_resolved_authority(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        '''
+import { query } from "@anthropic-ai/claude-agent-sdk";
+const dynamicOptions = {
+  allowedTools: getRulesFromRegistry(),
+  disallowedTools: ["Bash"],
+  permissionMode: "default",
+};
+const explicitOptions = {
+  tools: ["Read"],
+  allowedTools: getRulesFromRegistry(),
+};
+const emptyOptions = { allowedTools: [] };
+async function run() {
+  for await (const _ of query({prompt: "dynamic", options: dynamicOptions})) {}
+  for await (const _ of query({prompt: "explicit", options: explicitOptions})) {}
+  for await (const _ of query({prompt: "empty", options: emptyOptions})) {}
+}
+''',
+    )
+    graph = scan_claude_agent_sdk_typescript_file(path)
+    dynamic = next(a for a in graph.agents if a.name == "dynamicOptions")
+    explicit = next(a for a in graph.agents if a.name == "explicitOptions")
+    empty = next(a for a in graph.agents if a.name == "emptyOptions")
+    assert dynamic.metadata["dynamic_tool_permission_unresolved"] is True
+    assert "Bash" not in {tool.name for tool in dynamic.tools}
+    assert "WebFetch" in dynamic.metadata["runtime_default_tool_candidates"]
+    assert all(tool.metadata["tool_catalogue_unresolved"] is True for tool in dynamic.tools)
+    dynamic_edges = [
+        edge for edge in effective_authority_relationships(graph)
+        if edge.agent == "dynamicOptions" and edge.target_kind == "tool"
+    ]
+    assert dynamic_edges
+    assert all(edge.core_resolution != "fully_resolved" for edge in dynamic_edges)
+    assert all("tool_catalogue" in edge.unresolved for edge in dynamic_edges)
+    assert "dynamic_tool_permission_unresolved" not in explicit.metadata
+    assert {tool.name for tool in explicit.tools} == {"Read"}
+    assert not any(tool.metadata.get("tool_catalogue_unresolved") for tool in explicit.tools)
+    assert empty.metadata["explicit_auto_approved_tools"] == []
+    assert "dynamic_tool_permission_unresolved" not in empty.metadata
+
+
+def test_typescript_option_literals_cannot_capture_later_property_values() -> None:
+    from horustrace.adapters.claude_agent_sdk_typescript import (
+        _array_segment,
+        _object_segment,
+        _string_array,
+    )
+
+    source = '''
+      allowedTools: registry.getAllowed(),
+      disallowedTools: ["Bash"],
+      mcpServers: getRuntimeServers(),
+      agents: { helper: { description: "deferred" } },
+    '''
+    assert _array_segment(source, "allowedTools") is None
+    assert _string_array(source, "allowedTools") is None
+    assert _string_array(source, "disallowedTools") == ["Bash"]
+    assert _object_segment(source, "mcpServers") is None
+    assert _object_segment(source, "agents") is not None
+
+    # Literal syntax and harmless spacing/comments still work.
+    literal = '''allowedTools: /* source literal */ ["Read", "Write"],
+    mcpServers: /* configuration */ { local: server },'''
+    assert _string_array(literal, "allowedTools") == ["Read", "Write"]
+    assert _object_segment(literal, "mcpServers") is not None
