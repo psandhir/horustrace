@@ -2038,7 +2038,8 @@
           "source_witness": {
             "path": "src/main.py",
             "line": 56,
-            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1"
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a"
           },
           "source_status": "source_visible",
           "runtime_instance": "conditional_entrypoint",
@@ -2051,7 +2052,8 @@
           "source_witness": {
             "path": "src/agents/analysis_writer.py",
             "line": 72,
-            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1"
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b"
           },
           "source_status": "source_visible",
           "runtime_instance": "deferred",
@@ -2064,7 +2066,8 @@
           "source_witness": {
             "path": "src/agents/cfn_explorer.py",
             "line": 92,
-            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1"
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "b52551548200e06c797c670a06a5fca8ef3fdebf"
           },
           "source_status": "source_visible",
           "runtime_instance": "deferred",
@@ -2077,7 +2080,8 @@
           "source_witness": {
             "path": "src/agents/cloudtrail_explorer.py",
             "line": 68,
-            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1"
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "0f3e50d42c7c2845b1f26d3b098f8fb9fbd9241e"
           },
           "source_status": "source_visible",
           "runtime_instance": "deferred",
@@ -2090,7 +2094,8 @@
           "source_witness": {
             "path": "src/agents/multi_region_expansion_planner.py",
             "line": 104,
-            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1"
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "f1d201e7f312a01f09f687fc2bb0acde05af9646"
           },
           "source_status": "source_visible",
           "runtime_instance": "deferred",
@@ -2103,7 +2108,8 @@
           "source_witness": {
             "path": "src/agents/planning_report_generator.py",
             "line": 102,
-            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1"
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "0029d4cdad6062a97f7d563bb7472b105d05d18f"
           },
           "source_status": "source_visible",
           "runtime_instance": "deferred",
@@ -2116,7 +2122,8 @@
           "source_witness": {
             "path": "src/agents/pricing_explorer.py",
             "line": 89,
-            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1"
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "2c7c942b22ba50e857b4b75a1c38c7a8ef8f2cc2"
           },
           "source_status": "source_visible",
           "runtime_instance": "deferred_unresolved_import",
@@ -2129,7 +2136,8 @@
           "source_witness": {
             "path": "src/agents/report_writer.py",
             "line": 74,
-            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1"
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c"
           },
           "source_status": "source_visible",
           "runtime_instance": "deferred",
@@ -2142,7 +2150,8 @@
           "source_witness": {
             "path": "src/agents/tech_analysis.py",
             "line": 140,
-            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1"
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42"
           },
           "source_status": "source_visible",
           "runtime_instance": "deferred_indirect",
@@ -2155,7 +2164,8 @@
           "source_witness": {
             "path": "src/agents/waypoint_explorer.py",
             "line": 78,
-            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1"
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "91dbbb65331563c779c07661168e8a8f49988458"
           },
           "source_status": "source_visible",
           "runtime_instance": "deferred",
