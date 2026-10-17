@@ -15,7 +15,7 @@ from horustrace.models import Agent
 
 _MIN_WORKFLOW_SDK = (0, 2, 90)
 _VERSION = re.compile(r"^(\d+)\.(\d+)(?:\.(\d+))?")
-_PY_DEP = re.compile(r"^claude-agent-sdk(?:\[[^\]]*\])?(.*)$", re.I)
+_PY_DEP = re.compile(r"^claude-agent-sdk(?:\[[^\]]*\])?(.*)$", re.IGNORECASE)
 _TOKEN = re.compile(r"(>=|<=|==|>|<|\^|~|=)\s*(\d+\.\d+(?:\.\d+)?)")
 
 
