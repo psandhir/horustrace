@@ -21,7 +21,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        case_id: ['rw-002', 'rw-085']
+        include:
+          - case_id: rw-002
+            stack_sampling: true
+            suffix: with-stacks
+          - case_id: rw-002
+            stack_sampling: false
+            suffix: without-stacks
+          - case_id: rw-085
+            stack_sampling: true
+            suffix: with-stacks
     steps:
       - name: Checkout exact PR head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -42,17 +51,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          EXTRA=()
+          if [ "${{ matrix.stack_sampling }}" = "false" ]; then
+            EXTRA+=(--disable-stack-sampling)
+          fi
           python scripts/study_scan_timeout_profile.py \
             --cohort research/real-world-agent-security-2026/cohort.json \
             --case-id "${{ matrix.case_id }}" \
             --scanner "$(command -v horustrace)" \
             --diagnostic-timeout 170 \
-            --artifacts artifacts
+            --artifacts artifacts "${EXTRA[@]}"
       - name: Preserve per-phase source and Python stack evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: wave-b-timeout-profile-${{ matrix.case_id }}
+          name: wave-b-timeout-profile-${{ matrix.case_id }}-${{ matrix.suffix }}
           path: artifacts/
           if-no-files-found: error
           retention-days: 21
