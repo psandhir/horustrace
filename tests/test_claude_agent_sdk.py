@@ -706,11 +706,12 @@ async def run():
     dynamic = next(agent for agent in graph.agents if agent.name == "dynamic_options")
     explicit = next(agent for agent in graph.agents if agent.name == "explicit_options")
     empty = next(agent for agent in graph.agents if agent.name == "empty_options")
-    assert dynamic.metadata["dynamic_tool_catalogue_unresolved"] is True
-    assert dynamic.metadata["tool_surface"] == "unresolved"
-    assert not {"Bash", "Write", "WebFetch", "Edit"}.intersection(
+    assert dynamic.metadata["dynamic_tool_permission_unresolved"] is True
+    assert dynamic.metadata["tool_surface"] == "runtime_default"
+    assert {"Bash", "Write", "WebFetch", "Edit"}.issubset(
         tool.name for tool in dynamic.tools
     )
+    assert all(tool.approval is None for tool in dynamic.tools)
     assert {"Read", "Write"}.issubset(tool.name for tool in explicit.tools)
     assert empty.metadata["tool_surface"] == "runtime_default"
 
