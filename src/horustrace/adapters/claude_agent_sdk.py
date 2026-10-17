@@ -1086,12 +1086,14 @@ def _option_agent(
             # supplies a dynamic per-instance registry/permission expression.
             # Preserve the uncertainty rather than claiming concrete authority
             # edges for every built-in on this particular option instance.
-            agent.metadata["dynamic_tool_catalogue_unresolved"] = True
-            agent.metadata["tool_surface"] = "unresolved"
+            agent.metadata["dynamic_tool_permission_unresolved"] = True
             agent.metadata["runtime_default_tool_candidates"] = [
                 tool.name for tool in agent.tools
             ]
-            agent.tools = []
+            # allowed_tools is an auto-approval configuration, not a tool
+            # availability restriction. Keep SDK-default tool candidates and
+            # their graph edges; unknown per-instance approval must not be
+            # interpreted as absence of runtime tool availability.
     if denied_node is not None and denied_resolved is None:
         agent.metadata["dynamic_disallowed_tools"] = True
 
