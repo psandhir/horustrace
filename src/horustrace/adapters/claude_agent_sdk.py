@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from horustrace.coverage import add_diagnostic
+from horustrace.adapters.claude_workflow_version import annotate_workflow_tool_availability
 from horustrace.effect_semantics import (
     http_mutation_capabilities,
     is_local_collection_mutation,
@@ -1690,6 +1691,8 @@ def scan_python_file(path: Path) -> Graph:
         for tool in custom_tools.values()
         if tool.name not in bound_custom_names
     )
+
+    annotate_workflow_tool_availability(graph.agents, path, language="python")
 
     for agent in graph.agents:
         if agent.metadata.get("dynamic_tools"):
