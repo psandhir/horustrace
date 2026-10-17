@@ -90,6 +90,7 @@ jobs:
             --candidate candidate-evidence/source-locked-non-langgraph-145.json \
             --cohort research/real-world-agent-security-2026/cohort.json \
             --overlay research/real-world-agent-security-2026/agent-precision-adjudication-v1.json \
+            --crossfile-review research/real-world-agent-security-2026/agent-precision-crossfile-review-v1.json \
             --truth-root research/real-world-agent-security-2026 \
             --output-json artifacts/paired-agent-precision.json \
             --output-markdown artifacts/paired-agent-precision.md
