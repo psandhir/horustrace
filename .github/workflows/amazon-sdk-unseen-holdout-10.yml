@@ -17,6 +17,8 @@ on:
       - "src/horustrace/strands_repository.py"
       - "src/horustrace/scanner.py"
       - "tests/test_amazon_agentic.py"
+      - "scripts/audit_wave_b540_imported_tool_truth.py"
+      - "tests/test_wave_b540_imported_tool_truth.py"
 
 permissions:
   contents: read
@@ -84,6 +86,36 @@ jobs:
         run: |
           python research/amazon-sdk-unseen-holdout-10/aggregate.py --input downloaded --output aggregate
           cat aggregate/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Audit WAB-04 pinned external tool contracts (source-only)
+        run: |
+          set -euo pipefail
+          mkdir -p "pinned-source"
+          # Fetch an immutable application source, never install or execute its dependencies.
+          curl --fail --location --silent --show-error --retry 3 \
+            "https://raw.githubusercontent.com/aws-samples/sample-multi-agent-region-expansion-planner/30d03d7c9f6512e5bf10601879382fac9c3a16b1/requirements.txt" \
+            -o pinned-source/requirements.txt
+          python scripts/audit_wave_b540_imported_tool_truth.py \
+            --case-json downloaded/amazon-sdk-holdout-case-amazon-hold-004/result.json \
+            --requirements pinned-source/requirements.txt \
+            --output aggregate/amazon-hold-004-source-tool-truth.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          report = json.loads(Path("aggregate/amazon-hold-004-source-tool-truth.json").read_text())
+          if report["wave_c_go"] is not False or report["installed_tool_implementation_verified"] is not False:
+              raise SystemExit("Do not promote unresolved external tool effects to certified runtime authority")
+          lines = [
+              "",
+              "### WAB-04 source-only imported-tool audit",
+              f"Imported Strands-tool occurrences: {report['imported_vended_tool_occurrences']}",
+              f"Package declaration: {report['source_dependency_declaration']}",
+              f"Finding provenance origins: {report['provenance_fact_origins']}",
+              "**Runtime tool effects, approvals and independent accuracy remain unverified.**",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
+              out.write("\\n".join(lines) + "\\n")
+          PY
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: amazon-sdk-unseen-holdout-10-summary
