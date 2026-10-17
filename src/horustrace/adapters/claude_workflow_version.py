@@ -52,10 +52,19 @@ def _range_status(specifier: str) -> str:
             return "unsupported"
         if operator == "<=" and version < _MIN_WORKFLOW_SDK:
             return "unsupported"
-        if operator == "^" and version[0] == 0 and version[1] < 2:
-            return "unsupported"
-        if operator == "~" and version[:2] < _MIN_WORKFLOW_SDK[:2]:
-            return "unsupported"
+        if operator == "^":
+            # npm caret ranges retain their declared lower bound; ^0.3.246
+            # cannot resolve below 0.3.246, therefore cannot be a pre-Workflow
+            # SDK. In contrast ^0.2.80 can resolve below the 0.2.90 floor.
+            if version >= _MIN_WORKFLOW_SDK:
+                supported = True
+            elif version[0] == 0 and version[1] < 2:
+                return "unsupported"
+        if operator == "~":
+            if version >= _MIN_WORKFLOW_SDK:
+                supported = True
+            elif version[:2] < _MIN_WORKFLOW_SDK[:2]:
+                return "unsupported"
         if operator in {">=", ">"} and version >= _MIN_WORKFLOW_SDK:
             supported = True
     return "supported" if supported else "unknown"
