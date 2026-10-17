@@ -1,12 +1,12 @@
 """Fail-closed tests for the source-backed agent-precision diagnostic."""
 from __future__ import annotations
 
-from collections import defaultdict
 import copy
 import json
-from pathlib import Path
 import sys
 import unittest
+from collections import defaultdict
+from pathlib import Path
 
 BASE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE / "scripts"))
