@@ -1090,6 +1090,8 @@ def _option_agent(
             agent.metadata["runtime_default_tool_candidates"] = [
                 tool.name for tool in agent.tools
             ]
+            for tool in agent.tools:
+                tool.metadata["tool_catalogue_unresolved"] = True
             # allowed_tools is an auto-approval configuration, not a tool
             # availability restriction. Keep SDK-default tool candidates and
             # their graph edges; unknown per-instance approval must not be
