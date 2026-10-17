@@ -310,7 +310,7 @@ class Harness:
     assert "tool_catalogue" in relationship["unresolved"]
     assert "capabilities" in relationship["unresolved"]
     assert relationship["core_resolution"] == "partially_resolved"
-    assert relationship["core_unresolved"] == ["capabilities"]
+    assert relationship["core_unresolved"] == ["capabilities", "tool_scope"]
 
 
 def test_managed_agent_literal_toolset_does_not_add_dynamic_catalogue(
