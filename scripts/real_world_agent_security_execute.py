@@ -705,6 +705,7 @@ def scan_one(
     scanner: str,
     tier_c: bool,
     include_authority_semantics: bool = False,
+    audit_agent_nodes: bool = False,
 ) -> dict[str, Any]:
     scope, authority_scope, fetch_error = fetch_case(
         workspace,
@@ -816,6 +817,7 @@ def scan_one(
     complete = truth_a.get("reference_completeness") or {}
 
     comparisons: dict[str, Any] = {}
+    agent_node_audit: list[dict[str, Any]] = []
     kind_map = {
         "agent_entities": "agent_roots",
         "tools": "tools",
@@ -825,6 +827,22 @@ def scan_one(
         truth_items = truth_a.get(truth_key) or []
         predicted = predicted_nodes_for_dimension(nodes, dimension)
         tp, fn, _, matched_pred = match_entities(truth_items, predicted, truth_key if truth_key != "agent_roots" else "agent_entities")
+        if dimension == "agent_entities" and audit_agent_nodes:
+            matched_indices = set(matched_pred)
+            agent_node_audit = [
+                {
+                    "kind": node.get("kind"),
+                    "name": node.get("name"),
+                    "location": node.get("location"),
+                    "attributes": {
+                        k: v for k, v in (node.get("attributes") or {}).items()
+                        if k in {"framework", "agent_type", "source_context", "source_role", "evidence_state", "symbol", "variable", "node_type"}
+                    } if isinstance(node.get("attributes"), dict) else {},
+                    "matched_locked_reference": index in matched_indices,
+                    "locked_reference_complete": bool(complete.get("agent_entities")),
+                }
+                for index, node in enumerate(predicted)
+            ]
         comparisons[dimension] = {
             "truth": len(truth_items),
             "predicted": len(predicted),
@@ -989,6 +1007,7 @@ def scan_one(
         "previously_studied": case["previously_studied"],
         "status": "success",
         "comparisons": comparisons,
+        **({"agent_node_audit": agent_node_audit} if audit_agent_nodes else {}),
         "findings": findings,
         "observed": {
             "summary": summary,
@@ -1324,6 +1343,8 @@ def parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--output-json", type=Path, required=True)
     p.add_argument("--output-markdown", type=Path, required=True)
+    p.add_argument("--case-id", action="append", default=[], help="Source-pinned case ID for targeted diagnostic scan")
+    p.add_argument("--audit-agent-nodes", action="store_true", help="Retain the actual Graph agent/workflow_node source witnesses and matcher results")
     return p
 
 
@@ -1361,6 +1382,12 @@ def main() -> int:
         if len(cases) != 145:
             raise SystemExit("study error: non-LangGraph scope must have 145 cases")
         print("Active non-LangGraph study: 145/180 pinned source cases; 35 excluded")
+    if args.case_id:
+        requested = set(args.case_id)
+        available = {str(case["case_id"]) for case in cases}
+        if not requested <= available:
+            raise SystemExit(f"study error: unknown or excluded case IDs {sorted(requested - available)}")
+        cases = [case for case in cases if case["case_id"] in requested]
     tier_c_ids = set(cohort.get("tier_c_case_ids") or [])
     truths: dict[str, dict[str, Any]] = {}
     for case in cases:
@@ -1384,6 +1411,7 @@ def main() -> int:
                     args.scanner,
                     case["case_id"] in tier_c_ids,
                     args.mode == "postfix",
+                    args.audit_agent_nodes,
                 )
                 for case in cases
             ]
