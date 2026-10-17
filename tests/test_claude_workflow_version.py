@@ -132,7 +132,7 @@ def test_unpinned_workflow_is_unresolved_not_absent(tmp_path: Path) -> None:
 
 def test_incompatible_sdk_does_not_erase_custom_workflow_tool(tmp_path: Path) -> None:
     (tmp_path / "requirements.txt").write_text(
-        "claude-agent-sdk>=0.1.39,<0.2.0\\n", encoding="utf-8"
+        "claude-agent-sdk>=0.1.39,<0.2.0\n", encoding="utf-8"
     )
     path = tmp_path / "agent.py"
     agent = Agent(name="agent", tools=[
