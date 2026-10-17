@@ -228,13 +228,13 @@ def _bool_property(text: str, name: str) -> bool | None:
 
 def _array_segment(text: str, name: str) -> str | None:
     masked = _mask_comments(text)
-    marker = re.search(rf"\b{re.escape(name)}\s*:", masked)
-    if not marker:
+    # Only parse a literal array which is the direct property value.
+    # Looking for the next '[' can steal a *different* property's array:
+    # allowedTools: fromRegistry(), disallowedTools: ["Bash"].
+    marker = re.search(rf"\b{re.escape(name)}\s*:\s*(\[)", masked)
+    if marker is None:
         return None
-    start = masked.find("[", marker.end())
-    if start < 0:
-        return None
-    segment = _balanced(text, start, "[", "]")
+    segment = _balanced(text, marker.start(1), "[", "]")
     return segment[0] if segment else None
 
 
@@ -253,13 +253,11 @@ def _string_array(text: str, name: str) -> list[str] | None:
 
 def _object_segment(text: str, name: str) -> str | None:
     masked = _mask_comments(text)
-    marker = re.search(rf"\b{re.escape(name)}\s*:", masked)
-    if not marker:
+    # A later adjacent property must not masquerade as this object's value.
+    marker = re.search(rf"\b{re.escape(name)}\s*:\s*(\{)", masked)
+    if marker is None:
         return None
-    start = masked.find("{", marker.end())
-    if start < 0:
-        return None
-    segment = _balanced(text, start, "{", "}")
+    segment = _balanced(text, marker.start(1), "{", "}")
     return segment[0] if segment else None
 
 
