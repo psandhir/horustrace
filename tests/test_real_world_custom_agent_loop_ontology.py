@@ -2,15 +2,13 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
 
-BASE = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(BASE / "scripts"))
+from scripts.real_world_custom_agent_loop_ontology import loop_evidence
 
-from real_world_custom_agent_loop_ontology import loop_evidence
+BASE = Path(__file__).resolve().parents[1]
 
 
 MODEL_LOOP = '''
