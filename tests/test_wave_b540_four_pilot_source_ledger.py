@@ -97,6 +97,9 @@ def test_couchbase_each_conditional_registration_has_local_source() -> None:
         assert edge["edge"] == "EXPOSES_TOOL"
         assert edge["import_witness"]["line"] > 0
         assert edge["implementation_target_path"].startswith("src/cb_mcp/tools/")
+        assert edge["definition_witness"]["path"] == edge["implementation_target_path"]
+        assert edge["definition_witness"]["line"] > 0
+        assert len(edge["definition_witness"]["blob_sha"]) == 40
         assert edge["read_only_mode"] == (
             "must_be_false" if edge["bucket"] == "write" else "either"
         )
@@ -122,6 +125,7 @@ def test_amazon_distinct_sources_are_not_live_delegations() -> None:
         assert site["edge"] == "SOURCE_AGENT_CONSTRUCTOR"
         assert site["source_witness"]["line"] > 0
         assert len(site["source_witness"]["commit"]) == 40
+        assert len(site["source_witness"]["blob_sha"]) == 40
         assert site["live_delegation"] == "unresolved"
         assert site["agent_can_call"] == "unresolved"
         assert site["runtime_instance"] in {
