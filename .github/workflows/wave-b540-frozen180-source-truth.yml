@@ -89,7 +89,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: wave-b540-frozen180-source-truth
+          name: wave-b540-nonlanggraph-145-source-truth
           path: artifacts/
           if-no-files-found: warn
           retention-days: 30
