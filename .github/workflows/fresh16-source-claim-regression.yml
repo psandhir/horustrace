@@ -200,3 +200,4 @@ jobs:
           path: aggregate/
           if-no-files-found: warn
           retention-days: 30
+# Post-merge cohort trigger: 2026-10-11 final P0/P1 + UX study
