@@ -124,6 +124,67 @@ class AgentOntologyV2Tests(unittest.TestCase):
         self.assertFalse(result["certified"])
         self.assertIsNone(result["precision"])
 
+    def test_rw004_preserves_unverified_import_without_invented_agent(self) -> None:
+        root = ROOT / "research" / "real-world-agent-security-2026"
+        overlay = json.loads((root / "rw004-agent-import-resolution-v2.json").read_text())
+        cohort = json.loads(COHORT.read_text())
+        pinned = next(c for c in cohort["cases"] if c["case_id"] == "rw-004")
+        self.assertEqual((overlay["case_id"], overlay["repo"], overlay["sha"]),
+                         (pinned["case_id"], pinned["repo"], pinned["sha"]))
+        original = json.loads((root / pinned["ground_truth"]).read_text())
+        assert any(a["assertion_id"] == "RW-004.A002" and
+                   a["subject"] == "AgroAsesorIA" for a in original["assertions"])
+        reference = {"agent_inventory_exhaustive": False,
+                     "independent_review": False,
+                     "agent_sites": overlay["agent_sites"]}
+        old = score_one({"status": "success", "agent_node_audit": [
+            witness("agent", "FunnelAgent", "agent.py", 98),
+            witness("agent", "AgroAsesorIA", "agentGemini/agent.py", 38),
+            witness("agent", "agentGemini", "adk.yaml", 1),
+        ]}, reference)
+        new = score_one({"status": "success", "agent_node_audit": [
+            witness("agent", "FunnelAgent", "agent.py", 98),
+        ]}, reference)
+        self.assertEqual((old["tp"], old["fp"], old["fn"]), (1, 1, 0))
+        self.assertEqual((new["tp"], new["fp"], new["fn"]), (1, 0, 0))
+        self.assertEqual((old["unresolved_agent_candidates"],
+                          new["unresolved_agent_candidates"]), (1, 0))
+        self.assertEqual(old["unresolved_source_declarations"], 1)
+        self.assertEqual(new["unresolved_source_declarations"], 1)
+        self.assertFalse(old["certified"])
+        self.assertFalse(new["certified"])
+        self.assertIsNone(old["precision"])
+        self.assertIsNone(new["recall"])
+
+    def test_unverified_source_record_requires_reason_and_blocks_certification(self) -> None:
+        unresolved = {"name": "AgroAsesorIA",
+                      "location": {"path": "agentGemini/agent.py", "line": 38},
+                      "expected": None, "resolution": "unresolved_sdk_import",
+                      "reason": "google.genai.adk export unverified"}
+        ref = {"agent_inventory_exhaustive": True, "independent_review": True,
+               "agent_sites": [truth("FunnelAgent", "agent.py", 98, True),
+                               unresolved]}
+        case = {"status": "success", "agent_node_audit": [
+            witness("agent", "FunnelAgent", "agent.py", 98)]}
+        value = score_one(case, ref)
+        self.assertEqual(value["fn"], 0)
+        self.assertFalse(value["certified"])
+        self.assertIsNone(value["precision"])
+        del unresolved["reason"]
+        with self.assertRaisesRegex(ValueError, "unresolved_sdk_import"):
+            score_one(case, ref)
+        unresolved["reason"] = "restored"
+        unresolved["resolution"] = "assumed_valid"
+        with self.assertRaisesRegex(ValueError, "unresolved_sdk_import"):
+            score_one(case, ref)
+
+    def test_missing_verified_adk_source_still_counts_false_negative(self) -> None:
+        ref = {"agent_inventory_exhaustive": True, "independent_review": True,
+               "agent_sites": [truth("FunnelAgent", "agent.py", 98, True)]}
+        result = score_one({"status": "success", "agent_node_audit": []}, ref)
+        self.assertEqual(result["fn"], 1)
+        self.assertEqual(result["unresolved_source_declarations"], 0)
+
     def test_v2_pair_on_same_pinned_145_cases(self) -> None:
         cohort, old, new, ref = pair_data()
         c = old["cases"][0]
