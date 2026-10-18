@@ -2,6 +2,10 @@ name: Wave B540 WAB05 pinned MCP context
 on:
   pull_request:
     paths:
+      - 'src/horustrace/adg.py'
+      - 'scripts/verify_wave_b540_wab05_adg_source_roles.py'
+      - 'tests/test_adg_unbound_mcp_source_roles.py'
+      - 'tests/test_wave_b540_wab05_adg_source_roles.py'
       - 'scripts/verify_wave_b540_wab05_source_context.py'
       - 'tests/test_wave_b540_wab05_source_context.py'
       - '.github/workflows/wave-b540-wab05-source-context.yml'
@@ -24,7 +28,10 @@ jobs:
         run: |
           python -m pip install -e .
           python -m pip install 'pytest>=8.3,<9'
-          python -m pytest tests/test_wave_b540_wab05_source_context.py -q
+          python -m pytest -q \
+            tests/test_wave_b540_wab05_source_context.py \
+            tests/test_adg_unbound_mcp_source_roles.py \
+            tests/test_wave_b540_wab05_adg_source_roles.py
       - name: Retrieve exact source, no target dependencies
         shell: bash
         run: |
@@ -40,10 +47,17 @@ jobs:
           python scripts/verify_wave_b540_wab05_source_context.py \
             --source /tmp/wab540-linkedin \
             --output artifacts/wab05-source-inventory.json
+      - name: Require every unbound ADG exposure to preserve test/runtime source role
+        run: |
+          python -m scripts.verify_wave_b540_wab05_adg_source_roles \
+            --source /tmp/wab540-linkedin \
+            --output artifacts/wab05-adg-exposed-source-roles.json
       - name: Archive complete source-qualified instance ledger
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wave-b540-wab05-source-ledger
-          path: artifacts/wab05-source-inventory.json
+          path: |
+            artifacts/wab05-source-inventory.json
+            artifacts/wab05-adg-exposed-source-roles.json
           if-no-files-found: warn

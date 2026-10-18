@@ -26,3 +26,30 @@ The outcome is a **source-context verification test**. It is not exhaustive inde
 #540 and #551 still need per-case Graph/authority/finding/path correspondence to the original source proof (including WAB-01–04), the independent negative-labelled D01 truth universe, 12 unresolved Amazon imported-tool control/effect claims or explicit version-dependent UNKNOWNs, and branch-rule enforcement of the stable same-head accuracy gate from #558.
 
 No production detection/rules/ADG/attack-path changes are part of this PR. Keep Fresh-16, Full-60, Wave-A-30, Amazon unseen holdout and CodeQL gates for applicable scanner changes. **No Wave C production cutover** on this diagnostic alone.
+
+## Current ADG exposure source-context correctness — 18 October 2026
+
+The latest #594 exact-source Graph/ADG differential for pinned LinkedIn
+`gen-mcp-001` captured **124 unbound MCP source observations**, zero
+source-identified agents and **642 `EXPOSES_TOOL` ADG edges**. Edge source
+locations partition as **641 test-source / 1 runtime-source**. The existing
+ADG encoded `agent_binding=unbound` and `authority_verified=false` but
+omitted a machine-readable `source_context` on those edges, making it
+possible for an unfiltered consumer to display test fixture edges as a
+production agent/tool supply chain.
+
+The corrective ADG projection now adds `source_context`,
+`server_source_context`, and `deployment_verified=false` to each
+source-proven unbound `EXPOSES_TOOL` link, and source/deployment fields
+to its endpoint nodes. **These fields do not remove historical observations,
+change counts or turn a runtime-source file into a deployed instance.**
+The dedicated pinned test `verify_wave_b540_wab05_adg_source_roles.py`
+rejects any missing, contradictory or promoted source role and outputs the
+entire original edge-context distribution. An edge with `source_context=test`
+remains a real source decorator observation, but is not reachable runtime
+authority, not a deployed server, and not an agent permission.
+
+This addresses *presentation and attribution* fidelity, not independently
+measured detection precision, remote MCP catalogue truth, complete negative
+reference labels, or Wave B GO. Source-only evidence and actual deployment
+verification remain separate dimensions.
