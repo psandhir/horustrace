@@ -1,0 +1,2368 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-17",
+  "reviewer": "OpenAI ChatGPT source-assisted, not independent human",
+  "scope": "four frozen #540 pilots, not exhaustive scanner truth",
+  "case_ids": [
+    "gen-pyd-001",
+    "ff60-microsoft-04",
+    "gen-mcp-003",
+    "ff60-amazon-04"
+  ],
+  "counts": {
+    "pharmiq_registered_decorators": 22,
+    "microsoft_declared_servers": 2,
+    "couchbase_conditional_candidates": 53,
+    "couchbase_operational": 40,
+    "couchbase_operational_insights": 13,
+    "amazon_distinct_constructor_sites": 10
+  },
+  "accuracy": {
+    "precision": null,
+    "recall": null,
+    "independent_source_adjudication": false,
+    "wave_c_go": false
+  },
+  "cases": {
+    "gen-pyd-001": {
+      "repo": "newsbubbles/pharmiq",
+      "sha": "c69949739647a47ec8339b473bdf578c8cf8bfd9",
+      "source_edges": [
+        {
+          "edge": "AGENT_BINDS_CLIENT",
+          "path": "agent.py",
+          "line": 73,
+          "blob_sha": "baf99dbe50a42526fe1f7ec6a346ae314b4464c6",
+          "source_status": "observed_source",
+          "runtime_status": "unresolved"
+        },
+        {
+          "edge": "CLIENT_CONNECTS_TO_SERVER",
+          "path": "agent.py",
+          "line": 54,
+          "blob_sha": "baf99dbe50a42526fe1f7ec6a346ae314b4464c6",
+          "command": "python mcp_server.py",
+          "source_status": "literal_local_script",
+          "runtime_status": "unresolved"
+        }
+      ],
+      "tool_edges": [
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_get_capability_statement",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 230,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 231,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_get_smart_configuration",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 256,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 257,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_exchange_code_for_token",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 282,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 283,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_refresh_token",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 310,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 311,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_get_patients",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 337,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 338,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_get_patient",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 368,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 369,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_create_patient",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 395,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 396,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_update_patient",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 422,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 423,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_get_encounters",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 450,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 451,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_get_encounter",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 481,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 482,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_create_encounter",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 508,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 509,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_get_observations",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 535,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 536,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_get_observation",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 566,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 567,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_create_observation",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 593,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 594,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_update_observation",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 620,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 621,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_get_medication_requests",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 648,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 649,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_get_medication_request",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 679,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 680,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_create_medication_request",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 706,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 707,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_get_allergy_intolerances",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 733,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 734,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_get_allergy_intolerance",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 764,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 765,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_create_allergy_intolerance",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 791,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 792,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "Healthcare Systems API",
+          "tool": "cerner_execute_batch",
+          "source_status": "source_decorator_registered",
+          "registration_witness": {
+            "path": "mcp_server.py",
+            "line": 818,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "definition_witness": {
+            "path": "mcp_server.py",
+            "line": 819,
+            "blob_sha": "b9b13c746ec54cd45f2b213f5fb35d1f0a4c2089"
+          },
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified"
+        }
+      ],
+      "hard_negatives": [
+        "EXPOSES_TOOL never promotes to AGENT_CAN_CALL",
+        "No proof subprocess started or credentials accepted",
+        "No permission/approval/execution proof"
+      ]
+    },
+    "ff60-microsoft-04": {
+      "repo": "qmatteoq/agent365-demos",
+      "sha": "937f8c12421b6eebfbff764dbafbdbe13cc72f68",
+      "source": "dotnet-agent-teammate/Agent365/WorkIqToolProvider.cs",
+      "blob_sha": "941d546c3d8fde7f1f49e6ac0dd5391b6556c614",
+      "token_witness": [
+        96,
+        109
+      ],
+      "remote_enum_witness": [
+        137,
+        154
+      ],
+      "server_edges": [
+        {
+          "edge": "CLIENT_CONNECTS_TO_SERVER",
+          "server": "mcp_MailTools",
+          "url": "https://agent365.svc.cloud.microsoft/agents/servers/mcp_MailTools",
+          "scope": "Tools.ListInvoke.All",
+          "audience": "16b1878d-62c7-4009-aa25-68989d63bbad",
+          "source_status": "manifest_declared",
+          "registration_witness": {
+            "path": "dotnet-agent-teammate/ToolingManifest.json",
+            "line": null,
+            "blob_sha": "01c99f473cea7f9e1684194da54611d31500d5f7"
+          },
+          "runtime_connection": "unresolved_token_and_transport",
+          "runtime_catalogue": "unresolved_ListToolsAsync",
+          "tool_names": [],
+          "agent_can_call": "unresolved"
+        },
+        {
+          "edge": "CLIENT_CONNECTS_TO_SERVER",
+          "server": "mcp_CalendarTools",
+          "url": "https://agent365.svc.cloud.microsoft/agents/servers/mcp_CalendarTools",
+          "scope": "Tools.ListInvoke.All",
+          "audience": "910333d2-47e9-43ca-981f-6df2f4531ef4",
+          "source_status": "manifest_declared",
+          "registration_witness": {
+            "path": "dotnet-agent-teammate/ToolingManifest.json",
+            "line": null,
+            "blob_sha": "01c99f473cea7f9e1684194da54611d31500d5f7"
+          },
+          "runtime_connection": "unresolved_token_and_transport",
+          "runtime_catalogue": "unresolved_ListToolsAsync",
+          "tool_names": [],
+          "agent_can_call": "unresolved"
+        }
+      ],
+      "catalogue_state": "unresolved_remote",
+      "hard_negatives": [
+        "Token exchange failure skips endpoint, not empty catalogue",
+        "Remote ListToolsAsync names are unknowable statically",
+        "Provider service is not automatically an Agent",
+        "No named remote tool or AGENT_CAN_CALL proof"
+      ]
+    },
+    "gen-mcp-003": {
+      "repo": "couchbase/mcp-server-couchbase",
+      "sha": "df5d9ceb013f57143171f65ec3ba033ace06aa9a",
+      "factory_witness": {
+        "path": "src/cb_mcp/core/app.py",
+        "line_range": [
+          104,
+          115
+        ],
+        "blob_sha": "1e6ec5dfe0ca5e808c776cad3f1905bb90d9aa99"
+      },
+      "preparation_witness": {
+        "path": "src/cb_mcp/tool_registration.py",
+        "blob_sha": "826c9b1ac63ce0199618c5f88bc406fad512a645"
+      },
+      "source_context": "provider_only",
+      "inferred_agent_count": 0,
+      "tool_edges": [
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_buckets_in_cluster",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 96,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 79,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/server.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/server.py",
+            "line": 101,
+            "blob_sha": "3bd48005cf45a3581e5c33646febcd43d770f2bf"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_server_configuration_status",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 97,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 20,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/status.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/status.py",
+            "line": 38,
+            "blob_sha": "2b427093fbcedaf3a33778b36f49c1f880ae84ce"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "test_cluster_connection",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 98,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 86,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/server.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/server.py",
+            "line": 40,
+            "blob_sha": "3bd48005cf45a3581e5c33646febcd43d770f2bf"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_scopes_and_collections_in_bucket",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 99,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 84,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/server.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/server.py",
+            "line": 73,
+            "blob_sha": "3bd48005cf45a3581e5c33646febcd43d770f2bf"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_collections_in_scope",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 100,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 83,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/server.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/server.py",
+            "line": 133,
+            "blob_sha": "3bd48005cf45a3581e5c33646febcd43d770f2bf"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_scopes_in_bucket",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 101,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 85,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/server.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/server.py",
+            "line": 116,
+            "blob_sha": "3bd48005cf45a3581e5c33646febcd43d770f2bf"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_cluster_health_and_services",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 102,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 81,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/server.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/server.py",
+            "line": 151,
+            "blob_sha": "3bd48005cf45a3581e5c33646febcd43d770f2bf"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_cluster_diagnostics_report",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 103,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 80,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/server.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/server.py",
+            "line": 217,
+            "blob_sha": "3bd48005cf45a3581e5c33646febcd43d770f2bf"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_cluster_metrics",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 104,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 82,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/server.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/server.py",
+            "line": 259,
+            "blob_sha": "3bd48005cf45a3581e5c33646febcd43d770f2bf"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_document_by_id",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 106,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 50,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/kv.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/kv.py",
+            "line": 28,
+            "blob_sha": "dd5542a82d94d465e25c1a7b7bf54c1c1f94fac9"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "lookup_subdocument",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 107,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 52,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/kv.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/kv.py",
+            "line": 166,
+            "blob_sha": "dd5542a82d94d465e25c1a7b7bf54c1c1f94fac9"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_schema_for_collection",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 109,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 68,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/query.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/query.py",
+            "line": 28,
+            "blob_sha": "24f0f61468014086e58137bc3d52b1ed747a8efd"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "run_sql_plus_plus_query",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 110,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 69,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/query.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/query.py",
+            "line": 128,
+            "blob_sha": "24f0f61468014086e58137bc3d52b1ed747a8efd"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "explain_sql_plus_plus_query",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 111,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 60,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/query.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/query.py",
+            "line": 223,
+            "blob_sha": "24f0f61468014086e58137bc3d52b1ed747a8efd"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_index_advisor_recommendations",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 113,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 42,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/index.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/index.py",
+            "line": 36,
+            "blob_sha": "f16f39bcd1046e0f1989b7737ad48ea58ca30b70"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "list_indexes",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 114,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 44,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/index.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/index.py",
+            "line": 172,
+            "blob_sha": "f16f39bcd1046e0f1989b7737ad48ea58ca30b70"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_index_stats",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 115,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 43,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/index.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/index.py",
+            "line": 258,
+            "blob_sha": "f16f39bcd1046e0f1989b7737ad48ea58ca30b70"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "list_fts_indexes",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 117,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 33,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/fts.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/fts.py",
+            "line": 33,
+            "blob_sha": "b998675bd6fe9b38fb0f7d29af812442230b5dd2"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_fts_index_definition",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 118,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 32,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/fts.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/fts.py",
+            "line": 111,
+            "blob_sha": "b998675bd6fe9b38fb0f7d29af812442230b5dd2"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "run_fts_query",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 119,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 34,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/fts.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/fts.py",
+            "line": 167,
+            "blob_sha": "b998675bd6fe9b38fb0f7d29af812442230b5dd2"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_queries_not_selective",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 121,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 63,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/query.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/query.py",
+            "line": 519,
+            "blob_sha": "24f0f61468014086e58137bc3d52b1ed747a8efd"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_queries_not_using_covering_index",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 122,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 64,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/query.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/query.py",
+            "line": 485,
+            "blob_sha": "24f0f61468014086e58137bc3d52b1ed747a8efd"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_queries_using_primary_index",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 123,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 65,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/query.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/query.py",
+            "line": 453,
+            "blob_sha": "24f0f61468014086e58137bc3d52b1ed747a8efd"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_queries_with_large_result_count",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 124,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 66,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/query.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/query.py",
+            "line": 415,
+            "blob_sha": "24f0f61468014086e58137bc3d52b1ed747a8efd"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_queries_with_largest_response_sizes",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 125,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 67,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/query.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/query.py",
+            "line": 375,
+            "blob_sha": "24f0f61468014086e58137bc3d52b1ed747a8efd"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_longest_running_queries",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 126,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 61,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/query.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/query.py",
+            "line": 302,
+            "blob_sha": "24f0f61468014086e58137bc3d52b1ed747a8efd"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "get_most_frequent_queries",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 127,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 62,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/query.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/query.py",
+            "line": 338,
+            "blob_sha": "24f0f61468014086e58137bc3d52b1ed747a8efd"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "discover_tool_input_values",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 129,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 74,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/reference.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/reference.py",
+            "line": 33,
+            "blob_sha": "034b4b78d11027e8594af68455b89c16dacc3ad9"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "upsert_document_by_id",
+          "bucket": "write",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 134,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 55,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/kv.py",
+          "read_only_mode": "must_be_false",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/kv.py",
+            "line": 52,
+            "blob_sha": "dd5542a82d94d465e25c1a7b7bf54c1c1f94fac9"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "insert_document_by_id",
+          "bucket": "write",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 135,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 51,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/kv.py",
+          "read_only_mode": "must_be_false",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/kv.py",
+            "line": 108,
+            "blob_sha": "dd5542a82d94d465e25c1a7b7bf54c1c1f94fac9"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "replace_document_by_id",
+          "bucket": "write",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 136,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 54,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/kv.py",
+          "read_only_mode": "must_be_false",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/kv.py",
+            "line": 137,
+            "blob_sha": "dd5542a82d94d465e25c1a7b7bf54c1c1f94fac9"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "delete_document_by_id",
+          "bucket": "write",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 137,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 49,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/kv.py",
+          "read_only_mode": "must_be_false",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/kv.py",
+            "line": 83,
+            "blob_sha": "dd5542a82d94d465e25c1a7b7bf54c1c1f94fac9"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "mutate_subdocument",
+          "bucket": "write",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 138,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 53,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/kv.py",
+          "read_only_mode": "must_be_false",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/kv.py",
+            "line": 273,
+            "blob_sha": "dd5542a82d94d465e25c1a7b7bf54c1c1f94fac9"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "create_scope",
+          "bucket": "write",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 140,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 25,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/collection_management.py",
+          "read_only_mode": "must_be_false",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/collection_management.py",
+            "line": 26,
+            "blob_sha": "dc307234311c523c4b7f49fcceb32732b9626b4f"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "create_collection",
+          "bucket": "write",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 141,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 24,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/collection_management.py",
+          "read_only_mode": "must_be_false",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/collection_management.py",
+            "line": 54,
+            "blob_sha": "dc307234311c523c4b7f49fcceb32732b9626b4f"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "delete_scope",
+          "bucket": "write",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 142,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 27,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/collection_management.py",
+          "read_only_mode": "must_be_false",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/collection_management.py",
+            "line": 81,
+            "blob_sha": "dc307234311c523c4b7f49fcceb32732b9626b4f"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "delete_collection",
+          "bucket": "write",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 143,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 26,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/collection_management.py",
+          "read_only_mode": "must_be_false",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/collection_management.py",
+            "line": 112,
+            "blob_sha": "dc307234311c523c4b7f49fcceb32732b9626b4f"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "create_index",
+          "bucket": "write",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 145,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 40,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/index.py",
+          "read_only_mode": "must_be_false",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/index.py",
+            "line": 359,
+            "blob_sha": "f16f39bcd1046e0f1989b7737ad48ea58ca30b70"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "build_index",
+          "bucket": "write",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 146,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 39,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/index.py",
+          "read_only_mode": "must_be_false",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/index.py",
+            "line": 423,
+            "blob_sha": "f16f39bcd1046e0f1989b7737ad48ea58ca30b70"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational",
+          "tool": "drop_index",
+          "bucket": "write",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 147,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational/__init__.py",
+            "line": 41,
+            "blob_sha": "5a9fef1e213016b624a0d975d0bc9842d7c29cd8"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational/index.py",
+          "read_only_mode": "must_be_false",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational/index.py",
+            "line": 459,
+            "blob_sha": "f16f39bcd1046e0f1989b7737ad48ea58ca30b70"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational_insights",
+          "tool": "get_server_configuration_status",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 59,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 36,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/status.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/status.py",
+            "line": 38,
+            "blob_sha": "2b427093fbcedaf3a33778b36f49c1f880ae84ce"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational_insights",
+          "tool": "get_databases_in_cluster",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 60,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 40,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational_insights/metadata.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/metadata.py",
+            "line": 26,
+            "blob_sha": "33a37757ec77ef9076f7fae98aeff7c298e5ef68"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational_insights",
+          "tool": "get_scopes_in_database",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 61,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 42,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational_insights/metadata.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/metadata.py",
+            "line": 48,
+            "blob_sha": "33a37757ec77ef9076f7fae98aeff7c298e5ef68"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational_insights",
+          "tool": "get_collections_in_scope",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 62,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 39,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational_insights/metadata.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/metadata.py",
+            "line": 74,
+            "blob_sha": "33a37757ec77ef9076f7fae98aeff7c298e5ef68"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational_insights",
+          "tool": "get_schema_for_collection",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 63,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 41,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational_insights/metadata.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/metadata.py",
+            "line": 136,
+            "blob_sha": "33a37757ec77ef9076f7fae98aeff7c298e5ef68"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational_insights",
+          "tool": "list_indexes",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 64,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 37,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational_insights/index.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/index.py",
+            "line": 176,
+            "blob_sha": "7d00e76f46adb61bb2d936ab83e30283d404deea"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational_insights",
+          "tool": "explain_query",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 65,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 47,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational_insights/query.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/query.py",
+            "line": 154,
+            "blob_sha": "cf558a0cea39bff483fe21d1d878f92141296539"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational_insights",
+          "tool": "run_query_sync",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 70,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 50,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational_insights/query.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/query.py",
+            "line": 88,
+            "blob_sha": "cf558a0cea39bff483fe21d1d878f92141296539"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational_insights",
+          "tool": "run_query_async",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 71,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 49,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational_insights/query.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/query.py",
+            "line": 231,
+            "blob_sha": "cf558a0cea39bff483fe21d1d878f92141296539"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational_insights",
+          "tool": "get_async_query_results",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 74,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 48,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational_insights/query.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/query.py",
+            "line": 298,
+            "blob_sha": "cf558a0cea39bff483fe21d1d878f92141296539"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational_insights",
+          "tool": "discard_async_query_results",
+          "bucket": "read_only",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 75,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 46,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational_insights/query.py",
+          "read_only_mode": "either",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/query.py",
+            "line": 361,
+            "blob_sha": "cf558a0cea39bff483fe21d1d878f92141296539"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational_insights",
+          "tool": "create_index",
+          "bucket": "write",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 78,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 37,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational_insights/index.py",
+          "read_only_mode": "must_be_false",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/index.py",
+            "line": 100,
+            "blob_sha": "7d00e76f46adb61bb2d936ab83e30283d404deea"
+          }
+        },
+        {
+          "edge": "EXPOSES_TOOL",
+          "server": "operational_insights",
+          "tool": "cancel_async_query",
+          "bucket": "write",
+          "source_status": "conditional_source_candidate",
+          "registration_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 82,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "import_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/__init__.py",
+            "line": 45,
+            "blob_sha": "f5bffeb88668179b7031bb0dfaba918b879eb827"
+          },
+          "implementation_target_path": "src/cb_mcp/tools/operational_insights/query.py",
+          "read_only_mode": "must_be_false",
+          "disabled_tools": "unresolved",
+          "auth_scopes": "unresolved",
+          "agent_can_call": "unresolved",
+          "runtime_effectiveness": "not_verified",
+          "definition_witness": {
+            "path": "src/cb_mcp/tools/operational_insights/query.py",
+            "line": 405,
+            "blob_sha": "cf558a0cea39bff483fe21d1d878f92141296539"
+          }
+        }
+      ],
+      "hard_negatives": [
+        "Source ToolSet candidate is not guaranteed deployed exposure",
+        "Write bucket excluded if read_only_mode true",
+        "Read-only bucket is registration class, not always no-write effect",
+        "Disabled tools, scope and confirmation gates depend on host runtime config",
+        "No source-proven AGENT_CAN_CALL"
+      ],
+      "source_link_verification": "All 53 candidate function definitions independently located at immutable pinned GitHub source blobs; exposure remains conditional on runtime mode/filters"
+    },
+    "ff60-amazon-04": {
+      "repo": "aws-samples/sample-multi-agent-region-expansion-planner",
+      "sha": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+      "composition_witness": {
+        "path": "src/main.py",
+        "line_range": [
+          52,
+          60
+        ],
+        "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a",
+        "expression": "common_tools+agents"
+      },
+      "constructor_sites": [
+        {
+          "edge": "SOURCE_AGENT_CONSTRUCTOR",
+          "symbol": "orchestrator",
+          "source_witness": {
+            "path": "src/main.py",
+            "line": 56,
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "e9f374cf99d80460602c633de8470a043c991c9a"
+          },
+          "source_status": "source_visible",
+          "runtime_instance": "conditional_entrypoint",
+          "live_delegation": "unresolved",
+          "agent_can_call": "unresolved"
+        },
+        {
+          "edge": "SOURCE_AGENT_CONSTRUCTOR",
+          "symbol": "analysis_writer",
+          "source_witness": {
+            "path": "src/agents/analysis_writer.py",
+            "line": 72,
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b"
+          },
+          "source_status": "source_visible",
+          "runtime_instance": "deferred",
+          "live_delegation": "unresolved",
+          "agent_can_call": "unresolved"
+        },
+        {
+          "edge": "SOURCE_AGENT_CONSTRUCTOR",
+          "symbol": "cfn_explorer",
+          "source_witness": {
+            "path": "src/agents/cfn_explorer.py",
+            "line": 92,
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "b52551548200e06c797c670a06a5fca8ef3fdebf"
+          },
+          "source_status": "source_visible",
+          "runtime_instance": "deferred",
+          "live_delegation": "unresolved",
+          "agent_can_call": "unresolved"
+        },
+        {
+          "edge": "SOURCE_AGENT_CONSTRUCTOR",
+          "symbol": "cloudtrail_explorer",
+          "source_witness": {
+            "path": "src/agents/cloudtrail_explorer.py",
+            "line": 68,
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "0f3e50d42c7c2845b1f26d3b098f8fb9fbd9241e"
+          },
+          "source_status": "source_visible",
+          "runtime_instance": "deferred",
+          "live_delegation": "unresolved",
+          "agent_can_call": "unresolved"
+        },
+        {
+          "edge": "SOURCE_AGENT_CONSTRUCTOR",
+          "symbol": "multi_region_expansion_planner",
+          "source_witness": {
+            "path": "src/agents/multi_region_expansion_planner.py",
+            "line": 104,
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "f1d201e7f312a01f09f687fc2bb0acde05af9646"
+          },
+          "source_status": "source_visible",
+          "runtime_instance": "deferred",
+          "live_delegation": "unresolved",
+          "agent_can_call": "unresolved"
+        },
+        {
+          "edge": "SOURCE_AGENT_CONSTRUCTOR",
+          "symbol": "planning_report_generator",
+          "source_witness": {
+            "path": "src/agents/planning_report_generator.py",
+            "line": 102,
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "0029d4cdad6062a97f7d563bb7472b105d05d18f"
+          },
+          "source_status": "source_visible",
+          "runtime_instance": "deferred",
+          "live_delegation": "unresolved",
+          "agent_can_call": "unresolved"
+        },
+        {
+          "edge": "SOURCE_AGENT_CONSTRUCTOR",
+          "symbol": "compare_regional_pricing",
+          "source_witness": {
+            "path": "src/agents/pricing_explorer.py",
+            "line": 89,
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "2c7c942b22ba50e857b4b75a1c38c7a8ef8f2cc2"
+          },
+          "source_status": "source_visible",
+          "runtime_instance": "deferred_unresolved_import",
+          "live_delegation": "unresolved",
+          "agent_can_call": "unresolved"
+        },
+        {
+          "edge": "SOURCE_AGENT_CONSTRUCTOR",
+          "symbol": "report_writer",
+          "source_witness": {
+            "path": "src/agents/report_writer.py",
+            "line": 74,
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c"
+          },
+          "source_status": "source_visible",
+          "runtime_instance": "deferred",
+          "live_delegation": "unresolved",
+          "agent_can_call": "unresolved"
+        },
+        {
+          "edge": "SOURCE_AGENT_CONSTRUCTOR",
+          "symbol": "tech_analysis_writer",
+          "source_witness": {
+            "path": "src/agents/tech_analysis.py",
+            "line": 140,
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42"
+          },
+          "source_status": "source_visible",
+          "runtime_instance": "deferred_indirect",
+          "live_delegation": "unresolved",
+          "agent_can_call": "unresolved"
+        },
+        {
+          "edge": "SOURCE_AGENT_CONSTRUCTOR",
+          "symbol": "waypoint_explorer",
+          "source_witness": {
+            "path": "src/agents/waypoint_explorer.py",
+            "line": 78,
+            "commit": "30d03d7c9f6512e5bf10601879382fac9c3a16b1",
+            "blob_sha": "91dbbb65331563c779c07661168e8a8f49988458"
+          },
+          "source_status": "source_visible",
+          "runtime_instance": "deferred",
+          "live_delegation": "unresolved",
+          "agent_can_call": "unresolved"
+        }
+      ],
+      "package_import_hard_negative": {
+        "path": "src/agents/__init__.py",
+        "line": 9,
+        "blob_sha": "5f7114f83152fc73ee0b84cd5a4c56a550d5ceb1",
+        "imported_callable": "compare_regional_pricing",
+        "ambiguous_or_module_symbol": "pricing_explorer"
+      },
+      "historic_stage_delta": {
+        "observed_constructors": 10,
+        "initial_consolidation_retained": 2,
+        "source_distinct_removed": 8,
+        "current_constructor_sites": 10
+      },
+      "current_candidate_report": {
+        "provenance": "draft #551 source-claim closure; #578 head 43a122cb",
+        "authority_relationships": 52,
+        "findings": 68,
+        "potential_paths": 0,
+        "runtime_effectiveness": "not_verified"
+      },
+      "hard_negatives": [
+        "Nested Agent constructors inside @tool bodies are deferred, not all live",
+        "Imported pricing_explorer module is not proven decorated callable",
+        "No unconditional live delegation from tool wrapper",
+        "Third-party strands-agents-tools version and @latest MCP effects unresolved",
+        "No source-verified identity, approval or deployed effective authority"
+      ],
+      "orchestrator_tool_membership": [
+        {
+          "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
+          "imported_symbol": "analysis_writer",
+          "origin_file": "src/agents/analysis_writer.py",
+          "origin_blob_sha": "7ff9f80928c741eb46519df84d8c8c71e2d9f97b",
+          "source_definition_line": 36,
+          "source_decorator_line": 35,
+          "composition_path": "src/main.py",
+          "composition_line": 54,
+          "source_status": "source_visible_decorated_wrapper",
+          "runtime_execution": "unresolved",
+          "nested_agent_delegation": "unresolved_deferred",
+          "agent_can_call": "unresolved",
+          "main_symbol": "analysis_writer",
+          "definition_symbol": "analysis_writer",
+          "nested_constructor_link_status": "source_visible_deferred_two_hop"
+        },
+        {
+          "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
+          "imported_symbol": "cfn_explorer",
+          "origin_file": "src/agents/cfn_explorer.py",
+          "origin_blob_sha": "b52551548200e06c797c670a06a5fca8ef3fdebf",
+          "source_definition_line": 44,
+          "source_decorator_line": 43,
+          "composition_path": "src/main.py",
+          "composition_line": 54,
+          "source_status": "source_visible_decorated_wrapper",
+          "runtime_execution": "unresolved",
+          "nested_agent_delegation": "unresolved_deferred",
+          "agent_can_call": "unresolved",
+          "main_symbol": "cfn_explorer",
+          "definition_symbol": "cfn_explorer",
+          "nested_constructor_link_status": "source_visible_deferred_two_hop"
+        },
+        {
+          "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
+          "imported_symbol": "cloudtrail_explorer",
+          "origin_file": "src/agents/cloudtrail_explorer.py",
+          "origin_blob_sha": "0f3e50d42c7c2845b1f26d3b098f8fb9fbd9241e",
+          "source_definition_line": 46,
+          "source_decorator_line": 45,
+          "composition_path": "src/main.py",
+          "composition_line": 54,
+          "source_status": "source_visible_decorated_wrapper",
+          "runtime_execution": "unresolved",
+          "nested_agent_delegation": "unresolved_deferred",
+          "agent_can_call": "unresolved",
+          "main_symbol": "cloudtrail_explorer",
+          "definition_symbol": "cloudtrail_explorer",
+          "nested_constructor_link_status": "source_visible_deferred_two_hop"
+        },
+        {
+          "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
+          "imported_symbol": "multi_region_expansion_planner",
+          "origin_file": "src/agents/multi_region_expansion_planner.py",
+          "origin_blob_sha": "f1d201e7f312a01f09f687fc2bb0acde05af9646",
+          "source_definition_line": 54,
+          "source_decorator_line": 53,
+          "composition_path": "src/main.py",
+          "composition_line": 54,
+          "source_status": "source_visible_decorated_wrapper",
+          "runtime_execution": "unresolved",
+          "nested_agent_delegation": "unresolved_deferred",
+          "agent_can_call": "unresolved",
+          "main_symbol": "multi_region_expansion_planner",
+          "definition_symbol": "multi_region_expansion_planner",
+          "nested_constructor_link_status": "source_visible_deferred_two_hop"
+        },
+        {
+          "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
+          "imported_symbol": "planning_report_generator",
+          "origin_file": "src/agents/planning_report_generator.py",
+          "origin_blob_sha": "0029d4cdad6062a97f7d563bb7472b105d05d18f",
+          "source_definition_line": 55,
+          "source_decorator_line": 54,
+          "composition_path": "src/main.py",
+          "composition_line": 54,
+          "source_status": "source_visible_decorated_wrapper",
+          "runtime_execution": "unresolved",
+          "nested_agent_delegation": "unresolved_deferred",
+          "agent_can_call": "unresolved",
+          "main_symbol": "planning_report_generator",
+          "definition_symbol": "planning_report_generator",
+          "nested_constructor_link_status": "source_visible_deferred_two_hop"
+        },
+        {
+          "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
+          "imported_symbol": "pricing_explorer",
+          "origin_file": "src/agents/pricing_explorer.py",
+          "origin_blob_sha": "2c7c942b22ba50e857b4b75a1c38c7a8ef8f2cc2",
+          "source_definition_line": 44,
+          "source_decorator_line": 43,
+          "composition_path": "src/main.py",
+          "composition_line": 54,
+          "source_status": "unresolved_package_import_mismatch",
+          "runtime_execution": "unresolved",
+          "nested_agent_delegation": "unresolved_deferred",
+          "agent_can_call": "unresolved",
+          "main_symbol": "pricing_explorer",
+          "definition_symbol": "compare_regional_pricing",
+          "nested_constructor_link_status": "unresolved_import_symbol"
+        },
+        {
+          "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
+          "imported_symbol": "report_writer",
+          "origin_file": "src/agents/report_writer.py",
+          "origin_blob_sha": "9c2fa791fb3641ed787b56357a28869287c79e9c",
+          "source_definition_line": 38,
+          "source_decorator_line": 37,
+          "composition_path": "src/main.py",
+          "composition_line": 54,
+          "source_status": "source_visible_decorated_wrapper",
+          "runtime_execution": "unresolved",
+          "nested_agent_delegation": "unresolved_deferred",
+          "agent_can_call": "unresolved",
+          "main_symbol": "report_writer",
+          "definition_symbol": "report_writer",
+          "nested_constructor_link_status": "source_visible_deferred_two_hop"
+        },
+        {
+          "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
+          "imported_symbol": "tech_analysis_writer",
+          "origin_file": "src/agents/tech_analysis.py",
+          "origin_blob_sha": "46080c13371aa2015b08de38d8517663cb2d4b42",
+          "source_definition_line": 72,
+          "source_decorator_line": 71,
+          "composition_path": "src/main.py",
+          "composition_line": 54,
+          "source_status": "source_visible_decorated_wrapper",
+          "runtime_execution": "unresolved",
+          "nested_agent_delegation": "unresolved_indirect",
+          "agent_can_call": "unresolved",
+          "main_symbol": "tech_analysis_writer",
+          "definition_symbol": "tech_analysis_writer",
+          "nested_constructor_link_status": "unresolved_indirect_handler"
+        },
+        {
+          "edge": "ORCHESTRATOR_TOOL_COMPOSITION_CANDIDATE",
+          "imported_symbol": "waypoint_explorer",
+          "origin_file": "src/agents/waypoint_explorer.py",
+          "origin_blob_sha": "91dbbb65331563c779c07661168e8a8f49988458",
+          "source_definition_line": 45,
+          "source_decorator_line": 44,
+          "composition_path": "src/main.py",
+          "composition_line": 54,
+          "source_status": "source_visible_decorated_wrapper",
+          "runtime_execution": "unresolved",
+          "nested_agent_delegation": "unresolved_deferred",
+          "agent_can_call": "unresolved",
+          "main_symbol": "waypoint_explorer",
+          "definition_symbol": "waypoint_explorer",
+          "nested_constructor_link_status": "source_visible_deferred_two_hop"
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "Pilot source witnesses are not exhaustive independent TP/FP/FN labelling",
+    "Conditional registrations must be gated by mode, disabled tools, scopes and runtime success",
+    "No scanner production Graph cutover, no assumed user credentials or runtime authority",
+    "Exact current-head per-case source-to-scan equality pending; case-level historical counts are not accuracy rates",
+    "WAB-05 separate source-context partition remains pending #540"
+  ],
+  "decision": "SOURCE_MECHANISMS_REVIEWED_RELEASE_NO_GO"
+}
