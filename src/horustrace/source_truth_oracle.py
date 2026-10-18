@@ -63,7 +63,7 @@ def _sha(value: Any, name: str) -> str:
 
 def _bool(value: Any, name: str) -> bool:
     if not isinstance(value, bool):
-        raise ValueError(f"{name} must be boolean")
+        raise TypeError(f"{name} must be boolean")
     return value
 
 
@@ -96,7 +96,7 @@ def validate_reference(reference: Any) -> dict[str, Any]:
         raise ValueError("unsupported reference schema version")
     scopes, labels = reference["scopes"], reference["labels"]
     if not isinstance(scopes, list) or not isinstance(labels, list):
-        raise ValueError("scopes and labels must be lists")
+        raise TypeError("scopes and labels must be lists")
 
     indexed: dict[str, dict[str, Any]] = {}
     for raw in scopes:
@@ -112,19 +112,17 @@ def validate_reference(reference: Any) -> dict[str, Any]:
         ):
             raise ValueError("repository must be an owner/name slug")
         _sha(scope["commit_sha"], "scope.commit_sha")
-        if scope["construct"] not in CONSTRUCTS:
+        if not isinstance(scope["construct"], str) or scope["construct"] not in CONSTRUCTS:
             raise ValueError("invalid reference construct")
-        if scope["source_role"] not in SOURCE_ROLES:
+        if not isinstance(scope["source_role"], str) or scope["source_role"] not in SOURCE_ROLES:
             raise ValueError("invalid source role")
-        if scope["review_method"] not in REVIEW_METHODS:
+        if not isinstance(scope["review_method"], str) or scope["review_method"] not in REVIEW_METHODS:
             raise ValueError("invalid review method")
         _nonempty(scope["review_ref"], "review_ref")
         _bool(scope["positive_complete"], "positive_complete")
         _bool(scope["negative_complete"], "negative_complete")
         _bool(scope["scanner_blind"], "scanner_blind")
-        if scope["negative_complete"]:
-            _nonempty(scope["negative_method"], "negative_method")
-        elif scope["negative_method"] is not None:
+        if scope["negative_complete"] or scope["negative_method"] is not None:
             _nonempty(scope["negative_method"], "negative_method")
         if key in indexed:
             raise ValueError(f"duplicate reference scope: {key}")
@@ -139,7 +137,7 @@ def validate_reference(reference: Any) -> dict[str, Any]:
         claim_id = _identifier(item["claim_id"], "label.claim_id")
         if key not in indexed:
             raise ValueError(f"label references missing scope: {key}")
-        if item["truth"] not in TRUTHS:
+        if not isinstance(item["truth"], str) or item["truth"] not in TRUTHS:
             raise ValueError("invalid truth label")
         _source(item["source"])
         _nonempty(item["reason"], "label.reason")
@@ -159,7 +157,7 @@ def score_reference(reference: Any, predictions: Any) -> dict[str, Any]:
     """
     document = validate_reference(reference)
     if not isinstance(predictions, list):
-        raise ValueError("predictions must be a list")
+        raise TypeError("predictions must be a list")
     indexed = {item["scope_id"]: item for item in document["scopes"]}
     seen: set[tuple[str, str]] = set()
     by_scope: dict[str, set[str]] = {key: set() for key in indexed}
