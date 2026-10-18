@@ -94,7 +94,12 @@ def test_c02c_review_packets_have_pinned_anchors_but_no_truth(
         "agent:worker", "factory:app",
     }
     text = json.dumps(packet)
-    assert "scanner_predictions" not in text
+    # Compare structured field names: the human-readable mode deliberately
+    # includes the words "no_scanner_predictions", which is not leaked data.
+    assert "scanner_predictions" not in packet
+    assert all("scanner_predictions" not in row for row in packet["scopes"])
+    assert all("scanner_predictions" not in row for row in packet["candidates"])
+    assert all("predictions" not in row for row in packet["candidates"])
     assert '"truth"' not in text
     assert '"reason"' not in text
     assert "source-only" not in text
