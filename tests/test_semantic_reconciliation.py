@@ -71,6 +71,28 @@ def test_c01a_duplicate_source_agents_never_merge(tmp_path: Path) -> None:
     assert len(report["unresolved_entity_ids"]) == 2
 
 
+
+def test_c01a_explicit_same_site_instance_keys_are_not_ambiguous(
+    tmp_path: Path,
+) -> None:
+    location = SourceLocation(tmp_path / "src" / "agent.py", line=17)
+    graph = Graph(agents=[
+        Agent(name="worker", location=location, metadata={
+            "instance_key": "worker-instance-a", "framework": "pydantic-ai",
+        }),
+        Agent(name="worker", location=location, metadata={
+            "instance_key": "worker-instance-b", "framework": "pydantic-ai",
+        }),
+    ])
+    report = reconcile_shadow_projection(
+        graph, build_shadow_discovery(graph, tmp_path)
+    )
+    assert report["same_source_agent_identity_collisions"] == []
+    assert len(report["same_source_explicit_instance_groups"]) == 1
+    group = report["same_source_explicit_instance_groups"][0]
+    assert group["status"] == "distinct_explicit_instance_keys"
+    assert len(set(group["entity_ids"])) == 2
+
 def test_c01a_exposure_is_not_callable_authority() -> None:
     agent = SemanticEntity(
         "agent", "operator", SemanticEntityKind.AGENT, "custom"
