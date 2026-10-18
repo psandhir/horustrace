@@ -522,7 +522,9 @@ def attach_findings(graph, findings):
             ambiguous_agent = bool(finding.agent and any(
                 candidate.name == finding.agent for candidate in graph.agents
             ))
-            finding.provenance = [] if ambiguous_agent else [
+            # AGT032 claims configuration absence and must not borrow
+            # unrelated entities that happen to share a manifest line.
+            finding.provenance = [] if ambiguous_agent or finding.rule_id == 'AGT032' else [
                 fact for entity in entities
                 if finding.location is not None
                 and entity.location == finding.location
@@ -531,6 +533,44 @@ def attach_findings(graph, findings):
             legacy_inferred = any(
                 fact.origin == 'inferred' for fact in finding.provenance
             )
+        if finding.rule_id == 'AGT032' and not finding.provenance:
+            # A manifest URL is a *positive source configuration witness*, not
+            # proof that deployed MCP tools lack an allowlist. Distinguish two
+            # servers sharing the same manifest location by their exact URL.
+            urls = _evidence_values(finding, 'url')
+            matched_servers = [
+                server for server in graph.all_mcp_servers()
+                if server.location is not None
+                and server.location == finding.location
+                and isinstance(server.url, str)
+                and server.url in urls
+            ]
+            if len(urls) == 1 and len(matched_servers) == 1:
+                server = matched_servers[0]
+                finding.provenance = [
+                    EvidenceFact(server.name, f'url={server.url}', 'declared',
+                                 server.location),
+                ]
+            # Absence in source does not prove a deployed policy is absent.
+            limitation = (
+                'No tool allowlist was detected in scanned configuration; '
+                'the deployed MCP tool catalogue and effective filters are unverified.'
+            )
+            if limitation not in finding.limitations:
+                finding.limitations.append(limitation)
+        if finding.rule_id == 'CAP005' and not finding.provenance:
+            # A derived relationship's capability labels are not independent
+            # source witnesses for BOTH read/write legs. Do not manufacture
+            # source facts or assert verified effective authority.
+            finding.assessment = 'heuristic_risk'
+            finding.confidence = Confidence.POTENTIAL
+            limitation = (
+                'Separate source-backed read and write capability witnesses '
+                'were not attached to this agent instance; the combination '
+                'is a conditional authority candidate, not verified execution.'
+            )
+            if limitation not in finding.limitations:
+                finding.limitations.append(limitation)
         if finding.rule_id.startswith('PATH') or finding.rule_id in {'AGT010', 'DATA003'}:
             finding.assessment = 'potential_risk'
         if finding.rule_id.startswith('PATH'):
