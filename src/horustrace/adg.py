@@ -353,6 +353,16 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                 "unbound": tool.metadata.get("binding_state") != "bound_via_mcp",
                 "binding_state": tool.metadata.get("binding_state") or "unbound",
                 "discovery_source": tool.metadata.get("discovery_source"),
+                "source_context": (
+                    classify_source_context(
+                        tool.location.path if tool.location is not None else None,
+                        root,
+                    )
+                    if tool.kind == "mcp_exposed_tool" else None
+                ),
+                "deployment_verified": (
+                    False if tool.kind == "mcp_exposed_tool" else None
+                ),
             },
         )
 
