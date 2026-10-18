@@ -1,0 +1,66 @@
+name: Wave B540 rw002 FastAgent Source Negatives
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/wave-b540-rw002-fastagent-negatives.yml"
+      - "scripts/verify_wave_b540_rw002_fastagent_negatives.py"
+      - "tests/test_wave_b540_rw002_fastagent_negatives.py"
+      - "docs/wave-b540-rw002-fastagent-source-negatives.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wave-b540-rw002-source-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-adjudication:
+    name: rw002 pinned agent/factory/custom hard-negative census
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install scanner only, never target dependencies or runtime agents
+        run: |
+          python -m pip install -e . 'pytest>=8,<9'
+          python -m pytest -q tests/test_wave_b540_rw002_fastagent_negatives.py
+      - name: Checkout exact immutable public rw-002 source
+        run: |
+          set -euo pipefail
+          mkdir target
+          git -C target init -q
+          git -C target remote add origin "https://github.com/omnigentx/jarvis.git"
+          git -C target fetch --quiet --depth=1 --filter=blob:none origin 90d1eb1620912e752be2e6fe8156923a0394216d
+          git -C target checkout --quiet --detach FETCH_HEAD
+          test "$(git -C target rev-parse HEAD)" = 90d1eb1620912e752be2e6fe8156923a0394216d
+      - name: Verify two immutable blobs and conditional hard negatives
+        run: |
+          python -m scripts.verify_wave_b540_rw002_fastagent_negatives \
+            --source-root target \
+            --output evaluation/rw002-source-negatives.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          j = json.loads(Path("evaluation/rw002-source-negatives.json").read_text())
+          assert j["source_positive_agent_count"] == 8
+          assert j["custom_agent_declarations"] == 2
+          assert len(j["source_hard_negative_not_agent"]) == 2
+          assert j["secondary_source_conditional_agents"][0]["line"] == 536
+          assert j["original_reference_complete"] is False
+          assert j["agent_precision"] is None and j["agent_recall"] is None
+          assert j["independent_exhaustive_negative_labels"] is False
+          assert j["wave_b_go"] is False
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: wave-b540-rw002-source-positive-and-negative
+          path: evaluation/
+          if-no-files-found: error
+          retention-days: 30
