@@ -1,0 +1,65 @@
+name: Wave B540 Active145 Locked Truth Completeness
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "scripts/audit_wave_b540_active_truth_coverage.py"
+      - "tests/test_wave_b540_active_truth_coverage.py"
+      - "docs/wave-b540-active145-source-truth-coverage-20261018.md"
+      - ".github/workflows/wave-b540-active145-truth-coverage.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  reference-coverage:
+    name: Verify 145/180 source truth completeness and negative scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install test runner (no scanner/target execution)
+        run: python -m pip install 'pytest>=8,<9'
+      - name: Fail closed on missing source reference completeness
+        run: python -m pytest -q tests/test_wave_b540_active_truth_coverage.py
+      - name: Record all 145 scoped reference-completeness decisions
+        run: |
+          python -m scripts.audit_wave_b540_active_truth_coverage \
+            --cohort research/real-world-agent-security-2026/cohort.json \
+            --truth-root research/real-world-agent-security-2026/ground-truth \
+            --output evaluation/active145-locked-source-coverage.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          d = json.loads(Path('evaluation/active145-locked-source-coverage.json').read_text())
+          assert d["active_cases"] == 145
+          assert d["original_frozen_cases_unchanged"] == 180
+          assert d["archived_langgraph_cases_excluded_only_from_active"] == 35
+          assert d["reference_completeness"]["agent_entities"] == {
+              "complete": 56, "incomplete": 89
+          }
+          assert d["agent_precision"] is None and d["agent_recall"] is None
+          assert not d["wave_b_go"] and not d["independent_blind_v2_truth"]
+          lines = [
+              "## Active 145 source truth coverage (not V2 precision)",
+              "| Label dimension | Original complete cases | Original incomplete cases |",
+              "|---|---:|---:|",
+          ]
+          for kind, counts in d["reference_completeness"].items():
+              lines.append(f"| {kind} | {counts.get('complete', 0)} | {counts.get('incomplete', 0)} |")
+          lines.append("**Incomplete reference is UNKNOWN, never a certified negative. "
+                       "Wave B GO and V2 precision/recall remain unset.**")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
+              out.write("\n".join(lines) + "\n")
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wave-b540-active145-locked-truth-coverage
+          path: evaluation/active145-locked-source-coverage.json
+          if-no-files-found: error
+          retention-days: 30
