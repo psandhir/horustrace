@@ -1,7 +1,6 @@
 """Wave B closeout gate: engineering pilot complete != release certified."""
 from __future__ import annotations
 
-
 import pytest
 
 from scripts.verify_wave_b540_engineering_closeout import (
