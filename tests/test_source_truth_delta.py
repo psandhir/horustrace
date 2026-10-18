@@ -19,7 +19,7 @@ def _git(root: Path, *args: str) -> str:
 
 def _case(tmp_path: Path) -> tuple[dict, dict, dict, dict]:
     root = tmp_path / "source"
-    root.mkdir()
+    root.mkdir(parents=True)
     _git(root, "init", "-q")
     (root / "source.py").write_text(
         "from pydantic_ai import Agent\n"
