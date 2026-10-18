@@ -12,7 +12,6 @@ from horustrace.semantic_discovery import (
     SemanticEntity,
     SemanticEntityKind,
     SemanticResolution,
-    stable_binding_id,
 )
 from horustrace.semantic_reconciliation import reconcile_shadow_projection
 from horustrace.semantic_shadow import build_shadow_discovery, shadow_observation_report
