@@ -22,7 +22,7 @@ GIT_TIMEOUT_SECONDS = 15
 def _git(checkout: Path, *args: str) -> bytes:
     """Invoke read-only Git plumbing with a bounded command timeout."""
     try:
-        completed = subprocess.run(  # noqa: S603
+        completed = subprocess.run(
             ["git", "--no-optional-locks", "-C", str(checkout), *args],
             capture_output=True, check=False, timeout=GIT_TIMEOUT_SECONDS,
         )
@@ -85,7 +85,7 @@ def _blob_witness(
     data = _git(root, "cat-file", "blob", blob_sha)
     if len(data) != size:
         raise ValueError("Git blob size does not match source bytes")
-    computed_sha = hashlib.sha1(  # noqa: S324
+    computed_sha = hashlib.sha1(
         b"blob " + str(size).encode("ascii") + b"\0" + data
     ).hexdigest()
     if computed_sha != blob_sha.lower():
