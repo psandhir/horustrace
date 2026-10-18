@@ -184,10 +184,27 @@ def source_evidence_report(
                 if isinstance(x, dict) and isinstance(x.get("origin"), str)
             }),
             "limitations": data.get("limitations", []),
+            "fingerprint": data.get("fingerprint"),
+            "agent": data.get("agent"),
+            "source_location": data.get("location"),
+            "evidence_text": data.get("evidence", []),
+            "provenance_witnesses": [
+                {"subject": fact.get("subject"), "fact": fact.get("fact"),
+                 "origin": fact.get("origin"), "location": fact.get("location")}
+                for fact in data.get("provenance", [])
+                if isinstance(fact, dict)
+            ],
         })
     attack_paths = [
         {"path_id": p.path_id, "agent": p.agent, "severity": p.severity.label(),
          "source_anchored": p.location is not None,
+         "source_location": (
+             {"path": str(p.location.path), "line": p.location.line}
+             if p.location is not None else None
+         ),
+         "path_nodes": list(p.nodes),
+         "rationale": p.rationale,
+         "metadata": p.metadata,
          "runtime_effectiveness": "not_verified",
          "source_only_potential_path": True}
         for p in getattr(graph, "attack_paths", [])
@@ -215,6 +232,21 @@ def source_evidence_report(
             "findings_count": len(find_rows),
             "potential_attack_paths": len(attack_paths),
         },
+        "adg_typed_edge_witnesses": [
+            {"kind": row.get("kind"), "source_id": row.get("source"),
+             "target_id": row.get("target"), "source_location": row.get("location"),
+             "attributes": row.get("attributes", {})}
+            for row in adg_edges
+        ],
+        "authority_relationship_witnesses": [
+            {"relationship_id": row.get("relationship_id"), "agent": row.get("agent"),
+             "target": row.get("target"), "location": row.get("location"),
+             "capabilities": row.get("capabilities", []),
+             "dimensions": row.get("dimensions", {}),
+             "unresolved": row.get("unresolved", []),
+             "runtime_effectiveness": row.get("runtime_effectiveness")}
+            for row in authority.get("relationships", [])
+        ],
         "native_candidate_tool_count": native_count,
         "source_native_candidate_missing": native_missing,
         "amazon_constructor_source_diff": constructor_sites,
