@@ -15,7 +15,8 @@ from typing import Any
 
 MAX_ZIP_MEMBERS = 40
 MAX_JSON_BYTES = 12_000_000
-REQUIRED = ("result.json", "scan.json", "effective-authority.json")
+REQUIRED = ("result.json", "scan.json")
+AUTHORITY_FILE = "effective-authority.json"
 
 
 def _json(zipped: zipfile.ZipFile, filename: str) -> dict[str, Any]:
@@ -34,8 +35,13 @@ def _source_path(raw: str | None) -> str:
     # The pinned scanner checks out a source tree in a fresh temporary
     # directory on every run. Never compare machine-dependent temp prefixes.
     normalized = raw.replace("\\", "/")
-    if "/target/src/" in normalized:
-        return normalized.split("/target/src/", 1)[-1]
+    # Every pinned study clones to a unique temporary <root>/target checkout.
+    # Normalize all source paths, including root-level agent.py and C# files,
+    # not just files underneath src/. Otherwise every run looks like a change.
+    if "/target/" in normalized:
+        return normalized.split("/target/", 1)[-1]
+    if normalized.startswith("target/"):
+        return normalized[len("target/"):]
     if "/src/" in normalized:
         return normalized.rsplit("/src/", 1)[-1]
     return normalized.lstrip("./")
@@ -62,7 +68,44 @@ def _findings(case_id: str, items: list[dict[str, Any]]) -> Counter[str]:
     return Counter(_finding_key(case_id, row) for row in items)
 
 
-def _load_case(path: Path) -> dict[str, Any]:
+def _finding_review_records(
+    case_id: str, items: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Expose source-grounded review metadata without approval or checkout paths."""
+    records: dict[str, dict[str, Any]] = {}
+    for finding in items:
+        key = _finding_key(case_id, finding)
+        location = finding.get("location")
+        if not isinstance(location, dict):
+            location = {}
+        provenance = finding.get("provenance")
+        limitations = finding.get("limitations")
+        evidence = finding.get("evidence")
+        records.setdefault(key, {
+            "claim_key": f"{case_id}:{key}",
+            "rule_id": finding.get("rule_id"),
+            "agent": finding.get("agent"),
+            "severity": finding.get("severity"),
+            "message": finding.get("message"),
+            "location": {
+                "path": _source_path(location.get("path")),
+                "line": location.get("line"),
+            },
+            "evidence": evidence if isinstance(evidence, list) else [],
+            "source_context": finding.get("source_context"),
+            "assessment": finding.get("assessment"),
+            "raw_structured_provenance_count": (
+                len(provenance) if isinstance(provenance, list) else 0
+            ),
+            "limitations": (
+                limitations if isinstance(limitations, list) else []
+            ),
+            "fingerprint": finding.get("fingerprint"),
+        })
+    return records
+
+
+def _load_case(path: Path, *, allow_missing_authority: bool = False) -> dict[str, Any]:
     with zipfile.ZipFile(path) as archive:
         if len(archive.infolist()) > MAX_ZIP_MEMBERS:
             raise ValueError(f"too many artifact members: {path.name}")
@@ -70,7 +113,10 @@ def _load_case(path: Path) -> dict[str, Any]:
             raise ValueError(f"missing required data: {path.name}")
         result = _json(archive, "result.json")
         scan = _json(archive, "scan.json")
-        authority = _json(archive, "effective-authority.json")
+        authority_present = AUTHORITY_FILE in archive.namelist()
+        if not authority_present and not allow_missing_authority:
+            raise ValueError(f"missing required authority data: {path.name}")
+        authority = _json(archive, AUTHORITY_FILE) if authority_present else {}
     case_id = result.get("case_id")
     source_sha = result.get("sha")
     if not isinstance(case_id, str) or not case_id:
@@ -90,6 +136,7 @@ def _load_case(path: Path) -> dict[str, Any]:
         "source_sha": source_sha,
         "application_path": result.get("application_path"),
         "artifact_structure_valid": True,
+        "authority_evidence_present": authority_present,
         "metrics": {
             "agents": summary.get("agents"),
             "tools": summary.get("tools"),
@@ -101,6 +148,7 @@ def _load_case(path: Path) -> dict[str, Any]:
             "unresolved_authority": effective.get("unknown_relationships"),
         },
         "findings": _findings(case_id, items),
+        "finding_review_records": _finding_review_records(case_id, items),
         "source_anchor_gaps": sum(
             not isinstance((f.get("location") or {}).get("line"), int)
             or (f.get("location") or {}).get("line", 0) < 1
@@ -114,12 +162,14 @@ def _load_case(path: Path) -> dict[str, Any]:
     }
 
 
-def _cohort(directory: Path) -> dict[str, dict[str, Any]]:
+def _cohort(
+    directory: Path, *, allow_missing_authority: bool = False,
+) -> dict[str, dict[str, Any]]:
     if not directory.is_dir():
         raise ValueError(f"cohort artifact directory not found: {directory}")
     result: dict[str, dict[str, Any]] = {}
     for archive in sorted(directory.glob("*.zip")):
-        case = _load_case(archive)
+        case = _load_case(archive, allow_missing_authority=allow_missing_authority)
         cid = case["case_id"]
         if cid in result:
             raise ValueError(f"duplicate case identity: {cid}")
@@ -135,9 +185,10 @@ def compare(
     *,
     expected_cases: int,
     adjudications: dict[str, Any] | None = None,
+    allow_missing_authority: bool = False,
 ) -> dict[str, Any]:
-    old = _cohort(before)
-    fresh = _cohort(after)
+    old = _cohort(before, allow_missing_authority=allow_missing_authority)
+    fresh = _cohort(after, allow_missing_authority=allow_missing_authority)
     if set(old) != set(fresh) or len(old) != expected_cases:
         raise ValueError(
             f"cohort mismatch: before={len(old)} after={len(fresh)} "
@@ -159,8 +210,25 @@ def compare(
         new = now["findings"] - past["findings"]
         removed = past["findings"] - now["findings"]
         changed = sorted(set(new) | set(removed))
+        changed_claim_details: list[dict[str, Any]] = []
         statuses: dict[str, str] = {}
         for fid in changed:
+            original = past["finding_review_records"].get(fid)
+            current = now["finding_review_records"].get(fid)
+            claim = current or original
+            if claim is None:
+                raise ValueError(f"unexplained changed finding key: {cid}:{fid}")
+            changed_claim_details.append({
+                **claim,
+                "change": (
+                    "added" if fid in new and fid not in removed else
+                    "removed" if fid in removed and fid not in new else
+                    "count_changed"
+                ),
+                "before_instances": past["findings"][fid],
+                "after_instances": now["findings"][fid],
+                "review_status": "requires_independent_source_review",
+            })
             review = approvals.get(f"{cid}:{fid}", {})
             status = review.get("status") if isinstance(review, dict) else None
             if (
@@ -198,6 +266,7 @@ def compare(
             "added_findings": sum(new.values()),
             "removed_findings": sum(removed.values()),
             "claim_review": statuses,
+            "changed_claim_details": changed_claim_details,
             "before_source_line_one_findings": past["source_line_one_findings"],
             "after_source_line_one_findings": now["source_line_one_findings"],
             "before_missing_source_anchors": past["source_anchor_gaps"],
@@ -212,6 +281,11 @@ def compare(
         "cases": cases,
         "unreviewed_or_unresolved_claims": gaps,
         "case_source_claims_reviewed": not gaps,
+        "authority_evidence_missing_cases": sorted(
+            c["case_id"] for c in cases
+            if not (old[c["case_id"]]["authority_evidence_present"]
+                    and fresh[c["case_id"]]["authority_evidence_present"])
+        ),
         "external_cohort_pipeline_integrity_required": True,
         "independent_exhaustive_ground_truth": False,
         "precision": None,
@@ -227,6 +301,10 @@ def main() -> None:
     parser.add_argument("--after-dir", type=Path, required=True)
     parser.add_argument("--expected-cases", type=int, required=True)
     parser.add_argument("--adjudications", type=Path)
+    parser.add_argument(
+        "--allow-missing-authority", action="store_true",
+        help="For legacy scan-only cohorts, retain missing authority as unknown, never zero.",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     review = (
@@ -236,6 +314,7 @@ def main() -> None:
     report = compare(
         args.before_dir, args.after_dir,
         expected_cases=args.expected_cases, adjudications=review,
+        allow_missing_authority=args.allow_missing_authority,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - .github/workflows/wave-a-semantic-survival.yml
+      - docs/accuracy-wave-b-pre-c-evaluation.md
+      - scripts/evaluate_wave_b_pre_c.py
   workflow_dispatch:
 
 permissions:
