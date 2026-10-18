@@ -8,7 +8,6 @@ A source-only edge is NOT a missing production false negative by itself.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from pathlib import Path
 from typing import Any, Mapping
 
 from horustrace.semantic_discovery import (
