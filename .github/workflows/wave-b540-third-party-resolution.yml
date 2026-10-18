@@ -56,7 +56,7 @@ jobs:
       - name: Attest exact source bytes, identify missing runtime version evidence
         run: |
           set -euo pipefail
-          python scripts/audit_wave_b540_dependency_resolution.py \
+          python -m scripts.audit_wave_b540_dependency_resolution \
             --tree pinned-source/tree.json \
             --source-root pinned-source \
             --high research/accuracy-wave-b540-model-judge-20261015/high-severity-adjudication.json \
