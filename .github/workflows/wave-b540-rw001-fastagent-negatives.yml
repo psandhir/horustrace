@@ -1,0 +1,79 @@
+name: Wave B540 rw001 Complete-Flagged Truth Conflict
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/wave-b540-rw001-fastagent-negatives.yml"
+      - "scripts/verify_wave_b540_rw001_fastagent_negatives.py"
+      - "tests/test_wave_b540_rw001_fastagent_negatives.py"
+      - "docs/wave-b540-rw001-complete-reference-conflict.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wave-b540-rw001-frozen-reference-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scoped-source-truth:
+    name: rw001 six factories not agents, eight real decorators
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SOURCE_SHA: "45c9f7da83d1cf43f7429b96f9c8e8153542ea1e"
+      SOURCE_REPO: "Klavis-AI/klavis"
+      CASE_ROOT: "mcp_servers/hugging_face/packages/e2e-python"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install scanner and hard negative fixtures, never target code
+        run: |
+          python -m pip install -e . 'pytest>=8,<9'
+          python -m pytest -q tests/test_wave_b540_rw001_fastagent_negatives.py
+      - name: Retrieve only six immutable original application source blobs
+        run: |
+          set -euo pipefail
+          for rel in \
+            agent.py \
+            gradio-files.py \
+            jobs-testing/agent.py \
+            prompts.py \
+            qwen-test/qwen-test.py \
+            skybridge1.py
+          do
+            file="target/$CASE_ROOT/$rel"
+            mkdir -p "$(dirname "$file")"
+            curl --fail --location --silent --show-error --retry 3 \
+              "https://raw.githubusercontent.com/$SOURCE_REPO/$SOURCE_SHA/$CASE_ROOT/$rel" \
+              -o "$file"
+          done
+      - name: Reconcile bounded source positives and negative factories
+        run: |
+          python -m scripts.verify_wave_b540_rw001_fastagent_negatives \
+            --source-root target \
+            --truth research/real-world-agent-security-2026/ground-truth/rw-001.json \
+            --output evaluation/rw001-original-complete-reference-conflict.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x = json.loads(Path("evaluation/rw001-original-complete-reference-conflict.json").read_text())
+          assert x["source_positive_agent_count"] == 8
+          assert x["source_hard_negative_factory_count"] == 6
+          assert x["historical_agent_positive_factory_conflicts"] == 6
+          assert x["commented_decorators_not_active"] == 2
+          assert x["original_reference_agent_complete_flag"] is True
+          assert not x["independent_blind_v2_source_truth"]
+          assert x["agent_precision"] is None and x["agent_recall"] is None
+          assert not x["wave_b_go"] and not x["wave_c_go"]
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: wave-b540-rw001-frozen-truth-agent-ontology-conflict
+          path: evaluation/
+          if-no-files-found: error
+          retention-days: 30
