@@ -28,3 +28,24 @@ Both historical and candidate scanner versions must have **full 145-case, exact-
 - Preserve the other active non-LangGraph gates (MCP agent recall, delegation precision, scanner success and semantic policy assertions). No Wave C cutover based on diagnostic percentage increases.
 
 This PR changes a study utility, tests, and documentation only. It does not alter production agent inventory, Graph/ADG, findings, attack paths or the original #581 scores.
+
+## Explicitly unresolved SDK imports — `rw-004`
+
+The pinned `rw-004` source declares `root_agent = Agent(name="AgroAsesorIA")`
+at `agentGemini/agent.py:38`, but imports `Agent` from
+`google.genai.adk`. The inspected `googleapis/python-genai` v0.1.0 and
+v1.0.0 tagged trees do not export this module. The target's declared
+`google-genai>=0.1.0` requirement is not a locked running environment;
+absence in two inspected tags does not rule out local/third-party namespace
+providers. Constructability and actual tool authority therefore remain
+**unresolved**, rather than automatically true or false.
+
+The source-pinned, post-hoc `rw004-agent-import-resolution-v2.json`
+preserves the declaration under `expected: null` with an explicit
+`unresolved_sdk_import` reason. The V2 scoring contract excludes it from
+both TP/FP and FN counts **on both historical and candidate scans**, reports
+the unresolved source site explicitly, and blocks certified precision or
+recall while it remains unresolved. Source-positive `FunnelAgent` remains
+included and the YAML display name `agentGemini` is source-negative.
+No frozen V1 labels, non-LangGraph quality thresholds, Graph authority,
+findings or attack paths are changed. This is not independent/blinded truth.
