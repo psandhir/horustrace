@@ -145,17 +145,37 @@ def reconcile_shadow_projection(
         site = _source_site(entity)
         if entity.kind == SemanticEntityKind.AGENT and site is not None:
             agent_sites[site].append(entity.entity_id)
-    identity_collisions = [
-        {
+    identity_collisions: list[dict[str, Any]] = []
+    disambiguated_groups: list[dict[str, Any]] = []
+    for (name, path, line), entity_ids in sorted(agent_sites.items()):
+        if len(entity_ids) <= 1:
+            continue
+        instances = [entities[entity_id].metadata.get("instance_key")
+                     for entity_id in entity_ids]
+        has_unique_explicit_instances = (
+            all(isinstance(key, str) and key.strip() for key in instances)
+            and len(set(instances)) == len(instances)
+            and all(
+                entities[entity_id].metadata.get("identity_resolution")
+                != "ambiguous_same_source_instance"
+                for entity_id in entity_ids
+            )
+        )
+        entry = {
             "name": name,
             "source_path": path,
             "line": line,
             "entity_ids": sorted(entity_ids),
-            "status": "distinct_shadow_entities_identity_unresolved",
+            "status": (
+                "distinct_explicit_instance_keys"
+                if has_unique_explicit_instances
+                else "distinct_shadow_entities_identity_unresolved"
+            ),
         }
-        for (name, path, line), entity_ids in sorted(agent_sites.items())
-        if len(entity_ids) > 1
-    ]
+        if has_unique_explicit_instances:
+            disambiguated_groups.append(entry)
+        else:
+            identity_collisions.append(entry)
 
     unresolved_entities = sorted({
         observation.entity_id
@@ -186,6 +206,7 @@ def reconcile_shadow_projection(
         "unresolved_entity_ids": unresolved_entities,
         "unresolved_binding_ids": unresolved_edges,
         "same_source_agent_identity_collisions": identity_collisions,
+        "same_source_explicit_instance_groups": disambiguated_groups,
         "unsupported_legacy_authority_promotions": sorted(
             legacy_authority_promotions
         ),
