@@ -110,7 +110,7 @@ def _validate_packet(packet: Any) -> dict[str, Any]:
     if not isinstance(packet["scopes"], list) or not isinstance(
         packet["candidates"], list
     ):
-        raise ValueError("review packet scopes/candidates must be lists")
+        raise TypeError("review packet scopes/candidates must be lists")
     return packet
 
 
