@@ -1,7 +1,6 @@
 """Fail-closed acceptance tests: source review must not become certified truth."""
 from __future__ import annotations
 
-import copy
 import json
 from pathlib import Path
 
