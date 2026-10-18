@@ -1415,6 +1415,7 @@ def _merge(target: Graph, source: Graph, path: Path) -> None:
     for agent in source.agents:
         agent.tools = deepcopy(agent.tools)
     target.agents.extend(source.agents)
+    target.workflow_nodes.extend(source.workflow_nodes)
     target.unbound_tools.extend(source.unbound_tools)
     target.unbound_skills.extend(source.unbound_skills)
     target.unbound_mcp_servers.extend(source.unbound_mcp_servers)

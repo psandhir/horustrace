@@ -546,6 +546,16 @@ class ScanCoverage:
 
 
 @dataclass(slots=True)
+class WorkflowDeclaration:
+    """Source-declared orchestration node, not an LLM agent or live authority."""
+    name: str
+    method: str
+    location: SourceLocation | None = None
+    members: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
 class Graph:
     coverage: ScanCoverage = field(default_factory=ScanCoverage)
     agents: list[Agent] = field(default_factory=list)
@@ -560,6 +570,7 @@ class Graph:
     suppressed_findings: list[Any] = field(default_factory=list)
     suppression_diagnostics: list[dict[str, Any]] = field(default_factory=list)
     configuration_audit: dict[str, Any] = field(default_factory=dict)
+    workflow_nodes: list[WorkflowDeclaration] = field(default_factory=list)
 
     def all_tools(self) -> list[Tool]:
         tools = list(self.unbound_tools)
