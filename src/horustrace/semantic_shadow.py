@@ -24,6 +24,7 @@ from horustrace.semantic_discovery import (
     stable_entity_id,
     stable_observation_id,
 )
+from horustrace.semantic_reconciliation import reconcile_shadow_projection
 from horustrace.semantic_trace import _portable
 from horustrace.source_context import SOURCE_CONTEXTS, classify_source_context
 from horustrace.source_native_dynamic_mcp import inspect_dynamic_mcp_registration
@@ -344,6 +345,7 @@ def shadow_observation_report(
         "runtime_effectiveness": "not_verified",
         "source_edge_adjudicated": False,
         "comparison": shadow_comparison(graph, shadow),
+        "reconciliation": reconcile_shadow_projection(graph, shadow),
         "inventory_partition": shadow_inventory_partition(shadow),
         "limitations": [
             "legacy graph membership is not independently source-adjudicated",
