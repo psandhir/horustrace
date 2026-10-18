@@ -1144,6 +1144,43 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                     )
             pending.extend(str(name) for name in child.metadata.get("delegates_to") or [])
 
+    # FastAgent chain/evaluator compositions are executable workflow
+    # definitions, not new LLM agent identities. Preserve their source-visible
+    # participants as directed workflow references only; no authority edge.
+    for workflow in graph.workflow_nodes:
+        workflow_id = builder.node(
+            "workflow_node",
+            workflow.name,
+            location=workflow.location,
+            framework="fast-agent",
+            attributes={
+                "workflow_method": workflow.method,
+                "members": list(workflow.members),
+                "source_declared": True,
+                "runtime_instance_verified": False,
+                "runtime_effectiveness": "not_verified",
+                "agent_identity": False,
+            },
+        )
+        for position, member in enumerate(workflow.members):
+            targets = agent_ids_by_name.get(member, [])
+            if len(targets) != 1:
+                # An undeclared/ambiguous participant does not become an
+                # invented agent, MCP permission, or deployed capability.
+                continue
+            builder.edge(
+                "WORKFLOW_FLOWS_TO",
+                workflow_id,
+                targets[0],
+                location=workflow.location,
+                attributes={
+                    "basis": "fast_agent_declared_composition",
+                    "member": member,
+                    "position": position,
+                    "runtime_effectiveness": "not_verified",
+                },
+            )
+
     for flow in graph.flow_paths:
         _add_flow_edges(builder, flow)
 
