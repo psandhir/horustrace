@@ -44,7 +44,7 @@ def _reference_identity(item: dict[str, Any]) -> tuple[str, str, int]:
 
 def _adjudicate(
     nodes: list[dict[str, Any]], truth: list[dict[str, Any]],
-) -> tuple[int, int, int, int]:
+) -> tuple[int, int, int, int, int]:
     """Score exact positive/negative source witnesses, never use guessed aliases.
 
     Every source-qualified node matches at most one independently reviewed
@@ -53,8 +53,18 @@ def _adjudicate(
     """
     truth_positive = [x for x in truth if x.get("expected") is True]
     truth_negative = [x for x in truth if x.get("expected") is False]
-    if len(truth_positive) + len(truth_negative) != len(truth):
-        raise ValueError("reference records must be explicit positive or negative")
+    truth_unresolved = [
+        x for x in truth
+        if x.get("expected") is None
+        and x.get("resolution") == "unresolved_sdk_import"
+        and isinstance(x.get("reason"), str)
+        and bool(x["reason"].strip())
+    ]
+    if len(truth_positive) + len(truth_negative) + len(truth_unresolved) != len(truth):
+        raise ValueError(
+            "reference records require explicit positive/negative or a reasoned "
+            "unresolved_sdk_import declaration"
+        )
     keys = [_reference_identity(x) for x in truth]
     if len(keys) != len(set(keys)):
         raise ValueError("duplicate source-qualified reference identity")
@@ -75,7 +85,9 @@ def _adjudicate(
             fp += 1
         else:
             unresolved += 1
-    return tp, fp, len(positives - found), unresolved
+    # SDK-unverified source declarations are neither false negatives nor
+    # confirmed agents. Preserve them and block precision certification.
+    return tp, fp, len(positives - found), unresolved, len(truth_unresolved)
 
 
 def score_one(
@@ -95,19 +107,23 @@ def score_one(
     unknown = [x for x in witnesses if x.get("kind") not in {"agent", "workflow_node"}]
     if unknown:
         raise ValueError("unexpected Graph node kinds in agent audit")
-    tp, fp, fn, unresolved = _adjudicate(agents, reference["agent_sites"])
+    tp, fp, fn, unresolved, unresolved_sources = _adjudicate(
+        agents, reference["agent_sites"]
+    )
     complete = reference.get("agent_inventory_exhaustive") is True
     independent = reference.get("independent_review") is True
     # Precisions cannot be certified from our post-hoc 31-node overlay.
-    precision = round(tp / (tp + fp), 4) if complete and independent and not unresolved and tp + fp else None
-    recall = round(tp / (tp + fn), 4) if complete and independent and not unresolved and tp + fn else None
+    certifiable = complete and independent and not unresolved and not unresolved_sources
+    precision = round(tp / (tp + fp), 4) if certifiable and tp + fp else None
+    recall = round(tp / (tp + fn), 4) if certifiable and tp + fn else None
     return {
         "status": "scored", "tp": tp, "fp": fp, "fn": fn,
         "unresolved_agent_candidates": unresolved,
+        "unresolved_source_declarations": unresolved_sources,
         "workflow_nodes_excluded_from_agent_precision": len(workflows),
         "reference_complete": complete, "independent_review": independent,
         "precision": precision, "recall": recall,
-        "certified": bool(complete and independent and not unresolved),
+        "certified": bool(certifiable),
         "source_witnesses": len(agents),
     }
 
@@ -170,7 +186,7 @@ def score_pair(
         used = [row[side] for row in per_case]
         sums = Counter()
         for row in used:
-            for key in ("tp", "fp", "fn", "unresolved_agent_candidates", "workflow_nodes_excluded_from_agent_precision"):
+            for key in ("tp", "fp", "fn", "unresolved_agent_candidates", "unresolved_source_declarations", "workflow_nodes_excluded_from_agent_precision"):
                 sums[key] += row[key]
         certified = len(common) == 145 and all(row["certified"] for row in used)
         return {
