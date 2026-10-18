@@ -18,7 +18,6 @@ from horustrace.semantic_discovery import (
 )
 from horustrace.source_context import SOURCE_CONTEXTS
 
-
 # Validate only contracts whose endpoint kinds are unambiguous. INVOKES,
 # DISPATCHES_TO, ROUTES_TO etc. legitimately span different construct kinds.
 _TYPED_ENDPOINTS: dict[
