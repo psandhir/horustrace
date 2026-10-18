@@ -1,0 +1,67 @@
+name: Wave B540 rw004 ADK Source Negatives
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/wave-b540-rw004-adk-negatives.yml"
+      - "scripts/verify_wave_b540_rw004_adk_negatives.py"
+      - "tests/test_wave_b540_rw004_adk_negatives.py"
+      - "docs/wave-b540-rw004-adk-source-negatives.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wave-b540-rw004-adk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-adjudication:
+    name: rw004 exact ADK source constructors and negative controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install scanner and isolated tests only
+        run: |
+          python -m pip install -e . 'pytest>=8,<9'
+          python -m pytest -q tests/test_wave_b540_rw004_adk_negatives.py
+      - name: Fetch exact historical source revision, never run target
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir target
+          git -C target init -q
+          git -C target remote add origin https://github.com/JoanMarinPages/agentGemini.git
+          git -C target fetch --quiet --depth=1 --filter=blob:none origin 0160690bb47cca17e70ceb8486209d7b1cacaf76
+          git -C target checkout --quiet --detach FETCH_HEAD
+          test "$(git -C target rev-parse HEAD)" = 0160690bb47cca17e70ceb8486209d7b1cacaf76
+      - name: Audit six pinned source Git blob witnesses
+        run: |
+          python -m scripts.verify_wave_b540_rw004_adk_negatives \
+            --source target --output evaluation/rw004-adk-source-negatives.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('evaluation/rw004-adk-source-negatives.json').read_text())
+          assert d["source_agent_declaration_count"] == 2
+          assert len(d["blob_witnesses"]) == 6
+          assert not d["source_alias_creates_new_agent"]
+          assert not d["standalone_google_adk_dependency_declared"]
+          assert not d["installed_sdk_version_verified"]
+          assert not d["effective_tool_authority_verified"]
+          assert not d["independent_exhaustive_negative_truth"]
+          assert d["agent_precision"] is None and d["agent_recall"] is None
+          assert not d["wave_b_go"] and not d["wave_c_go"]
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: wave-b540-rw004-adk-source-negatives
+          path: evaluation/
+          if-no-files-found: error
+          retention-days: 30
