@@ -323,13 +323,25 @@ def _expr_tainted(node: ast.AST | None, tainted: set[str]) -> bool:
     )
 
 
-def _propagate_taint(
+def _taint_analysis(
     function: ast.FunctionDef | ast.AsyncFunctionDef,
-    initial: set[str],
-) -> set[str]:
-    tainted = set(initial)
-    assignments: list[tuple[list[str], ast.AST]] = []
-    mutations: list[tuple[str, list[ast.AST]]] = []
+) -> tuple[list[tuple[list[str], frozenset[str]]], list[tuple[str, frozenset[str]]]]:
+    """Index one function's taint dependencies once, including nested scopes.
+
+    The previous helper rescanned the complete AST and every assignment RHS for
+    each parameter and fixed-point round. Some pinned FastAgent sources have
+    large bodies and many parameters; the multiplied AST walks can exceed the
+    strict study timeout. Symbol sets preserve the original any(Name in taint)
+    semantics without executing source code or truncating the analysis.
+    """
+    assignments: list[tuple[list[str], frozenset[str]]] = []
+    mutations: list[tuple[str, frozenset[str]]] = []
+
+    def referenced_names(expr: ast.AST) -> frozenset[str]:
+        return frozenset(
+            child.id for child in ast.walk(expr) if isinstance(child, ast.Name)
+        )
+
     for node in ast.walk(function):
         if isinstance(node, ast.Assign):
             names = [
@@ -337,11 +349,13 @@ def _propagate_taint(
                 for target in node.targets
                 for name in _target_names(target)
             ]
-            assignments.append((names, node.value))
+            assignments.append((names, referenced_names(node.value)))
         elif (
             isinstance(node, ast.AnnAssign) and node.value is not None
         ) or isinstance(node, ast.NamedExpr):
-            assignments.append((_target_names(node.target), node.value))
+            assignments.append(
+                (_target_names(node.target), referenced_names(node.value))
+            )
         elif (
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute)
@@ -353,20 +367,40 @@ def _propagate_taint(
                 payloads = payloads[1:]
             payloads.extend(keyword.value for keyword in node.keywords)
             if payloads:
-                mutations.append((node.func.value.id, payloads))
+                mutations.append(
+                    (
+                        node.func.value.id,
+                        frozenset().union(*(referenced_names(arg) for arg in payloads)),
+                    )
+                )
+    return assignments, mutations
 
+
+def _propagate_taint(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    initial: set[str],
+    *,
+    prepared: tuple[
+        list[tuple[list[str], frozenset[str]]],
+        list[tuple[str, frozenset[str]]],
+    ] | None = None,
+) -> set[str]:
+    tainted = set(initial)
+    assignments, mutations = (
+        prepared if prepared is not None else _taint_analysis(function)
+    )
     for _ in range(8):
         changed = False
-        for names, value in assignments:
-            if not names or not _expr_tainted(value, tainted):
+        for names, referenced in assignments:
+            if not names or tainted.isdisjoint(referenced):
                 continue
             before = len(tainted)
             tainted.update(names)
             changed = changed or len(tainted) != before
-        for receiver, payloads in mutations:
+        for receiver, referenced in mutations:
             if receiver in tainted:
                 continue
-            if any(_expr_tainted(value, tainted) for value in payloads):
+            if not tainted.isdisjoint(referenced):
                 tainted.add(receiver)
                 changed = True
         if not changed:
@@ -1188,11 +1222,17 @@ def _direct_helper_summaries(
                 )
             )
 
+            # Every parameter uses the same assignment/mutation expressions
+            # and runtime call sites. Collect once, not once per parameter.
+            taint_plan = _taint_analysis(function)
+            runtime_calls = [
+                node for node in ast.walk(function) if isinstance(node, ast.Call)
+            ]
             for parameter in parameters:
-                tainted = _propagate_taint(function, {parameter})
-                for node in ast.walk(function):
-                    if not isinstance(node, ast.Call):
-                        continue
+                tainted = _propagate_taint(
+                    function, {parameter}, prepared=taint_plan
+                )
+                for node in runtime_calls:
                     for agent in _runtime_targets_for_call(
                         node,
                         receivers,

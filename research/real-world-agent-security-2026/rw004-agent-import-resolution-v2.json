@@ -1,0 +1,47 @@
+{
+  "schema_version": 2,
+  "review_method": "posthoc_source_review_not_independent",
+  "scope": "non-langgraph-145",
+  "case_id": "rw-004",
+  "repo": "JoanMarinPages/agentGemini",
+  "sha": "0160690bb47cca17e70ceb8486209d7b1cacaf76",
+  "agent_inventory_exhaustive": false,
+  "independent_review": false,
+  "agent_sites": [
+    {
+      "name": "FunnelAgent",
+      "location": {
+        "path": "agent.py",
+        "line": 98
+      },
+      "expected": true,
+      "reason": "LlmAgent instantiated from supported google.adk.agents namespace."
+    },
+    {
+      "name": "AgroAsesorIA",
+      "location": {
+        "path": "agentGemini/agent.py",
+        "line": 38
+      },
+      "expected": null,
+      "resolution": "unresolved_sdk_import",
+      "import_statement": "from google.genai.adk import Agent",
+      "reason": "Source declares an Agent-shaped construct; google-genai's inspected v0.1.0 and v1.0.0 tagged trees do not provide google.genai.adk. Actual dependency/runtime namespace and executable constructability are unverified."
+    },
+    {
+      "name": "agentGemini",
+      "location": {
+        "path": "adk.yaml",
+        "line": 1
+      },
+      "expected": false,
+      "reason": "Application display name, not a separate agent instantiation."
+    }
+  ],
+  "upstream_package_source_tags_checked": [
+    "googleapis/python-genai@v0.1.0",
+    "googleapis/python-genai@v1.0.0"
+  ],
+  "inherited_frozen_truth_unchanged": true,
+  "asserts_runtime_effective_authority": false
+}

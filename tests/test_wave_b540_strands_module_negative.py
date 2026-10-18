@@ -1,4 +1,4 @@
-"""WAB-04: a Python submodule in __all__ is not an exported @tool callable."""
+"""WAB-04: source-bound negative: package submodule is not an @tool callable."""
 from __future__ import annotations
 
 from pathlib import Path

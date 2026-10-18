@@ -7,6 +7,8 @@ on:
       - "docs/accuracy-wave-b-pre-c-evaluation.md"
       - "scripts/evaluate_wave_b_pre_c.py"
       - "scripts/reconcile_wave_b540_model_reviews.py"
+      - "scripts/verify_wave_b540_unresolved_claims.py"
+      - "tests/test_wave_b540_unresolved_claims.py"
       - "research/accuracy-wave-b540-model-judge-20261015/*.json"
   workflow_dispatch:
 
@@ -134,6 +136,23 @@ jobs:
           ]
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
               out.write("\n".join(lines))
+          PY
+      - name: Fail-closed source-only closure of twelve unresolved Amazon claims
+        run: |
+          set -euo pipefail
+          python scripts/verify_wave_b540_unresolved_claims.py \
+            --high research/accuracy-wave-b540-model-judge-20261015/high-severity-adjudication.json \
+            --medium research/accuracy-wave-b540-model-judge-20261015/medium-severity-adjudication.json \
+            --output evaluation/unresolved-claim-acceptance.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("evaluation/unresolved-claim-acceptance.json").read_text())
+          assert report["total_historical_claims"] == 73
+          assert report["unresolved_high"] == 4 and report["unresolved_medium"] == 8
+          assert report["wave_b_go"] is False and report["wave_c_go"] is False
+          assert report["independent_ground_truth"] is False
+          assert report["precision"] is None and report["recall"] is None
           PY
       - name: Publish actual source-claim deltas and explicit NO-GO review status
         run: |

@@ -1,0 +1,110 @@
+name: Wave B540 Non-LangGraph Source Truth Differential
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/wave-b540-frozen180-source-truth.yml'
+      - 'research/real-world-agent-security-2026/wave-b540-current-source-truth.md'
+      - 'scripts/real_world_agent_security_non_langgraph.py'
+      - 'tests/test_real_world_agent_security_non_langgraph.py'
+      - 'research/real-world-agent-security-2026/agent-precision-adjudication-v1.json'
+      - 'scripts/real_world_agent_precision_adjudication.py'
+      - 'tests/test_real_world_agent_precision_adjudication.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wave-b540-frozen180-source-truth-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-truth-differential:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      STUDY_ROOT: research/real-world-agent-security-2026
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Install Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Verify scanned SHA, immutable frozen cohort and reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCANNER_SHA="$(git rev-parse HEAD)"
+          echo "SCANNER_SHA=$SCANNER_SHA" >> "$GITHUB_ENV"
+          python scripts/real_world_agent_security_study.py --validate-only
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("research/real-world-agent-security-2026")
+          c = json.loads((root / "cohort.json").read_text())
+          s = json.loads((root / "ground-truth-summary.json").read_text())
+          assert c["cohort_frozen"] is True
+          assert c["ground_truth_locked"] is True
+          assert len(c["cases"]) == 180
+          assert c["scanner_freeze_sha"] == "418db4e29798a7d25df686dd7bccfd9fefa225bd"
+          assert s["summary"]["cases"] == 180
+          assert s["summary"]["agent_complete_cases"] == 72
+          assert all(len(row["sha"]) == 40 for row in c["cases"])
+          assert all("ground_truth" in row for row in c["cases"])
+          print("Exact 180-case locked truth, 72 agent-complete cases verified")
+          PY
+      - name: Install exact current scanner (no target install)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -e .
+          command -v horustrace
+      - name: Execute only active source-locked 145 non-LangGraph repositories
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python scripts/real_world_agent_security_execute.py \
+            --mode postfix \
+            --scanner "$(command -v horustrace)" \
+            --scanner-sha "$SCANNER_SHA" \
+            --workers 8 \
+            --exclude-framework langgraph \
+            --audit-agent-nodes \
+            --output-json artifacts/source-locked-non-langgraph-145.json \
+            --output-markdown artifacts/source-locked-non-langgraph-145.md
+      - name: Compare frozen baseline to same 145 source cases without altering 180 archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_security_non_langgraph.py \
+            --cohort "$STUDY_ROOT/cohort.json" \
+            --baseline "$STUDY_ROOT/results/frozen-baseline.json" \
+            --candidate artifacts/source-locked-non-langgraph-145.json \
+            --semantic-benchmark "$STUDY_ROOT/semantic-benchmark/benchmark-v1.json" \
+            --output-prefix artifacts/non-langgraph-145
+          cat artifacts/non-langgraph-145-delta.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify exact agent source witnesses and publish post-hoc diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_precision_adjudication.py \
+            --candidate artifacts/source-locked-non-langgraph-145.json \
+            --cohort "$STUDY_ROOT/cohort.json" \
+            --overlay "$STUDY_ROOT/agent-precision-adjudication-v1.json" \
+            --output-json artifacts/agent-precision-source-audit.json \
+            --output-markdown artifacts/agent-precision-source-audit.md
+          cat artifacts/agent-precision-source-audit.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish source-truth evidence without overwriting frozen references
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wave-b540-nonlanggraph-145-source-truth
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30
