@@ -5,6 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from horustrace.adapters.claude_workflow_version import annotate_workflow_tool_availability
 from horustrace.coverage import add_diagnostic
 from horustrace.effect_semantics import (
     http_mutation_capabilities,
@@ -1057,18 +1058,14 @@ def _option_agent(
     allowed = allowed_resolved or []
     denied = denied_resolved or []
 
-    if default_surface and allowed_node is not None and allowed_resolved is not None:
-        permitted_builtins = {
-            item
-            for item in allowed_resolved
-            if not item.startswith("mcp__")
-        }
-        agent.tools = [
-            tool for tool in agent.tools if tool.name in permitted_builtins
-        ]
-        agent.metadata["tool_surface"] = "restricted_default"
-        agent.metadata["tool_surface_restricted_by_allowed_tools"] = True
-        agent.metadata["explicit_allowed_tool_surface"] = list(allowed_resolved)
+    if allowed_node is not None and allowed_resolved is not None:
+        # Claude Agent SDK allowed_tools adds permission allow rules; it is not
+        # the tool-availability filter. Unlisted built-ins remain available
+        # (subject to tools=, disallowed_tools, permission mode, and hooks).
+        # In bypassPermissions mode even unlisted tools may execute without
+        # approval. Never erase their effective authority here.
+        agent.metadata["allowed_tools_permission_only"] = True
+        agent.metadata["explicit_auto_approved_tools"] = list(allowed_resolved)
 
     permission_mode = _resolved_literal(
         _kw(call, "permission_mode", dicts, values),
@@ -1085,6 +1082,21 @@ def _option_agent(
     )
     if allowed_node is not None and allowed_resolved is None:
         agent.metadata["dynamic_allowed_tools"] = True
+        if default_surface and tools_node is None:
+            # The SDK default catalogue is only a candidate when the source
+            # supplies a dynamic per-instance registry/permission expression.
+            # Preserve the uncertainty rather than claiming concrete authority
+            # edges for every built-in on this particular option instance.
+            agent.metadata["dynamic_tool_permission_unresolved"] = True
+            agent.metadata["runtime_default_tool_candidates"] = [
+                tool.name for tool in agent.tools
+            ]
+            for tool in agent.tools:
+                tool.metadata["tool_catalogue_unresolved"] = True
+            # allowed_tools is an auto-approval configuration, not a tool
+            # availability restriction. Keep SDK-default tool candidates and
+            # their graph edges; unknown per-instance approval must not be
+            # interpreted as absence of runtime tool availability.
     if denied_node is not None and denied_resolved is None:
         agent.metadata["dynamic_disallowed_tools"] = True
 
@@ -1679,6 +1691,8 @@ def scan_python_file(path: Path) -> Graph:
         for tool in custom_tools.values()
         if tool.name not in bound_custom_names
     )
+
+    annotate_workflow_tool_availability(graph.agents, path, language="python")
 
     for agent in graph.agents:
         if agent.metadata.get("dynamic_tools"):
