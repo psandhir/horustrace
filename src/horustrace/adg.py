@@ -14,6 +14,7 @@ from horustrace.inventory_semantics import (
 )
 from horustrace.limits import MAX_ADG_EDGES, MAX_ADG_NODES, ScanLimitError
 from horustrace.models import Agent, FlowPath, Graph, ResourceScope, SourceLocation, Tool
+from horustrace.source_context import classify_source_context
 
 ADG_SCHEMA_VERSION = 1
 
@@ -394,7 +395,18 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                 "binding_state": server.metadata.get("binding_state") or "unbound",
                 "discovery_source": server.metadata.get("discovery_source"),
                 "binding_origin": server.metadata.get("binding_origin"),
+                "source_context": classify_source_context(
+                    server.location.path if server.location is not None else None,
+                    root,
+                ),
+                "deployment_verified": False,
             },
+        )
+
+        # Keep the source role on every unbound exposure: test/example
+        # registrations are not evidence of a deployed server or agent call.
+        server_context = classify_source_context(
+            server.location.path if server.location is not None else None, root
         )
 
         # A server-side @mcp.tool() decorator proves that this server
@@ -431,6 +443,7 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
             if len(candidates) != 1:
                 continue
             tool = candidates[0]
+            tool_context = classify_source_context(tool.location.path, root)
             tool_id = builder.node(
                 _tool_topology_kind(tool),
                 tool.name,
@@ -443,6 +456,8 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                     "unbound": True,
                     "binding_state": tool.metadata.get("binding_state") or "unbound",
                     "discovery_source": tool.metadata.get("discovery_source"),
+                    "source_context": tool_context,
+                    "deployment_verified": False,
                 },
             )
             builder.edge(
@@ -454,6 +469,9 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                     "basis": "source_proven_mcp_decorator",
                     "agent_binding": "unbound",
                     "authority_verified": False,
+                    "source_context": tool_context,
+                    "server_source_context": server_context,
+                    "deployment_verified": False,
                 },
             )
 
