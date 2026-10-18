@@ -22,7 +22,7 @@ def _git(root: Path, *args: str) -> str:
 
 def _fixture(tmp_path: Path) -> tuple[dict, dict, Path]:
     root = tmp_path / "repo"
-    root.mkdir()
+    root.mkdir(parents=True)
     _git(root, "init", "-q")
     src = root / "src"
     src.mkdir()
