@@ -74,7 +74,7 @@ jobs:
             --source target \
             --ledger research/accuracy-wave-b540-four-pilot-20261017/source-edge-ledger.json \
             --output "evaluation/$CASE_ID.json"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0 # v7.0.1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: wave-b540-graph-evidence-${{ matrix.case_id }}
@@ -135,7 +135,7 @@ jobs:
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
               out.write(text)
           PY
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0 # v7.0.1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: wave-b540-graph-evidence-five-case-summary
