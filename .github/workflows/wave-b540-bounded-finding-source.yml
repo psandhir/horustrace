@@ -1,0 +1,98 @@
+name: Wave B540 Bounded Finding Source Evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/horustrace/provenance.py"
+      - "scripts/verify_wave_b540_mcp_finding_source.py"
+      - "tests/test_wave_b540_mcp_finding_source.py"
+      - ".github/workflows/wave-b540-bounded-finding-source.yml"
+      - "docs/wave-b540-finding-source-claim-boundary-20261018.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wave-b540-finding-source-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pinned-claim:
+    name: ${{ matrix.case_id }} exact finding source witness
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case_id: gen-pyd-001
+            repo: newsbubbles/pharmiq
+            sha: c69949739647a47ec8339b473bdf578c8cf8bfd9
+          - case_id: ff60-microsoft-04
+            repo: qmatteoq/agent365-demos
+            sha: 937f8c12421b6eebfbff764dbafbdbe13cc72f68
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install scanner and source provenance regression fixtures
+        run: |
+          python -m pip install -e . 'pytest>=8,<9'
+          python -m pytest -q tests/test_wave_b540_mcp_finding_source.py
+      - name: Retrieve immutable public pinned target source, no target installs
+        shell: bash
+        env:
+          TARGET_REPO: ${{ matrix.repo }}
+          TARGET_SHA: ${{ matrix.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p source-target
+          git -C source-target init -q
+          git -C source-target remote add origin "https://github.com/$TARGET_REPO.git"
+          git -C source-target fetch --quiet --depth=1 --filter=blob:none origin "$TARGET_SHA"
+          git -C source-target checkout --quiet --detach FETCH_HEAD
+          test "$(git -C source-target rev-parse HEAD)" = "$TARGET_SHA"
+      - name: Verify one-to-one configured endpoint and unknown effective authority
+        env:
+          CASE_ID: ${{ matrix.case_id }}
+        run: |
+          set -euo pipefail
+          python -m scripts.verify_wave_b540_mcp_finding_source \
+            --case-id "$CASE_ID" --source source-target \
+            --output "evaluation/$CASE_ID.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: wave-b540-bounded-finding-${{ matrix.case_id }}
+          path: evaluation/
+          if-no-files-found: warn
+
+  aggregate:
+    name: Three original claims remain source-bounded
+    needs: pinned-claim
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: wave-b540-bounded-finding-*
+          path: downloaded
+      - name: Verify 2 Microsoft manifest + 1 Pharmiq conditional claim
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          rows = [json.loads(p.read_text()) for p in Path("downloaded").rglob("*.json")]
+          assert len(rows) == 2, rows
+          by_case = {r["case_id"]: r for r in rows}
+          assert set(by_case) == {"gen-pyd-001", "ff60-microsoft-04"}
+          assert by_case["gen-pyd-001"]["claim_count"] == 1
+          assert by_case["ff60-microsoft-04"]["claim_count"] == 2
+          assert all(r["source_precision"] is None and
+                     r["source_recall"] is None and
+                     not r["deployed_controls_verified"] and
+                     not r["independent_negative_truth"] and
+                     not r["wave_b_go"] for r in rows)
+          print("Three claims remain bounded by exact source, no runtime claim")
+          PY
