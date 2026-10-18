@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "scope": "non-langgraph-145",
+  "type": "posthoc_source_verified_identity_bridge_v1",
+  "original_locked_truth_preserved": true,
+  "review_method": "manual_source_inspection_after_scanner_outputs_not_blinded",
+  "source_notes": "No files in the original frozen truth/cohort are modified. Exact source SHA/path/line anchoring. The bridge connects an agent implementation with its corresponding instantiation, not two agents.",
+  "decisions": [
+    {
+      "case_id": "rw-004",
+      "repo": "JoanMarinPages/agentGemini",
+      "sha": "0160690bb47cca17e70ceb8486209d7b1cacaf76",
+      "decision": "metadata_only",
+      "observed": {
+        "name": "agentGemini",
+        "kind": "agent",
+        "path": "adk.yaml",
+        "line": 1
+      },
+      "source_basis": "adk.yaml name: agentGemini configures an application; agent.entry_point: agent.py and agent.root_agent: root_agent point to the existing Python LlmAgent. YAML name is not an independent agent constructor or instance. Original scanner labels this as an agent Graph node, yielding its one legacy non-ontology FP."
+    },
+    {
+      "case_id": "rw-084",
+      "repo": "AndreaCadonna/redmine-ai-cli",
+      "sha": "1b2976858b61f8f0b6fe1ce1d0d0173cd52e4452",
+      "decision": "implementation_instance_bridge",
+      "observed": {
+        "name": "agent",
+        "kind": "agent",
+        "path": "agent.py",
+        "line": 35
+      },
+      "locked_truth": {
+        "name": "agent",
+        "path": "cli.py",
+        "line": 110
+      },
+      "source_basis": "agent.py defines class Agent at line 32 and LLM-MCP tool-loop methods. cli.py imports Agent and binds agent = Agent(...) at line 110. Different provenance anchors identify one implementation/instance, not two unrelated agents."
+    },
+    {
+      "case_id": "rw-110",
+      "repo": "7bernie/meridian-chatbot",
+      "sha": "d8be1cf5ddf4bda6a38e30d4e857031df3199039",
+      "decision": "implementation_instance_bridge",
+      "observed": {
+        "name": "agent",
+        "kind": "agent",
+        "path": "agent.py",
+        "line": 63
+      },
+      "locked_truth": {
+        "name": "agent",
+        "path": "app.py",
+        "line": 40
+      },
+      "source_basis": "agent.py defines class Agent with LLM+MCP iterative tool loop. app.py imports Agent and binds agent = Agent() at line 40. Declaration and instantiation are one agent identity."
+    }
+  ],
+  "limits": [
+    "Posthoc source verification; not independent human-blinded holdout.",
+    "Custom MCP clients rw-089 and rw-103 remain unresolved.",
+    "Missing 'AgroAsesorIA' in current rw-004 is a real observed source-inventory regression that needs separate recall investigation."
+  ]
+}
