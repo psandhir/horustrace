@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 
 from scripts.verify_wave_b540_engineering_closeout import (
-    VALIDATED_SCANNER_TREE, closeout,
+    VALIDATED_SCANNER_TREE,
+    closeout,
 )
 
 
