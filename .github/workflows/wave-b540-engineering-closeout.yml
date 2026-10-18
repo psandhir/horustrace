@@ -1,0 +1,77 @@
+name: Wave B540 Bounded Engineering Closeout
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/wave-b540-engineering-closeout.yml"
+      - "scripts/verify_wave_b540_engineering_closeout.py"
+      - "tests/test_wave_b540_engineering_closeout.py"
+      - "docs/wave-b540-engineering-closeout-20261018.md"
+      - "research/accuracy-wave-b540-four-pilot-20261017/source-edge-ledger.json"
+
+permissions:
+  contents: read
+
+jobs:
+  bounded-closeout:
+    name: Verify source evidence completeness, no false release GO
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install only scanner test dependencies
+        run: |
+          python -m pip install -e . 'pytest>=8,<9'
+          python -m pytest -q tests/test_wave_b540_engineering_closeout.py
+      - name: Read effective protected-main ruleset (not local claims)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence
+          gh api repos/psandhir/horustrace/rulesets/23823545 > evidence/protect-main-ruleset.json
+      - name: Verify exact unchanged scanner tree and bounded pilot truth
+        run: |
+          python -m scripts.verify_wave_b540_engineering_closeout \
+            --repo-root . \
+            --source-ledger research/accuracy-wave-b540-four-pilot-20261017/source-edge-ledger.json \
+            --cohort research/real-world-agent-security-2026/cohort.json \
+            --truth-root research/real-world-agent-security-2026/ground-truth \
+            --claim-high research/accuracy-wave-b540-model-judge-20261015/high-severity-adjudication.json \
+            --claim-medium research/accuracy-wave-b540-model-judge-20261015/medium-severity-adjudication.json \
+            --ruleset evidence/protect-main-ruleset.json \
+            --output evaluation/wave-b540-engineering-closeout.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          data=json.loads(Path("evaluation/wave-b540-engineering-closeout.json").read_text())
+          assert data["scanner_source_tree_matches_frozen_cohort_validated_head"]
+          assert data["source_pilot_evidence_work_completed"]
+          assert data["historical_unresolved_runtime_claims"] == 12
+          assert data["v2_exhaustive_independent_negative_cases_certified"] == 0
+          assert data["security_release_go"] is False
+          assert data["wave_c_production_cutover_go"] is False
+          lines=[
+            "## Wave B source-pilot engineering closeout",
+            "Exact scanner source tree matches previously validated source tree.",
+            "WAB-01–05 source-positive, hard-negative and unknown evidence is retained.",
+            "**Engineering pilot dossier complete; security release NO-GO.**",
+            "12 runtime claims remain UNKNOWN. No independently complete V2 negative truth.",
+            "Accuracy gate required status enforced: "
+            + str(data["accuracy_required_status_enforced"]),
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+              f.write("\n".join(lines)+"\n")
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wave-b540-engineering-closeout-evidence
+          path: |
+            evaluation/wave-b540-engineering-closeout.json
+            evidence/protect-main-ruleset.json
+          if-no-files-found: error
+          retention-days: 30
