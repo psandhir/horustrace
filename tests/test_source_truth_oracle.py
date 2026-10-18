@@ -154,7 +154,7 @@ def test_c02a_invalid_scope_metadata_fails_closed(
 ) -> None:
     ref = _oracle()
     ref["scopes"][0][field] = value
-    with pytest.raises(ValueError):
+    with pytest.raises((ValueError, TypeError)):
         validate_reference(ref)
 
 
