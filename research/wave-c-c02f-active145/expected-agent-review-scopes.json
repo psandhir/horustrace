@@ -1,0 +1,1311 @@
+{
+  "schema_version": 1,
+  "manifest_ref": "research/real-world-agent-security-2026/cohort.json@blob:61f80a058722c811b6bb2f80a4fba8153cacbd16;active145_non_langgraph_agent_review_population_not_independent_truth",
+  "expected_scopes": [
+    {
+      "scope_id": "rw-001:agent:unknown",
+      "case_id": "rw-001",
+      "repository": "Klavis-AI/klavis",
+      "commit_sha": "45c9f7da83d1cf43f7429b96f9c8e8153542ea1e",
+      "framework": "fastagent",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-002:agent:unknown",
+      "case_id": "rw-002",
+      "repository": "omnigentx/jarvis",
+      "commit_sha": "90d1eb1620912e752be2e6fe8156923a0394216d",
+      "framework": "fastagent",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-003:agent:unknown",
+      "case_id": "rw-003",
+      "repository": "angrysky56/ai_writers_workshop",
+      "commit_sha": "c160a299706dd0cd1dc9ae114b97aba905e9261d",
+      "framework": "fastagent",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-004:agent:unknown",
+      "case_id": "rw-004",
+      "repository": "JoanMarinPages/agentGemini",
+      "commit_sha": "0160690bb47cca17e70ceb8486209d7b1cacaf76",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-005:agent:unknown",
+      "case_id": "rw-005",
+      "repository": "Ojas-Patil26/VeriQ",
+      "commit_sha": "067cb330ab943279b4b8ea13c91c9042bdd9f421",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-006:agent:unknown",
+      "case_id": "rw-006",
+      "repository": "manojlds/adk-deepagents",
+      "commit_sha": "11a15d7c935061c50e1ef626df2445103b91c931",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-007:agent:unknown",
+      "case_id": "rw-007",
+      "repository": "joshnaim1/ocr-test",
+      "commit_sha": "12a850dec83f04039862fb6ef03e0fc80c462bf3",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-008:agent:unknown",
+      "case_id": "rw-008",
+      "repository": "aayushprsingh/track1-zoo-agent",
+      "commit_sha": "152f7f5fcefa1301c653ca10bacb4a4c93ae8edc",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-009:agent:unknown",
+      "case_id": "rw-009",
+      "repository": "vivekcommit/Cloud_Architecture_Review",
+      "commit_sha": "16ac50de750de9d4681a501f936184804a819754",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-010:agent:unknown",
+      "case_id": "rw-010",
+      "repository": "justsankalp/enterprise-rag-poc",
+      "commit_sha": "194979df7146ad0fd90132c7aa71b659b9260660",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-011:agent:unknown",
+      "case_id": "rw-011",
+      "repository": "VeerMuchandi/corporate_analyst",
+      "commit_sha": "224dd5a5684e39fd9e89e84296694965e32beb72",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-012:agent:unknown",
+      "case_id": "rw-012",
+      "repository": "namanraina16/morning-wire",
+      "commit_sha": "29529fbf066b30eb0d7c45d1a70b1eda5dfb53dd",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-013:agent:unknown",
+      "case_id": "rw-013",
+      "repository": "philiptitus/FionaAgents",
+      "commit_sha": "2d52329c05b334024a1bd0b0efb765a45b319dbc",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-014:agent:unknown",
+      "case_id": "rw-014",
+      "repository": "mindful-ai-dude/Gemini-AgentsADK-GUI",
+      "commit_sha": "39003b3cdc90ab4d1ddde9d2fcca8a74ea3a5bee",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-015:agent:unknown",
+      "case_id": "rw-015",
+      "repository": "rishiraj/mediquick-adk",
+      "commit_sha": "4f074e5aa818b2eb8c11d10e21adf76f28e7a3e4",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-016:agent:unknown",
+      "case_id": "rw-016",
+      "repository": "Aryan-Madaan/buildblogmarathonblr",
+      "commit_sha": "54fe26d233aaf2ac5bf9ff4beed5320a0fe22b22",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-017:agent:unknown",
+      "case_id": "rw-017",
+      "repository": "mxyhi/always-on-memory-agent",
+      "commit_sha": "5a92fd6fa34baa2920ac5ec6b1e1ac4def940311",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-018:agent:unknown",
+      "case_id": "rw-018",
+      "repository": "tushar-elite-in/viral-tb-studio",
+      "commit_sha": "5b843ea380c59df4a5a6bd333d17389e382237bc",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-019:agent:unknown",
+      "case_id": "rw-019",
+      "repository": "pedapallisuresh/Data-Pipeline-Agent",
+      "commit_sha": "6944f549cfcb30685dbf2038bc5ba1ccab08299a",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-020:agent:unknown",
+      "case_id": "rw-020",
+      "repository": "Ditto190/modme-ui-01",
+      "commit_sha": "6b15366dbf86598de9d325e9c2c65ee23789bd09",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-021:agent:unknown",
+      "case_id": "rw-021",
+      "repository": "proflead/how-to-build-ai-agent",
+      "commit_sha": "6dba7692cf4fa2c41944c6b327af2be78b1ab793",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-022:agent:unknown",
+      "case_id": "rw-022",
+      "repository": "iwasnothing/agentic-insight",
+      "commit_sha": "6f6673103b4c8cf19c4630f0715e95bca8732c20",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-023:agent:unknown",
+      "case_id": "rw-023",
+      "repository": "K-Dense-AI/agentic-data-scientist",
+      "commit_sha": "702dee9dfb9e5165ce51b52ad7b7885948df7cd1",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-024:agent:unknown",
+      "case_id": "rw-024",
+      "repository": "Shivain-codes/adk-text-intelligence-agent",
+      "commit_sha": "7ea77e24f242b9d270c048a3ca867b7c82acf918",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-025:agent:unknown",
+      "case_id": "rw-025",
+      "repository": "litmus-zhang/course-creator",
+      "commit_sha": "881acff4847f96454ebf50135b19ebe95fda1cb8",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-026:agent:unknown",
+      "case_id": "rw-026",
+      "repository": "devchilll/scope",
+      "commit_sha": "8a6e5f0b3a48bf2724d53c77e11507bea4e2ac8e",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-027:agent:unknown",
+      "case_id": "rw-027",
+      "repository": "google/pubmed-rag",
+      "commit_sha": "909b6e280b0f78ebc32fe4756513c859fe078491",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-028:agent:unknown",
+      "case_id": "rw-028",
+      "repository": "AhmadK-it/research_assistant",
+      "commit_sha": "923bf68dde7186f7ecff050cc3513550b5f68b0d",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-029:agent:unknown",
+      "case_id": "rw-029",
+      "repository": "git791/GreenAI-Agent",
+      "commit_sha": "94fdaf7fd9dd4269ac85fef9e850237da0360908",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-030:agent:unknown",
+      "case_id": "rw-030",
+      "repository": "Piyushhpatel/aquagaurd-google-cloud-rapid",
+      "commit_sha": "98c843300428b3b01a38e33a014dfbabc984d4fd",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-031:agent:unknown",
+      "case_id": "rw-031",
+      "repository": "ParasHarnagle/-Agent-Orch--travelConcierage",
+      "commit_sha": "a50e4bd2995b66c5dc14f4b1c0c655e2b2e1219b",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-032:agent:unknown",
+      "case_id": "rw-032",
+      "repository": "allen-stephen/memory-bank-samples",
+      "commit_sha": "ac7fdb1ed89f96c4f4e4d96548c09260e9e387da",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-033:agent:unknown",
+      "case_id": "rw-033",
+      "repository": "moonpy-a11y/agent_payments",
+      "commit_sha": "b08e4bec80ea2f8a3664d670bc6fc52b8a50d1ae",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-034:agent:unknown",
+      "case_id": "rw-034",
+      "repository": "salomonerobert/adk-design-agent",
+      "commit_sha": "b3aba77570f3891f836ac031257fe25872fc4000",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-035:agent:unknown",
+      "case_id": "rw-035",
+      "repository": "jeremylongshore/perception-with-intent",
+      "commit_sha": "b812b4406c41584a095b109b41ff5dfc58700b03",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-036:agent:unknown",
+      "case_id": "rw-036",
+      "repository": "Dannyzen/montagegenerator",
+      "commit_sha": "bad2d0c26723ecd80e6ee1c471536f647c44d7ac",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-037:agent:unknown",
+      "case_id": "rw-037",
+      "repository": "Jorgelmh/sentoru-agent",
+      "commit_sha": "bb4a3bf0f41a96b05cb269f5ac606b7efe5fcc01",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-038:agent:unknown",
+      "case_id": "rw-038",
+      "repository": "elitepunith/apdm-agent",
+      "commit_sha": "c2f30462bc8663bec5c4046dc62006f52889c19a",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-039:agent:unknown",
+      "case_id": "rw-039",
+      "repository": "Umbra-shadow/Foreman",
+      "commit_sha": "c623c4116acf066787bce735263fc01195a76bb6",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-040:agent:unknown",
+      "case_id": "rw-040",
+      "repository": "dwij2812/streamassist-datastorespec-example",
+      "commit_sha": "c7ae87d8c45a55c2c678690269ec49c92801d4b8",
+      "framework": "google-adk",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-076:agent:unknown",
+      "case_id": "rw-076",
+      "repository": "sashi-does/gamma",
+      "commit_sha": "01f9ed81dd9aa33634ede60ed2914b5e29162a52",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-077:agent:unknown",
+      "case_id": "rw-077",
+      "repository": "azizyartas/amazon-hack",
+      "commit_sha": "06aaf6784a2ba294f60261219453a2b955314e89",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-078:agent:unknown",
+      "case_id": "rw-078",
+      "repository": "lilgreml1n/gemini-cli-mcp",
+      "commit_sha": "0c2cad211f00e1c316b172cbde9ef9b82daf3da3",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-079:agent:unknown",
+      "case_id": "rw-079",
+      "repository": "xavi0007/agentic_chatbot",
+      "commit_sha": "0c5e20d45b75164b76b6041c643396d14db039a5",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-080:agent:unknown",
+      "case_id": "rw-080",
+      "repository": "Amlan66/SSEEnabledMCPAgent",
+      "commit_sha": "11531239e71b123f25b3c6103ee36a9d614d0032",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-081:agent:unknown",
+      "case_id": "rw-081",
+      "repository": "Frostday/Agent4Molecule",
+      "commit_sha": "131f7f8898a15a90e6e9faa9131c0fd4bb706797",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-082:agent:unknown",
+      "case_id": "rw-082",
+      "repository": "milesonline/Orion-ChatAgent",
+      "commit_sha": "16611187dc3ead5232d5c385fe409646fe67518d",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-083:agent:unknown",
+      "case_id": "rw-083",
+      "repository": "RGGH/refactored-octo-parakeet",
+      "commit_sha": "1aec28cb33fbff0e8d0fa7799c0c2bba6ac90a6a",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-084:agent:unknown",
+      "case_id": "rw-084",
+      "repository": "AndreaCadonna/redmine-ai-cli",
+      "commit_sha": "1b2976858b61f8f0b6fe1ce1d0d0173cd52e4452",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-085:agent:unknown",
+      "case_id": "rw-085",
+      "repository": "openlegion-ai/openlegion",
+      "commit_sha": "24efd6e06b28768cbbcd9275f43c479b3df37b18",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-086:agent:unknown",
+      "case_id": "rw-086",
+      "repository": "RooCodeInc/Roomote",
+      "commit_sha": "32cdaa576386f5f79a85bc5cae6bcc632f280ffc",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-087:agent:unknown",
+      "case_id": "rw-087",
+      "repository": "elmerjani/lab",
+      "commit_sha": "407d71a903f1269797f6e837bcd93c53038105a8",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-088:agent:unknown",
+      "case_id": "rw-088",
+      "repository": "billyhargroveofficial/billyharness",
+      "commit_sha": "6c71fa1ddc7dc9237a8419cf86a73a6237cec5af",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-089:agent:unknown",
+      "case_id": "rw-089",
+      "repository": "jiamingkong/agent_demos",
+      "commit_sha": "6fab148888845bc08e762b82ce0477a3a213d712",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-090:agent:unknown",
+      "case_id": "rw-090",
+      "repository": "garland3/redesigned-octo-umbrella",
+      "commit_sha": "741a959071e6859de0387600b23695f678ce8d0c",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-091:agent:unknown",
+      "case_id": "rw-091",
+      "repository": "ibrahimsaleem/mcp-security-lab",
+      "commit_sha": "77cf0df7cba2cf3f247f1a86b3ec7a77651146f2",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-092:agent:unknown",
+      "case_id": "rw-092",
+      "repository": "nandangupta-security/CloudSecAIBot",
+      "commit_sha": "7847614f8439bf053d32e8db7fa33675440ed873",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-093:agent:unknown",
+      "case_id": "rw-093",
+      "repository": "TnjMyWife/NanoAgent-Assignment",
+      "commit_sha": "7f5a9a1d3c73f7311e25dcecf0f3ee66018bea4d",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-094:agent:unknown",
+      "case_id": "rw-094",
+      "repository": "Josuehmz/AIAssistant",
+      "commit_sha": "80b7af1a91411cfc040a58494415f457c3bd0e61",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-095:agent:unknown",
+      "case_id": "rw-095",
+      "repository": "mestercuby/MCP-Demo",
+      "commit_sha": "814f476d5740a1bc9808fc2ebd8b8d547fdaecb2",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-096:agent:unknown",
+      "case_id": "rw-096",
+      "repository": "jakie528/mcp-oauth",
+      "commit_sha": "8476ee620196e60114e9dc1d6d497e4edf614cf2",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-097:agent:unknown",
+      "case_id": "rw-097",
+      "repository": "dehora/tars",
+      "commit_sha": "89b59de7c1a20c8a3231b211cdc0b85649c0ef4a",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-098:agent:unknown",
+      "case_id": "rw-098",
+      "repository": "SHOCKWAVE07/mcp-gemini",
+      "commit_sha": "8d43f39679a15a150474560002c13fc42f263c55",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-099:agent:unknown",
+      "case_id": "rw-099",
+      "repository": "kztomita/chat-app-with-mcp-example",
+      "commit_sha": "9db740a753d74ce8cbeb3815f86af4d995cfe57c",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-100:agent:unknown",
+      "case_id": "rw-100",
+      "repository": "aakashyo/Operational-Planning-Agent",
+      "commit_sha": "9fd22e999d18b2becdba3a1fc2eac411b9a25577",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-101:agent:unknown",
+      "case_id": "rw-101",
+      "repository": "ohidurbappy/learn-mcp",
+      "commit_sha": "a158eb5b408318b373b7a2ba08ac8f52b6340ab5",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-102:agent:unknown",
+      "case_id": "rw-102",
+      "repository": "night2tl/mcp-slides",
+      "commit_sha": "a7e55b4b02a16e390dbf1ae09e9ff99275be9e55",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-103:agent:unknown",
+      "case_id": "rw-103",
+      "repository": "Nagharjun17/MCP-Ollama-Client",
+      "commit_sha": "aa54c8d8f808123ba26922138126afa6675dce68",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-104:agent:unknown",
+      "case_id": "rw-104",
+      "repository": "ZygimantasB/AI-with-jupyter",
+      "commit_sha": "ac8b74ff4aecf17e8026e8666fb917effd1355ed",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-105:agent:unknown",
+      "case_id": "rw-105",
+      "repository": "jianbo27/mcp-demo",
+      "commit_sha": "af095e06608839aa52c9c1a17ed332c03ed7aba2",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-106:agent:unknown",
+      "case_id": "rw-106",
+      "repository": "ariadnasaez/master_thesis",
+      "commit_sha": "b99f9bb05017a39396a2302351e85f380fac7a71",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-107:agent:unknown",
+      "case_id": "rw-107",
+      "repository": "eginaml/clinical-research-agents",
+      "commit_sha": "be3883c2eff8cd1a7059ef795407d9d9949922d8",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-108:agent:unknown",
+      "case_id": "rw-108",
+      "repository": "huanchong-99/Go-Home",
+      "commit_sha": "c08702ae7d1b6818ce932ab0ac649f548f40dfc4",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-109:agent:unknown",
+      "case_id": "rw-109",
+      "repository": "nks676/hume-agent",
+      "commit_sha": "d019097903fb656230e868d0b3ffe67deb10fc72",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-110:agent:unknown",
+      "case_id": "rw-110",
+      "repository": "7bernie/meridian-chatbot",
+      "commit_sha": "d8be1cf5ddf4bda6a38e30d4e857031df3199039",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-111:agent:unknown",
+      "case_id": "rw-111",
+      "repository": "Pragna-echuri/Agentic-Autonomous-Data-Analyst-Platform",
+      "commit_sha": "ddc464a7585e6c7c82957357bd243e2254579104",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-112:agent:unknown",
+      "case_id": "rw-112",
+      "repository": "ayushshah04/DashBoard_Agent",
+      "commit_sha": "df75fa280204db2cdaac3d46096f2545526bd991",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-113:agent:unknown",
+      "case_id": "rw-113",
+      "repository": "Eeshu-Yadav/GraphPatch",
+      "commit_sha": "e4cc5ccae3b63869abf3f3a77b07345be26fc73e",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-114:agent:unknown",
+      "case_id": "rw-114",
+      "repository": "udaykiranpod/udaymcpserver",
+      "commit_sha": "e73c1aa20de2432430f13afd3188e00723c3da9e",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-115:agent:unknown",
+      "case_id": "rw-115",
+      "repository": "Meer-Promethean/Voice_Agent",
+      "commit_sha": "f7e94334c253eb058ace3ff23655290b17b7a8ac",
+      "framework": "mcp-custom",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-116:agent:unknown",
+      "case_id": "rw-116",
+      "repository": "KrishnaKumarSoni/barmuda",
+      "commit_sha": "0387a8d11f54a9e07ae91b4d69acbe1f2ef5c98b",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-117:agent:unknown",
+      "case_id": "rw-117",
+      "repository": "wandb/discovery-forge",
+      "commit_sha": "05fabee1288d25c9a4f338cb723bb3b05023a570",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-118:agent:unknown",
+      "case_id": "rw-118",
+      "repository": "undertherain/PaperX",
+      "commit_sha": "25af7bd2ec41a7b0c3b4033eb7328c1874e1aefd",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-119:agent:unknown",
+      "case_id": "rw-119",
+      "repository": "VitalyOborin/yodoca",
+      "commit_sha": "2af56ec52e0a7ff211c2276e8301e83da8a95dcd",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-120:agent:unknown",
+      "case_id": "rw-120",
+      "repository": "steel-dev/steel-cookbook",
+      "commit_sha": "40f1326ba885d758a8072848a5eacccb51ba7400",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-121:agent:unknown",
+      "case_id": "rw-121",
+      "repository": "DunaSpice/JetsonMind",
+      "commit_sha": "4dde749d932478c55c43de935efa21a67830fac5",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-122:agent:unknown",
+      "case_id": "rw-122",
+      "repository": "ulab-uiuc/coinjure",
+      "commit_sha": "51bd34c0e3172973714181332bbdffac46716071",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-123:agent:unknown",
+      "case_id": "rw-123",
+      "repository": "blaxel-templates/template-openai-py",
+      "commit_sha": "51f59e68b4e69d0391b88f85e03d861130865cc9",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-124:agent:unknown",
+      "case_id": "rw-124",
+      "repository": "Danejw/ai-companion-backend",
+      "commit_sha": "5868863046a6b3e69cba9d07e98fb2bd357976d1",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-125:agent:unknown",
+      "case_id": "rw-125",
+      "repository": "blastshielddown/dagster-diagnostic-agent",
+      "commit_sha": "5d2d40b339030123f2e851b0d82b8a1d69bb3fe2",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-126:agent:unknown",
+      "case_id": "rw-126",
+      "repository": "agent-axiom/agent-anvil",
+      "commit_sha": "65025264994f17999f83c830a317cbe88edbdd07",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-127:agent:unknown",
+      "case_id": "rw-127",
+      "repository": "nexi-lab/nexus",
+      "commit_sha": "66e3b994773036514a2aebae8138c60b77a64329",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-128:agent:unknown",
+      "case_id": "rw-128",
+      "repository": "merlinfuchs/ai-in-a-box",
+      "commit_sha": "7821400c9ef4cb7ac4cdaf79d2dfd751c1557641",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-129:agent:unknown",
+      "case_id": "rw-129",
+      "repository": "ALPHAbilal/test3",
+      "commit_sha": "78c04c2b227ba8af0f152a5997c88609e9a1ed86",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-130:agent:unknown",
+      "case_id": "rw-130",
+      "repository": "als141/a2a-openai-multiagent",
+      "commit_sha": "8d4061bf210aecacd68a7ef6e68051d1aa724050",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-131:agent:unknown",
+      "case_id": "rw-131",
+      "repository": "cuttlesoft/agent-loop-examples",
+      "commit_sha": "959ce356fadb4577f40c35e2942a3237ad8f7988",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-132:agent:unknown",
+      "case_id": "rw-132",
+      "repository": "brookr/serverless-agents",
+      "commit_sha": "9b533fa9fb77502e1321b061c30d5ec5ac41f9f6",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-133:agent:unknown",
+      "case_id": "rw-133",
+      "repository": "ConesaLab/PaintOmics",
+      "commit_sha": "a166da377450977a6a95ec44f4ae703a31c99742",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-134:agent:unknown",
+      "case_id": "rw-134",
+      "repository": "ShinyDapps/l402-kit",
+      "commit_sha": "a9a216105e240a42b1cfae9147f491b2e5e9b0e1",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-135:agent:unknown",
+      "case_id": "rw-135",
+      "repository": "wuyoscar/Internal-Safety-Collapse",
+      "commit_sha": "ac75b759fe755ea41048990c38b8543ac53ecc39",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-136:agent:unknown",
+      "case_id": "rw-136",
+      "repository": "disler/single-file-agents",
+      "commit_sha": "ae5826a4165c4af2e54501ba99b4d98dda0bb8b3",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-137:agent:unknown",
+      "case_id": "rw-137",
+      "repository": "IAmTomShaw/tourist-agent",
+      "commit_sha": "b4dccafce5c3bbd00405a18ec7e25665c6272ad1",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-138:agent:unknown",
+      "case_id": "rw-138",
+      "repository": "elastic/observability-examples",
+      "commit_sha": "b69114e63fa0bfc483f56d4cb3af3512f58fb451",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-139:agent:unknown",
+      "case_id": "rw-139",
+      "repository": "IAmTomShaw/stock-tracker-agent",
+      "commit_sha": "c2e02428e3360ed00a94052b211d2422c6c8155c",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-140:agent:unknown",
+      "case_id": "rw-140",
+      "repository": "indrazm/ai-discord-bot",
+      "commit_sha": "c2fb1924fc8efe7b2eed3929396f0281ae162585",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-141:agent:unknown",
+      "case_id": "rw-141",
+      "repository": "datacurve-ai/wide-research",
+      "commit_sha": "c48a6fcd87e5d857ad80fd2a16fc73bd2a60af41",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-142:agent:unknown",
+      "case_id": "rw-142",
+      "repository": "totalhack/zillion",
+      "commit_sha": "d508864b13a942942895936559f538c7f7d246c6",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-143:agent:unknown",
+      "case_id": "rw-143",
+      "repository": "abhinavg6/yutha",
+      "commit_sha": "d6172254bf8a219f34f195e7ffdeb4f7dfd769e6",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-144:agent:unknown",
+      "case_id": "rw-144",
+      "repository": "SATUNIX/gateway",
+      "commit_sha": "f0659bbf7e804865e5142e97092683884110d6d0",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-145:agent:unknown",
+      "case_id": "rw-145",
+      "repository": "elchanio-76/deep_research",
+      "commit_sha": "fbe2b3181382862e8238c445baeb71bab708f9d5",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-146:agent:unknown",
+      "case_id": "rw-146",
+      "repository": "engagepy/openai_agent_sales",
+      "commit_sha": "ffa3be97dbbae504bdd6d45f668888af61b043c5",
+      "framework": "openai-agents",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-147:agent:unknown",
+      "case_id": "rw-147",
+      "repository": "hope-tatenda-mutema/Pedantic-AI-Deep-Research-Agent",
+      "commit_sha": "0369d0675851071e9f2da850951144e2bb022b3f",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-148:agent:unknown",
+      "case_id": "rw-148",
+      "repository": "FaustoS88/Pydantic-AI-Pinescript-Expert",
+      "commit_sha": "03cbd93c486435df08d70185fbab9aa61fff5fbb",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-149:agent:unknown",
+      "case_id": "rw-149",
+      "repository": "LeonieFreisinger/pydanticai-base-agent",
+      "commit_sha": "0cf88a4caf2b5da29ff7af8364d4db14ac9e50b4",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-150:agent:unknown",
+      "case_id": "rw-150",
+      "repository": "Amar-Ag/project-ideation-tool",
+      "commit_sha": "169a9d50841de7cf05bfd5240f9509e0eccd5167",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-151:agent:unknown",
+      "case_id": "rw-151",
+      "repository": "harshalmore31/phoenix-os",
+      "commit_sha": "1c7f552d9d7515f065f68306a4b066dd6e3afc79",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-152:agent:unknown",
+      "case_id": "rw-152",
+      "repository": "kumarvipu1/agentic-ppt-slide",
+      "commit_sha": "2614076f9fbb0cdde10e481918b5177c5c3399c8",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-153:agent:unknown",
+      "case_id": "rw-153",
+      "repository": "abhaybhargav/pydanticai-sec-research-assistant",
+      "commit_sha": "26cb40a164787fb2b1b59f9630964f964a7ee64f",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-154:agent:unknown",
+      "case_id": "rw-154",
+      "repository": "aws-samples/sample-agentic-platform",
+      "commit_sha": "3013ce28c58c3a6242a8fc8bcfcfc133a4e3f82e",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-155:agent:unknown",
+      "case_id": "rw-155",
+      "repository": "shotgun-sh/shotgun",
+      "commit_sha": "4d344d5a46aafc815de441ff670d4131187f33e6",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-156:agent:unknown",
+      "case_id": "rw-156",
+      "repository": "Alejandro-Candela/agentic-rag-knowledge-graph",
+      "commit_sha": "53a1d4b1cb8029edbc35b5e554ab9c0806a2fc85",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-157:agent:unknown",
+      "case_id": "rw-157",
+      "repository": "LuizaRubim/chatbot_agent_music",
+      "commit_sha": "54f135d00726cb8d91d8692498ebd03e214b4199",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-158:agent:unknown",
+      "case_id": "rw-158",
+      "repository": "newsbubbles/matplotlib_mcp",
+      "commit_sha": "5628ad1370acb03b4cba265bcf0a322a7ded1c07",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-159:agent:unknown",
+      "case_id": "rw-159",
+      "repository": "GB153/AlpacaAgent",
+      "commit_sha": "56e1156a7ab7afee072deef9a6a950c2ea469711",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-160:agent:unknown",
+      "case_id": "rw-160",
+      "repository": "lladdy/progressive-disclosure-ai-assistant",
+      "commit_sha": "6e46f905897f4d89ad7219041505b17e81f2114c",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-161:agent:unknown",
+      "case_id": "rw-161",
+      "repository": "mars-mx/portfolio",
+      "commit_sha": "6e6871b85fb0d4d051c2043bd0daa4911676e4d3",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-162:agent:unknown",
+      "case_id": "rw-162",
+      "repository": "SadeepaNHerath/risk-management-learning-agent",
+      "commit_sha": "70f615bc1b985ffcab7b12d9b0c4fe1f8a00d9c9",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-163:agent:unknown",
+      "case_id": "rw-163",
+      "repository": "rachedblili/MCP-Transition",
+      "commit_sha": "7c1941f6b592787622b91a321d031c1cd77a688d",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-164:agent:unknown",
+      "case_id": "rw-164",
+      "repository": "amscotti/local-LLM-with-RAG",
+      "commit_sha": "832fb9a2970884e61a6ca2eabcfa103b78df4cfb",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-165:agent:unknown",
+      "case_id": "rw-165",
+      "repository": "abuiles/ramon",
+      "commit_sha": "890b364018b8aea2ec50405cdde700fe824a9082",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-166:agent:unknown",
+      "case_id": "rw-166",
+      "repository": "NateMerriman/crawl4AI-agent-v2",
+      "commit_sha": "8aed07f14bc2088890d899044b7e63ee83f61926",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-167:agent:unknown",
+      "case_id": "rw-167",
+      "repository": "coleam00/second-brain-research-dashboard",
+      "commit_sha": "908fb63f99a9aaf60b60dd3ea719dbf48822ea0e",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-168:agent:unknown",
+      "case_id": "rw-168",
+      "repository": "hypermemory-ai/openrouter_provider_validator",
+      "commit_sha": "95eee5b0694ca7901526e6280f1a700760a7e7ba",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-169:agent:unknown",
+      "case_id": "rw-169",
+      "repository": "badlydrawnrod/agent-c",
+      "commit_sha": "9789e93dab47c4bd38ccc6fe19c3761f611d09e4",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-170:agent:unknown",
+      "case_id": "rw-170",
+      "repository": "Croups/smart-web-scraper",
+      "commit_sha": "a157701a22ae1853a00156b2364830130958c82d",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-171:agent:unknown",
+      "case_id": "rw-171",
+      "repository": "Rehaan-2006/Virtual_Clinical_Assistant",
+      "commit_sha": "a55ce1b3220909cdf6f183412db3830c6f41ef61",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-172:agent:unknown",
+      "case_id": "rw-172",
+      "repository": "Krishnanand2517/rag-doc-agent",
+      "commit_sha": "a56e3f85e5738f3865efc90e7212f8bd4e98dfa8",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-173:agent:unknown",
+      "case_id": "rw-173",
+      "repository": "xxLizXxx/AI-AgentTools-1",
+      "commit_sha": "abf454c18134ef82902bed94ae4b3e99fde926fc",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-174:agent:unknown",
+      "case_id": "rw-174",
+      "repository": "Unfold-Security/pydantic-collab",
+      "commit_sha": "b35097cb7cb5f39cc3d098f51d819c1cfe3a0266",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-175:agent:unknown",
+      "case_id": "rw-175",
+      "repository": "coleam00/orbit-support-agent",
+      "commit_sha": "d03e6fabf801e3fb6aec9e2533064408ca24706c",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-176:agent:unknown",
+      "case_id": "rw-176",
+      "repository": "djaboxx/template-ai-chat-stack",
+      "commit_sha": "d8f54cc067f387b4f6f1cb685266adca4111aadc",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-177:agent:unknown",
+      "case_id": "rw-177",
+      "repository": "JUN176/exp-agent",
+      "commit_sha": "e20250253039d4148ab8caca293a4cfef0f214af",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-178:agent:unknown",
+      "case_id": "rw-178",
+      "repository": "MhankBarBar/zero-ichi",
+      "commit_sha": "e4c4ae87ce7b81009b4dd4bc6e671a512e8d2bd6",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-179:agent:unknown",
+      "case_id": "rw-179",
+      "repository": "ShariqAli-Dev/graphiti-poc",
+      "commit_sha": "edc355130f7eec9ae6baa3c989d722d8735d298d",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    },
+    {
+      "scope_id": "rw-180:agent:unknown",
+      "case_id": "rw-180",
+      "repository": "kai-feinberg/reddit-agent",
+      "commit_sha": "f4503c6076c1e43d91d25f9feddf014c605c62e7",
+      "framework": "pydantic-ai",
+      "construct": "agent",
+      "source_role": "unknown"
+    }
+  ]
+}
