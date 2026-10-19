@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SEED = ROOT / "research/wave-c-c02g-real-source/rw-004-source-candidates.json"
 POPULATION = ROOT / "research/wave-c-c02f-active145/expected-agent-review-scopes.json"
-SHA = re.compile(r"[0-9a-f]{40}\\Z")
+SHA = re.compile(r"[0-9a-f]{40}\Z")
 
 
 def test_rw004_source_candidates_pin_exact_active145_case() -> None:
