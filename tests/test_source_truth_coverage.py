@@ -167,3 +167,21 @@ def test_c02f_drops_no_explicit_expected_scopes(tmp_path: Path) -> None:
     assert result["missing_scope_count"] == 2
     assert len(result["scopes"]) == 2
     assert all(not row["reference_present"] for row in result["scopes"])
+
+
+
+def test_c02f_empty_label_scope_never_claims_witness_verification(
+    tmp_path: Path,
+) -> None:
+    expected, reference, checkouts = _case(tmp_path)
+    expected["expected_scopes"] = expected["expected_scopes"][:1]
+    reference["labels"] = []
+    report = source_truth_coverage(expected, reference, checkouts)
+    assert report["referenced_scope_count"] == 1
+    scope = report["scopes"][0]
+    assert scope["source_witnesses_git_verified"] is False
+    assert scope["positive_labels"] == 0
+    assert scope["negative_labels"] == 0
+    assert "no_source_positive_labels" in scope["blockers"]
+    assert "no_source_hard_negative_labels" in scope["blockers"]
+    assert report["certified_precision"] is None
