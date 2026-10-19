@@ -120,7 +120,7 @@ def source_truth_coverage(
             "positive_labels": counts["positive"],
             "negative_labels": counts["negative"],
             "unknown_labels": counts["unknown"],
-            "source_witnesses_git_verified": ref is not None,
+            "source_witnesses_git_verified": ref is not None and sum(counts.values()) > 0,
             "blockers": blockers,
             "certified_accuracy_assessable": False,
         }
