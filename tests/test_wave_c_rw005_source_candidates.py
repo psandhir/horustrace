@@ -15,6 +15,8 @@ _BLOBS = {
     "__init__.py": "4caf51810fb5cf8babe6391d31d2116d6f9be05d",
     "api.py": "bfed9d84fd977eb20a4e7f8453aebff675ac9faf",
     "requirements.txt": "4742c50311e93ede85fcfff2cfc44702aef56ec6",
+    "tools/metrics_tools.py": "f1641c3f53ec5eb66516fdac15847d8067f8581d",
+    "tools/schema_tools.py": "bdab09514401e679b08e101feb2fcb4023e18284",
 }
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
 
@@ -40,7 +42,7 @@ def test_rw005_case_matches_immutable_active_non_langgraph_population() -> None:
 
 def test_rw005_sources_have_pinned_witnesses_and_unique_syntax_ids() -> None:
     sites = _load()["observations"]
-    assert len(sites) == 28
+    assert len(sites) == 34
     assert len({s["id"] for s in sites}) == len(sites)
     assert {s["path"] for s in sites} == set(_BLOBS)
     for site in sites:
@@ -148,3 +150,59 @@ def test_rw005_declared_sdk_version_not_runtime_tool_attestation() -> None:
     assert sdk["path"] == "requirements.txt"
     assert sdk["source_expression"] == "google-adk==1.19.0"
     assert record["runtime_imports_verified"] is False
+
+
+
+def test_rw005_candidate_edges_have_pinned_source_endpoints_and_witnesses() -> None:
+    data = _load()
+    all_ids = {row["id"] for row in data["observations"]}
+    edges = data["candidate_edges"]
+    assert len(edges) == 14
+    assert len({row["id"] for row in edges}) == len(edges)
+    kinds = Counter(row["edge_kind"] for row in edges)
+    assert kinds == {
+        "DECLARED_SUBAGENT_MEMBERSHIP": 4,
+        "DECLARED_AGENT_TOOL_LISTING": 8,
+        "DECLARED_RUNNER_AGENT_REFERENCE": 1,
+        "DIRECT_APPLICATION_FUNCTION_CALL": 1,
+    }
+    for edge in edges:
+        assert edge["from_source_ref"] in all_ids
+        assert edge["to_source_ref"] in all_ids
+        assert edge["relationship_witness_ref"] in all_ids
+        assert edge["status"] == "declared_source_candidate_only"
+        assert edge["runtime_verified"] is False
+        assert edge["source_semantics_independently_adjudicated"] is False
+        assert edge["effective_authority_established"] is False
+
+
+def test_rw005_child_agent_bindings_preserve_eight_owners() -> None:
+    edges = _load()["candidate_edges"]
+    bindings = [row for row in edges
+                if row["edge_kind"] == "DECLARED_AGENT_TOOL_LISTING"]
+    by_owner = Counter(row["from_source_ref"] for row in bindings)
+    assert by_owner == {
+        "rw005-ingestion-constructor": 3,
+        "rw005-anomaly-constructor": 2,
+        "rw005-cause-constructor": 3,
+    }
+    assert not any(row["from_source_ref"] == "rw005-coordinator-constructor"
+                   for row in bindings)
+    shared = Counter(row["to_source_ref"] for row in bindings)
+    assert shared["rw005-function-timeseries"] == 2
+    assert shared["rw005-function-lineage"] == 2
+    assert len(shared) == 6
+
+
+def test_rw005_never_conflates_http_call_with_agent_tool_binding() -> None:
+    edges = _load()["candidate_edges"]
+    rest = next(row for row in edges
+                if row["edge_kind"] == "DIRECT_APPLICATION_FUNCTION_CALL")
+    assert rest["from_source_ref"] == "rw005-api-nonagent-route"
+    assert rest["to_source_ref"] == "rw005-function-list-metrics"
+    assert all(not row["edge_kind"].startswith("AGENT_CAN_CALL")
+               for row in edges)
+    runner = next(row for row in edges
+                  if row["edge_kind"] == "DECLARED_RUNNER_AGENT_REFERENCE")
+    assert runner["to_source_ref"] == "rw005-coordinator-constructor"
+    assert runner["from_source_ref"] == "rw005-api-runner-constructor"
