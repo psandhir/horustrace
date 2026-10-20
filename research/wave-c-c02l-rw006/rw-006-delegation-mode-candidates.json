@@ -1,0 +1,350 @@
+{
+  "schema_version": 1,
+  "case_id": "rw-006",
+  "cohort_scope_id": "rw-006:agent:unknown",
+  "repository": "manojlds/adk-deepagents",
+  "pinned_commit_sha": "11a15d7c935061c50e1ef626df2445103b91c931",
+  "framework": "google-adk",
+  "source_role": "unknown",
+  "record_type": "source_first_mode_sensitive_syntax_candidates_not_oracle_truth",
+  "scanner_predictions_consulted_in_this_review": false,
+  "source_reviewer_independence_externally_verified": false,
+  "source_blindness_externally_verified": false,
+  "positive_universe_complete": false,
+  "negative_universe_complete": false,
+  "runtime_imports_verified": false,
+  "runtime_agent_callable_verified": false,
+  "release_accuracy_assessable": false,
+  "notes": "Factory source distinguishes default static from dynamic/both conditional tools. A general_purpose prompt description under dynamic mode is not a statically built AgentTool. Existing LlmAgent wrapped in AgentTool is not a new agent constructor. No scenario uses observed runtime invocation or independently certified V2 truth.",
+  "mode_candidates": [
+    {
+      "delegation_mode": "static",
+      "conditional_static_subagent_tool_path": true,
+      "conditional_dynamic_registration_tool_path": false,
+      "conditional_dynamic_task_tool_path": false,
+      "general_purpose_prompt_description_path": true,
+      "source_only": true,
+      "runtime_tool_catalogue_verified": false
+    },
+    {
+      "delegation_mode": "dynamic",
+      "conditional_static_subagent_tool_path": false,
+      "conditional_dynamic_registration_tool_path": true,
+      "conditional_dynamic_task_tool_path": true,
+      "general_purpose_prompt_description_path": true,
+      "source_only": true,
+      "runtime_tool_catalogue_verified": false
+    },
+    {
+      "delegation_mode": "both",
+      "conditional_static_subagent_tool_path": true,
+      "conditional_dynamic_registration_tool_path": true,
+      "conditional_dynamic_task_tool_path": true,
+      "general_purpose_prompt_description_path": true,
+      "source_only": true,
+      "runtime_tool_catalogue_verified": false
+    }
+  ],
+  "observations": [
+    {
+      "id": "rw006-types-default-static",
+      "kind": "default_delegation_mode_syntax",
+      "path": "adk_deepagents/types.py",
+      "blob_sha": "7476bbad8eaf9b72e847614c902d59328b97a546",
+      "line_start": 231,
+      "line_end": 231,
+      "source_expression": "delegation_mode: Literal[\"static\", \"dynamic\", \"both\"] = \"static\"",
+      "review_question": "The dataclass default is static, not evidence which mode a deployed app selected."
+    },
+    {
+      "id": "rw006-factory-definition",
+      "kind": "agent_factory_function_syntax",
+      "path": "adk_deepagents/graph.py",
+      "blob_sha": "6016c01a60b4df00cf91a1df6ad73aabdf9fb0ee",
+      "line_start": 414,
+      "line_end": 414,
+      "source_expression": "def create_deep_agent(",
+      "review_question": "A Python factory definition is not automatically an instantiated agent."
+    },
+    {
+      "id": "rw006-factory-config-default",
+      "kind": "factory_configuration_syntax",
+      "path": "adk_deepagents/graph.py",
+      "blob_sha": "6016c01a60b4df00cf91a1df6ad73aabdf9fb0ee",
+      "line_start": 471,
+      "line_end": 471,
+      "source_expression": "cfg = config or DeepAgentConfig()",
+      "review_question": "Default mode follows DeepAgentConfig only when caller does not override config."
+    },
+    {
+      "id": "rw006-factory-route-config",
+      "kind": "factory_delegation_mode_dispatch_syntax",
+      "path": "adk_deepagents/graph.py",
+      "blob_sha": "6016c01a60b4df00cf91a1df6ad73aabdf9fb0ee",
+      "line_start": 493,
+      "line_end": 493,
+      "source_expression": "delegation_mode=cfg.delegation_mode,",
+      "review_question": "Factory passes caller-selected mode to builder; do not unconditionally materialize both branches."
+    },
+    {
+      "id": "rw006-static-branch",
+      "kind": "conditional_static_delegation_branch_syntax",
+      "path": "adk_deepagents/graph.py",
+      "blob_sha": "6016c01a60b4df00cf91a1df6ad73aabdf9fb0ee",
+      "line_start": 213,
+      "line_end": 213,
+      "source_expression": "if delegation_mode in {\"static\", \"both\"}:",
+      "review_question": "Static branch is conditional on static/both; dynamic-only must not emit static AgentTool as built."
+    },
+    {
+      "id": "rw006-static-call",
+      "kind": "static_subagent_builder_call_syntax",
+      "path": "adk_deepagents/graph.py",
+      "blob_sha": "6016c01a60b4df00cf91a1df6ad73aabdf9fb0ee",
+      "line_start": 215,
+      "line_end": 215,
+      "source_expression": "subagent_tools = build_subagent_tools(",
+      "review_question": "Static creation happens on the enabled branch, not unconditionally."
+    },
+    {
+      "id": "rw006-static-include-general",
+      "kind": "static_general_purpose_opt_in_syntax",
+      "path": "adk_deepagents/graph.py",
+      "blob_sha": "6016c01a60b4df00cf91a1df6ad73aabdf9fb0ee",
+      "line_start": 219,
+      "line_end": 219,
+      "source_expression": "include_general_purpose=True,",
+      "review_question": "Check duplicate name suppression in task builder; not a second general-purpose agent by default."
+    },
+    {
+      "id": "rw006-dynamic-branch",
+      "kind": "conditional_dynamic_delegation_branch_syntax",
+      "path": "adk_deepagents/graph.py",
+      "blob_sha": "6016c01a60b4df00cf91a1df6ad73aabdf9fb0ee",
+      "line_start": 228,
+      "line_end": 228,
+      "source_expression": "if delegation_mode in {\"dynamic\", \"both\"}:",
+      "review_question": "Dynamic-only path registers callable factory tools, not a static predetermined set of agent instances."
+    },
+    {
+      "id": "rw006-dynamic-register-appender",
+      "kind": "conditional_dynamic_core_tool_append_syntax",
+      "path": "adk_deepagents/graph.py",
+      "blob_sha": "6016c01a60b4df00cf91a1df6ad73aabdf9fb0ee",
+      "line_start": 230,
+      "line_end": 230,
+      "source_expression": "core_tools.append(",
+      "review_question": "Only dynamic/both appends a register-subagent tool."
+    },
+    {
+      "id": "rw006-dynamic-register-tool",
+      "kind": "conditional_dynamic_register_tool_syntax",
+      "path": "adk_deepagents/graph.py",
+      "blob_sha": "6016c01a60b4df00cf91a1df6ad73aabdf9fb0ee",
+      "line_start": 231,
+      "line_end": 231,
+      "source_expression": "create_register_subagent_tool(",
+      "review_question": "Registration tool function definition does not prove an agent was registered at runtime."
+    },
+    {
+      "id": "rw006-dynamic-task-appender",
+      "kind": "conditional_dynamic_core_tool_append_syntax",
+      "path": "adk_deepagents/graph.py",
+      "blob_sha": "6016c01a60b4df00cf91a1df6ad73aabdf9fb0ee",
+      "line_start": 237,
+      "line_end": 237,
+      "source_expression": "core_tools.append(",
+      "review_question": "Only dynamic/both appends dynamic task tool."
+    },
+    {
+      "id": "rw006-dynamic-task-tool",
+      "kind": "conditional_dynamic_task_tool_syntax",
+      "path": "adk_deepagents/graph.py",
+      "blob_sha": "6016c01a60b4df00cf91a1df6ad73aabdf9fb0ee",
+      "line_start": 238,
+      "line_end": 238,
+      "source_expression": "create_dynamic_task_tool(",
+      "review_question": "Dynamic tool construction does not mean dynamic task was invoked."
+    },
+    {
+      "id": "rw006-general-purpose-description",
+      "kind": "prompt_description_delegation_condition_syntax",
+      "path": "adk_deepagents/graph.py",
+      "blob_sha": "6016c01a60b4df00cf91a1df6ad73aabdf9fb0ee",
+      "line_start": 275,
+      "line_end": 275,
+      "source_expression": "if delegation_mode in {\"static\", \"dynamic\", \"both\"}:",
+      "review_question": "General-purpose name in prompt descriptions can exist even without a static AgentTool."
+    },
+    {
+      "id": "rw006-factory-tool-concat",
+      "kind": "parent_declared_tool_union_syntax",
+      "path": "adk_deepagents/graph.py",
+      "blob_sha": "6016c01a60b4df00cf91a1df6ad73aabdf9fb0ee",
+      "line_start": 526,
+      "line_end": 526,
+      "source_expression": "all_tools: list[Any] = list(core_tools) + subagent_tools",
+      "review_question": "Tool lists combine conditional core and subagent tool results; not runtime call or permission semantics."
+    },
+    {
+      "id": "rw006-root-constructor",
+      "kind": "parent_agent_constructor_syntax",
+      "path": "adk_deepagents/graph.py",
+      "blob_sha": "6016c01a60b4df00cf91a1df6ad73aabdf9fb0ee",
+      "line_start": 528,
+      "line_end": 528,
+      "source_expression": "return LlmAgent(",
+      "review_question": "Factory only returns parent ADK LlmAgent when called; its declaration is not a deployed instance."
+    },
+    {
+      "id": "rw006-task-general-purpose-spec",
+      "kind": "general_purpose_spec_definition_syntax",
+      "path": "adk_deepagents/tools/task.py",
+      "blob_sha": "03d9a3f35a3f3b2362f5276ada6ba066000407b1",
+      "line_start": 40,
+      "line_end": 40,
+      "source_expression": "GENERAL_PURPOSE_SUBAGENT: SubAgentSpec = SubAgentSpec(",
+      "review_question": "A SubAgentSpec declaration is not the instantiated general-purpose subagent."
+    },
+    {
+      "id": "rw006-task-include-general",
+      "kind": "general_purpose_conditional_syntax",
+      "path": "adk_deepagents/tools/task.py",
+      "blob_sha": "03d9a3f35a3f3b2362f5276ada6ba066000407b1",
+      "line_start": 130,
+      "line_end": 130,
+      "source_expression": "if include_general_purpose:",
+      "review_question": "Static builder adds default only when flag enabled and name absent."
+    },
+    {
+      "id": "rw006-task-dedupe-general",
+      "kind": "general_purpose_dedupe_syntax",
+      "path": "adk_deepagents/tools/task.py",
+      "blob_sha": "03d9a3f35a3f3b2362f5276ada6ba066000407b1",
+      "line_start": 133,
+      "line_end": 133,
+      "source_expression": "if \"general_purpose\" not in all_names:",
+      "review_question": "Do not double-count default general-purpose spec if caller provides the same sanitized name."
+    },
+    {
+      "id": "rw006-task-add-general",
+      "kind": "general_purpose_spec_append_syntax",
+      "path": "adk_deepagents/tools/task.py",
+      "blob_sha": "03d9a3f35a3f3b2362f5276ada6ba066000407b1",
+      "line_start": 134,
+      "line_end": 134,
+      "source_expression": "specs.append(GENERAL_PURPOSE_SUBAGENT)",
+      "review_question": "Appending spec precedes potential LlmAgent creation; not itself an instance."
+    },
+    {
+      "id": "rw006-task-prebuilt-agent",
+      "kind": "prebuilt_agent_wrapper_syntax",
+      "path": "adk_deepagents/tools/task.py",
+      "blob_sha": "03d9a3f35a3f3b2362f5276ada6ba066000407b1",
+      "line_start": 142,
+      "line_end": 142,
+      "source_expression": "tools.append(AgentTool(agent=agent))",
+      "review_question": "Wrapping existing provided LlmAgent in AgentTool is not a new LlmAgent constructor."
+    },
+    {
+      "id": "rw006-task-spec-tools",
+      "kind": "conditional_subagent_tool_resolution_syntax",
+      "path": "adk_deepagents/tools/task.py",
+      "blob_sha": "03d9a3f35a3f3b2362f5276ada6ba066000407b1",
+      "line_start": 146,
+      "line_end": 146,
+      "source_expression": "sub_tools: list[Any] = list(spec.get(\"tools\", default_tools))",
+      "review_question": "Spec-dependent local tools vs default tools; cannot infer shared parent effective authority."
+    },
+    {
+      "id": "rw006-task-approval-callback",
+      "kind": "conditional_control_callback_syntax",
+      "path": "adk_deepagents/tools/task.py",
+      "blob_sha": "03d9a3f35a3f3b2362f5276ada6ba066000407b1",
+      "line_start": 156,
+      "line_end": 156,
+      "source_expression": "before_tool_cb = make_before_tool_callback(interrupt_on=sub_interrupt_on)",
+      "review_question": "Source callback creation is not unconditional enforceable approval for every listed tool."
+    },
+    {
+      "id": "rw006-task-spec-constructor",
+      "kind": "subagent_constructor_in_factory_syntax",
+      "path": "adk_deepagents/tools/task.py",
+      "blob_sha": "03d9a3f35a3f3b2362f5276ada6ba066000407b1",
+      "line_start": 158,
+      "line_end": 158,
+      "source_expression": "sub_agent = LlmAgent(",
+      "review_question": "LlmAgent constructed in loop when static branch processes spec, not a fixed global instance."
+    },
+    {
+      "id": "rw006-task-wrapper-spec",
+      "kind": "subagent_tool_wrapper_syntax",
+      "path": "adk_deepagents/tools/task.py",
+      "blob_sha": "03d9a3f35a3f3b2362f5276ada6ba066000407b1",
+      "line_start": 169,
+      "line_end": 169,
+      "source_expression": "tools.append(AgentTool(agent=sub_agent))",
+      "review_question": "AgentTool wrapper is not an extra agent and does not automatically imply delegation was executed."
+    },
+    {
+      "id": "rw006-dynamic-builder",
+      "kind": "dynamic_agent_factory_definition_syntax",
+      "path": "adk_deepagents/tools/task_dynamic_execution.py",
+      "blob_sha": "d0b6a5f333886f0e697aecbc6b93546a32e18ae2",
+      "line_start": 319,
+      "line_end": 319,
+      "source_expression": "def _build_spec_agent(",
+      "review_question": "Dynamic builder function can be called later; it is not a startup agent construction event."
+    },
+    {
+      "id": "rw006-dynamic-tools",
+      "kind": "dynamic_conditional_tool_resolution_syntax",
+      "path": "adk_deepagents/tools/task_dynamic_execution.py",
+      "blob_sha": "d0b6a5f333886f0e697aecbc6b93546a32e18ae2",
+      "line_start": 339,
+      "line_end": 339,
+      "source_expression": "sub_tools: list[Any] = list(spec.get(\"tools\", default_tools))",
+      "review_question": "Dynamic spec may have its own tool list, not unconditionally every parent tool."
+    },
+    {
+      "id": "rw006-dynamic-model-override",
+      "kind": "dynamic_model_control_condition_syntax",
+      "path": "adk_deepagents/tools/task_dynamic_execution.py",
+      "blob_sha": "d0b6a5f333886f0e697aecbc6b93546a32e18ae2",
+      "line_start": 349,
+      "line_end": 349,
+      "source_expression": "if model_override and not config.allow_model_override:",
+      "review_question": "Model-override condition is not source evidence of tool approval or runtime guardrail."
+    },
+    {
+      "id": "rw006-dynamic-subagent-constructor",
+      "kind": "dynamic_agent_constructor_in_factory_syntax",
+      "path": "adk_deepagents/tools/task_dynamic_execution.py",
+      "blob_sha": "d0b6a5f333886f0e697aecbc6b93546a32e18ae2",
+      "line_start": 353,
+      "line_end": 353,
+      "source_expression": "return LlmAgent(",
+      "review_question": "LlmAgent created only upon execution of dynamic spec builder, not every time factory module is imported."
+    },
+    {
+      "id": "rw006-dynamic-register-definition",
+      "kind": "dynamic_tool_factory_definition_syntax",
+      "path": "adk_deepagents/tools/task_dynamic.py",
+      "blob_sha": "32e1e8080336d2dfd58c6cebe969d02863e23b12",
+      "line_start": 84,
+      "line_end": 84,
+      "source_expression": "def create_register_subagent_tool(",
+      "review_question": "Source function that builds registration tool; no observed registration list."
+    },
+    {
+      "id": "rw006-dynamic-task-definition",
+      "kind": "dynamic_tool_factory_definition_syntax",
+      "path": "adk_deepagents/tools/task_dynamic.py",
+      "blob_sha": "32e1e8080336d2dfd58c6cebe969d02863e23b12",
+      "line_start": 169,
+      "line_end": 169,
+      "source_expression": "def create_dynamic_task_tool(",
+      "review_question": "Source function that builds task tool; task execution not established."
+    }
+  ]
+}
