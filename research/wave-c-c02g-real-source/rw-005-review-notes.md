@@ -1,4 +1,4 @@
-# Wave C C02h — pinned VeriQ ADK typed candidate evidence (`rw-005`)
+# Wave C C02k — pinned VeriQ ADK typed candidate evidence (`rw-005`)
 
 This continues #614's **source-first reviewer preparation** with a second real
 Frozen-180/active-145 Google ADK source case, **not a new blinded holdout**.
