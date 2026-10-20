@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "case_id": "rw-080",
+  "repository": "Amlan66/SSEEnabledMCPAgent",
+  "commit_sha": "11531239e71b123f25b3c6103ee36a9d614d0032",
+  "tree_sha": "e93ba494131547f45f2b975fa99dd9121702fee0",
+  "truncated": false,
+  "entries": [
+    {
+      "path": ".gitignore",
+      "type": "blob",
+      "sha": "6a6c9cdfef920ba4d8299f4e38ae11f189f1d83a"
+    },
+    {
+      "path": ".python-version",
+      "type": "blob",
+      "sha": "2c0733315e415bfb5e5b353f9996ecd964d395b2"
+    },
+    {
+      "path": "README.md",
+      "type": "blob",
+      "sha": "45fe0d0919fa882995d20d32639558d76ea86fcd"
+    },
+    {
+      "path": "agent.py",
+      "type": "blob",
+      "sha": "e247627de1907a9b4747c1784843f9072d8fd85d"
+    },
+    {
+      "path": "config",
+      "type": "tree",
+      "sha": "f3a2d0662b61c1b386ba31fad4f009893b060b85"
+    },
+    {
+      "path": "config/models.json",
+      "type": "blob",
+      "sha": "bd50b7a088a09efc45980e9be7ea1517a591055d"
+    },
+    {
+      "path": "config/profiles.yaml",
+      "type": "blob",
+      "sha": "7a234cef7952efa91ce761667559f020a9b730c2"
+    },
+    {
+      "path": "core",
+      "type": "tree",
+      "sha": "fc01aafd93be302fff79f04290be53ae9c7d02a1"
+    },
+    {
+      "path": "core/context.py",
+      "type": "blob",
+      "sha": "01101c09e8cac78327de530dcbea1a59d64dffc5"
+    },
+    {
+      "path": "core/loop.py",
+      "type": "blob",
+      "sha": "1a94043b8bda3d24b8671ce46e7671d3ad53b88b"
+    },
+    {
+      "path": "core/session.py",
+      "type": "blob",
+      "sha": "1b57fa4e8500ac0450947b15f2c772619296c33c"
+    },
+    {
+      "path": "core/strategy.py",
+      "type": "blob",
+      "sha": "ce3f5ec0c920260aab537eaf22a0f9dbbbe32d4b"
+    },
+    {
+      "path": "mcp_server_1.py",
+      "type": "blob",
+      "sha": "23618439e4a8858da83d3dbdc0918784fd553406"
+    },
+    {
+      "path": "mcp_server_2.py",
+      "type": "blob",
+      "sha": "f7177c6bbddb2dc875c4cd6202c01bd774e93b07"
+    },
+    {
+      "path": "mcp_server_3.py",
+      "type": "blob",
+      "sha": "9e282724e8ceb83bef65ac0177538b3dc9d2ecab"
+    },
+    {
+      "path": "mcp_telegram_server.py",
+      "type": "blob",
+      "sha": "4408926e80d60b06a77b07a4690e0b06c11c0824"
+    },
+    {
+      "path": "models.py",
+      "type": "blob",
+      "sha": "b1c3b1f8d89e79175ea093a6d24c342af4af0cb2"
+    },
+    {
+      "path": "modules",
+      "type": "tree",
+      "sha": "18d728fd4a32f5f7f4ae154c8e65f54d95479178"
+    },
+    {
+      "path": "modules/action.py",
+      "type": "blob",
+      "sha": "bcc90cf8af6cc3e9a3507eddb3987be5b97bde96"
+    },
+    {
+      "path": "modules/decision.py",
+      "type": "blob",
+      "sha": "78160cc320827de1742220101ddb4c8c728ff67d"
+    },
+    {
+      "path": "modules/memory.py",
+      "type": "blob",
+      "sha": "b2dae2b100141eb2c47a804dc39d97d472acbfc9"
+    },
+    {
+      "path": "modules/model_manager.py",
+      "type": "blob",
+      "sha": "81ef8a965fa2f7a3336a49698392134ee8c5adf7"
+    },
+    {
+      "path": "modules/perception.py",
+      "type": "blob",
+      "sha": "f2f642c701fab81f406c1be0464fd24348b49d0a"
+    },
+    {
+      "path": "modules/tools.py",
+      "type": "blob",
+      "sha": "4bf8ebacfc9b517d851fdaba7091b8b758dc6eff"
+    },
+    {
+      "path": "pyproject.toml",
+      "type": "blob",
+      "sha": "58c6d617563e2dff2551cf41f57838a91b7d75bf"
+    },
+    {
+      "path": "session.py",
+      "type": "blob",
+      "sha": "b4f1d899165edcf609d91090a6d6342f2341d87e"
+    },
+    {
+      "path": "uv.lock",
+      "type": "blob",
+      "sha": "98cc153f5473cf0d3926a70ccd3f7df70195eab2"
+    }
+  ]
+}
