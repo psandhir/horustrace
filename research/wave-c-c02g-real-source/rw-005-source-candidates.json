@@ -15,7 +15,7 @@
   "runtime_imports_verified": false,
   "runtime_agent_callable_verified": false,
   "release_accuracy_assessable": false,
-  "notes": "Pinned source syntax, independently of scanner predictions. Five constructor sites, four declared coordinator sub-agent memberships, eight direct tool-list entries across three children; report agent has tools=[] and coordinator only sub_agents list. Declared presence is not effective authority, runtime execution, MCP connection, certified positive/negative truth or exhaustive source universe.",
+  "notes": "Pinned source syntax with 34 unique Git-blob/line observations. Four declared coordinator sub-agent relationships, eight agent/tool-list declarations with six anchored function definitions, one Runner root reference, and one ordinary FastAPI direct call. These are NOT independently reviewed V2 truth, effective AGENT_CAN_CALL, proven runtime relationships or complete source universes.",
   "observations": [
     {
       "id": "rw005-agent-import",
@@ -296,6 +296,222 @@
       "line_end": 1,
       "source_expression": "google-adk==1.19.0",
       "review_question": "Requirements text pins desired SDK version; installed runtime ABI and valid imports have not been established."
+    },
+    {
+      "id": "rw005-function-list-metrics",
+      "kind": "local_tool_function_definition_syntax",
+      "path": "tools/metrics_tools.py",
+      "blob_sha": "f1641c3f53ec5eb66516fdac15847d8067f8581d",
+      "line_start": 19,
+      "line_end": 19,
+      "source_expression": "def list_metrics() -> Dict[str, Any]:",
+      "review_question": "Local function exists in pinned source. Confirm imports and operational availability independently; function definition is not effective agent call authority."
+    },
+    {
+      "id": "rw005-function-timeseries",
+      "kind": "local_tool_function_definition_syntax",
+      "path": "tools/metrics_tools.py",
+      "blob_sha": "f1641c3f53ec5eb66516fdac15847d8067f8581d",
+      "line_start": 42,
+      "line_end": 42,
+      "source_expression": "def get_metric_timeseries(",
+      "review_question": "Local function exists in pinned source. Confirm imports and operational availability independently; function definition is not effective agent call authority."
+    },
+    {
+      "id": "rw005-function-anomalies",
+      "kind": "local_tool_function_definition_syntax",
+      "path": "tools/metrics_tools.py",
+      "blob_sha": "f1641c3f53ec5eb66516fdac15847d8067f8581d",
+      "line_start": 101,
+      "line_end": 101,
+      "source_expression": "def detect_metric_anomalies(",
+      "review_question": "Local function exists in pinned source. Confirm imports and operational availability independently; function definition is not effective agent call authority."
+    },
+    {
+      "id": "rw005-function-schema",
+      "kind": "local_tool_function_definition_syntax",
+      "path": "tools/schema_tools.py",
+      "blob_sha": "bdab09514401e679b08e101feb2fcb4023e18284",
+      "line_start": 73,
+      "line_end": 73,
+      "source_expression": "def get_schema_summary() -> Dict[str, Any]:",
+      "review_question": "Local function exists in pinned source. Confirm imports and operational availability independently; function definition is not effective agent call authority."
+    },
+    {
+      "id": "rw005-function-lineage",
+      "kind": "local_tool_function_definition_syntax",
+      "path": "tools/schema_tools.py",
+      "blob_sha": "bdab09514401e679b08e101feb2fcb4023e18284",
+      "line_start": 85,
+      "line_end": 85,
+      "source_expression": "def get_metric_lineage(metric_name: str) -> Dict[str, Any]:",
+      "review_question": "Local function exists in pinned source. Confirm imports and operational availability independently; function definition is not effective agent call authority."
+    },
+    {
+      "id": "rw005-function-changes",
+      "kind": "local_tool_function_definition_syntax",
+      "path": "tools/schema_tools.py",
+      "blob_sha": "bdab09514401e679b08e101feb2fcb4023e18284",
+      "line_start": 105,
+      "line_end": 105,
+      "source_expression": "def get_recent_changes(",
+      "review_question": "Local function exists in pinned source. Confirm imports and operational availability independently; function definition is not effective agent call authority."
+    }
+  ],
+  "candidate_edges": [
+    {
+      "id": "rw005-root-to-ingestion",
+      "edge_kind": "DECLARED_SUBAGENT_MEMBERSHIP",
+      "from_source_ref": "rw005-coordinator-constructor",
+      "to_source_ref": "rw005-ingestion-constructor",
+      "relationship_witness_ref": "rw005-coordinator-ingestion",
+      "status": "declared_source_candidate_only",
+      "runtime_verified": false,
+      "source_semantics_independently_adjudicated": false,
+      "effective_authority_established": false
+    },
+    {
+      "id": "rw005-root-to-anomaly",
+      "edge_kind": "DECLARED_SUBAGENT_MEMBERSHIP",
+      "from_source_ref": "rw005-coordinator-constructor",
+      "to_source_ref": "rw005-anomaly-constructor",
+      "relationship_witness_ref": "rw005-coordinator-anomaly",
+      "status": "declared_source_candidate_only",
+      "runtime_verified": false,
+      "source_semantics_independently_adjudicated": false,
+      "effective_authority_established": false
+    },
+    {
+      "id": "rw005-root-to-cause",
+      "edge_kind": "DECLARED_SUBAGENT_MEMBERSHIP",
+      "from_source_ref": "rw005-coordinator-constructor",
+      "to_source_ref": "rw005-cause-constructor",
+      "relationship_witness_ref": "rw005-coordinator-cause",
+      "status": "declared_source_candidate_only",
+      "runtime_verified": false,
+      "source_semantics_independently_adjudicated": false,
+      "effective_authority_established": false
+    },
+    {
+      "id": "rw005-root-to-report",
+      "edge_kind": "DECLARED_SUBAGENT_MEMBERSHIP",
+      "from_source_ref": "rw005-coordinator-constructor",
+      "to_source_ref": "rw005-report-constructor",
+      "relationship_witness_ref": "rw005-coordinator-report",
+      "status": "declared_source_candidate_only",
+      "runtime_verified": false,
+      "source_semantics_independently_adjudicated": false,
+      "effective_authority_established": false
+    },
+    {
+      "id": "rw005-ingestion-list-metrics",
+      "edge_kind": "DECLARED_AGENT_TOOL_LISTING",
+      "from_source_ref": "rw005-ingestion-constructor",
+      "to_source_ref": "rw005-function-list-metrics",
+      "relationship_witness_ref": "rw005-ingestion-metrics-list",
+      "status": "declared_source_candidate_only",
+      "runtime_verified": false,
+      "source_semantics_independently_adjudicated": false,
+      "effective_authority_established": false
+    },
+    {
+      "id": "rw005-ingestion-timeseries",
+      "edge_kind": "DECLARED_AGENT_TOOL_LISTING",
+      "from_source_ref": "rw005-ingestion-constructor",
+      "to_source_ref": "rw005-function-timeseries",
+      "relationship_witness_ref": "rw005-ingestion-metrics-timeseries",
+      "status": "declared_source_candidate_only",
+      "runtime_verified": false,
+      "source_semantics_independently_adjudicated": false,
+      "effective_authority_established": false
+    },
+    {
+      "id": "rw005-ingestion-lineage",
+      "edge_kind": "DECLARED_AGENT_TOOL_LISTING",
+      "from_source_ref": "rw005-ingestion-constructor",
+      "to_source_ref": "rw005-function-lineage",
+      "relationship_witness_ref": "rw005-ingestion-lineage",
+      "status": "declared_source_candidate_only",
+      "runtime_verified": false,
+      "source_semantics_independently_adjudicated": false,
+      "effective_authority_established": false
+    },
+    {
+      "id": "rw005-anomaly-timeseries",
+      "edge_kind": "DECLARED_AGENT_TOOL_LISTING",
+      "from_source_ref": "rw005-anomaly-constructor",
+      "to_source_ref": "rw005-function-timeseries",
+      "relationship_witness_ref": "rw005-anomaly-timeseries",
+      "status": "declared_source_candidate_only",
+      "runtime_verified": false,
+      "source_semantics_independently_adjudicated": false,
+      "effective_authority_established": false
+    },
+    {
+      "id": "rw005-anomaly-detection",
+      "edge_kind": "DECLARED_AGENT_TOOL_LISTING",
+      "from_source_ref": "rw005-anomaly-constructor",
+      "to_source_ref": "rw005-function-anomalies",
+      "relationship_witness_ref": "rw005-anomaly-detection",
+      "status": "declared_source_candidate_only",
+      "runtime_verified": false,
+      "source_semantics_independently_adjudicated": false,
+      "effective_authority_established": false
+    },
+    {
+      "id": "rw005-cause-schema",
+      "edge_kind": "DECLARED_AGENT_TOOL_LISTING",
+      "from_source_ref": "rw005-cause-constructor",
+      "to_source_ref": "rw005-function-schema",
+      "relationship_witness_ref": "rw005-cause-schema",
+      "status": "declared_source_candidate_only",
+      "runtime_verified": false,
+      "source_semantics_independently_adjudicated": false,
+      "effective_authority_established": false
+    },
+    {
+      "id": "rw005-cause-lineage",
+      "edge_kind": "DECLARED_AGENT_TOOL_LISTING",
+      "from_source_ref": "rw005-cause-constructor",
+      "to_source_ref": "rw005-function-lineage",
+      "relationship_witness_ref": "rw005-cause-lineage",
+      "status": "declared_source_candidate_only",
+      "runtime_verified": false,
+      "source_semantics_independently_adjudicated": false,
+      "effective_authority_established": false
+    },
+    {
+      "id": "rw005-cause-changes",
+      "edge_kind": "DECLARED_AGENT_TOOL_LISTING",
+      "from_source_ref": "rw005-cause-constructor",
+      "to_source_ref": "rw005-function-changes",
+      "relationship_witness_ref": "rw005-cause-changes",
+      "status": "declared_source_candidate_only",
+      "runtime_verified": false,
+      "source_semantics_independently_adjudicated": false,
+      "effective_authority_established": false
+    },
+    {
+      "id": "rw005-api-runner-to-root",
+      "edge_kind": "DECLARED_RUNNER_AGENT_REFERENCE",
+      "from_source_ref": "rw005-api-runner-constructor",
+      "to_source_ref": "rw005-coordinator-constructor",
+      "relationship_witness_ref": "rw005-api-runner-agent-arg",
+      "status": "declared_source_candidate_only",
+      "runtime_verified": false,
+      "source_semantics_independently_adjudicated": false,
+      "effective_authority_established": false
+    },
+    {
+      "id": "rw005-rest-route-direct-tool",
+      "edge_kind": "DIRECT_APPLICATION_FUNCTION_CALL",
+      "from_source_ref": "rw005-api-nonagent-route",
+      "to_source_ref": "rw005-function-list-metrics",
+      "relationship_witness_ref": "rw005-api-nonagent-tool-call",
+      "status": "declared_source_candidate_only",
+      "runtime_verified": false,
+      "source_semantics_independently_adjudicated": false,
+      "effective_authority_established": false
     }
   ]
 }
