@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "case_id": "rw-004",
+  "repository": "JoanMarinPages/agentGemini",
+  "commit_sha": "0160690bb47cca17e70ceb8486209d7b1cacaf76",
+  "source_files": [
+    {
+      "path": "agent.py",
+      "blob_sha": "c5641b32eac1d58f94ebd1b06a792f4d740b4ddb"
+    },
+    {
+      "path": "agentGemini/agent.py",
+      "blob_sha": "4e540509642a70802c03e66f4067d3f58b5ab9df"
+    },
+    {
+      "path": "agentGemini/tools/__init__.py",
+      "blob_sha": "7ebfffac45868f0487ccdbb73191f25a449d480d"
+    },
+    {
+      "path": "agentGemini/tools/conversion_tools.py",
+      "blob_sha": "4db2ed11296038799c63e5b346e392f3dc115c34"
+    }
+  ],
+  "imports": [
+    {
+      "id": "rw004-import-01",
+      "source_path": "agent.py",
+      "source_blob_sha": "c5641b32eac1d58f94ebd1b06a792f4d740b4ddb",
+      "line": 8,
+      "expression": "from .tools import herramientas_produccion_agroasesoria",
+      "module": ".tools"
+    },
+    {
+      "id": "rw004-import-02",
+      "source_path": "agent.py",
+      "source_blob_sha": "c5641b32eac1d58f94ebd1b06a792f4d740b4ddb",
+      "line": 9,
+      "expression": "from .prompt import INSTRUCTION, pain_point, product_interaction, user_profile",
+      "module": ".prompt"
+    },
+    {
+      "id": "rw004-import-03",
+      "source_path": "agentGemini/agent.py",
+      "source_blob_sha": "4e540509642a70802c03e66f4067d3f58b5ab9df",
+      "line": 13,
+      "expression": "from .config import Config",
+      "module": ".config"
+    },
+    {
+      "id": "rw004-import-04",
+      "source_path": "agentGemini/agent.py",
+      "source_blob_sha": "4e540509642a70802c03e66f4067d3f58b5ab9df",
+      "line": 14,
+      "expression": "from .models import SessionState",
+      "module": ".models"
+    },
+    {
+      "id": "rw004-import-05",
+      "source_path": "agentGemini/agent.py",
+      "source_blob_sha": "4e540509642a70802c03e66f4067d3f58b5ab9df",
+      "line": 15,
+      "expression": "from .tools import (",
+      "module": ".tools"
+    },
+    {
+      "id": "rw004-import-06",
+      "source_path": "agentGemini/agent.py",
+      "source_blob_sha": "4e540509642a70802c03e66f4067d3f58b5ab9df",
+      "line": 28,
+      "expression": "from .prompts import MAIN_INSTRUCTION",
+      "module": ".prompts"
+    },
+    {
+      "id": "rw004-import-07",
+      "source_path": "agentGemini/tools/__init__.py",
+      "source_blob_sha": "7ebfffac45868f0487ccdbb73191f25a449d480d",
+      "line": 5,
+      "expression": "from .customer_tools import (",
+      "module": ".customer_tools"
+    },
+    {
+      "id": "rw004-import-08",
+      "source_path": "agentGemini/tools/__init__.py",
+      "source_blob_sha": "7ebfffac45868f0487ccdbb73191f25a449d480d",
+      "line": 10,
+      "expression": "from .catalog_tools import (",
+      "module": ".catalog_tools"
+    },
+    {
+      "id": "rw004-import-09",
+      "source_path": "agentGemini/tools/__init__.py",
+      "source_blob_sha": "7ebfffac45868f0487ccdbb73191f25a449d480d",
+      "line": 16,
+      "expression": "from .cart_tools import (",
+      "module": ".cart_tools"
+    },
+    {
+      "id": "rw004-import-10",
+      "source_path": "agentGemini/tools/__init__.py",
+      "source_blob_sha": "7ebfffac45868f0487ccdbb73191f25a449d480d",
+      "line": 22,
+      "expression": "from .conversion_tools import (",
+      "module": ".conversion_tools"
+    },
+    {
+      "id": "rw004-import-11",
+      "source_path": "agentGemini/tools/conversion_tools.py",
+      "source_blob_sha": "4db2ed11296038799c63e5b346e392f3dc115c34",
+      "line": 10,
+      "expression": "from ..models import Cart, ServiceBooking",
+      "module": "..models"
+    },
+    {
+      "id": "rw004-import-12",
+      "source_path": "agentGemini/tools/conversion_tools.py",
+      "source_blob_sha": "4db2ed11296038799c63e5b346e392f3dc115c34",
+      "line": 11,
+      "expression": "from ..config import Config",
+      "module": "..config"
+    },
+    {
+      "id": "rw004-import-13",
+      "source_path": "agentGemini/tools/conversion_tools.py",
+      "source_blob_sha": "4db2ed11296038799c63e5b346e392f3dc115c34",
+      "line": 12,
+      "expression": "from ..services.firestore_service import FirestoreService",
+      "module": "..services.firestore_service"
+    },
+    {
+      "id": "rw004-import-14",
+      "source_path": "agentGemini/tools/conversion_tools.py",
+      "source_blob_sha": "4db2ed11296038799c63e5b346e392f3dc115c34",
+      "line": 13,
+      "expression": "from ..services.email_service import EmailService",
+      "module": "..services.email_service"
+    }
+  ]
+}
