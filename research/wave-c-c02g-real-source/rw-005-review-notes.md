@@ -15,7 +15,8 @@ Frozen-180/active-145 Google ADK source case, **not a new blinded holdout**.
 
 ## What source inspection supports
 
-34 GitHub-source-read syntax observations and 14 linked declared-source\nrelationship candidates pin file paths, Git blob SHA, line
+34 GitHub-source-read syntax observations and 14 linked declared-source
+relationship candidates pin file paths, Git blob SHA, line
 numbers and exact statement snippets. They include:
 
 - **Five distinct local constructor sites** in `agent.py`: 17
@@ -48,13 +49,25 @@ numbers and exact statement snippets. They include:
   This is not a model-controlled invocation and must not be re-labelled
   `AGENT_CAN_CALL` without a separate source-backed ADK binding.
 
-The ledger also captures six local Python tool-function definition anchors\nin `tools/metrics_tools.py` and `tools/schema_tools.py`. Its 14 source-linked\n**candidate** edges are 4 `DECLARED_SUBAGENT_MEMBERSHIP`, 8\n`DECLARED_AGENT_TOOL_LISTING`, 1 `DECLARED_RUNNER_AGENT_REFERENCE`\nand 1 `DIRECT_APPLICATION_FUNCTION_CALL`. Each edge links two pinned\nsource observation IDs plus a source statement witness and deliberately\nsets `runtime_verified=false`, `source_semantics_independently_adjudicated=false`,\n`effective_authority_established=false`. Do not project these records into\nproduction `AGENT_CAN_CALL` or attack-path certainty.\n\nSource blobs directly verified by pinned GitHub fetch:
+The ledger also captures six local Python tool-function definition anchors
+in `tools/metrics_tools.py` and `tools/schema_tools.py`. Its 14 source-linked
+**candidate** edges are 4 `DECLARED_SUBAGENT_MEMBERSHIP`, 8
+`DECLARED_AGENT_TOOL_LISTING`, 1 `DECLARED_RUNNER_AGENT_REFERENCE`
+and 1 `DIRECT_APPLICATION_FUNCTION_CALL`. Each edge links two pinned
+source observation IDs plus a source statement witness and deliberately
+sets `runtime_verified=false`, `source_semantics_independently_adjudicated=false`,
+`effective_authority_established=false`. Do not project these records into
+production `AGENT_CAN_CALL` or attack-path certainty.
+
+Source blobs directly verified by pinned GitHub fetch:
 
 ```text
 agent.py         89ce05579a18e8e09822d4157cace7121a5d7c99
 __init__.py       4caf51810fb5cf8babe6391d31d2116d6f9be05d
 api.py            bfed9d84fd977eb20a4e7f8453aebff675ac9faf
-requirements.txt  4742c50311e93ede85fcfff2cfc44702aef56ec6\ntools/metrics_tools.py f1641c3f53ec5eb66516fdac15847d8067f8581d\ntools/schema_tools.py  bdab09514401e679b08e101feb2fcb4023e18284
+requirements.txt  4742c50311e93ede85fcfff2cfc44702aef56ec6
+tools/metrics_tools.py f1641c3f53ec5eb66516fdac15847d8067f8581d
+tools/schema_tools.py  bdab09514401e679b08e101feb2fcb4023e18284
 ```
 
 ## Limits and required follow-on
