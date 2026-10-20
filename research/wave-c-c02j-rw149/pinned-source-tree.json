@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "case_id": "rw-149",
+  "repository": "LeonieFreisinger/pydanticai-base-agent",
+  "commit_sha": "0cf88a4caf2b5da29ff7af8364d4db14ac9e50b4",
+  "tree_sha": "672f992626f1d06f45e8effcb0756059171c9a2c",
+  "truncated": false,
+  "entries": [
+    {
+      "path": ".env.example",
+      "type": "blob",
+      "sha": "4cfa578a5c75fb11a11ea4f2dc162a5ac38624d8"
+    },
+    {
+      "path": ".gitignore",
+      "type": "blob",
+      "sha": "272bebcb8b63f50de9afea24311ab3c3a2bc303e"
+    },
+    {
+      "path": "Makefile",
+      "type": "blob",
+      "sha": "52b90e81803792b39af809342fc4867820ec150c"
+    },
+    {
+      "path": "README.md",
+      "type": "blob",
+      "sha": "e5fe45e01e6338b5aacf85e5b02d7ac7361c43d1"
+    },
+    {
+      "path": "agent.md",
+      "type": "blob",
+      "sha": "72fe5fdb8512ea0855749b0c4fdb719d908facda"
+    },
+    {
+      "path": "agent",
+      "type": "tree",
+      "sha": "b386f0569ba35b5c6b889643f297968d854362d2"
+    },
+    {
+      "path": "agent/__init__.py",
+      "type": "blob",
+      "sha": "ba6f06b8665e035873e5f1a24f7ce0529968cf26"
+    },
+    {
+      "path": "agent/agent.py",
+      "type": "blob",
+      "sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53"
+    },
+    {
+      "path": "agent/base_agent.py",
+      "type": "blob",
+      "sha": "17f586aad5f64ad228ec774dc368e8b068dc55f3"
+    },
+    {
+      "path": "agent/config.py",
+      "type": "blob",
+      "sha": "cffbea88ac422fa6a31ad4185ca06761d3b48e80"
+    },
+    {
+      "path": "agent/deps.py",
+      "type": "blob",
+      "sha": "e7f5b6b7887cce07596906c3dc6f10b397609e6e"
+    },
+    {
+      "path": "agent/models.py",
+      "type": "blob",
+      "sha": "4636e34e600fff6362da4b0d53616fb9f45cd796"
+    },
+    {
+      "path": "agent/prompts.py",
+      "type": "blob",
+      "sha": "3a85cc08ec3a227e78db0cec7d58febd58ae9fa8"
+    },
+    {
+      "path": "agent/tools.py",
+      "type": "blob",
+      "sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4"
+    },
+    {
+      "path": "app.py",
+      "type": "blob",
+      "sha": "dfafe6f01a0dbbb1a58ee18d6d3462eb43f6d4a2"
+    },
+    {
+      "path": "chainlit.md",
+      "type": "blob",
+      "sha": "4507ac4676a6387c4b52a0d1111e94753a102b32"
+    },
+    {
+      "path": "database",
+      "type": "tree",
+      "sha": "f5a21ba78bf6a7b90219071acf5ff13d26b2f89b"
+    },
+    {
+      "path": "database/__init__.py",
+      "type": "blob",
+      "sha": "fe52301e35ffd2e8c67d1a0f90fab9d4c327e43a"
+    },
+    {
+      "path": "database/init_db.py",
+      "type": "blob",
+      "sha": "63230b590639cf65972c66773547ffc8c2330951"
+    },
+    {
+      "path": "database/schema.sql",
+      "type": "blob",
+      "sha": "6c065ccf625b9b4b783067351a21bdfe2eff8ecf"
+    },
+    {
+      "path": "pyproject.toml",
+      "type": "blob",
+      "sha": "0cd4de6a029a9e0cf4774c0b95c7eb4e21e09c4a"
+    },
+    {
+      "path": "uv.lock",
+      "type": "blob",
+      "sha": "0030f37c5d82069a898df01faee839e2dfd9e657"
+    }
+  ]
+}
