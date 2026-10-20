@@ -1,0 +1,301 @@
+{
+  "schema_version": 1,
+  "case_id": "rw-005",
+  "cohort_scope_id": "rw-005:agent:unknown",
+  "repository": "Ojas-Patil26/VeriQ",
+  "pinned_commit_sha": "067cb330ab943279b4b8ea13c91c9042bdd9f421",
+  "framework": "google-adk",
+  "source_role": "unknown",
+  "record_type": "source_first_syntax_candidate_not_oracle_truth",
+  "scanner_predictions_consulted_in_this_review": false,
+  "source_reviewer_independence_externally_verified": false,
+  "source_blindness_externally_verified": false,
+  "positive_universe_complete": false,
+  "negative_universe_complete": false,
+  "runtime_imports_verified": false,
+  "runtime_agent_callable_verified": false,
+  "release_accuracy_assessable": false,
+  "notes": "Pinned source syntax, independently of scanner predictions. Five constructor sites, four declared coordinator sub-agent memberships, eight direct tool-list entries across three children; report agent has tools=[] and coordinator only sub_agents list. Declared presence is not effective authority, runtime execution, MCP connection, certified positive/negative truth or exhaustive source universe.",
+  "observations": [
+    {
+      "id": "rw005-agent-import",
+      "kind": "framework_agent_import_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 1,
+      "line_end": 1,
+      "source_expression": "from google.adk.agents import LlmAgent",
+      "review_question": "Verify the referenced Google ADK symbol against its pinned installed SDK; source import alone is not successful runtime loading."
+    },
+    {
+      "id": "rw005-ingestion-constructor",
+      "kind": "agent_constructor_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 17,
+      "line_end": 17,
+      "source_expression": "ingestion_agent = LlmAgent(",
+      "review_question": "Review a distinct source constructor site; deployment/runtime instance and effective permissions remain unverified."
+    },
+    {
+      "id": "rw005-anomaly-constructor",
+      "kind": "agent_constructor_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 44,
+      "line_end": 44,
+      "source_expression": "anomaly_agent = LlmAgent(name=\"anomaly_detection_agent\",",
+      "review_question": "A separate constructor site with configured name anomaly_detection_agent; source/site identity is not automatically a deployed unique process."
+    },
+    {
+      "id": "rw005-cause-constructor",
+      "kind": "agent_constructor_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 70,
+      "line_end": 70,
+      "source_expression": "root_cause_agent = LlmAgent(name=\"root_cause_agent\",",
+      "review_question": "The source name root_cause_agent is a local child, not the root_agent runtime object."
+    },
+    {
+      "id": "rw005-report-constructor",
+      "kind": "agent_constructor_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 106,
+      "line_end": 106,
+      "source_expression": "report_agent = LlmAgent(name=\"incident_report_agent\",",
+      "review_question": "Inspect dedicated report agent; no direct tools are listed in its constructor."
+    },
+    {
+      "id": "rw005-coordinator-constructor",
+      "kind": "agent_constructor_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 134,
+      "line_end": 134,
+      "source_expression": "root_agent = LlmAgent( name=\"data_quality_guardian\",",
+      "review_question": "Root coordinator declared at distinct source site; do not merge its identity with root_cause_agent due to root substring."
+    },
+    {
+      "id": "rw005-ingestion-metrics-list",
+      "kind": "declared_tool_binding_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 36,
+      "line_end": 36,
+      "source_expression": "list_metrics,",
+      "review_question": "This appears in ingestion_agent.tools. Directly listed does not prove successful import or runtime availability."
+    },
+    {
+      "id": "rw005-ingestion-metrics-timeseries",
+      "kind": "declared_tool_binding_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 37,
+      "line_end": 37,
+      "source_expression": "get_metric_timeseries,",
+      "review_question": "Check resolved function object and exact agent owner, not global tool inventory."
+    },
+    {
+      "id": "rw005-ingestion-lineage",
+      "kind": "declared_tool_binding_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 38,
+      "line_end": 38,
+      "source_expression": "get_metric_lineage,",
+      "review_question": "The same function is listed by another child agent; preserve distinct agent-tool binding identities."
+    },
+    {
+      "id": "rw005-anomaly-timeseries",
+      "kind": "declared_tool_binding_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 63,
+      "line_end": 63,
+      "source_expression": "get_metric_timeseries,",
+      "review_question": "Second agent binding to shared tool symbol; should not be collapsed into an unowned global callable."
+    },
+    {
+      "id": "rw005-anomaly-detection",
+      "kind": "declared_tool_binding_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 64,
+      "line_end": 64,
+      "source_expression": "detect_metric_anomalies,",
+      "review_question": "One anomaly child local tool-list entry, not delegated call by coordinator."
+    },
+    {
+      "id": "rw005-cause-schema",
+      "kind": "declared_tool_binding_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 98,
+      "line_end": 98,
+      "source_expression": "get_schema_summary,",
+      "review_question": "Listed under root_cause_agent; not a root_agent direct binding."
+    },
+    {
+      "id": "rw005-cause-lineage",
+      "kind": "declared_tool_binding_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 99,
+      "line_end": 99,
+      "source_expression": "get_metric_lineage,",
+      "review_question": "Tool symbol shared between ingestion and root-cause agents, with separate declared registrations."
+    },
+    {
+      "id": "rw005-cause-changes",
+      "kind": "declared_tool_binding_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 100,
+      "line_end": 100,
+      "source_expression": "get_recent_changes,",
+      "review_question": "Declared list entry does not establish external/network or filesystem effective authority."
+    },
+    {
+      "id": "rw005-report-empty-tools",
+      "kind": "explicit_empty_direct_tool_list_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 129,
+      "line_end": 129,
+      "source_expression": "tools=[],",
+      "review_question": "Explicit empty direct tools for report_agent, not proof of no ability to receive delegated requests or future injected tools."
+    },
+    {
+      "id": "rw005-coordinator-subagents-list",
+      "kind": "declared_subagent_list_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 158,
+      "line_end": 158,
+      "source_expression": "sub_agents=[",
+      "review_question": "List is a parent-child configuration, not evidence each subagent was actually invoked."
+    },
+    {
+      "id": "rw005-coordinator-ingestion",
+      "kind": "declared_subagent_membership_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 159,
+      "line_end": 159,
+      "source_expression": "ingestion_agent,",
+      "review_question": "Candidate declared root_agent -> ingestion_agent delegation membership, not observed runtime call."
+    },
+    {
+      "id": "rw005-coordinator-anomaly",
+      "kind": "declared_subagent_membership_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 160,
+      "line_end": 160,
+      "source_expression": "anomaly_agent,",
+      "review_question": "Candidate declared root_agent -> anomaly_agent membership only."
+    },
+    {
+      "id": "rw005-coordinator-cause",
+      "kind": "declared_subagent_membership_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 161,
+      "line_end": 161,
+      "source_expression": "root_cause_agent,",
+      "review_question": "Candidate declared root_agent -> root_cause_agent membership; the name root_cause_agent is not the root object."
+    },
+    {
+      "id": "rw005-coordinator-report",
+      "kind": "declared_subagent_membership_syntax",
+      "path": "agent.py",
+      "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+      "line_start": 162,
+      "line_end": 162,
+      "source_expression": "report_agent,",
+      "review_question": "Candidate declared root_agent -> report_agent membership; does not imply report_agent has direct tools."
+    },
+    {
+      "id": "rw005-package-root-export",
+      "kind": "package_agent_import_syntax",
+      "path": "__init__.py",
+      "blob_sha": "4caf51810fb5cf8babe6391d31d2116d6f9be05d",
+      "line_start": 1,
+      "line_end": 1,
+      "source_expression": "from .agent import root_agent",
+      "review_question": "Package exports root symbol from agent module, no additional constructor/site."
+    },
+    {
+      "id": "rw005-api-dynamic-module",
+      "kind": "dynamic_package_import_syntax",
+      "path": "api.py",
+      "blob_sha": "bfed9d84fd977eb20a4e7f8453aebff675ac9faf",
+      "line_start": 46,
+      "line_end": 46,
+      "source_expression": "_agent_mod = importlib.import_module(f\"{_pkg_name}.agent\")",
+      "review_question": "API resolves agent module through runtime-derived package name; execution/import success not shown."
+    },
+    {
+      "id": "rw005-api-agent-alias",
+      "kind": "runtime_wrapper_agent_alias_syntax",
+      "path": "api.py",
+      "blob_sha": "bfed9d84fd977eb20a4e7f8453aebff675ac9faf",
+      "line_start": 51,
+      "line_end": 51,
+      "source_expression": "_root_agent = _agent_mod.root_agent",
+      "review_question": "Wrapper points at imported root_agent; not a sixth constructor."
+    },
+    {
+      "id": "rw005-api-runner-constructor",
+      "kind": "adk_runner_constructor_syntax",
+      "path": "api.py",
+      "blob_sha": "bfed9d84fd977eb20a4e7f8453aebff675ac9faf",
+      "line_start": 87,
+      "line_end": 87,
+      "source_expression": "runner = Runner(",
+      "review_question": "Runner object configured, not proof endpoint actually served."
+    },
+    {
+      "id": "rw005-api-runner-agent-arg",
+      "kind": "adk_runner_agent_argument_syntax",
+      "path": "api.py",
+      "blob_sha": "bfed9d84fd977eb20a4e7f8453aebff675ac9faf",
+      "line_start": 88,
+      "line_end": 88,
+      "source_expression": "agent=_root_agent,",
+      "review_question": "Runner points to the imported root agent identity and not all helper agents as separate runners."
+    },
+    {
+      "id": "rw005-api-nonagent-route",
+      "kind": "fastapi_direct_tool_route_syntax",
+      "path": "api.py",
+      "blob_sha": "bfed9d84fd977eb20a4e7f8453aebff675ac9faf",
+      "line_start": 122,
+      "line_end": 122,
+      "source_expression": "@app.get(\"/api/metrics\")",
+      "review_question": "A REST endpoint calls list_metrics without an LLM model loop; it is not AGENT_CAN_CALL evidence."
+    },
+    {
+      "id": "rw005-api-nonagent-tool-call",
+      "kind": "fastapi_direct_tool_call_syntax",
+      "path": "api.py",
+      "blob_sha": "bfed9d84fd977eb20a4e7f8453aebff675ac9faf",
+      "line_start": 124,
+      "line_end": 124,
+      "source_expression": "return list_metrics()",
+      "review_question": "Direct Python API handler tool call is not an ADK agent-tool binding or model-directed invocation."
+    },
+    {
+      "id": "rw005-sdk-dependency-pin",
+      "kind": "declared_sdk_dependency_syntax",
+      "path": "requirements.txt",
+      "blob_sha": "4742c50311e93ede85fcfff2cfc44702aef56ec6",
+      "line_start": 1,
+      "line_end": 1,
+      "source_expression": "google-adk==1.19.0",
+      "review_question": "Requirements text pins desired SDK version; installed runtime ABI and valid imports have not been established."
+    }
+  ]
+}
