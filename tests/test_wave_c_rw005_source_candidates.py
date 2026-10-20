@@ -1,4 +1,4 @@
-"""C02h pinned rw-005 source-first ADK evidence is NOT release truth."""
+"""C02k pinned rw-005 source-first ADK evidence is NOT release truth."""
 from __future__ import annotations
 
 import json
