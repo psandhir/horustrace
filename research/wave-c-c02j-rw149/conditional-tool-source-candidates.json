@@ -1,0 +1,382 @@
+{
+  "schema_version": 1,
+  "case_id": "rw-149",
+  "cohort_scope_id": "rw-149:agent:unknown",
+  "repository": "LeonieFreisinger/pydanticai-base-agent",
+  "pinned_commit_sha": "0cf88a4caf2b5da29ff7af8364d4db14ac9e50b4",
+  "pinned_tree_sha": "672f992626f1d06f45e8effcb0756059171c9a2c",
+  "framework": "pydantic-ai",
+  "source_role": "unknown",
+  "record_type": "source_first_conditional_tool_selection_not_runtime_authority",
+  "source_files": [
+    {
+      "path": "agent/agent.py",
+      "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53"
+    },
+    {
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4"
+    },
+    {
+      "path": "agent/base_agent.py",
+      "blob_sha": "17f586aad5f64ad228ec774dc368e8b068dc55f3"
+    },
+    {
+      "path": "app.py",
+      "blob_sha": "dfafe6f01a0dbbb1a58ee18d6d3462eb43f6d4a2"
+    }
+  ],
+  "observations": [
+    {
+      "id": "rw149-site-01",
+      "path": "agent/agent.py",
+      "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+      "line": 25,
+      "expression": "def get_demo_level() -> int:",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-02",
+      "path": "agent/agent.py",
+      "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+      "line": 35,
+      "expression": "return int(os.getenv(\"DEMO_LEVEL\", \"4\"))",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-03",
+      "path": "agent/agent.py",
+      "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+      "line": 38,
+      "expression": "class SQLQueryAgent:",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-04",
+      "path": "agent/agent.py",
+      "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+      "line": 60,
+      "expression": "def __init__(",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-05",
+      "path": "agent/agent.py",
+      "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+      "line": 74,
+      "expression": "self.demo_level = demo_level or get_demo_level()",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-06",
+      "path": "agent/agent.py",
+      "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+      "line": 83,
+      "expression": "tools = get_tools_for_level(self.demo_level)",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-07",
+      "path": "agent/agent.py",
+      "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+      "line": 91,
+      "expression": "if self.demo_level == 1:",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-08",
+      "path": "agent/agent.py",
+      "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+      "line": 92,
+      "expression": "output_type = StructuredQueryPlan",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-09",
+      "path": "agent/agent.py",
+      "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+      "line": 96,
+      "expression": "self._agent: BaseAgent[Any, SQLAgentDeps] = BaseAgent(",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-10",
+      "path": "agent/agent.py",
+      "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+      "line": 99,
+      "expression": "tools=tools,",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-11",
+      "path": "agent/agent.py",
+      "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+      "line": 100,
+      "expression": "instructions=INSTRUCTIONS if self.demo_level >= 2 else None,",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-12",
+      "path": "agent/agent.py",
+      "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+      "line": 102,
+      "expression": "retries=3 if self.demo_level >= 4 else 1,",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-13",
+      "path": "agent/agent.py",
+      "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+      "line": 103,
+      "expression": "instrument=self.demo_level >= 4,  # Langfuse only at Level 4",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-14",
+      "path": "agent/agent.py",
+      "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+      "line": 111,
+      "expression": "\"tools\": [t.__name__ for t in tools],",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-15",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 50,
+      "expression": "async def list_tables(ctx: RunContext[SQLAgentDeps]) -> list[TableInfo]:",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-16",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 323,
+      "expression": "async def get_current_date(ctx: RunContext[SQLAgentDeps]) -> str:",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-17",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 348,
+      "expression": "async def get_stock_query_template(ctx: RunContext[SQLAgentDeps]) -> str:",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-18",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 408,
+      "expression": "def get_tools_for_level(level: int) -> list:",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-19",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 422,
+      "expression": "if level == 1:",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-20",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 423,
+      "expression": "return []",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-21",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 424,
+      "expression": "elif level == 2:",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-22",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 425,
+      "expression": "return [list_tables, describe_table]",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-23",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 426,
+      "expression": "else:  # Level 3 and 4",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-24",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 427,
+      "expression": "return [",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-25",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 428,
+      "expression": "list_tables,",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-26",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 429,
+      "expression": "describe_table,",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-27",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 430,
+      "expression": "execute_query,",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-28",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 431,
+      "expression": "get_current_date,",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-29",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 432,
+      "expression": "get_stock_query_template,",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-30",
+      "path": "agent/tools.py",
+      "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+      "line": 433,
+      "expression": "]",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-31",
+      "path": "agent/base_agent.py",
+      "blob_sha": "17f586aad5f64ad228ec774dc368e8b068dc55f3",
+      "line": 69,
+      "expression": "class BaseAgent(Generic[OutputType, DepsType]):",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-32",
+      "path": "agent/base_agent.py",
+      "blob_sha": "17f586aad5f64ad228ec774dc368e8b068dc55f3",
+      "line": 110,
+      "expression": "self.tools = tools or []",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-33",
+      "path": "agent/base_agent.py",
+      "blob_sha": "17f586aad5f64ad228ec774dc368e8b068dc55f3",
+      "line": 131,
+      "expression": "self._agent: Agent[DepsType, OutputType] = Agent(**agent_kwargs)",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-34",
+      "path": "agent/base_agent.py",
+      "blob_sha": "17f586aad5f64ad228ec774dc368e8b068dc55f3",
+      "line": 134,
+      "expression": "for tool in self.tools:",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-35",
+      "path": "agent/base_agent.py",
+      "blob_sha": "17f586aad5f64ad228ec774dc368e8b068dc55f3",
+      "line": 135,
+      "expression": "self._agent.tool(tool)",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-36",
+      "path": "app.py",
+      "blob_sha": "dfafe6f01a0dbbb1a58ee18d6d3462eb43f6d4a2",
+      "line": 32,
+      "expression": "@cl.on_chat_start",
+      "source_syntax_only": true
+    },
+    {
+      "id": "rw149-site-37",
+      "path": "app.py",
+      "blob_sha": "dfafe6f01a0dbbb1a58ee18d6d3462eb43f6d4a2",
+      "line": 43,
+      "expression": "agent = SQLQueryAgent()",
+      "source_syntax_only": true
+    }
+  ],
+  "declared_tool_sets": [
+    {
+      "demo_level": 1,
+      "source_selected_tool_symbols": [],
+      "source_level_status": "no_tools_declared_for_level"
+    },
+    {
+      "demo_level": 2,
+      "source_selected_tool_symbols": [
+        "list_tables",
+        "describe_table"
+      ],
+      "source_level_status": "source_tool_function_symbols_selected"
+    },
+    {
+      "demo_level": 3,
+      "source_selected_tool_symbols": [
+        "list_tables",
+        "describe_table",
+        "execute_query",
+        "get_current_date",
+        "get_stock_query_template"
+      ],
+      "source_level_status": "source_tool_function_symbols_selected"
+    },
+    {
+      "demo_level": 4,
+      "source_selected_tool_symbols": [
+        "list_tables",
+        "describe_table",
+        "execute_query",
+        "get_current_date",
+        "get_stock_query_template"
+      ],
+      "source_level_status": "source_tool_function_symbols_selected"
+    }
+  ],
+  "source_review_questions": [
+    "Level 1's code path selects zero tools: a negative for source-level registered tool functions at that level, not for runtime existence of the agent.",
+    "Level 2 selects only list_tables and describe_table; functions in other source files are not automatically registered for this configuration.",
+    "Levels 3 and 4 select five tool function symbols; installed SDK compatibility, tool schema validity and effective runtime invocation remain unresolved.",
+    "The BaseAgent wrapper creates the Pydantic Agent and registers each selected tool inside a loop: do not attribute all project tool functions to every agent instance.",
+    "DEMO_LEVEL defaults to 4 in code, but the environment variable and constructor override may select another value. Observed deployed value is unknown.",
+    "Chainlit on_chat_start creates an SQLQueryAgent source call site, not proof of deployed clients, sessions, permission enforcement or paths.",
+    "Level 4 instrumentation and retries are control/telemetry configuration, not proof of approval or least-privilege authorization."
+  ],
+  "source_checkout_verification_completed": false,
+  "independent_source_review_completed": false,
+  "positive_universe_complete": false,
+  "negative_universe_complete": false,
+  "actual_deployed_demo_level_verified": false,
+  "agent_tool_runtime_callability_verified": false,
+  "production_cutover_authorized": false,
+  "certified_precision": null,
+  "certified_recall": null
+}

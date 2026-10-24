@@ -1,0 +1,214 @@
+{
+  "schema_version": 1,
+  "repository": "JoanMarinPages/agentGemini",
+  "commit_sha": "0160690bb47cca17e70ceb8486209d7b1cacaf76",
+  "tree_sha": "002a3a94c6d6652c185cfbe73911aaccc633a0d0",
+  "truncated": false,
+  "entries": [
+    {
+      "path": ".env.example",
+      "type": "blob",
+      "sha": "ece6fe38e542e95bbe8cdd58a2a07c9228ed49de"
+    },
+    {
+      "path": ".gitignore",
+      "type": "blob",
+      "sha": "de9a60bc857a6d9faa5994b202e7f6e57c6df648"
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "type": "blob",
+      "sha": "1379bd0628de553c9ffe812e01e6b93ead295ef5"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "type": "blob",
+      "sha": "b3996dd042a2ed9689c7d44d7df4482c5daf1df9"
+    },
+    {
+      "path": "LICENSE",
+      "type": "blob",
+      "sha": "7d9f2c4549586db11cd36cd3212037160d13b106"
+    },
+    {
+      "path": "Makefile",
+      "type": "blob",
+      "sha": "42eb05ac7eb6eb98af81fc14e656fd7dadcb65da"
+    },
+    {
+      "path": "README.md",
+      "type": "blob",
+      "sha": "9c26380bc60d69d14bcde4d53829b776d28e5c59"
+    },
+    {
+      "path": "__init__.py",
+      "type": "blob",
+      "sha": "d127e54cdb543f3074e86996b2ec2a8fe06467f4"
+    },
+    {
+      "path": "adk.yaml",
+      "type": "blob",
+      "sha": "5c8312dd09906996414a37f83dd79776929f8d9b"
+    },
+    {
+      "path": "agent.py",
+      "type": "blob",
+      "sha": "c5641b32eac1d58f94ebd1b06a792f4d740b4ddb"
+    },
+    {
+      "path": "agentGemini",
+      "type": "tree",
+      "sha": "f111f52d6c0c047508c22bf2a81feca0ff3cc451"
+    },
+    {
+      "path": "agentGemini/__init__.py",
+      "type": "blob",
+      "sha": "8d552bbe424e3be5b246327044dd2172ee9e4fe5"
+    },
+    {
+      "path": "agentGemini/agent.py",
+      "type": "blob",
+      "sha": "4e540509642a70802c03e66f4067d3f58b5ab9df"
+    },
+    {
+      "path": "agentGemini/config.py",
+      "type": "blob",
+      "sha": "6d9e49de837f223c25f1e4e36a68e2b0a6c1749c"
+    },
+    {
+      "path": "agentGemini/models.py",
+      "type": "blob",
+      "sha": "a081c68afc94f39031d2026b58bb2c7a12ba6e6b"
+    },
+    {
+      "path": "agentGemini/prompts.py",
+      "type": "blob",
+      "sha": "2b56327de08fef3b2f803f641cf9350609f2d5e6"
+    },
+    {
+      "path": "agentGemini/services",
+      "type": "tree",
+      "sha": "c9a793b330a61c06e2f5b87dc4e3c996870814eb"
+    },
+    {
+      "path": "agentGemini/services/__init__.py",
+      "type": "blob",
+      "sha": "c3cbb2fd902ee74590f3459241286d242b282090"
+    },
+    {
+      "path": "agentGemini/services/firestore_service.py",
+      "type": "blob",
+      "sha": "c5c52535e53a029a3209525e9163225be606cc0f"
+    },
+    {
+      "path": "agentGemini/tools",
+      "type": "tree",
+      "sha": "3c16d088df5954f7102ac997824e439e1df33c8e"
+    },
+    {
+      "path": "agentGemini/tools/__init__.py",
+      "type": "blob",
+      "sha": "7ebfffac45868f0487ccdbb73191f25a449d480d"
+    },
+    {
+      "path": "agentGemini/tools/conversion_tools.py",
+      "type": "blob",
+      "sha": "4db2ed11296038799c63e5b346e392f3dc115c34"
+    },
+    {
+      "path": "constants.py",
+      "type": "blob",
+      "sha": "aeb2c26021b6c3d90726f705ec4360b156d94c92"
+    },
+    {
+      "path": "docs",
+      "type": "tree",
+      "sha": "d203d441ac66df802ccf82f568aab7470adafb60"
+    },
+    {
+      "path": "docs/ADK_INTEGRATION.md",
+      "type": "blob",
+      "sha": "762cbe03125fc52781fd47521bc1e1d2604c24d0"
+    },
+    {
+      "path": "entities",
+      "type": "tree",
+      "sha": "5d3398e981a1a2acc2c5e97196209c020b7d5f97"
+    },
+    {
+      "path": "entities/README.md",
+      "type": "blob",
+      "sha": "6c098aa4dffb8c6847c73714ef022dffa616f197"
+    },
+    {
+      "path": "example_simple_agent.py",
+      "type": "blob",
+      "sha": "bf16fe70ab20a2625c88451197866fb3c84908b4"
+    },
+    {
+      "path": "prompt_summary.py",
+      "type": "blob",
+      "sha": "389cae206393239200109876aea98009d1b53abe"
+    },
+    {
+      "path": "pyproject.toml",
+      "type": "blob",
+      "sha": "a87363a6342650e322d65b7c19920967ed409afa"
+    },
+    {
+      "path": "requirements.txt",
+      "type": "blob",
+      "sha": "4a18ae319979d7df518a0f4f5c8295af403b7926"
+    },
+    {
+      "path": "scripts",
+      "type": "tree",
+      "sha": "e6555ba2a62a524debd4f0af23bcec00cf8403d1"
+    },
+    {
+      "path": "scripts/run_dev.sh",
+      "type": "blob",
+      "sha": "16c541cc95b1311f2ded61e773d73ff80a319cad"
+    },
+    {
+      "path": "scripts/setup.sh",
+      "type": "blob",
+      "sha": "b72c034b2cd936486a7f704278885425d8fa2b0b"
+    },
+    {
+      "path": "scripts/test.sh",
+      "type": "blob",
+      "sha": "a877fbd089ecb5760b18c8f0fb84621bb611f01c"
+    },
+    {
+      "path": "shared_libraries",
+      "type": "tree",
+      "sha": "17c0eda392fb597cf055be6acc6b3a722196753d"
+    },
+    {
+      "path": "shared_libraries/README.md",
+      "type": "blob",
+      "sha": "030b33d98b19d7806c1f04884ba78e1b3fcf4c61"
+    },
+    {
+      "path": "sub_agents",
+      "type": "tree",
+      "sha": "32ab48600c089fa9c1426409c9f4fbb545f2baf1"
+    },
+    {
+      "path": "sub_agents/README.md",
+      "type": "blob",
+      "sha": "df8c9c28111e76619bcdef93777480183a932b93"
+    },
+    {
+      "path": "tools",
+      "type": "tree",
+      "sha": "c33e52ec2158d2bbf6245669e753dfe6e907db5b"
+    },
+    {
+      "path": "tools/README.md",
+      "type": "blob",
+      "sha": "538059afddf90253cd499aec8a7c29c1a21f6394"
+    }
+  ]
+}
