@@ -36,8 +36,8 @@ otherwise.
 - Original archived ledger Git blob:
   `f950abc4d38fffdf5537861459c0ff9b0fccc2c1`.
 - **28** unblinded source-only ChatGPT model opinions:
-  **16 source positives**, **8 selected hard negatives**, and
-  **4 effective-authority UNKNOWN**. These are **not TP/FP/FN/TN**.
+  **16 source positives**, **7 selected hard negatives**, and
+  **5 effective-authority UNKNOWN**. These are **not TP/FP/FN/TN**.
 - Source-visible facts from eight pinned blobs: four distinct FastMCP
   constructor sites, `MultiMCP(server_configs=...)`, configured stdio
   and SSE transports, source-declared tool decorators, dynamic
@@ -58,7 +58,7 @@ Important hard negatives and unknowns:
   are not demonstrated by the source alone.
 - `AgentLoop` source constructors and dispatch branches do not
   prove live sessions or successful tool calls.
-- Actual connected stdio/SSE servers, returned remote catalogue,
+- Server-profile startup, actual connected stdio/SSE servers, returned remote catalogue,
   duplicate-name collisions, runtime SDK compatibility,
   and effective tool permissions are **UNKNOWN**, not negative.
 
