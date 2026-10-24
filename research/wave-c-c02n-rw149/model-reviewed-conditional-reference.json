@@ -1,0 +1,289 @@
+{
+  "schema_version": 1,
+  "scopes": [
+    {
+      "scope_id": "rw-149:agent:unknown",
+      "case_id": "rw-149",
+      "repository": "LeonieFreisinger/pydanticai-base-agent",
+      "commit_sha": "0cf88a4caf2b5da29ff7af8364d4db14ac9e50b4",
+      "construct": "agent",
+      "source_role": "unknown",
+      "positive_complete": false,
+      "negative_complete": false,
+      "review_method": "model_reviewed",
+      "review_ref": "assistant_rw149_source_first_single_pass_not_independent",
+      "scanner_blind": false,
+      "negative_method": "Constructor and wrapper/class site near-misses only; incomplete"
+    },
+    {
+      "scope_id": "rw-149:typed_edge:unknown",
+      "case_id": "rw-149",
+      "repository": "LeonieFreisinger/pydanticai-base-agent",
+      "commit_sha": "0cf88a4caf2b5da29ff7af8364d4db14ac9e50b4",
+      "construct": "typed_edge",
+      "source_role": "unknown",
+      "positive_complete": false,
+      "negative_complete": false,
+      "review_method": "model_reviewed",
+      "review_ref": "assistant_rw149_source_first_single_pass_not_independent",
+      "scanner_blind": false,
+      "negative_method": "Level 1/2/3/4 source branch selected-tool distinctions only; incomplete"
+    },
+    {
+      "scope_id": "rw-149:effective_authority:unknown",
+      "case_id": "rw-149",
+      "repository": "LeonieFreisinger/pydanticai-base-agent",
+      "commit_sha": "0cf88a4caf2b5da29ff7af8364d4db14ac9e50b4",
+      "construct": "effective_authority",
+      "source_role": "unknown",
+      "positive_complete": false,
+      "negative_complete": false,
+      "review_method": "model_reviewed",
+      "review_ref": "assistant_rw149_source_first_single_pass_not_independent",
+      "scanner_blind": false,
+      "negative_method": "Installed SDK, actual environment and deployment effects not observed; no closed runtime universe"
+    }
+  ],
+  "labels": [
+    {
+      "scope_id": "rw-149:agent:unknown",
+      "claim_id": "source_sdk_agent_constructor:base_agent_wrapper",
+      "truth": "positive",
+      "source": {
+        "path": "agent/base_agent.py",
+        "blob_sha": "17f586aad5f64ad228ec774dc368e8b068dc55f3",
+        "line_start": 131,
+        "line_end": 131
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Explicit generic Pydantic Agent constructor in BaseAgent wrapper; instance count and actual deployment are unknown. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:agent:unknown",
+      "claim_id": "source_sdk_agent_constructor:chainlit_wrapper_call",
+      "truth": "negative",
+      "source": {
+        "path": "app.py",
+        "blob_sha": "dfafe6f01a0dbbb1a58ee18d6d3462eb43f6d4a2",
+        "line_start": 43,
+        "line_end": 43
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: SQLQueryAgent() invokes a project wrapper, not a direct second Pydantic Agent constructor at this site. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:agent:unknown",
+      "claim_id": "source_sdk_agent_constructor:class_definition",
+      "truth": "negative",
+      "source": {
+        "path": "agent/agent.py",
+        "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+        "line_start": 38,
+        "line_end": 38
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: A class definition is not a constructed Pydantic Agent instance. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:typed_edge:unknown",
+      "claim_id": "source_level1:empty_tool_list",
+      "truth": "positive",
+      "source": {
+        "path": "agent/tools.py",
+        "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+        "line_start": 423,
+        "line_end": 423
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: The level==1 branch explicitly returns an empty source-selected tool list. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:typed_edge:unknown",
+      "claim_id": "source_level2:select_list_tables",
+      "truth": "positive",
+      "source": {
+        "path": "agent/tools.py",
+        "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+        "line_start": 425,
+        "line_end": 425
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: The level==2 branch directly includes list_tables in its return list. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:typed_edge:unknown",
+      "claim_id": "source_level2:select_describe_table",
+      "truth": "positive",
+      "source": {
+        "path": "agent/tools.py",
+        "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+        "line_start": 425,
+        "line_end": 425
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: The level==2 branch directly includes describe_table in its return list. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:typed_edge:unknown",
+      "claim_id": "source_level3_4:select_list_tables",
+      "truth": "positive",
+      "source": {
+        "path": "agent/tools.py",
+        "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+        "line_start": 428,
+        "line_end": 428
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: The else branch selected for levels 3/4 contains this function symbol, without proving effective SDK callability. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:typed_edge:unknown",
+      "claim_id": "source_level3_4:select_describe_table",
+      "truth": "positive",
+      "source": {
+        "path": "agent/tools.py",
+        "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+        "line_start": 429,
+        "line_end": 429
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: The else branch selected for levels 3/4 contains this function symbol, without proving effective SDK callability. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:typed_edge:unknown",
+      "claim_id": "source_level3_4:select_execute_query",
+      "truth": "positive",
+      "source": {
+        "path": "agent/tools.py",
+        "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+        "line_start": 430,
+        "line_end": 430
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: The else branch selected for levels 3/4 contains this function symbol, without proving effective SDK callability. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:typed_edge:unknown",
+      "claim_id": "source_level3_4:select_get_current_date",
+      "truth": "positive",
+      "source": {
+        "path": "agent/tools.py",
+        "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+        "line_start": 431,
+        "line_end": 431
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: The else branch selected for levels 3/4 contains this function symbol, without proving effective SDK callability. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:typed_edge:unknown",
+      "claim_id": "source_level3_4:select_get_stock_query_template",
+      "truth": "positive",
+      "source": {
+        "path": "agent/tools.py",
+        "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+        "line_start": 432,
+        "line_end": 432
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: The else branch selected for levels 3/4 contains this function symbol, without proving effective SDK callability. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:typed_edge:unknown",
+      "claim_id": "source_selected_tools:pass_to_base_agent",
+      "truth": "positive",
+      "source": {
+        "path": "agent/agent.py",
+        "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+        "line_start": 99,
+        "line_end": 99
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Selected tools variable is passed to the BaseAgent wrapper, not an unconditional five-tool registration. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:typed_edge:unknown",
+      "claim_id": "source_selected_tools:register_each",
+      "truth": "positive",
+      "source": {
+        "path": "agent/base_agent.py",
+        "blob_sha": "17f586aad5f64ad228ec774dc368e8b068dc55f3",
+        "line_start": 135,
+        "line_end": 135
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: The wrapper calls the SDK tool registration method for each item in the selected list. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:typed_edge:unknown",
+      "claim_id": "source_level1:five_tool_registration",
+      "truth": "negative",
+      "source": {
+        "path": "agent/tools.py",
+        "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+        "line_start": 423,
+        "line_end": 423
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: The explicit level 1 branch returns [], not five source-selected tools. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:typed_edge:unknown",
+      "claim_id": "source_level2:select_execute_query",
+      "truth": "negative",
+      "source": {
+        "path": "agent/tools.py",
+        "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+        "line_start": 425,
+        "line_end": 425
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: The explicit level 2 branch returns only list_tables and describe_table; this function is not source-selected in that branch. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:typed_edge:unknown",
+      "claim_id": "source_level2:select_get_current_date",
+      "truth": "negative",
+      "source": {
+        "path": "agent/tools.py",
+        "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+        "line_start": 425,
+        "line_end": 425
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: The explicit level 2 branch returns only list_tables and describe_table; this function is not source-selected in that branch. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:typed_edge:unknown",
+      "claim_id": "source_level2:select_get_stock_query_template",
+      "truth": "negative",
+      "source": {
+        "path": "agent/tools.py",
+        "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
+        "line_start": 425,
+        "line_end": 425
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: The explicit level 2 branch returns only list_tables and describe_table; this function is not source-selected in that branch. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:effective_authority:unknown",
+      "claim_id": "deployed_demo_level",
+      "truth": "unknown",
+      "source": {
+        "path": "agent/agent.py",
+        "blob_sha": "a91f05c4bc4ba7476e2d73692d1211fee72dec53",
+        "line_start": 35,
+        "line_end": 35
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: An environment variable with default 4 is not evidence of the deployed value or constructor override. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:effective_authority:unknown",
+      "claim_id": "installed_sdk_tool_registration",
+      "truth": "unknown",
+      "source": {
+        "path": "agent/base_agent.py",
+        "blob_sha": "17f586aad5f64ad228ec774dc368e8b068dc55f3",
+        "line_start": 135,
+        "line_end": 135
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Source call to tool registration cannot prove installed SDK compatibility or runtime tool exposure. This is not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-149:effective_authority:unknown",
+      "claim_id": "actual_chainlit_agent_session",
+      "truth": "unknown",
+      "source": {
+        "path": "app.py",
+        "blob_sha": "dfafe6f01a0dbbb1a58ee18d6d3462eb43f6d4a2",
+        "line_start": 43,
+        "line_end": 43
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: A Chainlit handler contains a constructor call but no session/deployment execution is observed. This is not deployed runtime evidence."
+    }
+  ]
+}
