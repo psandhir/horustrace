@@ -83,15 +83,15 @@
     },
     {
       "scope_id": "rw-149:typed_edge:unknown",
-      "claim_id": "source_level1:empty_tool_list",
-      "truth": "positive",
+      "claim_id": "source_level1:any_selected_tool",
+      "truth": "negative",
       "source": {
         "path": "agent/tools.py",
         "blob_sha": "4dc2632448c29ec347cd95d60e0555bdbd4d8cf4",
         "line_start": 423,
         "line_end": 423
       },
-      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: The level==1 branch explicitly returns an empty source-selected tool list. This is not deployed runtime evidence."
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: The level 1 branch returns []; it does not select any source tool relation. This is not deployed runtime evidence."
     },
     {
       "scope_id": "rw-149:typed_edge:unknown",
