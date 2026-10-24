@@ -9,12 +9,14 @@ import pytest
 
 from horustrace.source_truth_llm_judge import (
     adjudicate_model_opinions,
+    adjudicate_pinned_ledger_opinions,
     prepare_judge_packet,
 )
 from horustrace.source_truth_oracle import score_reference, validate_reference
 
 ROOT = Path(__file__).resolve().parents[1]
 LEDGER = ROOT / "research/wave-c-c02l-rw006/rw-006-delegation-mode-candidates.json"
+OPINIONS = ROOT / "research/wave-c-c02o-llm-judge/rw-006-model-opinions.json"
 
 
 def _ledger() -> dict:
@@ -245,3 +247,88 @@ def test_c02o_packet_excludes_target_code_control_over_prompt() -> None:
     assert "UNTRUSTED DATA" in packet["rubric"]
     response = _response(packet)
     assert adjudicate_model_opinions(packet, response)["release_accuracy_assessable"] is False
+
+
+
+def _real_opinions() -> dict:
+    return json.loads(OPINIONS.read_text(encoding="utf-8"))
+
+
+def test_c02o_model_review_rw006_is_replayable_from_exact_git_blob() -> None:
+    review = _real_opinions()
+    out = adjudicate_pinned_ledger_opinions(LEDGER.read_bytes(), review)
+    assert out["counts"] == {"negative": 7, "positive": 13, "unknown": 4}
+    assert out["release_accuracy_assessable"] is False
+    assert out["source_oracle_status"]["aggregate"] is None
+    assert out["source_oracle_status"]["all_scopes_assessable"] is False
+    assert len(out["reference"]["labels"]) == 24
+    for scope in out["reference"]["scopes"]:
+        assert scope["case_id"] == review["case_id"]
+        assert scope["commit_sha"] == review["commit_sha"]
+        assert scope["source_role"] == "unknown"
+        assert scope["review_method"] == "model_reviewed"
+        assert scope["scanner_blind"] is False
+        assert not scope["positive_complete"] and not scope["negative_complete"]
+    assert not out["source_oracle_status"][
+        "independent_reviewer_attestation_externally_verified"
+    ]
+
+
+def test_c02o_source_mode_hard_negatives_remain_scenario_specific() -> None:
+    out = adjudicate_pinned_ledger_opinions(LEDGER.read_bytes(), _real_opinions())
+    labels = {row["claim_id"]: row for row in out["reference"]["labels"]}
+    assert labels["source_mode:static_AgentTool_in_dynamic_only_mode"]["truth"] == "negative"
+    assert labels["source_mode:dynamic_register_tool_in_static_only_mode"]["truth"] == "negative"
+    assert labels["source_mode:prompt_description_proves_static_AgentTool"]["truth"] == (
+        "negative"
+    )
+    assert labels["source_mode:static_builder_only_static_or_both"]["truth"] == "positive"
+    assert labels["source_mode:dynamic_branch_only_dynamic_or_both"]["truth"] == "positive"
+    assert all(
+        row["truth"] == "unknown"
+        for row in out["reference"]["labels"]
+        if row["scope_id"] == "rw-006:effective_authority:unknown"
+    )
+
+
+def test_c02o_readonly_source_ledger_mutation_invalidates_model_opinions() -> None:
+    raw = LEDGER.read_bytes()
+    review = _real_opinions()
+    assert review["ledger_blob_sha"] == (
+        "8ba4e22c0fbd97104ecbfcdde847e36978f1e3b2"
+    )
+    with pytest.raises(ValueError, match="Git blob SHA mismatch"):
+        adjudicate_pinned_ledger_opinions(raw + b"\n", review)
+
+
+@pytest.mark.parametrize("field,bad", [
+    ("ledger_blob_sha", "0" * 40),
+    ("commit_sha", "f" * 40),
+    ("repository", "attacker/unrelated"),
+    ("case_id", "rw-004"),
+])
+def test_c02o_wrong_model_case_or_blob_fails_closed(
+    field: str, bad: str,
+) -> None:
+    review = _real_opinions()
+    review[field] = bad
+    with pytest.raises(ValueError, match="mismatch|different|SHA"):
+        adjudicate_pinned_ledger_opinions(LEDGER.read_bytes(), review)
+
+
+def test_c02o_model_cannot_relabel_runtime_approval_positive() -> None:
+    review = _real_opinions()
+    authority = next(
+        row for row in review["decisions"]
+        if row["claim_id"] == "runtime_authority:before_tool_callback_enforced_approval"
+    )
+    authority["truth"] = "positive"
+    with pytest.raises(ValueError, match="effective authority"):
+        adjudicate_pinned_ledger_opinions(LEDGER.read_bytes(), review)
+
+
+def test_c02o_model_cannot_supply_independent_blind_attestation() -> None:
+    review = _real_opinions()
+    review["human_reviewed"] = True
+    with pytest.raises(ValueError, match="exactly"):
+        adjudicate_pinned_ledger_opinions(LEDGER.read_bytes(), review)
