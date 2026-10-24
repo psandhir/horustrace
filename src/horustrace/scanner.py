@@ -3126,6 +3126,8 @@ def _scan(
     annotate_risk_semantics(graph)
     graph.attack_paths = build_attack_paths(graph)
     for attack_path in graph.attack_paths:
+        attack_path.metadata.setdefault("runtime_viability", "not_assessed")
+        attack_path.metadata.setdefault("exploitability", "not_verified")
         same_name_agents = [
             agent for agent in graph.agents if agent.name == attack_path.agent
         ]

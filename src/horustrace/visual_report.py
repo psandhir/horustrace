@@ -127,6 +127,15 @@ def _component_inventories(graph: Graph, root: Path) -> tuple[list[dict[str, Any
             "guardrails": item.guardrails,
             "allowed_tools": sorted(item.allowed_tools),
             "denied_tools": sorted(item.denied_tools),
+            "configuration_hygiene": (
+                "agent_binding_not_proven"
+                if not agent else "bound_configuration_requires_runtime_verification"
+            ),
+            "tool_scope_evidence": (
+                "explicit_allow_or_deny_list_observed"
+                if item.allowed_tools or item.denied_tools
+                else "explicit_allow_or_deny_list_not_recovered"
+            ),
             "identity": item.identity,
             "resources": _component_resources(item.resources),
         })
@@ -392,6 +401,7 @@ def build_visual_report(
         for item in findings
     ]
     attack_paths = security_graph.get("attack_paths", [])
+    path_candidates = security_graph.get("developer_path_candidates", [])
     flows_by_id = {
         str(item.get("flow_id")): item
         for item in security_graph.get("flows", [])
@@ -430,6 +440,13 @@ def build_visual_report(
         ]
         agent_attack_paths = [
             item for item in attack_paths if item.get("agent") == agent.name
+        ]
+        agent_candidates = [
+            item for item in path_candidates if item.get("agent") == agent.name
+        ]
+        agent_candidate_views = [
+            _attack_path_view(item, agent_name=agent.name, flows_by_id=flows_by_id)
+            for item in agent_candidates
         ]
         agent_path_views = [
             _attack_path_view(
@@ -511,6 +528,7 @@ def build_visual_report(
                     "findings": len(agent_findings),
                     "policy_violations": len(agent_policy_findings),
                     "attack_paths": len(agent_attack_paths),
+                    "developer_path_candidates": len(agent_candidates),
                     "contract_status": contract_status,
                     "contract_violations": len(
                         contract_violations_by_agent.get(agent.name, [])
@@ -548,6 +566,7 @@ def build_visual_report(
                 "findings": agent_findings,
                 "attack_paths": agent_attack_paths,
                 "path_views": agent_path_views,
+                "candidate_views": agent_candidate_views,
                 "contract": {
                     "declared": contract_doc,
                     "relationships": relationship_contracts,
@@ -1318,7 +1337,7 @@ function inventoryDetail(item,kind){{
  const format=(values)=>values&&values.length?values.join(", "):"—";
  const resource=(item.resources||[]).map(r=>r.kind+": "+r.selector+" ("+format(r.access)+")").join("; ")||"—";
  const meta=[["Binding",item.binding_state],["Source",item.location?(item.location.path+":"+(item.location.line||1)):"n/a"]];
- if(kind==="mcp")meta.push(["Transport",item.transport||"unresolved"],["Endpoint (query omitted)",item.endpoint||"—"],["Command (arguments omitted)",item.command||"—"],["Authentication",inventoryControl(item.authenticated)],["Approval",inventoryControl(item.approval)],["Guardrail hook",inventoryControl(item.guardrails)],["Allowed tools",format(item.allowed_tools)],["Denied tools",format(item.denied_tools)],["Identity",item.identity||"unresolved"]);
+ if(kind==="mcp")meta.push(["Transport",item.transport||"unresolved"],["Endpoint (query omitted)",item.endpoint||"—"],["Command (arguments omitted)",item.command||"—"],["Authentication",inventoryControl(item.authenticated)],["Approval",inventoryControl(item.approval)],["Guardrail hook",inventoryControl(item.guardrails)],["Allowed tools",format(item.allowed_tools)],["Denied tools",format(item.denied_tools)],["Binding evidence",item.configuration_hygiene||"unknown"],["Tool-scope evidence",item.tool_scope_evidence||"unknown"],["Identity",item.identity||"unresolved"]);
  else if(kind==="tools")meta.push(["Tool kind",item.kind||"—"],["Capabilities",format(item.capabilities)],["Destinations",format(item.destinations)],["Approval",inventoryControl(item.approval)],["Guardrail hook",inventoryControl(item.guardrails)],["Identity",item.identity||"unresolved"]);
  else meta.push(["Description",item.description||"—"],["Skill source",item.source||"unknown"],["Capabilities",format(item.capabilities)],["Allowed tools",format(item.allowed_tools)],["Scripts",format(item.scripts)],["Destinations",format(item.destinations)]);
  meta.push(["Resources",resource]);
@@ -1341,7 +1360,7 @@ function inventoryDetail(item,kind){{
    return '<tr><td>'+esc(edge.kind.replaceAll("_"," "))+'</td><td>'+esc(direction)+'</td><td>'+esc(other?.name||"unknown")+'</td><td>'+loc(edge.location)+'</td></tr>';
  }}).join("");
  const mcpScope=kind==="mcp"?
- sectionHead("MCP access and tool scope","Source-backed relationships for agents invoking this server and the tool/resource scope the server exposes. Empty tool scope means the scanner did not recover an explicit allow/deny list.")+
+ sectionHead("MCP access and tool scope","Static inventory only: no bound agent means access is unproven; an empty tool list means no allow/deny list was recovered, not that every tool is permitted. Runtime enforcement is not verified.")+
  '<div class="cards">'+metric("Agents with access",agents.length)+metric("Allowed / exposed tools",topology.allowedTools.length)+metric("Denied tools",topology.deniedTools.length)+metric("Dependency edges",topology.incident.length)+'</div>'+
  '<div class="panel"><div class="kv"><div>Agents</div><div>'+esc(format(agents))+'</div><div>Allowed / exposed tools</div><div>'+esc(format(topology.allowedTools))+'</div><div>Denied tools</div><div>'+esc(format(topology.deniedTools))+'</div><div>Reachable resources</div><div>'+esc(format(topology.resources))+'</div><div>Destinations</div><div>'+esc(format(topology.destinations))+'</div><div>Identity</div><div>'+esc(format(topology.identities))+'</div></div></div>':"";
  const dependencySection=topologyNode?
@@ -1748,12 +1767,14 @@ function renderPathCard(path){{
  return '<div class="path-card"><div class="path-head"><div><div class="finding-title"><strong>'+esc(path.path_id)+'</strong><span class="'+esc(path.severity)+'">'+esc(String(path.severity).toUpperCase())+'</span></div>'+
  '<h3 style="margin-top:7px">'+esc(path.title)+'</h3></div><span class="badge '+(dashed?"unresolved":"compliant")+'">'+esc(basis)+'</span></div>'+
  '<p class="muted">'+esc(path.rationale||"")+'</p><div class="path-chain">'+chain+'</div>'+
- '<div class="path-meta"><span class="pill">basis: '+esc(path.basis||"unknown")+'</span><span class="pill">runtime exploitability: '+esc(path.metadata?.exploitability||"not verified")+'</span></div></div>';
+ '<div class="path-meta"><span class="pill">basis: '+esc(path.basis||"unknown")+'</span><span class="pill">runtime viability: '+esc(path.metadata?.runtime_viability||"not_assessed")+'</span><span class="pill">scope: '+esc(path.metadata?.runtime_scope||path.metadata?.execution_context||"runtime source")+'</span><span class="pill">execution: '+esc(path.execution_mode||"unassessed")+'</span></div></div>';
 }}
 function renderAgentPaths(a){{
- const paths=a.path_views||[];
- if(!paths.length)return '<div class="empty">No attack path was reconstructed for this agent. Effective authority may still exist; a path is shown only when HorusTrace has the required source/capability evidence.</div>';
- return '<p class="muted">Solid connectors represent supported static data flow. Dashed connectors represent capability co-occurrence: the components are present on the same agent, but executable data flow is not proven. Only steps that resolve unambiguously to one canonical dependency node are interactive.</p>'+paths.map(renderPathCard).join("");
+ const paths=a.path_views||[],candidates=a.candidate_views||[];
+ if(!paths.length&&!candidates.length)return '<div class="empty">No attack paths or qualified developer-source candidates for this agent. Effective authority may still exist.</div>';
+ return '<p class="muted">Deployed-runtime attack paths and non-runtime developer-source candidates are separated. Static flow does not verify execution or exploitability. Only steps that resolve unambiguously to one canonical dependency node are interactive.</p>'+
+ (paths.length?paths.map(renderPathCard).join(""):'<div class="empty">No deployed-runtime attack path.</div>')+
+ (candidates.length?sectionHead("Developer-source candidates","Not production attack findings. These source-backed example/test flows require explicit review before deployment claims.")+candidates.map(renderPathCard).join(""):"");
 }}
 function renderAgentFindings(a,owaspRisk=null){{
  const items=owaspRisk?a.findings.filter(f=>(f.standards?.owasp_agentic||[]).includes(owaspRisk)):a.findings;
@@ -1866,11 +1887,13 @@ function renderOwasp(risk="all"){{
 }}
 
 function renderAttack(){{
- const items=DATA.agents.flatMap(a=>(a.path_views||[])),supported=items.filter(x=>x.evidence_strength==="supported_static_dataflow").length,potential=items.length-supported;
+ const items=DATA.agents.flatMap(a=>(a.path_views||[])),candidates=DATA.agents.flatMap(a=>(a.candidate_views||[])),supported=items.filter(x=>x.evidence_strength==="supported_static_dataflow").length,potential=items.length-supported;
+ const blocked=items.filter(x=>x.metadata?.runtime_viability==="blocked_by_source_error").length;
  const root=document.getElementById("attack");
- root.innerHTML=pageHead("Risk chains","Attack paths","Evidence-aware chains from source/capability context to sensitive actions or destinations.")+
- '<div class="cards">'+metric("Attack paths",items.length)+metric("Supported data flow",supported,"ok","","Solid connectors")+metric("Potential capability paths",potential,"warn","","Dashed connectors; flow not proven")+'</div>'+
- sectionHead("Reconstructed paths","Runtime exploitability is not verified. Clickable steps resolve unambiguously to canonical dependency nodes.")+(items.length?items.sort((a,b)=>severityRank(b.severity)-severityRank(a.severity)).map(renderPathCard).join(""):'<div class="empty">No attack paths detected.</div>');
+ root.innerHTML=pageHead("Risk chains","Attack paths","Static evidence and runtime viability are separate. Non-runtime developer-source candidates are never counted as deployed risk.")+
+ '<div class="cards">'+metric("Attack paths",items.length)+metric("Supported data flow",supported,"ok","","Runtime not verified")+metric("Source-blocked",blocked,"warn","","Exclude from runnable-risk assertions")+metric("Developer candidates",candidates.length,"","","Examples and tests")+'</div>'+
+ sectionHead("Reconstructed paths","Runtime viability is not assessed unless an explicit source blocker is present. Path existence never means successful exploitation. Clickable steps resolve unambiguously to canonical dependency nodes.")+(items.length?items.sort((a,b)=>severityRank(b.severity)-severityRank(a.severity)).map(renderPathCard).join(""):'<div class="empty">No deployed-runtime attack paths detected.</div>')+
+ sectionHead("Non-runtime developer-source candidates","Source-backed execution data flows in examples/tests; never included in runtime path totals or findings.")+(candidates.length?candidates.map(renderPathCard).join(""):'<div class="empty">No qualified developer-source path candidates.</div>');
  bindPathDrill(root);
 }}
 
