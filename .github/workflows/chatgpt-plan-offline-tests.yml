@@ -1,0 +1,35 @@
+name: ChatGPT Plan Provider Offline Integration Tests
+
+on:
+  pull_request:
+    paths:
+      - "src/horustrace/chatgpt_plan.py"
+      - "src/horustrace/siwc_auth.py"
+      - "src/horustrace/llm_semantics.py"
+      - "src/horustrace/skill_llm_semantics.py"
+      - "src/horustrace/cli.py"
+      - "tests/test_chatgpt_plan.py"
+      - "tests/test_siwc_auth.py"
+      - "tests/test_llm_semantics.py"
+      - ".github/workflows/chatgpt-plan-offline-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-integration:
+    name: OAuth / streaming / scanner contract (no account secrets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: python -m pip install -e '.[dev,chatgpt]'
+      - name: Lint provider, auth and tests
+        run: ruff check src/horustrace/chatgpt_plan.py src/horustrace/siwc_auth.py src/horustrace/llm_semantics.py src/horustrace/skill_llm_semantics.py src/horustrace/cli.py tests/test_chatgpt_plan.py tests/test_siwc_auth.py tests/test_llm_semantics.py
+      - name: Run offline integration suites
+        run: pytest -q tests/test_chatgpt_plan.py tests/test_siwc_auth.py tests/test_llm_semantics.py

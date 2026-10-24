@@ -1049,3 +1049,109 @@ def create_agent():
     rule_ids = {finding.rule_id for finding in evaluate(graph)}
     assert "CAP004" not in rule_ids
     assert "CAP005" not in rule_ids
+
+
+def test_chatgpt_plan_provider_scan_enriches_actual_graph_with_mocked_responses(
+    tmp_path: Path, monkeypatch,
+):
+    """End-to-end scanner/provider projection; OAuth/inference are mocked, never charged."""
+    import json
+
+    source = tmp_path / "agent.py"
+    source.write_text(
+        """
+from pydantic_ai import Agent
+
+def opaque_capability(payload):
+    return custom_library_call(payload)
+
+agent = Agent("test:model", tools=[opaque_capability])
+""",
+        encoding="utf-8",
+    )
+    baseline, _ = scan(tmp_path)
+    deterministic = next(a for a in baseline.agents if a.name == "agent")
+    baseline_tool = next(t for t in deterministic.tools if t.name == "opaque_capability")
+    assert "process.execute" not in baseline_tool.capabilities
+    calls = []
+
+    def authorized_token():
+        return "mock-account-oauth-token"
+
+    def mock_responses(payload, access_token):
+        assert access_token == "mock-account-oauth-token"
+        assert payload["model"] == "account-selected-model"
+        assert payload["input"][0]["role"] == "user"
+        assert "def opaque_capability" in payload["input"][0]["content"]
+        assert payload["text"]["format"]["type"] == "json_schema"
+        calls.append(payload)
+        return {
+            "id": "resp_mock",
+            "status": "completed",
+            "output": [{
+                "type": "message",
+                "content": [{
+                    "type": "output_text",
+                    "text": json.dumps(_empty_result(capabilities=["process.execute"])),
+                }],
+            }],
+        }
+
+    monkeypatch.setattr("horustrace.siwc_auth.get_access_token", authorized_token)
+    monkeypatch.setattr("horustrace.chatgpt_plan.stream_responses", mock_responses)
+    hybrid, _ = scan(
+        tmp_path,
+        llm_semantic_config=_config(
+            provider="chatgpt_plan", model="account-selected-model",
+            max_candidates=1, fail_open=False,
+        ),
+    )
+    enriched = next(a for a in hybrid.agents if a.name == "agent")
+    tool = next(t for t in enriched.tools if t.name == "opaque_capability")
+    assert len(calls) == 1
+    assert "process.execute" in tool.capabilities
+    assert tool.metadata["semantic_origin"] == "llm_inferred"
+    stats = hybrid.coverage.resolution["semantic_llm"]
+    assert stats["provider"] == "chatgpt_plan"
+    assert stats["escalated"] == 1
+    assert stats["applied"] == 1
+    assert stats["errors"] == 0
+
+
+def test_chatgpt_plan_hybrid_scan_fails_closed_on_mock_quota_error(
+    tmp_path: Path, monkeypatch,
+):
+    """Quota exhaustion must not appear as successful LLM-enriched scanning."""
+    import pytest
+
+    from horustrace.chatgpt_plan import ChatGPTPlanError
+    from horustrace.llm_semantics import LLMSemanticError
+
+    (tmp_path / "agent.py").write_text(
+        """
+from pydantic_ai import Agent
+
+def opaque_capability(payload):
+    return custom_library_call(payload)
+
+agent = Agent("test:model", tools=[opaque_capability])
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "horustrace.siwc_auth.get_access_token",
+        lambda: "mock-account-oauth-token",
+    )
+
+    def exhausted(*args, **kwargs):
+        raise ChatGPTPlanError("subscription_sharing_usage_limit_exceeded")
+
+    monkeypatch.setattr("horustrace.chatgpt_plan.stream_responses", exhausted)
+    with pytest.raises(LLMSemanticError, match="subscription_sharing_usage_limit_exceeded"):
+        scan(
+            tmp_path,
+            llm_semantic_config=_config(
+                provider="chatgpt_plan", model="account-selected-model",
+                max_candidates=1, fail_open=False,
+            ),
+        )
