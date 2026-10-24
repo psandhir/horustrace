@@ -11,6 +11,7 @@ from horustrace.source_truth_llm_judge import (
     adjudicate_model_opinions,
     adjudicate_pinned_ledger_opinions,
     prepare_judge_packet,
+    triage_model_scanner_disagreements,
 )
 from horustrace.source_truth_oracle import score_reference, validate_reference
 
@@ -332,3 +333,117 @@ def test_c02o_model_cannot_supply_independent_blind_attestation() -> None:
     review["human_reviewed"] = True
     with pytest.raises(ValueError, match="exactly"):
         adjudicate_pinned_ledger_opinions(LEDGER.read_bytes(), review)
+
+
+
+def _scanner_snapshot(review: dict) -> dict:
+    fingerprint = score_reference(review["reference"], [])["reference_sha256"]
+    return {
+        "schema_version": 1,
+        "ontology_version": "v2_source_claims",
+        "reference_sha256": fingerprint,
+        "scanner_commit_sha": "b" * 40,
+        "predictions": [
+            {
+                "scope_id": "rw-006:typed_edge:unknown",
+                "claim_id": "source_mode:static_builder_only_static_or_both",
+            },
+            {
+                "scope_id": "rw-006:typed_edge:unknown",
+                "claim_id": "source_mode:static_AgentTool_in_dynamic_only_mode",
+            },
+            {
+                "scope_id": "rw-006:effective_authority:unknown",
+                "claim_id": "runtime_authority:actual_dynamic_subagent_registry",
+            },
+            {
+                "scope_id": "rw-006:agent:unknown",
+                "claim_id": "unreviewed_scanner_extra_identity",
+            },
+        ],
+    }
+
+
+def test_c02o_triage_orders_source_disagreements_without_false_accuracy() -> None:
+    result = adjudicate_pinned_ledger_opinions(LEDGER.read_bytes(), _real_opinions())
+    snapshot = _scanner_snapshot(result)
+    triage = triage_model_scanner_disagreements(result, snapshot)
+    assert triage["certified_precision"] is None
+    assert triage["certified_recall"] is None
+    assert triage["certified_fp"] is None
+    assert triage["certified_fn"] is None
+    assert triage["production_cutover_authorized"] is False
+    assert triage["independent_source_truth_verified"] is False
+    assert triage["source_git_witness_replayed_by_triage"] is False
+    assert triage["scanned_revision_source_match_externally_verified"] is False
+    assert triage["reference_sha256"] == snapshot["reference_sha256"]
+    assert triage["source_case_ids"] == ["rw-006"]
+    assert len(triage["claims"]) == 25
+    by_id = {x["claim_id"]: x for x in triage["claims"]}
+    assert by_id["source_mode:static_builder_only_static_or_both"][
+        "triage_category"
+    ] == "candidate_agreement_not_accuracy_proof"
+    assert by_id["source_mode:static_AgentTool_in_dynamic_only_mode"][
+        "triage_category"
+    ] == "candidate_source_negative_detected_by_scanner"
+    assert by_id["runtime_authority:actual_dynamic_subagent_registry"][
+        "triage_category"
+    ] == "runtime_unknown_requires_independent_evidence"
+    assert by_id["unreviewed_scanner_extra_identity"][
+        "triage_category"
+    ] == "scanner_only_claim_requires_source_review"
+    assert by_id["source_mode:dynamic_branch_only_dynamic_or_both"][
+        "triage_category"
+    ] == "candidate_source_positive_missing_from_scanner"
+    assert all(x["independent_source_truth_verified"] is False
+               for x in triage["claims"])
+
+
+@pytest.mark.parametrize("mutation", [
+    lambda snapshot: snapshot.update({"reference_sha256": "0" * 64}),
+    lambda snapshot: snapshot.update({"ontology_version": "v1"}),
+    lambda snapshot: snapshot.update({"scanner_commit_sha": "main"}),
+    lambda snapshot: snapshot.update({"additional_release_approval": True}),
+    lambda snapshot: snapshot["predictions"].append(
+        deepcopy(snapshot["predictions"][0])
+    ),
+    lambda snapshot: snapshot["predictions"][0].update({
+        "scope_id": "not-a-valid-scope",
+    }),
+])
+def test_c02o_triage_rejects_stale_invalid_scanner_snapshot(
+    mutation: object,
+) -> None:
+    result = adjudicate_pinned_ledger_opinions(LEDGER.read_bytes(), _real_opinions())
+    snapshot = _scanner_snapshot(result)
+    mutation(snapshot)
+    with pytest.raises((ValueError, TypeError)):
+        triage_model_scanner_disagreements(result, snapshot)
+
+
+def test_c02o_triage_refuses_model_promoted_to_independent_ground_truth() -> None:
+    result = adjudicate_pinned_ledger_opinions(LEDGER.read_bytes(), _real_opinions())
+    snapshot = _scanner_snapshot(result)
+    result["reference"]["scopes"][0]["review_method"] = "independent_blind"
+    with pytest.raises(ValueError, match="promoted independent"):
+        triage_model_scanner_disagreements(result, snapshot)
+
+
+def test_c02o_triage_rejects_source_positive_effective_authority() -> None:
+    result = adjudicate_pinned_ledger_opinions(LEDGER.read_bytes(), _real_opinions())
+    snapshot = _scanner_snapshot(result)
+    record = next(
+        x for x in result["reference"]["labels"]
+        if x["scope_id"] == "rw-006:effective_authority:unknown"
+    )
+    record["truth"] = "positive"
+    with pytest.raises(ValueError, match="effective runtime authority"):
+        triage_model_scanner_disagreements(result, snapshot)
+
+
+def test_c02o_triage_does_not_accept_certified_accuracy_claim() -> None:
+    result = adjudicate_pinned_ledger_opinions(LEDGER.read_bytes(), _real_opinions())
+    snapshot = _scanner_snapshot(result)
+    result["release_accuracy_assessable"] = True
+    with pytest.raises(ValueError, match="only unscored"):
+        triage_model_scanner_disagreements(result, snapshot)
