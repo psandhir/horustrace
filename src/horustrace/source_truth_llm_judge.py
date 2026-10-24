@@ -122,7 +122,7 @@ def prepare_judge_packet(ledger: Any) -> dict[str, Any]:
     candidates = []
     for source in observations:
         if not isinstance(source, dict):
-            raise ValueError("source observation must be an object")
+            raise TypeError("source observation must be an object")
         candidate_id = _id(source.get("id"), "candidate_id")
         if candidate_id in ids:
             raise ValueError("duplicate source candidate ID")
@@ -328,7 +328,7 @@ def adjudicate_pinned_ledger_opinions(
     git_blob = (
         b"blob " + str(len(ledger_bytes)).encode("ascii") + b"\0" + ledger_bytes
     )
-    if hashlib.sha1(git_blob).hexdigest() != ledger_pin:  # noqa: S324 - Git SHA-1 ID
+    if hashlib.sha1(git_blob).hexdigest() != ledger_pin:
         raise ValueError("source ledger Git blob SHA mismatch")
     ledger = json.loads(ledger_bytes)
     packet = prepare_judge_packet(ledger)
