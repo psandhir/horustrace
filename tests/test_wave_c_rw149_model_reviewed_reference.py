@@ -4,7 +4,8 @@ from __future__ import annotations
 import json
 from collections import Counter
 from pathlib import Path
-from horustrace.source_truth_oracle import validate_reference, score_reference
+
+from horustrace.source_truth_oracle import score_reference, validate_reference
 
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCE = ROOT / "research/wave-c-c02n-rw149/model-reviewed-conditional-reference.json"
