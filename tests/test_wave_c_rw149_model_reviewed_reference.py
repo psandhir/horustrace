@@ -34,13 +34,13 @@ def test_rw149_model_reviewed_reference_links_exact_existing_source_lines() -> N
         assert scope["positive_complete"] is False
         assert scope["negative_complete"] is False
     assert Counter(x["truth"] for x in ref["labels"]) == {
-        "positive": 11, "negative": 6, "unknown": 3,
+        "positive": 10, "negative": 7, "unknown": 3,
     }
 
 def test_rw149_conditional_source_negatives_and_authority_unknowns() -> None:
     ref = json.loads(REFERENCE.read_text(encoding="utf-8"))
     labels = {item["claim_id"]: item for item in ref["labels"]}
-    assert labels["source_level1:empty_tool_list"]["truth"] == "positive"
+    assert labels["source_level1:any_selected_tool"]["truth"] == "negative"
     assert labels["source_level1:five_tool_registration"]["truth"] == "negative"
     for symbol in ("execute_query", "get_current_date", "get_stock_query_template"):
         assert labels["source_level2:select_" + symbol]["truth"] == "negative"
