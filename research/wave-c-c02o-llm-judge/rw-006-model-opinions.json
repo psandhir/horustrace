@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "case_id": "rw-006",
+  "repository": "manojlds/adk-deepagents",
+  "commit_sha": "11a15d7c935061c50e1ef626df2445103b91c931",
+  "ledger_blob_sha": "8ba4e22c0fbd97104ecbfcdde847e36978f1e3b2",
+  "judge_model": "ChatGPT GPT-6 single model review",
+  "judge_run_id": "c02o-rw006-source-review-20261024",
+  "source_visibility": "source_packet_only",
+  "decisions": [
+    {
+      "candidate_id": "rw006-factory-definition",
+      "claim_id": "source_factory:create_deep_agent_declared",
+      "construct": "agent",
+      "truth": "positive",
+      "reason": "The pinned graph.py defines create_deep_agent as a Python agent factory function; source declaration does not imply a deployed instance."
+    },
+    {
+      "candidate_id": "rw006-root-constructor",
+      "claim_id": "source_factory:parent_LlmAgent_constructor",
+      "construct": "agent",
+      "truth": "positive",
+      "reason": "The factory body returns an LlmAgent expression on invocation; this establishes a source constructor site, not a startup or deployed instance count."
+    },
+    {
+      "candidate_id": "rw006-task-spec-constructor",
+      "claim_id": "source_factory:static_spec_LlmAgent_constructor",
+      "construct": "agent",
+      "truth": "positive",
+      "reason": "Within the static subagent builder loop, each processed spec reaches an LlmAgent constructor; actual execution and spec count are unobserved."
+    },
+    {
+      "candidate_id": "rw006-dynamic-subagent-constructor",
+      "claim_id": "source_factory:dynamic_spec_LlmAgent_constructor",
+      "construct": "agent",
+      "truth": "positive",
+      "reason": "The dynamic-spec builder returns an LlmAgent when executed on the relevant runtime path; the source is a factory, not evidence tasks ran."
+    },
+    {
+      "candidate_id": "rw006-factory-definition",
+      "claim_id": "source_factory:definition_is_deployed_agent_instance",
+      "construct": "agent",
+      "truth": "negative",
+      "reason": "The def statement merely declares create_deep_agent; it does not construct or deploy an agent at module import time."
+    },
+    {
+      "candidate_id": "rw006-task-prebuilt-agent",
+      "claim_id": "source_factory:wrapping_prebuilt_creates_second_agent",
+      "construct": "agent",
+      "truth": "negative",
+      "reason": "AgentTool(agent=agent) wraps an existing passed LlmAgent object without calling a second LlmAgent constructor."
+    },
+    {
+      "candidate_id": "rw006-task-general-purpose-spec",
+      "claim_id": "source_factory:general_purpose_spec_is_constructed_instance",
+      "construct": "agent",
+      "truth": "negative",
+      "reason": "A SubAgentSpec definition is configuration data, not proof that an LlmAgent instance was created in the deployed configuration."
+    },
+    {
+      "candidate_id": "rw006-types-default-static",
+      "claim_id": "source_mode:default_static_when_no_override",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "DeepAgentConfig declares delegation_mode static by default; callers may override the configuration, so this is a default only."
+    },
+    {
+      "candidate_id": "rw006-static-branch",
+      "claim_id": "source_mode:static_builder_only_static_or_both",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "The explicit predicate limits the static subagent builder branch to delegation_mode static or both."
+    },
+    {
+      "candidate_id": "rw006-static-include-general",
+      "claim_id": "source_mode:static_builder_enables_general_purpose_default",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "The static builder call sets include_general_purpose=True; the separate name-deduplication condition still applies."
+    },
+    {
+      "candidate_id": "rw006-task-dedupe-general",
+      "claim_id": "source_mode:skip_duplicate_general_purpose_spec",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "The builder checks whether general_purpose is already in the sanitized name set before appending the default spec."
+    },
+    {
+      "candidate_id": "rw006-task-wrapper-spec",
+      "claim_id": "source_mode:static_subagent_wired_as_AgentTool",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "After creating a sub_agent from its spec, the static builder appends AgentTool(agent=sub_agent); this is a declared wrapper relation."
+    },
+    {
+      "candidate_id": "rw006-dynamic-branch",
+      "claim_id": "source_mode:dynamic_branch_only_dynamic_or_both",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "The predicate gates addition of register-subagent and dynamic-task tool factories to dynamic or both modes."
+    },
+    {
+      "candidate_id": "rw006-dynamic-register-tool",
+      "claim_id": "source_mode:dynamic_register_subagent_tool_factory_call",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "Inside the dynamic-enabled branch, source calls create_register_subagent_tool to build a tool; no actual agent registration is shown."
+    },
+    {
+      "candidate_id": "rw006-dynamic-task-tool",
+      "claim_id": "source_mode:dynamic_task_tool_factory_call",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "Inside the dynamic-enabled branch, source calls create_dynamic_task_tool; this registers a task mechanism, not an enumerated runtime subagent."
+    },
+    {
+      "candidate_id": "rw006-factory-tool-concat",
+      "claim_id": "source_mode:parent_tool_list_joins_conditional_sets",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "The parent constructor receives a list assembled from core_tools plus subagent_tools; membership depends on earlier branches."
+    },
+    {
+      "candidate_id": "rw006-static-branch",
+      "claim_id": "source_mode:static_AgentTool_in_dynamic_only_mode",
+      "construct": "typed_edge",
+      "truth": "negative",
+      "reason": "The static builder is guarded by static or both, so the displayed dynamic-only source branch does not build static AgentTool wrappers."
+    },
+    {
+      "candidate_id": "rw006-dynamic-branch",
+      "claim_id": "source_mode:dynamic_register_tool_in_static_only_mode",
+      "construct": "typed_edge",
+      "truth": "negative",
+      "reason": "The register-subagent and dynamic-task source branch requires dynamic or both and is not traversed for static-only mode."
+    },
+    {
+      "candidate_id": "rw006-general-purpose-description",
+      "claim_id": "source_mode:prompt_description_proves_static_AgentTool",
+      "construct": "typed_edge",
+      "truth": "negative",
+      "reason": "The general_purpose prompt description is added for every valid delegation mode, including dynamic-only where static tool construction is skipped."
+    },
+    {
+      "candidate_id": "rw006-task-prebuilt-agent",
+      "claim_id": "source_mode:prebuilt_AgentTool_is_second_agent_constructor",
+      "construct": "typed_edge",
+      "truth": "negative",
+      "reason": "The wrapper is an AgentTool around a prebuilt object; this edge is not evidence of a second LlmAgent constructor."
+    },
+    {
+      "candidate_id": "rw006-factory-route-config",
+      "claim_id": "runtime_authority:actual_deployment_delegation_mode",
+      "construct": "effective_authority",
+      "truth": "unknown",
+      "reason": "The source passes cfg.delegation_mode through the factory, but the deployed caller configuration and execution context were not observed."
+    },
+    {
+      "candidate_id": "rw006-dynamic-register-definition",
+      "claim_id": "runtime_authority:actual_dynamic_subagent_registry",
+      "construct": "effective_authority",
+      "truth": "unknown",
+      "reason": "Defining a registration tool factory is not evidence which dynamic subagents were registered in a live session."
+    },
+    {
+      "candidate_id": "rw006-task-approval-callback",
+      "claim_id": "runtime_authority:before_tool_callback_enforced_approval",
+      "construct": "effective_authority",
+      "truth": "unknown",
+      "reason": "The callback is constructed from interrupt_on, but installed SDK behavior, configured approvals and effect on runtime invocations are unverified."
+    },
+    {
+      "candidate_id": "rw006-factory-tool-concat",
+      "claim_id": "runtime_authority:effective_invoke_permissions_for_all_tools",
+      "construct": "effective_authority",
+      "truth": "unknown",
+      "reason": "The constructed tool list is not proof all functions are reachable or approved in an installed deployed runtime with concrete identities and controls."
+    }
+  ]
+}
