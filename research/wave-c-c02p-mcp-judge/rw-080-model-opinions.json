@@ -52,10 +52,10 @@
     },
     {
       "candidate_id": "rw080-site-02",
-      "claim_id": "source_mcp_server:yaml_math_profile_is_started_server",
-      "construct": "mcp_server",
-      "truth": "negative",
-      "reason": "A YAML profile entry declares a potential math server configuration, not a running or connected server instance."
+      "claim_id": "runtime_authority:yaml_math_profile_server_started",
+      "construct": "effective_authority",
+      "truth": "unknown",
+      "reason": "The YAML entry declares a candidate math server configuration, while successful server startup, initialization and runtime connection were not observed."
     },
     {
       "candidate_id": "rw080-site-18",
