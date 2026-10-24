@@ -22,6 +22,13 @@ and return structured answers for separate offline validation.
   rationale). Invalid or invented citations, conflicting IDs, stale packets,
   unapproved source roles, self-declared independent human attestations,
   and unsupported runtime-authority positive/negative claims **fail closed**.
+- After a frozen model review, `triage` can compare a same-reference V2
+  scanner prediction snapshot. It surfaces suspected model/scanner source
+  disagreements and unmatched claims **without calculating TP/FP/FN/TN**,
+  labeling missing claims as proven false negatives, or upgrading runtime
+  UNKNOWNs to source negatives. The snapshot's reference digest and scanner
+  revision are checked; the actual scanner source run is **not** independently
+  attested by this comparison.
 - Every model verdict is converted into existing versioned C02a
   `source_truth_oracle` records with forced
   `review_method=model_reviewed`, `scanner_blind=false`,
@@ -105,6 +112,23 @@ python -m horustrace.source_truth_llm_judge adjudicate-ledger \
   --opinions research/wave-c-c02o-llm-judge/rw-006-model-opinions.json \
   > /tmp/rw006-reviewed-provisional.json
 ```
+
+After generating `/tmp/rw006-reviewed-provisional.json`, a scanner V2
+prediction snapshot with schema
+`{"schema_version":1,"ontology_version":"v2_source_claims","reference_sha256":"<oracle source_oracle_status.reference_sha256>","scanner_commit_sha":"<40-char scan code SHA>","predictions":[{"scope_id":"rw-006:agent:unknown","claim_id":"source_factory:create_deep_agent_declared"}]}`
+can be compared offline:
+
+```bash
+python -m horustrace.source_truth_llm_judge triage \
+  --adjudication /tmp/rw006-reviewed-provisional.json \
+  --snapshot /tmp/rw006-scanner-v2-snapshot.json \
+  > /tmp/rw006-priority-review.json
+```
+
+Triage categories distinguish candidate source positives omitted by the scanner,
+candidate hard-negatives detected, unresolved runtime claims, scanner-only
+unadjudicated claims, and candidate agreements. All are provisional,
+`certified_fp=null`, `certified_fn=null`, and no production GO.
 
 The output always reports `release_accuracy_assessable=false`,
 `source_oracle_status.aggregate=null`, and a C02a reference whose positive
