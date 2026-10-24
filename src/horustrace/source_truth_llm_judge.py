@@ -99,10 +99,16 @@ def prepare_judge_packet(ledger: Any) -> dict[str, Any]:
     """
     if not isinstance(ledger, dict):
         raise TypeError("source ledger must be an object")
-    if ledger.get("schema_version") != VERSION:
+    if type(ledger.get("schema_version")) is not int or ledger["schema_version"] != VERSION:
         raise ValueError("unsupported source ledger version")
-    if ledger.get("scanner_predictions_consulted_in_this_review") is not False:
-        raise ValueError("candidate ledger is not declared scanner-free")
+    known_flags = [
+        ledger[key] for key in (
+            "scanner_predictions_consulted_in_this_review",
+            "scanner_predictions_consulted",
+        ) if key in ledger
+    ]
+    if any(value is not False for value in known_flags):
+        raise ValueError("candidate ledger contains scanner-exposed evidence")
     if not str(ledger.get("record_type", "")).startswith("source_first_"):
         raise ValueError("source-first syntax candidate ledger required")
     case_id = _id(ledger.get("case_id"), "case_id")
@@ -127,20 +133,35 @@ def prepare_judge_packet(ledger: Any) -> dict[str, Any]:
         if candidate_id in ids:
             raise ValueError("duplicate source candidate ID")
         ids.add(candidate_id)
-        start, end = source.get("line_start"), source.get("line_end")
+        if "line" in source:
+            start = end = source["line"]
+            if (("line_start" in source and source["line_start"] != start)
+                    or ("line_end" in source and source["line_end"] != end)):
+                raise ValueError("conflicting source line witnesses")
+        else:
+            start, end = source.get("line_start"), source.get("line_end")
         if (type(start) is not int or type(end) is not int
                 or start < 1 or end < start or end - start > 1000):
             raise ValueError("invalid source candidate line span")
+        if "kind" in source:
+            kind = _text(source["kind"], "kind")
+        elif (source.get("source_syntax_only") is True
+                or source.get("source_only_candidate") is True):
+            kind = "unclassified_source_syntax_candidate"
+        else:
+            raise ValueError("untyped source candidate must be explicitly source-only")
+        expression = source.get("source_expression", source.get("expression"))
+        if ("source_expression" in source and "expression" in source
+                and source["source_expression"] != source["expression"]):
+            raise ValueError("conflicting source text witnesses")
         candidates.append({
             "id": candidate_id,
-            "kind": _text(source.get("kind"), "kind"),
+            "kind": kind,
             "path": _path(source.get("path")),
             "blob_sha": _pin(source.get("blob_sha"), "blob_sha"),
             "line_start": start,
             "line_end": end,
-            "source_expression": _text(
-                source.get("source_expression"), "source_expression",
-            ),
+            "source_expression": _text(expression, "source_expression"),
         })
     base = {
         "schema_version": VERSION,
