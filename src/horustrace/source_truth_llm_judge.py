@@ -307,6 +307,45 @@ def adjudicate_model_opinions(packet: Any, response: Any) -> dict[str, Any]:
     }
 
 
+
+def adjudicate_pinned_ledger_opinions(
+    ledger_bytes: bytes, opinions: Any,
+) -> dict[str, Any]:
+    """Bind a model opinion draft to the exact Git blob of its source ledger.
+
+    Direct model responses use packet_sha256. This alternate format supports a
+    locally generated model review drafted against an existing archived Git
+    source-candidate ledger, without fabricating a packet digest.
+    """
+    document = _keys(opinions, {
+        "schema_version", "case_id", "repository", "commit_sha",
+        "ledger_blob_sha", "judge_model", "judge_run_id",
+        "source_visibility", "decisions",
+    }, "pinned source judge opinions")
+    if document["schema_version"] != VERSION:
+        raise ValueError("unsupported pinned review schema")
+    ledger_pin = _pin(document["ledger_blob_sha"], "ledger_blob_sha")
+    git_blob = (
+        b"blob " + str(len(ledger_bytes)).encode("ascii") + b"\0" + ledger_bytes
+    )
+    if hashlib.sha1(git_blob).hexdigest() != ledger_pin:  # noqa: S324 - Git SHA-1 ID
+        raise ValueError("source ledger Git blob SHA mismatch")
+    ledger = json.loads(ledger_bytes)
+    packet = prepare_judge_packet(ledger)
+    if (document["case_id"] != packet["case_id"]
+            or document["repository"] != packet["repository"]
+            or document["commit_sha"] != packet["commit_sha"]):
+        raise ValueError("model opinions refer to different source case")
+    answer = {
+        "schema_version": VERSION,
+        "packet_sha256": packet["packet_sha256"],
+        "judge_model": document["judge_model"],
+        "judge_run_id": document["judge_run_id"],
+        "source_visibility": document["source_visibility"],
+        "decisions": document["decisions"],
+    }
+    return adjudicate_model_opinions(packet, answer)
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Prepare and validate source-only LLM judge opinions offline"
@@ -317,16 +356,25 @@ def main() -> int:
     review = subparsers.add_parser("adjudicate")
     review.add_argument("--packet", required=True)
     review.add_argument("--response", required=True)
+    pinned = subparsers.add_parser("adjudicate-ledger")
+    pinned.add_argument("--ledger", required=True)
+    pinned.add_argument("--opinions", required=True)
     args = parser.parse_args()
     if args.command == "prepare":
         with open(args.ledger, encoding="utf-8") as stream:
             output = prepare_judge_packet(json.load(stream))
-    else:
+    elif args.command == "adjudicate":
         with open(args.packet, encoding="utf-8") as stream:
             packet = json.load(stream)
         with open(args.response, encoding="utf-8") as stream:
             response = json.load(stream)
         output = adjudicate_model_opinions(packet, response)
+    else:
+        with open(args.ledger, "rb") as stream:
+            ledger_bytes = stream.read()
+        with open(args.opinions, encoding="utf-8") as stream:
+            opinions = json.load(stream)
+        output = adjudicate_pinned_ledger_opinions(ledger_bytes, opinions)
     print(json.dumps(output, indent=2, sort_keys=True))
     return 0
 
