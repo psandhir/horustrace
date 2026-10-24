@@ -68,7 +68,7 @@ def test_c02p_rw080_actual_model_judgments_are_git_blob_replayable() -> None:
         "f950abc4d38fffdf5537861459c0ff9b0fccc2c1"
     )
     result = adjudicate_pinned_ledger_opinions(MCP.read_bytes(), review)
-    assert result["counts"] == {"negative": 8, "positive": 16, "unknown": 4}
+    assert result["counts"] == {"negative": 7, "positive": 16, "unknown": 5}
     assert len(result["reference"]["labels"]) == 28
     assert result["source_oracle_status"]["aggregate"] is None
     assert result["source_oracle_status"]["all_scopes_assessable"] is False
@@ -100,6 +100,7 @@ def test_c02p_rw080_hard_negatives_respect_exposes_vs_can_call() -> None:
     assert labelled["source_edge:AgentLoop_dispatches_through_MultiMCP"][
         "truth"
     ] == "positive"
+    assert labelled["runtime_authority:yaml_math_profile_server_started"]["truth"] == "unknown"
     assert all(
         row["truth"] == "unknown"
         for row in result["reference"]["labels"]
