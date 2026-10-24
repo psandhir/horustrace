@@ -346,6 +346,110 @@ def adjudicate_pinned_ledger_opinions(
     }
     return adjudicate_model_opinions(packet, answer)
 
+
+def triage_model_scanner_disagreements(
+    model_adjudication: Any, scanner_snapshot: Any,
+) -> dict[str, Any]:
+    """Prioritize same-reference disagreements; never calculate FP/FN metrics.
+
+    The scanner predictions are deliberately introduced AFTER the source-only
+    model opinions have been frozen. A matching declared reference digest is
+    necessary, but cannot independently prove the scanner ran this source.
+    """
+    adjudication = _keys(model_adjudication, {
+        "schema_version", "mode", "packet_sha256", "judge_model",
+        "judge_run_id", "source_visibility", "counts",
+        "release_accuracy_assessable", "reference", "source_oracle_status",
+    }, "model adjudication")
+    if (adjudication["schema_version"] != VERSION
+            or adjudication["mode"] != "provisional_model_review_not_independent_ground_truth"
+            or adjudication["release_accuracy_assessable"] is not False
+            or adjudication["source_visibility"] != "source_packet_only"):
+        raise ValueError("only unscored source-only model adjudication can be triaged")
+    reference = validate_reference(adjudication["reference"])
+    if not reference["scopes"]:
+        raise ValueError("model adjudication has no scopes")
+    if any(
+        scope["review_method"] != "model_reviewed"
+        or scope["scanner_blind"] is not False
+        or scope["positive_complete"] is not False
+        or scope["negative_complete"] is not False
+        for scope in reference["scopes"]
+    ):
+        raise ValueError("triage cannot accept promoted independent source truth")
+    if any(
+        item["truth"] != "unknown"
+        for item in reference["labels"]
+        if item["scope_id"].split(":")[1] == "effective_authority"
+    ):
+        raise ValueError("model evidence cannot settle effective runtime authority")
+    snapshot = _keys(scanner_snapshot, {
+        "schema_version", "ontology_version", "reference_sha256",
+        "scanner_commit_sha", "predictions",
+    }, "scanner snapshot")
+    if (snapshot["schema_version"] != VERSION
+            or snapshot["ontology_version"] != "v2_source_claims"):
+        raise ValueError("scanner source claim ontology does not match V2")
+    _pin(snapshot["scanner_commit_sha"], "scanner_commit_sha")
+    score = score_reference(reference, snapshot["predictions"])
+    if snapshot["reference_sha256"] != score["reference_sha256"]:
+        raise ValueError("scanner snapshot uses a different reference digest")
+    if score["aggregate"] is not None or score["all_scopes_assessable"]:
+        raise ValueError("model-only adjudication may not become scored accuracy")
+    predicted = {
+        (item["scope_id"], item["claim_id"])
+        for item in snapshot["predictions"]
+    }
+    labels = {
+        (item["scope_id"], item["claim_id"]): item
+        for item in reference["labels"]
+    }
+    rows = []
+    counts: Counter[str] = Counter()
+    for scope_id, claim_id in sorted(set(labels) | predicted):
+        row = labels.get((scope_id, claim_id))
+        present = (scope_id, claim_id) in predicted
+        truth = row["truth"] if row else "not_model_reviewed"
+        if row is None:
+            category = "scanner_only_claim_requires_source_review"
+        elif truth == "unknown":
+            category = "runtime_unknown_requires_independent_evidence"
+        elif (truth == "positive" and not present):
+            category = "candidate_source_positive_missing_from_scanner"
+        elif truth == "negative" and present:
+            category = "candidate_source_negative_detected_by_scanner"
+        else:
+            category = "candidate_agreement_not_accuracy_proof"
+        counts[category] += 1
+        rows.append({
+            "scope_id": scope_id,
+            "claim_id": claim_id,
+            "scanner_detected": present,
+            "model_opinion": truth,
+            "triage_category": category,
+            "pinned_source_witness": row["source"] if row else None,
+            "model_explanation": row["reason"] if row else None,
+            "independent_source_truth_verified": False,
+            "scanner_source_run_externally_verified": False,
+        })
+    return {
+        "schema_version": VERSION,
+        "mode": "source_only_model_scanner_disagreement_triage_not_accuracy",
+        "reference_sha256": score["reference_sha256"],
+        "scanner_commit_sha": snapshot["scanner_commit_sha"],
+        "source_case_ids": sorted({s["case_id"] for s in reference["scopes"]}),
+        "counts": dict(sorted(counts.items())),
+        "claims": rows,
+        "certified_precision": None,
+        "certified_recall": None,
+        "certified_fp": None,
+        "certified_fn": None,
+        "independent_source_truth_verified": False,
+        "source_git_witness_replayed_by_triage": False,
+        "scanned_revision_source_match_externally_verified": False,
+        "production_cutover_authorized": False,
+    }
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Prepare and validate source-only LLM judge opinions offline"
@@ -359,6 +463,9 @@ def main() -> int:
     pinned = subparsers.add_parser("adjudicate-ledger")
     pinned.add_argument("--ledger", required=True)
     pinned.add_argument("--opinions", required=True)
+    triage = subparsers.add_parser("triage")
+    triage.add_argument("--adjudication", required=True)
+    triage.add_argument("--snapshot", required=True)
     args = parser.parse_args()
     if args.command == "prepare":
         with open(args.ledger, encoding="utf-8") as stream:
@@ -369,12 +476,18 @@ def main() -> int:
         with open(args.response, encoding="utf-8") as stream:
             response = json.load(stream)
         output = adjudicate_model_opinions(packet, response)
-    else:
+    elif args.command == "adjudicate-ledger":
         with open(args.ledger, "rb") as stream:
             ledger_bytes = stream.read()
         with open(args.opinions, encoding="utf-8") as stream:
             opinions = json.load(stream)
         output = adjudicate_pinned_ledger_opinions(ledger_bytes, opinions)
+    else:
+        with open(args.adjudication, encoding="utf-8") as stream:
+            adjudication = json.load(stream)
+        with open(args.snapshot, encoding="utf-8") as stream:
+            snapshot = json.load(stream)
+        output = triage_model_scanner_disagreements(adjudication, snapshot)
     print(json.dumps(output, indent=2, sort_keys=True))
     return 0
 
