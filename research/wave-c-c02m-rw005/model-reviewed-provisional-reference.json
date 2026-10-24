@@ -1,0 +1,361 @@
+{
+  "schema_version": 1,
+  "scopes": [
+    {
+      "scope_id": "rw-005:agent:unknown",
+      "case_id": "rw-005",
+      "repository": "Ojas-Patil26/VeriQ",
+      "commit_sha": "067cb330ab943279b4b8ea13c91c9042bdd9f421",
+      "construct": "agent",
+      "source_role": "unknown",
+      "positive_complete": false,
+      "negative_complete": false,
+      "review_method": "model_reviewed",
+      "review_ref": "assistant_source_first_single_pass_not_independent",
+      "scanner_blind": false,
+      "negative_method": "Search constructor vs alias/import/Runner and role/context near-misses; not exhaustive"
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "case_id": "rw-005",
+      "repository": "Ojas-Patil26/VeriQ",
+      "commit_sha": "067cb330ab943279b4b8ea13c91c9042bdd9f421",
+      "construct": "typed_edge",
+      "source_role": "unknown",
+      "positive_complete": false,
+      "negative_complete": false,
+      "review_method": "model_reviewed",
+      "review_ref": "assistant_source_first_single_pass_not_independent",
+      "scanner_blind": false,
+      "negative_method": "Enumerate source-subagent vs direct-tool bindings, HTTP direct calls and owner near-misses; incomplete"
+    },
+    {
+      "scope_id": "rw-005:effective_authority:unknown",
+      "case_id": "rw-005",
+      "repository": "Ojas-Patil26/VeriQ",
+      "commit_sha": "067cb330ab943279b4b8ea13c91c9042bdd9f421",
+      "construct": "effective_authority",
+      "source_role": "unknown",
+      "positive_complete": false,
+      "negative_complete": false,
+      "review_method": "model_reviewed",
+      "review_ref": "assistant_source_first_single_pass_not_independent",
+      "scanner_blind": false,
+      "negative_method": "No runtime SDK/tool availability, permission, reachability or deployment attested; all effective claims unknown"
+    }
+  ],
+  "labels": [
+    {
+      "scope_id": "rw-005:agent:unknown",
+      "claim_id": "source_declared_agent:ingestion_constructor",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 17,
+        "line_end": 17
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Explicit local ingestion_agent LlmAgent expression, not evidence a runtime instance was deployed. Anchor agent.py:17, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:agent:unknown",
+      "claim_id": "source_declared_agent:anomaly_constructor",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 44,
+        "line_end": 44
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Explicit local anomaly_agent LlmAgent expression, not evidence a runtime instance was deployed. Anchor agent.py:44, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:agent:unknown",
+      "claim_id": "source_declared_agent:cause_constructor",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 70,
+        "line_end": 70
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Explicit local root_cause_agent LlmAgent expression, not evidence a runtime instance was deployed. Anchor agent.py:70, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:agent:unknown",
+      "claim_id": "source_declared_agent:report_constructor",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 106,
+        "line_end": 106
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Explicit local report_agent LlmAgent expression, not evidence a runtime instance was deployed. Anchor agent.py:106, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:agent:unknown",
+      "claim_id": "source_declared_agent:coordinator_constructor",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 134,
+        "line_end": 134
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Explicit local root_agent LlmAgent expression, not evidence a runtime instance was deployed. Anchor agent.py:134, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:agent:unknown",
+      "claim_id": "source_declared_agent:package_export_new_constructor",
+      "truth": "negative",
+      "source": {
+        "path": "__init__.py",
+        "blob_sha": "4caf51810fb5cf8babe6391d31d2116d6f9be05d",
+        "line_start": 1,
+        "line_end": 1
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Package import exposes existing root_agent symbol; this line is not a distinct LlmAgent constructor. Anchor __init__.py:1, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:agent:unknown",
+      "claim_id": "source_declared_agent:api_alias_new_constructor",
+      "truth": "negative",
+      "source": {
+        "path": "api.py",
+        "blob_sha": "bfed9d84fd977eb20a4e7f8453aebff675ac9faf",
+        "line_start": 51,
+        "line_end": 51
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: API assignment aliases imported root_agent; this line does not construct a sixth agent. Anchor api.py:51, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_subagent:root_to_ingestion",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 159,
+        "line_end": 159
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Named symbol is an element of root_agent's source sub_agents list; delegated execution not observed. Anchor agent.py:159, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_subagent:root_to_anomaly",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 160,
+        "line_end": 160
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Named symbol is an element of root_agent's source sub_agents list; delegated execution not observed. Anchor agent.py:160, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_subagent:root_to_cause",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 161,
+        "line_end": 161
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Named symbol is an element of root_agent's source sub_agents list; delegated execution not observed. Anchor agent.py:161, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_subagent:root_to_report",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 162,
+        "line_end": 162
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Named symbol is an element of root_agent's source sub_agents list; delegated execution not observed. Anchor agent.py:162, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_direct_tool_listing:ingestion_list_metrics",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 36,
+        "line_end": 36
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Direct tools=[...] entry belongs to ingestion_agent, not automatically to coordinator; corresponding pinned local function defined, no SDK runtime use proven. Anchor agent.py:36, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_direct_tool_listing:ingestion_timeseries",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 37,
+        "line_end": 37
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Direct tools=[...] entry belongs to ingestion_agent, not automatically to coordinator; corresponding pinned local function defined, no SDK runtime use proven. Anchor agent.py:37, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_direct_tool_listing:ingestion_lineage",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 38,
+        "line_end": 38
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Direct tools=[...] entry belongs to ingestion_agent, not automatically to coordinator; corresponding pinned local function defined, no SDK runtime use proven. Anchor agent.py:38, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_direct_tool_listing:anomaly_timeseries",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 63,
+        "line_end": 63
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Direct tools=[...] entry belongs to anomaly_agent, not automatically to coordinator; corresponding pinned local function defined, no SDK runtime use proven. Anchor agent.py:63, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_direct_tool_listing:anomaly_detect",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 64,
+        "line_end": 64
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Direct tools=[...] entry belongs to anomaly_agent, not automatically to coordinator; corresponding pinned local function defined, no SDK runtime use proven. Anchor agent.py:64, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_direct_tool_listing:cause_schema",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 98,
+        "line_end": 98
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Direct tools=[...] entry belongs to root_cause_agent, not automatically to coordinator; corresponding pinned local function defined, no SDK runtime use proven. Anchor agent.py:98, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_direct_tool_listing:cause_lineage",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 99,
+        "line_end": 99
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Direct tools=[...] entry belongs to root_cause_agent, not automatically to coordinator; corresponding pinned local function defined, no SDK runtime use proven. Anchor agent.py:99, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_direct_tool_listing:cause_changes",
+      "truth": "positive",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 100,
+        "line_end": 100
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Direct tools=[...] entry belongs to root_cause_agent, not automatically to coordinator; corresponding pinned local function defined, no SDK runtime use proven. Anchor agent.py:100, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_runner_reference:api_root",
+      "truth": "positive",
+      "source": {
+        "path": "api.py",
+        "blob_sha": "bfed9d84fd977eb20a4e7f8453aebff675ac9faf",
+        "line_start": 88,
+        "line_end": 88
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: One Runner is passed _root_agent, assigned from package root symbol; no runtime initialization attested. Anchor api.py:88, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_model_tool_call:fastapi_metrics_route",
+      "truth": "negative",
+      "source": {
+        "path": "api.py",
+        "blob_sha": "bfed9d84fd977eb20a4e7f8453aebff675ac9faf",
+        "line_start": 124,
+        "line_end": 124
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: This site is a direct synchronous call from a FastAPI route, not a model-directed ADK tool invocation. Anchor api.py:124, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_direct_tool_listing:report_agent_nonempty",
+      "truth": "negative",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 129,
+        "line_end": 129
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: report_agent constructor explicitly sets tools=[]; not a nonempty direct tool-listing at this source site. Anchor agent.py:129, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:typed_edge:unknown",
+      "claim_id": "declared_direct_tool_listing:root_list_metrics_inherited_from_child",
+      "truth": "negative",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 158,
+        "line_end": 158
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Root constructor enumerates child sub_agents instead of directly registering child list_metrics as a root tools entry. Anchor agent.py:158, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:effective_authority:unknown",
+      "claim_id": "runtime_callability:ingestion_list_metrics",
+      "truth": "unknown",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 36,
+        "line_end": 36
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Listed function alone does not verify imported SDK ABI, runtime registration or effective model call authority. Anchor agent.py:36, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:effective_authority:unknown",
+      "claim_id": "runtime_callability:coordinator_delegation",
+      "truth": "unknown",
+      "source": {
+        "path": "agent.py",
+        "blob_sha": "89ce05579a18e8e09822d4157cace7121a5d7c99",
+        "line_start": 159,
+        "line_end": 159
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Source child membership is not observed successful delegation or installed runtime effective permissions. Anchor agent.py:159, not deployed runtime evidence."
+    },
+    {
+      "scope_id": "rw-005:effective_authority:unknown",
+      "claim_id": "runtime_callability:api_runner",
+      "truth": "unknown",
+      "source": {
+        "path": "api.py",
+        "blob_sha": "bfed9d84fd977eb20a4e7f8453aebff675ac9faf",
+        "line_start": 87,
+        "line_end": 87
+      },
+      "reason": "MODEL-REVIEWED, UNBLINDED, SOURCE-ONLY: Configured Runner expression does not prove package import and service execution in an installed environment. Anchor api.py:87, not deployed runtime evidence."
+    }
+  ]
+}
