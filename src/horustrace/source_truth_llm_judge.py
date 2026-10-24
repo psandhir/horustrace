@@ -124,6 +124,11 @@ def prepare_judge_packet(ledger: Any) -> dict[str, Any]:
     observations = ledger.get("observations")
     if not isinstance(observations, list) or not observations:
         raise ValueError("source ledger must have observations")
+    if not known_flags and not all(
+        isinstance(item, dict) and item.get("source_syntax_only") is True
+        for item in observations
+    ):
+        raise ValueError("unflagged ledger requires explicit source-only witnesses")
     ids: set[str] = set()
     candidates = []
     for source in observations:
