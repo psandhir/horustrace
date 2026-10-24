@@ -377,10 +377,13 @@ def triage_model_scanner_disagreements(
         for scope in reference["scopes"]
     ):
         raise ValueError("triage cannot accept promoted independent source truth")
+    scope_constructs = {
+        item["scope_id"]: item["construct"] for item in reference["scopes"]
+    }
     if any(
         item["truth"] != "unknown"
         for item in reference["labels"]
-        if item["scope_id"].split(":")[1] == "effective_authority"
+        if scope_constructs[item["scope_id"]] == "effective_authority"
     ):
         raise ValueError("model evidence cannot settle effective runtime authority")
     snapshot = _keys(scanner_snapshot, {
