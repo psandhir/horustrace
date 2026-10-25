@@ -8,11 +8,13 @@ from pathlib import Path
 
 import pytest
 
+from horustrace.models import Graph
 from horustrace.source_truth_llm_judge import adjudicate_pinned_ledger_opinions
 from scripts.wave_c_c02q_source_model_scanner_compare import (
     PINS,
     compare_adg_with_model_opinions,
     verify_git_source_witnesses,
+    source_mcp_adapter_probe,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -243,3 +245,37 @@ def test_c02q_pin_and_source_reference_are_immutable_by_reviewer() -> None:
                    and s["negative_complete"] is False
                    for s in reference["scopes"])
         assert reference == original
+
+
+
+def test_c02q_raw_mcp_adapter_probe_finds_source_decorators_without_authority(
+    tmp_path: Path,
+) -> None:
+    from scripts.wave_c_c02q_source_model_scanner_compare import MCP_SERVER_CLAIMS
+
+    for path, line in sorted(set(MCP_SERVER_CLAIMS.values())):
+        source = tmp_path / path
+        source.write_text(
+            "from mcp.server.fastmcp import FastMCP\n"
+            + "\n" * (line - 2)
+            + 'mcp = FastMCP("Calculator")\n'
+            + "@mcp.tool()\n"
+            + "def my_tool():\n"
+            + "    return 1\n",
+            encoding="utf-8",
+        )
+    data = source_mcp_adapter_probe(tmp_path, Graph(), {"nodes": [], "edges": []})
+    assert data["authority_verified"] is False
+    assert len(data["source_server_files"]) == 4
+    assert all(row["mcp_adapter_detector"] is True
+               for row in data["source_server_files"])
+    assert all(row["raw_adapter_server_constructor_seen"] is True
+               for row in data["source_server_files"])
+    assert all(row["raw_adapter_tool_count"] == 1
+               for row in data["source_server_files"])
+    assert all(row["final_graph_unbound_server_constructor_seen"] is False
+               and row["final_adg_exposes_tool_edges"] == 0
+               for row in data["source_server_files"])
+    assert all(row["effective_agent_can_call"] is None
+               and row["runtime_server_connected"] is None
+               for row in data["source_server_files"])
