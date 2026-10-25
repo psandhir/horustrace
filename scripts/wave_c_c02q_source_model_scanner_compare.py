@@ -68,7 +68,7 @@ TOOL_CLAIMS = {
     "declared_direct_tool_listing:anomaly_detect": (
         "anomaly", "detect_metric_anomalies",
     ),
-    "declared_direct_tool_listing:cause_schema": ("cause", "get_metric_schema"),
+    "declared_direct_tool_listing:cause_schema": ("cause", "get_schema_summary"),
     "declared_direct_tool_listing:cause_lineage": ("cause", "get_metric_lineage"),
     "declared_direct_tool_listing:cause_changes": ("cause", "get_recent_changes"),
 }
