@@ -13,8 +13,8 @@ from horustrace.source_truth_llm_judge import adjudicate_pinned_ledger_opinions
 from scripts.wave_c_c02q_source_model_scanner_compare import (
     PINS,
     compare_adg_with_model_opinions,
-    verify_git_source_witnesses,
     source_mcp_adapter_probe,
+    verify_git_source_witnesses,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
