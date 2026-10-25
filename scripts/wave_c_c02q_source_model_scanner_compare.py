@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import subprocess
 from collections import Counter
 from pathlib import Path
@@ -399,7 +398,7 @@ def run_case(case_id: str, checkout: Path, project_root: Path, output: Path) -> 
         "case_id": case_id,
         "repository": repository,
         "source_commit_sha": sha,
-        "scanner_commit_sha": os.environ.get("GITHUB_SHA", "local_unverified"),
+        "scanner_commit_sha": _check_git(project_root, "rev-parse", "HEAD").decode().strip(),
         "application_path": app,
         "verified_git_source": witness,
         "model_review_method": "model_reviewed_unblinded",
