@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Any
 
 from horustrace.adg import build_adg
+from horustrace.adapters.mcp_python import is_mcp_python_file
+from horustrace.adapters.mcp_python import scan_python_file as scan_raw_mcp_source
 from horustrace.effective_authority import effective_authority_report
 from horustrace.scanner import scan
 from horustrace.source_truth_llm_judge import adjudicate_pinned_ledger_opinions
@@ -338,6 +340,91 @@ def compare_adg_with_model_opinions(
     }
 
 
+
+def source_mcp_adapter_probe(
+    checkout: Path, graph: Any, adg: dict[str, Any],
+) -> dict[str, Any]:
+    """Read-only raw-source-to-final-Graph diagnostic for pinned MCP servers.
+
+    No new authority edges or inferred runtime state are added to the scan.
+    This distinguishes adapter non-detection from Graph/ADG projection loss.
+    """
+    output = []
+    final_server_sites = {
+        (item.location.path.resolve(), item.location.line)
+        for item in graph.unbound_mcp_servers
+        if item.location is not None
+    }
+    final_tools = [
+        tool for tool in graph.unbound_tools
+        if tool.location is not None
+    ]
+    for path, line in sorted(set(MCP_SERVER_CLAIMS.values())):
+        file = (checkout / path).resolve()
+        if not file.is_relative_to(checkout.resolve()) or not file.is_file():
+            raise ValueError(f"missing exact-source MCP server file {path}")
+        detected = is_mcp_python_file(file)
+        raw = scan_raw_mcp_source(file)
+        raw_server_sites = [
+            item.location.line for item in raw.unbound_mcp_servers
+            if item.location is not None and item.location.path.resolve() == file
+        ]
+        raw_exposed = [
+            {
+                "name": item.name,
+                "line": item.location.line if item.location else None,
+                "source_server_alias": item.metadata.get("server"),
+                "binding_state": item.metadata.get("binding_state"),
+            } for item in raw.unbound_tools
+            if item.kind == "mcp_exposed_tool"
+        ]
+        final_mcp_server_nodes = [
+            node for node in adg["nodes"]
+            if node["kind"] == "mcp_server"
+            and _at(node, path, line)
+        ]
+        final_exposure_edges = [
+            edge for edge in adg["edges"]
+            if edge["kind"] == "EXPOSES_TOOL"
+            and any(
+                node["id"] == edge["source"] for node in final_mcp_server_nodes
+            )
+        ]
+        final_source_tools = [
+            {
+                "name": tool.name,
+                "line": tool.location.line,
+                "binding_state": tool.metadata.get("binding_state"),
+                "topology_visible_unbound": tool.metadata.get("topology_visible_unbound"),
+            } for tool in final_tools
+            if tool.location.path.resolve() == file
+            and tool.kind == "mcp_exposed_tool"
+        ]
+        output.append({
+            "source_path": path,
+            "constructor_line": line,
+            "mcp_adapter_detector": detected,
+            "raw_adapter_server_constructor_seen": line in raw_server_sites,
+            "raw_adapter_source_server_sites": raw_server_sites,
+            "raw_adapter_tool_count": len(raw_exposed),
+            "raw_adapter_tool_declarations": raw_exposed,
+            "final_graph_unbound_server_constructor_seen": (file, line)
+            in final_server_sites,
+            "final_graph_unbound_source_tool_count": len(final_source_tools),
+            "final_graph_unbound_source_tools": final_source_tools,
+            "final_adg_mcp_constructor_nodes": len(final_mcp_server_nodes),
+            "final_adg_exposes_tool_edges": len(final_exposure_edges),
+            "runtime_server_connected": None,
+            "effective_agent_can_call": None,
+        })
+    return {
+        "mode": "static_adapter_vs_normalized_graph_and_adg_source_provenance",
+        "source_server_files": output,
+        "source_only": True,
+        "authority_verified": False,
+    }
+
+
 def run_case(case_id: str, checkout: Path, project_root: Path, output: Path) -> dict:
     if case_id not in PINS:
         raise ValueError("unknown frozen case")
@@ -380,7 +467,12 @@ def run_case(case_id: str, checkout: Path, project_root: Path, output: Path) -> 
             json.dumps(adg, indent=2, sort_keys=True) + "\n", encoding="utf-8",
         )
         diff = compare_adg_with_model_opinions(case_id, reference, adg)
+        probe = (
+            source_mcp_adapter_probe(checkout, graph, adg)
+            if case_id == "rw-080" and context == "repository" else None
+        )
         scopes[context] = {
+            "static_source_adapter_probe": probe,
             "scanner_coverage_incomplete": graph.coverage.incomplete,
             "findings": len(findings),
             "potential_attack_paths": len(graph.attack_paths),
