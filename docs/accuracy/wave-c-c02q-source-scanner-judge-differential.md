@@ -115,3 +115,58 @@ Every output leaves `certified_precision`, `certified_recall`,
 This study **does not** compute release-grade precision/recall, because the
 source-positive/negative model-opinion universe is deliberately incomplete
 and the reviewing model was unblinded.
+
+
+## Executed initial two-case source/ADG results — 25 October 2026
+
+The pinned two-case GitHub Actions run [40170692136](https://github.com/psandhir/horustrace/actions/runs/40170692136) completed, followed by a dedicated raw-adapter diagnostic run. All 34 rw-005 and 47 rw-080 original source syntax witnesses matched their Git blobs/lines; both case scans succeeded.
+
+| Case | Scope | ADG agent nodes | ADG MCP server nodes | Selected positive claims not projected |
+|---|---|---:|---:|---:|
+| rw-005 | application file | 5 | 0 | 8 (child function definitions outside scan scope) |
+| rw-005 | full repository | 5 | 0 | 0 (all 17 mapped positive claims projected) |
+| rw-080 | application file | 0 | 0 | 8 |
+| rw-080 | full repository | 1 | 17 | 6 |
+
+For rw-005 the initial study mapper erroneously expected `get_metric_schema`
+for the source `declared_direct_tool_listing:cause_schema` opinion;
+the pinned source registers **`get_schema_summary`**. The mapper was
+corrected, **without modifying the production scanner**. All five source
+ADK constructors, four declarations of child delegation and eight distinct
+child-owned tool registrations now align with the full-repo ADG projection.
+The `Runner` API reference is not mapped to an equivalent legacy ADG
+construct; authority remains three UNKNOWN labels.
+
+For rw-080, 17 full-repository ADG nodes of kind `mcp_server` **do not
+imply 17 source FastMCP implementations or deployed servers**: some
+represent client-side stdio/SSE connection configurations. The only
+projected source FastMCP constructor among the four pinned source sites is
+`mcp_telegram_server.py:27`, with 3 corresponding `EXPOSES_TOOL` edges.
+
+The follow-up probe of **raw `mcp_python.scan_python_file` compared with
+final normalized `Graph` and `ADG`** localizes the source-provenance loss:
+
+| Pinned server constructor | Raw adapter constructor | Raw MCP tools | Final unbound Graph server constructor | ADG source EXPOSES_TOOL |
+|---|---|---:|---|---:|
+| `mcp_server_1.py:33` (Calculator) | yes | 20 | no | 0 |
+| `mcp_server_2.py:28` (Calculator) | yes | 3 | no | 0 |
+| `mcp_server_3.py:209` (ddg-search) | yes | 2 | no | 0 |
+| `mcp_telegram_server.py:27` | yes | 3 | yes | 3 |
+
+This is **not** a syntactic source detection failure. The current
+`resolve_local_stdio_implementations` in
+`src/horustrace/mcp_context.py` copies source `discovered_tools` and
+implementation path/name onto an agent-bound client-side server, marks the
+source implementation as used, then removes the original implementation
+from `graph.unbound_mcp_servers`. The ADG currently builds unbound source
+`EXPOSES_TOOL` links only from the retained unbound implementation nodes.
+This is a concrete **source-provenance representation gap**; a
+source-aware ADG projection fix needs distinct server identity per file
+and must not create additional effective `AGENT_CAN_CALL` edges.
+It does **not** establish a false positive, a false negative, or actual
+runtime MCP sessions.
+
+The probe itself records explicit `runtime_server_connected=null`,
+`effective_agent_can_call=null`. Future remediation must be validated
+against same-file duplicate-name hard negatives, server-side `@mcp.resource`
+versus tool decorators, and complete unchanged Fresh16/Full60 gates.
