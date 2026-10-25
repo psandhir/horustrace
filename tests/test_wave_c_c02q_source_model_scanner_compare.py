@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from copy import deepcopy
 from pathlib import Path
 
@@ -215,7 +216,7 @@ def test_c02q_unindependent_model_cannot_be_promoted_to_accuracy() -> None:
 
 def test_c02q_missing_checkout_revision_fails_closed(tmp_path: Path) -> None:
     ledger = json.loads((ROOT / PINS["rw-005"][3]).read_text())
-    with pytest.raises(Exception):
+    with pytest.raises(subprocess.CalledProcessError):
         verify_git_source_witnesses(
             tmp_path, ledger, expected_commit=PINS["rw-005"][1],
             expected_repo=PINS["rw-005"][0],
