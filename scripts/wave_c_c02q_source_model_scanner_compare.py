@@ -172,7 +172,8 @@ def _at(row: dict[str, Any], file: str, line: int, *, delta: int = 0) -> bool:
     if not isinstance(path, str) or type(number) is not int:
         return False
     return (
-        path.replace("\\", "/").lstrip("./").split("/")[-1] == file.split("/")[-1]
+        (path.replace("\\", "/") == file
+         or path.replace("\\", "/").endswith("/" + file))
         and abs(number - line) <= delta
     )
 
