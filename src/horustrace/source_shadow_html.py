@@ -35,7 +35,7 @@ _PALETTE = {
 
 def validate_source_shadow(data: Any) -> tuple[list[dict], list[dict]]:
     """Fail closed on authority promotion, invalid nodes/edges, bad provenance."""
-    if not isinstance(data, dict) or data.get("schema_version") != 1:
+    if not isinstance(data, dict) or data.get("schema_version") not in (1, 2):
         raise ValueError("unsupported source-shadow schema")
     if data.get("mode") != "local_stdio_source_implementation_shadow_not_production_adg":
         raise ValueError("not a source-only MCP shadow")

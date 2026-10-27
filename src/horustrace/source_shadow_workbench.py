@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from horustrace.source_shadow_attestation import verify_mcp_source_shadow
 from horustrace.source_shadow_html import validate_source_shadow
 
 MAX_EVIDENCE_BYTES = 4 * 1024 * 1024
@@ -93,7 +94,8 @@ function renderMcpSourceEvidence() {
  root.innerHTML=pageHead("Source evidence · Experimental","MCP source topology",
   "Read-only source declarations. The canonical supply chain, findings and authority assessments are unchanged.")+
   '<div class="mcp-evidence-warning"><strong>Source declarations are not runtime permissions</strong>'+
-  '<p>Configuration, MCP implementation and decorated tool provenance only. MCP connection, deployed credentials, effective AGENT_CAN_CALL and attack-path reachability remain unverified. Source locations were checked against this checkout, not independently adjudicated.</p></div>'+
+  '<p>Configuration, MCP implementation and decorated tool provenance only. MCP connection, deployed credentials, effective AGENT_CAN_CALL and attack-path reachability remain unverified. Git HEAD, tracked blob and file SHA-256 were verified at report generation, but claims are not independently adjudicated.</p>'+
+  '<p>Checked source revision: <code>'+esc(model.source_commit_sha)+'</code> · source-only evidence, not deployed authority.</p></div>'+
   '<div class="mcp-evidence-summary">'+summary+'</div>'+
   '<div class="mcp-evidence-lanes">'+columns+'</div>'+
   '<section class="mcp-evidence-details" aria-live="polite">'+
@@ -159,9 +161,9 @@ renderMcpSourceEvidence();
 def load_mcp_source_overlay(evidence: Path, root: Path) -> dict[str, Any]:
     """Load only source-shadow artefacts with local, bounded line witnesses.
 
-    This verifies *location presence*, not matching source contents or SDK
-    semantics. Absence of a pinned per-file source digest means that this
-    cannot certify the artifact as current or independently validated.
+    Requires v2 exact Git HEAD/blob and worktree SHA-256 agreement across
+    every source file cited by the shadow; this does not independently
+    adjudicate the semantic claims or prove any runtime authority.
     """
     if not evidence.is_file() or evidence.stat().st_size > MAX_EVIDENCE_BYTES:
         raise ValueError("source-shadow artifact missing or too large")
@@ -170,8 +172,9 @@ def load_mcp_source_overlay(evidence: Path, root: Path) -> dict[str, Any]:
 
 
 def project_mcp_source_overlay(data: dict[str, Any], root: Path) -> dict[str, Any]:
-    """Return a minimal, display-only contract separate from canonical data."""
+    """Reject stale source; return minimal display-only canonical-isolated data."""
     nodes, edges = validate_source_shadow(data)
+    verify_mcp_source_shadow(data, root)
     if len(nodes) > MAX_OVERLAY_NODES or len(edges) > MAX_OVERLAY_EDGES:
         raise ValueError("MCP source overlay exceeds bounded UI size")
     root = root.resolve(strict=True)
@@ -202,6 +205,8 @@ def project_mcp_source_overlay(data: dict[str, Any], root: Path) -> dict[str, An
         raise TypeError("invalid source shadow unresolved list")
     return {
         "mode": "opt_in_mcp_source_evidence_not_authority",
+        "source_commit_sha": data["source_revision"]["commit_sha"],
+        "source_integrity_checked": True,
         "source_only": True,
         "runtime_authority_verified": False,
         "nodes": projected_nodes,
