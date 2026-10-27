@@ -1,0 +1,61 @@
+name: Wave C C02s Independent MCP AST Source Oracle
+
+on:
+  pull_request:
+    paths:
+      - "src/horustrace/source_truth_ast_mcp.py"
+      - "scripts/wave_c_c02s_independent_ast_mcp_study.py"
+      - "tests/test_wave_c_c02s_ast_mcp_oracle.py"
+      - "docs/accuracy/wave-c-c02s-independent-ast-mcp-oracle.md"
+      - ".github/workflows/wave-c-c02s-independent-mcp-ast-oracle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wave-c-c02s-ast-oracle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pinned-source-oracle:
+    name: Pinned rw080 independent AST oracle and hard negatives
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install scanner only and test independent AST hard negatives
+        run: |
+          python -m pip install -e . 'pytest>=8.3,<9'
+          python -m pytest -q tests/test_wave_c_c02s_ast_mcp_oracle.py
+      - name: Fetch immutable source without executing target
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p pinned-target
+          git -C pinned-target init -q
+          git -C pinned-target remote add origin "https://github.com/Amlan66/SSEEnabledMCPAgent.git"
+          git -C pinned-target fetch --quiet --depth=1 --filter=blob:none origin 11531239e71b123f25b3c6103ee36a9d614d0032
+          git -C pinned-target checkout --quiet --detach FETCH_HEAD
+          test "$(git -C pinned-target rev-parse HEAD)" = "11531239e71b123f25b3c6103ee36a9d614d0032"
+      - name: Validate independently parsed 4 implementations and 28 tool decorators
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.wave_c_c02s_independent_ast_mcp_study \
+            --checkout pinned-target \
+            --output artifacts
+      - name: Preserve pinned source-only oracle evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wave-c-c02s-rw080-independent-ast-oracle
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30
