@@ -55,7 +55,7 @@ def inspect_mcp_python(path: str, source: str) -> dict[str, Any]:
             or "\\" in path or ".." in path.split("/")):
         raise ValueError("unsafe or non-Python source path")
     if not isinstance(source, str):
-        raise ValueError("source must be UTF-8 text")
+        raise TypeError("source must be UTF-8 text")
     tree = ast.parse(source, filename=path)
     lines = source.splitlines()
     imports: set[str] = set()
