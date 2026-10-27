@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from copy import deepcopy
 from pathlib import Path
 
@@ -11,6 +12,7 @@ import pytest
 from horustrace.adg import build_adg
 from horustrace.cli import main
 from horustrace.models import Agent, Graph
+from horustrace.source_shadow_attestation import seal_mcp_source_shadow
 from horustrace.source_shadow_workbench import (
     load_mcp_source_overlay,
     project_mcp_source_overlay,
@@ -97,13 +99,24 @@ def checkout(root: Path) -> None:
         'def add(a: int, b: int) -> int: return a + b\n',
         encoding="utf-8",
     )
+    subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+    subprocess.run(["git", "-C", str(root), "add", "agent.py", "mcp_server.py"], check=True)
+    subprocess.run(
+        ["git", "-C", str(root), "-c", "user.name=C02x Test",
+         "-c", "user.email=c02x@example.test", "commit", "-qm", "fixture"],
+        check=True,
+    )
+
+
+def _seal(root: Path, data: dict | None = None) -> dict:
+    return seal_mcp_source_shadow(data if data is not None else shadow_fixture(), root)
 
 
 def test_c02w_opt_in_keeps_canonical_projection_and_default_html(tmp_path: Path) -> None:
     checkout(tmp_path)
     graph = Graph(agents=[Agent(name="example_agent")])
     graph.adg = build_adg(graph, tmp_path)
-    source = shadow_fixture()
+    source = _seal(tmp_path)
     unchanged = deepcopy(source)
     before_model = build_visual_report(graph, [], tmp_path)
     adg_digest = graph.adg.canonical_digest()
@@ -135,7 +148,7 @@ def test_c02w_scoped_witnesses_and_escape_untrusted_labels(tmp_path: Path) -> No
     data = shadow_fixture()
     data["nodes"][1]["name"] = '</script><script>alert("bad")</script>'
     data["nodes"][0]["agent"] = '<img src=x onerror="bad()">'
-    overlay = project_mcp_source_overlay(data, tmp_path)
+    overlay = project_mcp_source_overlay(_seal(tmp_path, data), tmp_path)
     graph = Graph(agents=[Agent(name="example_agent")])
     graph.adg = build_adg(graph, tmp_path)
     html = render_visual_report_html(graph, [], tmp_path, source_overlay=overlay)
@@ -155,7 +168,7 @@ def test_c02w_scoped_witnesses_and_escape_untrusted_labels(tmp_path: Path) -> No
 ])
 def test_c02w_invalid_source_overlay_fails_closed(tmp_path: Path, mutate) -> None:
     checkout(tmp_path)
-    fixture = shadow_fixture()
+    fixture = _seal(tmp_path)
     mutate(fixture)
     with pytest.raises((ValueError, FileNotFoundError)):
         project_mcp_source_overlay(fixture, tmp_path)
@@ -167,7 +180,7 @@ def test_c02w_symlink_escape_fails_closed(tmp_path: Path) -> None:
     outside = tmp_path / "outside.py"
     outside.write_text("external\n" * 9, encoding="utf-8")
     (root / "escape.py").symlink_to(outside)
-    data = shadow_fixture()
+    data = _seal(root)
     data["nodes"][1]["location"] = {"path": "escape.py", "line": 2}
     with pytest.raises(ValueError):
         project_mcp_source_overlay(data, root)
@@ -177,7 +190,7 @@ def test_c02w_overlay_input_file_round_trip_and_cli(tmp_path: Path) -> None:
     root = tmp_path / "target"
     checkout(root)
     evidence = tmp_path / "source-shadow.json"
-    evidence.write_text(json.dumps(shadow_fixture()), encoding="utf-8")
+    evidence.write_text(json.dumps(_seal(root)), encoding="utf-8")
     overlay = load_mcp_source_overlay(evidence, root)
     assert overlay["mode"] == "opt_in_mcp_source_evidence_not_authority"
     assert overlay["runtime_authority_verified"] is False
@@ -201,7 +214,7 @@ def test_c02w_cli_bad_input_does_not_write_report(tmp_path: Path, capsys) -> Non
     root = tmp_path / "target"
     checkout(root)
     evidence = tmp_path / "bad-source.json"
-    data = shadow_fixture()
+    data = _seal(root)
     data["nodes"][2]["location"]["line"] = 10000
     evidence.write_text(json.dumps(data), encoding="utf-8")
     output = tmp_path / "forbidden.html"

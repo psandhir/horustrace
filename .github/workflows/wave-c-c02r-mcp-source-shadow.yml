@@ -5,10 +5,13 @@ on:
     paths:
       - "src/horustrace/mcp_source_implementation_shadow.py"
       - "src/horustrace/source_shadow_html.py"
+      - "src/horustrace/source_shadow_attestation.py"
       - "src/horustrace/source_shadow_workbench.py"
       - "src/horustrace/visual_report.py"
       - "src/horustrace/cli.py"
       - "tests/test_source_shadow_workbench.py"
+      - "tests/test_source_shadow_attestation.py"
+      - "docs/accuracy/wave-c-c02x-exact-source-evidence-attestation.md"
       - "scripts/check_mcp_workbench_overlay_browser.py"
       - "docs/accuracy/wave-c-c02w-opt-in-workbench-source-overlay.md"
       - "tests/test_source_shadow_html.py"
@@ -43,7 +46,7 @@ jobs:
       - name: Install scanner only and test shadow negative controls
         run: |
           python -m pip install -e . 'pytest>=8.3,<9' 'playwright>=1.56,<1.60'
-          python -m pytest -q tests/test_mcp_source_implementation_shadow.py tests/test_source_shadow_html.py tests/test_source_shadow_workbench.py
+          python -m pytest -q tests/test_mcp_source_implementation_shadow.py tests/test_source_shadow_html.py tests/test_source_shadow_workbench.py tests/test_source_shadow_attestation.py
       - name: Fetch pinned source repository without executing it
         shell: bash
         run: |

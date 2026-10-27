@@ -14,6 +14,10 @@ from horustrace.mcp_source_implementation_shadow import (
     project_bound_source_mcp_implementations,
 )
 from horustrace.scanner import scan
+from horustrace.source_shadow_attestation import (
+    seal_mcp_source_shadow,
+    verify_mcp_source_shadow,
+)
 
 CASE = "rw-080"
 REPO = "Amlan66/SSEEnabledMCPAgent"
@@ -69,7 +73,13 @@ def run_study(checkout: Path, output: Path) -> dict:
         raise ValueError("current scan did not produce an ADG")
     original_nodes = len(pre_adg["nodes"])
     original_edges = len(pre_adg["edges"])
-    shadow = project_bound_source_mcp_implementations(graph, checkout)
+    raw_shadow = project_bound_source_mcp_implementations(graph, checkout)
+    shadow = seal_mcp_source_shadow(raw_shadow, checkout)
+    verify_mcp_source_shadow(shadow, checkout)
+    if (shadow["source_revision"]["commit_sha"] != SHA
+            or shadow["source_revision"]["mode"]
+            != "c02x_exact_git_sha1_blob_and_worktree_sha256"):
+        raise ValueError("pinned source attestation contract unexpectedly changed")
     if (original_nodes != len(pre_adg["nodes"])
             or original_edges != len(pre_adg["edges"])):
         raise ValueError("shadow unexpectedly mutated production ADG")
@@ -106,6 +116,7 @@ def run_study(checkout: Path, output: Path) -> dict:
         "scanner_adg_edges": original_edges,
         "scanner_findings": len(findings),
         "source_shadow": shadow,
+        "source_revision": shadow["source_revision"],
         "effective_authority_verified": False,
         "certified_precision": None,
         "certified_recall": None,

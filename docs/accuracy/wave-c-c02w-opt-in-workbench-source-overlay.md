@@ -49,13 +49,20 @@ is presented. All input metadata not needed by the UI is discarded.
 Dynamic HTML labels are escaped and the inert JSON script payload uses
 HTML-safe serialization. No external JavaScript, styles or network calls.
 
-**Crucial limit:** This checks that the supplied source witness file and line
-exist inside the checkout; it does **not** compare source blob hashes to a
-pinned manifest because this prior C02r artifact schema does not contain
-those hashes. It does not establish semantic freshness, independent source
-truth, or SDK execution. To use the result as stronger source evidence,
-compare the original pinned Git SHA/blob evidence in the C02r study. This
-limitation is stated in the Workbench warning.
+**C02x update (27 October 2026):** The Workbench loader now requires a
+**sealed v2 C02r source-shadow artifact** containing the exact Git HEAD SHA,
+tracked Git blob hashes, per-file worktree SHA-256 digests and a source-claim
+digest. Every file in the declared witness universe must match the source
+checkout exactly, or the report fails before being written. This detects
+same-line edits, changed commit and altered source relationships. Old
+unsealed v1 artifacts are deliberately rejected by the Workbench and must
+be regenerated from the pinned original source.
+
+The source hash contract improves **source consistency**, not independent
+semantic or security truth: an actor controlling both the checkout and
+self-issued manifest could produce a new matching artifact. See
+[Wave C C02x attestation](wave-c-c02x-exact-source-evidence-attestation.md)
+for boundaries and regression tests.
 
 If the flag is omitted, the experimental tab and all source-shadow data
 are **absent**. Default report metrics, all canonical evidence and the
