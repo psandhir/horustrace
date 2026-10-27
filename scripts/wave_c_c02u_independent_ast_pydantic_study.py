@@ -66,7 +66,7 @@ def run_study(checkout: Path, output: Path) -> dict:
     )
     if (oracle["level_1"] != []
             or oracle["level_2"] != ["list_tables", "describe_table"]
-            or oracle["else_branch_all_other_integer_levels"] != [
+            or oracle["else_branch_other_values"] != [
                 "list_tables", "describe_table", "execute_query",
                 "get_current_date", "get_stock_query_template",
             ]):
@@ -117,7 +117,7 @@ def main() -> None:
         "level_1_source_tools": len(result["oracle"]["level_1"]),
         "level_2_source_tools": len(result["oracle"]["level_2"]),
         "all_other_integer_levels_source_tools":
-            len(result["oracle"]["else_branch_all_other_integer_levels"]),
+            len(result["oracle"]["else_branch_other_values"]),
         "runtime_callability_verified": False,
         "production_cutover_authorized": False,
     }, sort_keys=True))

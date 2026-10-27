@@ -80,7 +80,7 @@ def inspect_pydantic_level_returns(path: str, source: str) -> dict[str, Any]:
         "selection_parameter": param,
         "level_1": level1,
         "level_2": level2,
-        "else_branch_all_other_integer_levels": fallback,
+        "else_branch_other_values": fallback,
         "level_3_uses_else": True,
         "level_4_uses_else": True,
         "runtime_level_value_known": False,

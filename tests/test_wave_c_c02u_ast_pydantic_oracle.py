@@ -42,7 +42,7 @@ def test_c02u_literal_level_1_2_else_sets_are_mechanical() -> None:
     result = inspect_pydantic_level_returns("agent/tools.py", SOURCE)
     assert result["level_1"] == []
     assert result["level_2"] == ["list_tables", "describe_table"]
-    assert result["else_branch_all_other_integer_levels"] == [
+    assert result["else_branch_other_values"] == [
         "list_tables", "describe_table", "execute_query",
         "get_current_date", "get_stock_query_template",
     ]
@@ -59,13 +59,13 @@ def test_c02u_whitespace_and_comments_do_not_change_source_selection() -> None:
     second = inspect_pydantic_level_returns(
         "agent/tools.py", SOURCE + "\n# return [imaginary_tool]\n"
     )
-    for key in ("level_1", "level_2", "else_branch_all_other_integer_levels"):
+    for key in ("level_1", "level_2", "else_branch_other_values"):
         assert first[key] == second[key]
 
 
 def test_c02u_other_levels_not_falsely_described_as_blocked() -> None:
     result = inspect_pydantic_level_returns("agent/tools.py", SOURCE)
-    assert "else_branch_all_other_integer_levels" in result
+    assert "else_branch_other_values" in result
     assert result["level_3_uses_else"] and result["level_4_uses_else"]
 
 
