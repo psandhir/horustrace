@@ -60,6 +60,7 @@ from horustrace.semantic_shadow import shadow_observation_report
 from horustrace.semantic_trace import SemanticTrace
 from horustrace.source_context import SOURCE_CONTEXTS
 from horustrace.suppressions import SuppressionError, write_baseline
+from horustrace.source_shadow_workbench import load_mcp_source_overlay
 from horustrace.visual_report import render_visual_report_html
 
 
@@ -256,6 +257,14 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("horustrace-report.html"),
         help="HTML output path (default: horustrace-report.html).",
+    )
+    report_parser.add_argument(
+        "--mcp-source-shadow", type=Path,
+        help=(
+            "EXPERIMENTAL: opt-in, read-only MCP source evidence overlay. "
+            "Requires a source-shadow.json artifact whose file/line witnesses "
+            "exist in the scanned checkout; does not change authority or findings."
+        ),
     )
     report_parser.add_argument("--config", type=Path)
     report_parser.add_argument(
@@ -755,7 +764,17 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
         if args.command == "report":
-            output = render_visual_report_html(graph, findings, root)
+            try:
+                source_overlay = (
+                    load_mcp_source_overlay(args.mcp_source_shadow, root)
+                    if args.mcp_source_shadow is not None else None
+                )
+                output = render_visual_report_html(
+                    graph, findings, root, source_overlay=source_overlay,
+                )
+            except (OSError, ValueError, TypeError, UnicodeError) as exc:
+                print(f"horustrace: invalid MCP source evidence: {exc}", file=sys.stderr)
+                return 1
         elif args.command == "authority":
             report = effective_authority_report(graph)
             output = (

@@ -15,6 +15,7 @@ from typing import Any
 from horustrace.assurance import build_assurance_report
 from horustrace.authority_contract import authority_contract_report
 from horustrace.effective_authority import effective_authority_report
+from horustrace.source_shadow_workbench import SOURCE_OVERLAY_CSS, SOURCE_OVERLAY_JS
 from horustrace.models import Finding, Graph
 from horustrace.owasp import build_owasp_agentic_summary
 from horustrace.provenance import context as provenance_context
@@ -707,10 +708,34 @@ def render_visual_report_html(
     graph: Graph,
     findings: list[Finding],
     root: Path,
+    *,
+    source_overlay: dict[str, Any] | None = None,
 ) -> str:
     """Render a single-file, offline interactive HorusTrace report."""
     report = build_visual_report(graph, findings, root)
     payload = _json_for_html(report)
+    if source_overlay is not None and (
+        source_overlay.get("mode") != "opt_in_mcp_source_evidence_not_authority"
+        or source_overlay.get("source_only") is not True
+        or source_overlay.get("runtime_authority_verified") is not False
+    ):
+        raise ValueError("MCP evidence overlay must remain source-only")
+    overlay_css = SOURCE_OVERLAY_CSS if source_overlay is not None else ""
+    overlay_nav = (
+        '<button data-view="mcp-source-evidence" data-icon="mcp">'
+        'MCP source evidence · Experimental</button>'
+        if source_overlay is not None else ""
+    )
+    overlay_section = (
+        '<section id="mcp-source-evidence" class="view"></section>'
+        if source_overlay is not None else ""
+    )
+    overlay_data = (
+        '<script id="horus-mcp-source-data" type="application/json">'
+        + _json_for_html(source_overlay) + '</script>'
+        if source_overlay is not None else ""
+    )
+    overlay_script = SOURCE_OVERLAY_JS if source_overlay is not None else ""
     title = escape(f"HorusTrace Security Report — {root.name or '.'}")
     return f"""<!doctype html>
 <html lang="en" data-theme="light">
@@ -984,6 +1009,7 @@ html[data-theme="dark"] .supply-node[data-kind="input"] rect{{fill:#203945}}
 html[data-theme="dark"] .supply-node[data-kind="input"][data-trust="untrusted"] rect{{fill:#473024}}
 html[data-theme="dark"] .supply-node text{{fill:#e2e9f2}}
 html[data-theme="dark"] .supply-node .supply-kind{{fill:#a6b8d0}}
+{overlay_css}
 </style>
 </head>
 <body>
@@ -996,6 +1022,7 @@ html[data-theme="dark"] .supply-node .supply-kind{{fill:#a6b8d0}}
     <button data-view="agents" data-icon="agents">Agents</button>
     <button data-view="components" data-icon="resources">Components</button>
     <button data-view="supply" data-icon="attack">Supply chain</button>
+    {overlay_nav}
     <button data-view="findings" data-icon="findings">Findings</button>
     <button data-view="policy" data-icon="policy">Organisation policy</button>
     <button data-view="owasp" data-icon="owasp">OWASP Top 10</button>
@@ -1014,11 +1041,13 @@ html[data-theme="dark"] .supply-node .supply-kind{{fill:#a6b8d0}}
 </aside>
 <main>
   <section id="dashboard" class="view active"></section><section id="agents" class="view"></section><section id="agent-detail" class="view"></section><section id="components" class="view"></section><section id="supply" class="view"></section>
+  {overlay_section}
   <section id="findings" class="view"></section><section id="policy" class="view"></section><section id="owasp" class="view"></section><section id="attack" class="view"></section><section id="contracts" class="view"></section><section id="evidence" class="view"></section>
   <div class="footer">Static evidence only · Runtime effectiveness is not verified · No report data leaves this file.</div>
 </main>
 </div>
 <script id="horus-data" type="application/json">{payload}</script>
+{overlay_data}
 <script>
 "use strict";
 const DATA=JSON.parse(document.getElementById("horus-data").textContent);
@@ -1898,6 +1927,7 @@ function renderEvidence(){{
 }}
 
 renderDashboard();renderAgents();renderComponents();renderSupplyChain();renderFindings();renderPolicy();renderOwasp();renderAttack();renderContracts();renderEvidence();
+{overlay_script}
 </script>
 </body>
 </html>

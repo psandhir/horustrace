@@ -5,6 +5,12 @@ on:
     paths:
       - "src/horustrace/mcp_source_implementation_shadow.py"
       - "src/horustrace/source_shadow_html.py"
+      - "src/horustrace/source_shadow_workbench.py"
+      - "src/horustrace/visual_report.py"
+      - "src/horustrace/cli.py"
+      - "tests/test_source_shadow_workbench.py"
+      - "scripts/check_mcp_workbench_overlay_browser.py"
+      - "docs/accuracy/wave-c-c02w-opt-in-workbench-source-overlay.md"
       - "tests/test_source_shadow_html.py"
       - "scripts/check_wave_c_source_shadow_browser.py"
       - "docs/accuracy/wave-c-c02v-offline-source-supply-chain-explorer.md"
@@ -37,7 +43,7 @@ jobs:
       - name: Install scanner only and test shadow negative controls
         run: |
           python -m pip install -e . 'pytest>=8.3,<9' 'playwright>=1.56,<1.60'
-          python -m pytest -q tests/test_mcp_source_implementation_shadow.py tests/test_source_shadow_html.py
+          python -m pytest -q tests/test_mcp_source_implementation_shadow.py tests/test_source_shadow_html.py tests/test_source_shadow_workbench.py
       - name: Fetch pinned source repository without executing it
         shell: bash
         run: |
@@ -67,6 +73,16 @@ jobs:
         run: python -m playwright install --with-deps chromium
       - name: Test source supply-chain focus/defocus in a real browser
         run: python -m scripts.check_wave_c_source_shadow_browser --report artifacts/mcp-source-supply-chain.html
+      - name: Render standard Workbench with opt-in scoped MCP source evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m horustrace.cli report pinned-target \
+            --mcp-source-shadow artifacts/source-shadow.json \
+            --output artifacts/workbench-with-mcp-source-evidence.html
+          test -s artifacts/workbench-with-mcp-source-evidence.html
+      - name: Verify opt-in Workbench drilldown and unchanged canonical supply chain
+        run: python -m scripts.check_mcp_workbench_overlay_browser --report artifacts/workbench-with-mcp-source-evidence.html
       - name: Publish exact pinned source-only shadow evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
