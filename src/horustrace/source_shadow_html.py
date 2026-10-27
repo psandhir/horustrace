@@ -46,7 +46,7 @@ def validate_source_shadow(data: Any) -> tuple[list[dict], list[dict]]:
     nodes = data.get("nodes")
     edges = data.get("edges")
     if not isinstance(nodes, list) or not isinstance(edges, list):
-        raise ValueError("source-shadow nodes/edges must be lists")
+        raise TypeError("source-shadow nodes/edges must be lists")
     if len(nodes) > 20000 or len(edges) > 40000:
         raise ValueError("bounded offline report size exceeded")
     seen: dict[str, dict] = {}
@@ -137,7 +137,7 @@ def render_source_shadow_html(data: dict[str, Any]) -> str:
         )
     unresolved = data.get("unresolved", [])
     if not isinstance(unresolved, list):
-        raise ValueError("invalid unresolved list")
+        raise TypeError("invalid unresolved list")
     reasons = Counter(
         x.get("reason", "unspecified")
         for x in unresolved if isinstance(x, dict)
