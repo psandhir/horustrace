@@ -70,6 +70,11 @@ def validate_source_shadow(data: Any) -> tuple[list[dict], list[dict]]:
                 or node.get("deployment_verified") is not False
                 or node.get("effective_authority") != "unknown"):
             raise ValueError("invalid or promoted MCP source witness")
+        if node["kind"] == "mcp_client_configuration":
+            agent_context = node.get("agent")
+            if (not isinstance(agent_context, str)
+                    or not agent_context.strip() or len(agent_context) > 2048):
+                raise ValueError("client configuration missing source agent context")
         seen[key] = node
     identifiers: set[str] = set()
     for edge in edges:
@@ -124,6 +129,9 @@ def render_source_shadow_html(data: dict[str, Any]) -> str:
                 + '" aria-pressed="false">'
                 + '<span class="node-name">' + _safe(node["name"]) + '</span>'
                 + '<span class="node-site">' + _safe(location) + '</span>'
+                + ('<span class="node-agent">Source agent context: '
+                   + _safe(node["agent"]) + '</span>'
+                   if kind == "mcp_client_configuration" else '')
                 + '<span class="node-state">Source declared · Runtime unknown</span>'
                 + '</button>'
             )
@@ -150,7 +158,9 @@ def render_source_shadow_html(data: dict[str, Any]) -> str:
     connectivity = {
         "nodes": [{"id": n["id"], "name": n["name"],
                    "kind": n["kind"], "path": n["location"]["path"],
-                   "line": n["location"]["line"]} for n in nodes],
+                   "line": n["location"]["line"],
+                   "agent": n.get("agent") if n["kind"] == "mcp_client_configuration"
+                   else None} for n in nodes],
         "edges": [{"source": e["source"], "target": e["target"],
                    "kind": e["kind"]} for e in edges],
     }
@@ -197,7 +207,8 @@ function updateFocus() {
     const relevant = topology.edges.filter(e => related.has(e.source) && related.has(e.target));
     const exposures = relevant.filter(e => e.kind === 'EXPOSES_TOOL').length;
     const resolves = relevant.filter(e => e.kind === 'CONFIG_RESOLVES_TO_SOURCE_IMPLEMENTATION').length;
-    detail.textContent = related.size + ' source nodes; ' + resolves + ' source configuration bindings and ' + exposures + ' tool exposure declarations. No runtime callability or effective agent authority is verified.';
+    const agentContexts = [...new Set(topology.nodes.filter(n => related.has(n.id) && n.kind === 'mcp_client_configuration').map(n => n.agent))].sort();
+    detail.textContent = related.size + ' source nodes; ' + resolves + ' source configuration bindings and ' + exposures + ' tool exposure declarations. Source agent contexts: ' + (agentContexts.length ? agentContexts.join(', ') : 'none observed') + '. No runtime callability or effective agent authority is verified.';
   }
 }
 document.addEventListener('click', event => {
@@ -235,7 +246,7 @@ h1{font-size:28px;letter-spacing:-.035em;margin:8px 0}p{line-height:1.55;color:#
 .node-card.server{background:#eef8fa;border-color:#bbdfe4}.node-card.tool{background:#f3f7f1;border-color:#c8dfc6}
 .node-card.selected{outline:3px solid #486fda;box-shadow:0 2px 10px #1f428625}
 .node-card.dimmed{opacity:.23}.node-name{font-size:14px;font-weight:740;overflow-wrap:anywhere}
-.node-site{font-size:11px;color:#526b89;overflow-wrap:anywhere}.node-state{font-size:11px;color:#7c6b4d}
+.node-site{font-size:11px;color:#526b89;overflow-wrap:anywhere}.node-agent{font-size:11px;font-weight:650;color:#3d6486;overflow-wrap:anywhere}.node-state{font-size:11px;color:#7c6b4d}
 .inspector{background:#fff;border:1px solid #e0e7f0;border-radius:15px;margin-top:16px;padding:18px}
 .inspector h2{font-size:17px;margin:0 0 8px}button#reset-selection{border:1px solid #bfd0e7;border-radius:9px;background:#f5f8fd;color:#315282;padding:9px 14px;font-weight:600;cursor:pointer}
 button:disabled{opacity:.45;cursor:default}.inspector-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}

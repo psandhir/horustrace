@@ -36,6 +36,7 @@ def check_report(path: Path) -> dict[str, object]:
                 for index in range(calculators.count())
             ]
             assert len(set(sites)) == 2
+            assert page.locator(".node-card.client .node-agent").count() >= 3
             checks.append("All source nodes and same-name server identities render")
 
             first = calculators.first
@@ -44,6 +45,9 @@ def check_report(path: Path) -> dict[str, object]:
             assert page.locator(".node-card.selected").count() == 1
             assert page.locator(".node-card.dimmed").count() > 0
             assert "source configuration bindings" in page.locator(
+                "#selection-detail"
+            ).inner_text()
+            assert "Source agent contexts:" in page.locator(
                 "#selection-detail"
             ).inner_text()
             assert page.locator(".node-card.server.dimmed").count() >= 1

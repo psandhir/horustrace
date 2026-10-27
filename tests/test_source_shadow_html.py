@@ -100,6 +100,8 @@ def test_c02v_render_source_only_supply_chain_keeps_same_named_instances() -> No
     assert output.count('class="node-card server"') == 2
     assert "one.py:4" in output and "two.py:4" in output
     assert "Source declared · Runtime unknown" in output
+    assert "Source agent context: agent_a" in output
+    assert "Source agent contexts: " in output
     assert "CONFIG_RESOLVES_TO_SOURCE_IMPLEMENTATION" in output
     assert "EXPOSES_TOOL" in output
     assert "classList.toggle('dimmed'" in output
@@ -130,6 +132,7 @@ def test_c02v_untrusted_source_metadata_cannot_embed_scripts() -> None:
     lambda d: d["nodes"][3].update({"effective_authority": "permitted"}),
     lambda d: d["nodes"][3].update({"location": {"path": "../escape", "line": 0}}),
     lambda d: d["nodes"][3].update({"kind": "agent"}),
+    lambda d: d["nodes"][0].pop("agent"),
     lambda d: d["edges"][1].update({"kind": "AGENT_CAN_CALL"}),
     lambda d: d["edges"][1].update({"effective_agent_can_call": True}),
     lambda d: d["edges"][1].update({"source": "shadow-mcp:tool1"}),

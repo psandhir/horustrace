@@ -73,3 +73,8 @@ three server sites, 25 tool cards, same-name distinct instances, per-node
 connected-component focus, unrelated-node defocus without removal, keyboard
 Enter activation, Show all reset, and mobile viewport retention. Any browser
 JavaScript error fails the study. The HTML remains offline and source-only.
+
+Client configuration cards now explicitly display the **source agent context**;
+selecting any linked server or tool includes connected source agent names in
+the inspection panel. These are source-discovered ownership contexts, **not**
+proof the named agent can invoke the MCP server in a deployed environment.
