@@ -57,7 +57,7 @@ network/file resource loads and no secrets are injected.
 
 The pinned rw080 study still expects exactly 3 local stdio implementation
 source sites and 25 `EXPOSES_TOOL` declarations. Tests cover distinct
-same-name nodes, opt-in click focus/dimming, malformed graphs,
+same-name nodes, opt-in click focus/dimming, real Chromium click/keyboard drilldowns, malformed graphs,
 untrusted script strings, unresolved claims, absent witnesses and zero-tool
 scopes. No source study result is an independent human V2 reference or
 certified TP/FP/FN/TN.
@@ -67,3 +67,9 @@ source-shadow study and same-head accuracy gates remain fully required.
 #558 administrator-required main gate, complete #606 independent source
 truth, unseen external D01 custody and runtime authority verification
 remain NO-GO prerequisites for C03/C04 cutover.
+
+A dedicated Playwright Chromium smoke in the source-shadow workflow checks all
+three server sites, 25 tool cards, same-name distinct instances, per-node
+connected-component focus, unrelated-node defocus without removal, keyboard
+Enter activation, Show all reset, and mobile viewport retention. Any browser
+JavaScript error fails the study. The HTML remains offline and source-only.
