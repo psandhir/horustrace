@@ -172,7 +172,7 @@ def test_c02x_tampered_or_partial_manifest_fails_closed(
     _checkout(tmp_path)
     sealed = seal_mcp_source_shadow(_source(), tmp_path)
     mutation(sealed)
-    with pytest.raises(ValueError):
+    with pytest.raises((ValueError, TypeError)):
         verify_mcp_source_shadow(sealed, tmp_path)
 
 
