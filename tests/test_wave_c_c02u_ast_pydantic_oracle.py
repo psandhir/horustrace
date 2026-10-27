@@ -98,6 +98,9 @@ def test_c02u_breaking_wrapper_registration_fails_closed() -> None:
     bad = INNER.replace("self._agent.tool(tool)", "self._agent.other(tool)")
     with pytest.raises(ValueError):
         inspect_pydantic_tool_plumbing(OUTER, bad)
+    bad_owner = INNER.replace("self.tools = tools or []", "self.tools = []")
+    with pytest.raises(ValueError):
+        inspect_pydantic_tool_plumbing(OUTER, bad_owner)
     bad2 = OUTER.replace("tools=tools", "tools=everything")
     with pytest.raises(ValueError):
         inspect_pydantic_tool_plumbing(bad2, INNER)

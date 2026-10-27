@@ -14,7 +14,7 @@ For `get_tools_for_level(level)`, AST checks explicit **literal** branches:
 
 **Important nuance:** that `else` branch accepts **any** value not equal to 1 or 2 (even non-integers at runtime), not only levels 3 or 4. Its source-visible consequences for levels 3 and 4 can be verified, but the source does NOT guarantee a bounded `DEMO_LEVEL` or any deployed value. No runtime `AGENT_CAN_CALL` claims.
 
-Separately, inspect exact AST plumbing from `SQLQueryAgent.__init__` `tools=get_tools_for_level(self.demo_level)`, to `BaseAgent(tools=tools)`, to the wrapper loop `for tool in self.tools: self._agent.tool(tool)`. This proves source statements exist, not that a package/SDK version successfully registers or authorizes any tool.
+Separately, inspect exact AST plumbing from `SQLQueryAgent.__init__` `tools=get_tools_for_level(self.demo_level)`, to `BaseAgent(tools=tools)`, to the exact wrapper assignment `self.tools = tools or []`, then to the wrapper loop `for tool in self.tools: self._agent.tool(tool)`. This proves source statements exist, not that a package/SDK version successfully registers or authorizes any tool.
 
 ## Adversarial and validation coverage
 

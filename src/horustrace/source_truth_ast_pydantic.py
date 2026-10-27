@@ -137,6 +137,26 @@ def inspect_pydantic_tool_plumbing(agent_source: str, base_source: str) -> dict:
         and any(kw.arg == "tools" and isinstance(kw.value, ast.Name)
                 and kw.value.id == "tools" for kw in node.keywords)
     ]
+    self_tool_assignments = [
+        node for node in inner.body
+        if isinstance(node, ast.Assign) and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Attribute)
+        and isinstance(node.targets[0].value, ast.Name)
+        and node.targets[0].value.id == "self"
+        and node.targets[0].attr == "tools"
+    ]
+    if len(self_tool_assignments) != 1:
+        raise ValueError("selected tools not uniquely bound to wrapper state")
+    assignment = self_tool_assignments[0]
+    value = assignment.value
+    if not (isinstance(value, ast.BoolOp)
+            and isinstance(value.op, ast.Or)
+            and len(value.values) == 2
+            and isinstance(value.values[0], ast.Name)
+            and value.values[0].id == "tools"
+            and isinstance(value.values[1], ast.List)
+            and not value.values[1].elts):
+        raise ValueError("wrapper tools state no longer derives from argument")
     registrations = [
         node for node in ast.walk(inner)
         if isinstance(node, ast.For) and isinstance(node.target, ast.Name)
@@ -157,11 +177,14 @@ def inspect_pydantic_tool_plumbing(agent_source: str, base_source: str) -> dict:
                 and x.args[0].id == "tool"
                 for statement in node.body for x in ast.walk(statement))
     ]
-    if len(selectors) != 1 or len(pass_through) != 1 or len(registrations) != 1:
+    if (len(selectors) != 1 or len(pass_through) != 1
+            or len(registrations) != 1
+            or assignment.lineno >= registrations[0].lineno):
         raise ValueError("conditional tool-source plumbing changed")
     return {
         "source_selection_call_line": selectors[0].lineno,
         "source_pass_through_line": pass_through[0].lineno,
+        "source_wrapper_tools_binding_line": assignment.lineno,
         "source_registration_loop_line": registrations[0].lineno,
         "selected_tool_registration_source_chain": True,
         "installed_sdk_verification": None,
