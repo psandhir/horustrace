@@ -59,8 +59,8 @@ from horustrace.security_graph import build_agent_security_graph
 from horustrace.semantic_shadow import shadow_observation_report
 from horustrace.semantic_trace import SemanticTrace
 from horustrace.source_context import SOURCE_CONTEXTS
-from horustrace.suppressions import SuppressionError, write_baseline
 from horustrace.source_shadow_workbench import load_mcp_source_overlay
+from horustrace.suppressions import SuppressionError, write_baseline
 from horustrace.visual_report import render_visual_report_html
 
 

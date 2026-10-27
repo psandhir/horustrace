@@ -15,11 +15,11 @@ from typing import Any
 from horustrace.assurance import build_assurance_report
 from horustrace.authority_contract import authority_contract_report
 from horustrace.effective_authority import effective_authority_report
-from horustrace.source_shadow_workbench import SOURCE_OVERLAY_CSS, SOURCE_OVERLAY_JS
 from horustrace.models import Finding, Graph
 from horustrace.owasp import build_owasp_agentic_summary
 from horustrace.provenance import context as provenance_context
 from horustrace.security_graph import build_agent_security_graph
+from horustrace.source_shadow_workbench import SOURCE_OVERLAY_CSS, SOURCE_OVERLAY_JS
 
 VISUAL_REPORT_SCHEMA_VERSION = 1
 VISUAL_REPORT_MODEL = "horustrace.visual_report"
