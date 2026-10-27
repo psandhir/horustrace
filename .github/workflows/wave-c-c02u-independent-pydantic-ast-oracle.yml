@@ -1,0 +1,61 @@
+name: Wave C C02u Independent Pydantic Conditional Tool AST
+
+on:
+  pull_request:
+    paths:
+      - "src/horustrace/source_truth_ast_pydantic.py"
+      - "scripts/wave_c_c02u_independent_ast_pydantic_study.py"
+      - "tests/test_wave_c_c02u_ast_pydantic_oracle.py"
+      - "docs/accuracy/wave-c-c02u-independent-pydantic-ast-oracle.md"
+      - ".github/workflows/wave-c-c02u-independent-pydantic-ast-oracle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wave-c-c02u-pydantic-oracle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pinned-source-oracle:
+    name: Pinned rw149 Pydantic AST conditional tools and hard negatives
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install scanner and test bounded AST hard negatives
+        run: |
+          python -m pip install -e . 'pytest>=8.3,<9'
+          python -m pytest -q tests/test_wave_c_c02u_ast_pydantic_oracle.py
+      - name: Fetch exact pinned source without importing target
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p pinned-target
+          git -C pinned-target init -q
+          git -C pinned-target remote add origin "https://github.com/LeonieFreisinger/pydanticai-base-agent.git"
+          git -C pinned-target fetch --quiet --depth=1 --filter=blob:none origin 0cf88a4caf2b5da29ff7af8364d4db14ac9e50b4
+          git -C pinned-target checkout --quiet --detach FETCH_HEAD
+          test "$(git -C pinned-target rev-parse HEAD)" = "0cf88a4caf2b5da29ff7af8364d4db14ac9e50b4"
+      - name: Validate exact conditional level source tool declarations and plumbing
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.wave_c_c02u_independent_ast_pydantic_study \
+            --checkout pinned-target \
+            --output artifacts
+      - name: Preserve original pinned Pydantic source evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wave-c-c02u-rw149-independent-pydantic-ast
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30
