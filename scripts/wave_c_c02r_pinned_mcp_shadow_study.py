@@ -10,6 +10,10 @@ import json
 import subprocess
 from pathlib import Path
 
+from horustrace.mcp_c03_candidate import (
+    build_mcp_adg_candidate,
+    verify_mcp_candidate_rollback,
+)
 from horustrace.mcp_source_implementation_shadow import (
     project_bound_source_mcp_implementations,
 )
@@ -104,6 +108,21 @@ def run_study(checkout: Path, output: Path) -> dict:
     if any(edge["kind"] in {"AGENT_CAN_CALL", "INVOKES"}
            for edge in shadow["edges"]):
         raise ValueError("source exposure promoted to runtime callability")
+    # Reversible C03a candidate is a quarantined ADG-shaped snapshot,
+    # not a source of production findings/paths or a runtime authority graph.
+    candidate = build_mcp_adg_candidate(graph.adg, shadow, checkout)
+    verify_mcp_candidate_rollback(graph.adg, candidate)
+    difference = candidate["differential"]
+    if (len(difference["added_source_node_ids"]) != len(shadow["nodes"])
+            or len(difference["added_source_edge_ids"]) != len(shadow["edges"])
+            or difference["added_source_edge_kinds"] != {
+                "CONFIG_RESOLVES_TO_SOURCE_IMPLEMENTATION": 3,
+                "EXPOSES_TOOL": 25,
+            }
+            or difference["effective_agent_can_call_edges_added"] != 0
+            or candidate["production_cutover_authorized"] is not False
+            or graph.adg.as_dict() != pre_adg):
+        raise ValueError("C03a source-only candidate parity or rollback failed")
     data = {
         "schema_version": 1,
         "mode": "wave_c_c02r_source_implementation_shadow_not_release_truth",
@@ -117,6 +136,12 @@ def run_study(checkout: Path, output: Path) -> dict:
         "scanner_findings": len(findings),
         "source_shadow": shadow,
         "source_revision": shadow["source_revision"],
+        "c03_candidate_baseline_adg_digest": candidate["baseline_adg_digest"],
+        "c03_candidate_snapshot_sha256": candidate["candidate_snapshot_sha256"],
+        "c03_candidate_nodes_added": len(difference["added_source_node_ids"]),
+        "c03_candidate_edges_added": len(difference["added_source_edge_ids"]),
+        "c03_candidate_no_canonical_mutation": True,
+        "c03_candidate_production_cutover_authorized": False,
         "effective_authority_verified": False,
         "certified_precision": None,
         "certified_recall": None,
@@ -125,6 +150,10 @@ def run_study(checkout: Path, output: Path) -> dict:
     output.mkdir(parents=True, exist_ok=True)
     (output / "result.json").write_text(
         json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8",
+    )
+    (output / "c03-mcp-candidate.json").write_text(
+        json.dumps(candidate, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     (output / "source-shadow.json").write_text(
         json.dumps(shadow, indent=2, sort_keys=True) + "\n", encoding="utf-8",
