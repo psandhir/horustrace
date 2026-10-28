@@ -10,6 +10,7 @@ import json
 import subprocess
 from pathlib import Path
 
+from horustrace.mcp_c03_crosswalk import build_mcp_source_crosswalk
 from horustrace.mcp_c03_candidate import (
     build_mcp_adg_candidate,
     verify_mcp_candidate_rollback,
@@ -114,6 +115,12 @@ def run_study(checkout: Path, output: Path) -> dict:
     # not a source of production findings/paths or a runtime authority graph.
     candidate = build_mcp_adg_candidate(graph.adg, shadow, checkout)
     verify_mcp_candidate_rollback(graph.adg, candidate)
+    crosswalk = build_mcp_source_crosswalk(graph.adg, candidate)
+    if (len(crosswalk["node_correspondences"]) != len(shadow["nodes"])
+            or len(crosswalk["edge_correspondences"]) != len(shadow["edges"])
+            or crosswalk["production_cutover_authorized"] is not False
+            or crosswalk["runtime_authority_verified"] is not False):
+        raise ValueError("C03b source crosswalk missing witnesses or promoting authority")
     difference = candidate["differential"]
     if (len(difference["added_source_node_ids"]) != len(shadow["nodes"])
             or len(difference["added_source_edge_ids"]) != len(shadow["edges"])
@@ -170,6 +177,9 @@ def run_study(checkout: Path, output: Path) -> dict:
         "source_shadow": shadow,
         "source_revision": shadow["source_revision"],
         "c03_candidate_baseline_adg_digest": candidate["baseline_adg_digest"],
+        "c03b_source_crosswalk_sha256": crosswalk["crosswalk_sha256"],
+        "c03b_node_status_counts": crosswalk["node_status_counts"],
+        "c03b_edge_status_counts": crosswalk["edge_status_counts"],
         "c03_candidate_snapshot_sha256": candidate["candidate_snapshot_sha256"],
         "c03_candidate_nodes_added": len(difference["added_source_node_ids"]),
         "c03_candidate_edges_added": len(difference["added_source_edge_ids"]),
@@ -185,6 +195,10 @@ def run_study(checkout: Path, output: Path) -> dict:
     output.mkdir(parents=True, exist_ok=True)
     (output / "result.json").write_text(
         json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8",
+    )
+    (output / "c03-mcp-source-crosswalk.json").write_text(
+        json.dumps(crosswalk, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     (output / "c03-mcp-candidate.json").write_text(
         json.dumps(candidate, indent=2, sort_keys=True) + "\n",
