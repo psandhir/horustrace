@@ -18,6 +18,8 @@ from horustrace.mcp_source_implementation_shadow import (
     project_bound_source_mcp_implementations,
 )
 from horustrace.scanner import scan
+from horustrace.source_truth_ast_mcp import inspect_mcp_scope
+from scripts.wave_c_c02s_independent_ast_mcp_study import read_pinned_source
 from horustrace.source_shadow_attestation import (
     seal_mcp_source_shadow,
     verify_mcp_source_shadow,
@@ -123,6 +125,37 @@ def run_study(checkout: Path, output: Path) -> dict:
             or candidate["production_cutover_authorized"] is not False
             or graph.adg.as_dict() != pre_adg):
         raise ValueError("C03a source-only candidate parity or rollback failed")
+    # Independent AST source-declaration corpus: not the scanner's labels.
+    # Exact Git blob witnesses are verified separately by C02s.
+    oracle = inspect_mcp_scope(read_pinned_source(checkout))
+    if (oracle["unresolved"] or len(oracle["implementations"]) != 4
+            or len(oracle["tools"]) != 28):
+        raise ValueError("independent MCP source AST scope changed")
+    local = {"mcp_server_1.py", "mcp_server_2.py", "mcp_server_3.py"}
+    expected_servers = {
+        (row["path"], row["line"], row["name"])
+        for row in oracle["implementations"] if row["path"] in local
+    }
+    expected_tools = {
+        (row["path"], row["line"], row["name"])
+        for row in oracle["tools"] if row["path"] in local
+    }
+    candidate_nodes = [
+        node for node in candidate["candidate_adg"]["nodes"]
+        if node["id"].startswith("c03-candidate:")
+    ]
+    actual_servers = {
+        (node["location"]["path"], node["location"]["line"], node["name"])
+        for node in candidate_nodes if node["kind"] == "mcp_source_implementation"
+    }
+    actual_tools = {
+        (node["location"]["path"], node["location"]["line"], node["name"])
+        for node in candidate_nodes if node["kind"] == "mcp_source_tool"
+    }
+    if (len(expected_servers) != 3 or len(expected_tools) != 25
+            or actual_servers != expected_servers
+            or actual_tools != expected_tools):
+        raise ValueError("independent AST and C03 candidate source sites disagree")
     data = {
         "schema_version": 1,
         "mode": "wave_c_c02r_source_implementation_shadow_not_release_truth",
@@ -141,6 +174,8 @@ def run_study(checkout: Path, output: Path) -> dict:
         "c03_candidate_nodes_added": len(difference["added_source_node_ids"]),
         "c03_candidate_edges_added": len(difference["added_source_edge_ids"]),
         "c03_candidate_no_canonical_mutation": True,
+        "c03_candidate_ast_source_sites_corroborated": True,
+        "c03_candidate_ast_source_tool_sites": len(expected_tools),
         "c03_candidate_production_cutover_authorized": False,
         "effective_authority_verified": False,
         "certified_precision": None,

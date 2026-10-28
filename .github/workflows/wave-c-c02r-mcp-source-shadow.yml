@@ -92,6 +92,9 @@ jobs:
           assert diff["changed_canonical_edges"] == []
           assert diff["effective_agent_can_call_edges_added"] == 0
           assert data["canonical_adg_unchanged"] is True
+          report = json.loads(Path("artifacts/result.json").read_text(encoding="utf-8"))
+          assert report["c03_candidate_ast_source_sites_corroborated"] is True
+          assert report["c03_candidate_ast_source_tool_sites"] == 25
           assert data["runtime_authority_verified"] is False
           assert data["independently_adjudicated"] is False
           assert data["production_cutover_authorized"] is False

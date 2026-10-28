@@ -75,6 +75,14 @@ the candidate must preserve:
   `EXPOSES_TOOL` candidate edges, **zero** runtime agent-call edges.
 - Exact pre/post canonical ADG parity and a verified discard rollback.
 
+The pinned C03 study additionally runs the separate C02s standard-library
+AST source oracle on the original four **exact Git blob bytes** and compares
+the source file:line:name identities of all three local source server
+implementations and all twenty-five declared tool sites against the typed
+C03 candidate. A shared scanner/projection omission therefore cannot be
+declared correct merely by internal scanner agreement. This is independent
+mechanical *implementation*, not independent human truth.
+
 Hard negatives reject legacy/unsealed evidence, stale commits or altered
 source bytes, tampered claims, promoted authority edges, invalid endpoints,
 invalid base ADG collisions, impossible rollback and duplicate same-name
