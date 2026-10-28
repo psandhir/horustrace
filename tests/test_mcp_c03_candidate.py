@@ -219,6 +219,9 @@ def test_c03a_rollback_detects_modified_claims(tmp_path: Path) -> None:
         lambda p: p["differential"].update({"changed_canonical_edges": ["x"]}),
         lambda p: p["candidate_adg"].update({"schema_version": 1}),
         lambda p: p.update({"production_cutover_authorized": True}),
+        lambda p: p["candidate_adg"]["nodes"][0].update({"name": "tampered"}),
+        lambda p: p["candidate_adg"]["edges"][0].update({"kind": "AGENT_CAN_CALL"}),
+        lambda p: p["differential"].update({"added_source_node_ids": []}),
     ):
         copy = deepcopy(preview)
         mutation(copy)
@@ -247,3 +250,27 @@ def test_c03a_json_report_retains_noncanonical_marker(tmp_path: Path) -> None:
     )
     assert rendered["differential"]["attack_paths_changed"] is False
     assert rendered["differential"]["findings_changed"] is False
+
+
+def test_c03a_resigning_tampered_source_authority_still_fails(
+    tmp_path: Path,
+) -> None:
+    """Even a recomputed preview digest cannot elevate source to authority."""
+    import hashlib
+
+    _checkout(tmp_path)
+    base = _base(tmp_path)
+    preview = build_mcp_adg_candidate(base, _sealed(tmp_path), tmp_path)
+    source_node = next(
+        n for n in preview["candidate_adg"]["nodes"]
+        if n["id"].startswith("c03-candidate:")
+    )
+    source_node["attributes"]["effective_authority"] = "allowed"
+    payload = json.dumps(
+        preview["candidate_adg"], sort_keys=True, separators=(",", ":"),
+    )
+    preview["candidate_snapshot_sha256"] = (
+        "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    )
+    with pytest.raises(ValueError, match="promoted source nodes"):
+        verify_mcp_candidate_rollback(base, preview)

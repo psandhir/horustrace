@@ -188,23 +188,88 @@ def verify_mcp_candidate_rollback(
     base: AgentDependencyGraph,
     candidate: dict[str, Any],
 ) -> None:
-    """Fail if comparison cannot be reverted by dropping the candidate."""
+    """Prove an exact discard rollback, not just self-asserted summary flags."""
+    if not isinstance(base, AgentDependencyGraph):
+        raise TypeError("rollback base must be a canonical ADG")
     if (not isinstance(candidate, dict) or candidate.get("mode") != _MODE
             or candidate.get("production_cutover_authorized") is not False
             or candidate.get("canonical_adg_unchanged") is not True
             or candidate.get("baseline_adg_digest") != base.canonical_digest()
             or candidate.get("rollback_digest") != base.canonical_digest()):
         raise ValueError("candidate rollback cannot be demonstrated")
-    if candidate.get("candidate_adg", {}).get("schema_version") != (
+    snapshot = candidate.get("candidate_adg")
+    if not isinstance(snapshot, dict):
+        raise TypeError("candidate ADG snapshot must be a mapping")
+    if snapshot.get("schema_version") != (
         "c03_preview_only_incompatible_with_adg_v1"
-    ):
+    ) or snapshot.get("production_cutover_authorized") is not False:
         raise ValueError("candidate can be confused with canonical ADG")
+    if (candidate.get("candidate_snapshot_sha256") != _digest(snapshot)
+            or snapshot.get("mode") != _MODE):
+        raise ValueError("candidate graph changed after differential recording")
+    nodes = snapshot.get("nodes")
+    edges = snapshot.get("edges")
+    if not isinstance(nodes, list) or not isinstance(edges, list):
+        raise TypeError("candidate nodes/edges must be lists")
+    if any(not isinstance(x, dict) for x in (*nodes, *edges)):
+        raise ValueError("candidate contains malformed nodes or edges")
+    if (len({n.get("id") for n in nodes}) != len(nodes)
+            or len({e.get("id") for e in edges}) != len(edges)):
+        raise ValueError("candidate contains identity collisions")
+    base_snapshot = base.as_dict()
+    canonical_nodes = {
+        n["id"]: n for n in base_snapshot["nodes"]
+    }
+    canonical_edges = {
+        e["id"]: e for e in base_snapshot["edges"]
+    }
+    preview_nodes = {n["id"]: n for n in nodes}
+    preview_edges = {e["id"]: e for e in edges}
+    if (any(preview_nodes.get(k) != v for k, v in canonical_nodes.items())
+            or any(preview_edges.get(k) != v for k, v in canonical_edges.items())):
+        raise ValueError("candidate has changed or removed canonical elements")
+    new_nodes = set(preview_nodes) - set(canonical_nodes)
+    new_edges = set(preview_edges) - set(canonical_edges)
     differential = candidate.get("differential", {})
-    if (differential.get("removed_canonical_node_ids") != []
+    if not isinstance(differential, dict):
+        raise TypeError("candidate differential must be a mapping")
+    kinds = differential.get("added_source_edge_kinds")
+    if (sorted(new_nodes) != differential.get("added_source_node_ids")
+            or sorted(new_edges) != differential.get("added_source_edge_ids")
+            or not isinstance(kinds, dict)
+            or kinds != {
+                kind: sum(preview_edges[edge_id]["kind"] == kind
+                          for edge_id in new_edges)
+                for kind in sorted(_EDGES)
+            }
+            or differential.get("removed_canonical_node_ids") != []
             or differential.get("removed_canonical_edge_ids") != []
             or differential.get("changed_canonical_nodes") != []
             or differential.get("changed_canonical_edges") != []
             or differential.get("effective_agent_can_call_edges_added") != 0
             or differential.get("findings_changed") is not False
             or differential.get("attack_paths_changed") is not False):
-        raise ValueError("candidate claims a forbidden canonical/security change")
+        raise ValueError("candidate differential/rollback claims are inconsistent")
+    for identifier in new_nodes:
+        node = preview_nodes[identifier]
+        attrs = node.get("attributes")
+        if (not identifier.startswith(_NAMESPACE)
+                or node.get("kind") not in _KINDS
+                or not isinstance(attrs, dict)
+                or attrs.get("source_only") is not True
+                or attrs.get("deployment_verified") is not False
+                or attrs.get("effective_authority") != "unknown"
+                or attrs.get("projection_state") != "c03_candidate_only"):
+            raise ValueError("candidate contains promoted source nodes")
+    for identifier in new_edges:
+        edge = preview_edges[identifier]
+        attrs = edge.get("attributes")
+        if (not identifier.startswith(_NAMESPACE)
+                or edge.get("kind") not in _EDGES
+                or edge.get("source") not in new_nodes
+                or edge.get("target") not in new_nodes
+                or not isinstance(attrs, dict)
+                or attrs.get("source_only") is not True
+                or attrs.get("effective_agent_can_call") is not None
+                or attrs.get("projection_state") != "c03_candidate_only"):
+            raise ValueError("candidate contains promoted source edges")
