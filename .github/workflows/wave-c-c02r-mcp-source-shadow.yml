@@ -5,6 +5,8 @@ on:
     paths:
       - "src/horustrace/mcp_source_implementation_shadow.py"
       - "src/horustrace/mcp_c03_candidate.py"
+      - "src/horustrace/mcp_c03_crosswalk.py"
+      - "docs/accuracy/wave-c-c03b-mcp-source-site-crosswalk.md"
       - "tests/test_mcp_c03_candidate.py"
       - "docs/accuracy/wave-c-c03a-quarantined-mcp-adg-candidate.md"
       - "src/horustrace/source_shadow_html.py"
@@ -99,6 +101,28 @@ jobs:
           assert data["independently_adjudicated"] is False
           assert data["production_cutover_authorized"] is False
           assert data["rollback_digest"] == data["baseline_adg_digest"]
+          PY
+      - name: Verify C03b exact-source crosswalk is non-authoritative
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          base = Path("artifacts")
+          result = json.loads((base / "result.json").read_text(encoding="utf-8"))
+          mapping = json.loads((base / "c03-mcp-source-crosswalk.json").read_text(encoding="utf-8"))
+          candidate = json.loads((base / "c03-mcp-candidate.json").read_text(encoding="utf-8"))
+          assert len(mapping["node_correspondences"]) == 31
+          assert len(mapping["edge_correspondences"]) == 28
+          assert mapping["preview_snapshot_sha256"] == candidate["candidate_snapshot_sha256"]
+          assert mapping["baseline_adg_digest"] == candidate["baseline_adg_digest"]
+          assert mapping["crosswalk_sha256"] == result["c03b_source_crosswalk_sha256"]
+          assert mapping["production_cutover_authorized"] is False
+          assert mapping["runtime_authority_verified"] is False
+          assert mapping["semantic_identity_verified"] is False
+          assert mapping["certified_precision"] is None
+          assert all(row["effective_agent_can_call"] is None for row in mapping["edge_correspondences"])
           PY
       - name: Generate opt-in offline source supply-chain HTML (no runtime permissions)
         shell: bash
