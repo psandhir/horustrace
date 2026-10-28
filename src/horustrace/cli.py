@@ -42,6 +42,7 @@ from horustrace.effective_authority import (
 from horustrace.git_snapshot import GitSnapshotError
 from horustrace.limits import ScanLimitError
 from horustrace.llm_semantics import LLMSemanticConfig
+from horustrace.mcp_c03_workbench import attach_mcp_c03_crosswalk_preview
 from horustrace.mcp_effective import effective_mcp_authority_report
 from horustrace.models import Severity
 from horustrace.owasp import build_owasp_agentic_summary, render_owasp_agentic_console
@@ -264,6 +265,13 @@ def _parser() -> argparse.ArgumentParser:
             "EXPERIMENTAL: opt-in, read-only MCP source evidence overlay. "
             "Requires a source-shadow.json artifact whose file/line witnesses "
             "exist in the scanned checkout; does not change authority or findings."
+        ),
+    )
+    report_parser.add_argument(
+        "--mcp-c03-crosswalk-preview", action="store_true",
+        help=(
+            "EXPERIMENTAL: with --mcp-source-shadow, show exact-source-site "
+            "candidate-to-canonical correspondences. Not runtime authority."
         ),
     )
     report_parser.add_argument("--config", type=Path)
@@ -769,6 +777,17 @@ def main(argv: list[str] | None = None) -> int:
                     load_mcp_source_overlay(args.mcp_source_shadow, root)
                     if args.mcp_source_shadow is not None else None
                 )
+                if args.mcp_c03_crosswalk_preview:
+                    if source_overlay is None or graph.adg is None:
+                        raise ValueError(
+                            "C03 crosswalk requires --mcp-source-shadow and canonical ADG"
+                        )
+                    source_data = json.loads(args.mcp_source_shadow.read_text(
+                        encoding="utf-8",
+                    ))
+                    source_overlay = attach_mcp_c03_crosswalk_preview(
+                        source_overlay, graph.adg, source_data, root,
+                    )
                 output = render_visual_report_html(
                     graph, findings, root, source_overlay=source_overlay,
                 )

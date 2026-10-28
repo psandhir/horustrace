@@ -15,8 +15,10 @@ from horustrace.mcp_c03_candidate import (
     verify_mcp_candidate_rollback,
 )
 from horustrace.mcp_c03_crosswalk import build_mcp_source_crosswalk
+from horustrace.mcp_c03_workbench import attach_mcp_c03_crosswalk_preview
 from horustrace.models import Agent, Graph
 from horustrace.source_shadow_attestation import seal_mcp_source_shadow
+from horustrace.source_shadow_workbench import project_mcp_source_overlay
 
 
 def _git(root: Path, *args: str) -> None:
@@ -405,3 +407,77 @@ def test_c03b_candidate_tampering_does_not_bypass_rollback(tmp_path: Path) -> No
         mutation(invalid)
         with pytest.raises((ValueError, TypeError)):
             build_mcp_source_crosswalk(base, invalid)
+
+
+def test_c03c_opt_in_source_site_correlations_do_not_mutate_models(
+    tmp_path: Path,
+) -> None:
+    _checkout(tmp_path)
+    baseline = _base(tmp_path)
+    shadow = _sealed(tmp_path)
+    overlay = project_mcp_source_overlay(shadow, tmp_path)
+    before = deepcopy(overlay)
+    digest = baseline.canonical_digest()
+    rendered = attach_mcp_c03_crosswalk_preview(
+        overlay, baseline, shadow, tmp_path,
+    )
+    assert overlay == before
+    assert baseline.canonical_digest() == digest
+    assert rendered["mode"] == "opt_in_mcp_source_evidence_not_authority"
+    assert rendered["c03_preview"]["source_site_only"] is True
+    assert rendered["c03_preview"]["production_cutover_authorized"] is False
+    assert rendered["c03_preview"]["certified_precision"] is None
+    assert len(rendered["nodes"]) == 5
+    assert all(n["c03_source_site_match"]["status"] == "candidate_only"
+               for n in rendered["nodes"])
+    assert all(n["c03_source_site_match"]["semantic_identity_verified"] is False
+               for n in rendered["nodes"])
+
+
+def test_c03c_attested_overlay_rejects_mismatched_site_revision(
+    tmp_path: Path,
+) -> None:
+    _checkout(tmp_path)
+    baseline = _base(tmp_path)
+    evidence = _sealed(tmp_path)
+    overlay = project_mcp_source_overlay(evidence, tmp_path)
+    for mutation in (
+        lambda d: d.update({"source_commit_sha": "0" * 40}),
+        lambda d: d["nodes"][0].update({"name": "incorrect"}),
+        lambda d: d["nodes"][0].update({"line": 999}),
+        lambda d: d["nodes"].pop(),
+        lambda d: d.update({"runtime_authority_verified": True}),
+        lambda d: d.update({"source_integrity_checked": False}),
+    ):
+        changed = deepcopy(overlay)
+        mutation(changed)
+        with pytest.raises((ValueError, TypeError)):
+            attach_mcp_c03_crosswalk_preview(
+                changed, baseline, evidence, tmp_path,
+            )
+
+
+def test_c03c_noncanonical_preview_can_show_ambiguous_source_matches(
+    tmp_path: Path,
+) -> None:
+    _checkout(tmp_path)
+    baseline = _base(tmp_path)
+    for index in range(2):
+        baseline.nodes.append(ADGNode(
+            node_id=f"same-declaration-{index}",
+            kind="mcp_server",
+            name="Calculator",
+            location={"path": "server_a.py", "line": 1},
+        ))
+    evidence = _sealed(tmp_path)
+    overlay = project_mcp_source_overlay(evidence, tmp_path)
+    display = attach_mcp_c03_crosswalk_preview(
+        overlay, baseline, evidence, tmp_path,
+    )
+    ambiguous = [
+        node for node in display["nodes"]
+        if node["c03_source_site_match"]["status"] == "ambiguous_source_site"
+    ]
+    assert len(ambiguous) == 1
+    assert ambiguous[0]["c03_source_site_match"]["canonical_match_count"] == 2
+    assert display["c03_preview"]["independently_adjudicated"] is False
