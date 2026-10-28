@@ -12,7 +12,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 
-def check_report(path: Path) -> dict[str, object]:
+def check_report(path: Path, *, expect_c03: bool = False) -> dict[str, object]:
     path = path.resolve(strict=True)
     errors: list[str] = []
     checks: list[str] = []
@@ -35,6 +35,20 @@ def check_report(path: Path) -> dict[str, object]:
             ).count() == 25
             assert root.locator(".mcp-evidence-agent").count() >= 3
             checks.append("Opt-in source tab renders 3 local servers and 25 tools")
+            crosswalk_label = root.locator(".mcp-evidence-crosswalk")
+            c03_summary = root.locator(".mcp-evidence-crosswalk-summary")
+            if expect_c03:
+                assert crosswalk_label.count() == root.locator(
+                    ".mcp-evidence-node"
+                ).count()
+                assert c03_summary.count() == 1
+                assert "NOT semantic identity" in c03_summary.inner_text()
+                assert "Runtime authority unknown" in c03_summary.inner_text()
+                checks.append("C03 exact-source correspondence displayed without authority")
+            else:
+                assert crosswalk_label.count() == 0
+                assert c03_summary.count() == 0
+                checks.append("Default source overlay omits C03 preview")
             server = root.locator(
                 '.mcp-evidence-node[data-kind="mcp_source_implementation"]'
             ).filter(has_text="Calculator")
@@ -90,8 +104,9 @@ def check_report(path: Path) -> dict[str, object]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--report", required=True, type=Path)
+    parser.add_argument("--expect-c03", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(check_report(args.report), sort_keys=True))
+    print(json.dumps(check_report(args.report, expect_c03=args.expect_c03), sort_keys=True))
 
 
 if __name__ == "__main__":

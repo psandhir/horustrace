@@ -45,6 +45,9 @@ padding:11px;display:flex;flex-direction:column;gap:5px;cursor:pointer}
 .mcp-evidence-name{font-weight:700;font-size:13px;overflow-wrap:anywhere}
 .mcp-evidence-site,.mcp-evidence-agent{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
 .mcp-evidence-status{font-size:11px;color:var(--muted2)}
+.mcp-evidence-crosswalk{font-size:11px;color:var(--muted);border-top:1px dashed var(--line);padding-top:6px}
+.mcp-evidence-crosswalk-summary{border:1px solid var(--line);border-radius:10px;
+background:var(--surface2);padding:12px;margin:12px 0;font-size:12px;color:var(--muted)}
 .mcp-evidence-details{margin-top:16px;padding:16px;background:var(--surface);
 border:1px solid var(--line);border-radius:var(--radius);min-height:110px}
 .mcp-evidence-details h2{font-size:15px;margin:0 0 8px}
@@ -86,17 +89,30 @@ function renderMcpSourceEvidence() {
    '<span class="mcp-evidence-name">'+esc(n.name)+'</span>'+
    '<span class="mcp-evidence-site">'+esc(n.path)+':'+number(n.line)+'</span>'+
    (n.agent?'<span class="mcp-evidence-agent">Source agent context: '+esc(n.agent)+'</span>':'')+
-   '<span class="mcp-evidence-status">Source only · Runtime unknown</span></button>').join("");
+   '<span class="mcp-evidence-status">Source only · Runtime unknown</span>'+
+   (n.c03_source_site_match?
+    '<span class="mcp-evidence-crosswalk">Canonical source-site correlation: '+
+     esc(n.c03_source_site_match.label)+
+     ' ('+number(n.c03_source_site_match.canonical_match_count)+
+     ' source-site records). Semantic identity and runtime authority unverified.</span>':'')+
+   '</button>').join("");
   return '<section class="mcp-evidence-lane"><h2>'+esc(labels[kind])+' · '+number(counts[kind])+'</h2>'+
    '<div class="mcp-evidence-cards">'+(cards||'<p class="muted">No source sites in this category</p>')+'</div></section>';
  }).join("");
  const note=model.unresolved.length?model.unresolved.map(x=>'<li>'+esc(x.reason)+'</li>').join(""):"<li>None reported</li>";
+ const crosswalkNote=model.c03_preview?
+  '<div class="mcp-evidence-crosswalk-summary"><strong>C03 preview: canonical source-site matches only (NOT semantic identity)</strong>'+
+  '<p>Candidate-only: '+number(model.c03_preview.node_status_counts.candidate_only||0)+
+  ' · Corroborated source sites: '+number(model.c03_preview.node_status_counts.corroborated_source_site||0)+
+  ' · Ambiguous: '+number(model.c03_preview.node_status_counts.ambiguous_source_site||0)+
+  '. Runtime authority unknown; precision/recall not assessed. No canonical Graph changes.</p></div>':'';
  root.innerHTML=pageHead("Source evidence · Experimental","MCP source topology",
   "Read-only source declarations. The canonical supply chain, findings and authority assessments are unchanged.")+
   '<div class="mcp-evidence-warning"><strong>Source declarations are not runtime permissions</strong>'+
   '<p>Configuration, MCP implementation and decorated tool provenance only. MCP connection, deployed credentials, effective AGENT_CAN_CALL and attack-path reachability remain unverified. Git HEAD, tracked blob and file SHA-256 were verified at report generation, but claims are not independently adjudicated.</p>'+
   '<p>Checked source revision: <code>'+esc(model.source_commit_sha)+'</code> · source-only evidence, not deployed authority.</p></div>'+
   '<div class="mcp-evidence-summary">'+summary+'</div>'+
+  crosswalkNote+
   '<div class="mcp-evidence-lanes">'+columns+'</div>'+
   '<section class="mcp-evidence-details" aria-live="polite">'+
   '<div class="mcp-evidence-details-head"><h2 id="mcp-evidence-title">All source relationships</h2>'+
