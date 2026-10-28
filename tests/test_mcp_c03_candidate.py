@@ -481,3 +481,66 @@ def test_c03c_noncanonical_preview_can_show_ambiguous_source_matches(
     assert len(ambiguous) == 1
     assert ambiguous[0]["c03_source_site_match"]["canonical_match_count"] == 2
     assert display["c03_preview"]["independently_adjudicated"] is False
+
+
+def test_c03d_duplicate_canonical_edges_never_select_arbitrary_authority(
+    tmp_path: Path,
+) -> None:
+    """Identical source witnesses with duplicate relations remain ambiguous."""
+    _checkout(tmp_path)
+    base = _base(tmp_path)
+    base.nodes.extend([
+        ADGNode(node_id="canonical-client", kind="mcp_client_configuration",
+                name="a", location={"path": "agent.py", "line": 1}),
+        ADGNode(node_id="canonical-implementation",
+                kind="mcp_source_implementation", name="Calculator",
+                location={"path": "server_a.py", "line": 1}),
+    ])
+    for index in range(2):
+        base.edges.append(ADGEdge(
+            edge_id=f"canonical-binding-{index}",
+            kind="CONFIG_RESOLVES_TO_SOURCE_IMPLEMENTATION",
+            source="canonical-client", target="canonical-implementation",
+        ))
+    before = deepcopy(base.as_dict())
+    preview = build_mcp_adg_candidate(base, _sealed(tmp_path), tmp_path)
+    report = build_mcp_source_crosswalk(base, preview)
+    ambiguous = [edge for edge in report["edge_correspondences"]
+                 if edge["status"] == "ambiguous_edge_correspondence"]
+    assert len(ambiguous) == 1
+    assert ambiguous[0]["canonical_same_kind_endpoint_edge_ids"] == [
+        "canonical-binding-0", "canonical-binding-1",
+    ]
+    assert ambiguous[0]["runtime_callability_verified"] is False
+    assert ambiguous[0]["effective_agent_can_call"] is None
+    assert report["production_cutover_authorized"] is False
+    assert base.as_dict() == before
+
+
+def test_c03d_wrong_relation_kind_never_counts_as_source_edge_parity(
+    tmp_path: Path,
+) -> None:
+    """A canonical call edge is not a source binding, even at exact sites."""
+    _checkout(tmp_path)
+    base = _base(tmp_path)
+    base.nodes.extend([
+        ADGNode(node_id="canonical-client", kind="mcp_client_configuration",
+                name="a", location={"path": "agent.py", "line": 1}),
+        ADGNode(node_id="canonical-implementation",
+                kind="mcp_source_implementation", name="Calculator",
+                location={"path": "server_a.py", "line": 1}),
+    ])
+    base.edges.append(ADGEdge(
+        edge_id="canonical-call",
+        kind="AGENT_CAN_CALL", source="canonical-client",
+        target="canonical-implementation",
+    ))
+    preview = build_mcp_adg_candidate(base, _sealed(tmp_path), tmp_path)
+    report = build_mcp_source_crosswalk(base, preview)
+    binding = next(row for row in report["edge_correspondences"]
+                   if row["kind"] == "CONFIG_RESOLVES_TO_SOURCE_IMPLEMENTATION")
+    assert binding["status"] == "candidate_source_edge_only"
+    assert binding["canonical_same_kind_endpoint_edge_ids"] == []
+    assert binding["effective_agent_can_call"] is None
+    assert report["certified_precision"] is None
+    assert report["certified_recall"] is None
