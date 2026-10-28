@@ -12,6 +12,10 @@ import json
 import subprocess
 from pathlib import Path
 
+from horustrace.adk_c03_candidate import (
+    build_adk_source_candidate,
+    verify_adk_candidate_rollback,
+)
 from horustrace.scanner import scan
 from horustrace.source_truth_ast_adk import inspect_adk_scope
 
@@ -82,6 +86,22 @@ def run_study(checkout: Path, output: Path) -> dict:
     adg = graph.adg.as_dict() if graph.adg is not None else None
     if adg is None:
         raise ValueError("scanner did not return a production ADG")
+    # C03e is an incompatible, source-only candidate. Never feed it to the
+    # production scanner, authority engine, findings or attack paths.
+    canonical_before = graph.adg.as_dict()
+    candidate = build_adk_source_candidate(graph.adg, checkout, sorted(BLOBS))
+    verify_adk_candidate_rollback(graph.adg, candidate)
+    delta = candidate["differential"]
+    if (len(delta["added_source_node_ids"]) != 13
+            or len(delta["added_source_edge_ids"]) != 12
+            or delta["added_source_edge_kinds"] != {
+                "ADK_DIRECT_TOOL_LIST_ENTRY": 8,
+                "ADK_SUB_AGENT_LIST_ENTRY": 4,
+            }
+            or graph.adg.as_dict() != canonical_before
+            or candidate["production_cutover_authorized"] is not False
+            or candidate["certified_precision"] is not None):
+        raise ValueError("C03e pinned ADK source-only candidate parity failed")
     result = {
         "schema_version": 1,
         "case_id": CASE_ID,
@@ -93,6 +113,13 @@ def run_study(checkout: Path, output: Path) -> dict:
         "scanner_adg_nodes": len(adg["nodes"]),
         "scanner_adg_edges": len(adg["edges"]),
         "scanner_findings": len(findings),
+        "c03_adk_candidate_snapshot_sha256":
+            candidate["candidate_snapshot_sha256"],
+        "c03_adk_candidate_nodes_added":
+            len(delta["added_source_node_ids"]),
+        "c03_adk_candidate_edges_added":
+            len(delta["added_source_edge_ids"]),
+        "c03_adk_canonical_adg_unchanged": True,
         "source_constructs_mechanically_verified": [
             "module_level_LlmAgent_literal_constructor",
             "explicit_list_sub_agents",
@@ -112,6 +139,10 @@ def run_study(checkout: Path, output: Path) -> dict:
     )
     (output / "scanner-adg.json").write_text(
         json.dumps(adg, indent=2, sort_keys=True) + "\n", encoding="utf-8",
+    )
+    (output / "c03-adk-source-candidate.json").write_text(
+        json.dumps(candidate, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     (output / "result.json").write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8",
