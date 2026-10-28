@@ -222,8 +222,8 @@ def markdown(result: dict[str, Any]) -> str:
     groups = result["comparison"]["tool_groups"]
     lines = [
         "# Documentation-backed agent supply chain pilot", "",
-        f"Repository: \`{result['repository']}\`",
-        f"Pinned source: \`{result['source_sha']}\`",
+        f"Repository: `{result['repository']}`",
+        f"Pinned source: `{result['source_sha']}`",
         "",
         "**Outcome:** Evidence integrity passed; architecture gaps are diagnostics.",
         "No release accuracy certification or production cutover is authorised.",
@@ -248,9 +248,9 @@ def markdown(result: dict[str, Any]) -> str:
         "- Roles, authority, findings and attack paths are not certified by this pilot.",
         "",
         "## Unmatched documented agents", "",
-        *([f"- \`{name}\`" for name in agents["not_detected"]] or ["- None"]),
+        *([f"- `{name}`" for name in agents["not_detected"]] or ["- None"]),
         "", "## Unmatched documented delegation edges", "",
-        *([f"- \`{r['source']}\` → \`{r['target']}\`"
+        *([f"- `{r['source']}` → `{r['target']}`"
            for r in edges["not_detected"]] or ["- None"]),
         "", "Full evidence and scanner graph are in this run's uploaded artifact.",
         "",
