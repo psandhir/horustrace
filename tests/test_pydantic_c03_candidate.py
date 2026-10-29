@@ -156,3 +156,37 @@ def test_even_resigned_runtime_claim_cannot_promote_conditional_candidate(
     )
     with pytest.raises(ValueError, match="promoted"):
         verify(base, new)
+
+
+def test_resigned_candidate_cannot_remap_branch_to_tool_witness(
+    tmp_path: Path,
+) -> None:
+    import hashlib
+    import json
+
+    _repo(tmp_path)
+    base = AgentDependencyGraph()
+    candidate = build(base, tmp_path)
+    changed = deepcopy(candidate)
+    edge = next(row for row in changed["candidate_adg"]["edges"]
+                if row["id"].endswith("edge:level_2:list_tables"))
+    edge["target"] = "c03-pydantic-candidate:tool:execute_query"
+    raw = json.dumps(changed["candidate_adg"], sort_keys=True,
+                     separators=(",", ":"))
+    changed["candidate_snapshot_sha256"] = (
+        "sha256:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    )
+    with pytest.raises(ValueError, match="witness remapped"):
+        verify(base, changed)
+    assert base.as_dict() == AgentDependencyGraph().as_dict()
+
+
+def test_resigned_candidate_cannot_misstate_branch_selection(
+    tmp_path: Path,
+) -> None:
+    _repo(tmp_path)
+    base = AgentDependencyGraph()
+    changed = deepcopy(build(base, tmp_path))
+    changed["source_branches"]["level_1"] = ["list_tables"]
+    with pytest.raises(ValueError, match="edge inventory changed"):
+        verify(base, changed)
