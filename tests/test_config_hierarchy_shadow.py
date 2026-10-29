@@ -85,7 +85,7 @@ def test_unsupported_or_invalid_hierarchy_fails_closed(
     tmp_path: Path, bad: dict,
 ) -> None:
     _repo(tmp_path, bad)
-    with pytest.raises(ValueError):
+    with pytest.raises((ValueError, TypeError)):
         build(tmp_path, "config.json")
 
 

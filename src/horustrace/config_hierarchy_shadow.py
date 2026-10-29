@@ -79,7 +79,7 @@ def _attested_json(checkout: Path, relative_path: str) -> tuple[dict, dict]:
     except (OSError, subprocess.SubprocessError, UnicodeError) as exc:
         raise ValueError("configured hierarchy needs intact Git source") from exc
     if not isinstance(value, dict):
-        raise ValueError("configured hierarchy must be JSON object")
+        raise TypeError("configured hierarchy must be JSON object")
     return value, {
         "commit_sha": head, "path": relative_path,
         "git_blob_sha": blob_sha, "sha256": hashlib.sha256(raw).hexdigest(),
@@ -118,7 +118,7 @@ def build_configured_hierarchy_source_shadow(
         children = config.get("children", [])
         tools = config.get("tools", [])
         if not isinstance(children, list) or not isinstance(tools, list):
-            raise ValueError("agent children and tools must be explicit lists")
+            raise TypeError("agent children and tools must be explicit lists")
         if (any(not isinstance(x, str) or not _NAME.fullmatch(x) for x in children)
                 or len(set(children)) != len(children)
                 or any(not isinstance(x, str) or not _NAME.fullmatch(x) for x in tools)
