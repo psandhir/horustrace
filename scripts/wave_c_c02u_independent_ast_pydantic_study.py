@@ -12,6 +12,10 @@ import json
 import subprocess
 from pathlib import Path
 
+from horustrace.pydantic_c03_candidate import (
+    build_pydantic_conditional_source_candidate,
+    verify_pydantic_conditional_candidate_rollback,
+)
 from horustrace.scanner import scan
 from horustrace.source_truth_ast_pydantic import (
     inspect_pydantic_level_returns,
@@ -75,6 +79,17 @@ def run_study(checkout: Path, output: Path) -> dict:
     adg = graph.adg.as_dict() if graph.adg is not None else None
     if adg is None:
         raise ValueError("scanner did not produce ADG")
+    # Quarantined, schema-incompatible C03 source ADG candidate; do not feed
+    # it into production scanner, authority, findings or attack paths.
+    original = graph.adg.as_dict()
+    candidate = build_pydantic_conditional_source_candidate(graph.adg, checkout)
+    verify_pydantic_conditional_candidate_rollback(graph.adg, candidate)
+    if (graph.adg.as_dict() != original
+            or candidate["differential"]["source_nodes_added"] != 8
+            or candidate["differential"]["source_edges_added"] != 7
+            or candidate["runtime_level_known"] is not False
+            or candidate["production_cutover_authorized"] is not False):
+        raise ValueError("pinned Pydantic conditional source candidate parity failed")
     result = {
         "schema_version": 1,
         "mode": "c02u_independent_bounded_ast_source_only_not_release_truth",
@@ -87,6 +102,9 @@ def run_study(checkout: Path, output: Path) -> dict:
         "scanner_adg_nodes": len(adg["nodes"]),
         "scanner_adg_edges": len(adg["edges"]),
         "scanner_findings": len(findings),
+        "c03_pydantic_candidate_nodes_added": 8,
+        "c03_pydantic_candidate_edges_added": 7,
+        "c03_pydantic_source_only": True,
         "source_scope_mechanically_complete_only_for_literal_return_ast": True,
         "deployed_demo_level": None,
         "installed_sdk_semantics_verified": False,
@@ -99,6 +117,10 @@ def run_study(checkout: Path, output: Path) -> dict:
     output.mkdir(parents=True, exist_ok=True)
     (output / "pydantic-conditional-ast-oracle.json").write_text(
         json.dumps(oracle, indent=2, sort_keys=True) + "\n", encoding="utf-8",
+    )
+    (output / "c03-pydantic-source-candidate.json").write_text(
+        json.dumps(candidate, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     (output / "result.json").write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8",
