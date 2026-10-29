@@ -242,11 +242,45 @@ def verify_pydantic_conditional_candidate_rollback(
             or delta.get("findings_changed") is not False
             or delta.get("attack_paths_changed") is not False):
         raise ValueError("Pydantic candidate source differential invalid")
-    if len(added_nodes) != 3 + len({
-        tool for branch in candidate.get("source_branches", {}).values()
-        for tool in branch
-    }):
-        raise ValueError("Pydantic source branch inventory changed")
+    branches = candidate.get("source_branches")
+    if (not isinstance(branches, dict) or set(branches) != set(_BRANCHES)
+            or any(not isinstance(tools, list)
+                   or len(tools) != len(set(tools))
+                   or any(not isinstance(tool, str)
+                          or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", tool)
+                          for tool in tools)
+                   for tools in branches.values())):
+        raise ValueError("Pydantic source branch inventory malformed")
+    tools = {tool for values in branches.values() for tool in values}
+    expected_nodes = {
+        *(_NAMESPACE + "branch:" + key for key in _BRANCHES),
+        *(_NAMESPACE + "tool:" + tool for tool in tools),
+    }
+    if added_nodes != expected_nodes:
+        raise ValueError("Pydantic source branch/tool identities changed")
+    for key, meaning in _BRANCHES.items():
+        node = current_nodes[_NAMESPACE + "branch:" + key]
+        if (node["kind"] != "pydantic_source_branch"
+                or node["name"] != meaning
+                or node.get("attributes", {}).get("branch") != key):
+            raise ValueError("Pydantic source branch identity changed")
+    for tool in tools:
+        node = current_nodes[_NAMESPACE + "tool:" + tool]
+        if (node["kind"] != "pydantic_source_tool_symbol"
+                or node["name"] != tool):
+            raise ValueError("Pydantic source tool symbol identity changed")
+    expected_edges = {
+        _NAMESPACE + "edge:" + key + ":" + tool: (
+            _NAMESPACE + "branch:" + key, _NAMESPACE + "tool:" + tool
+        )
+        for key, selected in branches.items() for tool in selected
+    }
+    if added_edges != set(expected_edges):
+        raise ValueError("Pydantic source branch-to-tool edge inventory changed")
+    for eid, (source, target) in expected_edges.items():
+        if (current_edges[eid]["source"] != source
+                or current_edges[eid]["target"] != target):
+            raise ValueError("Pydantic source branch-to-tool witness remapped")
     for nid in added_nodes:
         n = current_nodes[nid]
         a = n.get("attributes", {})
