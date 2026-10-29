@@ -278,6 +278,28 @@ def markdown(result: dict[str, Any]) -> str:
     agents = result["comparison"]["agents"]
     edges = result["comparison"]["delegations"]
     groups = result["comparison"]["tool_groups"]
+    # Legacy unit callers may request the original scanner-only summary.
+    # Keep source-shadow output opt-in until a separate candidate is supplied.
+    source_candidate = result.get("source_candidate")
+    if source_candidate is None:
+        source_lines = []
+    else:
+        source_lines = [
+            "## Source-only hierarchy reader (NOT canonical scanner)", "",
+            "| Declared construct | Published reference | Verified source JSON |",
+            "| --- | ---: | ---: |",
+            f"| Configured agent identities | {result['source_candidate']['agents']['documented_count']} | "
+            f"{result['source_candidate']['agents']['exact_declaration_match_count']} |",
+            f"| Explicit child links | {result['source_candidate']['child_links']['documented_count']} | "
+            f"{result['source_candidate']['child_links']['exact_declaration_match_count']} |",
+            f"| Tool-group labels (not MCP exports) | {result['source_candidate']['tool_groups']['documented_count']} | "
+            f"{result['source_candidate']['tool_groups']['exact_declaration_match_count']} |",
+            "",
+            "This only corroborates declarations in the SAME source configuration that",
+            "underlies the published reference. It is not independent ground truth,",
+            "canonical scanner recovery, instantiated agents or verified callability.",
+            "",
+        ]
     lines = [
         "# Documentation-backed agent supply chain pilot", "",
         f"Repository: `{result['repository']}`",
@@ -296,20 +318,7 @@ def markdown(result: dict[str, Any]) -> str:
         f"{len(groups['exact_label_candidates'])} | "
         f"{len(groups['not_exactly_aligned'])} |",
         "",
-        "## Source-only hierarchy reader (NOT canonical scanner)", "",
-        "| Declared construct | Published reference | Verified source JSON |",
-        "| --- | ---: | ---: |",
-        f"| Configured agent identities | {result['source_candidate']['agents']['documented_count']} | "
-        f"{result['source_candidate']['agents']['exact_declaration_match_count']} |",
-        f"| Explicit child links | {result['source_candidate']['child_links']['documented_count']} | "
-        f"{result['source_candidate']['child_links']['exact_declaration_match_count']} |",
-        f"| Tool-group labels (not MCP exports) | {result['source_candidate']['tool_groups']['documented_count']} | "
-        f"{result['source_candidate']['tool_groups']['exact_declaration_match_count']} |",
-        "",
-        "This only corroborates declarations in the SAME source configuration that",
-        "underlies the published reference. It is not independent ground truth,",
-        "canonical scanner recovery, instantiated agents or verified callability.",
-        "",
+        *source_lines,
         "## Important distinctions", "",
         "- The reference is complete only for the three explicit hierarchy.json "
         "construct types, not all agents/MCP exports/runtime permissions.",

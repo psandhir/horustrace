@@ -10,7 +10,10 @@ import pytest
 
 from horustrace.config_hierarchy_shadow import build_configured_hierarchy_source_shadow
 from scripts.documentation_supply_chain_pilot import (
-    compare, compare_configured_source, markdown, validate_source,
+    compare,
+    compare_configured_source,
+    markdown,
+    validate_source,
 )
 
 
