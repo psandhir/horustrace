@@ -14,6 +14,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from horustrace.config_hierarchy_shadow import build_configured_hierarchy_source_shadow
 from horustrace.scanner import scan
 
 
@@ -216,10 +217,89 @@ def compare(reference: dict[str, Any], adg: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+
+def compare_configured_source(
+    reference: dict[str, Any], shadow: dict[str, Any],
+) -> dict[str, Any]:
+    """Compare a second parser's declarations, not production detection truth."""
+    if (shadow.get("source_only") is not True
+            or shadow.get("runtime_authority_verified") is not False
+            or shadow.get("production_cutover_authorized") is not False
+            or shadow.get("certified_precision") is not None):
+        raise ValueError("source shadow promoted beyond declarative evidence")
+    nodes = {row["id"]: row for row in shadow["nodes"]}
+    actual_agents = {
+        (row["name"], row["role"]) for row in nodes.values()
+        if row["kind"] == "configured_agent"
+    }
+    expected_agents = {
+        (row["name"], row["role"]) for row in reference["agents"]
+    }
+    actual_children = {
+        (nodes[row["source"]]["name"], nodes[row["target"]]["name"])
+        for row in shadow["edges"] if row["kind"] == "CONFIG_DECLARES_CHILD"
+    }
+    expected_children = {
+        (row["source"], row["target"]) for row in reference["delegation_edges"]
+    }
+    actual_groups = {
+        (nodes[row["source"]]["name"], nodes[row["target"]]["name"])
+        for row in shadow["edges"] if row["kind"] == "CONFIG_DECLARES_TOOL_GROUP"
+    }
+    expected_groups = {
+        (row["source"], row["tool_group"])
+        for row in reference["tool_group_bindings"]
+    }
+
+    def records(actual: set[tuple[str, str]], expected: set[tuple[str, str]]) -> dict:
+        return {
+            "documented_count": len(expected),
+            "exact_declaration_match_count": len(actual & expected),
+            "documented_but_not_declared": sorted(expected - actual),
+            "declared_but_not_documented": sorted(actual - expected),
+        }
+
+    return {
+        "mode": "source_document_declaration_alignment_not_scanner_recall",
+        "agents": records(actual_agents, expected_agents),
+        "child_links": records(actual_children, expected_children),
+        "tool_groups": records(actual_groups, expected_groups),
+        "source_commit_sha": shadow["source_revision"]["commit_sha"],
+        "source_only": True,
+        "runtime_authority_verified": False,
+        "independent_human_review_verified": False,
+        "certified_precision": None,
+        "certified_recall": None,
+        "production_cutover_authorized": False,
+    }
+
+
 def markdown(result: dict[str, Any]) -> str:
     agents = result["comparison"]["agents"]
     edges = result["comparison"]["delegations"]
     groups = result["comparison"]["tool_groups"]
+    # Legacy unit callers may request the original scanner-only summary.
+    # Keep source-shadow output opt-in until a separate candidate is supplied.
+    source_candidate = result.get("source_candidate")
+    if source_candidate is None:
+        source_lines = []
+    else:
+        source_lines = [
+            "## Source-only hierarchy reader (NOT canonical scanner)", "",
+            "| Declared construct | Published reference | Verified source JSON |",
+            "| --- | ---: | ---: |",
+            f"| Configured agent identities | {result['source_candidate']['agents']['documented_count']} | "
+            f"{result['source_candidate']['agents']['exact_declaration_match_count']} |",
+            f"| Explicit child links | {result['source_candidate']['child_links']['documented_count']} | "
+            f"{result['source_candidate']['child_links']['exact_declaration_match_count']} |",
+            f"| Tool-group labels (not MCP exports) | {result['source_candidate']['tool_groups']['documented_count']} | "
+            f"{result['source_candidate']['tool_groups']['exact_declaration_match_count']} |",
+            "",
+            "This only corroborates declarations in the SAME source configuration that",
+            "underlies the published reference. It is not independent ground truth,",
+            "canonical scanner recovery, instantiated agents or verified callability.",
+            "",
+        ]
     lines = [
         "# Documentation-backed agent supply chain pilot", "",
         f"Repository: `{result['repository']}`",
@@ -238,6 +318,7 @@ def markdown(result: dict[str, Any]) -> str:
         f"{len(groups['exact_label_candidates'])} | "
         f"{len(groups['not_exactly_aligned'])} |",
         "",
+        *source_lines,
         "## Important distinctions", "",
         "- The reference is complete only for the three explicit hierarchy.json "
         "construct types, not all agents/MCP exports/runtime permissions.",
@@ -268,6 +349,14 @@ def run(checkout: Path, reference_path: Path, output: Path) -> dict[str, Any]:
         raise ValueError("scanner did not produce an ADG")
     adg = graph.adg.as_dict()
     comparison = compare(reference, adg)
+    # This is a separate source declaration inventory, NOT a replacement
+    # for the original scanner baseline or a release-accuracy score.
+    source_shadow = build_configured_hierarchy_source_shadow(
+        checkout, "src/agents/hierarchy.json",
+    )
+    if graph.adg.as_dict() != adg:
+        raise ValueError("source-only inventory modified canonical scanner ADG")
+    source_candidate = compare_configured_source(reference, source_shadow)
     result = {
         "schema_version": 1,
         "mode": "documentation_supply_chain_experiment_not_release_truth",
@@ -276,6 +365,7 @@ def run(checkout: Path, reference_path: Path, output: Path) -> dict[str, Any]:
         "source_sha": reference["source_sha"],
         "source_documents": reference["source_documents"],
         "comparison": comparison,
+        "source_candidate": source_candidate,
         "scanner_finding_count_unreviewed": len(findings),
         "integrity": "passed",
         "documentation_scope_only": True,
@@ -286,6 +376,10 @@ def run(checkout: Path, reference_path: Path, output: Path) -> dict[str, Any]:
     )
     (output / "scanner-adg.json").write_text(
         json.dumps(adg, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    (output / "configured-source-shadow.json").write_text(
+        json.dumps(source_shadow, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     (output / "comparison.json").write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"

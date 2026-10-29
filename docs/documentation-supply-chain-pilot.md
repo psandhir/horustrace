@@ -95,3 +95,9 @@ expanding to a larger cohort.
 
 This workflow remains isolated from the existing C02 oracle, active-145
 measurement denominators, protected release gates and Wave C GO/NO-GO rules.
+
+## Independent source-only diagnostic (research update)
+
+The pilot also exports `configured-source-shadow.json` from an **explicitly selected** `src/agents/hierarchy.json` manifest, verified against exact Git HEAD, tracked blob and current worktree SHA-256. This parallel parser records configured agents, declared child links and **gateway tool-group labels** by JSON pointer. These are not runtime instances, callable tools or an authoritative canonical graph. The original scanner's 0/11, 0/10 and 0/13 comparison remains visible, unchanged, alongside source declaration alignment.
+
+Because the published reference and source-only reader are both derived from the same configuration, source alignment is mechanical corroboration, **not** independent accuracy adjudication or proof of improved canonical scanner recovery. Subsequent C03 work must reconcile source declarations with the scanner's typed Graph through explicit role-preserving adapters and hard negatives, before any production projection decision.

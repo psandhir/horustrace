@@ -8,7 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from scripts.documentation_supply_chain_pilot import compare, markdown, validate_source
+from horustrace.config_hierarchy_shadow import build_configured_hierarchy_source_shadow
+from scripts.documentation_supply_chain_pilot import (
+    compare,
+    compare_configured_source,
+    markdown,
+    validate_source,
+)
 
 
 def _reference() -> dict:
@@ -149,3 +155,39 @@ def test_reference_is_pinned_and_fail_closed_on_config_drift(tmp_path: Path) -> 
     reference["agents"].append({"name": "invented", "role": "worker"})
     with pytest.raises(ValueError, match="differs"):
         validate_source(checkout, reference)
+
+
+def test_source_only_declarations_align_but_do_not_erase_scanner_baseline(
+    tmp_path: Path,
+) -> None:
+    hierarchy = {
+        "supervisor": {
+            "type": "frontend", "dir": "agents/frontend",
+            "children": ["worker"],
+        },
+        "worker": {
+            "type": "worker", "dir": "agents/worker",
+            "tools": ["billing"],
+        },
+    }
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps(hierarchy), encoding="utf-8")
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "add", "config.json")
+    _git(tmp_path, "-c", "user.name=Fixture", "-c",
+         "user.email=fixture@example.invalid", "commit", "-qm", "fixture")
+    candidate = build_configured_hierarchy_source_shadow(
+        tmp_path, "config.json",
+    )
+    result = compare_configured_source(_reference(), candidate)
+    assert result["agents"]["exact_declaration_match_count"] == 2
+    assert result["child_links"]["exact_declaration_match_count"] == 1
+    assert result["tool_groups"]["exact_declaration_match_count"] == 1
+    assert result["certified_recall"] is None
+    assert result["runtime_authority_verified"] is False
+    assert result["production_cutover_authorized"] is False
+    # A separate source inventory must not relabel missing canonical edges.
+    empty_adg = {"schema_version": 1, "nodes": [], "edges": []}
+    baseline = compare(_reference(), empty_adg)
+    assert len(baseline["agents"]["not_detected"]) == 2
+    assert len(baseline["delegations"]["not_detected"]) == 1
