@@ -135,3 +135,45 @@ def test_missing_canonical_agents_are_candidate_only(tmp_path: Path) -> None:
     assert result["agent_status_counts"] == {"configured_only": 2}
     assert result["edge_status_counts"] == {"configured_only": 2}
     assert result["certified_precision"] is None
+
+
+
+def test_duplicate_same_kind_delegation_edges_are_ambiguous(
+    tmp_path: Path,
+) -> None:
+    _root(tmp_path)
+    base = _base()
+    base.edges.append(ADGEdge(
+        edge_id="canonical-child-duplicate", kind="DELEGATES_TO",
+        source="canonical-root", target="canonical-leaf",
+    ))
+    before = deepcopy(base.as_dict())
+    report = crosswalk(base, shadow(tmp_path, "config.json"), tmp_path)
+    relation = next(r for r in report["source_edge_records"]
+                    if r["source_kind"] == "CONFIG_DECLARES_CHILD")
+    assert relation["status"] == "ambiguous_duplicate_typed_delegation"
+    assert relation["canonical_relation_candidates"] == [
+        "canonical-child", "canonical-child-duplicate",
+    ]
+    assert relation["runtime_relationship_verified"] is False
+    assert relation["effective_agent_can_call"] is None
+    assert base.as_dict() == before
+
+
+def test_source_role_mismatch_is_correlated_but_not_verified(
+    tmp_path: Path,
+) -> None:
+    _root(tmp_path)
+    base = _base()
+    base.nodes[0] = ADGNode(
+        node_id="canonical-root", kind="agent", name="root",
+        attributes={"agent_type": "worker"},
+    )
+    report = crosswalk(base, shadow(tmp_path, "config.json"), tmp_path)
+    root = next(r for r in report["source_agent_records"]
+                if r["name"] == "root")
+    assert root["status"] == "single_display_name_correlation"
+    assert root["role_label_status"] == "different_role_label"
+    assert root["semantic_identity_verified"] is False
+    assert root["deployed_instance_verified"] is False
+    assert report["production_cutover_authorized"] is False
