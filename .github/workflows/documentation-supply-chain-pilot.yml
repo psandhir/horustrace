@@ -1,0 +1,79 @@
+name: Documentation-Backed Agent Supply Chain Pilot
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/documentation-supply-chain-pilot.yml"
+      - "research/documentation-supply-chain-pilot/**"
+      - "scripts/documentation_supply_chain_pilot.py"
+      - "tests/test_documentation_supply_chain_pilot.py"
+      - "docs/documentation-supply-chain-pilot.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documented-supply-chain-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-vs-scanner:
+    name: Pinned AWS CloudOps documentation-to-ADG comparison
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout HorusScan changes
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Prepare Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install scanner and run independent pilot tests
+        run: |
+          python -m pip install -e . 'pytest>=8.3,<9'
+          python -m pytest -q tests/test_documentation_supply_chain_pilot.py
+
+      - name: Obtain pinned documentation-rich repository without target execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p study-target
+          git -C study-target init -q
+          git -C study-target remote add origin https://github.com/aws-samples/sample-cloudops-multi-agent-system.git
+          git -C study-target fetch --quiet --depth=1 origin 143dbbcdca91ca5ba7dd7c118e384bb0878314c2
+          git -C study-target checkout --quiet --detach FETCH_HEAD
+          test "$(git -C study-target rev-parse HEAD)" = 143dbbcdca91ca5ba7dd7c118e384bb0878314c2
+
+      - name: Compare documented supply chain with real HorusScan ADG
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.documentation_supply_chain_pilot \
+            --checkout study-target \
+            --reference research/documentation-supply-chain-pilot/aws-cloudops-reference.json \
+            --output documented-supply-chain-report
+
+      - name: Publish diagnostic comparison to GitHub Actions summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f documented-supply-chain-report/summary.md ]; then
+            cat documented-supply-chain-report/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Documentation pilot did not complete; inspect failed steps." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Archive pinned evidence, scanner ADG and discrepancy report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: documentation-supply-chain-aws-cloudops
+          path: documented-supply-chain-report/
+          if-no-files-found: warn
+          retention-days: 30
