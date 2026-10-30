@@ -1,0 +1,57 @@
+name: PydanticAI three-repository sample study
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/pydantic-sample-study.yml'
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: pydantic-deepagents
+            repo: vstorm-co/pydantic-deepagents
+          - name: subagents-pydantic-ai
+            repo: vstorm-co/subagents-pydantic-ai
+          - name: pydantic-ai-backend
+            repo: vstorm-co/pydantic-ai-backend
+    steps:
+      - name: Checkout scanner
+        uses: actions/checkout@v4
+        with:
+          path: scanner
+      - name: Checkout target
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repo }}
+          path: target
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install scanner
+        run: python -m pip install ./scanner
+      - name: Capture provenance
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          git -C scanner rev-parse HEAD > artifacts/scanner-sha.txt
+          git -C target rev-parse HEAD > artifacts/target-sha.txt
+          printf '%s\n' '${{ matrix.repo }}' > artifacts/target-repository.txt
+      - name: Scan JSON
+        shell: bash
+        run: horustrace scan target --format json --output artifacts/scan.json --fail-on none
+      - name: Generate interactive HTML report
+        shell: bash
+        run: horustrace report target --output artifacts/report.html
+      - name: Upload study artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pydantic-sample-${{ matrix.name }}
+          path: artifacts/
+          if-no-files-found: warn
