@@ -8,7 +8,13 @@ from pathlib import Path
 
 from horustrace.adg import build_adg
 from horustrace.models import (
-    Agent, AttackPath, Finding, Graph, Severity, SourceLocation, Tool,
+    Agent,
+    AttackPath,
+    Finding,
+    Graph,
+    Severity,
+    SourceLocation,
+    Tool,
 )
 from horustrace.visual_report import build_visual_report, render_visual_report_html
 
