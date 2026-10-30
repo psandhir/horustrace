@@ -413,6 +413,73 @@ def _finding_provenance_digest(finding: Finding, root: Path) -> dict[str, Any]:
     return {"items": items[:2], "additional_contexts": max(0, len(items) - 2)}
 
 
+def _source_owner(
+    *,
+    name: str | None,
+    location: Any,
+    agents: list[Any],
+    root: Path,
+    relationship_ids: list[str] | None = None,
+    relationship_instances: dict[str, str] | None = None,
+) -> tuple[str | None, str]:
+    """Require a unique instance witness; a shared Python alias is not identity."""
+    if not name:
+        return None, "unresolved_missing_agent"
+    instances = [_agent_instance_key(agent) for agent in agents]
+    instance_counts = Counter(instances)
+    eligible = [
+        agent for agent in agents
+        if agent.name == name and instance_counts[_agent_instance_key(agent)] == 1
+    ]
+    reference_ids = list(dict.fromkeys(relationship_ids or []))
+    if reference_ids:
+        owners = {
+            (relationship_instances or {}).get(item)
+            for item in reference_ids
+        }
+        if len(owners) == 1:
+            owner = next(iter(owners))
+            if owner in {_agent_instance_key(agent) for agent in eligible}:
+                return owner, "exact_authority_relationship"
+        # A contradictory explicit relationship must not be silently
+        # replaced by a weaker same-file guess.
+        return None, "unresolved_authority_reference"
+    if len(eligible) == 1:
+        return _agent_instance_key(eligible[0]), "unique_agent_name"
+
+    if location is None:
+        return None, "unresolved_name_collision"
+    if isinstance(location, dict):
+        path, line = location.get("path"), location.get("line")
+    else:
+        path, line = str(location.path), location.line
+    if not isinstance(path, str) or not isinstance(line, int):
+        return None, "unresolved_name_collision"
+    target_path = _relative_path(path, root)
+
+    anchored = []
+    for agent in eligible:
+        # A same-name agent in the same file is not sufficient. Require
+        # a *matching source line* at its constructor, registered tool,
+        # Skill, or MCP binding site.
+        witnesses = [
+            agent.location,
+            *(tool.location for tool in agent.tools),
+            *(server.location for server in agent.mcp_servers),
+            *(skill.location for skill in agent.skills),
+        ]
+        if any(
+            witness is not None
+            and _relative_path(str(witness.path), root) == target_path
+            and witness.line == line
+            for witness in witnesses
+        ):
+            anchored.append(_agent_instance_key(agent))
+    if len(set(anchored)) == 1:
+        return anchored[0], "exact_source_binding_site"
+    return None, "unresolved_name_collision"
+
+
 def build_visual_report(
     graph: Graph,
     findings: list[Finding],
@@ -431,14 +498,47 @@ def build_visual_report(
     ambiguous_names = {name for name, count in name_counts.items() if count > 1}
     contract = _relativize(authority_contract_report(graph), root)
     security_graph = build_agent_security_graph(graph, root).as_dict()
-    findings_docs = [
-        {
-            **_relativize(item.as_dict(), root),
-            "provenance_digest": _finding_provenance_digest(item, root),
-        }
-        for item in findings
-    ]
+    unique_agent_instances = {
+        _agent_instance_key(agent): _agent_report_id(agent, root)
+        for agent in graph.agents
+    }
+    # Source evidence can resolve some otherwise duplicate aliases; never
+    # infer ownership from the name alone where a collision remains.
+    finding_owner: dict[int, str | None] = {}
+    findings_docs = []
+    for finding in findings:
+        reference_ids = [
+            value.split("=", 1)[1]
+            for value in finding.evidence
+            if isinstance(value, str) and value.startswith("authority_relationship=")
+        ]
+        if finding.authority_relationship_id:
+            reference_ids.insert(0, finding.authority_relationship_id)
+        owner, basis = _source_owner(
+            name=finding.agent,
+            location=finding.location,
+            agents=graph.agents,
+            root=root,
+            relationship_ids=reference_ids,
+            relationship_instances=relationship_instance,
+        )
+        finding_owner[id(finding)] = owner
+        findings_docs.append({
+            **_relativize(finding.as_dict(), root),
+            "provenance_digest": _finding_provenance_digest(finding, root),
+            "agent_id": unique_agent_instances.get(owner),
+            "attribution_basis": basis,
+        })
     attack_paths = security_graph.get("attack_paths", [])
+    path_owner: dict[int, str | None] = {}
+    for path in attack_paths:
+        owner, _ = _source_owner(
+            name=path.get("agent"),
+            location=path.get("location"),
+            agents=graph.agents,
+            root=root,
+        )
+        path_owner[id(path)] = owner
     flows_by_id = {
         str(item.get("flow_id")): item
         for item in security_graph.get("flows", [])
@@ -475,7 +575,7 @@ def build_visual_report(
         uniquely_named = agent.name not in ambiguous_names
         agent_findings = [
             item for item in findings_docs
-            if uniquely_named and item.get("agent") == agent.name
+            if item.get("agent_id") == agent_id
         ]
         agent_policy_findings = [
             item
@@ -484,7 +584,7 @@ def build_visual_report(
         ]
         agent_attack_paths = [
             item for item in attack_paths
-            if uniquely_named and item.get("agent") == agent.name
+            if path_owner.get(id(item)) == agent_instance
         ]
         agent_path_views = [
             _attack_path_view(
@@ -583,7 +683,7 @@ def build_visual_report(
                     ),
                 },
                 "severity": _severity_counts(
-                    [item for item in findings if uniquely_named and item.agent == agent.name]
+                    [item for item in findings if finding_owner.get(id(item)) == agent_instance]
                 ),
                 "skills": [
                     {
@@ -715,10 +815,12 @@ def build_visual_report(
             ).items())),
             "ambiguous_agent_names": len(ambiguous_names),
             "unattributed_findings": sum(
-                item.get("agent") in ambiguous_names for item in findings_docs
+                item["agent_id"] is None and item.get("agent") is not None
+                for item in findings_docs
             ),
             "unattributed_attack_paths": sum(
-                item.get("agent") in ambiguous_names for item in attack_paths
+                path_owner.get(id(item)) is None and item.get("agent") is not None
+                for item in attack_paths
             ),
             "tools": len(graph.all_tools()),
             "skills": len(graph.all_skills()),
@@ -765,7 +867,7 @@ def build_visual_report(
                 "attribution_ambiguous": True,
             }
             for item in attack_paths
-            if item.get("agent") in ambiguous_names
+            if path_owner.get(id(item)) is None
         ],
         "skills": skills,
         "tools": tools,
