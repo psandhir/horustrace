@@ -4,84 +4,225 @@ on:
     paths:
       - '.github/workflows/pydantic-historical-replay.yml'
   workflow_dispatch:
+
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: pydantic-historical-replay-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   replay:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out current scanner and locked research data
+        uses: actions/checkout@v4
         with:
           path: scanner
-      - uses: actions/setup-python@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      - name: Discover pinned historical Pydantic cases (fail closed)
-        shell: bash
+          python-version: '3.12'
+
+      - name: Retrieve actual October 5 reference study
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p historical
+          gh run download 37319516772 \
+            --repo psandhir/horustrace \
+            --name adk-pydantic-frozen-71-candidate \
+            --dir historical
+          test -s historical/result.json
+
+      - name: Select exactly the original 34 PydanticAI pinned cases
         run: |
           python - <<'PY'
-          import json, pathlib, sys
-          root=pathlib.Path('scanner')
-          candidates=[]
-          for p in root.rglob('*.json'):
-              if '.git' in p.parts or 'node_modules' in p.parts: continue
-              try: obj=json.loads(p.read_text())
-              except (ValueError,UnicodeError,OSError): continue
-              def walk(x):
-                  if isinstance(x,dict):
-                      if isinstance(x.get('repo'),str) and isinstance(x.get('sha'),str) and len(x['sha'])==40:
-                          if 'pydantic' in str(x.get('category','')).lower() or 'pydantic' in str(x.get('framework','')).lower():
-                              yield x
-                      for v in x.values(): yield from walk(v)
-                  elif isinstance(x,list):
-                      for v in x: yield from walk(v)
-              cases=list(walk(obj))
-              if len({(c['repo'],c['sha']) for c in cases})==34:
-                  candidates.append((str(p),cases))
-          if len(candidates)!=1:
-              print('FAIL CLOSED: expected exactly one original frozen-180 manifest with 34 pinned Pydantic cases; found',[(p,len(c)) for p,c in candidates])
-              sys.exit(1)
-          source,cases=candidates[0]
-          out=[{'repo':c['repo'],'sha':c['sha']} for c in cases]
-          pathlib.Path('pydantic-cases.json').write_text(json.dumps({'source':source,'cases':out},indent=2))
-          print('Selected original manifest',source,'with',len(out),'pinned cases')
+          import json
+          import shutil
+          from pathlib import Path
+
+          source = Path("scanner/research/real-world-agent-security-2026")
+          original = json.loads((source / "cohort.json").read_text())
+          old = json.loads(Path("historical/result.json").read_text())
+          cases = [c for c in original["cases"] if c.get("framework_stratum") == "pydantic-ai"]
+          assert len(cases) == 34, f"expected 34 original Pydantic cases, got {len(cases)}"
+          assert len({c["case_id"] for c in cases}) == 34
+          assert len({(c["repo"], c["sha"]) for c in cases}) == 34
+          assert all(len(c["sha"]) == 40 for c in cases)
+          prior = {c["case_id"]: c for c in old["cases"] if c["framework"] == "pydantic-ai"}
+          assert len(prior) == 34, f"historical artifact has {len(prior)} Pydantic cases"
+          assert set(prior) == {c["case_id"] for c in cases}
+          for c in cases:
+              p = prior[c["case_id"]]
+              assert p["repo"] == c["repo"] and p["sha"] == c["sha"], c["case_id"]
+              assert p["status"] == "success", c["case_id"]
+
+          root = Path("/tmp/pydantic-historical-frozen-34")
+          root.mkdir(parents=True, exist_ok=True)
+          selected = {c["case_id"] for c in cases}
+          sliced = dict(original)
+          sliced["cases"] = cases
+          sliced["target_unique_repositories"] = 34
+          sliced["tier_b_case_ids"] = [x for x in original.get("tier_b_case_ids", []) if x in selected]
+          sliced["tier_c_case_ids"] = [x for x in original.get("tier_c_case_ids", []) if x in selected]
+          sliced["regression_slice"] = {
+              "name": "pydantic-frozen-34-20261030",
+              "frameworks": ["pydantic-ai"],
+              "source_cohort": "original frozen-180",
+              "historical_workflow_run": 37319516772,
+          }
+          (root / "cohort.json").write_text(json.dumps(sliced, indent=2) + "\n")
+          for case in cases:
+              path = Path(case["ground_truth"])
+              destination = root / path
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(source / path, destination)
+
+          Path("case-selection.json").write_text(
+              json.dumps({"source": str(source / "cohort.json"), "cases": cases}, indent=2) + "\n"
+          )
+          print("Verified 34/34 exact source SHAs against original study artifact")
           PY
-      - name: Upload frozen case selection
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: historical-pydantic-case-selection
-          path: pydantic-cases.json
-          if-no-files-found: ignore
+
       - name: Install current scanner
-        run: python -m pip install ./scanner
-      - name: Run pinned cases and capture JSON
-        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check ./scanner
+          echo "SCANNER_SHA=$(git -C scanner rev-parse HEAD)" >> "$GITHUB_ENV"
+          horustrace --version
+
+      - name: Execute pinned 34 using original source-scoped harness
+        run: |
+          mkdir -p results
+          python scanner/scripts/real_world_agent_security_execute.py \
+            --root /tmp/pydantic-historical-frozen-34 \
+            --mode postfix \
+            --scanner "$(command -v horustrace)" \
+            --scanner-sha "$SCANNER_SHA" \
+            --workers 6 \
+            --audit-agent-nodes \
+            --output-json results/result.json \
+            --output-markdown results/result.md
+
+      - name: Compare each case with October 5 actual scanner output
         run: |
           python - <<'PY'
-          import json,pathlib,subprocess,tempfile
-          cases=json.loads(pathlib.Path('pydantic-cases.json').read_text())['cases']
-          output=pathlib.Path('results');output.mkdir()
-          rows=[]
-          for i,case in enumerate(cases):
-              with tempfile.TemporaryDirectory() as td:
-                  repo,sha=case['repo'],case['sha']
-                  commands=[['git','init','-q',td],['git','-C',td,'remote','add','origin','https://github.com/'+repo+'.git'],['git','-C',td,'fetch','-q','--depth=1','origin',sha],['git','-C',td,'checkout','-q','--detach','FETCH_HEAD']]
-                  try:
-                      for cmd in commands: subprocess.run(cmd,check=True,timeout=180)
-                      path=output/f'{i:02d}.json'
-                      subprocess.run(['horustrace','scan',td,'--format','json','--output',str(path),'--fail-on','none'],check=True,timeout=300)
-                      rows.append({'repo':repo,'sha':sha,'result':str(path),'status':'success'})
-                  except Exception as e: rows.append({'repo':repo,'sha':sha,'status':'failed','error':str(e)})
-          (output/'index.json').write_text(json.dumps(rows,indent=2))
-          if any(r['status']!='success' for r in rows): raise SystemExit('Some scans failed; inspect index')
+          import json
+          import os
+          from collections import Counter
+          from pathlib import Path
+
+          old = json.loads(Path("historical/result.json").read_text())
+          new = json.loads(Path("results/result.json").read_text())
+          old_cases = {c["case_id"]: c for c in old["cases"] if c.get("framework") == "pydantic-ai"}
+          new_cases = {c["case_id"]: c for c in new["cases"]}
+          assert len(old_cases) == len(new_cases) == 34
+          assert set(old_cases) == set(new_cases)
+          dims = ["agent_entities", "tools", "mcp_servers", "delegation_edges", "effective_authority"]
+          aggregates = {d: {"historical": Counter(), "current": Counter()} for d in dims}
+          regressions = []
+          improvements = []
+          rows = []
+          failures = []
+
+          def num(c, key):
+              val = (c.get("observed") or {}).get(key, 0)
+              return val if isinstance(val, int) else 0
+
+          for cid in sorted(new_cases):
+              a, b = old_cases[cid], new_cases[cid]
+              assert (a["repo"], a["sha"]) == (b["repo"], b["sha"]), cid
+              if b.get("status") != "success":
+                  failures.append({"case_id": cid, "repo": b["repo"], "status": b.get("status")})
+              metrics = {}
+              for d in dims:
+                  old_dim = (a.get("comparisons") or {}).get(d) or {}
+                  new_dim = (b.get("comparisons") or {}).get(d) or {}
+                  if not old_dim and not new_dim:
+                      continue
+                  od = {k: int(old_dim.get(k) or 0) for k in ("tp","fn","fp","predicted","truth")}
+                  nd = {k: int(new_dim.get(k) or 0) for k in ("tp","fn","fp","predicted","truth")}
+                  for k in od:
+                      aggregates[d]["historical"][k] += od[k]
+                      aggregates[d]["current"][k] += nd[k]
+                  metrics[d] = {"historical": od, "current": nd}
+                  if nd["fn"] > od["fn"] or nd["tp"] < od["tp"] or nd["fp"] > od["fp"]:
+                      regressions.append({
+                          "case_id": cid, "repo": b["repo"], "dimension": d,
+                          "historical": od, "current": nd,
+                          "reference_precision_eligible": old_dim.get("precision_eligible") is True,
+                          "qualification": "review_required; historical source truth may be incomplete",
+                      })
+                  elif nd["fn"] < od["fn"] or nd["tp"] > od["tp"] or nd["fp"] < od["fp"]:
+                      improvements.append({"case_id": cid, "repo": b["repo"], "dimension": d, "historical": od, "current": nd})
+              rows.append({
+                  "case_id": cid, "repo": b["repo"], "sha": b["sha"],
+                  "historical_agents": num(a, "summary") if False else (a.get("observed") or {}).get("summary",{}).get("agents"),
+                  "current_agents": (b.get("observed") or {}).get("summary",{}).get("agents"),
+                  "historical_findings": num(a,"findings"), "current_findings": num(b,"findings"),
+                  "historical_attack_paths": num(a,"attack_paths"), "current_attack_paths": num(b,"attack_paths"),
+                  "historical_incomplete": (a.get("observed") or {}).get("analysis_incomplete"),
+                  "current_incomplete": (b.get("observed") or {}).get("analysis_incomplete"),
+                  "comparisons": metrics,
+              })
+
+          summary = {
+              "framework": "pydantic-ai", "cases": 34,
+              "historical_run_id": 37319516772,
+              "historical_scanner_sha": old.get("scanner_sha"),
+              "current_scanner_sha": os.environ["SCANNER_SHA"],
+              "historical_findings": sum(r["historical_findings"] for r in rows),
+              "current_findings": sum(r["current_findings"] for r in rows),
+              "historical_attack_paths": sum(r["historical_attack_paths"] for r in rows),
+              "current_attack_paths": sum(r["current_attack_paths"] for r in rows),
+              "regression_candidates": len(regressions),
+              "improvement_candidates": len(improvements),
+              "scan_failures": failures,
+              "aggregate": {d: {k: dict(v) for k,v in sides.items()} for d,sides in aggregates.items()},
+              "per_case": rows, "regressions": regressions, "improvements": improvements,
+              "methodology": "same exact target SHAs/application roots and source-scoped runner; compare original Oct 5 frozen-71 artifact against current frozen-34 subset; TP/FP/FN claims retain original reference limitations",
+          }
+          Path("results/regression-comparison.json").write_text(json.dumps(summary, indent=2) + "\n")
+          lines = [
+              "# Historical PydanticAI 34-case comparison", "",
+              f"- Historical scanner SHA: `{summary['historical_scanner_sha']}`",
+              f"- Current scanner SHA: `{summary['current_scanner_sha']}`",
+              f"- Pinned source cases: **34**",
+              f"- Historical/current findings: **{summary['historical_findings']} / {summary['current_findings']}**",
+              f"- Historical/current attack paths: **{summary['historical_attack_paths']} / {summary['current_attack_paths']}**",
+              f"- Structural regression candidates requiring source review: **{len(regressions)}**",
+              f"- Structural improvements: **{len(improvements)}**",
+              f"- Scan failures: **{len(failures)}**", "",
+              "| Case | Repository | Old agents | Current agents | Findings old/new | Paths old/new |",
+              "|---|---|---:|---:|---:|---:|",
+          ]
+          for r in rows:
+              lines.append(f"| {r['case_id']} | {r['repo']} | {r['historical_agents']} | {r['current_agents']} | {r['historical_findings']}/{r['current_findings']} | {r['historical_attack_paths']}/{r['current_attack_paths']} |")
+          lines.extend(["", "## Structural comparison candidates", ""])
+          for r in regressions:
+              lines.append(f"- {r['case_id']} ({r['repo']}), {r['dimension']}: {r['historical']} -> {r['current']} (precision-eligible original: {r['reference_precision_eligible']})")
+          if not regressions: lines.append("No structural deterioration found against original frozen reference.")
+          lines.extend(["", "Counts and locked-truth comparisons do not establish independently certified precision or runtime effective authority. Source-backed adjudication is required.", ""])
+          Path("results/REGRESSION_REPORT.md").write_text("\n".join(lines))
+          print("\n".join(lines[:12]))
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+              f.write("\n".join(lines[:12]) + "\n")
+          if failures:
+              raise SystemExit(f"FAIL: {len(failures)} source scan failures")
           PY
-      - name: Upload replay artifacts
+
+      - name: Upload source and comparison artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: historical-pydantic-current-main-replay
-          path: results/
-          if-no-files-found: ignore
+          name: historical-pydantic-34-regression-results
+          path: |
+            case-selection.json
+            historical/result.json
+            results/
+          if-no-files-found: warn
           retention-days: 90
