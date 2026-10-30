@@ -1288,7 +1288,7 @@ function owaspAssessmentChart(categories){{
 }}
 function renderDashboard(){{
  const s=DATA.summary,state=assessmentState(s),root=document.getElementById("dashboard");
- const attention=DATA.agents.filter(a=>a.summary.findings||a.summary.contract_violations||a.summary.contract_unresolved||a.summary.attack_paths).sort((a,b)=>agentPriority(b)-agentPriority(a)).slice(0,10);
+ const attention=DATA.agents.filter(a=>["runtime","cli","application-support"].includes(a.source_context)&&(a.summary.findings||a.summary.contract_violations||a.summary.contract_unresolved||a.summary.attack_paths)).sort((a,b)=>agentPriority(b)-agentPriority(a)).slice(0,10);
  const drillRow=(label,value,drill,cls="")=>'<div class="drill-row" role="button" tabindex="0" data-drill="'+esc(drill)+'"><span>'+esc(label)+'</span><span class="drill-value '+esc(cls)+'">'+number(value)+'</span></div>';
  const drillList=(rows)=>'<div class="drill-list">'+rows.join("")+'</div>';
  const primaryDrill=(s.severity?.critical||0)?"findings:critical":((s.severity?.high||0)?"findings:high":(s.contract_violations?"contracts:violation":"findings:all"));
@@ -1337,7 +1337,7 @@ function bindDashboardDrill(root=document){{
 }}
 function agentTable(items){{
  if(!items.length)return '<div class="empty">No agents matched this view.</div>';
- const rows=items.map(a=>'<tr class="clickable" role="button" tabindex="0" data-agent="'+encodeURIComponent(a.name)+'"><td><div class="row-title">'+esc(a.name)+'</div><div class="row-sub">'+esc(a.framework)+' · '+loc(a.location)+'</div></td><td>'+agentAttention(a)+'</td><td>'+badge(a.summary.contract_status)+'</td><td>'+number(a.summary.findings)+'</td><td>'+number(a.summary.attack_paths)+'</td><td>'+number(a.summary.authority_relationships)+'</td><td>'+number(a.summary.write_capable_relationships)+'</td><td class="row-chevron">›</td></tr>').join("");
+ const rows=items.map(a=>'<tr class="clickable" role="button" tabindex="0" data-agent="'+encodeURIComponent(a.id)+'"><td><div class="row-title">'+esc(a.display_name||a.name)+'</div><div class="row-sub">'+esc(a.framework)+' · '+esc(a.source_context||"unknown")+' · '+loc(a.location)+'</div></td><td>'+agentAttention(a)+'</td><td>'+badge(a.summary.contract_status)+'</td><td>'+number(a.summary.findings)+'</td><td>'+number(a.summary.attack_paths)+'</td><td>'+number(a.summary.authority_relationships)+'</td><td>'+number(a.summary.write_capable_relationships)+'</td><td class="row-chevron">›</td></tr>').join("");
  return '<div class="panel flush table-wrap"><table><thead><tr><th>Agent</th><th>Attention</th><th>Contract</th><th>Findings</th><th>Attack paths</th><th>Authority</th><th>Write-capable</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }}
 
@@ -1354,14 +1354,21 @@ function agentMatchesFilter(a,mode){{
  if(mode==="unresolved")return (a.effective_authority||[]).some(r=>r.resolution!=="fully_resolved");if(mode==="write")return a.summary.write_capable_relationships>0;if(mode==="destinations")return a.summary.destinations>0;return true;
 }}
 
+let AGENT_SOURCE_VIEW="application";
+function sourceViewMatches(a){{
+ return AGENT_SOURCE_VIEW==="all"||["runtime","cli","application-support"].includes(a.source_context);
+}}
 function renderAgents(mode="all"){{
- const root=document.getElementById("agents"),scoped=DATA.agents.filter(a=>agentMatchesFilter(a,mode)).sort((a,b)=>agentPriority(b)-agentPriority(a)||a.name.localeCompare(b.name));
+ const root=document.getElementById("agents"),scoped=DATA.agents.filter(a=>sourceViewMatches(a)&&agentMatchesFilter(a,mode)).sort((a,b)=>agentPriority(b)-agentPriority(a)||(a.display_name||a.name).localeCompare(b.display_name||b.name));
  const filters=[["all","All"],["attention","Needs attention"],["attack","Attack paths"],["write","Write-capable"],["contract","Contract issues"],["fully_resolved","Fully resolved"],["partially_resolved","Partially resolved"],["unknown","Unknown"]];
  const chips=filters.map(([value,label])=>'<button class="filter-chip '+(mode===value?"active":"")+'" data-agent-filter="'+value+'">'+esc(label)+'</button>').join("");
+ const sourceChips=[["application","Application source"],["all","All source · examples/tests"]].map(([value,label])=>'<button type="button" class="filter-chip '+(AGENT_SOURCE_VIEW===value?"active":"")+'" data-agent-source-filter="'+value+'">'+esc(label)+'</button>').join("");
  const banner=mode==="all"?"":'<div class="filter-banner"><span>'+esc(drillLabel("agents",mode))+' · '+number(scoped.length)+' agents</span><button class="back" id="clear-agent-filter">Clear filter</button></div>';
- root.innerHTML=pageHead("Inventory","Agents","Review effective agency, attack paths, findings and Authority Contract posture for each discovered agent.")+banner+'<div class="toolbar"><div class="toolbar-left"><div class="filter-chips">'+chips+'</div></div><div class="toolbar-right"><input id="agent-search" class="search" aria-label="Search agents" placeholder="Search agents, frameworks, identities or resources"></div></div><div class="muted small" id="agent-count">'+number(scoped.length)+' agents</div><div id="agent-table">'+agentTable(scoped)+'</div>';
- bindAgentRows(root);root.querySelectorAll("[data-agent-filter]").forEach(btn=>btn.addEventListener("click",()=>renderAgents(btn.dataset.agentFilter)));if(mode!=="all")root.querySelector("#clear-agent-filter").addEventListener("click",()=>renderAgents("all"));
- root.querySelector("#agent-search").addEventListener("input",e=>{{const q=e.target.value.trim().toLowerCase();const items=scoped.filter(a=>JSON.stringify([a.name,a.framework,a.location,a.skills,a.resources,a.identities,a.destinations,a.findings]).toLowerCase().includes(q));root.querySelector("#agent-count").textContent=number(items.length)+" agents";root.querySelector("#agent-table").innerHTML=agentTable(items);bindAgentRows(root);}});
+ root.innerHTML=pageHead("Inventory","Agents","Source-qualified inventory. Application source is shown first; examples and tests remain available for review. Static source does not establish deployment.")+banner+'<div class="toolbar"><div class="toolbar-left"><div class="filter-chips">'+sourceChips+'</div><div class="filter-chips">'+chips+'</div></div><div class="toolbar-right"><input id="agent-search" class="search" aria-label="Search agents" placeholder="Search agents, frameworks, identities or resources"></div></div><div class="muted small">Showing '+esc(AGENT_SOURCE_VIEW==="application"?"application source":"all source contexts")+' · '+number(scoped.length)+' of '+number(DATA.agents.length)+' discovered agent definitions. Runtime effectiveness not verified.</div><div class="muted small" id="agent-count">'+number(scoped.length)+' agents</div><div id="agent-table">'+agentTable(scoped)+'</div>';
+ bindAgentRows(root);
+ root.querySelectorAll("[data-agent-source-filter]").forEach(btn=>btn.addEventListener("click",()=>{{AGENT_SOURCE_VIEW=btn.dataset.agentSourceFilter;renderAgents(mode);}}));
+ root.querySelectorAll("[data-agent-filter]").forEach(btn=>btn.addEventListener("click",()=>renderAgents(btn.dataset.agentFilter)));if(mode!=="all")root.querySelector("#clear-agent-filter").addEventListener("click",()=>renderAgents("all"));
+ root.querySelector("#agent-search").addEventListener("input",e=>{{const q=e.target.value.trim().toLowerCase();const items=scoped.filter(a=>JSON.stringify([a.name,a.display_name,a.source_context,a.framework,a.location,a.skills,a.resources,a.identities,a.destinations,a.findings]).toLowerCase().includes(q));root.querySelector("#agent-count").textContent=number(items.length)+" agents";root.querySelector("#agent-table").innerHTML=agentTable(items);bindAgentRows(root);}});
 }}
 
 function inventoryEntries(kind){{
@@ -1437,14 +1444,16 @@ function inventoryDetail(item,kind){{
  else meta.push(["Description",item.description||"—"],["Skill source",item.source||"unknown"],["Capabilities",format(item.capabilities)],["Allowed tools",format(item.allowed_tools)],["Scripts",format(item.scripts)],["Destinations",format(item.destinations)]);
  meta.push(["Resources",resource]);
  const details=meta.map(([label,value])=>'<div>'+esc(label)+'</div><div>'+esc(value)+'</div>').join("");
- const topology=inventoryTopologyContext(item,kind),agents=topology.agents.length?topology.agents:(item.bound_agents||[]);
- const linked=agents.map(name=>{{
-   const agent=DATA.agents.find(a=>a.name===name);
-   const signal=agent?number(agent.summary.findings)+" agent findings · "+number(agent.summary.attack_paths)+" agent attack paths":"Agent profile unavailable";
-   return '<div class="panel" style="margin-bottom:8px"><div class="row-title">'+esc(name)+'</div><div class="row-sub">'+esc(signal)+'</div>'+
-   '<div class="filter-chips" style="margin-top:8px"><button class="filter-chip" type="button" data-inventory-agent="'+encodeURIComponent(name)+'">Open agent profile ↗</button>'+
-   (agent?'<button class="filter-chip" type="button" data-inventory-agent-findings="'+encodeURIComponent(name)+'">Review agent findings ↗</button>':"")+'</div></div>';
+ const topology=inventoryTopologyContext(item,kind),agentIds=item.bound_agent_ids||[];
+ const linked=agentIds.map(id=>{{
+   const agent=DATA.agents.find(a=>a.id===id);
+   if(!agent)return "";
+   const signal=number(agent.summary.findings)+" agent findings · "+number(agent.summary.attack_paths)+" agent attack paths";
+   return '<div class="panel" style="margin-bottom:8px"><div class="row-title">'+esc(agent.display_name||agent.name)+'</div><div class="row-sub">'+esc(signal)+'</div>'+
+   '<div class="filter-chips" style="margin-top:8px"><button class="filter-chip" type="button" data-inventory-agent="'+encodeURIComponent(id)+'">Open agent profile ↗</button>'+
+   '<button class="filter-chip" type="button" data-inventory-agent-findings="'+encodeURIComponent(id)+'">Review agent findings ↗</button></div></div>';
  }}).join("");
+ const agents=agentIds;
  const topologyNode=topology.node;
  const topologyAction=topologyNode?'<button type="button" class="back" data-inventory-supply="'+esc(topologyNode.id)+'">View in supply chain ↗</button>':
  '<span class="muted small">No unambiguous source-backed graph node for this instance.</span>';
@@ -1474,18 +1483,20 @@ function inventoryDetail(item,kind){{
 function renderComponents(kind="mcp",selectedId=null,agentScope=null,initialQuery="",initialBinding="all"){{
  if(!["mcp","tools","skills"].includes(kind))kind="mcp";
  const root=document.getElementById("components"),items=inventoryEntries(kind),selected=items.find(item=>item.id===selectedId);
+ const scopedAgent=DATA.agents.find(a=>a.id===agentScope);
+ const scopedLabel=scopedAgent?(scopedAgent.display_name||scopedAgent.name):agentScope;
  const tabs=[["mcp","MCP servers"],["tools","Tools"],["skills","Skills"]].map(([key,label])=>
  '<button type="button" class="filter-chip '+(kind===key?"active":"")+'" data-inventory-kind="'+key+'">'+uiIcon(key==="mcp"?"mcp":key)+esc(label)+' ('+number(inventoryEntries(key).length)+')</button>').join("");
  root.innerHTML=pageHead("Repository inventory","Components","Search discovered component instances, bindings and source evidence. This is a static inventory, not live deployment discovery.")+
  '<div class="cards">'+metric("MCP servers",(DATA.mcp_servers||[]).filter(x=>x.binding_state!=="unresolved_reference").length,"","components:mcp")+metric("Tools",(DATA.tools||[]).length,"","components:tools")+metric("Skills",(DATA.skills||[]).length,"","components:skills")+metric("Unresolved references",(DATA.mcp_servers||[]).filter(x=>x.binding_state==="unresolved_reference").length,"","components:unresolved")+'</div>'+
  '<div class="toolbar"><div class="filter-chips">'+tabs+'</div><div class="toolbar-right"><input id="inventory-search" class="search" aria-label="Search inventory" placeholder="Search component, capability, agent or file"></div></div>'+
- (agentScope?'<div class="filter-banner"><span>Components connected to '+esc(agentScope)+'</span><div class="filter-chips"><button type="button" class="back" id="inventory-scope-back">← Back to agent</button><button type="button" class="back" id="inventory-scope-clear">All components</button></div></div>':"")+
+ (agentScope?'<div class="filter-banner"><span>Components connected to '+esc(scopedLabel)+'</span><div class="filter-chips"><button type="button" class="back" id="inventory-scope-back">← Back to agent</button><button type="button" class="back" id="inventory-scope-clear">All components</button></div></div>':"")+
  (selected?inventoryDetail(selected,kind):"")+
  '<div class="toolbar"><div class="filter-chips">'+[["all","All"],["bound","Bound"],["unbound","Unbound"],["unresolved_reference","Unresolved"]].map(([key,label])=>'<button type="button" class="filter-chip '+(key==="all"?"active":"")+'" data-inventory-filter="'+key+'">'+label+'</button>').join("")+'</div><span class="muted small" id="inventory-count"></span></div><div id="inventory-table"></div>';
  let filter=initialBinding;const input=root.querySelector("#inventory-search");input.value=initialQuery;
  const update=()=>{{
   const q=input.value.toLowerCase().trim();
-  const scoped=items.filter(item=>(!agentScope||(item.bound_agents||[]).includes(agentScope))&&(filter==="all"||item.binding_state===filter)&&(!q||JSON.stringify(item).toLowerCase().includes(q)));
+  const scoped=items.filter(item=>(!agentScope||(item.bound_agent_ids||[]).includes(agentScope))&&(filter==="all"||item.binding_state===filter)&&(!q||JSON.stringify(item).toLowerCase().includes(q)));
   root.querySelector("#inventory-count").textContent=number(scoped.length)+" detected instances";
   root.querySelector("#inventory-table").innerHTML=inventoryTable(scoped,kind);
   const openDetail=(id)=>{{
@@ -1721,7 +1732,7 @@ function contractItem(item){{
 }}
 function agentTopologyConnections(a){{
  const topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[],edges=topology.edges||[],byId=new Map(nodes.map(n=>[n.id,n]));
- const matches=nodes.filter(n=>n.kind==="agent"&&n.name===a.name);
+ const matches=nodes.filter(n=>n.kind==="agent"&&n.name===a.name&&n.location?.path===a.location?.path&&n.location?.line===a.location?.line);
  if(matches.length!==1)return {{outgoing:[],incoming:[]}};
  const id=matches[0].id,kinds=new Set(["DELEGATES_TO","WORKFLOW_FLOWS_TO"]);
  const project=(edge,direction)=>{{
@@ -1767,8 +1778,8 @@ function svgNode(x,y,w,label,sub,kind,key,unresolved=false){{
 }}
 const AGENCY_GRAPH_STATE=new Map();
 function agencyState(a){{
- if(!AGENCY_GRAPH_STATE.has(a.name))AGENCY_GRAPH_STATE.set(a.name,{{collapsed:(a.effective_authority||[]).length>6,scale:1,tx:0,ty:0,selected:null}});
- return AGENCY_GRAPH_STATE.get(a.name);
+ if(!AGENCY_GRAPH_STATE.has(a.id))AGENCY_GRAPH_STATE.set(a.id,{{collapsed:(a.effective_authority||[]).length>6,scale:1,tx:0,ty:0,selected:null}});
+ return AGENCY_GRAPH_STATE.get(a.id);
 }}
 function applyGraphTransform(a){{
  const stage=document.getElementById("agency-stage"); if(!stage)return;
@@ -1926,12 +1937,15 @@ function renderAgentEvidence(a){{
  '<div>Resolution</div><div>'+badge(r.resolution)+'</div><div>Source</div><div>'+loc(r.location)+'</div><div>Unresolved dimensions</div><div>'+esc((r.unresolved||[]).join(", ")||"none")+'</div></div>'+
  '<details><summary>Full evidence</summary><pre>'+esc(JSON.stringify({{evidence:r.evidence,dimensions:r.dimensions,approval:r.approval,semantics:r.semantics}},null,2))+'</pre></details></div>').join("");
 }}
-function openAgent(name,initialTab="overview",owaspRisk=null,inventoryFocus=null,supplyFocus=null){{
- const a=DATA.agents.find(x=>x.name===name); if(!a)return; const root=document.getElementById("agent-detail");
- root.innerHTML='<button class="breadcrumb" id="back-agents">← Back to agents</button><div class="agent-head"><div><div class="eyebrow">Agent security profile</div><h1>'+esc(a.name)+'</h1><div class="muted">'+esc(a.framework)+' · '+loc(a.location)+'</div></div><div class="page-actions">'+agentAttention(a)+badge(a.summary.contract_status)+'</div></div>'+
+function openAgent(identity,initialTab="overview",owaspRisk=null,inventoryFocus=null,supplyFocus=null){{
+ const byId=DATA.agents.find(x=>x.id===identity),byName=DATA.agents.filter(x=>x.name===identity);
+ const a=byId||(byName.length===1?byName[0]:null);
+ if(!a)return; // Never choose an arbitrary same-name agent.
+ const root=document.getElementById("agent-detail");
+ root.innerHTML='<button class="breadcrumb" id="back-agents">← Back to agents</button><div class="agent-head"><div><div class="eyebrow">Agent security profile</div><h1>'+esc(a.display_name||a.name)+'</h1><div class="muted">'+esc(a.framework)+' · '+esc(a.source_context||"unknown")+' · '+loc(a.location)+'</div></div><div class="page-actions">'+agentAttention(a)+badge(a.summary.contract_status)+'</div></div>'+
  '<div class="tabs" role="tablist"><button class="active" data-tab="overview">Overview</button><button data-tab="map">Agency map <span class="tab-count">'+number(a.summary.authority_relationships)+'</span></button><button data-tab="paths">Attack paths <span class="tab-count">'+number(a.summary.attack_paths)+'</span></button><button data-tab="findings">Findings <span class="tab-count">'+number(a.summary.findings)+'</span></button><button data-tab="contract">Contract <span class="tab-count">'+number(a.summary.contract_violations+a.summary.contract_unresolved)+'</span></button><button data-tab="evidence">Evidence</button></div>'+
  '<div id="tab-overview" class="agent-tab active">'+renderAgentOverview(a)+'</div><div id="tab-map" class="agent-tab">'+renderGraph(a)+'</div><div id="tab-paths" class="agent-tab">'+renderAgentPaths(a)+'</div><div id="tab-findings" class="agent-tab">'+renderAgentFindings(a,owaspRisk)+'</div><div id="tab-contract" class="agent-tab">'+renderAgentContract(a)+'</div><div id="tab-evidence" class="agent-tab">'+renderAgentEvidence(a)+'</div>';
- root.querySelectorAll("[data-agent-inventory]").forEach(btn=>btn.addEventListener("click",()=>{{renderComponents(btn.dataset.agentInventory,null,a.name);showView("components");}}));
+ root.querySelectorAll("[data-agent-inventory]").forEach(btn=>btn.addEventListener("click",()=>{{renderComponents(btn.dataset.agentInventory,null,a.id);showView("components");}}));
  root.querySelectorAll("[data-agent-link]").forEach(btn=>btn.addEventListener("click",()=>openAgent(decodeURIComponent(btn.dataset.agentLink))));
  bindPathDrill(root);
  root.querySelector("#back-agents").textContent=owaspRisk?"← Back to OWASP "+owaspRisk:(inventoryFocus?"← Back to components":(supplyFocus?"← Back to supply chain":"← Back to agents"));
@@ -2027,7 +2041,7 @@ function renderContracts(mode="all"){{
  let items=DATA.agents;if(mode==="declared")items=items.filter(a=>a.contract.declared);else if(mode==="violation")items=items.filter(a=>a.summary.contract_violations>0);else if(mode==="unresolved")items=items.filter(a=>a.summary.contract_unresolved>0);
  items=[...items].sort((a,b)=>(b.summary.contract_violations-a.summary.contract_violations)||(b.summary.contract_unresolved-a.summary.contract_unresolved)||a.name.localeCompare(b.name));
  const filters=[["all","All"],["declared","Declared"],["violation","Violations"],["unresolved","Unresolved"]],chips=filters.map(([value,label])=>'<button class="filter-chip '+(mode===value?"active":"")+'" data-contract-filter="'+value+'">'+esc(label)+'</button>').join("");
- const rows=items.map(a=>'<tr class="clickable" role="button" tabindex="0" data-agent="'+encodeURIComponent(a.name)+'"><td><div class="row-title">'+esc(a.name)+'</div><div class="row-sub">'+esc(a.framework)+'</div></td><td>'+badge(a.summary.contract_status)+'</td><td>'+number(a.summary.contract_violations)+'</td><td>'+number(a.summary.contract_unresolved)+'</td><td>'+number(a.contract.relationships.length)+'</td><td class="row-chevron">›</td></tr>').join("");
+ const rows=items.map(a=>'<tr class="clickable" role="button" tabindex="0" data-agent="'+encodeURIComponent(a.id)+'"><td><div class="row-title">'+esc(a.display_name||a.name)+'</div><div class="row-sub">'+esc(a.framework)+' · '+esc(a.source_context||"unknown")+'</div></td><td>'+badge(a.summary.contract_status)+'</td><td>'+number(a.summary.contract_violations)+'</td><td>'+number(a.summary.contract_unresolved)+'</td><td>'+number(a.contract.relationships.length)+'</td><td class="row-chevron">›</td></tr>').join("");
  const root=document.getElementById("contracts");root.innerHTML=pageHead("Policy assurance","Agent contracts","Declared Authority Contract constraints compared with reconstructed effective authority.",badge(DATA.assurance.authority_contract.status))+
  '<div class="cards">'+metric("Agents with contract",DATA.summary.agents_with_contract)+metric("Violations",DATA.summary.contract_violations,DATA.summary.contract_violations?"critical":"")+metric("Unresolved checks",DATA.summary.contract_unresolved,DATA.summary.contract_unresolved?"warn":"")+'</div>'+
  '<div class="toolbar"><div class="filter-chips">'+chips+'</div><div class="muted small">'+number(items.length)+' agents in view</div></div>'+
