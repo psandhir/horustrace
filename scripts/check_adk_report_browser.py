@@ -104,6 +104,29 @@ def check_report(html_file: Path) -> dict[str, object]:
             page.locator('#dashboard [data-drill="components:tools"]').click()
             assert page.locator('#components.active [data-inventory-kind="tools"].active').count() == 1
 
+            # Entire component rows are clickable by mouse and keyboard. Search and
+            # binding filters must survive opening/closing a detail profile.
+            assert page.locator('#components [data-drill="components:mcp"]').count() == 1
+            page.locator('#components [data-drill="components:mcp"]').click()
+            assert page.locator('#components.active [data-inventory-kind="mcp"].active').count() == 1
+            page.locator('#components [data-drill="components:unresolved"]').click()
+            assert page.locator('#components.active [data-inventory-filter="unresolved_reference"].active').count() == 1
+            page.locator('#components [data-inventory-kind="tools"]').click()
+            first_name = page.locator('#components [data-inventory-row] .row-title').first.inner_text()
+            page.locator('#inventory-search').fill(first_name)
+            first_row = page.locator('#components [data-inventory-row]').first
+            first_row.focus()
+            first_row.press("Enter")
+            assert page.locator('#components.active #inventory-detail').count() == 1
+            assert page.locator('#inventory-search').input_value() == first_name
+            page.locator('#inventory-clear').click()
+            assert page.locator('#inventory-search').input_value() == first_name
+            page.locator('#inventory-search').fill("")
+            page.locator('#components [data-inventory-row] .row-title').first.click()
+            assert page.locator('#components.active #inventory-detail').count() == 1
+            page.locator('#inventory-clear').click()
+            checks.append("Component card, full-row click and keyboard drilldowns preserve filters")
+
             # Explicit detail action, source evidence, agent security, and return route.
             assert page.locator('#components [data-inventory-open]').count() > 0
             first_tool = page.locator('#components [data-inventory-open]').first
@@ -133,7 +156,7 @@ def check_report(html_file: Path) -> dict[str, object]:
             # MCP detail should work independently of the Tools view.
             page.locator('#components [data-inventory-kind="mcp"]').click()
             assert page.locator('#components [data-inventory-open]').count() > 0
-            page.locator('#components [data-inventory-open]').first.click()
+            page.locator('#components [data-inventory-row]').first.click()
             assert page.locator('#components.active #inventory-detail').count() == 1
             assert "Transport" in page.locator('#inventory-detail').inner_text()
             assert "Allowed tools" in page.locator('#inventory-detail').inner_text()
@@ -158,7 +181,7 @@ def check_report(html_file: Path) -> dict[str, object]:
                     });
                     renderComponents("skills");
                 }""")
-            page.locator('#components [data-inventory-open]').first.click()
+            page.locator('#components [data-inventory-row]').first.click()
             assert page.locator('#components.active #inventory-detail').count() == 1
             assert "Skill source" in page.locator('#inventory-detail').inner_text()
             page.locator('#inventory-clear').click()
@@ -221,15 +244,51 @@ def check_report(html_file: Path) -> dict[str, object]:
             assert input_layout["inputLeft"], input_layout
             assert input_layout["destinationsRight"], input_layout
             assert input_layout["arrowsCorrect"], input_layout
+            # No node or relationship disappears when selecting, searching or
+            # switching lenses; only emphasis classes and inspector details change.
+            page.evaluate("""() => {
+                DATA.security_graph.topology.nodes.push({
+                    id: "synthetic-unrelated-ui-test", name: "synthetic-unrelated-ui-test",
+                    kind: "tool", attributes: {}, location: null
+                });
+                renderSupplyChain();
+            }""")
+            baseline = page.evaluate("""() => ({
+                nodes: document.querySelectorAll('#supply [data-supply-node]').length,
+                edges: document.querySelectorAll('#supply [data-supply-edge]').length,
+                canonicalNodes: DATA.security_graph.topology.nodes.length,
+                canonicalEdges: DATA.security_graph.topology.edges.length,
+                muted: document.querySelectorAll('#supply .is-muted').length
+            })""")
+            assert baseline["nodes"] == baseline["canonicalNodes"], baseline
+            assert baseline["edges"] == baseline["canonicalEdges"], baseline
+            assert baseline["muted"] == 0, baseline
+            assert page.locator('#supply .has-emphasis').count() == 0
+
+            def unchanged_topology():
+                counts = page.evaluate("""() => ({
+                    nodes: document.querySelectorAll('#supply [data-supply-node]').length,
+                    edges: document.querySelectorAll('#supply [data-supply-edge]').length,
+                    mutedCanary: document.querySelector(
+                        '#supply [data-supply-node="synthetic-unrelated-ui-test"]'
+                    )?.classList.contains('is-muted')
+                })""")
+                assert counts["nodes"] == baseline["nodes"], counts
+                assert counts["edges"] == baseline["edges"], counts
+                assert counts["mutedCanary"], counts
+
             page.locator('#supply [data-edge-kind="RECEIVES_INPUT_FROM"]').first.click()
+            unchanged_topology()
             assert "Input → agent" in page.locator("#supply-inspector").inner_text()
             page.locator('#supply [data-supply-node][data-kind="input"]').first.click()
+            unchanged_topology()
             assert "Input semantics" in page.locator("#supply-inspector").inner_text()
             checks.append("Input sources render left of agents; inbound arrows preserve canonical ADG")
 
             agent_node = page.locator('#supply [data-supply-node][data-kind="agent"]').first
             agent_node.focus()
             agent_node.press("Enter")
+            unchanged_topology()
             assert page.locator("#supply-inspector").inner_text().strip()
             assert page.locator("#supply-open-agent").count() == 1
             page.locator("#supply-open-agent").click()
@@ -238,7 +297,14 @@ def check_report(html_file: Path) -> dict[str, object]:
             assert page.locator("#supply.active .supply-diagram").count() == 1
             page.locator('#supply [data-supply-layer="execution"]').click()
             assert page.locator("#supply.active .supply-diagram").count() == 1
-            page.locator("#supply-focus").select_option("all")
+            unchanged_topology()
+            page.locator('#supply-search').fill("privileged_worker")
+            unchanged_topology()
+            page.locator("#supply-clear-focus").click()
+            assert page.locator('#supply .is-muted').count() == 0
+            assert page.locator('#supply .has-emphasis').count() == 0
+            assert page.locator('#supply [data-supply-edge]').count() == baseline["edges"]
+            checks.append("Supply chain selection dims unrelated nodes and retains full topology")
             checks.append("Supply chain graph supports keyboard, source inspection, layers and agent return")
 
             page.locator('[data-theme-choice="dark"]').click()
