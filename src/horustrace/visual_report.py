@@ -6,6 +6,7 @@ models; this module projects those results into a portable offline HTML document
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from collections import Counter
 from html import escape
@@ -14,11 +15,16 @@ from typing import Any
 
 from horustrace.assurance import build_assurance_report
 from horustrace.authority_contract import authority_contract_report
-from horustrace.effective_authority import effective_authority_report
+from horustrace.effective_authority import (
+    _agent_instance_key,
+    effective_authority_relationships,
+    effective_authority_report,
+)
 from horustrace.models import Finding, Graph
 from horustrace.owasp import build_owasp_agentic_summary
 from horustrace.provenance import context as provenance_context
 from horustrace.security_graph import build_agent_security_graph
+from horustrace.source_context import classify_source_context
 from horustrace.source_shadow_workbench import SOURCE_OVERLAY_CSS, SOURCE_OVERLAY_JS
 
 VISUAL_REPORT_SCHEMA_VERSION = 1
@@ -59,6 +65,36 @@ def _severity_counts(findings: list[Finding]) -> dict[str, int]:
     }
 
 
+def _agent_report_id(agent: Any, root: Path) -> str:
+    """Portable source-site identity, independent of the checkout directory.
+
+    Display names and local variable aliases are not safe join keys.
+    """
+    location = _agent_location(agent, root)
+    payload = json.dumps(
+        {
+            "framework": str(agent.metadata.get("framework") or "generic"),
+            "symbol": agent.name,
+            "location": location,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return "agent-source:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()[:20]
+
+
+def _agent_display_name(agent: Any, root: Path, names: Counter[str]) -> str:
+    """Qualify generic and repeated aliases without pretending they are roles."""
+    if names[agent.name] == 1 and agent.name not in {
+        "agent", "self.agent", "self._agent", "factory", "prebuilt"
+    }:
+        return agent.name
+    location = _agent_location(agent, root)
+    if location is None:
+        return agent.name + " (source unresolved)"
+    return f"{location['path']}::{agent.name}@{location['line']}"
+
+
 def _agent_location(agent: Any, root: Path) -> dict[str, Any] | None:
     if agent.location is None:
         return None
@@ -96,12 +132,13 @@ def _component_inventories(graph: Graph, root: Path) -> tuple[list[dict[str, Any
     tools: list[dict[str, Any]] = []
     servers: list[dict[str, Any]] = []
 
-    def add_tool(item: Any, agent: str | None) -> None:
+    def add_tool(item: Any, agent: str | None, agent_id: str | None = None) -> None:
         tools.append({
             "name": item.name,
             "kind": item.kind,
             "binding_state": "bound" if agent else "unbound",
             "bound_agents": [agent] if agent else [],
+            "bound_agent_ids": [agent_id] if agent_id else [],
             "location": _component_location(item.location, root),
             "capabilities": sorted(item.capabilities),
             "approval": item.approval,
@@ -111,7 +148,7 @@ def _component_inventories(graph: Graph, root: Path) -> tuple[list[dict[str, Any
             "destinations": [d.target for d in item.destinations],
         })
 
-    def add_server(item: Any, agent: str | None, unresolved: bool = False) -> None:
+    def add_server(item: Any, agent: str | None, agent_id: str | None = None, unresolved: bool = False) -> None:
         servers.append({
             "name": item.name,
             "transport": item.transport,
@@ -119,6 +156,7 @@ def _component_inventories(graph: Graph, root: Path) -> tuple[list[dict[str, Any
                 "unresolved_reference" if unresolved else ("bound" if agent else "unbound")
             ),
             "bound_agents": [agent] if agent else [],
+            "bound_agent_ids": [agent_id] if agent_id else [],
             "location": _component_location(item.location, root),
             # Avoid embedding URL query strings or execution arguments in the HTML.
             "endpoint": item.url.split("?", 1)[0].split("#", 1)[0] if item.url else None,
@@ -134,9 +172,9 @@ def _component_inventories(graph: Graph, root: Path) -> tuple[list[dict[str, Any
 
     for agent in graph.agents:
         for tool in agent.tools:
-            add_tool(tool, agent.name)
+            add_tool(tool, agent.name, _agent_report_id(agent, root))
         for server in agent.mcp_servers:
-            add_server(server, agent.name)
+            add_server(server, agent.name, _agent_report_id(agent, root))
     for tool in graph.unbound_tools:
         add_tool(tool, None)
     for server in graph.unbound_mcp_servers:
@@ -383,6 +421,14 @@ def build_visual_report(
     """Build the versioned data contract consumed by the offline HTML renderer."""
     root = root.resolve()
     authority = _relativize(effective_authority_report(graph), root)
+    # Keep instance discrimination in memory; never emit absolute checkout
+    # paths from the internal instance_key into the portable HTML payload.
+    relationship_instance = {
+        item.relationship_id: item.agent_instance_key
+        for item in effective_authority_relationships(graph)
+    }
+    name_counts: Counter[str] = Counter(agent.name for agent in graph.agents)
+    ambiguous_names = {name for name, count in name_counts.items() if count > 1}
     contract = _relativize(authority_contract_report(graph), root)
     security_graph = build_agent_security_graph(graph, root).as_dict()
     findings_docs = [
@@ -416,13 +462,20 @@ def build_visual_report(
     write_relationships = 0
 
     for agent in sorted(graph.agents, key=lambda item: item.name):
+        agent_id = _agent_report_id(agent, root)
+        agent_instance = _agent_instance_key(agent)
         relationships = [
             item
             for item in authority.get("relationships", [])
-            if item.get("agent") == agent.name
+            if relationship_instance.get(item.get("relationship_id")) == agent_instance
         ]
+        # Legacy findings and paths contain a human name but no proven instance
+        # identifier. When names collide, leave the evidence at repository level
+        # rather than spreading it across unrelated agents.
+        uniquely_named = agent.name not in ambiguous_names
         agent_findings = [
-            item for item in findings_docs if item.get("agent") == agent.name
+            item for item in findings_docs
+            if uniquely_named and item.get("agent") == agent.name
         ]
         agent_policy_findings = [
             item
@@ -430,7 +483,8 @@ def build_visual_report(
             if item.get("assessment") == "policy_violation"
         ]
         agent_attack_paths = [
-            item for item in attack_paths if item.get("agent") == agent.name
+            item for item in attack_paths
+            if uniquely_named and item.get("agent") == agent.name
         ]
         agent_path_views = [
             _attack_path_view(
@@ -493,7 +547,13 @@ def build_visual_report(
         )
         agents.append(
             {
+                "id": agent_id,
                 "name": agent.name,
+                "display_name": _agent_display_name(agent, root, name_counts),
+                "source_context": classify_source_context(
+                    agent.location.path if agent.location else None, root
+                ),
+                "attribution_ambiguous": not uniquely_named,
                 "provenance_inventory": [
                     _relativize(fact.as_dict(), root)
                     for fact in provenance_context(agent)
@@ -515,13 +575,15 @@ def build_visual_report(
                     "contract_status": contract_status,
                     "contract_violations": len(
                         contract_violations_by_agent.get(agent.name, [])
+                        if uniquely_named else []
                     ),
                     "contract_unresolved": len(
                         contract_unresolved_by_agent.get(agent.name, [])
+                        if uniquely_named else []
                     ),
                 },
                 "severity": _severity_counts(
-                    [item for item in findings if item.agent == agent.name]
+                    [item for item in findings if uniquely_named and item.agent == agent.name]
                 ),
                 "skills": [
                     {
@@ -552,8 +614,8 @@ def build_visual_report(
                 "contract": {
                     "declared": contract_doc,
                     "relationships": relationship_contracts,
-                    "violations": contract_violations_by_agent.get(agent.name, []),
-                    "unresolved": contract_unresolved_by_agent.get(agent.name, []),
+                    "violations": contract_violations_by_agent.get(agent.name, []) if uniquely_named else [],
+                    "unresolved": contract_unresolved_by_agent.get(agent.name, []) if uniquely_named else [],
                 },
             }
         )
@@ -588,11 +650,15 @@ def build_visual_report(
                     "resources": _component_resources(skill.resources),
                     "destinations": [d.target for d in skill.destinations],
                     "bound_agents": [],
+                    "bound_agent_ids": [],
                     "binding_state": "bound",
                 },
             )
             if agent.name not in item["bound_agents"]:
                 item["bound_agents"].append(agent.name)
+            agent_id = _agent_report_id(agent, root)
+            if agent_id not in item["bound_agent_ids"]:
+                item["bound_agent_ids"].append(agent_id)
     for skill in graph.unbound_skills:
         location = (
             _relative_path(str(skill.location.path), root)
@@ -643,6 +709,17 @@ def build_visual_report(
         "root": ".",
         "summary": {
             "agents": len(graph.agents),
+            "agent_source_contexts": dict(sorted(Counter(
+                classify_source_context(agent.location.path if agent.location else None, root)
+                for agent in graph.agents
+            ).items())),
+            "ambiguous_agent_names": len(ambiguous_names),
+            "unattributed_findings": sum(
+                item.get("agent") in ambiguous_names for item in findings_docs
+            ),
+            "unattributed_attack_paths": sum(
+                item.get("agent") in ambiguous_names for item in attack_paths
+            ),
             "tools": len(graph.all_tools()),
             "skills": len(graph.all_skills()),
             "bound_skills": sum(len(agent.skills) for agent in graph.agents),
