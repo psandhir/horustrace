@@ -131,6 +131,11 @@ def _component_inventories(graph: Graph, root: Path) -> tuple[list[dict[str, Any
     """
     tools: list[dict[str, Any]] = []
     servers: list[dict[str, Any]] = []
+    names = Counter(agent.name for agent in graph.agents)
+    labels_by_id = {
+        _agent_report_id(agent, root): _agent_display_name(agent, root, names)
+        for agent in graph.agents
+    }
 
     def add_tool(item: Any, agent: str | None, agent_id: str | None = None) -> None:
         tools.append({
@@ -139,6 +144,7 @@ def _component_inventories(graph: Graph, root: Path) -> tuple[list[dict[str, Any
             "binding_state": "bound" if agent else "unbound",
             "bound_agents": [agent] if agent else [],
             "bound_agent_ids": [agent_id] if agent_id else [],
+            "bound_agent_labels": [labels_by_id[agent_id]] if agent_id else [],
             "location": _component_location(item.location, root),
             "capabilities": sorted(item.capabilities),
             "approval": item.approval,
@@ -157,6 +163,7 @@ def _component_inventories(graph: Graph, root: Path) -> tuple[list[dict[str, Any
             ),
             "bound_agents": [agent] if agent else [],
             "bound_agent_ids": [agent_id] if agent_id else [],
+            "bound_agent_labels": [labels_by_id[agent_id]] if agent_id else [],
             "location": _component_location(item.location, root),
             # Avoid embedding URL query strings or execution arguments in the HTML.
             "endpoint": item.url.split("?", 1)[0].split("#", 1)[0] if item.url else None,
@@ -751,6 +758,7 @@ def build_visual_report(
                     "destinations": [d.target for d in skill.destinations],
                     "bound_agents": [],
                     "bound_agent_ids": [],
+                    "bound_agent_labels": [],
                     "binding_state": "bound",
                 },
             )
@@ -759,6 +767,9 @@ def build_visual_report(
             agent_id = _agent_report_id(agent, root)
             if agent_id not in item["bound_agent_ids"]:
                 item["bound_agent_ids"].append(agent_id)
+                item["bound_agent_labels"].append(
+                    _agent_display_name(agent, root, name_counts)
+                )
     for skill in graph.unbound_skills:
         location = (
             _relative_path(str(skill.location.path), root)
@@ -1547,7 +1558,7 @@ function inventoryTable(items,kind){{
  if(!items.length)return '<div class="empty">No matching components in this scan.</div>';
  const rows=items.map(item=>'<tr class="clickable" role="button" tabindex="0" data-inventory-row="'+esc(item.id)+'" aria-label="Inspect '+esc(item.name)+' component">'+
  '<td><div class="row-title">'+esc(item.name)+'</div><div class="row-sub">'+esc(kind==="mcp"?(item.transport||"unknown transport"):kind==="tools"?(item.kind||"tool"):(item.source||"skill"))+' · '+loc(item.location)+'</div></td>'+
- '<td>'+badge(item.binding_state)+'</td><td>'+esc((item.bound_agents||[]).join(", ")||"—")+'</td>'+
+ '<td>'+badge(item.binding_state)+'</td><td>'+esc((item.bound_agent_labels||item.bound_agents||[]).join(", ")||"—")+'</td>'+
  '<td>'+esc(inventorySummary(item,kind))+'</td><td><button type="button" class="back" data-inventory-open="'+esc(item.id)+'" aria-label="View '+esc(item.name)+' component details">View details ›</button></td></tr>').join("");
  return '<div class="panel flush table-wrap"><table aria-label="'+esc(kind)+' inventory"><thead><tr><th>Component</th><th>Binding</th><th>Agent(s)</th><th>Capabilities / endpoint</th><th>Inspect</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }}
@@ -1569,7 +1580,7 @@ function inventoryDetail(item,kind){{
    '<div class="filter-chips" style="margin-top:8px"><button class="filter-chip" type="button" data-inventory-agent="'+encodeURIComponent(id)+'">Open agent profile ↗</button>'+
    '<button class="filter-chip" type="button" data-inventory-agent-findings="'+encodeURIComponent(id)+'">Review agent findings ↗</button></div></div>';
  }}).join("");
- const agents=agentIds;
+ const agents=agentIds.map(id=>{{const item=DATA.agents.find(a=>a.id===id);return item?(item.display_name||item.name):id;}});
  const topologyNode=topology.node;
  const topologyAction=topologyNode?'<button type="button" class="back" data-inventory-supply="'+esc(topologyNode.id)+'">View in supply chain ↗</button>':
  '<span class="muted small">No unambiguous source-backed graph node for this instance.</span>';
@@ -1794,7 +1805,10 @@ function renderSupplyChain(focus="all",layer="all",selectedId=null,query=""){{
  const root=document.getElementById("supply"),topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[],edges=topology.edges||[];
  const agents=nodes.filter(n=>n.kind==="agent"),view=supplyTopologyVisible();
  let activeFocus=focus,activeSelection=selectedId||(focus!=="all"?focus:null),activeQuery=query;
- const options=[["all","All discovered agents"],...agents.map(n=>[n.id,n.name])].map(([id,label])=>
+ const options=[["all","All discovered agents"],...agents.map(n=>{{
+   const match=DATA.agents.find(a=>a.name===n.name&&a.location?.path===n.location?.path&&a.location?.line===n.location?.line);
+   return [n.id,match?(match.display_name||match.name):(n.location?.path?n.location.path+"::"+n.name+"@"+n.location.line:n.name)];
+ }})].map(([id,label])=>
   '<option value="'+esc(id)+'"'+(id===focus?" selected":"")+'>'+esc(label)+'</option>').join("");
  const layers=[["all","All relationships"],["execution","Invocation & delegation"],["data","Data & destinations"],["authority","Authority & controls"]];
  const chips=layers.map(([id,label])=>'<button type="button" class="filter-chip '+(layer===id?"active":"")+'" data-supply-layer="'+id+'">'+esc(label)+'</button>').join("");
