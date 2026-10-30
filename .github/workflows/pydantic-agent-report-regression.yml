@@ -1,0 +1,123 @@
+name: Pydantic sample agent reporting regression
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pydantic-agent-report-regression.yml'
+      - 'src/horustrace/visual_report.py'
+      - 'src/horustrace/effective_authority.py'
+      - 'tests/test_visual_report_agent_identity.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: pydantic-deepagents
+            repo: vstorm-co/pydantic-deepagents
+            sha: 650b592b6accd7dc994226abbaa0cf717527e457
+            expected_agents: 18
+            expected_authority: 3
+          - name: subagents-pydantic-ai
+            repo: vstorm-co/subagents-pydantic-ai
+            sha: 832178430f31e07fa8bc645ab4bc28b964f459cc
+            expected_agents: 4
+            expected_authority: 3
+          - name: pydantic-ai-backend
+            repo: vstorm-co/pydantic-ai-backend
+            sha: de05c5f43a4bdcedcf3fd0349d44d0d5c5edbaa7
+            expected_agents: 12
+            expected_authority: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: scanner
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repo }}
+          ref: ${{ matrix.sha }}
+          path: target
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install scanner
+        run: python -m pip install --disable-pip-version-check ./scanner
+      - name: Verify pinned scan input
+        env:
+          EXPECTED_SHA: ${{ matrix.sha }}
+        run: |
+          test "$(git -C target rev-parse HEAD)" = "$EXPECTED_SHA"
+          mkdir -p artifacts
+          git -C scanner rev-parse HEAD > artifacts/scanner-sha.txt
+          git -C target rev-parse HEAD > artifacts/target-sha.txt
+      - name: Generate scanner JSON and HTML (do not execute target)
+        run: |
+          horustrace scan target --format json --output artifacts/scan.json --fail-on none
+          horustrace report target --output artifacts/report.html
+      - name: Assert source-qualified identity and no authority fanout
+        env:
+          EXPECTED_AGENTS: ${{ matrix.expected_agents }}
+          EXPECTED_AUTHORITY: ${{ matrix.expected_authority }}
+          REPO_NAME: ${{ matrix.name }}
+        run: |
+          python - <<'PY'
+          import json, os, pathlib, re
+          html = pathlib.Path("artifacts/report.html").read_text()
+          match = re.search(r'<script id="horus-data" type="application/json">(.*?)</script>', html, re.S)
+          assert match is not None, "report JSON missing"
+          payload = json.loads(match.group(1))
+          agents = payload["agents"]
+          assert len(agents) == int(os.environ["EXPECTED_AGENTS"]), (
+              os.environ["REPO_NAME"], len(agents)
+          )
+          assert len({a["id"] for a in agents}) == len(agents)
+          assert len({a["display_name"] for a in agents}) == len(agents)
+          assert all(a["source_context"] for a in agents)
+          assert all(a["id"].startswith("agent-source:") for a in agents)
+          assert payload["summary"]["authority_relationships"] == int(
+              os.environ["EXPECTED_AUTHORITY"]
+          )
+          per_agent = sum(a["summary"]["authority_relationships"] for a in agents)
+          assert per_agent == payload["summary"]["authority_relationships"], (
+              "same-name authority fanout", per_agent,
+              payload["summary"]["authority_relationships"]
+          )
+          all_ids = {a["id"] for a in agents}
+          for item in payload["tools"] + payload["mcp_servers"] + payload["skills"]:
+              assert set(item.get("bound_agent_ids", [])) <= all_ids, item["name"]
+          if os.environ["REPO_NAME"] == "pydantic-ai-backend":
+              assert sum(a["name"] == "agent" for a in agents) == 8
+              basics = [a for a in agents if a["location"]["path"] == "examples/basic_capability.py"]
+              assert len(basics) == 1
+              assert basics[0]["source_context"] == "example"
+              assert basics[0]["summary"]["authority_relationships"] == 0
+              assert not basics[0]["effective_authority"]
+              assert not any(a["source_context"] == "runtime" for a in agents)
+          result = {
+              "repo": os.environ["REPO_NAME"],
+              "agent_nodes": len(agents),
+              "agent_labels_unique": True,
+              "source_context_counts": payload["summary"]["agent_source_contexts"],
+              "actual_authority_relationships": payload["summary"]["authority_relationships"],
+              "per_agent_relationships": per_agent,
+              "unattributed_findings": payload["summary"]["unattributed_findings"],
+              "unattributed_attack_paths": payload["summary"]["unattributed_attack_paths"],
+          }
+          pathlib.Path("artifacts/regression.json").write_text(json.dumps(result, indent=2))
+          print(json.dumps(result, indent=2))
+          PY
+      - name: Preserve scan, HTML and measurements
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pydantic-report-regression-${{ matrix.name }}
+          path: artifacts/
+          retention-days: 90
+          if-no-files-found: warn
