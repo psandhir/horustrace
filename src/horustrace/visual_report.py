@@ -6,6 +6,7 @@ models; this module projects those results into a portable offline HTML document
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from collections import Counter
 from html import escape
@@ -14,11 +15,16 @@ from typing import Any
 
 from horustrace.assurance import build_assurance_report
 from horustrace.authority_contract import authority_contract_report
-from horustrace.effective_authority import effective_authority_report
+from horustrace.effective_authority import (
+    _agent_instance_key,
+    effective_authority_relationships,
+    effective_authority_report,
+)
 from horustrace.models import Finding, Graph
 from horustrace.owasp import build_owasp_agentic_summary
 from horustrace.provenance import context as provenance_context
 from horustrace.security_graph import build_agent_security_graph
+from horustrace.source_context import classify_source_context
 from horustrace.source_shadow_workbench import SOURCE_OVERLAY_CSS, SOURCE_OVERLAY_JS
 
 VISUAL_REPORT_SCHEMA_VERSION = 1
@@ -59,6 +65,36 @@ def _severity_counts(findings: list[Finding]) -> dict[str, int]:
     }
 
 
+def _agent_report_id(agent: Any, root: Path) -> str:
+    """Portable source-site identity, independent of the checkout directory.
+
+    Display names and local variable aliases are not safe join keys.
+    """
+    location = _agent_location(agent, root)
+    payload = json.dumps(
+        {
+            "framework": str(agent.metadata.get("framework") or "generic"),
+            "symbol": agent.name,
+            "location": location,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return "agent-source:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()[:20]
+
+
+def _agent_display_name(agent: Any, root: Path, names: Counter[str]) -> str:
+    """Qualify generic and repeated aliases without pretending they are roles."""
+    if names[agent.name] == 1 and agent.name not in {
+        "agent", "self.agent", "self._agent", "factory", "prebuilt"
+    }:
+        return agent.name
+    location = _agent_location(agent, root)
+    if location is None:
+        return agent.name + " (source unresolved)"
+    return f"{location['path']}::{agent.name}@{location['line']}"
+
+
 def _agent_location(agent: Any, root: Path) -> dict[str, Any] | None:
     if agent.location is None:
         return None
@@ -95,13 +131,20 @@ def _component_inventories(graph: Graph, root: Path) -> tuple[list[dict[str, Any
     """
     tools: list[dict[str, Any]] = []
     servers: list[dict[str, Any]] = []
+    names = Counter(agent.name for agent in graph.agents)
+    labels_by_id = {
+        _agent_report_id(agent, root): _agent_display_name(agent, root, names)
+        for agent in graph.agents
+    }
 
-    def add_tool(item: Any, agent: str | None) -> None:
+    def add_tool(item: Any, agent: str | None, agent_id: str | None = None) -> None:
         tools.append({
             "name": item.name,
             "kind": item.kind,
             "binding_state": "bound" if agent else "unbound",
             "bound_agents": [agent] if agent else [],
+            "bound_agent_ids": [agent_id] if agent_id else [],
+            "bound_agent_labels": [labels_by_id[agent_id]] if agent_id else [],
             "location": _component_location(item.location, root),
             "capabilities": sorted(item.capabilities),
             "approval": item.approval,
@@ -111,7 +154,7 @@ def _component_inventories(graph: Graph, root: Path) -> tuple[list[dict[str, Any
             "destinations": [d.target for d in item.destinations],
         })
 
-    def add_server(item: Any, agent: str | None, unresolved: bool = False) -> None:
+    def add_server(item: Any, agent: str | None, agent_id: str | None = None, unresolved: bool = False) -> None:
         servers.append({
             "name": item.name,
             "transport": item.transport,
@@ -119,6 +162,8 @@ def _component_inventories(graph: Graph, root: Path) -> tuple[list[dict[str, Any
                 "unresolved_reference" if unresolved else ("bound" if agent else "unbound")
             ),
             "bound_agents": [agent] if agent else [],
+            "bound_agent_ids": [agent_id] if agent_id else [],
+            "bound_agent_labels": [labels_by_id[agent_id]] if agent_id else [],
             "location": _component_location(item.location, root),
             # Avoid embedding URL query strings or execution arguments in the HTML.
             "endpoint": item.url.split("?", 1)[0].split("#", 1)[0] if item.url else None,
@@ -134,9 +179,9 @@ def _component_inventories(graph: Graph, root: Path) -> tuple[list[dict[str, Any
 
     for agent in graph.agents:
         for tool in agent.tools:
-            add_tool(tool, agent.name)
+            add_tool(tool, agent.name, _agent_report_id(agent, root))
         for server in agent.mcp_servers:
-            add_server(server, agent.name)
+            add_server(server, agent.name, _agent_report_id(agent, root))
     for tool in graph.unbound_tools:
         add_tool(tool, None)
     for server in graph.unbound_mcp_servers:
@@ -375,6 +420,73 @@ def _finding_provenance_digest(finding: Finding, root: Path) -> dict[str, Any]:
     return {"items": items[:2], "additional_contexts": max(0, len(items) - 2)}
 
 
+def _source_owner(
+    *,
+    name: str | None,
+    location: Any,
+    agents: list[Any],
+    root: Path,
+    relationship_ids: list[str] | None = None,
+    relationship_instances: dict[str, str] | None = None,
+) -> tuple[str | None, str]:
+    """Require a unique instance witness; a shared Python alias is not identity."""
+    if not name:
+        return None, "unresolved_missing_agent"
+    instances = [_agent_instance_key(agent) for agent in agents]
+    instance_counts = Counter(instances)
+    eligible = [
+        agent for agent in agents
+        if agent.name == name and instance_counts[_agent_instance_key(agent)] == 1
+    ]
+    reference_ids = list(dict.fromkeys(relationship_ids or []))
+    if reference_ids:
+        owners = {
+            (relationship_instances or {}).get(item)
+            for item in reference_ids
+        }
+        if len(owners) == 1:
+            owner = next(iter(owners))
+            if owner in {_agent_instance_key(agent) for agent in eligible}:
+                return owner, "exact_authority_relationship"
+        # A contradictory explicit relationship must not be silently
+        # replaced by a weaker same-file guess.
+        return None, "unresolved_authority_reference"
+    if len(eligible) == 1:
+        return _agent_instance_key(eligible[0]), "unique_agent_name"
+
+    if location is None:
+        return None, "unresolved_name_collision"
+    if isinstance(location, dict):
+        path, line = location.get("path"), location.get("line")
+    else:
+        path, line = str(location.path), location.line
+    if not isinstance(path, str) or not isinstance(line, int):
+        return None, "unresolved_name_collision"
+    target_path = _relative_path(path, root)
+
+    anchored = []
+    for agent in eligible:
+        # A same-name agent in the same file is not sufficient. Require
+        # a *matching source line* at its constructor, registered tool,
+        # Skill, or MCP binding site.
+        witnesses = [
+            agent.location,
+            *(tool.location for tool in agent.tools),
+            *(server.location for server in agent.mcp_servers),
+            *(skill.location for skill in agent.skills),
+        ]
+        if any(
+            witness is not None
+            and _relative_path(str(witness.path), root) == target_path
+            and witness.line == line
+            for witness in witnesses
+        ):
+            anchored.append(_agent_instance_key(agent))
+    if len(set(anchored)) == 1:
+        return anchored[0], "exact_source_binding_site"
+    return None, "unresolved_name_collision"
+
+
 def build_visual_report(
     graph: Graph,
     findings: list[Finding],
@@ -383,16 +495,57 @@ def build_visual_report(
     """Build the versioned data contract consumed by the offline HTML renderer."""
     root = root.resolve()
     authority = _relativize(effective_authority_report(graph), root)
+    # Keep instance discrimination in memory; never emit absolute checkout
+    # paths from the internal instance_key into the portable HTML payload.
+    relationship_instance = {
+        item.relationship_id: item.agent_instance_key
+        for item in effective_authority_relationships(graph)
+    }
+    name_counts: Counter[str] = Counter(agent.name for agent in graph.agents)
+    ambiguous_names = {name for name, count in name_counts.items() if count > 1}
     contract = _relativize(authority_contract_report(graph), root)
     security_graph = build_agent_security_graph(graph, root).as_dict()
-    findings_docs = [
-        {
-            **_relativize(item.as_dict(), root),
-            "provenance_digest": _finding_provenance_digest(item, root),
-        }
-        for item in findings
-    ]
+    unique_agent_instances = {
+        _agent_instance_key(agent): _agent_report_id(agent, root)
+        for agent in graph.agents
+    }
+    # Source evidence can resolve some otherwise duplicate aliases; never
+    # infer ownership from the name alone where a collision remains.
+    finding_owner: dict[int, str | None] = {}
+    findings_docs = []
+    for finding in findings:
+        reference_ids = [
+            value.split("=", 1)[1]
+            for value in finding.evidence
+            if isinstance(value, str) and value.startswith("authority_relationship=")
+        ]
+        if finding.authority_relationship_id:
+            reference_ids.insert(0, finding.authority_relationship_id)
+        owner, basis = _source_owner(
+            name=finding.agent,
+            location=finding.location,
+            agents=graph.agents,
+            root=root,
+            relationship_ids=reference_ids,
+            relationship_instances=relationship_instance,
+        )
+        finding_owner[id(finding)] = owner
+        findings_docs.append({
+            **_relativize(finding.as_dict(), root),
+            "provenance_digest": _finding_provenance_digest(finding, root),
+            "agent_id": unique_agent_instances.get(owner),
+            "attribution_basis": basis,
+        })
     attack_paths = security_graph.get("attack_paths", [])
+    path_owner: dict[int, str | None] = {}
+    for path in attack_paths:
+        owner, _ = _source_owner(
+            name=path.get("agent"),
+            location=path.get("location"),
+            agents=graph.agents,
+            root=root,
+        )
+        path_owner[id(path)] = owner
     flows_by_id = {
         str(item.get("flow_id")): item
         for item in security_graph.get("flows", [])
@@ -416,13 +569,20 @@ def build_visual_report(
     write_relationships = 0
 
     for agent in sorted(graph.agents, key=lambda item: item.name):
+        agent_id = _agent_report_id(agent, root)
+        agent_instance = _agent_instance_key(agent)
         relationships = [
             item
             for item in authority.get("relationships", [])
-            if item.get("agent") == agent.name
+            if relationship_instance.get(item.get("relationship_id")) == agent_instance
         ]
+        # Legacy findings and paths contain a human name but no proven instance
+        # identifier. When names collide, leave the evidence at repository level
+        # rather than spreading it across unrelated agents.
+        uniquely_named = agent.name not in ambiguous_names
         agent_findings = [
-            item for item in findings_docs if item.get("agent") == agent.name
+            item for item in findings_docs
+            if item.get("agent_id") == agent_id
         ]
         agent_policy_findings = [
             item
@@ -430,7 +590,8 @@ def build_visual_report(
             if item.get("assessment") == "policy_violation"
         ]
         agent_attack_paths = [
-            item for item in attack_paths if item.get("agent") == agent.name
+            item for item in attack_paths
+            if path_owner.get(id(item)) == agent_instance
         ]
         agent_path_views = [
             _attack_path_view(
@@ -493,7 +654,13 @@ def build_visual_report(
         )
         agents.append(
             {
+                "id": agent_id,
                 "name": agent.name,
+                "display_name": _agent_display_name(agent, root, name_counts),
+                "source_context": classify_source_context(
+                    agent.location.path if agent.location else None, root
+                ),
+                "attribution_ambiguous": not uniquely_named,
                 "provenance_inventory": [
                     _relativize(fact.as_dict(), root)
                     for fact in provenance_context(agent)
@@ -515,13 +682,15 @@ def build_visual_report(
                     "contract_status": contract_status,
                     "contract_violations": len(
                         contract_violations_by_agent.get(agent.name, [])
+                        if uniquely_named else []
                     ),
                     "contract_unresolved": len(
                         contract_unresolved_by_agent.get(agent.name, [])
+                        if uniquely_named else []
                     ),
                 },
                 "severity": _severity_counts(
-                    [item for item in findings if item.agent == agent.name]
+                    [item for item in findings if finding_owner.get(id(item)) == agent_instance]
                 ),
                 "skills": [
                     {
@@ -552,8 +721,8 @@ def build_visual_report(
                 "contract": {
                     "declared": contract_doc,
                     "relationships": relationship_contracts,
-                    "violations": contract_violations_by_agent.get(agent.name, []),
-                    "unresolved": contract_unresolved_by_agent.get(agent.name, []),
+                    "violations": contract_violations_by_agent.get(agent.name, []) if uniquely_named else [],
+                    "unresolved": contract_unresolved_by_agent.get(agent.name, []) if uniquely_named else [],
                 },
             }
         )
@@ -588,11 +757,19 @@ def build_visual_report(
                     "resources": _component_resources(skill.resources),
                     "destinations": [d.target for d in skill.destinations],
                     "bound_agents": [],
+                    "bound_agent_ids": [],
+                    "bound_agent_labels": [],
                     "binding_state": "bound",
                 },
             )
             if agent.name not in item["bound_agents"]:
                 item["bound_agents"].append(agent.name)
+            agent_id = _agent_report_id(agent, root)
+            if agent_id not in item["bound_agent_ids"]:
+                item["bound_agent_ids"].append(agent_id)
+                item["bound_agent_labels"].append(
+                    _agent_display_name(agent, root, name_counts)
+                )
     for skill in graph.unbound_skills:
         location = (
             _relative_path(str(skill.location.path), root)
@@ -643,6 +820,19 @@ def build_visual_report(
         "root": ".",
         "summary": {
             "agents": len(graph.agents),
+            "agent_source_contexts": dict(sorted(Counter(
+                classify_source_context(agent.location.path if agent.location else None, root)
+                for agent in graph.agents
+            ).items())),
+            "ambiguous_agent_names": len(ambiguous_names),
+            "unattributed_findings": sum(
+                item["agent_id"] is None and item.get("agent") is not None
+                for item in findings_docs
+            ),
+            "unattributed_attack_paths": sum(
+                path_owner.get(id(item)) is None and item.get("agent") is not None
+                for item in attack_paths
+            ),
             "tools": len(graph.all_tools()),
             "skills": len(graph.all_skills()),
             "bound_skills": sum(len(agent.skills) for agent in graph.agents),
@@ -676,6 +866,20 @@ def build_visual_report(
             "analysis_incomplete": graph.coverage.incomplete,
         },
         "agents": agents,
+        # Keep ambiguous agent-name paths discoverable in the repository-wide
+        # risk view without fabricating a unique instance owner.
+        "unattributed_attack_paths": [
+            {
+                **_attack_path_view(
+                    item,
+                    agent_name=str(item.get("agent") or "unresolved"),
+                    flows_by_id=flows_by_id,
+                ),
+                "attribution_ambiguous": True,
+            }
+            for item in attack_paths
+            if path_owner.get(id(item)) is None
+        ],
         "skills": skills,
         "tools": tools,
         "mcp_servers": mcp_servers,
@@ -1211,7 +1415,7 @@ function owaspAssessmentChart(categories){{
 }}
 function renderDashboard(){{
  const s=DATA.summary,state=assessmentState(s),root=document.getElementById("dashboard");
- const attention=DATA.agents.filter(a=>a.summary.findings||a.summary.contract_violations||a.summary.contract_unresolved||a.summary.attack_paths).sort((a,b)=>agentPriority(b)-agentPriority(a)).slice(0,10);
+ const attention=DATA.agents.filter(a=>["runtime","cli","application-support"].includes(a.source_context)&&(a.summary.findings||a.summary.contract_violations||a.summary.contract_unresolved||a.summary.attack_paths)).sort((a,b)=>agentPriority(b)-agentPriority(a)).slice(0,10);
  const drillRow=(label,value,drill,cls="")=>'<div class="drill-row" role="button" tabindex="0" data-drill="'+esc(drill)+'"><span>'+esc(label)+'</span><span class="drill-value '+esc(cls)+'">'+number(value)+'</span></div>';
  const drillList=(rows)=>'<div class="drill-list">'+rows.join("")+'</div>';
  const primaryDrill=(s.severity?.critical||0)?"findings:critical":((s.severity?.high||0)?"findings:high":(s.contract_violations?"contracts:violation":"findings:all"));
@@ -1260,7 +1464,7 @@ function bindDashboardDrill(root=document){{
 }}
 function agentTable(items){{
  if(!items.length)return '<div class="empty">No agents matched this view.</div>';
- const rows=items.map(a=>'<tr class="clickable" role="button" tabindex="0" data-agent="'+encodeURIComponent(a.name)+'"><td><div class="row-title">'+esc(a.name)+'</div><div class="row-sub">'+esc(a.framework)+' · '+loc(a.location)+'</div></td><td>'+agentAttention(a)+'</td><td>'+badge(a.summary.contract_status)+'</td><td>'+number(a.summary.findings)+'</td><td>'+number(a.summary.attack_paths)+'</td><td>'+number(a.summary.authority_relationships)+'</td><td>'+number(a.summary.write_capable_relationships)+'</td><td class="row-chevron">›</td></tr>').join("");
+ const rows=items.map(a=>'<tr class="clickable" role="button" tabindex="0" data-agent="'+encodeURIComponent(a.id)+'"><td><div class="row-title">'+esc(a.display_name||a.name)+'</div><div class="row-sub">'+esc(a.framework)+' · '+esc(a.source_context||"unknown")+' · '+loc(a.location)+'</div></td><td>'+agentAttention(a)+'</td><td>'+badge(a.summary.contract_status)+'</td><td>'+number(a.summary.findings)+'</td><td>'+number(a.summary.attack_paths)+'</td><td>'+number(a.summary.authority_relationships)+'</td><td>'+number(a.summary.write_capable_relationships)+'</td><td class="row-chevron">›</td></tr>').join("");
  return '<div class="panel flush table-wrap"><table><thead><tr><th>Agent</th><th>Attention</th><th>Contract</th><th>Findings</th><th>Attack paths</th><th>Authority</th><th>Write-capable</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }}
 
@@ -1277,14 +1481,21 @@ function agentMatchesFilter(a,mode){{
  if(mode==="unresolved")return (a.effective_authority||[]).some(r=>r.resolution!=="fully_resolved");if(mode==="write")return a.summary.write_capable_relationships>0;if(mode==="destinations")return a.summary.destinations>0;return true;
 }}
 
+let AGENT_SOURCE_VIEW="application";
+function sourceViewMatches(a){{
+ return AGENT_SOURCE_VIEW==="all"||["runtime","cli","application-support"].includes(a.source_context);
+}}
 function renderAgents(mode="all"){{
- const root=document.getElementById("agents"),scoped=DATA.agents.filter(a=>agentMatchesFilter(a,mode)).sort((a,b)=>agentPriority(b)-agentPriority(a)||a.name.localeCompare(b.name));
+ const root=document.getElementById("agents"),scoped=DATA.agents.filter(a=>sourceViewMatches(a)&&agentMatchesFilter(a,mode)).sort((a,b)=>agentPriority(b)-agentPriority(a)||(a.display_name||a.name).localeCompare(b.display_name||b.name));
  const filters=[["all","All"],["attention","Needs attention"],["attack","Attack paths"],["write","Write-capable"],["contract","Contract issues"],["fully_resolved","Fully resolved"],["partially_resolved","Partially resolved"],["unknown","Unknown"]];
  const chips=filters.map(([value,label])=>'<button class="filter-chip '+(mode===value?"active":"")+'" data-agent-filter="'+value+'">'+esc(label)+'</button>').join("");
+ const sourceChips=[["application","Application source"],["all","All source · examples/tests"]].map(([value,label])=>'<button type="button" class="filter-chip '+(AGENT_SOURCE_VIEW===value?"active":"")+'" data-agent-source-filter="'+value+'">'+esc(label)+'</button>').join("");
  const banner=mode==="all"?"":'<div class="filter-banner"><span>'+esc(drillLabel("agents",mode))+' · '+number(scoped.length)+' agents</span><button class="back" id="clear-agent-filter">Clear filter</button></div>';
- root.innerHTML=pageHead("Inventory","Agents","Review effective agency, attack paths, findings and Authority Contract posture for each discovered agent.")+banner+'<div class="toolbar"><div class="toolbar-left"><div class="filter-chips">'+chips+'</div></div><div class="toolbar-right"><input id="agent-search" class="search" aria-label="Search agents" placeholder="Search agents, frameworks, identities or resources"></div></div><div class="muted small" id="agent-count">'+number(scoped.length)+' agents</div><div id="agent-table">'+agentTable(scoped)+'</div>';
- bindAgentRows(root);root.querySelectorAll("[data-agent-filter]").forEach(btn=>btn.addEventListener("click",()=>renderAgents(btn.dataset.agentFilter)));if(mode!=="all")root.querySelector("#clear-agent-filter").addEventListener("click",()=>renderAgents("all"));
- root.querySelector("#agent-search").addEventListener("input",e=>{{const q=e.target.value.trim().toLowerCase();const items=scoped.filter(a=>JSON.stringify([a.name,a.framework,a.location,a.skills,a.resources,a.identities,a.destinations,a.findings]).toLowerCase().includes(q));root.querySelector("#agent-count").textContent=number(items.length)+" agents";root.querySelector("#agent-table").innerHTML=agentTable(items);bindAgentRows(root);}});
+ root.innerHTML=pageHead("Inventory","Agents","Source-qualified inventory. Application source is shown first; examples and tests remain available for review. Static source does not establish deployment.")+banner+'<div class="toolbar"><div class="toolbar-left"><div class="filter-chips">'+sourceChips+'</div><div class="filter-chips">'+chips+'</div></div><div class="toolbar-right"><input id="agent-search" class="search" aria-label="Search agents" placeholder="Search agents, frameworks, identities or resources"></div></div><div class="muted small">Showing '+esc(AGENT_SOURCE_VIEW==="application"?"application source":"all source contexts")+' · '+number(scoped.length)+' of '+number(DATA.agents.length)+' discovered agent definitions. Runtime effectiveness not verified.</div><div class="muted small" id="agent-count">'+number(scoped.length)+' agents</div><div id="agent-table">'+agentTable(scoped)+'</div>';
+ bindAgentRows(root);
+ root.querySelectorAll("[data-agent-source-filter]").forEach(btn=>btn.addEventListener("click",()=>{{AGENT_SOURCE_VIEW=btn.dataset.agentSourceFilter;renderAgents(mode);}}));
+ root.querySelectorAll("[data-agent-filter]").forEach(btn=>btn.addEventListener("click",()=>renderAgents(btn.dataset.agentFilter)));if(mode!=="all")root.querySelector("#clear-agent-filter").addEventListener("click",()=>renderAgents("all"));
+ root.querySelector("#agent-search").addEventListener("input",e=>{{const q=e.target.value.trim().toLowerCase();const items=scoped.filter(a=>JSON.stringify([a.name,a.display_name,a.source_context,a.framework,a.location,a.skills,a.resources,a.identities,a.destinations,a.findings]).toLowerCase().includes(q));root.querySelector("#agent-count").textContent=number(items.length)+" agents";root.querySelector("#agent-table").innerHTML=agentTable(items);bindAgentRows(root);}});
 }}
 
 function inventoryEntries(kind){{
@@ -1347,7 +1558,7 @@ function inventoryTable(items,kind){{
  if(!items.length)return '<div class="empty">No matching components in this scan.</div>';
  const rows=items.map(item=>'<tr class="clickable" role="button" tabindex="0" data-inventory-row="'+esc(item.id)+'" aria-label="Inspect '+esc(item.name)+' component">'+
  '<td><div class="row-title">'+esc(item.name)+'</div><div class="row-sub">'+esc(kind==="mcp"?(item.transport||"unknown transport"):kind==="tools"?(item.kind||"tool"):(item.source||"skill"))+' · '+loc(item.location)+'</div></td>'+
- '<td>'+badge(item.binding_state)+'</td><td>'+esc((item.bound_agents||[]).join(", ")||"—")+'</td>'+
+ '<td>'+badge(item.binding_state)+'</td><td>'+esc((item.bound_agent_labels||item.bound_agents||[]).join(", ")||"—")+'</td>'+
  '<td>'+esc(inventorySummary(item,kind))+'</td><td><button type="button" class="back" data-inventory-open="'+esc(item.id)+'" aria-label="View '+esc(item.name)+' component details">View details ›</button></td></tr>').join("");
  return '<div class="panel flush table-wrap"><table aria-label="'+esc(kind)+' inventory"><thead><tr><th>Component</th><th>Binding</th><th>Agent(s)</th><th>Capabilities / endpoint</th><th>Inspect</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }}
@@ -1360,14 +1571,16 @@ function inventoryDetail(item,kind){{
  else meta.push(["Description",item.description||"—"],["Skill source",item.source||"unknown"],["Capabilities",format(item.capabilities)],["Allowed tools",format(item.allowed_tools)],["Scripts",format(item.scripts)],["Destinations",format(item.destinations)]);
  meta.push(["Resources",resource]);
  const details=meta.map(([label,value])=>'<div>'+esc(label)+'</div><div>'+esc(value)+'</div>').join("");
- const topology=inventoryTopologyContext(item,kind),agents=topology.agents.length?topology.agents:(item.bound_agents||[]);
- const linked=agents.map(name=>{{
-   const agent=DATA.agents.find(a=>a.name===name);
-   const signal=agent?number(agent.summary.findings)+" agent findings · "+number(agent.summary.attack_paths)+" agent attack paths":"Agent profile unavailable";
-   return '<div class="panel" style="margin-bottom:8px"><div class="row-title">'+esc(name)+'</div><div class="row-sub">'+esc(signal)+'</div>'+
-   '<div class="filter-chips" style="margin-top:8px"><button class="filter-chip" type="button" data-inventory-agent="'+encodeURIComponent(name)+'">Open agent profile ↗</button>'+
-   (agent?'<button class="filter-chip" type="button" data-inventory-agent-findings="'+encodeURIComponent(name)+'">Review agent findings ↗</button>':"")+'</div></div>';
+ const topology=inventoryTopologyContext(item,kind),agentIds=item.bound_agent_ids||[];
+ const linked=agentIds.map(id=>{{
+   const agent=DATA.agents.find(a=>a.id===id);
+   if(!agent)return "";
+   const signal=number(agent.summary.findings)+" agent findings · "+number(agent.summary.attack_paths)+" agent attack paths";
+   return '<div class="panel" style="margin-bottom:8px"><div class="row-title">'+esc(agent.display_name||agent.name)+'</div><div class="row-sub">'+esc(signal)+'</div>'+
+   '<div class="filter-chips" style="margin-top:8px"><button class="filter-chip" type="button" data-inventory-agent="'+encodeURIComponent(id)+'">Open agent profile ↗</button>'+
+   '<button class="filter-chip" type="button" data-inventory-agent-findings="'+encodeURIComponent(id)+'">Review agent findings ↗</button></div></div>';
  }}).join("");
+ const agents=agentIds.map(id=>{{const item=DATA.agents.find(a=>a.id===id);return item?(item.display_name||item.name):id;}});
  const topologyNode=topology.node;
  const topologyAction=topologyNode?'<button type="button" class="back" data-inventory-supply="'+esc(topologyNode.id)+'">View in supply chain ↗</button>':
  '<span class="muted small">No unambiguous source-backed graph node for this instance.</span>';
@@ -1397,18 +1610,20 @@ function inventoryDetail(item,kind){{
 function renderComponents(kind="mcp",selectedId=null,agentScope=null,initialQuery="",initialBinding="all"){{
  if(!["mcp","tools","skills"].includes(kind))kind="mcp";
  const root=document.getElementById("components"),items=inventoryEntries(kind),selected=items.find(item=>item.id===selectedId);
+ const scopedAgent=DATA.agents.find(a=>a.id===agentScope);
+ const scopedLabel=scopedAgent?(scopedAgent.display_name||scopedAgent.name):agentScope;
  const tabs=[["mcp","MCP servers"],["tools","Tools"],["skills","Skills"]].map(([key,label])=>
  '<button type="button" class="filter-chip '+(kind===key?"active":"")+'" data-inventory-kind="'+key+'">'+uiIcon(key==="mcp"?"mcp":key)+esc(label)+' ('+number(inventoryEntries(key).length)+')</button>').join("");
  root.innerHTML=pageHead("Repository inventory","Components","Search discovered component instances, bindings and source evidence. This is a static inventory, not live deployment discovery.")+
  '<div class="cards">'+metric("MCP servers",(DATA.mcp_servers||[]).filter(x=>x.binding_state!=="unresolved_reference").length,"","components:mcp")+metric("Tools",(DATA.tools||[]).length,"","components:tools")+metric("Skills",(DATA.skills||[]).length,"","components:skills")+metric("Unresolved references",(DATA.mcp_servers||[]).filter(x=>x.binding_state==="unresolved_reference").length,"","components:unresolved")+'</div>'+
  '<div class="toolbar"><div class="filter-chips">'+tabs+'</div><div class="toolbar-right"><input id="inventory-search" class="search" aria-label="Search inventory" placeholder="Search component, capability, agent or file"></div></div>'+
- (agentScope?'<div class="filter-banner"><span>Components connected to '+esc(agentScope)+'</span><div class="filter-chips"><button type="button" class="back" id="inventory-scope-back">← Back to agent</button><button type="button" class="back" id="inventory-scope-clear">All components</button></div></div>':"")+
+ (agentScope?'<div class="filter-banner"><span>Components connected to '+esc(scopedLabel)+'</span><div class="filter-chips"><button type="button" class="back" id="inventory-scope-back">← Back to agent</button><button type="button" class="back" id="inventory-scope-clear">All components</button></div></div>':"")+
  (selected?inventoryDetail(selected,kind):"")+
  '<div class="toolbar"><div class="filter-chips">'+[["all","All"],["bound","Bound"],["unbound","Unbound"],["unresolved_reference","Unresolved"]].map(([key,label])=>'<button type="button" class="filter-chip '+(key==="all"?"active":"")+'" data-inventory-filter="'+key+'">'+label+'</button>').join("")+'</div><span class="muted small" id="inventory-count"></span></div><div id="inventory-table"></div>';
  let filter=initialBinding;const input=root.querySelector("#inventory-search");input.value=initialQuery;
  const update=()=>{{
   const q=input.value.toLowerCase().trim();
-  const scoped=items.filter(item=>(!agentScope||(item.bound_agents||[]).includes(agentScope))&&(filter==="all"||item.binding_state===filter)&&(!q||JSON.stringify(item).toLowerCase().includes(q)));
+  const scoped=items.filter(item=>(!agentScope||(item.bound_agent_ids||[]).includes(agentScope))&&(filter==="all"||item.binding_state===filter)&&(!q||JSON.stringify(item).toLowerCase().includes(q)));
   root.querySelector("#inventory-count").textContent=number(scoped.length)+" detected instances";
   root.querySelector("#inventory-table").innerHTML=inventoryTable(scoped,kind);
   const openDetail=(id)=>{{
@@ -1590,7 +1805,10 @@ function renderSupplyChain(focus="all",layer="all",selectedId=null,query=""){{
  const root=document.getElementById("supply"),topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[],edges=topology.edges||[];
  const agents=nodes.filter(n=>n.kind==="agent"),view=supplyTopologyVisible();
  let activeFocus=focus,activeSelection=selectedId||(focus!=="all"?focus:null),activeQuery=query;
- const options=[["all","All discovered agents"],...agents.map(n=>[n.id,n.name])].map(([id,label])=>
+ const options=[["all","All discovered agents"],...agents.map(n=>{{
+   const match=DATA.agents.find(a=>a.name===n.name&&a.location?.path===n.location?.path&&a.location?.line===n.location?.line);
+   return [n.id,match?(match.display_name||match.name):(n.location?.path?n.location.path+"::"+n.name+"@"+n.location.line:n.name)];
+ }})].map(([id,label])=>
   '<option value="'+esc(id)+'"'+(id===focus?" selected":"")+'>'+esc(label)+'</option>').join("");
  const layers=[["all","All relationships"],["execution","Invocation & delegation"],["data","Data & destinations"],["authority","Authority & controls"]];
  const chips=layers.map(([id,label])=>'<button type="button" class="filter-chip '+(layer===id?"active":"")+'" data-supply-layer="'+id+'">'+esc(label)+'</button>').join("");
@@ -1644,7 +1862,7 @@ function contractItem(item){{
 }}
 function agentTopologyConnections(a){{
  const topology=DATA.security_graph?.topology||{{}},nodes=topology.nodes||[],edges=topology.edges||[],byId=new Map(nodes.map(n=>[n.id,n]));
- const matches=nodes.filter(n=>n.kind==="agent"&&n.name===a.name);
+ const matches=nodes.filter(n=>n.kind==="agent"&&n.name===a.name&&n.location?.path===a.location?.path&&n.location?.line===a.location?.line);
  if(matches.length!==1)return {{outgoing:[],incoming:[]}};
  const id=matches[0].id,kinds=new Set(["DELEGATES_TO","WORKFLOW_FLOWS_TO"]);
  const project=(edge,direction)=>{{
@@ -1690,8 +1908,8 @@ function svgNode(x,y,w,label,sub,kind,key,unresolved=false){{
 }}
 const AGENCY_GRAPH_STATE=new Map();
 function agencyState(a){{
- if(!AGENCY_GRAPH_STATE.has(a.name))AGENCY_GRAPH_STATE.set(a.name,{{collapsed:(a.effective_authority||[]).length>6,scale:1,tx:0,ty:0,selected:null}});
- return AGENCY_GRAPH_STATE.get(a.name);
+ if(!AGENCY_GRAPH_STATE.has(a.id))AGENCY_GRAPH_STATE.set(a.id,{{collapsed:(a.effective_authority||[]).length>6,scale:1,tx:0,ty:0,selected:null}});
+ return AGENCY_GRAPH_STATE.get(a.id);
 }}
 function applyGraphTransform(a){{
  const stage=document.getElementById("agency-stage"); if(!stage)return;
@@ -1819,7 +2037,7 @@ function renderPathCard(path){{
  const basis=path.evidence_strength==="supported_static_dataflow"?"Supported static data flow":"Potential capability path";
  return '<div class="path-card"><div class="path-head"><div><div class="finding-title"><strong>'+esc(path.path_id)+'</strong><span class="'+esc(path.severity)+'">'+esc(String(path.severity).toUpperCase())+'</span></div>'+
  '<h3 style="margin-top:7px">'+esc(path.title)+'</h3></div><span class="badge '+(dashed?"unresolved":"compliant")+'">'+esc(basis)+'</span></div>'+
- '<p class="muted">'+esc(path.rationale||"")+'</p><div class="path-chain">'+chain+'</div>'+
+ '<p class="muted">'+esc(path.rationale||"")+'</p>'+(path.attribution_ambiguous?'<p class="muted"><strong>Agent attribution unresolved:</strong> multiple source agents have this name; the chain remains visible at repository scope only.</p>':"")+'<div class="path-chain">'+chain+'</div>'+
  '<div class="path-meta"><span class="pill">basis: '+esc(path.basis||"unknown")+'</span><span class="pill">runtime exploitability: '+esc(path.metadata?.exploitability||"not verified")+'</span></div></div>';
 }}
 function renderAgentPaths(a){{
@@ -1849,12 +2067,15 @@ function renderAgentEvidence(a){{
  '<div>Resolution</div><div>'+badge(r.resolution)+'</div><div>Source</div><div>'+loc(r.location)+'</div><div>Unresolved dimensions</div><div>'+esc((r.unresolved||[]).join(", ")||"none")+'</div></div>'+
  '<details><summary>Full evidence</summary><pre>'+esc(JSON.stringify({{evidence:r.evidence,dimensions:r.dimensions,approval:r.approval,semantics:r.semantics}},null,2))+'</pre></details></div>').join("");
 }}
-function openAgent(name,initialTab="overview",owaspRisk=null,inventoryFocus=null,supplyFocus=null){{
- const a=DATA.agents.find(x=>x.name===name); if(!a)return; const root=document.getElementById("agent-detail");
- root.innerHTML='<button class="breadcrumb" id="back-agents">← Back to agents</button><div class="agent-head"><div><div class="eyebrow">Agent security profile</div><h1>'+esc(a.name)+'</h1><div class="muted">'+esc(a.framework)+' · '+loc(a.location)+'</div></div><div class="page-actions">'+agentAttention(a)+badge(a.summary.contract_status)+'</div></div>'+
+function openAgent(identity,initialTab="overview",owaspRisk=null,inventoryFocus=null,supplyFocus=null){{
+ const byId=DATA.agents.find(x=>x.id===identity),byName=DATA.agents.filter(x=>x.name===identity);
+ const a=byId||(byName.length===1?byName[0]:null);
+ if(!a)return; // Never choose an arbitrary same-name agent.
+ const root=document.getElementById("agent-detail");
+ root.innerHTML='<button class="breadcrumb" id="back-agents">← Back to agents</button><div class="agent-head"><div><div class="eyebrow">Agent security profile</div><h1>'+esc(a.display_name||a.name)+'</h1><div class="muted">'+esc(a.framework)+' · '+esc(a.source_context||"unknown")+' · '+loc(a.location)+'</div></div><div class="page-actions">'+agentAttention(a)+badge(a.summary.contract_status)+'</div></div>'+
  '<div class="tabs" role="tablist"><button class="active" data-tab="overview">Overview</button><button data-tab="map">Agency map <span class="tab-count">'+number(a.summary.authority_relationships)+'</span></button><button data-tab="paths">Attack paths <span class="tab-count">'+number(a.summary.attack_paths)+'</span></button><button data-tab="findings">Findings <span class="tab-count">'+number(a.summary.findings)+'</span></button><button data-tab="contract">Contract <span class="tab-count">'+number(a.summary.contract_violations+a.summary.contract_unresolved)+'</span></button><button data-tab="evidence">Evidence</button></div>'+
  '<div id="tab-overview" class="agent-tab active">'+renderAgentOverview(a)+'</div><div id="tab-map" class="agent-tab">'+renderGraph(a)+'</div><div id="tab-paths" class="agent-tab">'+renderAgentPaths(a)+'</div><div id="tab-findings" class="agent-tab">'+renderAgentFindings(a,owaspRisk)+'</div><div id="tab-contract" class="agent-tab">'+renderAgentContract(a)+'</div><div id="tab-evidence" class="agent-tab">'+renderAgentEvidence(a)+'</div>';
- root.querySelectorAll("[data-agent-inventory]").forEach(btn=>btn.addEventListener("click",()=>{{renderComponents(btn.dataset.agentInventory,null,a.name);showView("components");}}));
+ root.querySelectorAll("[data-agent-inventory]").forEach(btn=>btn.addEventListener("click",()=>{{renderComponents(btn.dataset.agentInventory,null,a.id);showView("components");}}));
  root.querySelectorAll("[data-agent-link]").forEach(btn=>btn.addEventListener("click",()=>openAgent(decodeURIComponent(btn.dataset.agentLink))));
  bindPathDrill(root);
  root.querySelector("#back-agents").textContent=owaspRisk?"← Back to OWASP "+owaspRisk:(inventoryFocus?"← Back to components":(supplyFocus?"← Back to supply chain":"← Back to agents"));
@@ -1938,7 +2159,7 @@ function renderOwasp(risk="all"){{
 }}
 
 function renderAttack(){{
- const items=DATA.agents.flatMap(a=>(a.path_views||[])),supported=items.filter(x=>x.evidence_strength==="supported_static_dataflow").length,potential=items.length-supported;
+ const items=[...DATA.agents.flatMap(a=>(a.path_views||[])),...(DATA.unattributed_attack_paths||[])],supported=items.filter(x=>x.evidence_strength==="supported_static_dataflow").length,potential=items.length-supported;
  const root=document.getElementById("attack");
  root.innerHTML=pageHead("Risk chains","Attack paths","Evidence-aware chains from source/capability context to sensitive actions or destinations.")+
  '<div class="cards">'+metric("Attack paths",items.length)+metric("Supported data flow",supported,"ok","","Solid connectors")+metric("Potential capability paths",potential,"warn","","Dashed connectors; flow not proven")+'</div>'+
@@ -1950,7 +2171,7 @@ function renderContracts(mode="all"){{
  let items=DATA.agents;if(mode==="declared")items=items.filter(a=>a.contract.declared);else if(mode==="violation")items=items.filter(a=>a.summary.contract_violations>0);else if(mode==="unresolved")items=items.filter(a=>a.summary.contract_unresolved>0);
  items=[...items].sort((a,b)=>(b.summary.contract_violations-a.summary.contract_violations)||(b.summary.contract_unresolved-a.summary.contract_unresolved)||a.name.localeCompare(b.name));
  const filters=[["all","All"],["declared","Declared"],["violation","Violations"],["unresolved","Unresolved"]],chips=filters.map(([value,label])=>'<button class="filter-chip '+(mode===value?"active":"")+'" data-contract-filter="'+value+'">'+esc(label)+'</button>').join("");
- const rows=items.map(a=>'<tr class="clickable" role="button" tabindex="0" data-agent="'+encodeURIComponent(a.name)+'"><td><div class="row-title">'+esc(a.name)+'</div><div class="row-sub">'+esc(a.framework)+'</div></td><td>'+badge(a.summary.contract_status)+'</td><td>'+number(a.summary.contract_violations)+'</td><td>'+number(a.summary.contract_unresolved)+'</td><td>'+number(a.contract.relationships.length)+'</td><td class="row-chevron">›</td></tr>').join("");
+ const rows=items.map(a=>'<tr class="clickable" role="button" tabindex="0" data-agent="'+encodeURIComponent(a.id)+'"><td><div class="row-title">'+esc(a.display_name||a.name)+'</div><div class="row-sub">'+esc(a.framework)+' · '+esc(a.source_context||"unknown")+'</div></td><td>'+badge(a.summary.contract_status)+'</td><td>'+number(a.summary.contract_violations)+'</td><td>'+number(a.summary.contract_unresolved)+'</td><td>'+number(a.contract.relationships.length)+'</td><td class="row-chevron">›</td></tr>').join("");
  const root=document.getElementById("contracts");root.innerHTML=pageHead("Policy assurance","Agent contracts","Declared Authority Contract constraints compared with reconstructed effective authority.",badge(DATA.assurance.authority_contract.status))+
  '<div class="cards">'+metric("Agents with contract",DATA.summary.agents_with_contract)+metric("Violations",DATA.summary.contract_violations,DATA.summary.contract_violations?"critical":"")+metric("Unresolved checks",DATA.summary.contract_unresolved,DATA.summary.contract_unresolved?"warn":"")+'</div>'+
  '<div class="toolbar"><div class="filter-chips">'+chips+'</div><div class="muted small">'+number(items.length)+' agents in view</div></div>'+
