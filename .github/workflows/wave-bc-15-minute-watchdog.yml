@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Inspect Wave B/C checkpoints, PRs and CI
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { owner, repo } = context.repo;
