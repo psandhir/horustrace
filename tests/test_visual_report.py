@@ -135,7 +135,11 @@ def test_visual_report_component_inventory_preserves_binding_and_controls(
 
     html = render_visual_report_html(graph, findings, tmp_path)
     assert 'data-view="components"' in html
-    assert 'function renderComponents(kind="mcp",selectedId=null,agentScope=null)' in html
+    assert 'function renderComponents(kind="mcp",selectedId=null,agentScope=null,initialQuery="",initialBinding="all")' in html
+    assert 'role="button" tabindex="0" data-inventory-row=' in html
+    assert 'event.target.closest("button")' in html
+    assert 'components:unresolved' in html
+    assert 'bindDashboardDrill(root);' in html
     assert 'data-inventory-open' in html
     assert 'data-inventory-agent-findings' in html
     assert 'data-inventory-supply' in html
@@ -226,13 +230,25 @@ def test_visual_report_supply_chain_uses_canonical_adg_edges(tmp_path: Path) -> 
     assert "CAN_REACH_AUTHORITY" in html
     assert "ALLOWS_TOOL" in html
     assert "DENIES_TOOL" in html
-    assert "No nodes matched this scope and filter." in html
+    assert "No nodes were discovered in this scan." in html
     assert "Static evidence does not prove runtime execution." in html
-    assert "canonical RECEIVES_INPUT_FROM relation keeps its original endpoints" in html
-    assert "Click an agent to focus its relevant dependency neighbourhood." in html
+    # Assert behavior encoded in the renderer, not mutable help copy.
+    # The canonical graph keeps agent -> input while visual arrows show input -> agent.
+    assert 'const inputToAgent=e.kind==="RECEIVES_INPUT_FROM"' in html
+    assert "const displayedFrom=inputToAgent?e.target:e.source;" in html
+    assert "const displayedTo=inputToAgent?e.source:e.target;" in html
+    assert "All discovered dependencies stay visible." in html
+    assert "function supplyEmphasis(" in html
+    assert 'svg.classList.toggle("has-emphasis",active)' in html
+    assert 'el.classList.toggle("is-muted",active&&!nodeIds.has(id))' in html
+    assert 'el.classList.toggle("is-muted",active&&!edgeIds.has(id))' in html
+    assert "const limit=72;" not in html
+    assert "const edgeLimit=180;" not in html
     assert 'id="supply-clear-focus"' in html
     assert 'id="supply-open-component"' in html
-    assert 'node?.kind==="agent"&&focus!==chosen' in html
+    assert 'wire("[data-supply-node]","supplyNode")' in html
+    assert 'wire("[data-supply-edge]","supplyEdge")' in html
+    assert 'const activate=()=>select(item.dataset[key]);' in html
     assert "Agent-to-agent access" in html
     assert 'data-agent-link' in html
     assert "function attackPathTopologyTarget(" in html
