@@ -58,18 +58,37 @@ def _three_same_named_agents(root: Path) -> tuple[Graph, list[Finding]]:
             severity=Severity.MEDIUM,
             rationale="Name-only attribution is not proof",
             location=test,
+        ), AttackPath(
+            path_id="PATH002",
+            title="Unresolved shared alias",
+            agent="agent",
+            nodes=["agent", "unknown"],
+            severity=Severity.LOW,
+            rationale="Not tied to a registered constructor or tool",
+            location=SourceLocation(root / "external" / "unknown.py", line=5),
         )],
     )
     graph.adg = build_adg(graph, root)
-    findings = [Finding(
-        rule_id="TEST001",
-        severity=Severity.HIGH,
-        title="Potential test shell authority",
-        message="Name-only finding",
-        recommendation="Review source identity",
-        location=test,
-        agent="agent",
-    )]
+    findings = [
+        Finding(
+            rule_id="TEST001",
+            severity=Severity.HIGH,
+            title="Potential test shell authority",
+            message="Exact test source anchor",
+            recommendation="Review source identity",
+            location=test,
+            agent="agent",
+        ),
+        Finding(
+            rule_id="TEST002",
+            severity=Severity.MEDIUM,
+            title="Unknown same-name agent",
+            message="Source does not identify a unique agent",
+            recommendation="Adjudicate identity",
+            location=SourceLocation(root / "external" / "unknown.py", line=5),
+            agent="agent",
+        ),
+    ]
     return graph, findings
 
 
@@ -115,12 +134,16 @@ def test_same_name_agent_authority_is_instance_scoped(tmp_path: Path) -> None:
 
     # The legacy name-only risk payload remains globally visible, but cannot
     # contaminate any of the same-named per-agent profiles.
-    assert report["summary"]["findings"] == 1
-    assert report["summary"]["attack_paths"] == 1
+    assert report["summary"]["findings"] == 2
+    assert report["summary"]["attack_paths"] == 2
     assert report["summary"]["unattributed_findings"] == 1
     assert report["summary"]["unattributed_attack_paths"] == 1
-    assert all(a["summary"]["findings"] == 0 for a in agents)
-    assert all(a["summary"]["attack_paths"] == 0 for a in agents)
+    assert runtime["summary"]["findings"] == 0
+    assert example["summary"]["findings"] == 0
+    assert test["summary"]["findings"] == 1
+    assert test["findings"][0]["attribution_basis"] == "exact_source_binding_site"
+    assert test["summary"]["attack_paths"] == 1
+    assert len(report["unattributed_attack_paths"]) == 1
     assert all(a["attribution_ambiguous"] for a in agents)
 
 
