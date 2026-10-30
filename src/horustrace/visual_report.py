@@ -753,6 +753,20 @@ def build_visual_report(
             "analysis_incomplete": graph.coverage.incomplete,
         },
         "agents": agents,
+        # Keep ambiguous agent-name paths discoverable in the repository-wide
+        # risk view without fabricating a unique instance owner.
+        "unattributed_attack_paths": [
+            {
+                **_attack_path_view(
+                    item,
+                    agent_name=str(item.get("agent") or "unresolved"),
+                    flows_by_id=flows_by_id,
+                ),
+                "attribution_ambiguous": True,
+            }
+            for item in attack_paths
+            if item.get("agent") in ambiguous_names
+        ],
         "skills": skills,
         "tools": tools,
         "mcp_servers": mcp_servers,
@@ -1907,7 +1921,7 @@ function renderPathCard(path){{
  const basis=path.evidence_strength==="supported_static_dataflow"?"Supported static data flow":"Potential capability path";
  return '<div class="path-card"><div class="path-head"><div><div class="finding-title"><strong>'+esc(path.path_id)+'</strong><span class="'+esc(path.severity)+'">'+esc(String(path.severity).toUpperCase())+'</span></div>'+
  '<h3 style="margin-top:7px">'+esc(path.title)+'</h3></div><span class="badge '+(dashed?"unresolved":"compliant")+'">'+esc(basis)+'</span></div>'+
- '<p class="muted">'+esc(path.rationale||"")+'</p><div class="path-chain">'+chain+'</div>'+
+ '<p class="muted">'+esc(path.rationale||"")+'</p>'+(path.attribution_ambiguous?'<p class="muted"><strong>Agent attribution unresolved:</strong> multiple source agents have this name; the chain remains visible at repository scope only.</p>':"")+'<div class="path-chain">'+chain+'</div>'+
  '<div class="path-meta"><span class="pill">basis: '+esc(path.basis||"unknown")+'</span><span class="pill">runtime exploitability: '+esc(path.metadata?.exploitability||"not verified")+'</span></div></div>';
 }}
 function renderAgentPaths(a){{
@@ -2029,7 +2043,7 @@ function renderOwasp(risk="all"){{
 }}
 
 function renderAttack(){{
- const items=DATA.agents.flatMap(a=>(a.path_views||[])),supported=items.filter(x=>x.evidence_strength==="supported_static_dataflow").length,potential=items.length-supported;
+ const items=[...DATA.agents.flatMap(a=>(a.path_views||[])),...(DATA.unattributed_attack_paths||[])],supported=items.filter(x=>x.evidence_strength==="supported_static_dataflow").length,potential=items.length-supported;
  const root=document.getElementById("attack");
  root.innerHTML=pageHead("Risk chains","Attack paths","Evidence-aware chains from source/capability context to sensitive actions or destinations.")+
  '<div class="cards">'+metric("Attack paths",items.length)+metric("Supported data flow",supported,"ok","","Solid connectors")+metric("Potential capability paths",potential,"warn","","Dashed connectors; flow not proven")+'</div>'+
