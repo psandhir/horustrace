@@ -14,6 +14,7 @@ from horustrace.inventory_semantics import (
 )
 from horustrace.limits import MAX_ADG_EDGES, MAX_ADG_NODES, ScanLimitError
 from horustrace.models import Agent, FlowPath, Graph, ResourceScope, SourceLocation, Tool
+from horustrace.source_context import classify_source_context
 
 ADG_SCHEMA_VERSION = 1
 
@@ -352,6 +353,16 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                 "unbound": tool.metadata.get("binding_state") != "bound_via_mcp",
                 "binding_state": tool.metadata.get("binding_state") or "unbound",
                 "discovery_source": tool.metadata.get("discovery_source"),
+                "source_context": (
+                    classify_source_context(
+                        tool.location.path if tool.location is not None else None,
+                        root,
+                    )
+                    if tool.kind == "mcp_exposed_tool" else None
+                ),
+                "deployment_verified": (
+                    False if tool.kind == "mcp_exposed_tool" else None
+                ),
             },
         )
 
@@ -394,7 +405,18 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                 "binding_state": server.metadata.get("binding_state") or "unbound",
                 "discovery_source": server.metadata.get("discovery_source"),
                 "binding_origin": server.metadata.get("binding_origin"),
+                "source_context": classify_source_context(
+                    server.location.path if server.location is not None else None,
+                    root,
+                ),
+                "deployment_verified": False,
             },
+        )
+
+        # Keep the source role on every unbound exposure: test/example
+        # registrations are not evidence of a deployed server or agent call.
+        server_context = classify_source_context(
+            server.location.path if server.location is not None else None, root
         )
 
         # A server-side @mcp.tool() decorator proves that this server
@@ -431,6 +453,7 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
             if len(candidates) != 1:
                 continue
             tool = candidates[0]
+            tool_context = classify_source_context(tool.location.path, root)
             tool_id = builder.node(
                 _tool_topology_kind(tool),
                 tool.name,
@@ -443,6 +466,8 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                     "unbound": True,
                     "binding_state": tool.metadata.get("binding_state") or "unbound",
                     "discovery_source": tool.metadata.get("discovery_source"),
+                    "source_context": tool_context,
+                    "deployment_verified": False,
                 },
             )
             builder.edge(
@@ -454,6 +479,9 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                     "basis": "source_proven_mcp_decorator",
                     "agent_binding": "unbound",
                     "authority_verified": False,
+                    "source_context": tool_context,
+                    "server_source_context": server_context,
+                    "deployment_verified": False,
                 },
             )
 
@@ -1115,6 +1143,43 @@ def build_adg(graph: Graph, root: Path) -> AgentDependencyGraph:
                         attributes={"via_agent": child.name},
                     )
             pending.extend(str(name) for name in child.metadata.get("delegates_to") or [])
+
+    # FastAgent chain/evaluator compositions are executable workflow
+    # definitions, not new LLM agent identities. Preserve their source-visible
+    # participants as directed workflow references only; no authority edge.
+    for workflow in graph.workflow_nodes:
+        workflow_id = builder.node(
+            "workflow_node",
+            workflow.name,
+            location=workflow.location,
+            framework="fast-agent",
+            attributes={
+                "workflow_method": workflow.method,
+                "members": list(workflow.members),
+                "source_declared": True,
+                "runtime_instance_verified": False,
+                "runtime_effectiveness": "not_verified",
+                "agent_identity": False,
+            },
+        )
+        for position, member in enumerate(workflow.members):
+            targets = agent_ids_by_name.get(member, [])
+            if len(targets) != 1:
+                # An undeclared/ambiguous participant does not become an
+                # invented agent, MCP permission, or deployed capability.
+                continue
+            builder.edge(
+                "WORKFLOW_FLOWS_TO",
+                workflow_id,
+                targets[0],
+                location=workflow.location,
+                attributes={
+                    "basis": "fast_agent_declared_composition",
+                    "member": member,
+                    "position": position,
+                    "runtime_effectiveness": "not_verified",
+                },
+            )
 
     for flow in graph.flow_paths:
         _add_flow_edges(builder, flow)

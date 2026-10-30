@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "study": "real-world-agent-security-2026",
+  "scope": "non-langgraph-145",
+  "original_frozen_source_truth_preserved": true,
+  "adjudication_method": "posthoc_static_source_not_blinded",
+  "production_precision_certified": false,
+  "ontology": "behavioural_iterative_model_directed_tool_agent_construct_v1",
+  "invariants": [
+    "model_given_tool_catalog",
+    "model_selects_tool_name_and_arguments",
+    "selected_tool_dispatched_through_concrete_connector",
+    "tool_result_appended_and_new_model_step_possible"
+  ],
+  "non_goals": [
+    "deployment_or_runtime_constructor_proof",
+    "unrestricted_per_tool_or_per_server_effective_authority",
+    "automated_source_truth_rewrite",
+    "production_accuracy_gate"
+  ],
+  "cases": [
+    {
+      "case_id": "rw-089",
+      "repository": "jiamingkong/agent_demos",
+      "source_sha": "6fab148888845bc08e762b82ce0477a3a213d712",
+      "source_path": "agent.py",
+      "source_class": "DeepSeekMCPAgent",
+      "source_ontology": "source_supported_agent_construct",
+      "runtime_deployment": "unresolved",
+      "per_tool_effective_authority": "unresolved",
+      "source_evidence": {
+        "model_with_tools": "agent.py:385-398 model chat.completions.create(tools=tools)",
+        "model_selected_tool_call": "agent.py:435-461 delta.tool_calls parsed from model",
+        "actual_tool_dispatch": "agent.py:486-497 await self.call_tool(fn_name, fn_args); agent.py:205-233 bound MCP call_tool dispatch",
+        "result_feedback_and_repeat": "agent.py:493-509 tool-role messages append to self.messages and inner while continues; 100 iteration cap"
+      },
+      "reviewer_note": "Model-selected tool execution and feedback loop; class spelling is immaterial; dynamic MCP skill loader means effective tool catalog depends on runtime load state."
+    },
+    {
+      "case_id": "rw-103",
+      "repository": "Nagharjun17/MCP-Ollama-Client",
+      "source_sha": "aa54c8d8f808123ba26922138126afa6675dce68",
+      "source_path": "client.py",
+      "source_class": "MCPClient",
+      "source_ontology": "source_supported_agent_construct",
+      "runtime_deployment": "unresolved",
+      "per_tool_effective_authority": "unresolved",
+      "source_evidence": {
+        "model_with_tools": "client.py:84-94 OpenAI-compatible Ollama chat.completions.create(tools=self.tools)",
+        "model_selected_tool_call": "client.py:96-103 model-generated msg.tool_calls and function.name arguments",
+        "actual_tool_dispatch": "client.py:79-82 server-prefixed ClientSession.call_tool; client.py:102 dispatch",
+        "result_feedback_and_repeat": "client.py:104-120 tool result feedback into messages and repeated LLM call with tool schemas"
+      },
+      "reviewer_note": "Despite class name Client, it is an LLM-controlled iterative MCP action loop, not a passive MCP forwarding client."
+    }
+  ],
+  "hard_negatives": [
+    "MCP class implementing only connect/list_tools/call_tool but no model decision",
+    "single LLM call with tools but no observed selected-call dispatch and feedback loop",
+    "model call and MCP dispatch in unrelated/disjoint control paths"
+  ],
+  "limitations": [
+    "Both positive cases selected after candidate findings; post-hoc evidence, not a blind source truth overlay.",
+    "Syntax demonstrates source intent/control flow, not that any target or MCP server is deployable or accessible.",
+    "No original Frozen-180 labels are changed; both historical and candidate must use identical ontology for comparable source-support diagnostics.",
+    "Source-backed agent constructs alone do not establish runtime authority, security findings, or exploitable attack paths."
+  ]
+}

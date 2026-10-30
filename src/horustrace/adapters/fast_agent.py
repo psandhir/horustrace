@@ -19,6 +19,7 @@ from horustrace.models import (
     ScanDiagnostic,
     SourceLocation,
     Tool,
+    WorkflowDeclaration,
 )
 
 _FAST_AGENT_IMPORT_PREFIXES = (
@@ -39,6 +40,10 @@ _AGENT_DECORATORS = {
     "evaluator_optimizer",
     "maker",
 }
+# Source-defined composite execution graphs are not standalone LLM agents.
+# Keep routers/orchestrators/parallel under prior semantics until their
+# framework-specific role is separately source-adjudicated.
+_WORKFLOW_ONLY_DECORATORS = {"chain", "evaluator_optimizer"}
 _LIST_DELEGATION_KEYS = {"agents", "sequence", "fan_out"}
 _SINGLE_DELEGATION_KEYS = {"fan_in", "generator", "evaluator", "worker"}
 
@@ -596,6 +601,23 @@ def scan_python_file(path: Path) -> Graph:
                     value = _literal(_kw(call, key))
                     if isinstance(value, bool):
                         metadata[key] = value
+
+            if method in _WORKFLOW_ONLY_DECORATORS:
+                graph.workflow_nodes.append(
+                    WorkflowDeclaration(
+                        name=agent_name,
+                        method=method,
+                        location=_location(path, decorator),
+                        members=list(delegates_to),
+                        metadata={
+                            **metadata,
+                            "source_declared": True,
+                            "runtime_instance_verified": False,
+                            "runtime_effectiveness": "not_verified",
+                        },
+                    )
+                )
+                continue
 
             agent = Agent(
                 name=agent_name,

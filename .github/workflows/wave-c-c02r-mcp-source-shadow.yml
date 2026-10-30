@@ -1,0 +1,169 @@
+name: Wave C C02r MCP Source Implementation Shadow
+
+on:
+  pull_request:
+    paths:
+      - "src/horustrace/mcp_source_implementation_shadow.py"
+      - "src/horustrace/mcp_c03_candidate.py"
+      - "src/horustrace/mcp_c03_crosswalk.py"
+      - "src/horustrace/mcp_c03_workbench.py"
+      - "docs/accuracy/wave-c-c03c-opt-in-source-crosswalk-workbench.md"
+      - "docs/accuracy/wave-c-c03b-mcp-source-site-crosswalk.md"
+      - "tests/test_mcp_c03_candidate.py"
+      - "docs/accuracy/wave-c-c03a-quarantined-mcp-adg-candidate.md"
+      - "src/horustrace/source_shadow_html.py"
+      - "src/horustrace/source_shadow_attestation.py"
+      - "src/horustrace/source_shadow_workbench.py"
+      - "src/horustrace/visual_report.py"
+      - "src/horustrace/cli.py"
+      - "tests/test_source_shadow_workbench.py"
+      - "tests/test_source_shadow_attestation.py"
+      - "docs/accuracy/wave-c-c02x-exact-source-evidence-attestation.md"
+      - "scripts/check_mcp_workbench_overlay_browser.py"
+      - "docs/accuracy/wave-c-c02w-opt-in-workbench-source-overlay.md"
+      - "tests/test_source_shadow_html.py"
+      - "scripts/check_wave_c_source_shadow_browser.py"
+      - "docs/accuracy/wave-c-c02v-offline-source-supply-chain-explorer.md"
+      - "tests/test_mcp_source_implementation_shadow.py"
+      - "scripts/wave_c_c02r_pinned_mcp_shadow_study.py"
+      - "docs/accuracy/wave-c-c02r-mcp-source-implementation-shadow.md"
+      - ".github/workflows/wave-c-c02r-mcp-source-shadow.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wave-c-c02r-mcp-source-shadow-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-shadow:
+    name: Pinned rw080 MCP source shadow and hard negatives
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install scanner only and test shadow negative controls
+        run: |
+          python -m pip install -e . 'pytest>=8.3,<9' 'playwright>=1.56,<1.60'
+          python -m pytest -q tests/test_mcp_source_implementation_shadow.py tests/test_source_shadow_html.py tests/test_source_shadow_workbench.py tests/test_source_shadow_attestation.py tests/test_mcp_c03_candidate.py
+      - name: Fetch pinned source repository without executing it
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p pinned-target
+          git -C pinned-target init -q
+          git -C pinned-target remote add origin "https://github.com/Amlan66/SSEEnabledMCPAgent.git"
+          git -C pinned-target fetch --quiet --depth=1 --filter=blob:none origin 11531239e71b123f25b3c6103ee36a9d614d0032
+          git -C pinned-target checkout --quiet --detach FETCH_HEAD
+          test "$(git -C pinned-target rev-parse HEAD)" = "11531239e71b123f25b3c6103ee36a9d614d0032"
+      - name: Verify source ADG shadow restores 3 distinct implementations and 25 source tool sites
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.wave_c_c02r_pinned_mcp_shadow_study \
+            --checkout pinned-target \
+            --output artifacts
+      - name: Check C03 candidate diff, canonical immutability and rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          artifact = Path("artifacts/c03-mcp-candidate.json")
+          data = json.loads(artifact.read_text(encoding="utf-8"))
+          diff = data["differential"]
+          assert data["candidate_adg"]["schema_version"] == (
+              "c03_preview_only_incompatible_with_adg_v1"
+          )
+          assert len(diff["added_source_node_ids"]) >= 28
+          assert diff["added_source_edge_kinds"] == {
+              "CONFIG_RESOLVES_TO_SOURCE_IMPLEMENTATION": 3,
+              "EXPOSES_TOOL": 25,
+          }
+          assert diff["removed_canonical_node_ids"] == []
+          assert diff["removed_canonical_edge_ids"] == []
+          assert diff["changed_canonical_nodes"] == []
+          assert diff["changed_canonical_edges"] == []
+          assert diff["effective_agent_can_call_edges_added"] == 0
+          assert data["canonical_adg_unchanged"] is True
+          report = json.loads(Path("artifacts/result.json").read_text(encoding="utf-8"))
+          assert report["c03_candidate_ast_source_sites_corroborated"] is True
+          assert report["c03_candidate_ast_source_tool_sites"] == 25
+          assert data["runtime_authority_verified"] is False
+          assert data["independently_adjudicated"] is False
+          assert data["production_cutover_authorized"] is False
+          assert data["rollback_digest"] == data["baseline_adg_digest"]
+          PY
+      - name: Verify C03b exact-source crosswalk is non-authoritative
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          base = Path("artifacts")
+          result = json.loads((base / "result.json").read_text(encoding="utf-8"))
+          mapping = json.loads((base / "c03-mcp-source-crosswalk.json").read_text(encoding="utf-8"))
+          candidate = json.loads((base / "c03-mcp-candidate.json").read_text(encoding="utf-8"))
+          assert len(mapping["node_correspondences"]) == 31
+          assert len(mapping["edge_correspondences"]) == 28
+          assert mapping["preview_snapshot_sha256"] == candidate["candidate_snapshot_sha256"]
+          assert mapping["baseline_adg_digest"] == candidate["baseline_adg_digest"]
+          assert mapping["crosswalk_sha256"] == result["c03b_source_crosswalk_sha256"]
+          assert mapping["production_cutover_authorized"] is False
+          assert mapping["runtime_authority_verified"] is False
+          assert mapping["semantic_identity_verified"] is False
+          assert mapping["certified_precision"] is None
+          assert all(row["effective_agent_can_call"] is None for row in mapping["edge_correspondences"])
+          PY
+      - name: Generate opt-in offline source supply-chain HTML (no runtime permissions)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m horustrace.source_shadow_html \
+            --input artifacts/source-shadow.json \
+            --output artifacts/mcp-source-supply-chain.html
+          test -s artifacts/mcp-source-supply-chain.html
+      - name: Install Chromium for offline evidence explorer drilldown smoke
+        run: python -m playwright install --with-deps chromium
+      - name: Test source supply-chain focus/defocus in a real browser
+        run: python -m scripts.check_wave_c_source_shadow_browser --report artifacts/mcp-source-supply-chain.html
+      - name: Render standard Workbench with opt-in scoped MCP source evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m horustrace.cli report pinned-target \
+            --mcp-source-shadow artifacts/source-shadow.json \
+            --output artifacts/workbench-with-mcp-source-evidence.html
+          test -s artifacts/workbench-with-mcp-source-evidence.html
+      - name: Verify opt-in Workbench drilldown and unchanged canonical supply chain
+        run: python -m scripts.check_mcp_workbench_overlay_browser --report artifacts/workbench-with-mcp-source-evidence.html
+      - name: Render extra opt-in C03 source-site crosswalk Workbench
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m horustrace.cli report pinned-target \
+            --mcp-source-shadow artifacts/source-shadow.json \
+            --mcp-c03-crosswalk-preview \
+            --output artifacts/workbench-with-c03-source-crosswalk.html
+          test -s artifacts/workbench-with-c03-source-crosswalk.html
+      - name: Real-browser C03 evidence labels with default Workbench isolation
+        run: python -m scripts.check_mcp_workbench_overlay_browser --report artifacts/workbench-with-c03-source-crosswalk.html --expect-c03
+      - name: Publish exact pinned source-only shadow evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wave-c-c02r-rw080-source-shadow
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30

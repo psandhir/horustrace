@@ -1,0 +1,67 @@
+name: Wave B540 rw003 FastAgent Source Ontology
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/wave-b540-rw003-fastagent-ontology.yml"
+      - "src/horustrace/adapters/fast_agent.py"
+      - "src/horustrace/adg.py"
+      - "src/horustrace/models.py"
+      - "src/horustrace/scanner.py"
+      - "scripts/verify_wave_b540_rw003_fastagent_ontology.py"
+      - "tests/test_fast_agent_adapter.py"
+      - "tests/test_fast_agent_workflow_ontology.py"
+      - "docs/wave-b540-rw003-fastagent-workflow-ontology.md"
+
+permissions:
+  contents: read
+
+jobs:
+  source-typed:
+    name: Pinned rw-003 eight agents and two workflow-only nodes
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install scanner and fixtures only, never target dependencies
+        run: |
+          python -m pip install -e . 'pytest>=8,<9'
+          python -m pytest -q \
+            tests/test_fast_agent_adapter.py \
+            tests/test_fast_agent_workflow_ontology.py
+      - name: Clone exact immutable rw-003 application revision
+        run: |
+          set -euo pipefail
+          mkdir target
+          git -C target init -q
+          git -C target remote add origin "https://github.com/angrysky56/ai_writers_workshop.git"
+          git -C target fetch --quiet --depth=1 --filter=blob:none origin c160a299706dd0cd1dc9ae114b97aba905e9261d
+          git -C target checkout --quiet --detach FETCH_HEAD
+          test "$(git -C target rev-parse HEAD)" = c160a299706dd0cd1dc9ae114b97aba905e9261d
+      - name: Reject workflow-as-agent and unverified runtime authority
+        run: |
+          python -m scripts.verify_wave_b540_rw003_fastagent_ontology \
+            --source-root target \
+            --output evaluation/rw-003-fastagent-workflow-ontology.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = json.loads(Path('evaluation/rw-003-fastagent-workflow-ontology.json').read_text())
+          assert p['agent_count'] == 8
+          assert p['nonagent_workflow_count'] == 2
+          assert p['source_truth_method'] == 'posthoc_source_inspection_not_independent_blind'
+          assert not p['runtime_instances_verified']
+          assert p['agent_precision'] is None and p['agent_recall'] is None
+          assert not p['wave_b_go'] and not p['wave_c_go']
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: wave-b540-rw003-fastagent-typed-source
+          path: evaluation/
+          if-no-files-found: error
+          retention-days: 30

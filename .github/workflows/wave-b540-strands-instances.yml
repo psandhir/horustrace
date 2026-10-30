@@ -1,0 +1,53 @@
+name: Wave B540 Strands instance source survival
+on:
+  pull_request:
+    paths:
+      - 'src/horustrace/scanner.py'
+      - 'src/horustrace/strands_repository.py'
+      - 'src/horustrace/provenance.py'
+      - 'tests/test_wave_b540_cap005_dual_source_witness.py'
+      - 'tests/test_wave_b540_agt040_relationship_source.py'
+      - 'tests/test_wave_b540_strands_vended_source_facts.py'
+      - 'tests/test_wave_b540_strands_instances.py'
+      - 'scripts/verify_wave_b540_strands_instances.py'
+      - 'scripts/verify_wave_b540_strands_tool_dedup.py'
+      - '.github/workflows/wave-b540-strands-instances.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e .
+      - name: Fetch frozen Strands case only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/wab540-strands
+          git -C /tmp/wab540-strands init -q
+          git -C /tmp/wab540-strands remote add origin https://github.com/aws-samples/sample-multi-agent-region-expansion-planner.git
+          git -C /tmp/wab540-strands fetch --depth=1 origin 30d03d7c9f6512e5bf10601879382fac9c3a16b1
+          git -C /tmp/wab540-strands checkout --detach FETCH_HEAD
+          test "$(git -C /tmp/wab540-strands rev-parse HEAD)" = 30d03d7c9f6512e5bf10601879382fac9c3a16b1
+      - name: Assert source-qualified instances survive production consolidation
+        run: python scripts/verify_wave_b540_strands_instances.py --source /tmp/wab540-strands
+      - name: Fetch frozen Strands same-source tool case
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/wab540-strands-tool
+          git -C /tmp/wab540-strands-tool init -q
+          git -C /tmp/wab540-strands-tool remote add origin https://github.com/garystafford/aws-strands-agents-mcp-demo.git
+          git -C /tmp/wab540-strands-tool fetch --depth=1 origin 324988770122a2302163fc12cdda0f1d805bf407
+          git -C /tmp/wab540-strands-tool checkout --detach FETCH_HEAD
+          test "$(git -C /tmp/wab540-strands-tool rev-parse HEAD)" = 324988770122a2302163fc12cdda0f1d805bf407
+      - name: Assert one decorated tool and no duplicate authority edge
+        run: python scripts/verify_wave_b540_strands_tool_dedup.py --source /tmp/wab540-strands-tool

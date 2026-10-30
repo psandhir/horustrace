@@ -1,0 +1,145 @@
+name: Wave B/C 15-minute watchdog
+
+# GitHub schedule runs from the default branch, may be delayed by GitHub load.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  issues: write
+
+concurrency:
+  group: wave-bc-watchdog
+  cancel-in-progress: false
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect Wave B/C checkpoints, PRs and CI
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const now = Date.now();
+            const minute = 60_000;
+            const alertTitle = '[Watchdog] Wave B/C execution requires attention';
+            const watchNumbers = [540, 543];
+            const [issues, commentsByIssue, pulls, runsPage, existing] = await Promise.all([
+              Promise.all(watchNumbers.map(issue_number =>
+                github.rest.issues.get({ owner, repo, issue_number }).then(r => r.data))),
+              Promise.all(watchNumbers.map(issue_number =>
+                github.rest.issues.listComments({ owner, repo, issue_number, per_page: 100 })
+                  .then(r => r.data))),
+              github.rest.pulls.list({ owner, repo, state: 'open', per_page: 100 })
+                .then(r => r.data),
+              github.rest.actions.listWorkflowRunsForRepo({ owner, repo, per_page: 100 })
+                .then(r => r.data.workflow_runs),
+              github.rest.issues.listForRepo({ owner, repo, state: 'all', per_page: 100 })
+                .then(r => r.data)
+            ]);
+            const currentAlert = existing.find(item => !item.pull_request && item.title === alertTitle);
+            if (issues.every(issue => issue.state === 'closed')) {
+              if (currentAlert?.state === 'open') {
+                await github.rest.issues.update({ owner, repo, issue_number: currentAlert.number, state: 'closed' });
+              }
+              core.summary.addRaw('Both Wave B and Wave C issues are closed. Watchdog idle.').write();
+              return;
+            }
+
+            const wavePulls = pulls.filter(pr => /wave[- ]?[bc]|b540|c0[1-5]/i.test(
+              pr.title + ' ' + pr.head.ref));
+            const branches = new Set(wavePulls.map(pr => pr.head.ref));
+            const shaByBranch = new Map(wavePulls.map(pr => [pr.head.ref, pr.head.sha]));
+            const recentRuns = runsPage.filter(run =>
+              branches.has(run.head_branch) ||
+              /wave[- ]?[bc]|b540|c0[1-5]/i.test(run.head_branch || ''));
+            const latestByWorkflowBranch = new Map();
+            for (const run of recentRuns) {
+              const key = run.name + ':' + run.head_branch;
+              if (!latestByWorkflowBranch.has(key)) latestByWorkflowBranch.set(key, run);
+            }
+            const latestRuns = [...latestByWorkflowBranch.values()].filter(run =>
+              !shaByBranch.has(run.head_branch) ||
+              shaByBranch.get(run.head_branch) === run.head_sha);
+            const active = latestRuns.filter(run =>
+              ['queued', 'waiting', 'in_progress', 'pending'].includes(run.status));
+            const staleActive = active.filter(run =>
+              now - Date.parse(run.created_at) >= 90 * minute);
+            const recentActive = active.filter(run =>
+              now - Date.parse(run.created_at) < 90 * minute);
+            const failed = latestRuns.filter(run =>
+              ['failure', 'timed_out', 'action_required'].includes(run.conclusion) &&
+              now - Date.parse(run.updated_at) >= 20 * minute);
+            const timestamps = [
+              ...issues.map(issue => issue.updated_at),
+              ...commentsByIssue.flat().map(comment => comment.created_at),
+              ...wavePulls.map(pr => pr.updated_at)
+            ].filter(Boolean).map(Date.parse).filter(Number.isFinite);
+            const lastActivity = timestamps.length ? Math.max(...timestamps) : 0;
+            const overdue = now - lastActivity >= 75 * minute && recentActive.length === 0;
+            const reasons = [];
+            if (overdue) reasons.push('No issue/PR checkpoint for at least 75 minutes, and no recently started active Wave B/C CI run');
+            if (staleActive.length) reasons.push(staleActive.length + ' CI workflow run(s) active for 90+ minutes');
+            if (failed.length) reasons.push(failed.length + ' latest-head CI workflow failure(s) left unresolved for 20+ minutes');
+
+            core.summary.addHeading('Wave B/C 15-minute watchdog');
+            core.summary.addRaw('Latest issue/PR activity: ' +
+              (lastActivity ? new Date(lastActivity).toISOString() : 'none') + '\n\n');
+            core.summary.addRaw('Active Wave PRs: ' + wavePulls.length +
+              '; recent active CI: ' + recentActive.length +
+              '; overdue: ' + overdue + '; failed CI: ' + failed.length + '\n\n');
+            if (!reasons.length) {
+              if (currentAlert?.state === 'open') {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: currentAlert.number,
+                  body: 'Watchdog checks have returned to a healthy state; closing this alert. Continue normal Wave B/C release gates.'
+                });
+                await github.rest.issues.update({
+                  owner, repo, issue_number: currentAlert.number, state: 'closed'
+                });
+              }
+              await core.summary.write();
+              return;
+            }
+            const links = [
+              ...staleActive.slice(0, 5).map(run => '- Stalled CI: ' + run.html_url),
+              ...failed.slice(0, 5).map(run => '- Failed CI: ' + run.html_url),
+              ...wavePulls.slice(0, 10).map(pr => '- Open PR: ' + pr.html_url)
+            ];
+            const body = [
+              'Automated monitoring alert for #540 (Wave B) and #543 (Wave C).',
+              '',
+              '**Signals**',
+              ...reasons.map(reason => '- ' + reason),
+              '',
+              '**Last observed issue/PR activity:** ' +
+                (lastActivity ? new Date(lastActivity).toISOString() : 'unknown'),
+              '',
+              '**Evidence**',
+              ...links,
+              '',
+              'Next: inspect the linked CI/logs and source checkpoints, then resume safe work. This job monitors and escalates only: it cannot restart a ChatGPT scheduled agent, adjudicate source claims, or bypass release/merge gates.',
+              '',
+              'Checks run at a 15-minute cron cadence, subject to GitHub Actions scheduling delay.'
+            ].join('\n');
+            core.summary.addRaw(body);
+            await core.summary.write();
+            if (currentAlert) {
+              if (currentAlert.state === 'closed') {
+                await github.rest.issues.update({
+                  owner, repo, issue_number: currentAlert.number, state: 'open', body
+                });
+              } else if (currentAlert.body !== body) {
+                await github.rest.issues.update({
+                  owner, repo, issue_number: currentAlert.number, body
+                });
+              }
+            } else {
+              await github.rest.issues.create({ owner, repo, title: alertTitle, body });
+            }

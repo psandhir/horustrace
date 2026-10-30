@@ -217,6 +217,57 @@ def _lexical_bindings(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
     return names
 
 
+def _unambiguous_local_imports(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> dict[str, str]:
+    """Resolve function-local imports only when the name is not rebound.
+
+    A genuine `import requests` inside a Strands tool is evidence that
+    `requests.post` is an HTTP sink. A parameter, assignment, conflicting
+    import or nested declaration with the same spelling is not.
+    """
+    imported: dict[str, str] = {}
+    unsafe: set[str] = {
+        arg.arg for arg in (
+            *node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs
+        )
+    }
+    if node.args.vararg:
+        unsafe.add(node.args.vararg.arg)
+    if node.args.kwarg:
+        unsafe.add(node.args.kwarg.arg)
+    pending: list[ast.AST] = list(node.body)
+    while pending:
+        child = pending.pop()
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            unsafe.add(child.name)
+            continue
+        if isinstance(child, (ast.Import, ast.ImportFrom)):
+            for alias in child.names:
+                if alias.name == "*":
+                    continue
+                if isinstance(child, ast.Import):
+                    label = alias.asname or alias.name.split(".")[0]
+                    canonical = alias.name
+                else:
+                    label = alias.asname or alias.name
+                    if not child.module or child.level:
+                        unsafe.add(label)
+                        continue
+                    canonical = f"{child.module}.{alias.name}"
+                if label in imported and imported[label] != canonical:
+                    unsafe.add(label)
+                imported[label] = canonical
+            continue
+        if isinstance(child, ast.ExceptHandler) and child.name:
+            unsafe.add(child.name)
+        if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store):
+            unsafe.add(child.id)
+        pending.extend(ast.iter_child_nodes(child))
+    return {label: canonical for label, canonical in imported.items()
+            if label not in unsafe}
+
+
 def _class_rebound(
     tree: ast.Module, class_name: str, method_names: set[str],
 ) -> bool:
@@ -476,14 +527,15 @@ class _FunctionAnalyzer:
         self.sinks: list[_Sink] = []
         self.return_values: list[_Value] = []
         self.unsupported_method_calls: list[_Unresolved] = []
-        self.shadowed = _lexical_bindings(info.node)
+        self.local_imports = _unambiguous_local_imports(info.node)
+        self.shadowed = _lexical_bindings(info.node) - self.local_imports.keys()
         self.safe_classes = safe_classes
 
     def _canonical_called(self, called: str) -> str:
         root, _, suffix = called.partition(".")
         if not called or root in self.shadowed:
             return called
-        imported = self.info.imports.get(root)
+        imported = self.local_imports.get(root) or self.info.imports.get(root)
         return (imported + ("." + suffix if suffix else "")) if imported else called
 
     def _constructor(self, node: ast.Call, env: dict[str, _Value]) -> str | None:

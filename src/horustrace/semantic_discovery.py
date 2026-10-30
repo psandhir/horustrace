@@ -19,6 +19,9 @@ class SemanticEntityKind(str, Enum):
     WORKFLOW = "workflow"
     TOOL = "tool"
     MCP_SERVER = "mcp_server"
+    MCP_CLIENT = "mcp_client"
+    SKILL = "skill"
+    IDENTITY = "identity"
     CONTROL = "control"
     TRANSFORM = "transform"
     UNKNOWN = "unknown"
@@ -31,6 +34,12 @@ class SemanticBindingKind(str, Enum):
     DISPATCHES_TO = "dispatches_to"
     DELEGATES_TO = "delegates_to"
     BINDS_MCP = "binds_mcp"
+    AGENT_BINDS_CLIENT = "agent_binds_client"
+    CLIENT_CONNECTS_TO_SERVER = "client_connects_to_server"
+    EXPOSES_TOOL = "exposes_tool"
+    AGENT_CAN_CALL = "agent_can_call"
+    USES_SKILL = "uses_skill"
+    USES_IDENTITY = "uses_identity"
     ROUTES_TO = "routes_to"
 
 
@@ -145,12 +154,56 @@ class SemanticBinding:
         }
 
 
+
+def stable_observation_id(*, entity_id: str, role: str, source_key: str) -> str:
+    """Identify a scoped source observation without checkout-local paths."""
+    payload = "\0".join(("observation-v2", entity_id, role, source_key.replace("\\", "/")))
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:20]
+    return f"semantic-v2:observation:{digest}"
+
+
+@dataclass(slots=True)
+class SemanticObservation:
+    """Evidence-limited claim about a discovered construct, not runtime proof."""
+
+    observation_id: str
+    entity_id: str
+    role: str
+    resolution: SemanticResolution
+    parser_id: str
+    source_key: str
+    reason: str
+    location: SourceLocation | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "observation_id": self.observation_id,
+            "entity_id": self.entity_id,
+            "role": self.role,
+            "resolution": self.resolution.value,
+            "parser_id": self.parser_id,
+            "source_key": self.source_key,
+            "reason": self.reason,
+            "location": (
+                {
+                    "path": str(self.location.path),
+                    "line": self.location.line,
+                    "column": self.location.column,
+                }
+                if self.location
+                else None
+            ),
+        }
+
+
 @dataclass(slots=True)
 class SemanticDiscovery:
     """A bounded set of semantic entities and evidence-backed relationships."""
 
     entities: list[SemanticEntity] = field(default_factory=list)
     bindings: list[SemanticBinding] = field(default_factory=list)
+    observations: list[SemanticObservation] = field(default_factory=list)
+    schema_version: int = 1
 
     def entity_map(self) -> dict[str, SemanticEntity]:
         return {item.entity_id: item for item in self.entities}
@@ -164,7 +217,20 @@ class SemanticDiscovery:
         if len(binding_ids) != len(set(binding_ids)):
             raise ValueError("semantic discovery contains duplicate binding IDs")
 
+        if self.schema_version not in (1, 2):
+            raise ValueError("unsupported semantic discovery schema version")
+        if self.schema_version == 1 and self.observations:
+            raise ValueError("semantic observations require schema version 2")
         known = set(entity_ids)
+        observation_ids = [item.observation_id for item in self.observations]
+        if len(observation_ids) != len(set(observation_ids)):
+            raise ValueError("semantic discovery contains duplicate observation IDs")
+        for item in self.observations:
+            if item.entity_id not in known:
+                raise ValueError("semantic observation endpoint does not exist")
+            if not all((item.role.strip(), item.parser_id.strip(), item.source_key.strip(),
+                        item.reason.strip())):
+                raise ValueError("semantic observation requires source and reason")
         for binding in self.bindings:
             if binding.source_id not in known:
                 raise ValueError(
@@ -181,11 +247,14 @@ class SemanticDiscovery:
 
     def as_dict(self) -> dict[str, Any]:
         self.validate()
-        return {
-            "schema_version": 1,
+        document = {
+            "schema_version": self.schema_version,
             "entities": [item.as_dict() for item in self.entities],
             "bindings": [item.as_dict() for item in self.bindings],
         }
+        if self.schema_version == 2:
+            document["observations"] = [item.as_dict() for item in self.observations]
+        return document
 
 
 def semantic_entity_metadata(entity: SemanticEntity) -> dict[str, Any]:

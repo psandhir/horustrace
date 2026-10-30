@@ -360,10 +360,18 @@ async def refine():
 
     graph, _ = scan(tmp_path)
 
-    assert {agent.name for agent in graph.agents} == {"writer", "refine"}
-    refine = next(agent for agent in graph.agents if agent.name == "refine")
+    assert {agent.name for agent in graph.agents} == {"writer"}
+    assert [(workflow.name, workflow.method) for workflow in graph.workflow_nodes] == [
+        ("refine", "evaluator_optimizer"),
+    ]
+    refine = graph.workflow_nodes[0]
     assert refine.metadata["framework"] == "fast-agent"
-    assert refine.metadata["delegates_to"] == ["writer"]
+    assert refine.members == ["writer"]
+    assert graph.adg is not None
+    assert any(
+        node.kind == "workflow_node" and node.name == "refine"
+        for node in graph.adg.nodes
+    )
 
 
 def test_fast_agent_declared_get_skills_bind_to_exact_packages(tmp_path: Path) -> None:

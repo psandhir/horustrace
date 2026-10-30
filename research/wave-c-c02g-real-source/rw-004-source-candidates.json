@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "case_id": "rw-004",
+  "cohort_scope_id": "rw-004:agent:unknown",
+  "repository": "JoanMarinPages/agentGemini",
+  "pinned_commit_sha": "0160690bb47cca17e70ceb8486209d7b1cacaf76",
+  "framework": "google-adk",
+  "source_role": "unknown",
+  "record_type": "source_first_syntax_candidate_not_oracle_truth",
+  "scanner_predictions_consulted_in_this_review": false,
+  "source_reviewer_independence_externally_verified": false,
+  "source_blindness_externally_verified": false,
+  "positive_universe_complete": false,
+  "negative_universe_complete": false,
+  "runtime_imports_verified": false,
+  "runtime_agent_callable_verified": false,
+  "release_accuracy_assessable": false,
+  "notes": "The syntax anchors below were read from GitHub files pinned to the archived source revision. They are reviewer starting points, not independent human-adjudicated positives, negatives or effective-authority evidence. Distinct source files must not automatically become distinct deployed instances.",
+  "observations": [
+    {
+      "id": "rw004-funnel-constructor",
+      "kind": "agent_constructor_syntax",
+      "path": "agent.py",
+      "blob_sha": "c5641b32eac1d58f94ebd1b06a792f4d740b4ddb",
+      "line_start": 98,
+      "line_end": 99,
+      "source_expression": "funnel_agent = LlmAgent(",
+      "review_question": "Determine whether this pinned ADK import resolves and whether this call constructs an actual runtime agent instance."
+    },
+    {
+      "id": "rw004-funnel-tools",
+      "kind": "tool_argument_list_syntax",
+      "path": "agent.py",
+      "blob_sha": "c5641b32eac1d58f94ebd1b06a792f4d740b4ddb",
+      "line_start": 102,
+      "line_end": 103,
+      "source_expression": "tools=[",
+      "review_question": "Resolve the imported tools, provider context and controls; listing a tool alone does not prove effective AGENT_CAN_CALL."
+    },
+    {
+      "id": "rw004-funnel-root-alias",
+      "kind": "same_file_agent_alias_syntax",
+      "path": "agent.py",
+      "blob_sha": "c5641b32eac1d58f94ebd1b06a792f4d740b4ddb",
+      "line_start": 124,
+      "line_end": 124,
+      "source_expression": "root_agent = funnel_agent",
+      "review_question": "Check that this assignment is an alias of the local funnel_agent variable, not a second constructor."
+    },
+    {
+      "id": "rw004-package-root-constructor",
+      "kind": "agent_constructor_syntax",
+      "path": "agentGemini/agent.py",
+      "blob_sha": "4e540509642a70802c03e66f4067d3f58b5ab9df",
+      "line_start": 38,
+      "line_end": 39,
+      "source_expression": "root_agent = Agent(",
+      "review_question": "Verify google.genai.adk.Agent SDK import and source/execution context; do not conflate this root_agent symbol with agent.py's distinct module."
+    },
+    {
+      "id": "rw004-package-tools",
+      "kind": "tool_argument_list_syntax",
+      "path": "agentGemini/agent.py",
+      "blob_sha": "4e540509642a70802c03e66f4067d3f58b5ab9df",
+      "line_start": 43,
+      "line_end": 43,
+      "source_expression": "tools=[",
+      "review_question": "Independently resolve declared tool symbols and effects; never promote listed symbols to runtime-call authority."
+    },
+    {
+      "id": "rw004-package-callback",
+      "kind": "tool_callback_decorator_syntax",
+      "path": "agentGemini/agent.py",
+      "blob_sha": "4e540509642a70802c03e66f4067d3f58b5ab9df",
+      "line_start": 67,
+      "line_end": 67,
+      "source_expression": "@root_agent.on_tool_call",
+      "review_question": "Determine if the decorator exists and is active; a logging callback must not silently be counted as an approval guardrail."
+    },
+    {
+      "id": "rw004-provider-import",
+      "kind": "relative_import_syntax",
+      "path": "agentGemini/tools/__init__.py",
+      "blob_sha": "7ebfffac45868f0487ccdbb73191f25a449d480d",
+      "line_start": 5,
+      "line_end": 5,
+      "source_expression": "from .customer_tools import (",
+      "review_question": "Check whether exact pinned tree contains this import target before claiming tool availability; lack of source in a checkout does not prove runtime absence."
+    }
+  ]
+}

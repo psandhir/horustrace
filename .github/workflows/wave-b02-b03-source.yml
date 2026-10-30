@@ -1,0 +1,42 @@
+name: Wave B02 B03 pinned MCP source proof
+on:
+  pull_request:
+    paths:
+      - 'src/horustrace/source_native_dynamic_mcp.py'
+      - 'src/horustrace/semantic_shadow.py'
+      - 'tests/test_source_native_dynamic_mcp.py'
+      - 'scripts/verify_wave_b02_b03_sources.py'
+      - '.github/workflows/wave-b02-b03-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e .
+      - name: Retrieve only original pinned sources, without installing their dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/wab-couchbase /tmp/wab-microsoft
+          git -C /tmp/wab-couchbase init -q
+          git -C /tmp/wab-couchbase remote add origin https://github.com/couchbase/mcp-server-couchbase.git
+          git -C /tmp/wab-microsoft init -q
+          git -C /tmp/wab-microsoft remote add origin https://github.com/qmatteoq/agent365-demos.git
+          git -C /tmp/wab-couchbase fetch --depth=1 origin df5d9ceb013f57143171f65ec3ba033ace06aa9a
+          git -C /tmp/wab-couchbase checkout --detach FETCH_HEAD
+          git -C /tmp/wab-microsoft fetch --depth=1 origin 937f8c12421b6eebfbff764dbafbdbe13cc72f68
+          git -C /tmp/wab-microsoft checkout --detach FETCH_HEAD
+          test "$(git -C /tmp/wab-couchbase rev-parse HEAD)" = df5d9ceb013f57143171f65ec3ba033ace06aa9a
+          test "$(git -C /tmp/wab-microsoft rev-parse HEAD)" = 937f8c12421b6eebfbff764dbafbdbe13cc72f68
+      - name: Verify source-only unresolved registration evidence
+        run: |
+          python scripts/verify_wave_b02_b03_sources.py --couchbase /tmp/wab-couchbase --microsoft /tmp/wab-microsoft

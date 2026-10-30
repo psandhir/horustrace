@@ -106,6 +106,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
+from horustrace.notebook_identity import remap_notebook_instance_metadata
 from horustrace.path_safety import canonical_root, is_within_root
 from horustrace.pipeline_contract import PipelineCheckpoints
 from horustrace.provenance import annotate, attach_findings, context
@@ -125,6 +126,7 @@ from horustrace.rules.builtin import evaluate
 from horustrace.runtime_ingress import enrich_runtime_ingress_inputs
 from horustrace.runtime_viability import annotate_runtime_viability
 from horustrace.semantic_contract import set_source_context, tool_control_enforcing
+from horustrace.semantic_trace import SemanticTrace
 from horustrace.semantics import annotate_risk_semantics
 from horustrace.skill_llm_semantics import enrich_skill_llm_semantics
 from horustrace.skills import SKILL_FILENAME, bind_discovered_skills, scan_skill_file
@@ -1413,6 +1415,7 @@ def _merge(target: Graph, source: Graph, path: Path) -> None:
     for agent in source.agents:
         agent.tools = deepcopy(agent.tools)
     target.agents.extend(source.agents)
+    target.workflow_nodes.extend(source.workflow_nodes)
     target.unbound_tools.extend(source.unbound_tools)
     target.unbound_skills.extend(source.unbound_skills)
     target.unbound_mcp_servers.extend(source.unbound_mcp_servers)
@@ -1550,6 +1553,67 @@ def _merge_agent(existing: Agent, incoming: Agent) -> None:
     existing.metadata.update(incoming.metadata)
 
 
+def _dedupe_strands_source_tool_projections(agent: Agent) -> None:
+    """Join two parser views of the *same* Strands @tool source declaration.
+
+    A framework adapter may emit kind=function, then the repository linker
+    additionally emits kind=strands_tool_wrapper for the same decorated
+    callable. Neither kind nor name alone is sufficient to prove identity.
+    Require the same source-qualified function symbol, file and declaration
+    line before combining observations. Keep different functions distinct.
+    """
+    if agent.metadata.get("framework") != "strands-agents":
+        return
+
+    def source_claim(tool: Tool) -> tuple[str, str, int] | None:
+        metadata = tool.metadata
+        if metadata.get("framework") != "strands-agents":
+            return None
+        symbol = metadata.get("source_function_key")
+        path = metadata.get("source_path")
+        line = metadata.get("source_line")
+        if (
+            not isinstance(symbol, str) or not symbol
+            or not isinstance(path, str) or not path
+            or type(line) is not int or line < 1
+        ):
+            return None
+        if tool.location is not None and (
+            str(tool.location.path) != path
+            or tool.location.line != line
+        ):
+            return None
+        return (symbol, path, line)
+
+    distinct: list[Tool] = []
+    for incoming in agent.tools:
+        identity = source_claim(incoming)
+        existing = next(
+            (
+                tool for tool in distinct
+                if identity is not None
+                and tool.name == incoming.name
+                and source_claim(tool) == identity
+                and {tool.kind, incoming.kind}
+                == {"function", "strands_tool_wrapper"}
+            ),
+            None,
+        )
+        if existing is None:
+            distinct.append(incoming)
+            continue
+        wrapper = (
+            incoming if incoming.kind == "strands_tool_wrapper" else existing
+        )
+        wrapper_metadata = dict(wrapper.metadata)
+        _merge_tool(existing, incoming)
+        existing.kind = "strands_tool_wrapper"
+        existing.metadata.update(wrapper_metadata)
+        if existing.location is None:
+            existing.location = incoming.location
+    agent.tools = distinct
+
+
 def _consolidate_agents(graph: Graph) -> None:
     """Merge declarations without conflating source-scoped agent instances.
 
@@ -1571,7 +1635,29 @@ def _consolidate_agents(graph: Graph) -> None:
             overlays.append(incoming)
             continue
 
-        key = (incoming.name, str(instance_key) if instance_key else None)
+        # Strands names such as "agent" are local variable labels, not
+        # repository-global identities. A wrapper can construct a distinct
+        # Strands Agent at each source location. Without this fallback, all
+        # such agents with absent instance_key collapse into one object.
+        #
+        # This source key is internal to consolidation (not persisted in
+        # exported metadata), so checkout-local absolute paths cannot leak
+        # into portable semantic IDs. Same-source duplicates remain ambiguous.
+        source_identity: str | None = None
+        if (
+            not instance_key
+            and incoming.metadata.get("framework") == "strands-agents"
+            and incoming.location is not None
+            and incoming.location.line > 0
+        ):
+            source_identity = (
+                f"source:{incoming.location.path.resolve().as_posix()}"
+                f":{incoming.location.line}"
+            )
+        key = (
+            incoming.name,
+            str(instance_key) if instance_key else source_identity,
+        )
         existing = by_key.get(key)
         if existing is None:
             by_key[key] = incoming
@@ -1591,6 +1677,8 @@ def _consolidate_agents(graph: Graph) -> None:
             _merge_agent(existing, deepcopy(overlay))
 
     graph.agents = list(by_key.values())
+    for agent in graph.agents:
+        _dedupe_strands_source_tool_projections(agent)
 
 
 def _propagate_adk_delegation(graph: Graph) -> None:
@@ -1608,6 +1696,13 @@ def _propagate_adk_delegation(graph: Graph) -> None:
 
     for agent in graph.agents:
         register(names, agent.name, agent)
+        # An imported ADK AgentTool can reference the Python constructor alias
+        # rather than the runtime Agent.name. Preserve that exact source alias
+        # without guessing from a shared runtime name or module stem.
+        if agent.metadata.get("framework") == "google-adk":
+            source_alias = agent.metadata.get("source_alias")
+            if isinstance(source_alias, str):
+                register(aliases, source_alias, agent)
         if agent.location:
             source = agent.location.path
             labels = {source.stem, source.parent.name, str(source.resolve())}
@@ -1652,6 +1747,27 @@ def _propagate_adk_delegation(graph: Graph) -> None:
                 if not candidates:
                     base = target.removesuffix("_agent")
                     candidates = aliases.get(base, []) or aliases.get(f"{base}_agent", [])
+                if len(candidates) != 1:
+                    # Several ADK constructors can share a runtime Agent.name:
+                    # a local A2A server Agent plus an imported RemoteA2aAgent
+                    # proxy is a common example. The parent's exact AgentTool
+                    # argument still supplies the Python source alias. Bind
+                    # only if that alias selects exactly one same-name child.
+                    explicit_tool_aliases = {
+                        raw_alias
+                        for tool in parent.tools
+                        if tool.kind == "adk_agent_tool"
+                        and isinstance(
+                            raw_alias := tool.metadata.get("delegate_target"), str
+                        )
+                        and raw_alias
+                    }
+                    source_bound = [
+                        child for child in candidates
+                        if child.metadata.get("source_alias") in explicit_tool_aliases
+                    ]
+                    if len(source_bound) == 1:
+                        candidates = source_bound
                 if len(candidates) == 1:
                     matched.extend(candidates)
                 else:
@@ -2403,6 +2519,7 @@ def scan(
     config: ScanConfig | None = None,
     authority_source: Path | None = None,
     llm_semantic_config: LLMSemanticConfig | None = None,
+    trace: SemanticTrace | None = None,
 ) -> tuple[Graph, list]:
     with tempfile.TemporaryDirectory(prefix="horustrace-notebooks-") as notebook_tempdir:
         return _scan(
@@ -2412,6 +2529,7 @@ def scan(
             config=config,
             authority_source=authority_source,
             llm_semantic_config=llm_semantic_config,
+            trace=trace,
             notebook_tempdir=Path(notebook_tempdir),
         )
 
@@ -2423,6 +2541,7 @@ def _scan(
     config: ScanConfig | None = None,
     authority_source: Path | None = None,
     llm_semantic_config: LLMSemanticConfig | None = None,
+    trace: SemanticTrace | None = None,
     *,
     notebook_tempdir: Path,
 ) -> tuple[Graph, list]:
@@ -2624,6 +2743,12 @@ def _scan(
                 framework_evidence.setdefault(framework, []).append(SourceLocation(candidate))
             notebook_graph = scan_python_file(temp_path)
             diagnose_python(temp_path, notebook_graph)
+            remap_notebook_instance_metadata(
+                notebook_graph,
+                temp_path,
+                candidate,
+                root if root.is_dir() else root.parent,
+            )
             _remap_source_locations(notebook_graph, temp_path, candidate)
             _merge(graph, notebook_graph, candidate)
         elif candidate.suffix.lower() == ".cs":
@@ -2658,6 +2783,8 @@ def _scan(
             _merge(graph, scan_adk_env(candidate), candidate)
 
     pipeline.record("discovered", graph)
+    if trace is not None:
+        trace.capture("discovered", graph)
     _consolidate_global_identities(graph)
     enrich_strands_repository_graph(
         graph,
@@ -2665,6 +2792,8 @@ def _scan(
         python_paths=approved_python_paths,
     )
     _consolidate_agents(graph)
+    if trace is not None:
+        trace.capture("initial_instances_consolidated", graph)
     enrich_microsoft_repository_authority(
         graph,
         root if root.is_dir() else root.parent,
@@ -2702,6 +2831,8 @@ def _scan(
         root if root.is_dir() else root.parent,
     )
     reconstruct_mcp_context(graph)
+    if trace is not None:
+        trace.capture("mcp_context_resolved", graph)
     authority_enrichment = None
     if authority_source is not None:
         try:
@@ -2739,6 +2870,11 @@ def _scan(
         root if root.is_dir() else root.parent,
         approved_python_paths,
     )
+    # Canonical source_function_key is assigned here, after the last generic
+    # agent-consolidation pass. Reconcile exact-source Strands @tool aliases
+    # before authority, findings and attack-path relationships are produced.
+    for agent in graph.agents:
+        _dedupe_strands_source_tool_projections(agent)
     enrich_indirect_tool_content_semantics(
         graph,
         root if root.is_dir() else root.parent,
@@ -2750,6 +2886,8 @@ def _scan(
         [item for item in candidates if item.suffix.lower() in {".yaml", ".yml"}],
     )
     normalize_destination_resource_provenance(graph)
+    if trace is not None:
+        trace.capture("source_semantics_resolved", graph)
     if llm_semantic_config is not None:
         llm_semantic_stats = enrich_llm_semantics(
             graph,
@@ -2762,6 +2900,8 @@ def _scan(
     # network/write capabilities and lose child destination/control constraints.
     _propagate_pydantic_delegation(graph)
     _propagate_adk_delegation(graph)
+    if trace is not None:
+        trace.capture("delegation_projected", graph)
     enrich_public_realtime_mcp_authority(
         graph,
         root if root.is_dir() else root.parent,
@@ -2769,6 +2909,8 @@ def _scan(
     )
     bind_discovered_skills(graph, root if root.is_dir() else root.parent)
     enrich_adk_skill_authority(graph)
+    if trace is not None:
+        trace.capture("skills_bound", graph)
     if llm_semantic_config is not None:
         skill_llm_semantic_stats = enrich_skill_llm_semantics(
             graph,
@@ -2777,6 +2919,8 @@ def _scan(
         )
     diagnose_dynamic_constructs(graph)
     pipeline.record("normalized", graph)
+    if trace is not None:
+        trace.capture("normalized", graph)
     for agent in graph.agents:
         if agent.metadata.get("dynamic_control_flow"):
             add_diagnostic(
@@ -2977,6 +3121,8 @@ def _scan(
         graph.coverage.resolution["skill_semantic_llm"] = skill_llm_semantic_stats
 
     pipeline.record("flows_resolved", graph)
+    if trace is not None:
+        trace.capture("flows_resolved", graph)
     annotate_risk_semantics(graph)
     graph.attack_paths = build_attack_paths(graph)
     for attack_path in graph.attack_paths:
@@ -3004,8 +3150,12 @@ def _scan(
                 "Declared static authority is source-proven, but live runtime reachability is blocked by the pinned source error.",
             )
     pipeline.record("attack_paths", graph)
+    if trace is not None:
+        trace.capture("attack_paths", graph)
     graph.adg = build_adg(graph, analysis_root)
     pipeline.record("adg", graph)
+    if trace is not None:
+        trace.capture("adg", graph)
     findings = evaluate(graph)
     for finding in findings:
         same_name_agents = [
@@ -3067,4 +3217,6 @@ def _scan(
         findings, root if root.is_dir() else root.parent, suppression_file,
     )
     pipeline.record("findings", graph, finding_count=len(findings))
+    if trace is not None:
+        trace.capture("findings", graph)
     return graph, findings

@@ -1,0 +1,476 @@
+{
+  "schema_version": 1,
+  "case_id": "rw-080",
+  "cohort_scope_id": "rw-080:agent:unknown",
+  "repository": "Amlan66/SSEEnabledMCPAgent",
+  "pinned_commit_sha": "11531239e71b123f25b3c6103ee36a9d614d0032",
+  "pinned_tree_sha": "e93ba494131547f45f2b975fa99dd9121702fee0",
+  "framework": "mcp-custom",
+  "source_role": "unknown",
+  "record_type": "source_first_mcp_candidate_not_verified_authority",
+  "source_files": [
+    {
+      "path": "config/profiles.yaml",
+      "blob_sha": "7a234cef7952efa91ce761667559f020a9b730c2"
+    },
+    {
+      "path": "agent.py",
+      "blob_sha": "e247627de1907a9b4747c1784843f9072d8fd85d"
+    },
+    {
+      "path": "core/session.py",
+      "blob_sha": "1b57fa4e8500ac0450947b15f2c772619296c33c"
+    },
+    {
+      "path": "core/loop.py",
+      "blob_sha": "1a94043b8bda3d24b8671ce46e7671d3ad53b88b"
+    },
+    {
+      "path": "mcp_server_1.py",
+      "blob_sha": "23618439e4a8858da83d3dbdc0918784fd553406"
+    },
+    {
+      "path": "mcp_server_2.py",
+      "blob_sha": "f7177c6bbddb2dc875c4cd6202c01bd774e93b07"
+    },
+    {
+      "path": "mcp_server_3.py",
+      "blob_sha": "9e282724e8ceb83bef65ac0177538b3dc9d2ecab"
+    },
+    {
+      "path": "mcp_telegram_server.py",
+      "blob_sha": "4408926e80d60b06a77b07a4690e0b06c11c0824"
+    }
+  ],
+  "declared_mcp_configs": [
+    {
+      "id": "math",
+      "transport": "stdio",
+      "script": "mcp_server_1.py",
+      "source_path": "config/profiles.yaml",
+      "line_start": 28,
+      "line_end": 31
+    },
+    {
+      "id": "documents",
+      "transport": "stdio",
+      "script": "mcp_server_2.py",
+      "source_path": "config/profiles.yaml",
+      "line_start": 32,
+      "line_end": 35
+    },
+    {
+      "id": "websearch",
+      "transport": "stdio",
+      "script": "mcp_server_3.py",
+      "source_path": "config/profiles.yaml",
+      "line_start": 36,
+      "line_end": 39
+    },
+    {
+      "id": "telegram",
+      "transport": "sse",
+      "url": "http://localhost:8000/sse",
+      "source_path": "config/profiles.yaml",
+      "line_start": 40,
+      "line_end": 42
+    }
+  ],
+  "observations": [
+    {
+      "id": "rw080-site-01",
+      "path": "config/profiles.yaml",
+      "blob_sha": "7a234cef7952efa91ce761667559f020a9b730c2",
+      "line": 27,
+      "source_expression": "mcp_servers:",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-02",
+      "path": "config/profiles.yaml",
+      "blob_sha": "7a234cef7952efa91ce761667559f020a9b730c2",
+      "line": 28,
+      "source_expression": "- id: math",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-03",
+      "path": "config/profiles.yaml",
+      "blob_sha": "7a234cef7952efa91ce761667559f020a9b730c2",
+      "line": 29,
+      "source_expression": "script: mcp_server_1.py",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-04",
+      "path": "config/profiles.yaml",
+      "blob_sha": "7a234cef7952efa91ce761667559f020a9b730c2",
+      "line": 31,
+      "source_expression": "transport: stdio",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-05",
+      "path": "config/profiles.yaml",
+      "blob_sha": "7a234cef7952efa91ce761667559f020a9b730c2",
+      "line": 32,
+      "source_expression": "- id: documents",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-06",
+      "path": "config/profiles.yaml",
+      "blob_sha": "7a234cef7952efa91ce761667559f020a9b730c2",
+      "line": 33,
+      "source_expression": "script: mcp_server_2.py",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-07",
+      "path": "config/profiles.yaml",
+      "blob_sha": "7a234cef7952efa91ce761667559f020a9b730c2",
+      "line": 35,
+      "source_expression": "transport: stdio",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-08",
+      "path": "config/profiles.yaml",
+      "blob_sha": "7a234cef7952efa91ce761667559f020a9b730c2",
+      "line": 36,
+      "source_expression": "- id: websearch",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-09",
+      "path": "config/profiles.yaml",
+      "blob_sha": "7a234cef7952efa91ce761667559f020a9b730c2",
+      "line": 37,
+      "source_expression": "script: mcp_server_3.py",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-10",
+      "path": "config/profiles.yaml",
+      "blob_sha": "7a234cef7952efa91ce761667559f020a9b730c2",
+      "line": 39,
+      "source_expression": "transport: stdio",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-11",
+      "path": "config/profiles.yaml",
+      "blob_sha": "7a234cef7952efa91ce761667559f020a9b730c2",
+      "line": 40,
+      "source_expression": "- id: telegram",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-12",
+      "path": "config/profiles.yaml",
+      "blob_sha": "7a234cef7952efa91ce761667559f020a9b730c2",
+      "line": 41,
+      "source_expression": "transport: sse",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-13",
+      "path": "config/profiles.yaml",
+      "blob_sha": "7a234cef7952efa91ce761667559f020a9b730c2",
+      "line": 42,
+      "source_expression": "url: http://localhost:8000/sse",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-14",
+      "path": "agent.py",
+      "blob_sha": "e247627de1907a9b4747c1784843f9072d8fd85d",
+      "line": 62,
+      "source_expression": "with open(\"config/profiles.yaml\", \"r\") as f:",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-15",
+      "path": "agent.py",
+      "blob_sha": "e247627de1907a9b4747c1784843f9072d8fd85d",
+      "line": 64,
+      "source_expression": "mcp_servers = profile.get(\"mcp_servers\", [])",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-16",
+      "path": "agent.py",
+      "blob_sha": "e247627de1907a9b4747c1784843f9072d8fd85d",
+      "line": 66,
+      "source_expression": "multi_mcp = MultiMCP(server_configs=mcp_servers)",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-17",
+      "path": "agent.py",
+      "blob_sha": "e247627de1907a9b4747c1784843f9072d8fd85d",
+      "line": 68,
+      "source_expression": "await multi_mcp.initialize()",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-18",
+      "path": "agent.py",
+      "blob_sha": "e247627de1907a9b4747c1784843f9072d8fd85d",
+      "line": 100,
+      "source_expression": "agent = AgentLoop(",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-19",
+      "path": "agent.py",
+      "blob_sha": "e247627de1907a9b4747c1784843f9072d8fd85d",
+      "line": 128,
+      "source_expression": "agent = AgentLoop(",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-20",
+      "path": "core/session.py",
+      "blob_sha": "1b57fa4e8500ac0450947b15f2c772619296c33c",
+      "line": 60,
+      "source_expression": "self.tool_map: Dict[str, Dict[str, Any]] = {}  # tool_name → {config, tool}",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-21",
+      "path": "core/session.py",
+      "blob_sha": "1b57fa4e8500ac0450947b15f2c772619296c33c",
+      "line": 81,
+      "source_expression": "tools = await session.list_tools()",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-22",
+      "path": "core/session.py",
+      "blob_sha": "1b57fa4e8500ac0450947b15f2c772619296c33c",
+      "line": 84,
+      "source_expression": "self.tool_map[tool.name] = {",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-23",
+      "path": "core/session.py",
+      "blob_sha": "1b57fa4e8500ac0450947b15f2c772619296c33c",
+      "line": 111,
+      "source_expression": "tools = await session.list_tools()",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-24",
+      "path": "core/session.py",
+      "blob_sha": "1b57fa4e8500ac0450947b15f2c772619296c33c",
+      "line": 114,
+      "source_expression": "self.tool_map[tool.name] = {",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-25",
+      "path": "core/session.py",
+      "blob_sha": "1b57fa4e8500ac0450947b15f2c772619296c33c",
+      "line": 123,
+      "source_expression": "async def call_tool(self, tool_name: str, arguments: dict) -> Any:",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-26",
+      "path": "core/session.py",
+      "blob_sha": "1b57fa4e8500ac0450947b15f2c772619296c33c",
+      "line": 124,
+      "source_expression": "entry = self.tool_map.get(tool_name)",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-27",
+      "path": "core/session.py",
+      "blob_sha": "1b57fa4e8500ac0450947b15f2c772619296c33c",
+      "line": 126,
+      "source_expression": "raise ValueError(f\"Tool '{tool_name}' not found on any server.\")",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-28",
+      "path": "core/session.py",
+      "blob_sha": "1b57fa4e8500ac0450947b15f2c772619296c33c",
+      "line": 137,
+      "source_expression": "return await session.call_tool(tool_name, arguments)",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-29",
+      "path": "core/session.py",
+      "blob_sha": "1b57fa4e8500ac0450947b15f2c772619296c33c",
+      "line": 148,
+      "source_expression": "return await session.call_tool(tool_name, arguments)",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-30",
+      "path": "core/session.py",
+      "blob_sha": "1b57fa4e8500ac0450947b15f2c772619296c33c",
+      "line": 153,
+      "source_expression": "def get_all_tools(self) -> List[Any]:",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-31",
+      "path": "core/loop.py",
+      "blob_sha": "1a94043b8bda3d24b8671ce46e7671d3ad53b88b",
+      "line": 13,
+      "source_expression": "class AgentLoop:",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-32",
+      "path": "core/loop.py",
+      "blob_sha": "1a94043b8bda3d24b8671ce46e7671d3ad53b88b",
+      "line": 14,
+      "source_expression": "def __init__(self, user_input: str, dispatcher: MultiMCP):",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-33",
+      "path": "core/loop.py",
+      "blob_sha": "1a94043b8bda3d24b8671ce46e7671d3ad53b88b",
+      "line": 17,
+      "source_expression": "self.tools = dispatcher.get_all_tools()",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-34",
+      "path": "core/loop.py",
+      "blob_sha": "1a94043b8bda3d24b8671ce46e7671d3ad53b88b",
+      "line": 94,
+      "source_expression": "plan = await decide_next_action(",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-35",
+      "path": "core/loop.py",
+      "blob_sha": "1a94043b8bda3d24b8671ce46e7671d3ad53b88b",
+      "line": 98,
+      "source_expression": "all_tools=self.tools",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-36",
+      "path": "core/loop.py",
+      "blob_sha": "1a94043b8bda3d24b8671ce46e7671d3ad53b88b",
+      "line": 114,
+      "source_expression": "tool_name, arguments = parse_function_call(plan)",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-37",
+      "path": "core/loop.py",
+      "blob_sha": "1a94043b8bda3d24b8671ce46e7671d3ad53b88b",
+      "line": 121,
+      "source_expression": "response = await self.mcp.call_tool(tool_name, tool_input)",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-38",
+      "path": "mcp_server_1.py",
+      "blob_sha": "23618439e4a8858da83d3dbdc0918784fd553406",
+      "line": 33,
+      "source_expression": "mcp = FastMCP(\"Calculator\")",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-39",
+      "path": "mcp_server_1.py",
+      "blob_sha": "23618439e4a8858da83d3dbdc0918784fd553406",
+      "line": 36,
+      "source_expression": "@mcp.tool()",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-40",
+      "path": "mcp_server_1.py",
+      "blob_sha": "23618439e4a8858da83d3dbdc0918784fd553406",
+      "line": 245,
+      "source_expression": "@mcp.resource(\"greeting://{name}\")",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-41",
+      "path": "mcp_server_2.py",
+      "blob_sha": "f7177c6bbddb2dc875c4cd6202c01bd774e93b07",
+      "line": 28,
+      "source_expression": "mcp = FastMCP(\"Calculator\")",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-42",
+      "path": "mcp_server_2.py",
+      "blob_sha": "f7177c6bbddb2dc875c4cd6202c01bd774e93b07",
+      "line": 98,
+      "source_expression": "@mcp.tool()",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-43",
+      "path": "mcp_server_3.py",
+      "blob_sha": "9e282724e8ceb83bef65ac0177538b3dc9d2ecab",
+      "line": 209,
+      "source_expression": "mcp = FastMCP(\"ddg-search\")",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-44",
+      "path": "mcp_server_3.py",
+      "blob_sha": "9e282724e8ceb83bef65ac0177538b3dc9d2ecab",
+      "line": 214,
+      "source_expression": "@mcp.tool()",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-45",
+      "path": "mcp_telegram_server.py",
+      "blob_sha": "4408926e80d60b06a77b07a4690e0b06c11c0824",
+      "line": 27,
+      "source_expression": "mcp = FastMCP(\"telegram-integration\")",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-46",
+      "path": "mcp_telegram_server.py",
+      "blob_sha": "4408926e80d60b06a77b07a4690e0b06c11c0824",
+      "line": 65,
+      "source_expression": "@mcp.tool()",
+      "source_only_candidate": true
+    },
+    {
+      "id": "rw080-site-47",
+      "path": "mcp_telegram_server.py",
+      "blob_sha": "4408926e80d60b06a77b07a4690e0b06c11c0824",
+      "line": 295,
+      "source_expression": "mcp.run(transport=\"sse\")",
+      "source_only_candidate": true
+    }
+  ],
+  "review_questions": [
+    "Source-visible registered FastMCP decorators are EXPOSES_TOOL candidates only, not proof of agent can-call availability.",
+    "Two separately tracked server Python files instantiate FastMCP with display name Calculator; do not collapse into one server by name.",
+    "ToolMap entries are populated dynamically only after successful runtime list_tools; no static inventory certifies which servers actually connect.",
+    "The same unqualified tool.name map key is overwritten if two servers return an identical tool name; actual collisions must be runtime-observed, not assumed.",
+    "AgentLoop is constructed at two conditional call sites, not proof of two simultaneous deployed agents or cross-context delegation.",
+    "Stdio server profiles use an environment-specific cwd, SSE points to a URL; do not infer either transport connected successfully.",
+    "The agent dispatch expression is source-supported but effective AGENT_CAN_CALL edges depend on runtime discovery, server availability and matching map entries."
+  ],
+  "source_witnesses_locally_verified": false,
+  "scanner_predictions_consulted": false,
+  "source_blindness_externally_verified": false,
+  "positive_universe_complete": false,
+  "negative_universe_complete": false,
+  "runtime_mcp_enumeration_verified": false,
+  "effective_authority_verified": false,
+  "production_cutover_authorized": false,
+  "certified_precision": null,
+  "certified_recall": null
+}

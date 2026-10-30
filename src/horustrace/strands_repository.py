@@ -22,7 +22,7 @@ from horustrace.adapters.amazon_agentic import (
     _python_effect_capabilities,
 )
 from horustrace.heuristics import infer_capabilities
-from horustrace.models import Agent, Graph, MCPServer, Tool
+from horustrace.models import Agent, EvidenceFact, Graph, MCPServer, Tool
 
 
 @dataclass
@@ -525,20 +525,50 @@ def _vended_tool(
     ):
         return None
     source_name = remote or name
+    # The import statement is the exact evidence for a vended tool.
+    # A synthetic module line 1 obscures the actual source witness and
+    # previously produced 37 unhelpful line-1 findings in WAB-04.
+    bindings = [
+        node
+        for node in ast.walk(info.tree)
+        if isinstance(node, ast.ImportFrom)
+        and node.module == module
+        and any(
+            alias.name == source_name and (alias.asname or alias.name) == name
+            for alias in node.names
+        )
+    ]
+    if len(bindings) != 1:
+        return None
+    location = _location(info.path, bindings[0])
+    capabilities = set(
+        _VENDED_TOOL_CAPABILITIES.get(source_name, infer_capabilities(source_name))
+    )
+    # The import is source-observed. Capability names are *heuristic effects*
+    # from the vended-tool catalogue, not dependency-version-pinned behaviour
+    # or evidence of runtime invocation/control enforcement. Retain both facts
+    # and their distinct origins for the later finding-provenance pass.
+    facts = [
+        EvidenceFact(
+            source_name, f"source_import={module}.{source_name}",
+            "observed", location,
+        ),
+        *(
+            EvidenceFact(source_name, f"capability={capability}", "inferred", location)
+            for capability in sorted(capabilities)
+        ),
+    ]
     return Tool(
         name=source_name,
         kind="strands_vended_tool",
-        capabilities=set(
-            _VENDED_TOOL_CAPABILITIES.get(
-                source_name,
-                infer_capabilities(source_name),
-            )
-        ),
-        location=_location(info.path),
+        capabilities=capabilities,
+        location=location,
+        provenance=facts,
         metadata={
             "framework": STRANDS_FRAMEWORK,
             "source_module": module,
             "import_name": name,
+            "source_symbol_origin": "import_statement",
             "repository_resolved": True,
         },
     )
@@ -686,20 +716,90 @@ def _function_tool(
     return tool
 
 
+def _strands_decorated_function_tool(
+    modules: dict[str, _ModuleInfo],
+    info: _ModuleInfo,
+    name: str,
+) -> Tool | None:
+    """Prove a decorated callable before treating its inner Agent as a child.
+
+    An imported @tool function which constructs an Agent is still a function
+    supplied to the orchestrator, not an already instantiated Agent object.
+    Only the exact resolved Strands tool decorator qualifies this distinction.
+    """
+    resolved = _resolve_function(modules, info, name)
+    if resolved is None:
+        return None
+    target, function = resolved
+    decorators = {
+        local for local, (module, symbol) in target.imports.items()
+        if module == "strands" and symbol == "tool"
+    }
+    if not decorators or not any(
+        isinstance(item, ast.Name) and item.id in decorators
+        for item in function.decorator_list
+    ):
+        return None
+    # Reuse source-line-specific imported function and its direct effects;
+    # never turn an inner constructor into an eager DELEGATES_TO relationship.
+    tool = _function_tool(modules, info, name)
+    if tool is None:
+        return None
+    tool.kind = "strands_tool_wrapper"
+    tool.metadata.update({
+        "source_tool_decorator": "strands.tool",
+        "source_callable_resolution": "imported_decorated_function",
+        "nested_agent_execution": "deferred_until_wrapper_invocation",
+        "runtime_effectiveness": "not_verified",
+    })
+    # Preserve stronger source-specific delegation proof, such as an
+    # AgentCore HTTP runtime ID derived from the decorated function body.
+    # Only fill the unresolved generic case if no better evidence exists.
+    tool.metadata.setdefault(
+        "delegation_target_resolution", "unresolved_runtime_instance",
+    )
+    return tool
+
+
 def _append_tool(agent: Agent, tool: Tool, *, conditional: bool = False) -> None:
     if conditional:
         tool.metadata["conditional_binding"] = True
+    def same_decorated_source(item: Tool) -> bool:
+        # Scanner adapters can pre-register @tool as a plain function before
+        # repository linking discovers that same callable is a Strands wrapper.
+        # Keep one tool object per exact source definition, not one per kind.
+        if item.name != tool.name:
+            return False
+        if {item.kind, tool.kind} != {"function", "strands_tool_wrapper"}:
+            return False
+        left = item.metadata.get("source_function_key")
+        right = tool.metadata.get("source_function_key")
+        if not isinstance(left, str) or not left or left != right:
+            return False
+        if item.location is None or tool.location is None:
+            return False
+        return (
+            item.location.path == tool.location.path
+            and item.location.line == tool.location.line
+        )
+
     current = next(
         (
             item
             for item in agent.tools
-            if item.name == tool.name and item.kind == tool.kind
+            if (item.name == tool.name and item.kind == tool.kind)
+            or same_decorated_source(item)
         ),
         None,
     )
     if current is None:
         agent.tools.append(tool)
         return
+    if tool.kind == "strands_tool_wrapper" and current.kind == "function":
+        current.kind = "strands_tool_wrapper"
+    current.provenance.extend(
+        item for item in tool.provenance if item not in current.provenance
+    )
     current.capabilities.update(tool.capabilities)
     for destination in tool.destinations:
         if destination not in current.destinations:
@@ -938,6 +1038,32 @@ def enrich_strands_repository_graph(
                 agent.metadata["runtime_name_unresolved"] = True
             if function is not None:
                 agent.metadata["source_factory"] = function.name
+                # These are source-visible construction *sites*, not nine
+                # eagerly instantiated child agents. @tool wrappers may only
+                # construct the nested instance if dispatched at runtime.
+                agent.metadata["construction_scope"] = "function_local_conditional"
+                source_tool_aliases = {
+                    alias for alias, (module, original) in info.imports.items()
+                    if module == "strands" and original == "tool"
+                }
+                if any(
+                    (
+                        isinstance(decorator, ast.Name)
+                        and decorator.id in source_tool_aliases
+                    ) or (
+                        isinstance(decorator, ast.Attribute)
+                        and decorator.attr == "tool"
+                        and isinstance(decorator.value, ast.Name)
+                        and info.imports.get(decorator.value.id) == ("strands", "")
+                    )
+                    for decorator in function.decorator_list
+                ):
+                    agent.metadata["source_tool_wrapper"] = True
+                    agent.metadata["construction_scope"] = (
+                        "tool_wrapper_deferred_invocation"
+                    )
+            else:
+                agent.metadata["construction_scope"] = "module_scope"
             if class_node is not None:
                 agent.metadata["source_class"] = class_node.name
 
@@ -1028,6 +1154,17 @@ def enrich_strands_repository_graph(
         info = record.info
         context = record.context
         agent = record.agent
+
+        # The wrapper's function identity wins over any Agent constructor
+        # discovered *inside* it. Otherwise nine Strands @tool callables can
+        # spuriously become one ambiguous live delegated-agent target.
+        if isinstance(expr, ast.Name):
+            wrapper = _strands_decorated_function_tool(
+                modules, info, expr.id,
+            )
+            if wrapper is not None:
+                _append_tool(agent, wrapper, conditional=conditional)
+                return
 
         child = resolve_agent_expr(info, context, expr)
         if child is not None and child is not agent:

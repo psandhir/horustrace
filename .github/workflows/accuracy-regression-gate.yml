@@ -1,0 +1,39 @@
+name: Same-head accuracy regression gate
+
+# Stable PR status; unlike path-filtered cohort workflows this is always present.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+concurrency:
+  group: accuracy-regression-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  accuracy-regression-gate:
+    name: accuracy-regression-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    steps:
+      - name: Checkout exact proposed head for frozen manifests
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Verify current-head complete Fresh-16 and Full-60 where required
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python scripts/accuracy_regression_gate.py \
+            --repo "$TARGET_REPOSITORY" \
+            --pr "$PR_NUMBER" \
+            --head "$EXPECTED_HEAD" \
+            --root .

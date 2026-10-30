@@ -1,0 +1,71 @@
+name: Wave B scan timeout source-profile
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/wave-b-scan-timeout-profiling.yml'
+      - 'scripts/study_scan_timeout_profile.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wave-b-timeout-profile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reproduce-source-only-timeout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case_id: rw-002
+            stack_sampling: true
+            suffix: with-stacks
+          - case_id: rw-002
+            stack_sampling: false
+            suffix: without-stacks
+          - case_id: rw-085
+            stack_sampling: true
+            suffix: with-stacks
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Install pinned scanner package (no target dependencies)
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Verify source-lock before targeted diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_agent_security_study.py --validate-only
+          python -m pip install --disable-pip-version-check -e .
+      - name: Profile pinned target with faulthandler and bounded diagnostic timeout
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXTRA=()
+          if [ "${{ matrix.stack_sampling }}" = "false" ]; then
+            EXTRA+=(--disable-stack-sampling)
+          fi
+          python scripts/study_scan_timeout_profile.py \
+            --cohort research/real-world-agent-security-2026/cohort.json \
+            --case-id "${{ matrix.case_id }}" \
+            --scanner "$(command -v horustrace)" \
+            --diagnostic-timeout 170 \
+            --artifacts artifacts "${EXTRA[@]}"
+      - name: Preserve per-phase source and Python stack evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wave-b-timeout-profile-${{ matrix.case_id }}-${{ matrix.suffix }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 21

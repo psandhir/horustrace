@@ -80,6 +80,7 @@ def detect_python_framework(path: Path) -> str | None:
 
 def _merge_graph(target: Graph, source: Graph) -> None:
     target.agents.extend(source.agents)
+    target.workflow_nodes.extend(source.workflow_nodes)
     target.unbound_tools.extend(source.unbound_tools)
     target.unbound_skills.extend(source.unbound_skills)
     target.unbound_mcp_servers.extend(source.unbound_mcp_servers)

@@ -42,6 +42,7 @@ from horustrace.effective_authority import (
 from horustrace.git_snapshot import GitSnapshotError
 from horustrace.limits import ScanLimitError
 from horustrace.llm_semantics import LLMSemanticConfig
+from horustrace.mcp_c03_workbench import attach_mcp_c03_crosswalk_preview
 from horustrace.mcp_effective import effective_mcp_authority_report
 from horustrace.models import Severity
 from horustrace.owasp import build_owasp_agentic_summary, render_owasp_agentic_console
@@ -56,7 +57,10 @@ from horustrace.reporters.sarif import render as render_sarif
 from horustrace.rule_registry import iter_rule_metadata
 from horustrace.scanner import ScannerError, scan
 from horustrace.security_graph import build_agent_security_graph
+from horustrace.semantic_shadow import shadow_observation_report
+from horustrace.semantic_trace import SemanticTrace
 from horustrace.source_context import SOURCE_CONTEXTS
+from horustrace.source_shadow_workbench import load_mcp_source_overlay
 from horustrace.suppressions import SuppressionError, write_baseline
 from horustrace.visual_report import render_visual_report_html
 
@@ -88,6 +92,14 @@ def _parser() -> argparse.ArgumentParser:
     scan_parser.add_argument("path", nargs="?", default=".")
     scan_parser.add_argument("--format", choices=["console", "json", "sarif"], default="console")
     scan_parser.add_argument("--output", type=Path)
+    scan_parser.add_argument(
+        "--semantic-trace-output", type=Path,
+        help="Write passive source-scoped stage changes to a JSON sidecar (no scanning effect).",
+    )
+    scan_parser.add_argument(
+        "--shadow-observation-output", type=Path,
+        help="Write passive v2 source-scoped inventory and legacy binding comparison.",
+    )
     scan_parser.add_argument("--config", type=Path, help="Repository scanner configuration YAML file.")
     scan_parser.add_argument(
         "--authority-source",
@@ -246,6 +258,21 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("horustrace-report.html"),
         help="HTML output path (default: horustrace-report.html).",
+    )
+    report_parser.add_argument(
+        "--mcp-source-shadow", type=Path,
+        help=(
+            "EXPERIMENTAL: opt-in, read-only MCP source evidence overlay. "
+            "Requires a source-shadow.json artifact whose file/line witnesses "
+            "exist in the scanned checkout; does not change authority or findings."
+        ),
+    )
+    report_parser.add_argument(
+        "--mcp-c03-crosswalk-preview", action="store_true",
+        help=(
+            "EXPERIMENTAL: with --mcp-source-shadow, show exact-source-site "
+            "candidate-to-canonical correspondences. Not runtime authority."
+        ),
     )
     report_parser.add_argument("--config", type=Path)
     report_parser.add_argument(
@@ -745,7 +772,28 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
         if args.command == "report":
-            output = render_visual_report_html(graph, findings, root)
+            try:
+                source_overlay = (
+                    load_mcp_source_overlay(args.mcp_source_shadow, root)
+                    if args.mcp_source_shadow is not None else None
+                )
+                if args.mcp_c03_crosswalk_preview:
+                    if source_overlay is None or graph.adg is None:
+                        raise ValueError(
+                            "C03 crosswalk requires --mcp-source-shadow and canonical ADG"
+                        )
+                    source_data = json.loads(args.mcp_source_shadow.read_text(
+                        encoding="utf-8",
+                    ))
+                    source_overlay = attach_mcp_c03_crosswalk_preview(
+                        source_overlay, graph.adg, source_data, root,
+                    )
+                output = render_visual_report_html(
+                    graph, findings, root, source_overlay=source_overlay,
+                )
+            except (OSError, ValueError, TypeError, UnicodeError) as exc:
+                print(f"horustrace: invalid MCP source evidence: {exc}", file=sys.stderr)
+                return 1
         elif args.command == "authority":
             report = effective_authority_report(graph)
             output = (
@@ -887,13 +935,29 @@ def main(argv: list[str] | None = None) -> int:
             except ValueError as exc:
                 print(f"horustrace: {exc}", file=sys.stderr)
                 return 1
+        semantic_trace = SemanticTrace(target) if args.semantic_trace_output else None
         graph, findings = scan(
             target,
             suppressions_path=args.suppressions,
             config=config,
             authority_source=args.authority_source,
             llm_semantic_config=llm_semantic_config,
+            trace=semantic_trace,
         )
+        if semantic_trace is not None:
+            args.semantic_trace_output.write_text(
+                json.dumps(semantic_trace.as_dict(), indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+        if args.shadow_observation_output is not None:
+            shadow_root = target if target.is_dir() else target.parent
+            args.shadow_observation_output.write_text(
+                json.dumps(
+                    shadow_observation_report(graph, shadow_root, target=target),
+                    indent=2, sort_keys=True,
+                ) + "\n",
+                encoding="utf-8",
+            )
         disabled_rules = graph.configuration_audit.get("disabled_rules", [])
         authority_resolution = authority_resolution_summary(graph)
         authority_contract = authority_contract_report(graph)

@@ -1,0 +1,208 @@
+{
+  "schema_version": 1,
+  "case_id": "rw-080",
+  "repository": "Amlan66/SSEEnabledMCPAgent",
+  "commit_sha": "11531239e71b123f25b3c6103ee36a9d614d0032",
+  "ledger_blob_sha": "f950abc4d38fffdf5537861459c0ff9b0fccc2c1",
+  "judge_model": "ChatGPT GPT-6 single model review",
+  "judge_run_id": "c02p-rw080-source-review-20261024",
+  "source_visibility": "source_packet_only",
+  "decisions": [
+    {
+      "candidate_id": "rw080-site-16",
+      "claim_id": "source_mcp_client:MultiMCP_constructed_from_config",
+      "construct": "mcp_client",
+      "truth": "positive",
+      "reason": "The source constructs a MultiMCP wrapper with the profile mcp_servers entries; runtime session establishment is not asserted."
+    },
+    {
+      "candidate_id": "rw080-site-38",
+      "claim_id": "source_mcp_server:server1_FastMCP_declaration",
+      "construct": "mcp_server",
+      "truth": "positive",
+      "reason": "A FastMCP constructor appears in mcp_server_1.py, a distinct tracked server source file."
+    },
+    {
+      "candidate_id": "rw080-site-41",
+      "claim_id": "source_mcp_server:server2_FastMCP_declaration",
+      "construct": "mcp_server",
+      "truth": "positive",
+      "reason": "A separate FastMCP constructor appears in mcp_server_2.py despite sharing the Calculator display name."
+    },
+    {
+      "candidate_id": "rw080-site-43",
+      "claim_id": "source_mcp_server:server3_FastMCP_declaration",
+      "construct": "mcp_server",
+      "truth": "positive",
+      "reason": "mcp_server_3.py has its own FastMCP source constructor with a different server display name."
+    },
+    {
+      "candidate_id": "rw080-site-45",
+      "claim_id": "source_mcp_server:telegram_FastMCP_declaration",
+      "construct": "mcp_server",
+      "truth": "positive",
+      "reason": "The pinned Telegram server Python file contains a FastMCP source constructor, not proof the SSE endpoint was reached."
+    },
+    {
+      "candidate_id": "rw080-site-41",
+      "claim_id": "source_mcp_server:shared_Calculator_name_merges_distinct_files",
+      "construct": "mcp_server",
+      "truth": "negative",
+      "reason": "Two different tracked files contain distinct FastMCP constructor sites; matching displayed names alone do not collapse them into one object."
+    },
+    {
+      "candidate_id": "rw080-site-02",
+      "claim_id": "runtime_authority:yaml_math_profile_server_started",
+      "construct": "effective_authority",
+      "truth": "unknown",
+      "reason": "The YAML entry declares a candidate math server configuration, while successful server startup, initialization and runtime connection were not observed."
+    },
+    {
+      "candidate_id": "rw080-site-18",
+      "claim_id": "source_agent:AgentLoop_constructor_site",
+      "construct": "agent",
+      "truth": "positive",
+      "reason": "The application source calls AgentLoop at one branch-specific location; this is a constructor callsite, not a count of deployed agents."
+    },
+    {
+      "candidate_id": "rw080-site-19",
+      "claim_id": "source_agent:second_AgentLoop_constructor_site",
+      "construct": "agent",
+      "truth": "positive",
+      "reason": "A second source branch calls AgentLoop, but the source does not show two simultaneous runtime sessions."
+    },
+    {
+      "candidate_id": "rw080-site-31",
+      "claim_id": "source_agent:AgentLoop_class_is_deployed_instance",
+      "construct": "agent",
+      "truth": "negative",
+      "reason": "The AgentLoop class definition alone does not instantiate or deploy a runnable LLM agent."
+    },
+    {
+      "candidate_id": "rw080-site-19",
+      "claim_id": "source_agent:two_callsites_prove_two_simultaneous_agents",
+      "construct": "agent",
+      "truth": "negative",
+      "reason": "Two context-dependent constructor callsites cannot establish that both paths ran or that two agents were deployed concurrently."
+    },
+    {
+      "candidate_id": "rw080-site-39",
+      "claim_id": "source_edge:server1_declares_mcp_tool_decorator",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "The first server's @mcp.tool decorator is a source export candidate, not verified exposure or agent invocation."
+    },
+    {
+      "candidate_id": "rw080-site-42",
+      "claim_id": "source_edge:server2_declares_mcp_tool_decorator",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "The second server has its own @mcp.tool source export candidate and separate file identity."
+    },
+    {
+      "candidate_id": "rw080-site-44",
+      "claim_id": "source_edge:server3_declares_mcp_tool_decorator",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "The search server includes an @mcp.tool decorator that marks source-level export intent."
+    },
+    {
+      "candidate_id": "rw080-site-46",
+      "claim_id": "source_edge:telegram_declares_mcp_tool_decorator",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "The Telegram server has an @mcp.tool decorator, not proof the SSE server was up or reachable."
+    },
+    {
+      "candidate_id": "rw080-site-21",
+      "claim_id": "source_edge:stdio_session_dynamic_list_tools_call",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "The source invokes session.list_tools in a session path, so tool enumeration is dynamic rather than fixed by this source file."
+    },
+    {
+      "candidate_id": "rw080-site-23",
+      "claim_id": "source_edge:sse_session_dynamic_list_tools_call",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "A second session path calls list_tools, without any observed response or proof a server connected."
+    },
+    {
+      "candidate_id": "rw080-site-22",
+      "claim_id": "source_edge:dynamic_tool_map_insert_stdio",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "The tool_map is populated using tool.name as a dictionary key in the stdio path; concrete remote names remain unknown."
+    },
+    {
+      "candidate_id": "rw080-site-24",
+      "claim_id": "source_edge:dynamic_tool_map_insert_sse",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "The SSE path also populates tool_map dynamically from remote tool.name, not a source-listed fixed catalogue."
+    },
+    {
+      "candidate_id": "rw080-site-37",
+      "claim_id": "source_edge:AgentLoop_dispatches_through_MultiMCP",
+      "construct": "typed_edge",
+      "truth": "positive",
+      "reason": "The code calls self.mcp.call_tool for a parsed tool name; runtime availability and permission are not established."
+    },
+    {
+      "candidate_id": "rw080-site-39",
+      "claim_id": "source_edge:decorator_guarantees_AGENT_CAN_CALL",
+      "construct": "typed_edge",
+      "truth": "negative",
+      "reason": "An @mcp.tool decorator is a server export declaration, and cannot alone prove any particular client or agent can invoke the tool."
+    },
+    {
+      "candidate_id": "rw080-site-21",
+      "claim_id": "source_edge:static_enumerated_complete_remote_tool_catalogue",
+      "construct": "typed_edge",
+      "truth": "negative",
+      "reason": "The source calls list_tools at runtime, so it does not enumerate the actual returned remote tool names statically."
+    },
+    {
+      "candidate_id": "rw080-site-40",
+      "claim_id": "source_edge:resource_decorator_is_mcp_tool_decorator",
+      "construct": "typed_edge",
+      "truth": "negative",
+      "reason": "The mcp.resource decorator at this line declares an MCP resource endpoint rather than an mcp.tool export."
+    },
+    {
+      "candidate_id": "rw080-site-41",
+      "claim_id": "source_edge:Calculator_display_label_proves_same_server_identity",
+      "construct": "typed_edge",
+      "truth": "negative",
+      "reason": "The same server display label in two different source files is insufficient evidence of the same MCP server instance."
+    },
+    {
+      "candidate_id": "rw080-site-21",
+      "claim_id": "runtime_authority:actual_remote_list_tools_results",
+      "construct": "effective_authority",
+      "truth": "unknown",
+      "reason": "The source calls list_tools but no response payload, installed MCP server version, or successful runtime enumeration was witnessed."
+    },
+    {
+      "candidate_id": "rw080-site-17",
+      "claim_id": "runtime_authority:all_declared_server_profiles_connected",
+      "construct": "effective_authority",
+      "truth": "unknown",
+      "reason": "The source awaits initialize, but this is not proof all declared stdio and SSE server sessions successfully connected."
+    },
+    {
+      "candidate_id": "rw080-site-22",
+      "claim_id": "runtime_authority:duplicate_tool_name_collision_occurs",
+      "construct": "effective_authority",
+      "truth": "unknown",
+      "reason": "Use of unqualified tool.name as a dictionary key creates possible overwrites, but no actual duplicate names or collision were observed."
+    },
+    {
+      "candidate_id": "rw080-site-37",
+      "claim_id": "runtime_authority:AgentLoop_effective_tool_call_permission",
+      "construct": "effective_authority",
+      "truth": "unknown",
+      "reason": "The dispatch call is source-visible but runtime callability depends on discovered tools, connected sessions and effective authorization."
+    }
+  ]
+}

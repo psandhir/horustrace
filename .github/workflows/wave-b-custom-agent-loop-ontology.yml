@@ -1,0 +1,80 @@
+name: Wave B Custom Agent Loop Source Ontology
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/wave-b-custom-agent-loop-ontology.yml'
+      - 'scripts/real_world_custom_agent_loop_ontology.py'
+      - 'research/real-world-agent-security-2026/custom-agent-loop-ontology-v1.json'
+      - 'tests/test_real_world_custom_agent_loop_ontology.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-locked-custom-agent-loop-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Pin two untouched source snapshots (do not install or run target code)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source artifacts
+          git init -q source/rw-089
+          git -C source/rw-089 remote add origin https://github.com/jiamingkong/agent_demos.git
+          git -C source/rw-089 fetch --quiet --depth=1 --filter=blob:none origin 6fab148888845bc08e762b82ce0477a3a213d712
+          git -C source/rw-089 checkout --quiet --detach FETCH_HEAD
+          test "$(git -C source/rw-089 rev-parse HEAD)" = 6fab148888845bc08e762b82ce0477a3a213d712
+          git init -q source/rw-103
+          git -C source/rw-103 remote add origin https://github.com/Nagharjun17/MCP-Ollama-Client.git
+          git -C source/rw-103 fetch --quiet --depth=1 --filter=blob:none origin aa54c8d8f808123ba26922138126afa6675dce68
+          git -C source/rw-103 checkout --quiet --detach FETCH_HEAD
+          test "$(git -C source/rw-103 rev-parse HEAD)" = aa54c8d8f808123ba26922138126afa6675dce68
+      - name: Verify same-loop model direction, dispatch and feedback at exact pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/real_world_custom_agent_loop_ontology.py \
+            --source source/rw-089/agent.py \
+            --class-name DeepSeekMCPAgent \
+            --source-sha 6fab148888845bc08e762b82ce0477a3a213d712 \
+            --repository jiamingkong/agent_demos > artifacts/rw-089.json
+          python scripts/real_world_custom_agent_loop_ontology.py \
+            --source source/rw-103/client.py \
+            --class-name MCPClient \
+            --source-sha aa54c8d8f808123ba26922138126afa6675dce68 \
+            --repository Nagharjun17/MCP-Ollama-Client > artifacts/rw-103.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          overlay = json.loads(Path("research/real-world-agent-security-2026/custom-agent-loop-ontology-v1.json").read_text())
+          assert overlay["original_frozen_source_truth_preserved"] is True
+          assert overlay["production_precision_certified"] is False
+          assert overlay["adjudication_method"] == "posthoc_static_source_not_blinded"
+          for row in overlay["cases"]:
+              observed = json.loads(Path(f"artifacts/{row['case_id']}.json").read_text())
+              assert observed["class_name"] == row["source_class"], row["case_id"]
+              assert observed["source_sha"] == row["source_sha"], row["case_id"]
+              assert observed["repository"] == row["repository"], row["case_id"]
+              assert observed["classification"] == "source_supported_agent_construct", observed
+              assert observed["runtime_deployment"] == "unresolved"
+              assert observed["per_tool_effective_authority"] == "unresolved"
+              print(row["case_id"], observed["method"], observed["loop_line"], "SOURCE-CONSTRUCT ONLY; runtime authority unproven")
+          PY
+      - name: Keep exact source/ontology evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wave-b-custom-agent-loop-source-review
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30

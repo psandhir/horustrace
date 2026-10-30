@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "reference_id": "aws-cloudops-documented-hierarchy-20261028",
+  "description": "Human-curated bounded architecture reference from published docs and hierarchy config; source-verified, not a blinded exhaustive security oracle.",
+  "repository": "aws-samples/sample-cloudops-multi-agent-system",
+  "source_sha": "143dbbcdca91ca5ba7dd7c118e384bb0878314c2",
+  "application_root": ".",
+  "source_documents": {
+    "docs/architecture.md": "0d58c526a5857613d358def6c1e8c9a4967cfbb8",
+    "src/agents/hierarchy.json": "8097df7818d14d2ec11b248f75a6adacdb1f3b59"
+  },
+  "scope": {
+    "include": [
+      "configured agent names and declared role",
+      "explicit children relationships",
+      "declared worker tool groups and bindings"
+    ],
+    "exclude": [
+      "individual MCP tool exports",
+      "actual runtime agent instances",
+      "effective IAM permission",
+      "realized inter-agent invocations",
+      "finding and attack-path validity"
+    ],
+    "positive_scope": "complete_for_explicit_hierarchy_entries_at_pinned_sha",
+    "negative_scope": "not_established",
+    "independent_human_adjudication": false,
+    "release_eligible": false
+  },
+  "agents": [
+    {
+      "name": "supervisor",
+      "role": "frontend"
+    },
+    {
+      "name": "finops-agent",
+      "role": "orchestrator"
+    },
+    {
+      "name": "governance-agent",
+      "role": "orchestrator"
+    },
+    {
+      "name": "ops-excellence-agent",
+      "role": "orchestrator"
+    },
+    {
+      "name": "cost-operations-agent",
+      "role": "worker"
+    },
+    {
+      "name": "pricing-agent",
+      "role": "worker"
+    },
+    {
+      "name": "health-events-agent",
+      "role": "worker"
+    },
+    {
+      "name": "network-resiliency-agent",
+      "role": "worker"
+    },
+    {
+      "name": "tag-governance-agent",
+      "role": "worker"
+    },
+    {
+      "name": "lambda-upgrade-agent",
+      "role": "worker"
+    },
+    {
+      "name": "cloudwatch-agent",
+      "role": "worker"
+    }
+  ],
+  "delegation_edges": [
+    {
+      "source": "supervisor",
+      "target": "finops-agent"
+    },
+    {
+      "source": "supervisor",
+      "target": "governance-agent"
+    },
+    {
+      "source": "supervisor",
+      "target": "ops-excellence-agent"
+    },
+    {
+      "source": "finops-agent",
+      "target": "cost-operations-agent"
+    },
+    {
+      "source": "finops-agent",
+      "target": "pricing-agent"
+    },
+    {
+      "source": "governance-agent",
+      "target": "tag-governance-agent"
+    },
+    {
+      "source": "ops-excellence-agent",
+      "target": "health-events-agent"
+    },
+    {
+      "source": "ops-excellence-agent",
+      "target": "network-resiliency-agent"
+    },
+    {
+      "source": "ops-excellence-agent",
+      "target": "lambda-upgrade-agent"
+    },
+    {
+      "source": "ops-excellence-agent",
+      "target": "cloudwatch-agent"
+    }
+  ],
+  "tool_group_bindings": [
+    {
+      "source": "cost-operations-agent",
+      "tool_group": "cost-explorer"
+    },
+    {
+      "source": "cost-operations-agent",
+      "tool_group": "cur-athena"
+    },
+    {
+      "source": "cost-operations-agent",
+      "tool_group": "cost-optimization-hub"
+    },
+    {
+      "source": "cost-operations-agent",
+      "tool_group": "commitments"
+    },
+    {
+      "source": "pricing-agent",
+      "tool_group": "billing"
+    },
+    {
+      "source": "pricing-agent",
+      "tool_group": "pricing"
+    },
+    {
+      "source": "health-events-agent",
+      "tool_group": "health-events"
+    },
+    {
+      "source": "health-events-agent",
+      "tool_group": "devops-agent"
+    },
+    {
+      "source": "network-resiliency-agent",
+      "tool_group": "network-resilience"
+    },
+    {
+      "source": "tag-governance-agent",
+      "tool_group": "tag-governance"
+    },
+    {
+      "source": "lambda-upgrade-agent",
+      "tool_group": "lambda-runtime"
+    },
+    {
+      "source": "cloudwatch-agent",
+      "tool_group": "cloudwatch"
+    },
+    {
+      "source": "cloudwatch-agent",
+      "tool_group": "devops-agent"
+    }
+  ]
+}

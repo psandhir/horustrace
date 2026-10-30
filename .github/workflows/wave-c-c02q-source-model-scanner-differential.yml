@@ -1,0 +1,177 @@
+name: Wave C C02q Pinned Source Scanner LLM Differential
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/wave-c-c02q-source-model-scanner-differential.yml"
+      - "scripts/wave_c_c02q_source_model_scanner_compare.py"
+      - "tests/test_wave_c_c02q_source_model_scanner_compare.py"
+      - "docs/accuracy/wave-c-c02q-source-scanner-judge-differential.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wave-c-c02q-source-scanner-differential-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pinned-case:
+    name: Source-pinned ${{ matrix.case_id }} current scanner comparison
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case_id: rw-005
+            repository: Ojas-Patil26/VeriQ
+            sha: 067cb330ab943279b4b8ea13c91c9042bdd9f421
+          - case_id: rw-080
+            repository: Amlan66/SSEEnabledMCPAgent
+            sha: 11531239e71b123f25b3c6103ee36a9d614d0032
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install scanner only (never target dependencies)
+        run: python -m pip install -e . 'pytest>=8.3,<9'
+      - name: Verify model/scanner differential has hard-negative protection
+        run: python -m pytest -q tests/test_wave_c_c02q_source_model_scanner_compare.py
+      - name: Retrieve exact immutable real-world target without importing it
+        shell: bash
+        env:
+          TARGET_REPO: ${{ matrix.repository }}
+          TARGET_SHA: ${{ matrix.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p pinned-target
+          git -C pinned-target init -q
+          git -C pinned-target remote add origin "https://github.com/$TARGET_REPO.git"
+          git -C pinned-target fetch --quiet --depth=1 --filter=blob:none origin "$TARGET_SHA"
+          git -C pinned-target checkout --quiet --detach FETCH_HEAD
+          test "$(git -C pinned-target rev-parse HEAD)" = "$TARGET_SHA"
+      - name: Scan source only and compare against frozen model opinions
+        shell: bash
+        env:
+          CASE_ID: ${{ matrix.case_id }}
+        run: |
+          set -euo pipefail
+          python -m scripts.wave_c_c02q_source_model_scanner_compare \
+            --case-id "$CASE_ID" \
+            --checkout pinned-target \
+            --project-root . \
+            --output "artifacts/$CASE_ID" \
+            | tee "$RUNNER_TEMP/$CASE_ID-summary.json"
+          cp "$RUNNER_TEMP/$CASE_ID-summary.json" "artifacts/$CASE_ID/console-summary.json"
+      - name: Upload pinned source and real scanner differential
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wave-c-c02q-${{ matrix.case_id }}
+          path: artifacts/${{ matrix.case_id }}/
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    name: Both-case source-claim discrepancy coverage
+    if: always()
+    needs: pinned-case
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: wave-c-c02q-rw-*
+          path: downloaded
+      - name: Fail closed on incomplete or falsely certified result
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          expected = {
+              "rw-005": ("Ojas-Patil26/VeriQ", "067cb330ab943279b4b8ea13c91c9042bdd9f421", 34),
+              "rw-080": ("Amlan66/SSEEnabledMCPAgent", "11531239e71b123f25b3c6103ee36a9d614d0032", 47),
+          }
+          paths = list(Path("downloaded").rglob("result.json"))
+          if len(paths) != 2:
+              raise SystemExit(f"expected exactly two complete case results, got {len(paths)}")
+          rows = [json.loads(path.read_text(encoding="utf-8")) for path in paths]
+          ids = [row["case_id"] for row in rows]
+          if set(ids) != set(expected) or len(set(ids)) != 2:
+              raise SystemExit(f"missing or duplicate source case: {ids}")
+          lines = [
+              "## Wave C C02q: real pinned scanner vs provisional LLM source opinions",
+              "",
+              "**Neither model opinions nor static scanner projections are release-certified source truth.**",
+              "",
+              "| Case | Scope | ADG agents | ADG MCP servers | Candidate positives not projected | Model/runtime UNKNOWN |",
+              "|---|---|---:|---:|---:|---:|",
+          ]
+          for row in sorted(rows, key=lambda x: x["case_id"]):
+              repo, sha, count = expected[row["case_id"]]
+              if row["repository"] != repo or row["source_commit_sha"] != sha:
+                  raise SystemExit("source repository/revision drift")
+              evidence = row["verified_git_source"]
+              if not evidence["source_revision_verified"] or evidence["exact_source_blob_lines_checked"] != count:
+                  raise SystemExit("incomplete Git source witnesses")
+              if not row["real_scanner_executed"] or row["target_code_executed"]:
+                  raise SystemExit("scanner or target execution contract mismatch")
+              if (row["certified_precision"] is not None
+                      or row["certified_recall"] is not None
+                      or row["production_cutover_authorized"]
+                      or row["effective_authority_verified"]
+                      or row["source_truth_independently_adjudicated"]):
+                  raise SystemExit("source candidate incorrectly promoted to release truth")
+              if set(row["source_scopes"]) != {"application", "repository"}:
+                  raise SystemExit("missing source-scope comparison")
+              result_dir = next(p.parent for p in paths if json.loads(
+                  p.read_text(encoding="utf-8"))["case_id"] == row["case_id"])
+              for scope in ("application", "repository"):
+                  adg_file = result_dir / f"{scope}-adg.json"
+                  if not adg_file.is_file():
+                      raise SystemExit(f"missing raw current ADG: {adg_file}")
+                  report = row["source_scopes"][scope]
+                  if not report["rows"] or not report["counts"]:
+                      raise SystemExit("empty scanner-model difference table")
+                  if any(report[k] is not None for k in (
+                      "certified_tp", "certified_fp", "certified_fn",
+                      "certified_tn", "certified_precision", "certified_recall",
+                  )):
+                      raise SystemExit("model review acquired fake accuracy denominators")
+                  c = report["counts"]
+                  lines.append(
+                      f"| {row['case_id']} | {scope} | {report['adg_agents']} | "
+                      f"{report['adg_mcp_servers']} | "
+                      f"{c.get('candidate_positive_not_projected', 0)} | "
+                      f"{c.get('source_model_runtime_unknown', 0)} |"
+                  )
+          lines.extend([
+              "", "Differences are source-only **review candidates**, not FN/FP estimates.",
+              "Static INVOKES/EXPOSES_TOOL does not establish effective AGENT_CAN_CALL.",
+              "No C03/C04 production cutover or externally certified precision/recall.",
+          ])
+          Path("two-case-source-judge-summary.md").write_text(
+              "\n".join(lines) + "\n", encoding="utf-8",
+          )
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
+              out.write("\n".join(lines) + "\n")
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: wave-c-c02q-two-case-summary
+          path: two-case-source-judge-summary.md
+          if-no-files-found: error
+          retention-days: 30
