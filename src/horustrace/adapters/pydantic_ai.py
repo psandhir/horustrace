@@ -19,6 +19,7 @@ from horustrace.effect_semantics import (
     sql_call_capabilities,
 )
 from horustrace.heuristics import infer_capabilities
+from horustrace.pydantic_lifecycle import collect_pydantic_constructor_phases
 from horustrace.models import (
     Agent,
     Graph,
@@ -3268,6 +3269,13 @@ def scan_python_file(path: Path) -> Graph:
     factory_return_toolsets: dict[str, list[ast.AST]] = {}
     factory_alias_toolsets: dict[str, list[ast.AST]] = {}
     declared_mcp_servers: dict[str, MCPServer] = {}
+    constructor_phases = collect_pydantic_constructor_phases(
+        tree,
+        is_constructor=lambda call: _is_pydantic_agent_call(
+            call, agent_constructor_names, agent_module_aliases
+        ),
+        assignment_targets=_target_names,
+    )
 
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
@@ -3484,8 +3492,40 @@ def scan_python_file(path: Path) -> Graph:
         if tool is not None:
             added_toolsets.setdefault(owner, []).append(tool)
 
+    # A second constructor on the same source binding is a lifecycle phase,
+    # not proof of a second concurrently deployed agent. Keep the original
+    # constructor as the source anchor and retain conditional reconstruction
+    # witnesses without changing model-callable authority assumptions.
+    lifecycle_witnesses = {}
+    for alias, phases in constructor_phases.items():
+        if alias not in agent_calls or len(phases) < 2:
+            continue
+        scopes = {phase.scope for phase in phases}
+        if len(scopes) != 1:
+            _diagnostic(
+                graph, path, phases[0].call,
+                "Pydantic Agent alias is reused in different lexical scopes; "
+                "source agent ownership is unresolved.",
+            )
+            continue
+        agent_calls[alias] = phases[0].call
+        lifecycle_witnesses[alias] = phases
+
     agents: dict[str, Agent] = {}
     for alias, call in agent_calls.items():
+        phases = lifecycle_witnesses.get(alias, [])
+        lifecycle_metadata = (
+            {
+                "source_binding_scope": phases[0].scope,
+                "constructor_phases": [
+                    phase.as_source_witness(initial=index == 0)
+                    for index, phase in enumerate(phases)
+                ],
+                "lifecycle_reconstruction_source_only": True,
+                "lifecycle_effective_tool_authority": "unresolved",
+            }
+            if phases else {}
+        )
         model_node = _kw(call, "model")
         if model_node is None and call.args:
             model_node = call.args[0]
@@ -3503,6 +3543,7 @@ def scan_python_file(path: Path) -> Graph:
                 "agent_type": "Agent",
                 **model_metadata,
                 "instance_key": f"{path.resolve()}:{call.lineno}:{alias}",
+                **lifecycle_metadata,
                 **(
                     {
                         "factory_function": factory_alias_sources.get(alias, alias),
