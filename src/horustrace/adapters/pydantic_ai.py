@@ -19,7 +19,6 @@ from horustrace.effect_semantics import (
     sql_call_capabilities,
 )
 from horustrace.heuristics import infer_capabilities
-from horustrace.pydantic_lifecycle import collect_pydantic_constructor_phases
 from horustrace.models import (
     Agent,
     Graph,
@@ -31,6 +30,7 @@ from horustrace.models import (
     SourceLocation,
     Tool,
 )
+from horustrace.pydantic_lifecycle import collect_pydantic_constructor_phases
 from horustrace.semantic_contract import set_data_resource_provenance, set_model_provenance
 
 _PYDANTIC_PREFIXES = ("pydantic_ai", "pydantic_ai_harness")
