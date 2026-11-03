@@ -1,0 +1,92 @@
+name: P0 Pydantic constructor lifecycle source regression
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pydantic-p0-lifecycle-source.yml'
+      - 'src/horustrace/pydantic_lifecycle.py'
+      - 'src/horustrace/adapters/pydantic_ai.py'
+      - 'tests/test_pydantic_lifecycle.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rw163:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: scanner
+      - uses: actions/checkout@v4
+        with:
+          repository: rachedblili/MCP-Transition
+          ref: 7c1941f6b592787622b91a321d031c1cd77a688d
+          path: target
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify exact source SHA
+        run: |
+          test "$(git -C target rev-parse HEAD)" = "7c1941f6b592787622b91a321d031c1cd77a688d"
+          mkdir -p artifacts
+          git -C scanner rev-parse HEAD > artifacts/scanner-sha.txt
+          git -C target rev-parse HEAD > artifacts/target-sha.txt
+      - name: Install scanner (never execute target)
+        run: python -m pip install --disable-pip-version-check ./scanner
+      - name: Validate original source constructors and conditional phases
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from horustrace.scanner import scan
+
+          graph, _ = scan(Path("target"))
+          agents = [
+              a for a in graph.agents
+              if a.metadata.get("framework") == "pydantic-ai"
+          ]
+          # One source definition in each of the seven pinned Python variants.
+          assert len(agents) == 7, [(a.name, str(a.location)) for a in agents]
+          assert all(a.name == "self.agent" for a in agents)
+          actual = []
+          for agent in agents:
+              phases = agent.metadata.get("constructor_phases") or []
+              actual.append({
+                  "path": str(agent.location.path.relative_to("target")),
+                  "name": agent.name,
+                  "initial_line": agent.location.line,
+                  "scope": agent.metadata.get("source_binding_scope"),
+                  "constructor_phases": phases,
+              })
+          assert sum(len(a["constructor_phases"]) for a in actual) == 10, actual
+          assert sum(not a["constructor_phases"] for a in actual) == 2, actual
+          assert all(
+              a["constructor_phases"][0]["line"] == a["initial_line"]
+              for a in actual if a["constructor_phases"]
+          )
+          assert all(
+              len(a["constructor_phases"]) == 2
+              and a["constructor_phases"][1]["conditional"]
+              for a in actual if a["constructor_phases"]
+          )
+          # Source-only: the five conditional reconstructions remain unverified.
+          assert all(
+              agent.metadata.get("lifecycle_effective_tool_authority") == "unresolved"
+              for agent in agents if agent.metadata.get("constructor_phases")
+          )
+          Path("artifacts/source-lifecycle.json").write_text(
+              json.dumps({"logical_definitions": len(actual),
+                          "constructor_sites": 12, "agents": actual}, indent=2)
+          )
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pydantic-p0-rw163-lifecycle
+          path: artifacts/
+          retention-days: 90
+          if-no-files-found: warn
