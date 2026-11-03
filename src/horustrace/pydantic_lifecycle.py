@@ -6,8 +6,8 @@ witness, not evidence that a new instance or its tools are ever active.
 from __future__ import annotations
 
 import ast
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 
 @dataclass(frozen=True, slots=True)
