@@ -56,7 +56,7 @@ jobs:
           for agent in agents:
               phases = agent.metadata.get("constructor_phases") or []
               actual.append({
-                  "path": str(agent.location.path.relative_to("target")),
+                  "path": str(agent.location.path.resolve().relative_to(Path("target").resolve())),
                   "name": agent.name,
                   "initial_line": agent.location.line,
                   "scope": agent.metadata.get("source_binding_scope"),
